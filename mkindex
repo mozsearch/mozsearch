@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -e # Errors are fatal
+set -x # Show commands
+
+MOZSEARCH_ROOT=$1
+INDEX_ROOT=$2
+TREE_ROOT=$3
+
+cd $TREE_ROOT
+if [ ! -d mozilla-central ]
+then
+  hg clone http://hg.mozilla.org/mozilla-central
+fi
+
+cd mozilla-central
+hg up
+
+cat >.mozconfig <<EOF
+. $topsrcdir/browser/config/mozconfig
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir
+ac_add_options --enable-debug
+ac_add_options --enable-optimize
+EOF
+
+if [ CLOBBER -nt objdir/CLOBBER ]
+then
+  rm -rf objdir
+fi
+
+./mach build
+
+# FIXME: Get list of files to do JS analysis on
+JS_FILES=$MOZSEARCH_ROOT/js-files
+
+JS=$PWD/objdir/dist/bin/js
+
+for filename in $(cat $JS_FILES)
+do
+  mkdir -p $INDEX_ROOT/analysis/$(dirname $filename)
+  $JS $MOZSEARCH_ROOT/js-analyze.js $filename > $INDEX_ROOT/analysis/$filename
+done

@@ -23,10 +23,11 @@ server {
 
   location = /router {
     fastcgi_pass 127.0.0.1:8888;
+    include fastcgi_params;
   }
 
   location / {
-    rewrite ^(.*)$ /router?q=$1 last;
+    rewrite ^(.*)$ /router?$1 last;
     break;
   }
 }
