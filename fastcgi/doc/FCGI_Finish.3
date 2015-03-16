@@ -1,0 +1,41 @@
+NAME
+     FCGI_Finish
+         - fcgi_stdio compatibility library
+
+SYNOPSIS
+     #include "fcgi_stdio.h"
+
+     void
+     FCGI_Finish(void);
+
+
+DESCRIPTION
+     The FCGI_Finish function finishes the current request from the
+     HTTP server.  The current request was started by the most recent
+     call to FCGI_Accept(3).
+
+     FCGI_Finish allows an application to interleave other activities
+     with the processing of requests.  In an extreme case, an
+     application would call FCGI_Finish to complete the current
+     request before exiting, e.g. to reclaim leaked storage.
+
+     In completing the current request, FCGI_Finish may detect
+     errors, e.g. a broken pipe to a client who has disconnected
+     early.  FCGI_Finish ignores such errors.  An application
+     that wishes to handle such errors should explicitly call
+     fclose(stderr), then fclose(stdout); an EOF return from
+     either one indicates an error.
+
+     FCGI_Finish frees any storage allocated by the most recent call
+     to FCGI_Accept.  See FCGI_Accept(3) for warnings against retaining
+     pointers to this storage.
+
+
+SEE ALSO
+     FCGI_Accept(3)
+
+HISTORY
+     Copyright (c) 1996 Open Market, Inc.
+     See the file "LICENSE.TERMS" for information on usage and redistribution
+     of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+     $Id: FCGI_Finish.3,v 1.1.1.1 1997/09/16 15:36:25 stanleyg Exp $

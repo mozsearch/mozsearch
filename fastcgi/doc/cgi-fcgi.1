@@ -1,0 +1,113 @@
+NAME
+     cgi-fcgi   - bridge from CGI to FastCGI
+
+SYNOPSIS
+     cgi-fcgi -f cmdPath
+     cgi-fcgi -bind  -connect connName
+     cgi-fcgi -start -connect connName appPath [nServers]
+     cgi-fcgi -connect connName appPath [nServers]
+
+DESCRIPTION
+     cgi-fcgi is a CGI/1.1 program that communicates with an
+     already-running FastCGI application in order to respond to an
+     HTTP request.  cgi-fcgi is also capable of starting a FastCGI
+     application.
+
+     When you invoke cgi-fcgi as
+
+         cgi-fcgi -f cmdPath
+
+     then cgi-fcgi opens the file at cmdPath and reads its
+     arguments from that file.  cgi-fcgi will skip lines
+     that begin with the comment character #.  The first
+     non-comment line should contain valid arguments in
+     one of the other three forms.
+
+     The -f form of cgi-fcgi is designed for Unix systems
+     whose exec(2) family of system calls supports the execution of
+     command interpreter files.  For instance, if a file with
+     execute permission contains the text
+
+         #! /bin/cgi-fcgi -f
+         -connect /httpd/root/sock/app /httpd/root/bin/app
+
+     the effect is the same as executing
+
+         /bin/cgi-fcgi -connect /httpd/root/sock/app /httpd/root/bin/app
+
+     When you invoke cgi-fcgi as
+
+         cgi-fcgi -bind -connect connName
+
+     the connName argument is either the path name of a Unix domain
+     listening socket or a host:port pair.  If connName contains
+     a colon, it is assumed to be host:port.  cgi-fcgi performs
+     a connect(2) using connName.  If the connect succeeds, cgi-fcgi
+     forwards the CGI environment variables and stdin data to the
+     FastCGI application, and forwards the stdout and stderr data from
+     the application to cgi-fcgi's stdout (most likely connected to
+     a Web server).  When the FastCGI application signals the end of
+     its response, cgi-fcgi flushes its buffers and
+     exits, and the Web server completes the http response.
+
+     When you invoke cgi-fcgi as
+
+         cgi-fcgi -start -connect connName appPath [nServers]
+
+     then cgi-fcgi performs the function of starting one or more
+     FastCGI application processes.  The connName argument specifies
+     either the path name of the Unix domain listening socket that
+     cgi-fcgi will create, or is "localhost:NNN" where NNN is the port
+     number of the TCP/IP listening socket that cgi-fcgi will create
+     on the local machine.  (cgi-fcgi will not create processes
+     on remote machines.)  After cgi-fcgi creates the listening socket,
+     it forks nServers copies of a process running the executable file
+     appPath.  If nServers is omitted, the effect is as if the value "1"
+     had been specified.  The processes share the single listening socket.
+
+     When you invoke cgi-fcgi as
+
+         cgi-fcgi -connect connName appPath [nServers]
+    
+     cgi-fcgi performs -bind and then, if necssary, performs -start
+     and repeats the -bind.  That is, cgi-fcgi first operates as if
+     the command had been
+
+         cgi-fcgi -bind -connect connName
+
+     If the connect fails, cgi-fcgi tries
+
+         cgi-fcgi -start -connect connName appPath [nServers]
+
+     and finally retries
+
+         cgi-fcgi -bind -connect connName
+
+     In this form, cgi-fcgi does not support TCP/IP connections.
+     
+ENVIRONMENT VARIABLES
+     The usual CGI ones, but they are not interpreted by cgi-fcgi.
+
+SEE ALSO
+     FGCI_accept(3)
+
+BUGS
+     cgi-fcgi doesn't generate useful HTTP responses in case of error,
+     and it generates no response at all when run as start-fcgi.
+
+     On Digital UNIX 3.0 systems the implementation of Unix Domain
+     sockets does not work when such sockets are stored on NFS file
+     systems.  Symptom: cgi-fcgi may core dump or may exit with
+     status 38.  Work-around: store sockets in local file systems
+     (/tmp often works) or use TCP/IP.
+
+     On AIX systems the implementation of listening sockets
+     does not support socket sharing, and the standard FastCGI
+     application libraries can't synchronize access to AIX listening
+     sockets.  Work-around: Don't use the nServers argument on AIX.
+
+HISTORY
+     Copyright (c) 1996 Open Market, Inc.
+     See the file "LICENSE.TERMS" for information on usage and redistribution
+     of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+     $Id: cgi-fcgi.1,v 1.1.1.1 1997/09/16 15:36:26 stanleyg Exp $

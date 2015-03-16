@@ -1,0 +1,28 @@
+NAME
+     FCGI_SetExitStatus - fcgi_stdio compatibility library
+
+SYNOPSIS
+     #include "fcgi_stdio.h"
+
+     void
+     FCGI_SetExitStatus(int status);
+
+
+DESCRIPTION
+     Sets the exit status for the current FastCGI request.
+     The exit status is the status code the request would have
+     exited with, had the request been run as a CGI program.
+
+     You can call FCGI_SetExitStatus several times during a request;
+     the last call before the request ends determines the value.
+     
+SEE ALSO
+     FCGI_Accept(3)
+     FCGI_StartFilterData(3)
+     cgi-fcgi(1)
+
+HISTORY
+     Copyright (c) 1996 Open Market, Inc.
+     See the file "LICENSE.TERMS" for information on usage and redistribution
+     of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+     $Id: FCGI_SetExitStatus.3,v 1.1.1.1 1997/09/16 15:36:25 stanleyg Exp $

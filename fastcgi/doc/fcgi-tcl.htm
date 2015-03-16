@@ -1,0 +1,366 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+   <HEAD>
+      <TITLE>
+         Integrating FastCGI with Tcl
+      </TITLE>
+<STYLE TYPE="text/css">
+ body {
+  background-color: #FFFFFF;
+  color: #000000;
+ }
+ :link { color: #cc0000 }
+ :visited { color: #555555 }
+ :active { color: #000011 }
+ h5.c3 {text-align: center}
+ p.c2 {text-align: center}
+ div.c1 {text-align: center}
+</STYLE>
+   </HEAD>
+   <BODY>
+      <DIV CLASS="c1">
+         <A HREF="http://fastcgi.com"><IMG BORDER="0" SRC="../images/fcgi-hd.gif" ALT="[[FastCGI]]"></A>
+      </DIV>
+      <BR CLEAR="all">
+      <DIV CLASS="c1">
+         <H3>
+            Integrating FastCGI with Tcl
+         </H3>
+      </DIV>
+      <!--Copyright (c) 1996 Open Market, Inc.                                    -->
+      <!--See the file "LICENSE.TERMS" for information on usage and redistribution-->
+      <!--of this file, and for a DISCLAIMER OF ALL WARRANTIES.                   -->
+      <P CLASS="c2">
+         Michael S. Shanzer<BR>
+         Open Market, Inc.<BR>
+         <EM>19 January 1995</EM>
+      </P>
+      <H5 CLASS="c3">
+         Copyright &copy; 1996 Open Market, Inc. 245 First Street, Cambridge, MA 02142 U.S.A.<BR>
+         Tel: 617-621-9500 Fax: 617-621-1703 URL: <A HREF=
+         "http://www.openmarket.com/">http://www.openmarket.com/</A><BR>
+         $Id: fcgi-tcl.htm,v 1.4 2002/02/25 00:42:59 robs Exp $<BR>
+      </H5>
+      <HR>
+      <H3>
+         <A NAME="S1">1. Introduction</A>
+      </H3>
+      <P>
+         Tcl (tool command language) is an embeddable scripting language that&#39;s often used for CGI programming. Tcl
+         is freely available as a source kit.
+      </P>
+      <P>
+         We&#39;ve built a Tcl interpreter that runs as a FastCGI application. Our purpose in doing so was twofold:
+      </P>
+      <UL>
+         <LI>
+            <I>Create a useful artifact.</I> Open Market has written many CGI applications using Tcl. Now we&#39;d like
+            to turn them into FastCGI applications.
+            <P>
+            </P>
+         </LI>
+         <LI>
+            <I>Demonstrate how easy it is to integrate FastCGI with an existing program.</I> The Tcl interpreter is a
+            substantial program, so integrating FastCGI with the Tcl interpreter is a good test of the
+            <TT>fcgi_stdio</TT> compatability library.
+         </LI>
+      </UL>
+      <P>
+         We&#39;ve succeeded on both counts. We now have a platform for migrating our Tcl-based CGI applications to
+         FastCGI. And the integration required a very small effort. The only source code change to the Tcl interpreter
+         was the routine addition of a handful of new commands: <TT>FCGI_Accept</TT>, <TT>FCGI_Finish</TT>,
+         <TT>FCGI_SetExitStatus</TT>, and <TT>FCGI_StartFilterData</TT>.
+      </P>
+      <P>
+         The FastCGI-integrated Tcl interpreter works as usual when run from a shell or as a CGI program. You don&#39;t
+         need two Tcls, one for FastCGI and one for other uses.
+      </P>
+      <P>
+         The remainder of this document gives a recipe you can follow to build FastCGI into Tcl, explains what&#39;s
+         happening in the recipe, and illustrates the use of FastCGI Tcl with an example program.
+      </P>
+      <P>
+      </P>
+      <H3>
+         <A NAME="S2">2. Recipe</A>
+      </H3>
+      <P>
+         Here are the assumptions embedded in the following recipe:
+      </P>
+      <UL>
+         <LI>
+            You are building Tcl 7.4p3, the current stable Tcl release as this is written. You unpack the Tcl kit into
+            a directory <TT>tcl7.4</TT> that&#39;s a sibling of the FastCGI kit directory <TT>fcgi-devel-kit</TT>.
+            <P>
+            </P>
+         </LI>
+         <LI>
+            You have gcc version 2.7 installed on your system, and use it in the build. gcc is convenient because it
+            supports the <TT>-include</TT> command-line option that instructs the C preprocessor to include a specific
+            file before processing any other include files. This allows you to include <TT>fcgi_stdio.h</TT> without
+            modifying Tcl source files. (The reason for specifying gcc version 2.7 is that I have experienced bad
+            behavior with an earlier version and the <TT>-include</TT> flag -- the C preprocessor died with SIGABRT.)
+            <P>
+            </P>
+         </LI>
+         <LI>
+            You have GNU autoconf installed on your system. If you don&#39;t have GNU autoconf, you will have to make
+            certain edits by hand and repeat these edits for each build platform.<BR>
+            <BR>
+         </LI>
+      </UL>
+      <P>
+         If those are valid assumptions, follow these steps:
+      </P>
+      <OL>
+         <LI>
+            <I>Build the FastCGI Developer&#39;s Kit.</I> Tcl needs to link against <TT>libfcgi.a</TT>, so <A HREF=
+            "fcgi-devel-kit.htm#S2">build the FastCGI Developer&#39;s Kit</A> in order to create this library for your
+            platform.
+            <P>
+            </P>
+         </LI>
+         <LI>
+            <I>Pull the Tcl 7.4p3 kit.</I> You&#39;ll need the files <A HREF=
+            "ftp://ftp.smli.com/pub/tcl/tcl7.4.tar.Z">tcl7.4.tar.Z</A>, <A HREF=
+            "ftp://ftp.smli.com/pub/tcl/tcl7.4p1.patch.gz">tcl7.4p1.patch.gz</A>, <A HREF=
+            "ftp://ftp.smli.com/pub/tcl/tcl7.4p2.patch.gz">tcl7.4p2.patch.gz</A>, and <A HREF=
+            "ftp://ftp.smli.com/pub/tcl/tcl7.4p3.patch.gz">tcl7.4p3.patch.gz</A>. (Some older Netscape browsers
+            can&#39;t perform these retrievals because of a protocol conflict between Netscape and Sun&#39;s firewall.)
+            <P>
+               Unpack the tar file in the parent directory of the FastCGI kit directory you used in the previous step,
+               so that the directories <TT>tcl7.4</TT> and <TT>fcgi-devel-kit</TT> are siblings. After unpacking the
+               tar file, follow the directions in the <TT>README</TT> to apply the patches.
+            </P>
+            <P>
+               The <A HREF="http://www.sunlabs.com:80/research/tcl/">Sun Labs Tcl/Tk Project Page</A> contains a wealth
+               of information on Tcl, including up to date information on the latest kits.
+            </P>
+            <P>
+            </P>
+         </LI>
+         <LI>
+            <I>Copy the files <TT>tclFCGI.c</TT>, <TT>tclAppInit.c</TT>, <TT>Makefile.in</TT>, and
+            <TT>configure.in</TT> from the FastCGI kit.</I> 
+<PRE>
+    &gt; cd tcl7.4
+    &gt; mv tclAppInit.c tclAppInit.c.orig
+    &gt; mv Makefile.in.orig Makefile.in.orig.orig
+    &gt; mv Makefile.in Makefile.in.orig
+    &gt; mv configure.in configure.in.orig
+    &gt; cp ../fcgi-devel-kit/tcl/tcl7.4/* .
+    &gt; cp ../fcgi-devel-kit/tcl/common/* .
+</PRE>
+         </LI>
+         <LI>
+            <I>Create a new <TT>configure</TT> script.</I> 
+<PRE>
+    &gt; autoconf
+</PRE>
+         </LI>
+         <LI>
+            <I>Configure and build.</I> 
+<PRE>
+    &gt; ./configure
+    &gt; make
+</PRE>
+            The <TT>make</TT> creates the Tcl interpreter <TT>tclsh</TT> and library archive <TT>libtcl.a</TT> (for
+            embedding Tcl in your own C applications). The Tcl <TT>README</TT> file explains how you can experiment
+            with <TT>tclsh</TT> without installing it in a standard place.<BR>
+            <BR>
+         </LI>
+      </OL>
+      <H3>
+         <A NAME="S3">3. Recipe Explained</A>
+      </H3>
+      <P>
+         The recipe alone is fine if you are using Tcl 7.4p3, you have gcc version 2.7, and you have GNU autoconf. In
+         case one or more of these assumptions doesn&#39;t hold for you, and to illuminate how little work was involved
+         in integrating FastCGI, here&#39;s an explanation of how and why you would modify the files
+         <TT>tclAppInit.c</TT>, <TT>Makefile.in</TT>, and <TT>configure.in</TT> from the Tcl kit.
+      </P>
+      <UL>
+         <LI>
+            <TT>tclAppInit.c</TT>:
+            <P>
+            </P>
+            <UL>
+               <LI>
+                  Add the following three lines of code to the function <TT>Tcl_AppInit</TT> after the call to
+                  <TT>Tcl_Init</TT> and after the comment about calling init procedures: 
+<PRE>
+    if (FCGI_Init(interp) == TCL_ERROR) {
+        return TCL_ERROR;
+    }
+</PRE>
+                  This registers four Tcl commands (<TT>FCGI_Accept</TT>, <TT>FCGI_Finish</TT>,
+                  <TT>FCGI_SetExitStatus</TT>, and <TT>FCGI_StartFilterData</TT>), implemented in <TT>tclFCGI.c</TT>,
+                  with the Tcl interpreter.
+                  <P>
+                  </P>
+               </LI>
+            </UL>
+         </LI>
+         <LI>
+            <TT>Makefile.in</TT>:
+            <P>
+            </P>
+            <UL>
+               <LI>
+                  Add <TT>tclFCGI.o</TT> to the <TT>GENERIC_OBJS</TT> variable, and add <TT>tclFCGI.c</TT> to the
+                  <TT>SRCS</TT> variable.
+                  <P>
+                     This builds the FastCGI Tcl commands and links them into the Tcl interpreter.
+                  </P>
+                  <P>
+                  </P>
+               </LI>
+               <LI>
+                  Add <TT>-I../fcgi-devel-kit/include -include ../fcgi-devel-kit/include/fcgi_stdio.h</TT> to the
+                  <TT>CFLAGS</TT> variable.
+                  <P>
+                     This includes <TT>fcgi_stdio.h</TT> when compiling C code for the Tcl interpreter, overriding the
+                     normal <TT>stdio</TT> types, variables, and functions.
+                  </P>
+                  <P>
+                  </P>
+               </LI>
+               <LI>
+                  Add <TT>../fcgi-devel-kit/libfcgi/libfcgi.a</TT> before the <TT>@LIBS@</TT> part of the <TT>LIBS</TT>
+                  variable.
+                  <P>
+                     This links the implementation of <TT>fcgi_stdio.h</TT> into the Tcl interpreter, for use by the
+                     <TT>FCGI_accept</TT> command and any code that uses <TT>stdio</TT> variables or calls
+                     <TT>stdio</TT> functions.
+                  </P>
+                  <P>
+                  </P>
+               </LI>
+            </UL>
+            <P>
+               The last two edits will vary if you use a compiler other than gcc or install the <TT>tcl7.4</TT>
+               directory somewhere else in relation to the <TT>fcgi-devel-kit</TT> directory.
+            </P>
+            <P>
+            </P>
+         </LI>
+         <LI>
+            <TT>configure.in</TT>:
+            <P>
+            </P>
+            <UL>
+               <LI>
+                  Replace the lines 
+<PRE>
+AC_C_CROSS
+CC=${CC-cc}
+</PRE>
+                  with the lines 
+<PRE>
+AC_PROG_CC
+AC_C_CROSS
+</PRE>
+                  This selects gcc in preference to other C compilers.
+                  <P>
+                  </P>
+               </LI>
+               <LI>
+                  Add the following lines just after the <TT>AC_SUBST(CC)</TT> line: 
+<PRE>
+AC_CHECK_LIB(socket, main, [LIBS=&quot;$LIBS -lsocket&quot;])
+AC_CHECK_LIB(nsl, main, [LIBS=&quot;$LIBS -lnsl&quot;])
+AC_SUBST(LIBS)
+</PRE>
+                  This ensures that the socket libraries used by FastCGI are linked into the Tcl interpreter.
+                  <P>
+                  </P>
+               </LI>
+            </UL>
+            If GNU autoconf is not available to you, you&#39;ll leave <TT>configure.in</TT> alone and perform the
+            following steps:
+            <P>
+            </P>
+            <UL>
+               <LI>
+                  Execute 
+<PRE>
+    &gt; SETENV CC gcc
+</PRE>
+                  before running <TT>configure</TT>.
+                  <P>
+                  </P>
+               </LI>
+               <LI>
+                  If you are running on a SVR4-derived Unix platform, edit <TT>Makefile</TT> to add <TT>-lsocket
+                  -lnsl</TT> to the <TT>LIBS</TT> value after running <TT>configure</TT>.
+                  <P>
+                  </P>
+               </LI>
+            </UL>
+            If you ever re-run <TT>configure</TT>, you&#39;ll need to repeat these steps.
+            <P>
+            </P>
+         </LI>
+      </UL>
+      <H3>
+         <A NAME="S4">4. Writing FastCGI applications in Tcl</A>
+      </H3>
+      <P>
+         The Tcl program <TT>tcl/tiny-tcl-fcgi</TT> performs the same function as the C program
+         <TT>examples/tiny-fcgi.c</TT> that&#39;s used as an example in the <A HREF="fcgi-devel-kit.htm#S3.1.1">FastCGI
+         Developer&#39;s Kit document</A>. Here&#39;s what the Tcl version looks like:
+      </P>
+      <P>
+      </P>
+<PRE>
+#!./tclsh
+set count 0 
+while {[FCGI_Accept] &gt;= 0 } {
+    incr count
+    puts -nonewline &quot;Content-type: text/html\r\n\r\n&quot;
+    puts &quot;&lt;title&gt;FastCGI Hello! (Tcl)&lt;/title&gt;&quot;
+    puts &quot;&lt;h1&gt;FastCGI Hello! (Tcl)&lt;/h1&gt;&quot;
+    puts &quot;Request number $count running on host &lt;i&gt;$env(SERVER_NAME)&lt;/i&gt;&quot;
+}
+</PRE>
+      <P>
+         If you&#39;ve built Tcl according to the recipe and you have a Web server set up to run FastCGI applications,
+         load the FastCGI Developer&#39;s Kit Index Page in that server and run this Tcl application now.
+      </P>
+      <P>
+         The script invokes Tcl indirectly via the symbolic link <TT>examples/tclsh</TT>. It does this because HP-UX
+         has a limit of 32 characters for the first line of a command-interpreter file such as
+         <TT>examples/tiny-tcl-fcgi</TT>. If you run on HP-UX you won&#39;t want to sprinkle symbolic links to
+         <TT>tclsh</TT> everywhere, so you should install <TT>tclsh</TT> with a shorter pathname than
+         <TT>/usr/local/tcl7.4-fcgi/bin/tclsh7.4</TT>.
+      </P>
+      <P>
+         The Tcl command <TT>FCGI_Accept</TT> treats the initial environment differently than the C function
+         <TT>FCGI_Accept</TT>. The first call to the C function <TT>FCGI_Accept</TT> replaces the initial environment
+         with the environment of the first request. The first call to the Tcl command <TT>FCGI_Accept</TT> adds the
+         variable bindings of the first request to the bindings present in the initial environment. So when the first
+         call to <TT>FCGI_Accept</TT> returns, bindings from the initial environment are still there (unless, due to
+         naming conflicts, some of them have been overwritten by the first request). The next call to
+         <TT>FCGI_Accept</TT> removes the bindings made on the previous call before adding a new set for the request
+         just accepted, again preserving the initial environment.
+      </P>
+      <P>
+         The FastCGI-integrated <TT>tclsh</TT> also includes commands <TT>FCGI_Finish</TT>,
+         <TT>FCGI_SetExitStatus</TT>, and <TT>FCGI_StartFilterData</TT> that correspond to C functions in
+         <TT>fcgi_stdio.h</TT>; see the manpages for full information.
+      </P>
+      <P>
+         Converting a Tcl CGI application to FastCGI is not fundamentally different from converting a C CGI
+         application. You separate the portion of the application that performs one-time initialization from the
+         portion that performs per-request processing. You put the per-request processing into a loop controlled by
+         <TT>FCGI_Accept</TT>.
+      </P>
+      <P>
+      </P>
+      <HR>
+      <ADDRESS>
+         <A HREF="mailto:shanzer@openmarket.com">Mike Shanzer // shanzer@openmarket.com</A>
+      </ADDRESS>
+   </BODY>
+</HTML>
+

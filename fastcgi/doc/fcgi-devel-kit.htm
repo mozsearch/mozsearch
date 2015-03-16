@@ -1,0 +1,691 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+   <HEAD>
+      <TITLE>
+         FastCGI Developer&#39;s Kit
+      </TITLE>
+<STYLE TYPE="text/css">
+ body {
+  background-color: #FFFFFF;
+  color: #000000;
+ }
+ :link { color: #cc0000 }
+ :visited { color: #555555 }
+ :active { color: #000011 }
+ h5.c3 {text-align: center}
+ h3.c2 {text-align: center}
+ p.c1 {text-align: center}
+</STYLE>
+   </HEAD>
+   <BODY>
+      <P CLASS="c1">
+         <IMG BORDER="0" SRC="../images/fcgi-hd.gif" ALT="[[FastCGI]]"><BR CLEAR="all">
+      </P>
+      <H3 CLASS="c2">
+         FastCGI Developer&#39;s Kit
+      </H3>
+      <!--Copyright (c) 1996 Open Market, Inc.                                    -->
+      <!--See the file "LICENSE.TERMS" for information on usage and redistribution-->
+      <!--of this file, and for a DISCLAIMER OF ALL WARRANTIES.                   -->
+      <P CLASS="c1">
+         Mark R. Brown<BR>
+          Open Market, Inc.<BR>
+      </P>
+      <P CLASS="c1">
+         Document Version: 1.08<BR>
+          11 June 1996<BR>
+      </P>
+      <H5 CLASS="c3">
+         Copyright &copy; 1996 Open Market, Inc. 245 First Street, Cambridge, MA 02142 U.S.A.<BR>
+          Tel: 617-621-9500 Fax: 617-621-1703 URL: <A HREF=
+         "http://www.openmarket.com/">http://www.openmarket.com/</A><BR>
+          $Id: fcgi-devel-kit.htm,v 1.6 2002/02/25 00:42:59 robs Exp $<BR>
+      </H5>
+      <HR>
+      <UL TYPE="square">
+         <LI>
+            <A HREF="#S1">1. Introduction</A>
+         </LI>
+         <LI>
+            <A HREF="#S2">2. Getting started</A>
+         </LI>
+         <LI>
+            <A HREF="#S3">3. Writing applications</A> 
+            <UL TYPE="square">
+               <LI>
+                  <A HREF="#S3.1">3.1 Using the <TT>fcgi_stdio</TT> library</A>
+               </LI>
+               <LI>
+                  <A HREF="#S3.2">3.2 Using the <TT>fcgiapp</TT> library</A>
+               </LI>
+               <LI>
+                  <A HREF="#S3.3">3.3 Using Perl and Tcl</A>
+               </LI>
+               <LI>
+                  <A HREF="#S3.4">3.4 Using Java</A>
+               </LI>
+            </UL>
+         </LI>
+         <LI>
+            <A HREF="#S4">4. Running applications</A> 
+            <UL TYPE="square">
+               <LI>
+                  <A HREF="#S4.1">4.1 Using a Web server that supports FastCGI</A>
+               </LI>
+               <LI>
+                  <A HREF="#S4.2">4.2 Using <TT>cgi-fcgi</TT> with any Web server</A>
+               </LI>
+            </UL>
+         </LI>
+         <LI>
+            <A HREF="#S5">5. Known problems</A>
+         </LI>
+         <LI>
+            <A HREF="#S6">6. Getting support</A>
+         </LI>
+      </UL>
+      <HR>
+      <H3>
+         <A NAME="S1">1. Introduction</A>
+      </H3>
+      <P>
+         FastCGI is an open extension to CGI that provides high performance for all Internet applications without the
+         penalties of Web server APIs.
+      </P>
+      <P>
+         FastCGI is designed to be layered on top of existing Web server APIs. For instance, the <TT>mod_fastcgi</TT>
+         Apache module adds FastCGI support to the Apache server. FastCGI can also be used, with reduced functionality
+         and reduced performance, on any Web server that supports CGI.
+      </P>
+      <P>
+         This FastCGI Developer&#39;s Kit is designed to make developing FastCGI applications easy. The kit currently
+         supports FastCGI applications written in C/C++, Perl, Tcl, and Java.
+      </P>
+      <P>
+         This document:
+      </P>
+      <UL TYPE="square">
+         <LI>
+            Describes how to configure and build the kit for your development platform.
+         </LI>
+         <LI>
+            Tells how to write applications using the libraries in the kit.
+         </LI>
+         <LI>
+            Tells how to run applications using Web servers that support FastCGI or using any Web server and
+            <TT>cgi-fcgi</TT>.
+         </LI>
+      </UL>
+      <P>
+         The kit includes a <A HREF="fastcgi-whitepaper/fastcgi.htm">technical white paper</A>,
+         <TT>doc/fastcgi-whitepaper/fastcgi.htm</TT>. You should read at least the first three sections of the
+         technical white paper before starting to write FastCGI applications. The <A HREF="fcgi-perf.htm">performance
+         paper</A> will help you understand how application design affects performance with FastCGI.
+      </P>
+      <P>
+         The <A HREF="fcgi-spec.html">FastCGI Specification</A>, <TT>doc/fcgi-spec.html</TT>, defines the interface
+         between a FastCGI application and a Web server that supports FastCGI. The software in the kit implements the
+         specification. You don&#39;t need to read the specification in order to write applications.
+      </P>
+      <P>
+         Additional information is provided in the <A HREF="http://fastcgi.com/docs/faq.html">FAQ</A> document, which
+         contains frequently asked questions about application development using FastCGI, as well as some general
+         information.
+      </P>
+      <P>
+         Experience with CGI programming will be extremely valuable in writing FastCGI applications. If you don&#39;t
+         have enough experience with CGI programming, you should read one of the popular books on the topic or study
+         the <A HREF="http://hoohoo.ncsa.uiuc.edu/cgi/">NCSA CGI page</A>. For a more formal treatment of CGI/1.1 see
+         the <A HREF="http://cgi-spec.golux.com/">Internet Draft CGI 1.1 Specification</A>.
+      </P>
+      <H3>
+         <A NAME="S2">2. Getting started</A>
+      </H3>
+      <P>
+         The kit is a compressed tar (tar.Z) file, distributed via the <A HREF="http://fastcgi.com/">fastcgi.com</A>
+         Web page. Unpacking the tar file creates a new directory <TT>fcgi-devel-kit</TT>.
+      </P>
+      <P>
+         Open the kit&#39;s index page, <TT>fcgi-devel-kit/index.html</TT>, using the &quot;Open File&quot; command in
+         your Web browser. The index page gives you an overview of the kit structure and helps you navigate the kit.
+         The index page also contains links that run some example applications, but the applications won&#39;t work
+         when index.html is opened using the &quot;Open File&quot; command because they aren&#39;t aren&#39;t being
+         accessed through a Web server.
+      </P>
+      <P>
+         In order to use the kit in earnest you&#39;ll need a Web server that you control, a Web server running with
+         your user ID. The Web server will be starting FastCGI applications that you will need to debug; this will be a
+         lot more convenient for you if these processes run with your user ID. It is best to have a Web server that
+         supports FastCGI. <A HREF="#S4">Section 4</A> discusses Web server issues.
+      </P>
+      <P>
+         If you can, keep the kit on a file system accessible from your personal workstation, do your builds on your
+         workstation, and run your Web server on your workstation. If that&#39;s not possible, arrange a configuration
+         such that the kit is accessible from the machine that&#39;s going to run your Web server, and build the kit
+         and your applications on a machine that&#39;s configured exactly the same way (same processor architecture,
+         operating system, etc.) as the machine that&#39;s going to run your Web server.
+      </P>
+      <P>
+         To build the kit you execute this sequence of commands in the <TT>fcgi-devel-kit</TT> directory:
+      </P>
+<PRE>
+    % ./configure
+    % make
+</PRE>
+      <P>
+         We&#39;ve built and exercised the kit on these platforms (listed in alphabetical order):
+      </P>
+      <UL TYPE="square">
+         <LI>
+            BSD/OS 1.1 (Intel Pentium), gcc
+         </LI>
+         <LI>
+            Digital UNIX V3.2 148 (Alpha), gcc/cc
+         </LI>
+         <LI>
+            Hewlett-Packard HP-UX A.09.05 C and B.10.01 A (PA-RISC), gcc/cc
+         </LI>
+         <LI>
+            IBM AIX 1 4 (RS/6000), gcc
+         </LI>
+         <LI>
+            Silicon Graphics IRIX 5.3 11091812 (MIPS), gcc
+         </LI>
+         <LI>
+            Sun Solaris 2.4 and 2.5 (SPARC), gcc/cc
+         </LI>
+         <LI>
+            Sun SunOS 4.1.4 (SPARC), gcc
+         </LI>
+      </UL>
+      <P>
+         Once you&#39;ve built the kit, follow the directions in <A HREF="#S4">Section 4</A> to bring up your Web
+         server and run the example applications.
+      </P>
+      <H3>
+         <A NAME="S3">3. Writing applications</A>
+      </H3>
+      <H4>
+         <A NAME="S3.1">3.1 Using the <TT>fcgi_stdio</TT> library</A>
+      </H4>
+      <P>
+         The <TT>fcgi_stdio</TT> library provides the easiest transition for C CGI programs and C CGI programmers to
+         FastCGI. Using this library your application can run using either CGI or FastCGI, with the same binary for
+         both situations.
+      </P>
+      <P>
+         To introduce the <TT>fcgi_stdio</TT> library we give a pair of examples: a tiny CGI program and the
+         translation of this program to FastCGI. These two example programs are included in the kit.
+      </P>
+      <P>
+         The CGI program is <TT>examples/tiny-cgi.c</TT>:
+      </P>
+<PRE>
+    #include &lt;stdio.h&gt;
+    #include &lt;stdlib.h&gt;
+
+    void main(void)
+    {
+        int count = 0;
+        printf(&quot;Content-type: text/html\r\n&quot;
+               &quot;\r\n&quot;
+               &quot;&lt;title&gt;CGI Hello!&lt;/title&gt;&quot;
+               &quot;&lt;h1&gt;CGI Hello!&lt;/h1&gt;&quot;
+               &quot;Request number %d running on host &lt;i&gt;%s&lt;/i&gt;\n&quot;,
+               ++count, getenv(&quot;SERVER_NAME&quot;));
+    }
+</PRE>
+      <P>
+         The key features of this tiny CGI program are:
+      </P>
+      <UL TYPE="square">
+         <LI>
+            The program sends data to the Web server by writing to <TT>stdout</TT>, using <TT>printf</TT> in this
+            example. The CGI program first sends a <TT>Content-type</TT> header, then a small HTML document. The
+            program includes <TT>stdio.h</TT> in order to get access to the <TT>printf</TT> function.
+         </LI>
+         <LI>
+            The program obtains parameters provided by the Web server by reading environment variables. The CGI program
+            reads the <TT>SERVER_NAME</TT> variable using <TT>getenv</TT> and includes the value in the HTML document.
+            The program includes <TT>stdlib.h</TT> in order to get access to the <TT>getenv</TT> function.
+         </LI>
+      </UL>
+      <P>
+         The <TT>count</TT> variable is degenerate in this example; the CGI program runs a single request, so the
+         request number is always one. This variable will be more interesting in the FastCGI example.
+      </P>
+      <P>
+         <A NAME="S3.1.1">The</A> corresponding FastCGI program is <TT>examples/tiny-fcgi.c</TT>:
+      </P>
+<PRE>
+    #include &quot;fcgi_stdio.h&quot;
+    #include &lt;stdlib.h&gt;
+
+    void main(void)
+    {
+        int count = 0;
+        while(FCGI_Accept() &gt;= 0)
+            printf(&quot;Content-type: text/html\r\n&quot;
+                   &quot;\r\n&quot;
+                   &quot;&lt;title&gt;FastCGI Hello!&lt;/title&gt;&quot;
+                   &quot;&lt;h1&gt;FastCGI Hello!&lt;/h1&gt;&quot;
+                   &quot;Request number %d running on host &lt;i&gt;%s&lt;/i&gt;\n&quot;,
+                    ++count, getenv(&quot;SERVER_NAME&quot;));
+    }
+</PRE>
+      <P>
+         The key features of this tiny FastCGI program are:
+      </P>
+      <UL TYPE="square">
+         <LI>
+            The program is structured as a loop that begins by calling the function <TT>FCGI_Accept</TT>. The
+            <TT>FCGI_Accept</TT> function blocks until a new request arrives for the program to execute. The program
+            includes <TT>fcgi_stdio.h</TT> in order to get access to the <TT>FCGI_Accept</TT> function.
+         </LI>
+         <LI>
+            Within the loop, <TT>FCGI_Accept</TT> creates a CGI-compatible world. <TT>printf</TT> and <TT>getenv</TT>
+            operate just as in the CGI program. <TT>stdin</TT> and <TT>stderr</TT>, not used by this tiny program, also
+            operate just as in a CGI program.
+         </LI>
+      </UL>
+      <P>
+         The <TT>count</TT> variable increments each time through the loop, so the program displays a new request
+         number each time. You can use the reload button in your browser to demonstrate this, once you&#39;ve got the
+         program built and running.
+      </P>
+      <H4>
+         Building the program
+      </H4>
+      <P>
+         If you can build <TT>examples/tiny-cgi.c</TT>, it will be straightforward for you to build
+         <TT>examples/tiny-fcgi.c</TT>. You need to:
+      </P>
+      <UL TYPE="square">
+         <LI>
+            Add the directory containing the <TT>fcgi_stdio.h</TT> header to the compiler&#39;s include search path.
+            The kit calls this directory <TT>include</TT>.
+         </LI>
+         <LI>
+            Add the library <TT>libfcgi.a</TT> to the linker&#39;s command line so that it will be searched when
+            linking. The <TT>libfcgi.a</TT> library implements the functions defined in <TT>fcgi_stdio.h</TT>. The kit
+            calls the directory containing this library <TT>libfcgi</TT>.
+         </LI>
+         <LI>
+            Determine whether or not the linker on your platform searches the Berkeley socket library by default, and
+            if not, add linker directives to force this search.
+         </LI>
+      </UL>
+      <P>
+         See <TT>examples/Makefile</TT> (created by <TT>configure</TT>) for a Makefile that builds both programs.
+         Autoconf handles the platform-dependent linking issues; to see how, examine <TT>configure.in</TT> and
+         <TT>examples/Makefile.in</TT>.
+      </P>
+      <H4>
+         Running the program
+      </H4>
+      <P>
+         <A HREF="#S4">Section 4</A> is all about how to run FastCGI applications.
+      </P>
+      <P>
+         You can use CGI to run application binaries built with the <TT>fcgi_stdio</TT> library. The
+         <TT>FCGI_Accept</TT> function tests its environment to determine how the application was invoked. If it was
+         invoked as a CGI program, the first call to FCGI_Accept is essentially a no-op and the second call returns
+         <TT>-1</TT>. In effect, the request loop disappears.
+      </P>
+      <P>
+         Of course, when a FastCGI application is run using CGI it does not get the benefits of FastCGI. For instance,
+         the application exits after servicing a single request, so it cannot maintain cached information.
+      </P>
+      <H4>
+         Implementation details
+      </H4>
+      <P>
+         <TT>fcgi_stdio.h</TT> works by first including <TT>stdio.h</TT>, then defining macros to replace essentially
+         all of the types and procedures defined in <TT>stdio.h</TT>. (<TT>stdio.h</TT> defines a few procedures that
+         have nothing to do with <TT>FILE *</TT>, such as <TT>sprintf</TT> and <TT>sscanf</TT>; <TT>fcgi_stdio.h</TT>
+         doesn&#39;t replace these.) For instance, <TT>FILE</TT> becomes <TT>FCGI_FILE</TT> and <TT>printf</TT> becomes
+         <TT>FCGI_printf</TT>. You&#39;ll only see these new names if you read <TT>fcgi_stdio.h</TT> or examine your C
+         source code after preprocessing.
+      </P>
+      <P>
+         Here are some consequences of this implementation technique:
+      </P>
+      <UL TYPE="square">
+         <LI>
+            On some platforms the implementation will break if you include <TT>stdio.h</TT> after including
+            <TT>fcgi_stdio.h</TT>, because <TT>stdio.h</TT> often defines macros for functions such as <TT>getc</TT>
+            and <TT>putc</TT>. Fortunately, on most platforms <TT>stdio.h</TT> is protected against multiple includes
+            by lines near the top of the file that look like 
+<PRE>
+    #ifndef _STDIO_H
+    #define _STDIO_H
+   
+</PRE>
+            <P>
+               The specific symbol used for multiple-include protection, <TT>_STDIO_H</TT> in this example, varies from
+               platform to platform. As long as your platform protects <TT>stdio.h</TT> against multiple includes, you
+               can forget about this issue.
+            </P>
+         </LI>
+         <LI>
+            If your application passes <TT>FILE *</TT> to functions implemented in libraries for which you have source
+            code, then you&#39;ll want to recompile these libraries with <TT>fcgi_stdio.h</TT> included. Most C
+            compilers provide a command-line option for including headers in a program being compiled; using such a
+            compiler feature allows you to rebuild your libraries without making source changes. For instance the gcc
+            command line 
+<PRE>
+    gcc -include /usr/local/include/fcgi_stdio.h wonderlib.c
+   
+</PRE>
+            <P>
+               causes gcc to include <TT>fcgi_stdio.h</TT> before it even begins to read the module
+               <TT>wonderlib.c</TT>.
+            </P>
+         </LI>
+         <LI>
+            If your application passes <TT>FILE *</TT> to functions implemented in libraries for which you do not have
+            source code, then you&#39;ll need to include the headers for these libraries <I>before</I> you include
+            <TT>fcgi_stdio.h</TT>. You can&#39;t pass the <TT>stdin</TT>, <TT>stdout</TT>, or <TT>stderr</TT> streams
+            produced by <TT>FCGI_Accept</TT> to any functions implemented by these libraries. You can pass a stream on
+            a Unix file to a library function by following this pattern: 
+<PRE>
+    FILE *myStream = fopen(path, &quot;r&quot;);
+    answer = MungeStream(FCGI_ToFile(myStream));
+   
+</PRE>
+            <P>
+               Here <TT>MungeStream</TT> is a library function that you can&#39;t recompile and <TT>FCGI_ToFile</TT> is
+               a macro that converts from <TT>FCGI_FILE *</TT> to <TT>FILE *</TT>. The macro <TT>FCGI_ToFile</TT> is
+               defined in <TT>fcgi_stdio.h</TT>.
+            </P>
+         </LI>
+      </UL>
+      <H4>
+         Converting CGI programs
+      </H4>
+      <P>
+         The main task in converting a CGI program into a FastCGI program is separating the code that needs to execute
+         once, initializing the program, from the code that needs to run for each request. In our tiny example,
+         initializing the <TT>count</TT> variable is outside the loop, while incrementing the <TT>count</TT> variable
+         goes inside.
+      </P>
+      <P>
+         Retained application state may be an issue. You must ensure that any application state created in processing
+         one request has no unintended effects on later requests. FastCGI offers the possibility of significant
+         application performance improvements, through caching; it is up to you to make the caches work correctly.
+      </P>
+      <P>
+         Storage leaks may be an issue. Many CGI programs don&#39;t worry about storage leaks because the programs
+         don&#39;t run for long enough for bloating to be a problem. When converting to FastCGI, you can either use a
+         tool such as <A HREF="http://www.pure.com/"><I>Purify</I></A> from Pure Software to discover and fix storage
+         leaks, or you can run a C garbage collector such as <A HREF="http://www.geodesic.com/"><I>Great Circle</I></A>
+         from Geodesic Systems.
+      </P>
+      <H4>
+         Limitations
+      </H4>
+      <P>
+         Currently there are some limits to the compatibility provided by the <TT>fcgi_stdio</TT> library:
+      </P>
+      <UL TYPE="square">
+         <LI>
+            The library does not provide FastCGI versions of the functions <TT>fscanf</TT> and <TT>scanf</TT>. If you
+            wish to apply <TT>fscanf</TT> or <TT>scanf</TT> to <TT>stdin</TT> of a FastCGI program, the workaround is
+            to read lines or other natural units into memory and then call <TT>sscanf</TT>. If you wish to apply
+            <TT>fscanf</TT> to a stream on a Unix file, the workaround is to follow the pattern: 
+<PRE>
+    FILE *myStream = fopen(path, &quot;r&quot;);
+    count = fscanf(FCGI_ToFile(myStream), format, ...);
+   
+</PRE>
+         </LI>
+      </UL>
+      <H4>
+         Reference documentation
+      </H4>
+      <P>
+         The <A HREF="FCGI_Accept.3"><TT>FCGI_Accept</TT> manpage</A>, <TT>doc/FCGI_Accept.3</TT>, describes the
+         function in the traditional format.
+      </P>
+      <P>
+         The <A HREF="FCGI_Finish.3"><TT>FCGI_Finish</TT></A> (<TT>doc/FCGI_Finish.3</TT>), <A HREF=
+         "FCGI_SetExitStatus.3"><TT>FCGI_SetExitStatus</TT></A> (<TT>doc/FCGI_SetExitStatus.3</TT>), and <A HREF=
+         "FCGI_StartFilterData.3"><TT>FCGI_StartFilterData</TT></A> (<TT>doc/FCGI_StartFilterData.3</TT>) manpages
+         document capabilities of the <TT>fcgi-stdio</TT> library that are not illustrated above.
+      </P>
+      <H4>
+         <A NAME="S3.2">3.2 Using the <TT>fcgiapp</TT> library</A>
+      </H4>
+      <P>
+         The <TT>fcgiapp</TT> library is a second C library for FastCGI. It does not provide the high degree of source
+         code compatibility provided by <TT>fcgi_stdio</TT>; in return, it does not make such heavy use of
+         <TT>#define</TT>. <TT>fcgi_stdio</TT> is implemented as a thin layer on top of <TT>fcgiapp</TT>.
+      </P>
+      <P>
+         Applications built using the <TT>fcgiapp</TT> library cannot run as CGI programs; that feature is provided at
+         the <TT>fcgi_stdio</TT> level.
+      </P>
+      <P>
+         Functions defined in <TT>fcgiapp</TT> are named using the prefix <TT>FCGX_</TT> rather than <TT>FCGI_</TT>.
+         For instance, <TT>FCGX_Accept</TT> is the <TT>fcgiapp</TT> version of <TT>FCGI_Accept</TT>.
+      </P>
+      <P>
+         Documentation of the <TT>fcgiapp</TT> library takes the form of extensive comments in the header file
+         <TT>include/fcgiapp.h</TT>. The sample programs <TT>examples/tiny-fcgi2.c</TT> and <TT>examples/echo2.c</TT>
+         illustrate how to use <TT>fcgiapp</TT>.
+      </P>
+      <H4>
+         <A NAME="S3.3">3.3 Using Perl and Tcl</A>
+      </H4>
+      <P>
+         A major advantage of the FastCGI approach to high-performance Web applications is its language-neutrality. CGI
+         scripts written in popular languages such as Perl and Tcl can be evolved into high-performance FastCGI
+         applications.
+      </P>
+      <P>
+         We have produced FastCGI-integrated Perl and Tcl interpreters. Doing so was easy, since Perl and Tcl are
+         conventional C applications and <TT>fcgi_stdio</TT> was designed for converting conventional C applications.
+         Essentially no source code changes were required in these programs; a small amount of code was added in order
+         to make <TT>FCGI_Accept</TT> and other FastCGI primitives available in these languages. And because these
+         interpreters were developed using <TT>fcgi_stdio</TT>, they run standard Perl and Tcl applications (e.g. CGI
+         scripts) as well as FastCGI applications.
+      </P>
+      <P>
+         See the <A HREF="http://fastcgi.com">fastcgi.com</A> Web page for more information about the Perl and Tcl
+         libraries.
+      </P>
+      <P>
+         Here are the Perl and Tcl versions of <TT>tiny-fcgi</TT>:
+      </P>
+<PRE>
+#!./perl
+use FCGI;
+$count = 0;
+while(FCGI::accept() &gt;= 0) {
+    print(&quot;Content-type: text/html\r\n\r\n&quot;,
+          &quot;&lt;title&gt;FastCGI Hello! (Perl)&lt;/title&gt;\n&quot;,
+          &quot;&lt;h1&gt;FastCGI Hello! (Perl)&lt;/h1&gt;\n&quot;;
+          &quot;Request number &quot;,  ++$count,
+          &quot; running on host &lt;i&gt;&quot;;$env(SERVER_NAME)&lt;/i&gt;&quot;);
+}
+</PRE>
+<PRE>
+#!./tclsh
+set count 0 
+while {[FCGI_Accept] &gt;= 0 } {
+    incr count
+    puts -nonewline &quot;Content-type: text/html\r\n\r\n&quot;
+    puts &quot;&lt;title&gt;FastCGI Hello! (Tcl)&lt;/title&gt;&quot;
+    puts &quot;&lt;h1&gt;FastCGI Hello! (Tcl)&lt;/h1&gt;&quot;
+    puts &quot;Request number $count running on host &lt;i&gt;$env(SERVER_NAME)&lt;/i&gt;&quot;
+}
+</PRE>
+      <P>
+         Converting a Perl or Tcl CGI application to FastCGI is not fundamentally different from converting a C CGI
+         application to FastCGI. You separate the portion of the application that performs one-time initialization from
+         the portion that performs per-request processing. You put the per-request processing into a loop controlled by
+         <TT>FCGI::accept</TT> (Perl) or <TT>FCGI_Accept</TT> (Tcl).
+      </P>
+      <H4>
+         <A NAME="S3.4">3.4 Using Java</A>
+      </H4>
+      <P>
+         Java is not just for browser-based applets. It is already suitable for writing some Web server applications,
+         and its range of applicability will only grow as Java compilers and other Java tools improve. Java&#39;s
+         modules, garbage collection, and threads are especially valuable for writing long-lived application servers.
+      </P>
+      <P>
+         The <TT>FCGIInterface</TT> class provides facilities for Java applications analogous to what
+         <TT>fcgi_stdio</TT> provides for C applications. Using this library your Java application can run using either
+         CGI or FastCGI.
+      </P>
+      <P>
+         The kit includes separate companion document on <A HREF="fcgi-java.htm">using FastCGI with Java</A>. The
+         source code for FastCGI classes is contained in directory <TT>java/src</TT> and the compiled code in
+         <TT>java/classes</TT>.
+      </P>
+      <P>
+         Here is the Java version of <TT>tiny-fcgi</TT>:
+      </P>
+<PRE>
+import FCGIInterface;
+
+class TinyFCGI { 
+    public static void main (String args[]) {  
+        int count = 0;
+        while(new FCGIInterface().FCGIaccept()&gt;= 0) {
+            count ++;
+            System.out.println(&quot;Content-type: text/html\r\n\r\n&quot;);
+            System.out.println(
+                    &quot;&lt;title&gt;FastCGI Hello! (Java)&lt;/title&gt;&quot;);
+            System.out.println(&quot;&lt;h1&gt;FastCGI Hello! (Java)&lt;/h1&gt;&quot;);
+            System.out.println(
+                    &quot;request number &quot; + count + &quot; running on host &lt;i&gt;&quot; +
+                    System.getProperty(&quot;SERVER_NAME&quot;) + &quot;&lt;/i&gt;&quot;);
+        }
+    }
+}
+</PRE>
+      <H3>
+         <A NAME="S4">4. Running applications</A>
+      </H3>
+      <H3>
+         <A NAME="S4.1">4.1 Using a Web server that supports FastCGI</A>
+      </H3>
+      <P>
+         For a current listing of Web servers that support FastCGI, see the <A HREF=
+         "http://fastcgi.com">fastcgi.com</A> Web page.
+      </P>
+      <P>
+         Some of the Web servers that support FastCGI perform management of FastCGI applications. You don&#39;t need to
+         start and stop FastCGI applications; the Web server takes care of this. If an application process should
+         crash, the Web server restarts it.
+      </P>
+      <P>
+         Web servers support FastCGI via new configuration directives. Since these directives are server-specific, get
+         more information from the documentation that accompanies each server.
+      </P>
+      <H3>
+         <A NAME="S4.2">4.2 Using <TT>cgi-fcgi</TT> with any Web server</A>
+      </H3>
+      <P>
+         The program <TT>cgi-fcgi</TT> allows you to run FastCGI applications using any Web server that supports CGI.
+      </P>
+      <P>
+         Here is how <TT>cgi-fcgi</TT> works. <TT>cgi-fcgi</TT> is a standard CGI program that uses Unix domain or
+         TCP/IP sockets to communicate with a FastCGI application. <TT>cgi-fcgi</TT> takes the path name or host/port
+         name of a listening socket as a parameter and <TT>connect</TT>s to the FastCGI application listening on that
+         socket. <TT>cgi-fcgi</TT> then forwards the CGI environment variables and <TT>stdin</TT> data to the FastCGI
+         application, and forwards the <TT>stdout</TT> and <TT>stderr</TT> data from the FastCGI application to the Web
+         server. When the FastCGI application signals the end of its response, <TT>cgi-fcgi</TT> flushes its buffers
+         and exits.
+      </P>
+      <P>
+         Obviously, having <TT>cgi-fcgi</TT> is not as good as having a server with integrated FastCGI support:
+      </P>
+      <UL>
+         <LI>
+            Communication is slower than with a Web server that avoids the fork/exec overhead on every FastCGI request.
+         </LI>
+         <LI>
+            <TT>cgi-fcgi</TT> does not perform application management, so you need to provide this yourself.
+         </LI>
+         <LI>
+            <TT>cgi-fcgi</TT> supports only the Responder role.
+         </LI>
+      </UL>
+      <P>
+         But <TT>cgi-fcgi</TT> does allow you to develop applications that retain state in memory between connections,
+         which often provides a major performance boost over normal CGI. And all the applications you develop using
+         <TT>cgi-fcgi</TT> will work with Web servers that have integrated support for FastCGI.
+      </P>
+      <P>
+         The file <TT>examples/tiny-fcgi.cgi</TT> demonstrates a way to use <TT>cgi-fcgi</TT> to run a typical
+         application, in this case the <TT>examples/tiny-fcgi</TT> application:
+      </P>
+<PRE>
+    #!../cgi-fcgi/cgi-fcgi -f
+    -connect sockets/tiny-fcgi tiny-fcgi
+</PRE>
+      <P>
+         On most Unix platforms, executing this command-interpreter file runs <TT>cgi-fcgi</TT> with arguments
+         <TT>-f</TT> and <TT>examples/tiny-fcgi.cgi</TT>. (Beware: On some Unix platforms, including HP-UX, the first
+         line of a command-interpreter file cannot contain more than 32 characters, including the newline; you may need
+         to install the <TT>cgi-fcgi</TT> application in a standard place like <TT>/usr/local/bin</TT> or create a
+         symbolic link to the <TT>cgi-fcgi</TT> application in the directory containing your application.) The
+         <TT>cgi-fcgi</TT> program reads the command-interpreter file and connects to the FastCGI application whose
+         listening socket is <TT>examples/sockets/tiny-fcgi</TT>.
+      </P>
+      <P>
+         Continuing the example, if <TT>cgi-fcgi</TT>&#39;s connection attempt fails, it creates a new process running
+         the program <TT>examples/tiny-fcgi</TT> and listening on socket <TT>examples/sockets/tiny-fcgi</TT>. Then
+         <TT>cgi-fcgi</TT> retries the connection attempt, which now should succeed.
+      </P>
+      <P>
+         The <TT>cgi-fcgi</TT> program has two other modes of operation. In one mode it connects to applications but
+         does not start them; in the other it starts applications but does not connect to them. These modes are
+         required when using TCP/IP. The <A HREF="cgi-fcgi.1"><TT>cgi-fcgi</TT> manpage</A>, <TT>doc/cgi-fcgi.1</TT>,
+         tells the full story.
+      </P>
+      <P>
+         To run the example applications using <TT>cgi-fcgi</TT>, start your Web server and give it the directory
+         <TT>fcgi-devel-kit</TT> as the root of its URL space. If the machine running your server is called
+         <TT>bowser</TT> and your server is running on port <TT>8888</TT>, you&#39;d then open the URL
+         <TT>http://bowser:8888/index.html</TT> to reach the kit&#39;s index page. Now the links on the index page that
+         run example applications via <TT>cgi-fcgi</TT> should be active.
+      </P>
+      <H3>
+         <A NAME="S5">5. Known problems</A>
+      </H3>
+      <P>
+         On Digital UNIX 3.0 there&#39;s a problem with Unix domain listening sockets on NFS file systems. The symptom
+         when using cgi-fcgi is an exit status of 38 (<TT>ENOTSOCK</TT>: socket operation on non-socket), but cgi-fcgi
+         may dump core in this case when compiled optimized. Work-around: Store your Unix domain listening sockets on a
+         non NFS file system, upgrade to Digital UNIX 3.2, or use TCP sockets.
+      </P>
+      <P>
+         On AIX there&#39;s a problem with shared listening sockets. The symptoms can include application core dumps
+         and kernel panic. Work-around: Run a single FastCGI application server per listening socket.
+      </P>
+      <H3>
+         <A NAME="S6">6. Getting support</A>
+      </H3>
+      <P>
+         The mailing list <TT>fastcgi-developers</TT> is used for discussions of issues in developing FastCGI
+         applications. Topics include announcement of FastCGI-capable Web servers or changes to such servers,
+         announcement of new application libraries or changes to such libraries, announcement of known bugs, discussion
+         of design trade-offs in FastCGI application programming, and discussion of development plans and experiences.
+         To join the list, see <A HREF=
+         "http://fastcgi.com/fastcgi-developers">http://fastcgi.com/fastcgi-developers</A>.
+      </P>
+      <P>
+         A link to a mail archive can be found on the FastCGI home page, <A HREF=
+         "http://www.fastcgi.com">http://www.fastcgi.com</A>
+      </P>
+      <HR>
+      <ADDRESS>
+         &copy; 1996, Open Market, Inc. / mbrown@openmarket.com
+      </ADDRESS>
+   </BODY>
+</HTML>
+
