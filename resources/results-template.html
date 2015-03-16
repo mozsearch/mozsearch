@@ -1,0 +1,37 @@
+<table class="results">
+
+{% for filedata in files %}
+
+<tr class="result-head">
+  <td class="left-column">
+    <div class="js icon-container"></div>
+  </td>
+  <td>
+
+{% for elt in filedata.filename.split("/") %}
+    <a href="url1">{{ elt|safe }}</a>
+{% if not loop.last %}
+    <span class="path-separator">/</span>
+{% endif %}
+{% endfor %}
+  </td>
+</tr>
+
+{% for linedata in filedata.lines %}
+
+<tr>
+  <td class="left-column">
+    <a href="url1#{{ linedata.n }}">{{ linedata.n }}</a>
+  </td>
+  <td>
+    <a href="url1#{{ linedata.n }}">
+      <code>{{ linedata.ex|safe }}</code>
+    </a>
+  </td>
+</tr>
+
+{% endfor %}
+
+{% endfor %}
+
+</table>
