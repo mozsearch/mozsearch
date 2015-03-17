@@ -14,26 +14,26 @@ then
 fi
 
 cd mozilla-central
-hg up
+#hg up
 
-cat >.mozconfig <<EOF
-. $topsrcdir/browser/config/mozconfig
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir
-ac_add_options --enable-debug
-ac_add_options --enable-optimize
-EOF
+#cat >.mozconfig <<EOF
+#. \$topsrcdir/browser/config/mozconfig
+#mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir
+#ac_add_options --enable-debug
+#ac_add_options --enable-optimize
+#EOF
 
-if [ CLOBBER -nt objdir/CLOBBER ]
-then
-  rm -rf objdir
-fi
+#if [ CLOBBER -nt objdir/CLOBBER ]
+#then
+#  rm -rf objdir
+#fi
 
-./mach build
+#./mach build
 
 # FIXME: Get list of files to do JS analysis on
 JS_FILES=$MOZSEARCH_ROOT/js-files
 
-JS=$PWD/objdir/dist/bin/js
+JS="$PWD/objdir/dist/bin/run-mozilla.sh $PWD/objdir/dist/bin/js"
 
 for filename in $(cat $JS_FILES)
 do

@@ -366,7 +366,7 @@ let Analyzer = {
       break;
 
     case "FunctionExpression":
-    case "ArrowExpression":
+    case "ArrowFunctionExpression":
       this.scoped(() => {
         if (expr.type == "FunctionExpression" && expr.id) {
           this.defVar(expr.id.name, expr.loc);

@@ -6,6 +6,8 @@ Vagrant.configure("2") do |config|
 
     config.vm.provider "virtualbox" do |v|
         v.name = "MOZSEARCH_VM"
+        v.memory = 10000
+        v.cpus = 4
         v.customize ["setextradata", :id,
             "VBoxInternal2/SharedFoldersEnableSymlinksCreate//home/vagrant/mozsearch", "1"]
     end
