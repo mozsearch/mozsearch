@@ -1,11 +1,11 @@
 let nextSymId = 0;
-let localFile;
+let localFile, fileIndex;
 
 function Symbol(name, loc)
 {
   this.name = name;
   this.loc = loc;
-  this.id = nextSymId++;
+  this.id = fileIndex + "-" + nextSymId++;
   this.uses = [];
 }
 
@@ -538,7 +538,8 @@ let Analyzer = {
   },
 };
 
-localFile = scriptArgs[0];
+fileIndex = scriptArgs[0];
+localFile = scriptArgs[1];
 let text = snarf(localFile);
 let ast = Reflect.parse(text, {loc: true, source: localFile, line: 1});
 Analyzer.program(ast);

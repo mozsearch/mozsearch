@@ -1,6 +1,13 @@
 <table class="results">
 
-{% for filedata in files %}
+{% for datum in data %}
+
+<tr>
+  <td class="left-column"></td>
+  <td><b>{{datum.kind}}</b></td>
+</tr>
+
+{% for filedata in datum.files %}
 
 <tr class="result-head">
   <td class="left-column">
@@ -21,14 +28,16 @@
 
 <tr>
   <td class="left-column">
-    <a href="url1#{{ linedata.n }}">{{ linedata.n }}</a>
+    <a href="/file/{{filedata.filename}}#{{ linedata.n }}">{{ linedata.n }}</a>
   </td>
   <td>
-    <a href="url1#{{ linedata.n }}">
+    <a href="/file/{{filedata.filename}}#{{ linedata.n }}">
       <code>{{ linedata.ex|safe }}</code>
     </a>
   </td>
 </tr>
+
+{% endfor %}
 
 {% endfor %}
 

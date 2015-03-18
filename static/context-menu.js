@@ -3,7 +3,7 @@ function setContextMenu(menu, event)
   var top = event.clientY + window.scrollY;
   var left = event.clientX;
 
-  $('body').append(nunjucks.render('resources/context-menu.html', menu));
+  $('body').append(nunjucks.render('static/context-menu.html', menu));
   var currentContextMenu = $('#context-menu');
 
   currentContextMenu.css({
@@ -52,8 +52,14 @@ $("#main").on("mousemove", function(event) {
   var id = elt.attr("data-id");
   var kind = elt.attr("data-kind");
 
+  if (id == "?") {
+    hovered.removeClass("hovered");
+    hovered = $();
+    return;
+  }
+
   hovered.removeClass("hovered");
-  hovered = $(`span[data-id=${id}]`);
+  hovered = $(`span[data-id="${id}"]`);
   hovered.addClass("hovered");
 });
 
@@ -82,16 +88,16 @@ $("#main").on("click", "span[data-id]", function(event) {
 
   if (id.startsWith("#")) {
     if (extra) {
-      menuItems.push({html: fmt("Search for property &ldquo;_&rdquo;", extra),
-                      href: "results.html?" + encodeURIComponent(extra),
+      menuItems.push({html: fmt("Search for property _", extra),
+                      href: "/crossref/" + encodeURIComponent(extra),
                       icon: "search"});
     }
-    menuItems.push({html: fmt("Search for property &ldquo;_&rdquo;", idName),
-                    href: "results.html?" + encodeURIComponent(idName),
+    menuItems.push({html: fmt("Search for property _", idName),
+                    href: "/crossref/" + encodeURIComponent(id),
                     icon: "search"});
   } else {
-    menuItems.push({html: fmt("Search for variable &ldquo;_&rdquo;", idName),
-                    href: "results.html?" + encodeURIComponent(idName),
+    menuItems.push({html: fmt("Search for variable _", idName),
+                    href: "/crossref/" + encodeURIComponent(id),
                     icon: "search"});
   }
 

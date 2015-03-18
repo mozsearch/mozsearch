@@ -16,6 +16,7 @@ mkdir -p /etc/nginx/sites-enabled
 cat >/etc/nginx/sites-enabled/mozsearch.conf <<THEEND
 server {
   listen 8000 default_server;
+  sendfile off;
 
   location /static {
     root /home/vagrant/mozsearch;
@@ -27,7 +28,7 @@ server {
   }
 
   location / {
-    rewrite ^(.*)$ /router?$1 last;
+    rewrite ^(.*)$ /router?\$1 last;
     break;
   }
 }

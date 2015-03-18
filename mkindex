@@ -46,8 +46,22 @@ JS_FILES=$MOZSEARCH_ROOT/js-files
 
 JS="$PWD/objdir/dist/bin/run-mozilla.sh $PWD/objdir/dist/bin/js"
 
+let "i = 0" || true
 for filename in $(cat $JS_FILES)
 do
   mkdir -p $INDEX_ROOT/analysis/$(dirname $filename)
-  $JS $MOZSEARCH_ROOT/js-analyze.js $filename > $INDEX_ROOT/analysis/$filename
+  $JS $MOZSEARCH_ROOT/js-analyze.js $i $filename > $INDEX_ROOT/analysis/$filename
+  let "i = i+1"
+done
+
+cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
+                          $TREE_ROOT/mozilla-central/ \
+                          $INDEX_ROOT/analysis/ \
+                          $INDEX_ROOT/crossref \
+                          $INDEX_ROOT/jumps
+
+for filename in $(cat $JS_FILES)
+do
+  mkdir -p $INDEX_ROOT/file/$(dirname $filename)
+  $JS $MOZSEARCH_ROOT/js-output.js $filename $INDEX_ROOT/analysis/$filename $INDEX_ROOT/jumps > $INDEX_ROOT/file/$filename
 done
