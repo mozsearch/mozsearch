@@ -278,8 +278,12 @@ let Analyzer = {
     this.pattern(decl.id);
 
     let oldNameForThis = this.nameForThis;
-    if (decl.id.type == "Identifier" && decl.init && decl.init.type == "ObjectExpression") {
-      this.nameForThis = decl.id.name;
+    if (decl.id.type == "Identifier" && decl.init) {
+      if (decl.init.type == "ObjectExpression") {
+        this.nameForThis = decl.id.name;
+      } else {
+        // Handle Object.freeze({...})
+      }
     }
     this.maybeExpression(decl.init);
     this.nameForThis = oldNameForThis;
@@ -343,6 +347,7 @@ let Analyzer = {
       break;
 
     case "ObjectExpression":
+    case "ObjectPattern":
       for (let prop of expr.properties) {
         let name;
 
@@ -538,8 +543,67 @@ let Analyzer = {
   },
 };
 
+function analyzeFile(filename)
+{
+  let text = snarf(filename);
+
+  let substitution = false;
+  let lines = text.split("\n");
+  let preprocessedLines = [];
+  let branches = [true];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    if (substitution) {
+      line = line.replace(/@(\w+)@/, "''");
+    }
+    let tline = line.trim();
+    if (tline.startsWith("#ifdef") || tline.startsWith("#ifndef") || tline.startsWith("#if ")) {
+      preprocessedLines.push("// " + tline);
+      branches.push(branches[branches.length-1]);
+    } else if (tline.startsWith("#else") ||
+               tline.startsWith("#elif") ||
+               tline.startsWith("#elifdef") ||
+               tline.startsWith("#elifndef")) {
+      preprocessedLines.push("// " + tline);
+      branches.pop();
+      branches.push(false);
+    } else if (tline.startsWith("#endif")) {
+      preprocessedLines.push("// " + tline);
+      branches.pop();
+    } else if (!branches[branches.length-1]) {
+      preprocessedLines.push("// " + tline);
+    } else if (tline.startsWith("#include")) {
+      /*
+      let match = tline.match(/#include "?([A-Za-z0-9_.-]+)"?/);
+      if (!match) {
+        throw new Error(`Invalid include directive: ${filename}:${i+1}`);
+      }
+      let incfile = match[1];
+      preprocessedLines.push(`PREPROCESSOR_INCLUDE("${incfile}");`);
+      */
+      preprocessedLines.push("// " + tline);
+    } else if (tline.startsWith("#filter substitution")) {
+      preprocessedLines.push("// " + tline);
+      substitution = true;
+    } else if (tline.startsWith("#filter")) {
+      preprocessedLines.push("// " + tline);
+    } else if (tline.startsWith("#expand")) {
+      preprocessedLines.push(line.substring(String("#expand ").length));
+    } else if (tline.startsWith("#")) {
+      preprocessedLines.push("// " + tline);
+    } else {
+      preprocessedLines.push(line);
+    }
+  }
+
+  text = preprocessedLines.join("\n");
+
+  print(text);
+
+  let ast = Reflect.parse(text, {loc: true, source: filename, line: 1});
+  Analyzer.program(ast);
+}
+
 fileIndex = scriptArgs[0];
 localFile = scriptArgs[1];
-let text = snarf(localFile);
-let ast = Reflect.parse(text, {loc: true, source: localFile, line: 1});
-Analyzer.program(ast);
+analyzeFile(localFile);
