@@ -21,6 +21,15 @@ function parseAnalysis(line)
   return {line: linenum, col: colnum, kind: parts[1], name: parts[2], id: parts[3], extra: parts[4]};
 }
 
+function cut(str, n)
+{
+  if (str.length > n) {
+    return str.substring(0, n) + "...";
+  } else {
+    return str;
+  }
+}
+
 function processFile(filename)
 {
   let code = snarf(sourceRoot + "/" + filename);
@@ -42,7 +51,7 @@ function processFile(filename)
     if (!files.has(filename)) {
       files.set(filename, []);
     }
-    files.get(filename).push({ n: datum.line, ex: codeLines[datum.line - 1].trim() });
+    files.get(filename).push({ n: datum.line, ex: cut(codeLines[datum.line - 1].trim(), 50) });
   }
 
   for (let analysisLine of analysisLines) {
@@ -63,7 +72,12 @@ function writeMap()
       if (!obj[kind]) {
         return [];
       }
-      return [ {filename, lines} for ([filename, lines] of obj[kind]) ];
+      let result = [ {filename, lines} for ([filename, lines] of obj[kind]) ];
+      if (result.length > 1000) {
+        return result.slice(0, 1000);
+      } else {
+        return result;
+      }
     }
 
     return {

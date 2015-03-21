@@ -30,12 +30,22 @@ SymbolTable.prototype = {
   },
 };
 
+function locBefore(loc1, loc2) {
+  return loc1.start.line < loc2.start.line ||
+         (loc1.start.line == loc2.start.line && loc1.start.column < loc2.start.column);
+}
+
 function locstr(loc)
 {
   if (loc.source === localFile)
     return `${loc.start.line}:${loc.start.column}`;
   else
     return `${loc.source}:${loc.start.line}:${loc.start.column}`;
+}
+
+function nameValid(name)
+{
+  return name.indexOf(" ") == -1 && name.indexOf("\n") == -1 && name.indexOf("\0") == -1;
 }
 
 function memberPropLoc(expr)
@@ -63,6 +73,10 @@ let Analyzer = {
     return old;
   },
 
+  isToplevel() {
+    return this.symbolTableStack.length == 0;
+  },
+
   scoped(f) {
     this.enter();
     f();
@@ -75,7 +89,47 @@ let Analyzer = {
     }
   },
 
+  defProp(name, loc, extra) {
+    if (!nameValid(name)) {
+      return;
+    }
+    if (extra) {
+      print(`${locstr(loc)} def ${name} #${name} ${extra}`);
+    } else {
+      print(`${locstr(loc)} def ${name} #${name}`);
+    }
+  },
+
+  useProp(name, loc, extra) {
+    if (!nameValid(name)) {
+      return;
+    }
+    if (extra) {
+      print(`${locstr(loc)} use ${name} #${name} ${extra}`);
+    } else {
+      print(`${locstr(loc)} use ${name} #${name}`);
+    }
+  },
+
+  assignProp(name, loc, extra) {
+    if (!nameValid(name)) {
+      return;
+    }
+    if (extra) {
+      print(`${locstr(loc)} assign ${name} #${name} ${extra}`);
+    } else {
+      print(`${locstr(loc)} assign ${name} #${name}`);
+    }
+  },
+
   defVar(name, loc) {
+    if (!nameValid(name)) {
+      return;
+    }
+    if (this.isToplevel()) {
+      this.defProp(name, loc);
+      return;
+    }
     let sym = new Symbol(name, loc);
     this.symbols.put(name, sym);
     print(`${locstr(loc)} def ${name} ${sym.id}`);
@@ -95,44 +149,26 @@ let Analyzer = {
   },
 
   useVar(name, loc) {
+    if (!nameValid(name)) {
+      return;
+    }
     let sym = this.findSymbol(name);
     if (!sym) {
-      print(`${locstr(loc)} use ${name} ?`);
+      this.useProp(name, loc);
     } else {
       print(`${locstr(loc)} use ${name} ${sym.id}`);
     }
   },
 
   assignVar(name, loc) {
+    if (!nameValid(name)) {
+      return;
+    }
     let sym = this.findSymbol(name);
     if (!sym) {
-      print(`${locstr(loc)} assign ${name} ?`);
+      this.assignProp(name, loc);
     } else {
       print(`${locstr(loc)} assign ${name} ${sym.id}`);
-    }
-  },
-
-  defProp(name, loc, extra) {
-    if (extra) {
-      print(`${locstr(loc)} def ${name} #${name} ${extra}`);
-    } else {
-      print(`${locstr(loc)} def ${name} #${name}`);
-    }
-  },
-
-  useProp(name, loc, extra) {
-    if (extra) {
-      print(`${locstr(loc)} use ${name} #${name} ${extra}`);
-    } else {
-      print(`${locstr(loc)} use ${name} #${name}`);
-    }
-  },
-
-  assignProp(name, loc, extra) {
-    if (extra) {
-      print(`${locstr(loc)} assign ${name} #${name} ${extra}`);
-    } else {
-      print(`${locstr(loc)} assign ${name} #${name}`);
     }
   },
 
@@ -188,19 +224,23 @@ let Analyzer = {
 
     case "TryStatement":
       this.statement(stmt.block);
-      if (stmt.handler) {
-        this.catchClause(stmt.handler);
-      }
       for (let guarded of stmt.guardedHandlers) {
         this.catchClause(guarded);
+      }
+      if (stmt.handler) {
+        this.catchClause(stmt.handler);
       }
       this.maybeStatement(stmt.finalizer);
       break;
 
     case "WhileStatement":
-    case "DoWhileStatement":
       this.expression(stmt.test);
       this.statement(stmt.body);
+      break;
+
+    case "DoWhileStatement":
+      this.statement(stmt.body);
+      this.expression(stmt.test);
       break;
 
     case "ForStatement":
@@ -241,11 +281,9 @@ let Analyzer = {
     case "FunctionDeclaration":
       this.defVar(stmt.id.name, stmt.loc);
       this.scoped(() => {
-        for (let p of stmt.params) {
-          this.pattern(p);
-        }
-        for (let def of stmt.defaults) {
-          this.expression(def);
+        for (let i = 0; i < stmt.params.length; i++) {
+          this.pattern(stmt.params[i]);
+          this.maybeExpression(stmt.defaults[i]);
         }
         if (stmt.rest) {
           this.defVar(stmt.rest.name, stmt.rest.loc);
@@ -352,10 +390,14 @@ let Analyzer = {
         let name;
 
         if (prop.key) {
+          let loc;
           if (prop.key.type == "Identifier") {
             name = prop.key.name;
+            loc = prop.key.loc;
           } else if (prop.key.type == "Literal" && typeof(prop.key.value) == "string") {
             name = prop.key.value;
+            loc = prop.key.loc;
+            loc.start.column++;
           }
           let extra = null;
           if (this.nameForThis) {
@@ -376,11 +418,9 @@ let Analyzer = {
         if (expr.type == "FunctionExpression" && expr.id) {
           this.defVar(expr.id.name, expr.loc);
         }
-        for (let p of expr.params) {
-          this.pattern(p);
-        }
-        for (let def of expr.defaults) {
-          this.expression(def);
+        for (let i = 0; i < expr.params.length; i++) {
+          this.pattern(expr.params[i]);
+          this.maybeExpression(expr.defaults[i]);
         }
         if (expr.rest) {
           this.defVar(expr.rest.name, expr.rest.loc);
@@ -441,8 +481,8 @@ let Analyzer = {
 
     case "ConditionalExpression":
       this.expression(expr.test);
-      this.expression(expr.alternate);
       this.expression(expr.consequent);
+      this.expression(expr.alternate);
       break;
 
     case "NewExpression":
@@ -480,11 +520,17 @@ let Analyzer = {
     case "ComprehensionExpression":
     case "GeneratorExpression":
       this.scoped(() => {
+        let before = locBefore(expr.body.loc, expr.blocks[0].loc);
+        if (before) {
+          this.expression(expr.body);
+        }
         for (let block of expr.blocks) {
           this.comprehensionBlock(block);
         }
-        this.expression(expr.body);
         this.maybeExpression(expr.filter);
+        if (!before) {
+          this.expression(expr.body);
+        }
       });
       break;
 
@@ -597,8 +643,6 @@ function analyzeFile(filename)
   }
 
   text = preprocessedLines.join("\n");
-
-  print(text);
 
   let ast = Reflect.parse(text, {loc: true, source: filename, line: 1});
   Analyzer.program(ast);

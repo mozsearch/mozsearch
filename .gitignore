@@ -1,3 +1,5 @@
 *~
 .vagrant
 fastcgi/obj
+temp-index
+mozilla-central

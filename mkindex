@@ -10,9 +10,9 @@ then
   shift
 fi
 
-MOZSEARCH_ROOT=$1
-INDEX_ROOT=$2
-TREE_ROOT=$3
+MOZSEARCH_ROOT=$(realpath $1)
+INDEX_ROOT=$(realpath $2)
+TREE_ROOT=$(realpath $3)
 
 cd $TREE_ROOT
 if [ ! -d mozilla-central ]
@@ -42,15 +42,29 @@ EOF
 fi
 
 # FIXME: Get list of files to do JS analysis on
-JS_FILES=$MOZSEARCH_ROOT/js-files
+JS_FILES=$MOZSEARCH_ROOT/js-files2
 
-JS="$PWD/objdir/dist/bin/run-mozilla.sh $PWD/objdir/dist/bin/js"
+if [ "x${JS}" = "x" ]
+then
+  JS=$(which js)
+  if [ "x${JS}" = "x" ]
+  then
+    JS="$PWD/objdir/dist/bin/run-mozilla.sh $PWD/objdir/dist/bin/js"
+  fi
+fi
+
+# Avoid using $PWD
+cd /tmp
 
 let "i = 0" || true
 for filename in $(cat $JS_FILES)
 do
   mkdir -p $INDEX_ROOT/analysis/$(dirname $filename)
-  $JS $MOZSEARCH_ROOT/js-analyze.js $i $filename > $INDEX_ROOT/analysis/$filename
+  if [ $TREE_ROOT/$filename -nt $INDEX_ROOT/analysis/$filename -o \
+       $MOZSEARCH_ROOT/js-analyze.js -nt $INDEX_ROOT/analysis/$filename ]
+  then
+    $JS $MOZSEARCH_ROOT/js-analyze.js $i $TREE_ROOT/$filename > $INDEX_ROOT/analysis/$filename
+  fi
   let "i = i+1"
 done
 
@@ -63,5 +77,6 @@ cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
 for filename in $(cat $JS_FILES)
 do
   mkdir -p $INDEX_ROOT/file/$(dirname $filename)
-  $JS $MOZSEARCH_ROOT/js-output.js $filename $INDEX_ROOT/analysis/$filename $INDEX_ROOT/jumps > $INDEX_ROOT/file/$filename
 done
+
+cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/js-output.js $TREE_ROOT/mozilla-central $INDEX_ROOT

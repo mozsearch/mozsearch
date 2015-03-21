@@ -117,3 +117,109 @@ a:hover {
     color: #00539f;
     text-decoration: none;
 }
+
+.visually-hidden {
+    position: absolute;
+    clip: rect(1px 1px 1px 1px); /* IE6, IE7 */
+    clip: rect(1px, 1px, 1px, 1px);
+    padding:0;
+    border:0;
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+}
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+table {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow: auto;
+}
+table#file {
+    width: 100%;
+}
+table th {
+    font-weight: bold;
+    padding: .5em;
+    text-align: left;
+}
+table td {
+    padding: .5em;
+}
+td.code {
+    padding: 0 0 0 .5em;
+}
+td#line-numbers {
+    padding: 0;
+}
+td#line-numbers span {
+    display: block;
+    cursor: pointer;
+    -moz-user-select: none;
+    -o-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    text-align: right;
+    padding: 0 0.5rem;
+}
+td.code {
+    display: block;
+    margin: 0;
+    padding: 0;
+    position: relative;
+    z-index: 1;
+}
+td pre code {
+    position: relative;
+    float: left;
+    clear: none;
+    padding: 0 0 0 1em;
+    float: left;
+    margin: 0;
+    padding: 0;
+    position: relative;
+}
+.file tr {
+    border: 0;
+    line-height: 1.3;
+}
+.file td:first-child {
+    text-align: right;
+    color: #aaa;
+    width: 6ex;
+}
+.file td {
+    padding: 0;
+}
+.file td:first-child a {
+    display: block;
+    padding: 0 .5rem;
+}
+.file pre {
+    margin: 0;
+}
+.footer {
+    color: #999;
+    font-size: .7rem;
+    margin: 0 0 0 1.2rem;
+}
+.highlighted,
+.multihighlight {
+    background: none repeat scroll 0 0 rgb(255, 255, 204);
+}
+.code code {
+    padding: 0 0.5rem;
+    width: 100%;
+}
+mark {
+    position: relative;
+    padding: .5rem;
+}
+mark {
+    padding: .3rem 0;
+}
