@@ -23,6 +23,7 @@ for line in lines:
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/file/'):
+            print self.path
             filename = os.path.join(indexPath, 'file', self.path[len('/file/'):])
             data = open(filename).read()
             template = os.path.join(mozSearchPath, 'file-template.html')

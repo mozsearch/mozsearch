@@ -57,11 +57,11 @@ function processFile(filename) {
 
   putstr(`      </td>
       <td class="code">
-<pre><code class="js" id="main">`);
+<pre><code class="javascript">`);
 
   lineNum = 1;
   for (let line of lines) {
-    putstr(`<span id="line-${lineNum}" class="code-line" aria-labelledby="${lineNum}">`);
+    putstr(`<span id="line-${lineNum}" aria-labelledby="${lineNum}">`);
 
     for (let col = 0; col < line.length; col++) {
       if (lineNum == datum.line && col == datum.col) {

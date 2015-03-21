@@ -3,7 +3,7 @@ function setContextMenu(menu, event)
   var top = event.clientY + window.scrollY;
   var left = event.clientX;
 
-  $('body').append(nunjucks.render('static/context-menu.html', menu));
+  $('body').append(nunjucks.render('static/templates/context-menu.html', menu));
   var currentContextMenu = $('#context-menu');
 
   currentContextMenu.css({
@@ -30,7 +30,7 @@ window.addEventListener('mousedown', function() {
 
 var hovered = $();
 
-$("#main").on("mousemove", function(event) {
+$("#file").on("mousemove", function(event) {
   if ($('#context-menu').length) {
     return;
   }
@@ -63,7 +63,7 @@ $("#main").on("mousemove", function(event) {
   hovered.addClass("hovered");
 });
 
-$("#main").on("click", "span[data-id]", function(event) {
+$("#file").on("click", "span[data-id]", function(event) {
   var elt = $(event.target);
   while (!elt.attr("data-id")) {
     elt = elt.parent();

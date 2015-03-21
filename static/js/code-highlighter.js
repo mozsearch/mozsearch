@@ -185,7 +185,7 @@ $(function () {
     container.on('click', '.line-number', function (event) {
         var clickedNum = parseInt($(this).attr('id'), 10), // get the clicked line number
             line = $('#' + clickedNum + ', #line-' + clickedNum), // get line-number and code
-            lastSelectedLine = $('.line-number.last-selected, .code-line.last-selected'),
+            lastSelectedLine = $('.line-number.last-selected, code.last-selected'),
             lastSelectedNum = parseInt($('.line-number.last-selected').attr('id'), 10), // get last selected line number as integer
             selectedLineNums = null, // used for selecting elements with class .line-number
             selectedLineCode = null, // used for selecting code elements in .code class
@@ -204,14 +204,14 @@ $(function () {
                 //shiftclick descending down the page
                 line.addClass('clicked');
                 selectedLineNums = $('.line-number.last-selected').nextUntil($('.line-number.clicked'));
-                selectedLineCode = $('.code-line.last-selected').nextUntil($('.code-line.clicked'));
+                selectedLineCode = $('code.last-selected').nextUntil($('code.clicked'));
                 $('.last-selected').removeClass('clicked');
             } else if (lastSelectedNum > clickedNum) {
                 //shiftclick ascending up the page
                 $('.line-number, code').removeClass('clicked');
                 line.addClass('clicked');
                 selectedLineNums = $('.line-number.clicked').nextUntil($('.line-number.last-selected'));
-                selectedLineCode = $('.code-line.clicked').nextUntil($('.code-line.last-selected'));
+                selectedLineCode = $('code.clicked').nextUntil($('code.last-selected'));
             }
             selectedLineNums.addClass(classToAdd);
             selectedLineCode.addClass(classToAdd);
@@ -232,7 +232,7 @@ $(function () {
             selectedLineNums = $('.line-number.last-selected').nextUntil($('.line-number.clicked'));
             selectedLineNums.addClass('multihighlight')
                             .removeClass('highlighted');
-            selectedLineCode = $('.code-line.last-selected').nextUntil($('.code-line.clicked'));
+            selectedLineCode = $('code.last-selected').nextUntil($('code.clicked'));
             selectedLineCode.addClass('multihighlight')
                             .removeClass('highlighted');
             line.addClass('multihighlight');
@@ -241,7 +241,7 @@ $(function () {
             //a single click with ctrl/command highlights one line and preserves existing highlights
             lastModifierKey = 'singleSelectKey';
             $('.highlighted').addClass('multihighlight');
-            $('.line-number, .code span').removeClass('last-selected clicked highlighted');
+            $('.line-number, .code code').removeClass('last-selected clicked highlighted');
             if (lastSelectedNum !== clickedNum) {
                 line.toggleClass('clicked last-selected multihighlight');
             } else {
@@ -253,7 +253,7 @@ $(function () {
             //set lastModifierKey ranges and single lines to null, then clear all highlights
             lastModifierKey = null;
             //Remove existing highlights.
-            $('.line-number, .code span').removeClass('last-selected highlighted multihighlight clicked');
+            $('.line-number, .code code').removeClass('last-selected highlighted multihighlight clicked');
             //empty out single lines and ranges arrays
             rangesArray = [];
             singleLinesArray = [];

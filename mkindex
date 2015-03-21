@@ -42,7 +42,7 @@ EOF
 fi
 
 # FIXME: Get list of files to do JS analysis on
-JS_FILES=$MOZSEARCH_ROOT/js-files2
+JS_FILES=$MOZSEARCH_ROOT/js-files
 
 if [ "x${JS}" = "x" ]
 then
