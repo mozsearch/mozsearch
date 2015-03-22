@@ -3,3 +3,5 @@
 fastcgi/obj
 temp-index
 mozilla-central
+*.o
+*.so
