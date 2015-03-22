@@ -79,4 +79,4 @@ do
   mkdir -p $INDEX_ROOT/file/$(dirname $filename)
 done
 
-cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/js-output.js $TREE_ROOT/mozilla-central $INDEX_ROOT
+cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/js-output.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT

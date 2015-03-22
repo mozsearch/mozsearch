@@ -1,3 +1,11 @@
+let treeRoot = scriptArgs[0];
+let indexRoot = scriptArgs[1];
+let mozSearchRoot = scriptArgs[2];
+let filenames = scriptArgs.slice(3);
+
+let window = this;
+run(mozSearchRoot + "/highlight.pack.js");
+
 function parseAnalysis(line)
 {
   let parts = line.split(" ");
@@ -9,10 +17,6 @@ function parseAnalysis(line)
   return {line: parseInt(linenum), col: parseInt(colnum),
           kind: parts[1], name: parts[2], id: parts[3], extra: parts[4]};
 }
-
-let treeRoot = scriptArgs[0];
-let indexRoot = scriptArgs[1];
-let filenames = scriptArgs.slice(2);
 
 let jumps = snarf(indexRoot + "/jumps");
 let jumpLines = jumps.split("\n");
@@ -34,6 +38,8 @@ function processFile(filename) {
 
   let datum = parseAnalysis(analysisLines[0]);
   let analysisIndex = 1;
+
+  javascript = hljs.highlight("js", javascript, true).value;
 
   let lines = javascript.split("\n");
 
@@ -57,13 +63,35 @@ function processFile(filename) {
 
   putstr(`      </td>
       <td class="code">
-<pre><code class="javascript">`);
+<pre>`);
 
   lineNum = 1;
   for (let line of lines) {
-    putstr(`<span id="line-${lineNum}" aria-labelledby="${lineNum}">`);
+    putstr(`<code id="line-${lineNum}" aria-labelledby="${lineNum}">`);
 
-    for (let col = 0; col < line.length; col++) {
+    let col = 0;
+    for (let i = 0; i < line.length; i++) {
+      let ch = line[i];
+
+      if (ch == '&') {
+        do {
+          putstr(line[i]);
+          i++;
+        } while (line[i] != ';');
+        putstr(line[i]);
+        col++;
+        continue;
+      }
+
+      if (ch == '<') {
+        do {
+          putstr(line[i]);
+          i++;
+        } while (line[i] != '>');
+        putstr(line[i]);
+        continue;
+      }
+
       if (lineNum == datum.line && col == datum.col) {
         let extra = "";
         if (datum.extra) {
@@ -78,6 +106,7 @@ function processFile(filename) {
         putstr(`<span data-id="${datum.id}" data-kind=${datum.kind} ${extra}>${datum.name}</span>`);
 
         col += datum.name.length - 1;
+        i += datum.name.length - 1;
         do {
           datum = parseAnalysis(analysisLines[analysisIndex++]);
         } while (datum.line == lastLine && datum.col == lastCol);
@@ -87,21 +116,18 @@ function processFile(filename) {
         lastLine = datum.line;
         lastCol = datum.col;
       } else {
-        let ch = line[col];
-        if (ch == '<') {
-          putstr("&lt;");
-        } else {
-          putstr(ch);
-        }
+        putstr(ch);
       }
+
+      col++;
     }
 
-    print(`</span>`);
+    print(`</code>`);
 
     lineNum++;
   }
 
-  print(`</code></pre>
+  print(`</pre>
       </td>
     </tr>
   </tbody>
