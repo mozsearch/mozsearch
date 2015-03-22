@@ -31,7 +31,8 @@ namespace {
 const std::string GENERATED("--GENERATED--/");
 
 // Curse whoever didn't do this.
-std::string &operator+=(std::string &str, unsigned int i)
+std::string
+&operator+=(std::string &str, unsigned int i)
 {
   static char buf[15] = { '\0' };
   char *ptr = &buf[13];
@@ -42,18 +43,21 @@ std::string &operator+=(std::string &str, unsigned int i)
   return str += (ptr + 1);
 }
 
-inline bool str_starts_with(const std::string &s, const std::string &prefix)
+inline bool
+str_starts_with(const std::string &s, const std::string &prefix)
 {
   return s.compare(0, prefix.size(), prefix) == 0;
 }
 
-inline bool str_ends_with(const std::string &s, const std::string &suffix)
+inline bool
+str_ends_with(const std::string &s, const std::string &suffix)
 {
   return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 // BEWARE: use only as a temporary
-const char *hash(std::string &str)
+const char *
+hash(std::string &str)
 {
   static unsigned char rawhash[20];
   static char hashstr[41];
@@ -88,7 +92,8 @@ struct FileInfo
 
 class IndexConsumer;
 
-class PreprocThunk : public PPCallbacks {
+class PreprocThunk : public PPCallbacks
+{
   IndexConsumer *real;
 public:
   PreprocThunk(IndexConsumer *c) : real(c) {}
@@ -299,8 +304,7 @@ public:
   // first macro. This is useful for getting back to the actual place that
   // cites a variable that then gets passed to a macro.
   SourceLocation escapeMacros(SourceLocation loc) {
-    while (loc.isValid() && loc.isMacroID())
-    {
+    while (loc.isValid() && loc.isMacroID()) {
       if (!sm.isMacroArgExpansion(loc))
         return SourceLocation();
       loc = sm.getImmediateSpellingLoc(loc);
@@ -308,8 +312,7 @@ public:
     return loc;
   }
 
-  Decl *getNonClosureDecl(Decl *d)
-  {
+  Decl *getNonClosureDecl(Decl *d) {
     DeclContext *dc;
     for (dc = d->getDeclContext(); dc->isClosure(); dc = dc->getParent())
       ;
@@ -339,7 +342,12 @@ public:
   }
 
   // vars, funcs, types, enums, classes, unions, etc.
-  void declDef(const char *kind, const NamedDecl *decl, const NamedDecl *def, SourceLocation begin, SourceLocation end) {
+  void declDef(const char *kind,
+               const NamedDecl *decl,
+               const NamedDecl *def,
+               SourceLocation begin,
+               SourceLocation end)
+  {
     if (!def || def == decl)  // Why aren't we interested in declarations of things that aren't [later] defined?
       return;
 
@@ -638,8 +646,7 @@ public:
   }
 
   // Like "namespace foo;"
-  bool VisitNamespaceDecl(NamespaceDecl *d)
-  {
+  bool VisitNamespaceDecl(NamespaceDecl *d) {
     if (!interestingLocation(d->getLocation()))
       return true;
     beginRecord("namespace", d->getLocation());
@@ -652,8 +659,7 @@ public:
   }
 
   // Like "namespace bar = foo;"
-  bool VisitNamespaceAliasDecl(NamespaceAliasDecl *d)
-  {
+  bool VisitNamespaceAliasDecl(NamespaceAliasDecl *d) {
     if (!interestingLocation(d->getLocation()))
       return true;
 
@@ -671,8 +677,7 @@ public:
   }
 
   // Like "using namespace std;"
-  bool VisitUsingDirectiveDecl(UsingDirectiveDecl *d)
-  {
+  bool VisitUsingDirectiveDecl(UsingDirectiveDecl *d) {
     if (!interestingLocation(d->getLocation()))
       return true;
     if (d->getQualifierLoc())
@@ -682,8 +687,7 @@ public:
   }
 
   // Like "using std::string;"
-  bool VisitUsingDecl(UsingDecl *d)
-  {
+  bool VisitUsingDecl(UsingDecl *d) {
     if (!interestingLocation(d->getLocation()))
       return true;
     if (d->getQualifierLoc())
@@ -724,8 +728,7 @@ public:
     *out << std::endl;
   }
 
-  const char *kindForDecl(const Decl *d)
-  {
+  const char *kindForDecl(const Decl *d) {
     if (isa<FunctionDecl>(d))
       return "function";
     if (isa<EnumConstantDecl>(d) || isa<VarDecl>(d) || isa<FieldDecl>(d))
@@ -899,8 +902,7 @@ public:
     return true;
   }
 
-  SourceLocation removeTrailingColonColon(SourceLocation begin, SourceLocation end)
-  {
+  SourceLocation removeTrailingColonColon(SourceLocation begin, SourceLocation end) {
     if (!end.isValid())
       return end;
 
@@ -919,8 +921,7 @@ public:
     return prev.isValid() ? prev : end;
   }
 
-  void visitNestedNameSpecifierLoc(NestedNameSpecifierLoc l)
-  {
+  void visitNestedNameSpecifierLoc(NestedNameSpecifierLoc l) {
     if (!interestingLocation(l.getBeginLoc()))
       return;
 
@@ -951,7 +952,8 @@ public:
   }
 
   virtual void HandleDiagnostic(DiagnosticsEngine::Level level,
-      const Diagnostic &info) {
+                                const Diagnostic &info)
+  {
     DiagnosticConsumer::HandleDiagnostic(level, info);
     inner->HandleDiagnostic(level, info);
     if (level != DiagnosticsEngine::Warning ||
@@ -1118,45 +1120,53 @@ public:
 
 };
 
-void PreprocThunk::MacroDefined(const Token &tok, const MacroDirective *md)
+void
+PreprocThunk::MacroDefined(const Token &tok, const MacroDirective *md)
 {
   real->MacroDefined(tok, md->getMacroInfo());
 }
 
-void PreprocThunk::MacroExpands(const Token &tok, const MacroDirective *md, SourceRange range, const MacroArgs *ma)
+void
+PreprocThunk::MacroExpands(const Token &tok, const MacroDirective *md,
+                                SourceRange range, const MacroArgs *ma)
 {
   real->MacroExpands(tok, md->getMacroInfo(), range);
 }
 
-void PreprocThunk::MacroUndefined(const Token &tok, const MacroDirective *md)
+void
+PreprocThunk::MacroUndefined(const Token &tok, const MacroDirective *md)
 {
   real->MacroUndefined(tok, md->getMacroInfo());
 }
 
-void PreprocThunk::Defined(const Token &tok, const MacroDirective *md, SourceRange)
+void
+PreprocThunk::Defined(const Token &tok, const MacroDirective *md, SourceRange)
 {
   real->Defined(tok, md->getMacroInfo());
 }
 
-void PreprocThunk::Ifdef(SourceLocation loc, const Token &tok, const MacroDirective *md)
+void
+PreprocThunk::Ifdef(SourceLocation loc, const Token &tok, const MacroDirective *md)
 {
   real->Ifdef(loc, tok, md->getMacroInfo());
 }
 
-void PreprocThunk::Ifndef(SourceLocation loc, const Token &tok, const MacroDirective *md)
+void
+PreprocThunk::Ifndef(SourceLocation loc, const Token &tok, const MacroDirective *md)
 {
   real->Ifndef(loc, tok, md->getMacroInfo());
 }
 
-void PreprocThunk::InclusionDirective(SourceLocation hashLoc,
-                                      const Token &includeTok,
-                                      StringRef fileName,
-                                      bool isAngled,
-                                      CharSourceRange filenameRange,
-                                      const FileEntry *file,
-                                      StringRef searchPath,
-                                      StringRef relativePath,
-                                      const Module *imported)
+void
+PreprocThunk::InclusionDirective(SourceLocation hashLoc,
+                                 const Token &includeTok,
+                                 StringRef fileName,
+                                 bool isAngled,
+                                 CharSourceRange filenameRange,
+                                 const FileEntry *file,
+                                 StringRef searchPath,
+                                 StringRef relativePath,
+                                 const Module *imported)
 {
   real->InclusionDirective(hashLoc,
                            includeTok,
