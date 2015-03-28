@@ -5,3 +5,4 @@ temp-index
 mozilla-central
 *.o
 *.so
+clang-plugin/a.out
