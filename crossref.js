@@ -32,6 +32,10 @@ function cut(str, n)
 
 function processFile(filename)
 {
+  if (filename.startsWith("./")) {
+    filename = filename.slice(2);
+  }
+
   let code = snarf(sourceRoot + "/" + filename);
   let analysis = snarf(analysisRoot + "/" + filename);
 

@@ -60,10 +60,10 @@ let "i = 0" || true
 for filename in $(cat $JS_FILES)
 do
   mkdir -p $INDEX_ROOT/analysis/$(dirname $filename)
-  if [ $TREE_ROOT/$filename -nt $INDEX_ROOT/analysis/$filename -o \
+  if [ $TREE_ROOT/mozilla-central/$filename -nt $INDEX_ROOT/analysis/$filename -o \
        $MOZSEARCH_ROOT/js-analyze.js -nt $INDEX_ROOT/analysis/$filename ]
   then
-    $JS $MOZSEARCH_ROOT/js-analyze.js $i $TREE_ROOT/$filename > $INDEX_ROOT/analysis/$filename
+    $JS $MOZSEARCH_ROOT/js-analyze.js $i $TREE_ROOT/mozilla-central/$filename > $INDEX_ROOT/analysis/$filename
   fi
   let "i = i+1"
 done

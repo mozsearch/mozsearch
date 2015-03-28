@@ -463,11 +463,16 @@ let Analyzer = {
 
       let oldNameForThis = this.nameForThis;
       if (expr.left.type == "MemberExpression" &&
-          !expr.left.computed &&
-          expr.left.property.name == "prototype" &&
-          expr.left.object.type == "Identifier")
+          !expr.left.computed)
       {
-        this.nameForThis = expr.left.object.name;
+        if (expr.left.property.name == "prototype" &&
+            expr.left.object.type == "Identifier")
+        {
+          this.nameForThis = expr.left.object.name;
+        }
+        if (expr.left.object.type == "ThisExpression") {
+          this.nameForThis = expr.left.property.name;
+        }
       }
       this.expression(expr.right);
       this.nameForThis = oldNameForThis;
