@@ -41,9 +41,11 @@ EOF
   ./mach build
 fi
 
-# FIXME: Get list of files to do JS analysis on
-JS_FILES=$MOZSEARCH_ROOT/js-files
-ALL_FILES=$MOZSEARCH_ROOT/all-files
+python $MOZSEARCH_ROOT/find-repo-files.py $MOZSEARCH_ROOT $INDEX_ROOT $TREE_ROOT/mozilla-central
+
+JS_FILES=$INDEX_ROOT/js-files
+ALL_FILES=$INDEX_ROOT/all-files
+ALL_DIRS=$INDEX_ROOT/all-dirs
 
 if [ "x${JS}" = "x" ]
 then
@@ -60,17 +62,34 @@ $CODESEARCH $MOZSEARCH_ROOT/livegrep-index.json -dump_index $INDEX_ROOT/livegrep
 # Avoid using $PWD
 cd /tmp
 
-let "i = 0" || true
-for filename in $(cat $JS_FILES)
+mkdir -p $INDEX_ROOT/analysis
+mkdir -p $INDEX_ROOT/file
+mkdir -p $INDEX_ROOT/dir
+
+set +x
+
+for dir in $(cat $ALL_DIRS)
 do
-  mkdir -p $INDEX_ROOT/analysis/$(dirname $filename)
-  if [ $TREE_ROOT/mozilla-central/$filename -nt $INDEX_ROOT/analysis/$filename -o \
-       $MOZSEARCH_ROOT/js-analyze.js -nt $INDEX_ROOT/analysis/$filename ]
-  then
-    $JS $MOZSEARCH_ROOT/js-analyze.js $i $TREE_ROOT/mozilla-central/$filename > $INDEX_ROOT/analysis/$filename
-  fi
-  let "i = i+1"
+  mkdir -p $INDEX_ROOT/file/$dir
+  mkdir -p $INDEX_ROOT/dir/$dir
+  mkdir -p $INDEX_ROOT/analysis/$dir
 done
+
+set -x
+
+parallel $JS $MOZSEARCH_ROOT/js-analyze.js {#} $TREE_ROOT/mozilla-central/{} ">" $INDEX_ROOT/analysis/{} < $JS_FILES
+
+#let "i = 0" || true
+#for filename in $(cat $JS_FILES)
+#do
+#  mkdir -p $INDEX_ROOT/analysis/$(dirname $filename)
+#  if [ $TREE_ROOT/mozilla-central/$filename -nt $INDEX_ROOT/analysis/$filename -o \
+#       $MOZSEARCH_ROOT/js-analyze.js -nt $INDEX_ROOT/analysis/$filename ]
+#  then
+#    $JS $MOZSEARCH_ROOT/js-analyze.js $i $TREE_ROOT/mozilla-central/$filename > $INDEX_ROOT/analysis/$filename
+#  fi
+#  let "i = i+1"
+#done
 
 cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
                           $TREE_ROOT/mozilla-central/ \
@@ -78,23 +97,6 @@ cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
                           $INDEX_ROOT/crossref \
                           $INDEX_ROOT/jumps
 
-ALL_DIRS=$MOZSEARCH_ROOT/all-dirs
-DIRLIST=$((for f in $(cat $ALL_FILES); do echo ${f%/*}; done)|uniq)
-for dir in $DIRLIST
-do
-  if [ -d $TREE_ROOT/mozilla-central/$dir ]
-  then
-    echo $dir >>$ALL_DIRS
-  fi
-done
-echo / >>$ALL_DIRS
+cat $ALL_FILES | parallel --halt 2 -X --eta $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
 
-for dir in $(cat $ALL_DIRS)
-do
-  mkdir -p $INDEX_ROOT/file/$dir
-  mkdir -p $INDEX_ROOT/dir/$dir
-done
-
-cat $ALL_FILES | parallel -X --eta $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
-
-cat $ALL_DIRS | parallel -X --eta $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
+cat $ALL_DIRS | parallel --halt 2 -X --eta $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT

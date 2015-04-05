@@ -1,6 +1,6 @@
-function fileURL(path)
+function fileURL(tree, path)
 {
-  return `/mozilla-central/source/${path}`;
+  return `/${tree}/source${path}`;
 }
 
 function getSuffix(filename)
@@ -18,37 +18,26 @@ function chooseIcon(path)
   return { 'cpp': 'cpp', 'h': 'h', 'c': 'c', 'js': 'js', 'jsm': 'js', 'py': 'py' }[suffix] || "";
 }
 
-function generateBreadcrumbs(path)
+function generateBreadcrumbs(path, opt)
 {
-  if (path == "/") {
-    return "";
-  }
-
-  let breadcrumbs = "";
-  let first = true;
+  let tree = opt.tree;
+  let breadcrumbs = `<a href="${fileURL(tree, "")}">${tree}</a>`;
   let pathSoFar = "";
-  for (let name of path.split("/")) {
-    if (!first) {
-      breadcrumbs += `<span class="path-separator">/</span>`;
-      pathSoFar += "/" + name;
-    } else {
-      pathSoFar += name;
-    }
-    first = false;
-    breadcrumbs += `<a href="${fileURL(pathSoFar)}">${name}</a>`;
+  for (let name of path.slice(1).split("/")) {
+    breadcrumbs += `<span class="path-separator">/</span>`;
+    pathSoFar += "/" + name;
+    breadcrumbs += `<a href="${fileURL(tree, pathSoFar)}">${name}</a>`;
   }
 
-  return `
-  <div class="breadcrumbs">
+  return `<div class="breadcrumbs">
     ${breadcrumbs}
-  </div>
-`;
+  </div>`;
 }
 
 function generate(content, opt)
 {
   let title = opt.title || "mozsearch";
-  let tree = opt.tree || "mozilla-central";
+  let tree = opt.tree;
   let shouldAutofocusQuery = opt.shouldAutofocusQuery || false;
   let query = opt.query || "";
   let filters = opt.filters || [];

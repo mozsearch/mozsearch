@@ -1,6 +1,7 @@
 import BaseHTTPServer
 import SimpleHTTPServer
 import urllib
+import urlparse
 import sys
 import os
 import os.path
@@ -33,6 +34,7 @@ class CodeSearch:
         self.wait_ready()
 
     def search(self, needle, fold_case=False, file='.*', repo='.*'):
+        print needle
         pattern = re.escape(needle)
         query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
         print 'SEND', json.dumps(query)
@@ -75,23 +77,27 @@ class CodeSearch:
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path.startswith('/mozilla-central/source/'):
-            filename = os.path.join(indexPath, 'file', self.path[len('/mozilla-central/source/'):])
+        url = urlparse.urlparse(self.path)
+        pathElts = url.path.split('/')
+
+        # Strip any extra slashes.
+        pathElts = [ elt for elt in pathElts if elt != '' ]
+
+        if pathElts[:2] == ['mozilla-central', 'source']:
+            filename = os.path.join(indexPath, 'file', '/'.join(pathElts[2:]))
             try:
                 data = open(filename).read()
             except:
-                filename = os.path.join(indexPath, 'dir', self.path[len('/mozilla-central/source/'):], 'index.html')
+                filename = os.path.join(indexPath, 'dir', '/'.join(pathElts[2:]), 'index.html')
                 data = open(filename).read()
 
             self.generate(data)
-        elif self.path.startswith('/mozilla-central/search?q='):
-            q = self.path[len('/mozilla-central/search?q='):]
-            if '&' in q:
-                q = q[:q.index('&')]
-            data = json.dumps(codesearch.search(q))
+        elif pathElts[:2] == ['mozilla-central', 'search']:
+            query = urlparse.parse_qs(url.query)
+            data = json.dumps(codesearch.search(query['q'][0]))
             template = os.path.join(mozSearchPath, 'searchresults-template.html')
             self.generateWithTemplate(data, template)
-        elif self.path.startswith('/crossref/'):
+        elif pathElts[0] == 'crossref':
             template = os.path.join(mozSearchPath, 'crossref-template.html')
             symbol = self.path[len('/crossref/'):].replace('%23', '#')
             data = crossrefs[symbol]

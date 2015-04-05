@@ -90,7 +90,7 @@ function generatePanel()
 `;
 }
 
-function generateFile(filename)
+function generateFile(filename, opt)
 {
   let language = chooseLanguage(filename);
 
@@ -100,7 +100,7 @@ function generateFile(filename)
     language = null;
   } else {
     try {
-      code = snarf(treeRoot + "/" + filename);
+      code = snarf(treeRoot + filename);
     } catch (e) {
       code = "binary file";
       language = null;
@@ -110,7 +110,7 @@ function generateFile(filename)
   let analysisLines = [];
 
   try {
-    let analysis = snarf(indexRoot + "/analysis/" + filename);
+    let analysis = snarf(indexRoot + "/analysis" + filename);
     analysisLines = analysis.split("\n");
     analysisLines.pop();
   } catch (e) {
@@ -137,7 +137,7 @@ function generateFile(filename)
     content += s;
   }
 
-  out(generateBreadcrumbs(filename));
+  out(generateBreadcrumbs(filename, opt));
   out(generatePanel());
 
   out(`
@@ -238,10 +238,10 @@ function generateFile(filename)
 </table>
 `);
 
-  redirect(indexRoot + "/file/" + filename);
-  putstr(generate(content, {}));
+  redirect(indexRoot + "/file" + filename);
+  putstr(generate(content, opt));
 }
 
 for (let filename of filenames) {
-  generateFile(filename);
+  generateFile(filename, {tree: "mozilla-central"});
 }

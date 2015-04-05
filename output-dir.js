@@ -37,7 +37,7 @@ function listDirectory(path)
 
 function generateDirectory(path, opt)
 {
-  let entries = listDirectory(treeRoot + "/" + path);
+  let entries = listDirectory(treeRoot + path);
 
   let entryContent = "";
   for (let entry of entries) {
@@ -49,7 +49,7 @@ function generateDirectory(path, opt)
       icon = chooseIcon(entry.name);
     }
 
-    let relative_url = fileURL(path + "/" + entry.name);
+    let relative_url = fileURL(opt.tree, path == "/" ? "/" + entry.name : path + "/" + entry.name);
 
     entryContent += `
         <tr>
@@ -61,7 +61,7 @@ function generateDirectory(path, opt)
   }
 
   let content = `
-  ${generateBreadcrumbs(path)}
+  ${generateBreadcrumbs(path, opt)}
 
   <table class="folder-content">
     <thead>
@@ -79,10 +79,10 @@ function generateDirectory(path, opt)
 
   let output = generate(content, opt);
 
-  redirect(indexRoot + "/dir/" + path + "/index.html");
+  redirect(indexRoot + "/dir" + path + "/index.html");
   print(output);
 }
 
 for (let dir of paths) {
-  generateDirectory(dir, {});
+  generateDirectory(dir, {tree: "mozilla-central"});
 }
