@@ -43,6 +43,7 @@ fi
 
 # FIXME: Get list of files to do JS analysis on
 JS_FILES=$MOZSEARCH_ROOT/js-files
+ALL_FILES=$MOZSEARCH_ROOT/all-files
 
 if [ "x${JS}" = "x" ]
 then
@@ -77,9 +78,23 @@ cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
                           $INDEX_ROOT/crossref \
                           $INDEX_ROOT/jumps
 
-for filename in $(cat $JS_FILES)
+ALL_DIRS=$MOZSEARCH_ROOT/all-dirs
+DIRLIST=$((for f in $(cat $ALL_FILES); do echo ${f%/*}; done)|uniq)
+for dir in $DIRLIST
 do
-  mkdir -p $INDEX_ROOT/file/$(dirname $filename)
+  if [ -d $TREE_ROOT/mozilla-central/$dir ]
+  then
+    echo $dir >>$ALL_DIRS
+  fi
+done
+echo / >>$ALL_DIRS
+
+for dir in $(cat $ALL_DIRS)
+do
+  mkdir -p $INDEX_ROOT/file/$dir
+  mkdir -p $INDEX_ROOT/dir/$dir
 done
 
-cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/js-output.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
+cat $ALL_FILES | parallel -X --eta $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
+
+cat $ALL_DIRS | parallel -X --eta $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT

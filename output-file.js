@@ -6,6 +6,8 @@ let filenames = scriptArgs.slice(3);
 let window = this;
 run(mozSearchRoot + "/highlight.pack.js");
 
+run(mozSearchRoot + "/output.js");
+
 function parseAnalysis(line)
 {
   let parts = line.split(" ");
@@ -25,14 +27,94 @@ for (let id of jumpLines) {
   jumps.add(id);
 }
 
-function processFile(filename) {
-  let t0 = Date.now();
+function chooseLanguage(filename)
+{
+  let suffix = getSuffix(filename);
 
-  let javascript = snarf(treeRoot + "/" + filename);
-  let analysis = snarf(indexRoot + "/analysis/" + filename);
+  let exclude = {'ogg': true, 'ttf': true, 'xpi': true, 'png': true, 'bcmap': true,
+                 'gif': true, 'ogv': true, 'jpg': true, 'bmp': true, 'icns': true, 'ico': true,
+                 'mp4': true, 'sqlite': true, 'jar': true, 'webm': true, 'woff': true,
+                 'class': true, 'm4s': true, 'mgif': true, 'wav': true, 'opus': true,
+                 'mp3': true, 'otf': true};
+  if (suffix in exclude) {
+    return "skip";
+  }
 
-  let analysisLines = analysis.split("\n");
-  analysisLines.pop();
+  let table = {'js': 'javascript', 'jsm': 'javascript',
+               'cpp': 'cpp', 'h': 'cpp', 'cc': 'cpp', 'hh': 'cpp', 'c': 'cpp',
+               'py': 'python', 'sh': 'bash', 'build': 'python', 'ini': 'ini',
+               'java': 'java', 'json': 'json', 'xml': 'xml', 'css': 'css',
+               'html': 'html'};
+  if (suffix in table) {
+    return table[suffix];
+  }
+  return null;
+}
+
+function toHTML(code)
+{
+  code = code.replace("&", "&amp;", "gm");
+  code = code.replace("<", "&lt;", "gm");
+  return code;
+}
+
+function generatePanel()
+{
+  return `
+  <div class="panel">
+    <button id="panel-toggle">
+      <span class="navpanel-icon expanded" aria-hidden="false"></span>
+      Navigation
+    </button>
+    <section id="panel-content" aria-expanded="true" aria-hidden="false">
+
+      <h4>Mercurial (b8e628af0b5c)</h4>
+      <ul>
+
+        <li>
+          <a href="https://hg.mozilla.org/mozilla-central/filelog/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Log" class="log icon">Log</a>
+        </li>
+        <li>
+          <a href="https://hg.mozilla.org/mozilla-central/annotate/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Blame" class="blame icon">Blame</a>
+        </li>
+            <li>
+              <a href="https://hg.mozilla.org/mozilla-central/diff/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Diff" class="diff icon">Diff</a>
+            </li>
+        <li>
+          <a href="https://hg.mozilla.org/mozilla-central/raw-file/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Raw" class="raw icon">Raw</a>
+        </li>
+      </ul>
+
+    </section>
+  </div>
+`;
+}
+
+function generateFile(filename)
+{
+  let language = chooseLanguage(filename);
+
+  let code;
+  if (language == "skip") {
+    code = "binary file";
+    language = null;
+  } else {
+    try {
+      code = snarf(treeRoot + "/" + filename);
+    } catch (e) {
+      code = "binary file";
+      language = null;
+    }
+  }
+
+  let analysisLines = [];
+
+  try {
+    let analysis = snarf(indexRoot + "/analysis/" + filename);
+    analysisLines = analysis.split("\n");
+    analysisLines.pop();
+  } catch (e) {
+  }
   analysisLines.push("100000000000:0 eof BAD BAD");
 
   let lastLine = -1;
@@ -41,23 +123,22 @@ function processFile(filename) {
   let datum = parseAnalysis(analysisLines[0]);
   let analysisIndex = 1;
 
-  javascript = hljs.highlight("js", javascript, true).value;
+  if (language) {
+    code = hljs.highlight(language, code, true).value;
+  } else {
+    code = toHTML(code);
+  }
 
-  let lines = javascript.split("\n");
+  let lines = code.split("\n");
 
-  let t1 = Date.now();
-
-  redirect(indexRoot + "/file/" + filename);
-
-  let output = '';
+  let content = '';
 
   function out(s) {
-    output += s;
-    if (output.length > 4096) {
-      putstr(output);
-      output = '';
-    }
+    content += s;
   }
+
+  out(generateBreadcrumbs(filename));
+  out(generatePanel());
 
   out(`
 <table id="file" class="file">
@@ -79,8 +160,6 @@ function processFile(filename) {
   out(`      </td>
       <td class="code">
 <pre>`);
-
-  let t2 = Date.now();
 
   function outputLine(lineNum, line) {
     let col = 0;
@@ -159,13 +238,10 @@ function processFile(filename) {
 </table>
 `);
 
-  putstr(output);
-
-  let t3 = Date.now();
-  if (t3-t0 > 150)
-  printErr(`${filename} ${t1-t0} ${t2-t1} ${t3-t2}`);
+  redirect(indexRoot + "/file/" + filename);
+  putstr(generate(content, {}));
 }
 
 for (let filename of filenames) {
-  processFile(filename);
+  generateFile(filename);
 }

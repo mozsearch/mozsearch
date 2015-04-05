@@ -77,9 +77,13 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/mozilla-central/source/'):
             filename = os.path.join(indexPath, 'file', self.path[len('/mozilla-central/source/'):])
-            data = open(filename).read()
-            template = os.path.join(mozSearchPath, 'file-template.html')
-            self.generateWithTemplate(data, template)
+            try:
+                data = open(filename).read()
+            except:
+                filename = os.path.join(indexPath, 'dir', self.path[len('/mozilla-central/source/'):], 'index.html')
+                data = open(filename).read()
+
+            self.generate(data)
         elif self.path.startswith('/mozilla-central/search?q='):
             q = self.path[len('/mozilla-central/search?q='):]
             if '&' in q:
@@ -94,6 +98,14 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.generateWithTemplate(data, template)
         else:
             return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
+
+    def generate(self, data):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+
+        self.wfile.write(data)
 
     def generateWithTemplate(self, data, templateFile):
         template = open(templateFile).read()
