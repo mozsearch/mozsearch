@@ -1,0 +1,8 @@
+{
+  "name": "mozilla-central",
+  "repositories": [{
+    "name": "mozilla-central",
+    "path": "mozilla-central",
+    "revisions": ["HEAD"]
+  }]
+}

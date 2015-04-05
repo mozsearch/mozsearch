@@ -26,6 +26,8 @@ for (let id of jumpLines) {
 }
 
 function processFile(filename) {
+  let t0 = Date.now();
+
   let javascript = snarf(treeRoot + "/" + filename);
   let analysis = snarf(indexRoot + "/analysis/" + filename);
 
@@ -43,9 +45,21 @@ function processFile(filename) {
 
   let lines = javascript.split("\n");
 
+  let t1 = Date.now();
+
   redirect(indexRoot + "/file/" + filename);
 
-  print(`
+  let output = '';
+
+  function out(s) {
+    output += s;
+    if (output.length > 4096) {
+      putstr(output);
+      output = '';
+    }
+  }
+
+  out(`
 <table id="file" class="file">
   <thead class="visually-hidden">
     <th scope="col">Line</th>
@@ -53,42 +67,42 @@ function processFile(filename) {
   </thead>
   <tbody>
     <tr>
-      <td id="line-numbers">`);
+      <td id="line-numbers">
+`);
 
   let lineNum = 1;
   for (let line of lines) {
-    print(`<span id="${lineNum}" class="line-number" unselectable="on" rel="#${lineNum}">${lineNum}</span>`);
+    out(`<span id="${lineNum}" class="line-number" unselectable="on" rel="#${lineNum}">${lineNum}</span>\n`);
     lineNum++;
   }
 
-  putstr(`      </td>
+  out(`      </td>
       <td class="code">
 <pre>`);
 
-  lineNum = 1;
-  for (let line of lines) {
-    putstr(`<code id="line-${lineNum}" aria-labelledby="${lineNum}">`);
+  let t2 = Date.now();
 
+  function outputLine(lineNum, line) {
     let col = 0;
     for (let i = 0; i < line.length; i++) {
       let ch = line[i];
 
       if (ch == '&') {
         do {
-          putstr(line[i]);
+          out(line[i]);
           i++;
         } while (line[i] != ';');
-        putstr(line[i]);
+        out(line[i]);
         col++;
         continue;
       }
 
       if (ch == '<') {
         do {
-          putstr(line[i]);
+          out(line[i]);
           i++;
         } while (line[i] != '>');
-        putstr(line[i]);
+        out(line[i]);
         continue;
       }
 
@@ -103,7 +117,7 @@ function processFile(filename) {
         if (datum.extra && jumps.has(datum.extra)) {
           extra += `data-extra-jump="true" `;
         }
-        putstr(`<span data-id="${datum.id}" data-kind=${datum.kind} ${extra}>${datum.name}</span>`);
+        out(`<span data-id="${datum.id}" data-kind=${datum.kind} ${extra}>${datum.name}</span>`);
 
         col += datum.name.length - 1;
         i += datum.name.length - 1;
@@ -116,23 +130,40 @@ function processFile(filename) {
         lastLine = datum.line;
         lastCol = datum.col;
       } else {
-        putstr(ch);
+        out(ch);
       }
 
       col++;
     }
+  }
 
-    print(`</code>`);
+  lineNum = 1;
+  for (let line of lines) {
+    out(`<code id="line-${lineNum}" aria-labelledby="${lineNum}">`);
+
+    if (lineNum != datum.line) {
+      out(line);
+    } else {
+      outputLine(lineNum, line);
+    }
+
+    out(`</code>\n`);
 
     lineNum++;
   }
 
-  print(`</pre>
+  out(`</pre>
       </td>
     </tr>
   </tbody>
 </table>
 `);
+
+  putstr(output);
+
+  let t3 = Date.now();
+  if (t3-t0 > 150)
+  printErr(`${filename} ${t1-t0} ${t2-t1} ${t3-t2}`);
 }
 
 for (let filename of filenames) {

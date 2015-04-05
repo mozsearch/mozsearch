@@ -4,6 +4,9 @@ import urllib
 import sys
 import os
 import os.path
+import socket
+import json
+import re
 
 mozSearchPath = sys.argv[1]
 indexPath = sys.argv[2]
@@ -20,13 +23,69 @@ for line in lines:
         crossrefs[key] = value
         key = None
 
+class CodeSearch:
+    def __init__(self, host, port):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, port))
+        self.state = 'init'
+        self.buffer = ''
+        self.matches = []
+        self.wait_ready()
+
+    def search(self, needle, fold_case=False, file='.*', repo='.*'):
+        pattern = re.escape(needle)
+        query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
+        print 'SEND', json.dumps(query)
+        self.state = 'search'
+        self.sock.sendall(json.dumps(query) + '\n')
+        self.wait_ready()
+        matches = self.matches
+        self.matches = []
+        return matches
+
+    def wait_ready(self):
+        while self.state != 'ready':
+            input = self.sock.recv(1024)
+            print 'RECV', input
+            self.buffer += input
+            self.handle_input()
+
+    def handle_input(self):
+        try:
+            pos = self.buffer.index('\n')
+        except:
+            pos = -1
+
+        if pos >= 0:
+            line = self.buffer[:pos]
+            self.buffer = self.buffer[pos + 1:]
+            self.handle_line(line)
+            self.handle_input()
+
+    def handle_line(self, line):
+        j = json.loads(line)
+        if j['opcode'] == 'match':
+            self.matches.append(j['body'])
+        elif j['opcode'] == 'ready':
+            self.state = 'ready'
+        elif j['opcode'] == 'done':
+            pass
+        else:
+            raise 'Unknown opcode %s' % j['opcode']
+
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path.startswith('/file/'):
-            print self.path
-            filename = os.path.join(indexPath, 'file', self.path[len('/file/'):])
+        if self.path.startswith('/mozilla-central/source/'):
+            filename = os.path.join(indexPath, 'file', self.path[len('/mozilla-central/source/'):])
             data = open(filename).read()
             template = os.path.join(mozSearchPath, 'file-template.html')
+            self.generateWithTemplate(data, template)
+        elif self.path.startswith('/mozilla-central/search?q='):
+            q = self.path[len('/mozilla-central/search?q='):]
+            if '&' in q:
+                q = q[:q.index('&')]
+            data = json.dumps(codesearch.search(q))
+            template = os.path.join(mozSearchPath, 'searchresults-template.html')
             self.generateWithTemplate(data, template)
         elif self.path.startswith('/crossref/'):
             template = os.path.join(mozSearchPath, 'crossref-template.html')
@@ -47,9 +106,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self.wfile.write(output)
 
-def run():
-    server_address = ('', 8000)
-    httpd = BaseHTTPServer.HTTPServer(server_address, Handler)
-    httpd.serve_forever()
-
-run()
+codesearch = CodeSearch('localhost', 8080)
+server_address = ('', 8000)
+httpd = BaseHTTPServer.HTTPServer(server_address, Handler)
+httpd.serve_forever()

@@ -111,6 +111,7 @@
 ./media/webrtc/trunk/webrtc/tools/rtcbot/bot/api.js
 ./media/webrtc/trunk/webrtc/tools/rtcbot/bot/browser/bot.js
 ./widget/windows/winrt/MetroUIUtils.js
+./addon-sdk/source/gulpfile.js
 ./addon-sdk/source/lib/index.js
 ./addon-sdk/source/lib/test.js
 ./addon-sdk/source/lib/dev/debuggee.js
@@ -484,6 +485,7 @@
 ./dom/voicemail/gonk/VoicemailService.js
 ./dom/presentation/PresentationDeviceInfoManager.jsm
 ./dom/presentation/PresentationDeviceInfoManager.js
+./dom/presentation/provider/TCPPresentationServer.js
 ./dom/mobileid/MobileIdentity.js
 ./dom/cellbroadcast/gonk/CellBroadcastService.js
 ./dom/imptests/testharnessreport.js
@@ -584,6 +586,7 @@
 ./toolkit/components/nsDefaultCLH.js
 ./toolkit/components/addoncompat/multiprocessShims.js
 ./toolkit/components/addoncompat/Prefetcher.jsm
+./toolkit/components/addoncompat/CompatWarning.jsm
 ./toolkit/components/addoncompat/RemoteAddonsChild.jsm
 ./toolkit/components/addoncompat/RemoteAddonsParent.jsm
 ./toolkit/components/addoncompat/remoteTagService.js
@@ -685,7 +688,6 @@
 ./toolkit/components/reflect/reflect.jsm
 ./toolkit/components/processsingleton/ContentProcessSingleton.js
 ./toolkit/components/processsingleton/MainProcessSingleton.js
-./toolkit/components/aboutcompartments/content/aboutCompartments.js
 ./toolkit/components/cookie/content/cookieAcceptDialog.js
 ./toolkit/components/formautofill/FormAutofillStartup.js
 ./toolkit/components/formautofill/FormAutofill.jsm
@@ -759,6 +761,7 @@
 ./toolkit/components/viewsource/content/viewSource.js
 ./toolkit/components/viewsource/content/viewSourceUtils.js
 ./toolkit/components/viewsource/content/viewPartialSource.js
+./toolkit/components/aboutperformance/content/aboutPerformance.js
 ./toolkit/components/workerloader/require.js
 ./toolkit/components/thumbnails/BackgroundPageThumbs.jsm
 ./toolkit/components/thumbnails/PageThumbUtils.jsm
@@ -776,6 +779,7 @@
 ./toolkit/modules/WebChannel.jsm
 ./toolkit/modules/Log.jsm
 ./toolkit/modules/ProfileAge.jsm
+./toolkit/modules/GMPUtils.jsm
 ./toolkit/modules/Deprecated.jsm
 ./toolkit/modules/PrivateBrowsingUtils.jsm
 ./toolkit/modules/Promise.jsm
@@ -801,6 +805,7 @@
 ./toolkit/modules/WindowsPrefSync.jsm
 ./toolkit/modules/Sntp.jsm
 ./toolkit/modules/WindowsRegistry.jsm
+./toolkit/modules/PerformanceStats.jsm
 ./toolkit/modules/InlineSpellChecker.jsm
 ./toolkit/modules/Troubleshoot.jsm
 ./toolkit/modules/ShortcutUtils.jsm
@@ -860,6 +865,7 @@
 ./toolkit/mozapps/extensions/DeferredSave.jsm
 ./toolkit/mozapps/extensions/amWebInstallListener.js
 ./toolkit/mozapps/extensions/nsBlocklistService.js
+./toolkit/mozapps/extensions/nsBlocklistServiceContent.js
 ./toolkit/mozapps/extensions/amContentHandler.js
 ./toolkit/mozapps/extensions/AddonManager.jsm
 ./toolkit/mozapps/extensions/internal/GMPProvider.jsm
@@ -883,9 +889,9 @@
 ./toolkit/mozapps/extensions/content/xpinstallConfirm.js
 ./toolkit/mozapps/extensions/content/extensions.js
 ./toolkit/mozapps/update/nsUpdateServiceStub.js
+./toolkit/mozapps/update/UpdateTelemetry.jsm
 ./toolkit/mozapps/update/nsUpdateService.js
 ./toolkit/mozapps/update/nsUpdateTimerManager.js
-./toolkit/mozapps/update/UpdaterHealthProvider.jsm
 ./toolkit/mozapps/update/content/history.js
 ./toolkit/mozapps/update/content/updates.js
 ./toolkit/crashreporter/CrashReports.jsm
@@ -971,6 +977,7 @@
 ./toolkit/devtools/server/actors/utils/actor-registry-utils.js
 ./toolkit/devtools/server/actors/utils/ScriptStore.js
 ./toolkit/devtools/server/actors/utils/map-uri-to-addon-id.js
+./toolkit/devtools/server/actors/utils/TabSources.js
 ./toolkit/devtools/server/actors/utils/make-debugger.js
 ./toolkit/devtools/server/actors/utils/automation-timeline.js
 ./toolkit/devtools/server/actors/utils/stack.js
@@ -1193,6 +1200,8 @@
 ./browser/components/translation/cld2/post.js
 ./browser/components/readinglist/sidebar.js
 ./browser/components/readinglist/Scheduler.jsm
+./browser/components/readinglist/Sync.jsm
+./browser/components/readinglist/ServerClient.jsm
 ./browser/components/readinglist/SQLiteStore.jsm
 ./browser/components/readinglist/ReadingList.jsm
 ./browser/components/shell/nsSetDefaultBrowser.js
@@ -1252,12 +1261,6 @@
 ./browser/components/loop/MozLoopWorker.js
 ./browser/components/loop/MozLoopAPI.jsm
 ./browser/components/loop/standalone/server.js
-./browser/components/loop/standalone/Gruntfile.js
-./browser/components/loop/standalone/grunttasks/marked.js
-./browser/components/loop/standalone/grunttasks/replace.js
-./browser/components/loop/standalone/grunttasks/sass.js
-./browser/components/loop/standalone/grunttasks/project_vars.js
-./browser/components/loop/standalone/content/legal/js/loader.js
 ./browser/components/loop/standalone/content/libs/l10n-gaia-02ca67948fe8.js
 ./browser/components/loop/standalone/content/js/standaloneClient.js
 ./browser/components/loop/standalone/content/js/standaloneMozLoop.js
@@ -1280,6 +1283,7 @@
 ./browser/components/loop/content/shared/js/mixins.js
 ./browser/components/loop/content/shared/js/models.js
 ./browser/components/loop/content/shared/js/feedbackApiClient.js
+./browser/components/loop/content/shared/js/crypto.js
 ./browser/components/loop/content/shared/js/feedbackStore.js
 ./browser/components/loop/content/shared/js/fxOSActiveRoomStore.js
 ./browser/components/loop/content/shared/js/views.js
@@ -1480,6 +1484,7 @@
 ./browser/devtools/performance/performance-controller.js
 ./browser/devtools/performance/panel.js
 ./browser/devtools/performance/performance-view.js
+./browser/devtools/performance/views/jit-optimizations.js
 ./browser/devtools/performance/views/details-waterfall.js
 ./browser/devtools/performance/views/details-memory-call-tree.js
 ./browser/devtools/performance/views/recordings.js
@@ -1505,6 +1510,7 @@
 ./browser/devtools/debugger/debugger-panes.js
 ./browser/devtools/debugger/debugger-commands.js
 ./browser/devtools/debugger/panel.js
+./browser/devtools/debugger/utils.js
 ./browser/devtools/webide/webide-prefs.js
 ./browser/devtools/webide/components/webideCli.js
 ./browser/devtools/webide/modules/runtimes.js
@@ -1514,7 +1520,6 @@
 ./browser/devtools/webide/modules/simulator-process.js
 ./browser/devtools/webide/modules/addons.js
 ./browser/devtools/webide/modules/build.js
-./browser/devtools/webide/modules/remote-resources.js
 ./browser/devtools/webide/modules/utils.js
 ./browser/devtools/webide/modules/simulators.js
 ./browser/devtools/webide/modules/project-list.js
@@ -1571,12 +1576,14 @@
 ./browser/devtools/shared/devices.js
 ./browser/devtools/shared/theme.js
 ./browser/devtools/shared/Parser.jsm
+./browser/devtools/shared/getjson.js
 ./browser/devtools/shared/widgets/VariablesView.jsm
 ./browser/devtools/shared/widgets/Tooltip.js
 ./browser/devtools/shared/widgets/TreeWidget.js
 ./browser/devtools/shared/widgets/ViewHelpers.jsm
 ./browser/devtools/shared/widgets/Chart.jsm
 ./browser/devtools/shared/widgets/AbstractTreeItem.jsm
+./browser/devtools/shared/widgets/CubicBezierPresets.js
 ./browser/devtools/shared/widgets/BreadcrumbsWidget.jsm
 ./browser/devtools/shared/widgets/FlameGraph.jsm
 ./browser/devtools/shared/widgets/TableWidget.js
@@ -1590,6 +1597,7 @@
 ./browser/devtools/shared/widgets/SideMenuWidget.jsm
 ./browser/devtools/shared/profiler/tree-view.js
 ./browser/devtools/shared/profiler/global.js
+./browser/devtools/shared/profiler/jit.js
 ./browser/devtools/shared/profiler/tree-model.js
 ./browser/devtools/shared/timeline/memory-overview.js
 ./browser/devtools/shared/timeline/global.js
@@ -1802,6 +1810,7 @@
 ./browser/base/content/pageinfo/feeds.js
 ./netwerk/protocol/http/UserAgentOverrides.jsm
 ./netwerk/protocol/http/UserAgentUpdates.jsm
+./netwerk/base/PACGenerator.js
 ./netwerk/base/security-prefs.js
 ./netwerk/base/NetUtil.jsm
 ./config/static-checking.js
@@ -1894,7 +1903,6 @@
 ./js/src/jit-test/lib/orTestHelper.js
 ./js/src/jit-test/lib/bullet.js
 ./js/src/jit-test/lib/evalInFrame.js
-./js/src/jit-test/lib/prolog.js
 ./js/src/jit-test/lib/range.js
 ./js/src/jit-test/lib/iteration.js
 ./js/src/jit-test/lib/match.js
@@ -1902,6 +1910,7 @@
 ./js/src/jit-test/lib/string.js
 ./js/src/jit-test/lib/bytecode-cache.js
 ./js/src/jit-test/lib/census.js
+./js/src/jit-test/lib/prologue.js
 ./js/src/jit-test/lib/mandelbrot-results.js
 ./js/src/jit-test/lib/jitopts.js
 ./js/src/jit-test/lib/andTestHelper.js
@@ -2154,7 +2163,6 @@
 ./services/common/stringbundle.js
 ./services/common/hawkclient.js
 ./services/common/logmanager.js
-./services/common/storageservice.js
 ./services/common/rest.js
 ./services/common/bagheeraclient.js
 ./services/common/observers.js
@@ -2185,6 +2193,7 @@
 ./services/cloudsync/CloudSyncAdapters.jsm
 ./services/cloudsync/CloudSyncBookmarks.jsm
 ./services/cloudsync/CloudSyncEventSource.jsm
+./services/fxaccounts/FxAccountsProfile.jsm
 ./services/fxaccounts/FxAccountsManager.jsm
 ./services/fxaccounts/Credentials.jsm
 ./services/fxaccounts/FxAccountsProfileClient.jsm
