@@ -89,15 +89,15 @@ $("#file").on("click", "span[data-id]", function(event) {
   if (id.startsWith("#")) {
     if (extra) {
       menuItems.push({html: fmt("Search for property _", extra),
-                      href: "/crossref/" + encodeURIComponent(extra),
+                      href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(extra),
                       icon: "search"});
     }
     menuItems.push({html: fmt("Search for property _", idName),
-                    href: "/crossref/" + encodeURIComponent(id),
+                    href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(id),
                     icon: "search"});
   } else {
     menuItems.push({html: fmt("Search for variable _", idName),
-                    href: "/crossref/" + encodeURIComponent(id),
+                    href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(id),
                     icon: "search"});
   }
 

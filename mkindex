@@ -74,29 +74,19 @@ do
   mkdir -p $INDEX_ROOT/dir/$dir
   mkdir -p $INDEX_ROOT/analysis/$dir
 done
+mkdir -p $INDEX_ROOT/templates
 
 set -x
 
 parallel $JS $MOZSEARCH_ROOT/js-analyze.js {#} $TREE_ROOT/mozilla-central/{} ">" $INDEX_ROOT/analysis/{} < $JS_FILES
 
-#let "i = 0" || true
-#for filename in $(cat $JS_FILES)
-#do
-#  mkdir -p $INDEX_ROOT/analysis/$(dirname $filename)
-#  if [ $TREE_ROOT/mozilla-central/$filename -nt $INDEX_ROOT/analysis/$filename -o \
-#       $MOZSEARCH_ROOT/js-analyze.js -nt $INDEX_ROOT/analysis/$filename ]
-#  then
-#    $JS $MOZSEARCH_ROOT/js-analyze.js $i $TREE_ROOT/mozilla-central/$filename > $INDEX_ROOT/analysis/$filename
-#  fi
-#  let "i = i+1"
-#done
-
 cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
                           $TREE_ROOT/mozilla-central/ \
-                          $INDEX_ROOT/analysis/ \
-                          $INDEX_ROOT/crossref \
-                          $INDEX_ROOT/jumps
+                          $INDEX_ROOT \
+                          $MOZSEARCH_ROOT
 
 cat $ALL_FILES | parallel --halt 2 -X --eta $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
 
 cat $ALL_DIRS | parallel --halt 2 -X --eta $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
+
+$JS $MOZSEARCH_ROOT/output-template.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT

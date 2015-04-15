@@ -1,9 +1,11 @@
+Small stuff:
+- case sensitivity
+- Navigation bar
+- path: search
+Launch on a public web site
+Help file as home page
 C++ indexing
-Search
-Search UI
 Autocomplete
 Autocomplete UI
-Directory listing (UI and server-side)
 Display links on side to nearby methods
 Index XBL, IDL, WebIDL files
-"Paper cuts"

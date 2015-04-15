@@ -77,6 +77,9 @@ function generateDirectory(path, opt)
   </table>
 `;
 
+  let dirname = path.substring(path.lastIndexOf("/") + 1);
+  opt.title = `${dirname} - mozsearch`;
+
   let output = generate(content, opt);
 
   redirect(indexRoot + "/dir" + path + "/index.html");
@@ -84,5 +87,5 @@ function generateDirectory(path, opt)
 }
 
 for (let dir of paths) {
-  generateDirectory(dir, {tree: "mozilla-central"});
+  generateDirectory(dir, {tree: "mozilla-central", includeDate: true});
 }

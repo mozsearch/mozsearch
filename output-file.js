@@ -90,9 +90,9 @@ function generatePanel()
 `;
 }
 
-function generateFile(filename, opt)
+function generateFile(path, opt)
 {
-  let language = chooseLanguage(filename);
+  let language = chooseLanguage(path);
 
   let code;
   if (language == "skip") {
@@ -100,7 +100,7 @@ function generateFile(filename, opt)
     language = null;
   } else {
     try {
-      code = snarf(treeRoot + filename);
+      code = snarf(treeRoot + path);
     } catch (e) {
       code = "binary file";
       language = null;
@@ -110,7 +110,7 @@ function generateFile(filename, opt)
   let analysisLines = [];
 
   try {
-    let analysis = snarf(indexRoot + "/analysis" + filename);
+    let analysis = snarf(indexRoot + "/analysis" + path);
     analysisLines = analysis.split("\n");
     analysisLines.pop();
   } catch (e) {
@@ -137,7 +137,7 @@ function generateFile(filename, opt)
     content += s;
   }
 
-  out(generateBreadcrumbs(filename, opt));
+  out(generateBreadcrumbs(path, opt));
   out(generatePanel());
 
   out(`
@@ -204,7 +204,7 @@ function generateFile(filename, opt)
           datum = parseAnalysis(analysisLines[analysisIndex++]);
         } while (datum.line == lastLine && datum.col == lastCol);
         if (datum.line < lastLine || (datum.line == lastLine && datum.col < lastCol)) {
-          throw `Invalid analysis loc: ${filename} ${JSON.stringify(datum)}`;
+          throw `Invalid analysis loc: ${path} ${JSON.stringify(datum)}`;
         }
         lastLine = datum.line;
         lastCol = datum.col;
@@ -238,10 +238,13 @@ function generateFile(filename, opt)
 </table>
 `);
 
-  redirect(indexRoot + "/file" + filename);
+  let fname = path.substring(path.lastIndexOf("/") + 1);
+  opt.title = `${fname} - mozsearch`;
+
+  redirect(indexRoot + "/file" + path);
   putstr(generate(content, opt));
 }
 
 for (let filename of filenames) {
-  generateFile(filename, {tree: "mozilla-central"});
+  generateFile(filename, {tree: "mozilla-central", includeDate: true});
 }

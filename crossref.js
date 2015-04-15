@@ -3,10 +3,15 @@
 // File paths are relative to the tree roots.
 
 let sourceRoot = scriptArgs[0];
-let analysisRoot = scriptArgs[1];
-let outputFile = scriptArgs[2];
-let jumpFile = scriptArgs[3];
-let filenames = scriptArgs.slice(4);
+let indexRoot = scriptArgs[1];
+let mozSearchRoot = scriptArgs[2];
+let filenames = scriptArgs.slice(3);
+
+let analysisRoot = indexRoot + "/analysis";
+let outputFile = indexRoot + "/crossref";
+let jumpFile = indexRoot + "/jumps";
+
+run(mozSearchRoot + "/output.js");
 
 let identifiers = new Map();
 
@@ -30,14 +35,10 @@ function cut(str, n)
   }
 }
 
-function processFile(filename)
+function processFile(path)
 {
-  if (filename.startsWith("./")) {
-    filename = filename.slice(2);
-  }
-
-  let code = snarf(sourceRoot + "/" + filename);
-  let analysis = snarf(analysisRoot + "/" + filename);
+  let code = snarf(sourceRoot + path);
+  let analysis = snarf(analysisRoot + path);
 
   let codeLines = code.split("\n");
   let analysisLines = analysis.split("\n");
@@ -52,10 +53,10 @@ function processFile(filename)
       obj[datum.kind] = new Map();
     }
     let files = obj[datum.kind];
-    if (!files.has(filename)) {
-      files.set(filename, []);
+    if (!files.has(path)) {
+      files.set(path, []);
     }
-    files.get(filename).push({ n: datum.line, ex: cut(codeLines[datum.line - 1].trim(), 50) });
+    files.get(path).push({ lno: datum.line, line: cut(codeLines[datum.line - 1].trim(), 100) });
   }
 
   for (let analysisLine of analysisLines) {
@@ -76,7 +77,7 @@ function writeMap()
       if (!obj[kind]) {
         return [];
       }
-      let result = [ {filename, lines} for ([filename, lines] of obj[kind]) ];
+      let result = [ {path, icon: chooseIcon(path), lines} for ([path, lines] of obj[kind]) ];
       if (result.length > 1000) {
         return result.slice(0, 1000);
       } else {
@@ -85,9 +86,9 @@ function writeMap()
     }
 
     return {
-      use: buildKind("use"),
-      def: buildKind("def"),
-      assign: buildKind("assign")
+      "Uses": buildKind("use"),
+      "Definitions": buildKind("def"),
+      "Assignments": buildKind("assign")
     };
   }
 
@@ -98,7 +99,7 @@ function writeMap()
     print(JSON.stringify(build(obj)));
 
     if (obj.def && obj.def.size == 1) {
-      for (let [filename, lines] of obj.def) {
+      for (let [path, lines] of obj.def) {
         if (lines.length == 1) {
           jumps.add(id);
         }
