@@ -587,6 +587,11 @@ let Analyzer = {
       this.pattern(pat.expression);
       break;
 
+    case "AssignmentExpression":
+      this.pattern(pat.left);
+      this.expression(pat.right);
+      break;
+
     default:
       throw `Unexpected pattern: ${pat.type} ${JSON.stringify(pat)}`;
       break;
