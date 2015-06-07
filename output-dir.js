@@ -16,7 +16,7 @@ function runCmd(cmd)
 
 function listDirectory(path)
 {
-  let listing = runCmd(`ls -l -L --time-style=long-iso ${path}`);
+  let listing = runCmd(`ls -l -L --time-style=long-iso "${path}"`);
   let lines = listing.split('\n');
 
   let entries = [];

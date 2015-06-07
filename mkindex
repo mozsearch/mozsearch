@@ -68,7 +68,7 @@ mkdir -p $INDEX_ROOT/dir
 
 set +x
 
-for dir in $(cat $ALL_DIRS)
+cat $ALL_DIRS | IFS= while read dir
 do
   mkdir -p "$INDEX_ROOT/file/$dir"
   mkdir -p "$INDEX_ROOT/dir/$dir"
