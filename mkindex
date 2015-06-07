@@ -70,9 +70,9 @@ set +x
 
 for dir in $(cat $ALL_DIRS)
 do
-  mkdir -p $INDEX_ROOT/file/$dir
-  mkdir -p $INDEX_ROOT/dir/$dir
-  mkdir -p $INDEX_ROOT/analysis/$dir
+  mkdir -p "$INDEX_ROOT/file/$dir"
+  mkdir -p "$INDEX_ROOT/dir/$dir"
+  mkdir -p "$INDEX_ROOT/analysis/$dir"
 done
 mkdir -p $INDEX_ROOT/templates
 
