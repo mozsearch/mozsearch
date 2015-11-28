@@ -36,6 +36,10 @@ for line in lines:
         continue
 
     pathElts = path.split(os.sep)
+    if 'shell' in pathElts:
+        continue
+    if 'jit-test' in pathElts:
+        continue
     if 'test' in pathElts:
         continue
     if 'tests' in pathElts:

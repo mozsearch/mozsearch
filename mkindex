@@ -78,7 +78,7 @@ mkdir -p $INDEX_ROOT/templates
 
 set -x
 
-parallel $JS $MOZSEARCH_ROOT/js-analyze.js {#} $TREE_ROOT/mozilla-central/{} ">" $INDEX_ROOT/analysis/{} < $JS_FILES
+parallel $JS -f $MOZSEARCH_ROOT/setversion.js -f $MOZSEARCH_ROOT/js-analyze.js -- {#} $TREE_ROOT/mozilla-central/{} ">" $INDEX_ROOT/analysis/{} < $JS_FILES
 
 cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
                           $TREE_ROOT/mozilla-central/ \
