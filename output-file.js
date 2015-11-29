@@ -3,10 +3,16 @@ let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
 let filenames = scriptArgs.slice(3);
 
-let window = this;
-run(mozSearchRoot + "/highlight.pack.js");
-
 run(mozSearchRoot + "/output.js");
+
+function runCmd(cmd)
+{
+  let outfile = `/tmp/cmd-output-${Math.random()}-${os.getpid()}`;
+  os.system(`(${cmd}) > ${outfile}`);
+  let data = snarf(outfile);
+  os.system(`rm ${outfile}`);
+  return data;
+}
 
 function parseAnalysis(line)
 {
@@ -43,7 +49,7 @@ function chooseLanguage(filename)
   let table = {'js': 'javascript', 'jsm': 'javascript',
                'cpp': 'cpp', 'h': 'cpp', 'cc': 'cpp', 'hh': 'cpp', 'c': 'cpp',
                'py': 'python', 'sh': 'bash', 'build': 'python', 'ini': 'ini',
-               'java': 'java', 'json': 'json', 'xml': 'xml', 'css': 'css',
+               'java': 'java', 'json': 'javascript', 'xml': 'xml', 'css': 'css',
                'html': 'html'};
   if (suffix in table) {
     return table[suffix];
@@ -103,19 +109,6 @@ function generateFile(path, opt)
 {
   let language = chooseLanguage(path);
 
-  let code;
-  if (language == "skip") {
-    code = "binary file";
-    language = null;
-  } else {
-    try {
-      code = snarf(treeRoot + path);
-    } catch (e) {
-      code = "binary file";
-      language = null;
-    }
-  }
-
   let analysisLines = [];
 
   try {
@@ -132,9 +125,21 @@ function generateFile(path, opt)
   let datum = parseAnalysis(analysisLines[0]);
   let analysisIndex = 1;
 
-  if (language) {
-    code = hljs.highlight(language, code, true).value;
+  let code;
+  if (language == "skip") {
+    code = "binary file";
+  } else if (language) {
+    try {
+      code = runCmd(`source-highlight --style-css-file=sh_ide-codewarrior.css -s ${language} -i ${treeRoot + path} | tail -n +5`);
+    } catch (e) {
+      code = "binary file";
+    }
   } else {
+    try {
+      code = snarf(treeRoot + path);
+    } catch (e) {
+      code = "binary file";
+    }
     code = toHTML(code);
   }
 

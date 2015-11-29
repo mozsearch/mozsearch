@@ -17,7 +17,7 @@ apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev 
 apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang
 
 # Other
-apt-get install -y parallel realpath
+apt-get install -y parallel realpath source-highlight
 
 echo "Finished installation"
 

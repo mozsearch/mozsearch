@@ -118,7 +118,10 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 data = open(filename).read()
             except:
                 filename = os.path.join(indexPath, 'dir', '/'.join(pathElts[2:]), 'index.html')
-                data = open(filename).read()
+                try:
+                    data = open(filename).read()
+                except:
+                    return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
             self.generate(data, 'text/html')
         elif pathElts[:2] == ['mozilla-central', 'search']:
