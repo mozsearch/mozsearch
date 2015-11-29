@@ -58,7 +58,7 @@ function toHTML(code)
   return code;
 }
 
-function generatePanel()
+function generatePanel(path)
 {
   return `
   <div class="panel">
@@ -68,20 +68,29 @@ function generatePanel()
     </button>
     <section id="panel-content" aria-expanded="true" aria-hidden="false">
 
-      <h4>Mercurial (b8e628af0b5c)</h4>
+      <h4>Git</h4>
       <ul>
+        <li>
+          <a href="https://github.com/mozilla/gecko-dev/commits/master${path}" title="Log" class="log icon">Log</a>
+        </li>
+        <li>
+          <a href="https://github.com/mozilla/gecko-dev/blame/master${path}" title="Blame" class="blame icon">Blame</a>
+        </li>
+        <li>
+          <a href="https://raw.githubusercontent.com/mozilla/gecko-dev/master${path}" title="Raw" class="raw icon">Raw</a>
+        </li>
+      </ul>
 
+      <h4>Mercurial</h4>
+      <ul>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/filelog/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Log" class="log icon">Log</a>
+          <a href="https://hg.mozilla.org/mozilla-central/filelog/tip${path}" title="Log" class="log icon">Log</a>
         </li>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/annotate/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Blame" class="blame icon">Blame</a>
+          <a href="https://hg.mozilla.org/mozilla-central/annotate/tip${path}" title="Blame" class="blame icon">Blame</a>
         </li>
-            <li>
-              <a href="https://hg.mozilla.org/mozilla-central/diff/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Diff" class="diff icon">Diff</a>
-            </li>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/raw-file/b8e628af0b5c/js/src/devtools/rootAnalysis/build.js" title="Raw" class="raw icon">Raw</a>
+          <a href="https://hg.mozilla.org/mozilla-central/raw-file/tip${path}" title="Raw" class="raw icon">Raw</a>
         </li>
       </ul>
 
@@ -138,7 +147,7 @@ function generateFile(path, opt)
   }
 
   out(generateBreadcrumbs(path, opt));
-  out(generatePanel());
+  out(generatePanel(path));
 
   out(`
 <table id="file" class="file">

@@ -12,6 +12,11 @@ import re
 mozSearchPath = sys.argv[1]
 indexPath = sys.argv[2]
 
+do_codesearch = True
+for opt in sys.argv[3:]:
+    if opt == '--no-codesearch':
+        do_codesearch = False
+
 crossrefs = {}
 
 lines = open(os.path.join(indexPath, 'crossref')).readlines()
@@ -149,7 +154,9 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self.wfile.write(output)
 
-codesearch = CodeSearch('localhost', 8080)
+if do_codesearch:
+    codesearch = CodeSearch('localhost', 8080)
+
 server_address = ('', 8000)
 httpd = BaseHTTPServer.HTTPServer(server_address, Handler)
 httpd.serve_forever()

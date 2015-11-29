@@ -360,6 +360,8 @@ $(function() {
       count += data[prop].length;
     }
 
+    var keyOrder = ["Definitions", "Assignments", "Uses", "default"];
+
     // If no data is returned, inform the user.
     if (!count) {
       var user_message = contentContainer.data('no-results');
@@ -369,7 +371,11 @@ $(function() {
       var container = append ? contentContainer : contentContainer.empty();
       container.append(table);
 
-      for (var kind in data) {
+      for (var k = 0; k < keyOrder.length; k++) {
+        var kind = keyOrder[k];
+        if (!(kind in data)) {
+          continue;
+        }
         if (kind != "default" && data[kind].length) {
           var headerRow = $("<tr> <td class='left-column'></td><td><b>" + kind + "</b></td> </tr>");
           table.append(headerRow);

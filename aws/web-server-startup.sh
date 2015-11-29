@@ -38,6 +38,10 @@ server {
   location /mozilla-central/search {
     proxy_pass http://localhost:8000;
   }
+
+  location = / {
+    return 301 $uri/mozilla-central/source;
+  }
 }
 THEEND
 chmod 0644 /etc/nginx/sites-enabled/mozsearch.conf
