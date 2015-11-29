@@ -34,3 +34,15 @@ done
 
 echo $IP
 
+VOLUME=$(aws ec2 describe-volumes \
+    --filters Name=status,Values=available \
+    --query Volumes[0].VolumeId)
+
+eval VOLUME=$VOLUME
+echo Volume is $VOLUME
+
+aws ec2 attach-volume \
+    --volume-id $VOLUME \
+    --instance-id $INSTANCE \
+    --device /dev/xvdf
+
