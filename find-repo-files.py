@@ -36,6 +36,8 @@ for line in lines:
         continue
 
     pathElts = path.split(os.sep)
+    if 'tps.jsm' in pathElts:
+        continue
     if 'shell' in pathElts:
         continue
     if 'jit-test' in pathElts:
