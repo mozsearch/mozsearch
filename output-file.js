@@ -167,7 +167,7 @@ function generateFile(path, opt)
 
   let lineNum = 1;
   for (let line of lines) {
-    out(`<span id="${lineNum}" class="line-number" unselectable="on" rel="#${lineNum}">${lineNum}</span>\n`);
+    out(`<span id="${lineNum}" class="line-number" unselectable="on">${lineNum}</span>\n`);
     lineNum++;
   }
 
