@@ -25,13 +25,6 @@ $(function() {
   // timeouts.search has elapsed).
   timeouts.history = 2000 - timeouts.search;
 
-  // Tell nunjucks our base location for template files.
-  /*
-    var nunjucksEnv = nunjucks.configure('dxr/static/templates/',
-    {autoescape: true});
-    htmlEscape = nunjucksEnv.getFilter('escape');
-  */
-
   // Return the maximum number of pixels the document can be scrolled.
   function getMaxScrollY() {
     // window.scrollMaxY is a non standard implementation in
@@ -96,43 +89,6 @@ $(function() {
     return match ? (match[1] === 'true') : null;
   }
 
-  /**
-   * Represents the path line displayed next to the file path label on individual document pages.
-   * Also handles population of the path lines template in the correct format.
-   *
-   * @param {string} fullPath - The full path of the currently displayed file.
-   * @param {string} tree - The tree which was searched and in which this file can be found.
-   * @param {string} icon - The icon string returned in the JSON payload.
-   */
-  function buildResultHead(fullPath, tree, icon) {
-    var pathLines = '',
-    pathRoot = '/' + tree + '/source/',
-    paths = fullPath.split('/'),
-    splitPathLength = paths.length,
-    dataPath = [],
-    iconClass = icon.substring(icon.indexOf('/') + 1);
-
-    // FIXME: This code needs work!
-
-    for (var pathIndex in paths) {
-      var index = parseInt(pathIndex),
-      isFirstOrOnly = index === 0 || splitPathLength === 1,
-      isLastOrOnly = (splitPathLength - 1) === index || splitPathLength === 1;
-
-      dataPath.push(paths[pathIndex]);
-
-      pathLines += nunjucks.render('path_line.html', {
-        'data_path': dataPath.join('/'),
-        'display_path': paths[pathIndex],
-        'url': pathRoot + dataPath.join('/'),
-        'is_first_or_only': isFirstOrOnly,
-        'is_dir': !isLastOrOnly
-      });
-    }
-
-    return [iconClass, pathLines];
-  }
-
   var searchForm = $('#basic_search'),
   queryField = $('#query'),
   query = null,
@@ -192,20 +148,6 @@ $(function() {
     return search + '?' + $.param(params);
   }
 
-  var scrollPoll = null;
-
-  /**
-   * Starts or restarts the scroll position poller.
-   */
-  function pollScrollPosition() {
-    scrollPoll = setInterval(infiniteScroll, 250);
-  }
-
-  // billm: No infinite scroll for now.
-
-  // On document ready start the scroll pos poller.
-  //pollScrollPosition();
-
   /**
    * Updates the window's history entry to not break the back button with
    * infinite scroll.
@@ -232,58 +174,6 @@ $(function() {
    */
   function pushHistoryState(searchUrl) {
     history.pushState({}, '', searchUrl);
-  }
-
-  function infiniteScroll() {
-    if (didScroll) {
-
-      didScroll = false;
-
-      // If the previousDataLimit is 0 we are on the search.html page and doQuery
-      // has not yet been called, get the previousDataLimit and resultCount from
-      // the page constants.
-      if (previousDataLimit === 0) {
-        previousDataLimit = stateConstants.data('limit');
-        resultCount = stateConstants.data('result-count');
-      }
-
-      var maxScrollY = getMaxScrollY(),
-      currentScrollPos = window.scrollY,
-      threshold = window.innerHeight + 500;
-
-      // Has the user reached the scrolling threshold and are there more results?
-      if ((maxScrollY - currentScrollPos) < threshold && previousDataLimit === resultCount) {
-        clearInterval(scrollPoll);
-
-        // If a user hits enter on the landing page and there was no direct result,
-        // we get redirected to the search page and lose the query so, if query is null,
-        // get the query from the input field.
-        query = query ? query : $.trim(queryField.val());
-
-        dataOffset += previousDataLimit;
-        previousDataLimit = defaultDataLimit;
-
-        //Resubmit query for the next set of results.
-        $.getJSON(buildAjaxURL(query, caseSensitiveBox.prop('checked'), defaultDataLimit, dataOffset), function(data) {
-          if (data.results.length > 0) {
-            var state = {};
-
-            // Update result count
-            resultCount = data.results.length;
-            // Use the results.html partial so we do not inject the entire container again.
-            populateResults(data, true);
-            // update URL with new offset
-            setHistoryState(dataOffset);
-            // start the scrolling poller
-            pollScrollPosition();
-          }
-        })
-          .fail(function() {
-            // Should we fail silently here or notify the user?
-            console.log('query failed');
-          });
-      }
-    }
   }
 
   /**
@@ -407,7 +297,6 @@ $(function() {
    * Queries and populates the results templates with the returned data.
    */
   function doQuery() {
-
     function oneMoreRequest() {
       if (requestsInFlight === 0) {
         $('#search-box').addClass('in-progress');
@@ -482,7 +371,7 @@ $(function() {
 
 
   /**
-   * Adds aleading 0 to numbers less than 10 and greater that 0
+   * Adds a leading 0 to numbers less than 10 and greater that 0
    *
    * @param int number The number to test against
    *
@@ -510,9 +399,6 @@ $(function() {
   prettyDate.each(function() {
     $(this).text(formatDate($(this).data('datetime')));
   });
-
-  // Expose the DXR Object to the global object.
-  window.dxr = dxr;
 
   // Thanks to bug 63040 in Chrome, onpopstate is fired when the page reloads.
   // That means that if we naively set onpopstate, we would get into an
