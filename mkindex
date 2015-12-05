@@ -57,7 +57,9 @@ then
 fi
 
 cd $TREE_ROOT
-$CODESEARCH $MOZSEARCH_ROOT/livegrep-index.json -dump_index $INDEX_ROOT/livegrep.idx </dev/null
+$CODESEARCH $MOZSEARCH_ROOT/livegrep-index.json \
+    -dump_index $INDEX_ROOT/livegrep.idx \
+    -max_matches 1000 </dev/null
 
 # Avoid using $PWD
 cd /tmp
