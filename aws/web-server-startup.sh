@@ -32,7 +32,8 @@ server {
   location /mozilla-central/source {
     root /home/ubuntu/docroot;
     try_files /file/$uri /dir/$uri/index.html =404;
-    add_header Content-Type "text/html";
+    types { }
+    default_type text/html;
   }
 
   location /mozilla-central/search {
