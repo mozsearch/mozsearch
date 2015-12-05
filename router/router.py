@@ -47,7 +47,7 @@ class CodeSearch:
         results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
         return {"default": results}
 
-    def search(self, needle, fold_case=False, file='.*', repo='.*'):
+    def search(self, needle, fold_case=True, file='.*', repo='.*'):
         pattern = re.escape(needle)
         query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
         self.state = 'search'
@@ -88,6 +88,10 @@ class CodeSearch:
 
 def get_json_search_results(query):
     searchString = query['q'][0]
+    try:
+        foldCase = query['case'][0] != 'true'
+    except:
+        foldCase = True
     if searchString.startswith('symbol:'):
         symbol = searchString[len('symbol:'):].strip().replace('.', '#')
         return crossrefs.get(symbol, "[]")
@@ -102,7 +106,7 @@ def get_json_search_results(query):
         results = results[:1000]
         return json.dumps({"default": results})
     else:
-        return json.dumps(codesearch.search(searchString))
+        return json.dumps(codesearch.search(searchString, foldCase))
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
