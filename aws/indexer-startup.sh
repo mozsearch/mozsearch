@@ -61,6 +61,9 @@ export CODESEARCH=\$INDEX_TMP/livegrep/bin/codesearch
 
 git clone https://github.com/bill-mccloskey/mozsearch
 \$INDEX_TMP/mozsearch/mkindex \$INDEX_TMP/mozsearch /index \$INDEX_TMP
+
+date
+echo "Indexing complete"
 THEEND
 
 chmod +x ~ubuntu/indexer
