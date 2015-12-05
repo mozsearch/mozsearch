@@ -246,8 +246,11 @@ $(function() {
     }
 
     var count = 0;
-    for (var prop in data) {
-      count += data[prop].length;
+    for (var kind in data) {
+      for (var k = 0; k < data[kind].length; k++) {
+        var path = data[kind][k];
+        count += path.lines.length;
+      }
     }
 
     var keyOrder = ["Definitions", "Assignments", "Uses", "default"];
@@ -257,8 +260,12 @@ $(function() {
       var user_message = contentContainer.data('no-results');
       contentContainer.empty().append($("<span>" + user_message + "</span>"));
     } else {
-      var table = $("<table class='results'></table>");
       var container = append ? contentContainer : contentContainer.empty();
+
+      var numResults = $(`<div>Number of results: ${count} (maximum is 1000)</div>`);
+      container.append(numResults);
+
+      var table = $("<table class='results'></table>");
       container.append(table);
 
       for (var k = 0; k < keyOrder.length; k++) {
