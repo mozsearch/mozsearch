@@ -9,7 +9,7 @@ build: libclang-index-plugin.so
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-libclang-index-plugin.so: cpp-index.o sha1.o
+libclang-index-plugin.so: Indexer.o sha1.o
 	$(CXX) $(LDFLAGS) $^ -o $@
 
 check: build

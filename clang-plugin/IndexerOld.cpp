@@ -12,6 +12,7 @@
 #include "clang/Lex/PPCallbacks.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/raw_ostream.h"
+#include "clang/AST/Mangle.h"
 
 #include <iostream>
 #include <map>
@@ -90,6 +91,21 @@ struct FileInfo
   bool interesting;
 };
 
+static std::string
+GetMangledName(clang::MangleContext* ctx,
+               const clang::NamedDecl* decl)
+{
+  if (!llvm::isa<clang::CXXConstructorDecl>(decl) &&
+      !llvm::isa<clang::CXXDestructorDecl>(decl)) {
+    llvm::SmallVector<char, 512> output;
+    llvm::raw_svector_ostream out(output);
+    ctx->mangleName(decl, out);
+    return out.str().str();
+  }
+
+  return std::string();
+}
+
 class IndexConsumer;
 
 class PreprocThunk : public PPCallbacks
@@ -128,6 +144,7 @@ private:
   std::map<std::string, FileInfo *> relmap;
   LangOptions &features;
   DiagnosticConsumer *inner;
+  MangleContext *mMangleContext;
 
   FileInfo *getFileInfo(const std::string &filename) {
     std::map<std::string, FileInfo *>::iterator it;
@@ -153,8 +170,12 @@ private:
   }
 public:
   IndexConsumer(CompilerInstance &ci) :
-    ci(ci), sm(ci.getSourceManager()), features(ci.getLangOpts()),
-      m_currentFunction(NULL) {
+    ci(ci)
+  , sm(ci.getSourceManager())
+  , features(ci.getLangOpts())
+  , mMangleContext(nullptr)
+  , m_currentFunction(nullptr)
+  {
     inner = ci.getDiagnostics().takeClient();
     ci.getDiagnostics().setClient(this, false);
     ci.getPreprocessor().addPPCallbacks(new PreprocThunk(this));
@@ -364,6 +385,8 @@ public:
 
   // All we need is to follow the final declaration.
   virtual void HandleTranslationUnit(ASTContext &ctx) {
+    mMangleContext = clang::ItaniumMangleContext::create(ctx, ci.getDiagnostics());
+
     TraverseDecl(ctx.getTranslationUnitDecl());
 
     // Emit all files now
@@ -455,6 +478,9 @@ public:
   bool VisitFunctionDecl(FunctionDecl *d) {
     if (!interestingLocation(d->getLocation()))
       return true;
+
+    std::string mangled = GetMangledName(mMangleContext, d);
+    printf("VisitFunctionDecl %s\n%s\n", d->getNameInfo().getAsString().c_str(), mangled.c_str());
 
     if (d->isThisDeclarationADefinition() ||
         d->isPure())  // until we have better support for pure-virtual functions
@@ -776,6 +802,11 @@ public:
       return true;
 
     const NamedDecl *namedCallee = dyn_cast<NamedDecl>(callee);
+
+    if (namedCallee) {
+      std::string mangled = GetMangledName(mMangleContext, namedCallee);
+      printf("VisitCallExpr %s\n", mangled.c_str());
+    }
 
     // Fun facts about call exprs:
     // 1. callee isn't necessarily a function. Think function pointers.
@@ -1197,6 +1228,7 @@ protected:
       return false;
     }
     // Load our directories
+    printf("HEllo '%s'\n", args[0].c_str());
     char *abs_src = realpath(args[0].c_str(), NULL);
     if (!abs_src) {
       DiagnosticsEngine &D = CI.getDiagnostics();

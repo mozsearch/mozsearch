@@ -1,11 +1,127 @@
 Small stuff:
 - case sensitivity
 - Navigation bar
-- path: search
-Launch on a public web site
+- path: search (should be faster)
 Help file as home page
 C++ indexing
 Autocomplete
 Autocomplete UI
 Display links on side to nearby methods
 Index XBL, IDL, WebIDL files
+
+
+C++ indexing:
+I want to support clicking on function declarations and also on call expressions.
+
+Categories:
+- Declaration (of function)
+- Definition (of function)
+- Use (call to function)
+- Overridden (method)
+
+I'll have different kinds of sets for each mangled name.
+The analysis will emit lines that will add particular source locations to sets.
+It will also emit lines saying that you can generate results at that location
+by combining certain sets.
+For JS code, I want the ability to generate different kinds of results for the
+same location. I doubt I'll need this for C++.
+
+When I do a search from some <span>, I need a simple string that I can
+search on. These will be things like CALL(Mx). It needs to include data
+for uses, defs, etc.
+
+So the possible things will be:
+
+line:column-column + SETNAME  # Adds the location to the set
+line:column-column R <tag> <description>?
+use(<tag>) = SETNAME SETNAME ...
+def(<tag>) = SETNAME SETNAME ...
+decl(<tag>) = SETNAME SETNAME ...
+assign(<tag>) = SETNAME SETNAME ...
+
+The description is optional and it's for JS to distinguish what you're searching for.
+
+Say I have this code:
+
+struct Base {
+  virtual void m() {...}  // (A) mangled name M1
+  // Uses: E; Overridden: C
+  // Add A to DEF(M1)
+  // Uses = USE(M1)
+  // Overriden = ABOVE(M1)
+
+  void f(); // (B) mangled name M2
+  // Uses: F
+  // Add B to DEF(M2)
+  // Uses = USE(M2)
+};
+
+struct Derived : public Base {
+  virtual void m();  // (C) mangled name M3
+  // Defs: C'; Uses: E, G
+  // Add C to DECL(M3), DECL(M1), ABOVE(M1)
+  // Defs = DEF(M3)
+  // Uses = USE(M3)+USE(M1)
+
+  void f(); // (D) mangled name M4
+  // Uses: H
+  // Add D to DEF(M4)
+  // Uses = USE(M4)
+};
+
+void
+Derived::m() { ... } // C'
+// Decls: C; Uses: E, G
+// Add C' to DEF(M3), DEF(M1)
+// Uses = USE(M3)+USE(M1)
+
+int main() {
+  Base *b = ...;
+  Derived *d = ...;
+
+  b->m(); // (E)
+  // Defs: A, C'; Decls: C
+  // Add E to USE(M1)
+  // Defs = DEF(M1)
+  // Decls = DECL(M1)
+
+  b->f(); // (F)
+  // Defs: B
+  // Add F to USE(M2)
+  // Defs = DEF(M2)
+
+  d->m(); // (G)
+  // Defs: C'; Decls: C
+  // Add G to USE(M3)
+  // Defs = DEF(M3)
+  // Decls = DECL(M3)
+
+  d->f(); // (H)
+  // Defs: D
+  // Add H to USE(M4)
+  // Defs = DEF(M4)
+}
+
+
+
+Actually, I think I would rather display more results than fewer.
+So if you click on a method call or definition or declaration, I will
+find the mangled name for the highest point in the class hierarchy that
+defines that method. Then I'll just base everything off of that.
+I can probably use the same format I use for JS.
+
+However, I need to figure out how to handle multiple translation units.
+Every cpp file is going to generate analysis results for a header file.
+Generally they should always be the same except perhaps for things
+like macros and templates. So I'll ignore that for now and just keep
+overwriting?
+
+Not sure what to do about multiple inheritance. I guess I can just
+pick one particular path.
+
+Q: What if someone wants to search for SomeClass::AddRef? Right now there's
+no index for something like that (especially if it's inline in the class).
+I'd like them to be able to type SomeClass::AddRef into the search box.
+I'd also like them to be able to click on a use of AddRef and select which
+option they want: just the ones for the static type or else all uses/defs
+of the root version of the method.
