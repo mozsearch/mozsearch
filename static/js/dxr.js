@@ -23,6 +23,72 @@ $(function() {
   // timeouts.search has elapsed).
   timeouts.history = 2000 - timeouts.search;
 
+  function parseSelectionRanges(hash) {
+    var ranges = hash.split(',');
+    var preFixup = [];
+    for (var i = 0; i < ranges.length; i++) {
+      var range = ranges[i];
+      if (range.indexOf('-') != -1) {
+        var components = range.split('-', 2);
+        var a = parseInt(components[0], 10), b = parseInt(components[1], 10);
+        if (a !== NaN && b !== NaN) {
+          if (a < b) {
+            preFixup.push([a, b]);
+          } else {
+            preFixup.push([b, a]);
+          }
+        }
+      } else {
+        var n = parseInt(range, 10);
+        if (n !== NaN) {
+          preFixup.push([n, n]);
+        }
+      }
+    }
+
+    // Sort by the start of each range.
+    preFixup.sort(function (r1, r2) {
+      return r1[0] - r2[0];
+    });
+
+    var result = [];
+
+    var prev = preFixup[0];
+    for (var i = 1; i < preFixup.length; i++) {
+      var current = preFixup[i];
+      if (current[1] <= prev[1]) {
+        continue;
+      }
+      if (current[0] <= prev[1] + 1) {
+        prev[1] = current[1];
+        continue;
+      }
+      result.push(prev);
+      prev = current;
+    }
+    result.push(prev);
+
+    return result;
+  }
+
+  function formatSelectionRanges(ranges) {
+    function stringOfRange(range) {
+      if (range[0] == range[1]) {
+        return String(range[0]);
+      }
+      return range[0] + '-' + range[1];
+    }
+    return ranges.map(stringOfRange).join(',');
+  }
+
+  function selectRanges(ranges) {
+    for (var i = 0; i < ranges.length; i++) {
+      for (var line = ranges[i][0]; line <= ranges[i][1]; line++) {
+        $('#' + c + ', #line-' + c).addClass('highlighted');
+      }
+    }
+  }
+
   // Return the maximum number of pixels the document can be scrolled.
   function getMaxScrollY() {
     // window.scrollMaxY is a non standard implementation in
