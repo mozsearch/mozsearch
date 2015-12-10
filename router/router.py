@@ -8,6 +8,7 @@ import os.path
 import socket
 import json
 import re
+import subprocess
 
 mozSearchPath = sys.argv[1]
 indexPath = sys.argv[2]
@@ -45,10 +46,9 @@ class CodeSearch:
         for m in matches:
             paths.setdefault(m['path'], []).append({'lno': m['lno'], 'line': m['line'].strip()})
         results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
-        return {"default": results}
+        return results
 
-    def search(self, needle, fold_case=True, file='.*', repo='.*'):
-        pattern = re.escape(needle)
+    def search(self, pattern, fold_case=True, file='.*', repo='.*'):
         query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
         self.state = 'search'
         self.sock.sendall(json.dumps(query) + '\n')
@@ -86,27 +86,95 @@ class CodeSearch:
         else:
             raise 'Unknown opcode %s' % j['opcode']
 
+def parse_search(searchString):
+    pieces = searchString.split(' ')
+    result = {}
+    for i in range(len(pieces)):
+        if pieces[i].startswith('path:'):
+            result['pathre'] = re.escape(pieces[i][len('path:'):])
+        elif pieces[i].startswith('pathre:'):
+            result['pathre'] = pieces[i][len('pathre:'):]
+        elif pieces[i].startswith('symbol:'):
+            result['symbol'] = pieces[i][len('symbol:'):].strip().replace('.', '#')
+        elif pieces[i].startswith('re:'):
+            result['re'] = (' '.join(pieces[i:]))[len('re:'):]
+            break
+        else:
+            result['default'] = re.escape(' '.join(pieces[i:]))
+            break
+
+    return result
+
+def sort_results(results):
+    def is_test(p):
+        return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
+
+    # neg if p1 is before p2
+    def sortfunc(p1, p2):
+        t1 = is_test(p1)
+        t2 = is_test(p2)
+        r = cmp(p1, p2)
+        if t1 and not t2:
+            r += 10000
+        elif t2 and not t1:
+            r -= 10000
+        return r
+
+    def sort_inner(results):
+        m = {}
+        for result in results:
+            if result['path'] not in m or len(result['lines']):
+                m[result['path']] = result
+
+        paths = m.keys()
+        paths.sort(sortfunc)
+
+        return [ m[path] for path in paths ]
+
+    return { kind: sort_inner(res) for kind, res in results.items() }
+
+def search_files(path):
+    pathFile = os.path.join(indexPath, 'all-files')
+    try:
+        results = subprocess.check_output(['grep', '-i', path, pathFile])
+    except:
+        return []
+    results = results.strip().split('\n')
+    results = [ {'path': f[1:], 'lines': []} for f in results ]
+    return results[:1000]
+
 def get_json_search_results(query):
     searchString = query['q'][0]
     try:
         foldCase = query['case'][0] != 'true'
     except:
         foldCase = True
-    if searchString.startswith('symbol:'):
-        symbol = searchString[len('symbol:'):].strip().replace('.', '#')
-        return crossrefs.get(symbol, "[]")
-    elif searchString.startswith('path:'):
-        path = searchString[len('path:'):]
-        if len(path) < 3:
-            return json.dumps({})
-        results = []
-        for f in allFiles:
-            if path in f:
-                results.append({'path': f, 'icon': '', 'lines': []})
-        results = results[:1000]
-        return json.dumps({"default": results})
+
+    parsed = parse_search(searchString)
+
+    if 'symbol' in parsed:
+        # FIXME: Need to deal with path here
+        symbol = parsed['symbol']
+        results = json.loads(crossrefs.get(symbol, "{}"))
+    elif 're' in parsed:
+        path = parsed.get('pathre', '.*')
+        substrResults = codesearch.search(parsed['re'], foldCase, file = path)
+        results = {'default': substrResults}
+    elif 'default' in parsed:
+        path = parsed.get('pathre', '.*')
+        substrResults = codesearch.search(parsed['default'], foldCase, file = path)
+        if 'pathre' in parsed:
+            fileResults = []
+        else:
+            fileResults = search_files(parsed['default'])
+        results = {'default': fileResults + substrResults}
+    elif 'pathre' in parsed:
+        path = parsed['pathre']
+        results = {"default": search_files(path)}
     else:
-        return json.dumps(codesearch.search(searchString, foldCase))
+        results = {}
+
+    return json.dumps(sort_results(results))
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):

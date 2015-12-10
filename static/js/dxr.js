@@ -1,8 +1,6 @@
 /* jshint devel:true, esnext: true */
 /* globals nunjucks: true, $ */
 
-var htmlEscape;
-
 $(function() {
   'use strict';
 
@@ -208,13 +206,46 @@ $(function() {
    * @param {bool} append - Should the content be appended or overwrite
    */
   function populateResults(data, append) {
+    window.scrollTo(0, 0);
+
     function makeURL(path) {
       return "/" + dxr.tree + "/source/" + path;
     }
 
+    function chooseIcon(path) {
+      var suffix = path.lastIndexOf(".");
+      if (suffix == -1) {
+        return "unknown";
+      }
+      suffix = path.slice(suffix + 1);
+      return {
+        'cpp': 'cpp',
+        'h': 'h',
+        'c': 'c',
+        'mm': 'mm',
+        'js': 'js',
+        'jsm': 'js',
+        'py': 'py',
+        'ini': 'conf',
+        'sh': 'sh',
+        'txt': 'txt',
+        'xml': 'xml',
+        'xul': 'ui',
+        'java': 'java',
+        'in': 'txt',
+        'html': 'html',
+        'png': 'image',
+        'gif': 'image',
+        'svg': 'svg',
+        'build': 'build',
+        'json': 'js',
+        'css': 'css',
+      }[suffix] || "unknown";
+    }
+
     function renderPath(fileResult) {
       var row = $("<tr class='result-head'></tr>");
-      var icon = $("<td class='left-column'><div class='" + fileResult.icon + " icon-container'></div></td>");
+      var icon = $("<td class='left-column'><div class='" + chooseIcon(fileResult.path) + " icon-container'></div></td>");
       row.append(icon);
 
       var main = $("<td></td>");
@@ -232,7 +263,6 @@ $(function() {
         main.append($("<a href='" + makeURL(pathSoFar) + "'>" + elt + "</a>"));
       }
 
-      console.log(row);
       return row;
     }
 
@@ -253,17 +283,24 @@ $(function() {
       }
     }
 
+    var fileCount = 0;
+    for (var kind in data) {
+      fileCount += data[kind].length;
+    }
+
     var keyOrder = ["Definitions", "Assignments", "Uses", "default"];
 
     // If no data is returned, inform the user.
-    if (!count) {
+    if (!fileCount) {
       var user_message = contentContainer.data('no-results');
       contentContainer.empty().append($("<span>" + user_message + "</span>"));
     } else {
       var container = append ? contentContainer : contentContainer.empty();
 
-      var numResults = $(`<div>Number of results: ${count} (maximum is 1000)</div>`);
-      container.append(numResults);
+      if (count) {
+        var numResults = $(`<div>Number of results: ${count} (maximum is 1000)</div>`);
+        container.append(numResults);
+      }
 
       var table = $("<table class='results'></table>");
       container.append(table);
