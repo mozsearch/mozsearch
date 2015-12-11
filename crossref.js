@@ -5,7 +5,7 @@
 let sourceRoot = scriptArgs[0];
 let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
-let filenames = scriptArgs.slice(3);
+let filenamesFile = scriptArgs[3];
 
 let analysisRoot = indexRoot + "/analysis";
 let outputFile = indexRoot + "/crossref";
@@ -22,7 +22,13 @@ function parseAnalysis(line)
     throw `Invalid analysis line: ${line}`;
   }
 
+  if (parts[2][0] == '"') {
+    parts[2] = eval(parts[2]);
+  }
+
   let [linenum, colnum] = parts[0].split(":");
+  linenum = parseInt(linenum);
+  colnum = parseInt(colnum);
   return {line: linenum, col: colnum, kind: parts[1], name: parts[2], id: parts[3], extra: parts[4]};
 }
 
@@ -37,8 +43,19 @@ function cut(str, n)
 
 function processFile(path)
 {
-  let code = snarf(sourceRoot + path);
+  if (!path) {
+    return;
+  }
+
+  let code;
+  try {
+    code = snarf(sourceRoot + path);
+  } catch (e) {
+    return;
+  }
   let analysis = snarf(analysisRoot + path);
+
+  path = path.slice(1);
 
   let codeLines = code.split("\n");
   let analysisLines = analysis.split("\n");
@@ -88,6 +105,7 @@ function writeMap()
     return {
       "Uses": buildKind("use"),
       "Definitions": buildKind("def"),
+      "Declarations": buildKind("decl"),
       "Assignments": buildKind("assign")
     };
   }
@@ -114,7 +132,11 @@ function writeMap()
   }
 }
 
-for (let filename of filenames) {
+let filenamesString = snarf(filenamesFile);
+let filenames = filenamesString.split("\n");
+
+let filename;
+for (filename of filenames) {
   processFile(filename);
 }
 

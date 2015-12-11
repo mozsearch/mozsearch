@@ -54,6 +54,33 @@ hash(std::string &str)
   return hashstr;
 }
 
+std::string
+EscapeString(std::string input)
+{
+  std::string output = "\"";
+  char hex[] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                 '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+  for (char c : input) {
+    if (isspace(c) || c == '"' || c == '\\') {
+      output += "\\x";
+      output += hex[c >> 4];
+      output += hex[c & 0xf];
+    } else {
+      output += c;
+    }
+  }
+  output += '"';
+  return output;
+}
+
+std::string
+ToString(int n)
+{
+  char s[32];
+  sprintf(s, "%06d", n);
+  return std::string(s);
+}
+
 class IndexConsumer;
 
 struct FileInfo
@@ -72,8 +99,14 @@ struct FileInfo
     }
   }
   std::string realname;
-  std::ostringstream output;
+  std::vector<std::string> output;
   bool interesting;
+};
+
+struct Comparator {
+  bool operator()(std::string s1, std::string s2) {
+    return s1 <= s2;
+  }
 };
 
 class IndexConsumer : public ASTConsumer,
@@ -141,9 +174,9 @@ private:
     if (!isInvalid) {
       unsigned line = sm.getExpansionLineNumber(loc, &isInvalid);
       if (!isInvalid) {
-        buffer = std::to_string(line);
+        buffer = ToString(line);
         buffer += ":";
-        buffer += std::to_string(column - 1);  // Make 0-based.
+        buffer += ToString(column - 1);  // Make 0-based.
       }
     }
     return buffer;
@@ -174,21 +207,31 @@ public:
     for (it = relmap.begin(); it != relmap.end(); it++) {
       if (!it->second->interesting)
         continue;
-      // Look at how much code we have
-      std::string content = it->second->output.str();
-      if (content.length() == 0)
-        continue;
+
+      FileInfo& info = *it->second;
+
       std::string filename = outdir;
       filename += it->second->realname;
 
       // Okay, I want to use the standard library for I/O as much as possible,
       // but the C/C++ standard library does not have the feature of "open
       // succeeds only if it doesn't exist."
-      int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-      if (fd != -1) {
-        write(fd, content.c_str(), content.length());
-        close(fd);
+      FILE* fp = fopen(filename.c_str(), "w");
+      if (fp == nullptr) {
+        continue;
       }
+
+      // There seems to be a bug where the comparator is called with the last
+      // (invalid) iterator. Add a valid element there so we don't crash.
+      info.output.push_back(std::string(""));
+      stable_sort(info.output.begin(), info.output.end() - 1, Comparator());
+
+      //write(fd, it->second->realname.c_str(), it->second->realname.length());
+      //write(fd, "\n", 1);
+      for (std::string& line : info.output) {
+        fwrite(line.c_str(), line.length(), 1, fp);
+      }
+      fclose(fp);
     }
   }
 
@@ -216,8 +259,13 @@ public:
 
     StringRef filename = sm.getFilename(d->getLocation());
     FileInfo *f = GetFileInfo(filename);
-    f->output << loc << " def " << d->getNameAsString() << " " << mangled << "\n";
-    //printf("%s def %s %s\n", loc.c_str(), d->getNameAsString().c_str(), mangled.c_str());
+    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
+
+    char s[1024];
+    sprintf(s, "%s %s %s %s\n",
+            loc.c_str(), kind, EscapeString(d->getNameAsString()).c_str(), mangled.c_str());
+
+    f->output.push_back(std::string(s));
 
     return true;
   }
@@ -246,9 +294,22 @@ public:
       if (sm.isMacroBodyExpansion(e->getCallee()->getLocStart())) {
         return true;
       }
+      if (sm.isMacroArgExpansion(e->getCallee()->getLocStart())) {
+        return true;
+      }
 
-      SourceLocation start = sm.getExpansionLoc(e->getCallee()->getLocStart());
-      SourceLocation end = sm.getExpansionRange(e->getCallee()->getLocEnd()).second;
+      SourceLocation start, end;
+      if (CXXOperatorCallExpr::classof(e)) {
+        // Just take the first token.
+        CXXOperatorCallExpr* op = dyn_cast<CXXOperatorCallExpr>(e);
+        start = end = op->getOperatorLoc();
+      } else if (MemberExpr::classof(e->getCallee())) {
+        MemberExpr* member = dyn_cast<MemberExpr>(e->getCallee());
+        start = end = member->getMemberLoc();
+      } else {
+        start = sm.getExpansionLoc(e->getCallee()->getLocStart());
+        end = sm.getExpansionRange(e->getCallee()->getLocEnd()).second;
+      }
 
       unsigned startOffset = sm.getFileOffset(start);
       unsigned endOffset = sm.getFileOffset(end);
@@ -262,8 +323,11 @@ public:
 
       StringRef filename = sm.getFilename(start);
       FileInfo *f = GetFileInfo(filename);
-      f->output << loc << " use " << text << " " << mangled << "\n";
-      //printf("%s use %s %s\n", loc.c_str(), text.c_str(), mangled.c_str());
+
+      char s[1024];
+      sprintf(s, "%s use %s %s\n", loc.c_str(), EscapeString(text).c_str(), mangled.c_str());
+
+      f->output.push_back(std::string(s));
     }
 
     return true;

@@ -45,7 +45,7 @@ function locstr(loc)
 
 function nameValid(name)
 {
-  return name.indexOf(" ") == -1 && name.indexOf("\n") == -1 && name.indexOf("\0") == -1;
+  return name.indexOf(" ") == -1 && name.indexOf("\n") == -1 && name.indexOf("\0") == -1 && name.indexOf('"') == -1;
 }
 
 function memberPropLoc(expr)
@@ -300,8 +300,24 @@ let Analyzer = {
       this.variableDeclaration(stmt);
       break;
 
+    case "ClassStatement":
+      this.defVar(stmt.id.name, stmt.loc);
+      this.scoped(() => {
+        if (stmt.superClass) {
+          this.expression(stmt.superClass);
+        }
+        for (let stmt2 of stmt.body) {
+          this.statement(stmt2);
+        }
+      });
+      break;
+
+    case "ClassMethod":
+      this.expression(stmt.body);
+      break;
+
     default:
-      throw "Unexpected statement: " + stmt.type;
+      throw "Unexpected statement: " + stmt.type + " " + JSON.stringify(stmt);
       break;
     }
   },
@@ -365,6 +381,9 @@ let Analyzer = {
       break;
 
     case "Literal":
+      break;
+
+    case "Super":
       break;
 
     case "TemplateLiteral":

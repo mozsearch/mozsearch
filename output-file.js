@@ -21,6 +21,10 @@ function parseAnalysis(line)
     throw `Invalid analysis line: ${line}`;
   }
 
+  if (parts[2][0] == '"') {
+    parts[2] = eval(parts[2]);
+  }
+
   let [linenum, colnum] = parts[0].split(":");
   return {line: parseInt(linenum), col: parseInt(colnum),
           kind: parts[1], name: parts[2], id: parts[3], extra: parts[4]};
@@ -129,10 +133,20 @@ function generateFile(path, opt)
   if (language == "skip") {
     code = "binary file";
   } else if (language) {
-    try {
-      code = runCmd(`source-highlight --style-css-file=sh_ide-codewarrior.css -s ${language} -i ${treeRoot + path} | tail -n +5`);
-    } catch (e) {
-      code = "binary file";
+    lineLen = parseInt(runCmd(`wc -L ${treeRoot + path}`));
+    if (lineLen > 250) {
+      try {
+        code = snarf(treeRoot + path);
+      } catch (e) {
+        code = "binary file";
+      }
+      code = toHTML(code);
+    } else {
+      try {
+        code = runCmd(`source-highlight --style-css-file=sh_ide-codewarrior.css -s ${language} -i ${treeRoot + path} | tail -n +5`);
+      } catch (e) {
+        code = "binary file";
+      }
     }
   } else {
     try {
@@ -175,6 +189,10 @@ function generateFile(path, opt)
       <td class="code">
 <pre>`);
 
+  function esc(s) {
+    return s.replace('<', '&lt;').replace('>', '&gt;');
+  }
+
   function outputLine(lineNum, line) {
     let col = 0;
     for (let i = 0; i < line.length; i++) {
@@ -210,10 +228,37 @@ function generateFile(path, opt)
         if (datum.extra && jumps.has(datum.extra)) {
           extra += `data-extra-jump="true" `;
         }
-        out(`<span data-id="${datum.id}" data-kind=${datum.kind} ${extra}>${datum.name}</span>`);
+        out(`<span data-id="${datum.id}" data-kind=${datum.kind} ${extra}>${esc(datum.name)}</span>`);
 
-        col += datum.name.length - 1;
-        i += datum.name.length - 1;
+        // Output the formatted link text.
+        var stop = col + datum.name.length;
+        while (col < stop) {
+          ch = line[i];
+          if (ch == '&') {
+            do {
+              i++;
+            } while (line[i] != ';');
+            col++;
+            i++;
+            continue;
+          }
+
+          if (ch == '<') {
+            do {
+              i++;
+            } while (line[i] != '>');
+            i++;
+            continue;
+          }
+
+          col++;
+          i++;
+        }
+        i--;
+        col--;
+
+        out("</span>");
+
         do {
           datum = parseAnalysis(analysisLines[analysisIndex++]);
         } while (datum.line == lastLine && datum.col == lastCol);
