@@ -2,6 +2,8 @@
 
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
+#include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
@@ -30,7 +32,6 @@ using namespace clang;
 const std::string GENERATED("__GENERATED__/");
 
 std::string srcdir;
-std::string objdir;
 std::string outdir;
 
 static std::string
@@ -90,12 +91,6 @@ struct FileInfo
     if (interesting) {
       // Remove the trailing `/' as well.
       realname.erase(0, srcdir.length() + 1);
-    } else if (rname.compare(0, objdir.length(), objdir) == 0) {
-      // We're in the objdir, so we are probably a generated header
-      // We use the escape character to indicate the objdir nature.
-      // Note that obj also has the `/' already placed
-      interesting = true;
-      realname.replace(0, objdir.length(), GENERATED);
     }
   }
   std::string realname;
@@ -270,6 +265,51 @@ public:
     return true;
   }
 
+  bool VisitCXXConstructExpr(CXXConstructExpr* e) {
+    if (!IsInterestingLocation(e->getLocStart())) {
+      return true;
+    }
+
+    CXXConstructorDecl* ctor = e->getConstructor();
+    std::string mangled = GetMangledName(mMangleContext, ctor);
+
+    if (sm.isMacroBodyExpansion(e->getLocation())) {
+      return true;
+    }
+    if (sm.isMacroArgExpansion(e->getLocation())) {
+      return true;
+    }
+
+    // Probably want to measure from Loc to ParenOrBraceRange.start (non-inclusive).
+    // Would need to do something different for list initialization.
+
+    if (e->getParenOrBraceRange().isInvalid()) {
+      return true;
+    }
+
+    SourceLocation start = sm.getExpansionLoc(e->getLocation());
+    SourceLocation endNonInclusive = sm.getExpansionRange(e->getParenOrBraceRange().getBegin()).first;
+
+    unsigned startOffset = sm.getFileOffset(start);
+    unsigned endOffset = sm.getFileOffset(endNonInclusive);
+
+    std::string loc = LocationToString(start);
+
+    const char* startChars = sm.getCharacterData(start);
+    std::string text(startChars, endOffset - startOffset);
+
+    StringRef filename = sm.getFilename(e->getLocation());
+    FileInfo *f = GetFileInfo(filename);
+
+    char s[1024];
+    sprintf(s, "%s use %s %s\n",
+            loc.c_str(), EscapeString(text).c_str(), mangled.c_str());
+
+    f->output.push_back(std::string(s));
+
+    return true;
+  }
+
   bool VisitCallExpr(CallExpr *e) {
     if (!IsInterestingLocation(e->getLocStart())) {
       return true;
@@ -298,17 +338,19 @@ public:
         return true;
       }
 
+      Expr* callee = e->getCallee()->IgnoreParenImpCasts();
+
       SourceLocation start, end;
       if (CXXOperatorCallExpr::classof(e)) {
         // Just take the first token.
         CXXOperatorCallExpr* op = dyn_cast<CXXOperatorCallExpr>(e);
         start = end = op->getOperatorLoc();
-      } else if (MemberExpr::classof(e->getCallee())) {
-        MemberExpr* member = dyn_cast<MemberExpr>(e->getCallee());
+      } else if (MemberExpr::classof(callee)) {
+        MemberExpr* member = dyn_cast<MemberExpr>(callee);
         start = end = member->getMemberLoc();
       } else {
-        start = sm.getExpansionLoc(e->getCallee()->getLocStart());
-        end = sm.getExpansionRange(e->getCallee()->getLocEnd()).second;
+        start = sm.getExpansionLoc(callee->getLocStart());
+        end = sm.getExpansionRange(callee->getLocEnd()).second;
       }
 
       unsigned startOffset = sm.getFileOffset(start);
@@ -345,10 +387,10 @@ protected:
   bool ParseArgs(const CompilerInstance &CI,
                  const std::vector<std::string>& args)
   {
-    if (args.size() != 1) {
+    if (args.size() != 2) {
       DiagnosticsEngine &D = CI.getDiagnostics();
       unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
-        "Need an argument for the source directory");
+        "Need arguments for the source and output directories");
       D.Report(DiagID);
       return false;
     }
@@ -363,39 +405,15 @@ protected:
     }
     srcdir = abs_src;
 
-    const char *env = getenv("MOZSEARCH_OBJDIR");
-    if (env) {
-      objdir = env;
-    } else {
-      objdir = srcdir;
-    }
-    char *abs_objdir = realpath(objdir.c_str(), NULL);
-    if (!abs_objdir) {
-      DiagnosticsEngine &D = CI.getDiagnostics();
-      unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
-        "Objdir '%0' does not exist");
-      D.Report(DiagID) << objdir;
-      return false;
-    }
-    objdir = realpath(objdir.c_str(), NULL);
-    objdir += "/";
-
-    env = getenv("MOZSEARCH_OUTDIR");
-    assert(env);
-    if (env) {
-      outdir = env;
-    } else {
-      outdir = srcdir;
-    }
-    char* abs_outdir = realpath(outdir.c_str(), NULL);
+    char *abs_outdir = realpath(args[1].c_str(), NULL);
     if (!abs_outdir) {
       DiagnosticsEngine &D = CI.getDiagnostics();
       unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
         "Output directory '%0' does not exist");
-      D.Report(DiagID) << outdir;
+      D.Report(DiagID) << args[1];
       return false;
     }
-    outdir = realpath(outdir.c_str(), NULL);
+    outdir = abs_outdir;
     outdir += "/";
 
     return true;

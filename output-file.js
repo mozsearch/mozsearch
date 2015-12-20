@@ -190,32 +190,13 @@ function generateFile(path, opt)
 <pre>`);
 
   function esc(s) {
-    return s.replace('<', '&lt;').replace('>', '&gt;');
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;');
   }
 
   function outputLine(lineNum, line) {
     let col = 0;
-    for (let i = 0; i < line.length; i++) {
+    for (let i = 0; i < line.length; ) {
       let ch = line[i];
-
-      if (ch == '&') {
-        do {
-          out(line[i]);
-          i++;
-        } while (line[i] != ';');
-        out(line[i]);
-        col++;
-        continue;
-      }
-
-      if (ch == '<') {
-        do {
-          out(line[i]);
-          i++;
-        } while (line[i] != '>');
-        out(line[i]);
-        continue;
-      }
 
       if (lineNum == datum.line && col == datum.col) {
         let extra = "";
@@ -254,10 +235,6 @@ function generateFile(path, opt)
           col++;
           i++;
         }
-        i--;
-        col--;
-
-        out("</span>");
 
         do {
           datum = parseAnalysis(analysisLines[analysisIndex++]);
@@ -267,11 +244,26 @@ function generateFile(path, opt)
         }
         lastLine = datum.line;
         lastCol = datum.col;
+      } else if (ch == '&') {
+        do {
+          out(line[i]);
+          i++;
+        } while (line[i] != ';');
+        out(line[i]);
+        col++;
+        i++;
+      } else if (ch == '<') {
+        do {
+          out(line[i]);
+          i++;
+        } while (line[i] != '>');
+        out(line[i]);
+        i++;
       } else {
         out(ch);
+        col++;
+        i++;
       }
-
-      col++;
     }
   }
 

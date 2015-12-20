@@ -1,11 +1,13 @@
+#!/usr/bin/env python
+
 import os
 import os.path
 import sys
 import subprocess
 
-mozSearchRoot = sys.argv[1]
-indexRoot = sys.argv[2]
-treeRoot = sys.argv[3]
+mozSearchRoot = os.environ['MOZSEARCH_ROOT']
+indexRoot = os.environ['INDEX_ROOT']
+treeRoot = os.environ['TREE_ROOT']
 
 p = subprocess.Popen('git ls-files', shell=True, stdout=subprocess.PIPE, cwd=treeRoot)
 (stdout, stderr) = p.communicate()

@@ -38,5 +38,11 @@ int main()
     s.m();
     HELLO(4);
 
+    void (*fp)();
+    fp = &NS::f;
+    fp();
+
+    NS::S* sp = new NS::S();
+
     return 0;
 }

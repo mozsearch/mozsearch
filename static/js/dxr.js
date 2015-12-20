@@ -377,7 +377,7 @@ $(function() {
           continue;
         }
         if (kind != "default" && data[kind].length) {
-          var headerRow = $("<tr> <td class='left-column'></td><td><b>" + kind + "</b></td> </tr>");
+          var headerRow = $("<tr><td class='left-column'></td><td><div class='result-kind'>" + kind + "</div></td> </tr>");
           table.append(headerRow);
         }
 

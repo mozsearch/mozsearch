@@ -29,7 +29,7 @@ mkdir /index
 mount /dev/xvdc /index
 chown ubuntu.ubuntu /index
 
-cat > ~ubuntu/indexer <<THEEND
+cat > ~ubuntu/indexer <<"THEEND"
 #!/bin/bash
 
 set -e
@@ -37,7 +37,7 @@ set -x
 
 export INDEX_TMP=/mnt/index-tmp
 
-cd \$INDEX_TMP
+cd $INDEX_TMP
 
 exec &> ~ubuntu/index-log
 
@@ -47,8 +47,8 @@ pushd js
 unzip ../jsshell-linux-x86_64.zip
 popd
 
-export LD_LIBRARY_PATH=\$INDEX_TMP/js
-export JS=\$INDEX_TMP/js/js
+export LD_LIBRARY_PATH=$INDEX_TMP/js
+export JS=$INDEX_TMP/js/js
 
 git clone https://github.com/mozilla/gecko-dev
 mv gecko-dev mozilla-central
@@ -57,10 +57,15 @@ git clone https://github.com/livegrep/livegrep
 pushd livegrep
 make
 popd
-export CODESEARCH=\$INDEX_TMP/livegrep/bin/codesearch
+export CODESEARCH=$INDEX_TMP/livegrep/bin/codesearch
 
 git clone https://github.com/bill-mccloskey/mozsearch
-\$INDEX_TMP/mozsearch/mkindex \$INDEX_TMP/mozsearch /index \$INDEX_TMP
+
+export TREE_ROOT=$INDEX_TMP/mozilla-central
+export INDEX_ROOT=/index
+export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
+
+$INDEX_TMP/mozsearch/mkindex $INDEX_TMP/mozilla-central /index $INDEX_TMP/mozsearch
 
 date
 echo "Indexing complete"

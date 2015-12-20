@@ -3,92 +3,20 @@
 set -e # Errors are fatal
 set -x # Show commands
 
-FULL=
-if [ $1 = "--full" ]
-then
-  FULL=1
-  shift
-fi
+$MOZSEARCH_ROOT/scripts/cpp-configure.sh
 
-MOZSEARCH_ROOT=$(realpath $1)
-INDEX_ROOT=$(realpath $2)
-TREE_ROOT=$(realpath $3)
+cd $TREE_ROOT/objdir
+make
+cd -
 
-cd $TREE_ROOT
-if [ ! -d mozilla-central ]
-then
-  hg clone http://hg.mozilla.org/mozilla-central
-fi
+$MOZSEARCH_ROOT/scripts/find-repo-files.py
 
-cd mozilla-central
+$MOZSEARCH_ROOT/scripts/build-codesearch.sh
 
-if [ $FULL ]
-then
-  hg up
+$MOZSEARCH_ROOT/scripts/mkdirs.sh
 
-  cat >.mozconfig <<EOF
-. \$topsrcdir/browser/config/mozconfig
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir
-ac_add_options --enable-debug
-ac_add_options --enable-optimize
-EOF
+$MOZSEARCH_ROOT/scripts/js-analyze.sh
 
-  if [ CLOBBER -nt objdir/CLOBBER ]
-  then
-    rm -rf objdir
-  fi
+$MOZSEARCH_ROOT/scripts/crossref.sh
 
-  ./mach build
-fi
-
-python $MOZSEARCH_ROOT/find-repo-files.py $MOZSEARCH_ROOT $INDEX_ROOT $TREE_ROOT/mozilla-central
-
-JS_FILES=$INDEX_ROOT/js-files
-ALL_FILES=$INDEX_ROOT/all-files
-ALL_DIRS=$INDEX_ROOT/all-dirs
-
-if [ "x${JS}" = "x" ]
-then
-  JS=$(which js)
-  if [ "x${JS}" = "x" ]
-  then
-    JS="$PWD/objdir/dist/bin/run-mozilla.sh $PWD/objdir/dist/bin/js"
-  fi
-fi
-
-cd $TREE_ROOT
-$CODESEARCH $MOZSEARCH_ROOT/livegrep-index.json \
-    -dump_index $INDEX_ROOT/livegrep.idx \
-    -max_matches 1000 </dev/null
-
-# Avoid using $PWD
-cd /tmp
-
-mkdir -p $INDEX_ROOT/analysis
-mkdir -p $INDEX_ROOT/file
-mkdir -p $INDEX_ROOT/dir
-
-set +x
-
-cat $ALL_DIRS | while IFS= read dir
-do
-  mkdir -p "$INDEX_ROOT/file/$dir"
-  mkdir -p "$INDEX_ROOT/dir/$dir"
-  mkdir -p "$INDEX_ROOT/analysis/$dir"
-done
-mkdir -p $INDEX_ROOT/templates
-
-set -x
-
-parallel $JS -f $MOZSEARCH_ROOT/setversion.js -f $MOZSEARCH_ROOT/js-analyze.js -- {#} $TREE_ROOT/mozilla-central/{} ">" $INDEX_ROOT/analysis/{} < $JS_FILES
-
-cat $JS_FILES | xargs $JS $MOZSEARCH_ROOT/crossref.js \
-                          $TREE_ROOT/mozilla-central/ \
-                          $INDEX_ROOT \
-                          $MOZSEARCH_ROOT
-
-cat $ALL_FILES | parallel --halt 2 -X --eta $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
-
-cat $ALL_DIRS | parallel --halt 2 -X --eta $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
-
-$JS $MOZSEARCH_ROOT/output-template.js $TREE_ROOT/mozilla-central $INDEX_ROOT $MOZSEARCH_ROOT
+$MOZSEARCH_ROOT/scripts/output.sh
