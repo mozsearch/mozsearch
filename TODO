@@ -125,3 +125,12 @@ I'd like them to be able to type SomeClass::AddRef into the search box.
 I'd also like them to be able to click on a use of AddRef and select which
 option they want: just the ones for the static type or else all uses/defs
 of the root version of the method.
+
+
+Showing one path for multiple inheritance doesn't work so well in Gecko. I really
+need to show everything. If I have a def that implenents both A::f and B::f, then
+I want it to show up in the results for both. But what if I click on the def? I would
+also like to find uses for both. It would be nice if I could even categorize
+them in the results page as uses of one virtual method or another.
+
+What about inheritance and such?

@@ -162,12 +162,10 @@ private:
   std::string LocationToString(SourceLocation loc) {
     std::string buffer;
     bool isInvalid;
-    // Since we're dealing with only expansion locations here, we should be
-    // guaranteed to stay within the same file as "out" points to.
-    unsigned column = sm.getExpansionColumnNumber(loc, &isInvalid);
+    unsigned column = sm.getSpellingColumnNumber(loc, &isInvalid);
 
     if (!isInvalid) {
-      unsigned line = sm.getExpansionLineNumber(loc, &isInvalid);
+      unsigned line = sm.getSpellingLineNumber(loc, &isInvalid);
       if (!isInvalid) {
         buffer = ToString(line);
         buffer += ":";
@@ -265,6 +263,26 @@ public:
     return true;
   }
 
+  void UseToken(SourceLocation loc, std::string mangled) {
+    loc = sm.getSpellingLoc(loc);
+
+    unsigned startOffset = sm.getFileOffset(loc);
+    unsigned endOffset = startOffset + Lexer::MeasureTokenLength(loc, sm, ci.getLangOpts());
+
+    std::string locStr = LocationToString(loc);
+
+    const char* startChars = sm.getCharacterData(loc);
+    std::string text(startChars, endOffset - startOffset);
+
+    StringRef filename = sm.getFilename(loc);
+    FileInfo *f = GetFileInfo(filename);
+
+    char s[1024];
+    sprintf(s, "%s use %s %s\n", locStr.c_str(), EscapeString(text).c_str(), mangled.c_str());
+
+    f->output.push_back(std::string(s));
+  }
+
   bool VisitCXXConstructExpr(CXXConstructExpr* e) {
     if (!IsInterestingLocation(e->getLocStart())) {
       return true;
@@ -273,39 +291,17 @@ public:
     CXXConstructorDecl* ctor = e->getConstructor();
     std::string mangled = GetMangledName(mMangleContext, ctor);
 
-    if (sm.isMacroBodyExpansion(e->getLocation())) {
-      return true;
-    }
-    if (sm.isMacroArgExpansion(e->getLocation())) {
-      return true;
-    }
-
     // Probably want to measure from Loc to ParenOrBraceRange.start (non-inclusive).
     // Would need to do something different for list initialization.
 
-    if (e->getParenOrBraceRange().isInvalid()) {
+    SourceLocation loc = e->getParenOrBraceRange().getBegin();
+    if (loc.isInvalid()) {
       return true;
     }
 
-    SourceLocation start = sm.getExpansionLoc(e->getLocation());
-    SourceLocation endNonInclusive = sm.getExpansionRange(e->getParenOrBraceRange().getBegin()).first;
+    loc = loc.getLocWithOffset(-1);
 
-    unsigned startOffset = sm.getFileOffset(start);
-    unsigned endOffset = sm.getFileOffset(endNonInclusive);
-
-    std::string loc = LocationToString(start);
-
-    const char* startChars = sm.getCharacterData(start);
-    std::string text(startChars, endOffset - startOffset);
-
-    StringRef filename = sm.getFilename(e->getLocation());
-    FileInfo *f = GetFileInfo(filename);
-
-    char s[1024];
-    sprintf(s, "%s use %s %s\n",
-            loc.c_str(), EscapeString(text).c_str(), mangled.c_str());
-
-    f->output.push_back(std::string(s));
+    UseToken(loc, mangled);
 
     return true;
   }
@@ -331,45 +327,33 @@ public:
         mangled = GetMangledName(mMangleContext, method);
       }
 
-      if (sm.isMacroBodyExpansion(e->getCallee()->getLocStart())) {
-        return true;
-      }
-      if (sm.isMacroArgExpansion(e->getCallee()->getLocStart())) {
-        return true;
-      }
-
       Expr* callee = e->getCallee()->IgnoreParenImpCasts();
 
-      SourceLocation start, end;
+      SourceLocation loc;
       if (CXXOperatorCallExpr::classof(e)) {
         // Just take the first token.
         CXXOperatorCallExpr* op = dyn_cast<CXXOperatorCallExpr>(e);
-        start = end = op->getOperatorLoc();
+        loc = op->getOperatorLoc();
       } else if (MemberExpr::classof(callee)) {
         MemberExpr* member = dyn_cast<MemberExpr>(callee);
-        start = end = member->getMemberLoc();
-      } else {
-        start = sm.getExpansionLoc(callee->getLocStart());
-        end = sm.getExpansionRange(callee->getLocEnd()).second;
+        loc = member->getMemberLoc();
+      } else if (DeclRefExpr::classof(callee)) {
+        DeclRefExpr* ref = dyn_cast<DeclRefExpr>(callee);
+        if (ref->hasQualifier()) {
+          loc = ref->getNameInfo().getLoc();
+        }
       }
 
-      unsigned startOffset = sm.getFileOffset(start);
-      unsigned endOffset = sm.getFileOffset(end);
+      if (!loc.isValid()) {
+        loc = callee->getLocStart();
+        if (callee->getLocEnd() != loc) {
+          // Skip this call. If we can't find a single token, we don't have a
+          // good UI for displaying the call.
+          return true;
+        }
+      }
 
-      endOffset += Lexer::MeasureTokenLength(end, sm, ci.getLangOpts());
-
-      std::string loc = LocationToString(start);
-
-      const char* startChars = sm.getCharacterData(start);
-      std::string text(startChars, endOffset - startOffset);
-
-      StringRef filename = sm.getFilename(start);
-      FileInfo *f = GetFileInfo(filename);
-
-      char s[1024];
-      sprintf(s, "%s use %s %s\n", loc.c_str(), EscapeString(text).c_str(), mangled.c_str());
-
-      f->output.push_back(std::string(s));
+      UseToken(loc, mangled);
     }
 
     return true;
