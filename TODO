@@ -134,3 +134,18 @@ also like to find uses for both. It would be nice if I could even categorize
 them in the results page as uses of one virtual method or another.
 
 What about inheritance and such?
+
+
+
+Searching for declarations:
+Perhaps I'll make an index file that can be used to augment the full text search.
+This would be similar to augmenting it with filenames.
+When doing the analysis, a given decl would generate a fully-qualified name and a line/column number.
+This could be a separate kind of analysis line; maybe it could be called "index". I could
+also use this for JS, where you could search for ClassName.PropertyName.
+The search feature would probably just grep through this file since I want to allow substring searches.
+Not sure if that would be fast enough, but it might not be too bad. It would just be defs.
+Or I could put in each level of qualification as a separate thing, and they would have to type
+a prefix. That way I could do a binary search, which would be much faster.
+
+How do I make inheritance support better?
