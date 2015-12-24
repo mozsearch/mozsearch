@@ -9,7 +9,7 @@ then
   FILTER=".*"
 fi
 
-cat $INDEX_ROOT/js-files | grep $FILTER | \
+cat $INDEX_ROOT/js-files | grep "$FILTER" | \
     parallel $JS -f $MOZSEARCH_ROOT/setversion.js \
     -f $MOZSEARCH_ROOT/js-analyze.js -- {#} \
     $TREE_ROOT/{} ">" $INDEX_ROOT/analysis/{}

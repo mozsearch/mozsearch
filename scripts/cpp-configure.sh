@@ -5,7 +5,7 @@ set -x # Show commands
 
 cat >/tmp/mozconfig <<"EOF"
 . $topsrcdir/browser/config/mozconfig
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir-indexing
 ac_add_options --enable-debug
 ac_add_options --enable-optimize
 ac_add_options --enable-valgrind
@@ -17,8 +17,8 @@ EOF
 # Add the special clang flags.
 $MOZSEARCH_ROOT/scripts/indexer-setup.py >> /tmp/mozconfig
 
-mkdir -p $TREE_ROOT/objdir
-cd $TREE_ROOT/objdir
+mkdir -p $TREE_ROOT/objdir-indexing
+cd $TREE_ROOT/objdir-indexing
 MOZCONFIG=/tmp/mozconfig ../configure
 
 #make

@@ -16,6 +16,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <memory>
 #include <iostream>
 #include <map>
 #include <sstream>
@@ -364,8 +365,8 @@ public:
 class IndexAction : public PluginASTAction
 {
 protected:
-  ASTConsumer *CreateASTConsumer(CompilerInstance &CI, llvm::StringRef f) {
-    return new IndexConsumer(CI);
+  std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, llvm::StringRef f) {
+    return llvm::make_unique<IndexConsumer>(CI);
   }
 
   bool ParseArgs(const CompilerInstance &CI,

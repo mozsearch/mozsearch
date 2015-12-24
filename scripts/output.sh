@@ -9,11 +9,11 @@ then
   FILTER=".*"
 fi
 
-cat $INDEX_ROOT/all-files | grep $FILTER | \
+cat $INDEX_ROOT/all-files | grep "$FILTER" | \
     parallel --halt 2 -X --eta \
     $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT
 
-cat $INDEX_ROOT/all-dirs | grep $FILTER | \
+cat $INDEX_ROOT/all-dirs | grep "$FILTER" | \
     parallel --halt 2 -X --eta \
     $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT
 

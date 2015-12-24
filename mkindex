@@ -3,17 +3,16 @@
 set -e # Errors are fatal
 set -x # Show commands
 
+$MOZSEARCH_ROOT/scripts/find-repo-files.py
+$MOZSEARCH_ROOT/scripts/mkdirs.sh
+
 $MOZSEARCH_ROOT/scripts/cpp-configure.sh
 
-cd $TREE_ROOT/objdir
-make
+cd $TREE_ROOT/objdir-indexing
+make -j8
 cd -
 
-$MOZSEARCH_ROOT/scripts/find-repo-files.py
-
 $MOZSEARCH_ROOT/scripts/build-codesearch.sh
-
-$MOZSEARCH_ROOT/scripts/mkdirs.sh
 
 $MOZSEARCH_ROOT/scripts/js-analyze.sh
 
