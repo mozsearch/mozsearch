@@ -11,13 +11,18 @@ apt-get autoremove -y
 apt-get install -y git
 
 # Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
-apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev libglib2.0-dev libdbus-1-dev libdbus-glib-1-dev libasound2-dev libcurl4-openssl-dev libiw-dev libxt-dev mesa-common-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libpulse-dev m4 flex ccache libgconf2-dev clang-3.6 libclang-3.6-dev
+apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk-3-dev libglib2.0-dev libdbus-1-dev libdbus-glib-1-dev libasound2-dev libcurl4-openssl-dev libiw-dev libxt-dev mesa-common-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libpulse-dev m4 flex ccache libgconf2-dev clang-3.6 libclang-3.6-dev
 
 # Livegrep
 apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang
 
 # Other
 apt-get install -y parallel realpath source-highlight
+
+# Setup direct links to clang
+update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-3.6 360
+update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.6 360
+update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.6 360
 
 echo "Finished installation"
 
@@ -60,6 +65,9 @@ popd
 export CODESEARCH=$INDEX_TMP/livegrep/bin/codesearch
 
 git clone https://github.com/bill-mccloskey/mozsearch
+pushd mozsearch/clang-plugin
+make
+popd
 
 export TREE_ROOT=$INDEX_TMP/mozilla-central
 export INDEX_ROOT=/index
