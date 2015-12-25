@@ -1,3 +1,5 @@
+"use strict";
+
 let treeRoot = scriptArgs[0];
 let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
@@ -123,9 +125,6 @@ function generateFile(path, opt)
   }
   analysisLines.push("100000000000:0 eof BAD BAD");
 
-  let lastLine = -1;
-  let lastCol = -1;
-
   let datum = parseAnalysis(analysisLines[0]);
   let analysisIndex = 1;
 
@@ -133,7 +132,7 @@ function generateFile(path, opt)
   if (language == "skip") {
     code = "binary file";
   } else if (language) {
-    lineLen = parseInt(runCmd(`wc -L ${treeRoot + path}`));
+    let lineLen = parseInt(runCmd(`wc -L ${treeRoot + path}`));
     if (lineLen > 250) {
       try {
         code = snarf(treeRoot + path);
@@ -236,14 +235,15 @@ function generateFile(path, opt)
           i++;
         }
 
+        let lastLine = datum.line;
+        let lastCol = datum.col;
+
         do {
           datum = parseAnalysis(analysisLines[analysisIndex++]);
         } while (datum.line == lastLine && datum.col == lastCol);
         if (datum.line < lastLine || (datum.line == lastLine && datum.col < lastCol)) {
           throw `Invalid analysis loc: ${path} ${JSON.stringify(datum)}`;
         }
-        lastLine = datum.line;
-        lastCol = datum.col;
       } else if (ch == '&') {
         do {
           out(line[i]);
