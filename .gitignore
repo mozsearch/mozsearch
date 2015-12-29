@@ -6,3 +6,4 @@ mozilla-central
 *.o
 *.so
 clang-plugin/a.out
+aws/env

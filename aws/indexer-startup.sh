@@ -17,7 +17,7 @@ apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk-3-dev l
 apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang
 
 # Other
-apt-get install -y parallel realpath source-highlight
+apt-get install -y parallel realpath source-highlight python-virtualenv
 
 # Setup direct links to clang
 update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-3.6 360
@@ -29,16 +29,13 @@ echo "Finished installation"
 mkdir /mnt/index-tmp
 chown ubuntu.ubuntu /mnt/index-tmp
 
-mkfs -t ext4 /dev/xvdc
-mkdir /index
-mount /dev/xvdc /index
-chown ubuntu.ubuntu /index
-
 cat > ~ubuntu/indexer <<"THEEND"
 #!/bin/bash
 
 set -e
 set -x
+
+EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
 export INDEX_TMP=/mnt/index-tmp
 
@@ -65,9 +62,21 @@ popd
 export CODESEARCH=$INDEX_TMP/livegrep/bin/codesearch
 
 git clone https://github.com/bill-mccloskey/mozsearch
+
 pushd mozsearch/clang-plugin
 make
 popd
+
+pushd mozsearch/aws
+virtualenv env
+./env/bin/pip install boto3
+VOLUME_ID=$(./env/bin/python attach-index-volume.py $EC2_INSTANCE_ID)
+popd
+
+sudo mkfs -t ext4 /dev/xvdf
+sudo mkdir /index
+sudo mount /dev/xvdf /index
+sudo chown ubuntu.ubuntu /index
 
 export TREE_ROOT=$INDEX_TMP/mozilla-central
 export INDEX_ROOT=/index
@@ -77,6 +86,15 @@ $INDEX_TMP/mozsearch/mkindex $INDEX_TMP/mozilla-central /index $INDEX_TMP/mozsea
 
 date
 echo "Indexing complete"
+
+sudo umount /index
+
+pushd mozsearch/aws
+./env/bin/python detach-index-volume.py $EC2_INSTANCE_ID $VOLUME_ID
+./env/bin/python swap-web-server.py $VOLUME_ID
+./env/bin/python terminate-indexer.py $EC2_INSTANCE_ID
+popd
+
 THEEND
 
 chmod +x ~ubuntu/indexer

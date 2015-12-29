@@ -96,7 +96,7 @@ mkdir -p docroot/dir/mozilla-central
 ln -s $HOME/index/file docroot/file/mozilla-central/source
 ln -s $HOME/index/dir docroot/dir/mozilla-central/source
 
-nohup livegrep/bin/codesearch -listen tcp://localhost:8080 -load_index $HOME/index/livegrep.idx > $HOME/codesearch.log 2> $HOME/codesearch.err < /dev/null &
+nohup livegrep/bin/codesearch -listen tcp://localhost:8080 -load_index $HOME/index/livegrep.idx -max_matches 1000 > $HOME/codesearch.log 2> $HOME/codesearch.err < /dev/null &
 cd mozsearch
 sleep 10
 nohup python router/router.py $HOME/mozsearch $HOME/index > $HOME/router.log 2> $HOME/router.err < /dev/null &
