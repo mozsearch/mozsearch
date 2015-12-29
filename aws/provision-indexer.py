@@ -6,14 +6,7 @@ client = boto3.client('ec2')
 
 userData = open('indexer-startup.sh').read()
 
-blockDevices = [{'DeviceName': 'xvdf',
-                 'Ebs': {
-                     'VolumeSize': 30,
-                     'DeleteOnTermination': True,
-                     'VolumeType': 'gp2',
-                 },
-             },
-            ]
+blockDevices = []
 
 launchSpec = {
     'ImageId': 'ami-5189a661',
