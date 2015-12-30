@@ -37,6 +37,12 @@ set -x
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
+mkdir ~/.aws
+cat > ~/.aws/config <<"STOP"
+[default]
+region = us-west-2
+STOP
+
 export INDEX_TMP=/mnt/index-tmp
 
 cd $INDEX_TMP

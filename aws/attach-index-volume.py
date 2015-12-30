@@ -10,10 +10,15 @@ from datetime import datetime
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
+# Find availability zone
+instanceId = sys.argv[1]
+instances = ec2.instances.filter(InstanceIds=[instanceId])
+instance = list(instances)[0]
+
 r = client.create_volume(
     Size=30,
     VolumeType='gp2',
-    AvailabilityZone='us-west-2',
+    AvailabilityZone=instance.placement['AvailabilityZone'],
 )
 
 volumeId = r['VolumeId']
@@ -24,9 +29,6 @@ client.create_tags(Resources=[volumeId], Tags=[{
     'Value': str(datetime.now()),
 }])
 
-instanceId = sys.argv[1]
-instances = ec2.instances.filter(InstanceIds=[instanceId])
-instance = list(instances)[0]
 
 instance.attach_volume(VolumeId=volumeId, Device='xvdf')
 
