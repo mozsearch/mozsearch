@@ -7,14 +7,18 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: swap-web-server.py <index-volume-id>
+# Usage: swap-web-server.py <indexer-instance-id> <index-volume-id>
 
 import sys
 from datetime import datetime
 import boto3
 import awslib
 
+indexerInstanceId = sys.argv[1]
 volumeId = sys.argv[1]
+
+instances = ec2.instances.filter(InstanceIds=[indexerInstanceId])
+indexerInstance = list(instances)[0]
 
 ELASTIC_IP = '52.32.131.4'
 
@@ -35,6 +39,7 @@ r = client.run_instances(
     SecurityGroups=['web-server'],
     UserData=userData,
     InstanceType='t2.medium',
+    Placement={'AvailabilityZone': indexerInstance.placement['AvailabilityZone']},
 )
 
 webServerInstanceId = r['Instances'][0]['InstanceId']

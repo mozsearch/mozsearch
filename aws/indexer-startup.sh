@@ -79,6 +79,16 @@ virtualenv env
 VOLUME_ID=$(./env/bin/python attach-index-volume.py $EC2_INSTANCE_ID)
 popd
 
+while true
+do
+    COUNT=$(lsblk | grep xvdf | wc -l)
+    if [ $COUNT -eq 1 ]
+    then break
+    fi
+done
+
+echo "Volume detected"
+
 sudo mkfs -t ext4 /dev/xvdf
 sudo mkdir /index
 sudo mount /dev/xvdf /index
@@ -97,7 +107,7 @@ sudo umount /index
 
 pushd mozsearch/aws
 ./env/bin/python detach-index-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-./env/bin/python swap-web-server.py $VOLUME_ID
+./env/bin/python swap-web-server.py $EC2_INSTANCE_ID $VOLUME_ID
 ./env/bin/python terminate-indexer.py $EC2_INSTANCE_ID
 popd
 
