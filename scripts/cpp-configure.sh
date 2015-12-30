@@ -10,7 +10,6 @@ ac_add_options --enable-debug
 ac_add_options --enable-optimize
 ac_add_options --enable-gczeal
 ac_add_options --without-ccache
-ac_add_options --enable-ipdl-tests
 EOF
 
 # Add the special clang flags.
