@@ -15,10 +15,7 @@ import boto3
 import awslib
 
 indexerInstanceId = sys.argv[1]
-volumeId = sys.argv[1]
-
-instances = ec2.instances.filter(InstanceIds=[indexerInstanceId])
-indexerInstance = list(instances)[0]
+volumeId = sys.argv[2]
 
 ELASTIC_IP = '52.32.131.4'
 
@@ -30,6 +27,9 @@ client = boto3.client('ec2')
 print 'Starting web server instance...'
 
 userData = open('web-server-startup.sh').read()
+
+instances = ec2.instances.filter(InstanceIds=[indexerInstanceId])
+indexerInstance = list(instances)[0]
 
 r = client.run_instances(
     ImageId='ami-5189a661', # Ubuntu 14.04
