@@ -7,17 +7,23 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: swap-web-server.py <indexer-instance-id> <index-volume-id>
+# Usage: swap-web-server.py <channel> <indexer-instance-id> <index-volume-id>
 
 import sys
 from datetime import datetime
 import boto3
 import awslib
 
-indexerInstanceId = sys.argv[1]
-volumeId = sys.argv[2]
+channel = sys.argv[1]
+indexerInstanceId = sys.argv[2]
+volumeId = sys.argv[3]
 
-ELASTIC_IP = '52.32.131.4'
+ELASTIC_IPS = {
+    'release': '52.32.131.4',
+    'dev': '52.33.247.22',
+}
+
+elasticIp = ELASTIC_IPS[channel]
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
@@ -56,6 +62,9 @@ webServerInstance = list(instances)[0]
 client.create_tags(Resources=[webServerInstanceId], Tags=[{
     'Key': 'web-server',
     'Value': str(datetime.now()),
+}, {
+    'Key': 'channel',
+    'Value': channel,
 }])
 
 print 'Attaching index volume to web server instance...'
@@ -74,13 +83,14 @@ ip = webServerInstance.public_ip_address
 
 print 'Switching elastic IP address...'
 
-client.associate_address(InstanceId=webServerInstanceId, PublicIp=ELASTIC_IP, AllowReassociation=True)
+client.associate_address(InstanceId=webServerInstanceId, PublicIp=elasticIp, AllowReassociation=True)
 
 # - Shut down any old web server (a web server not equal to the one I've started)
 
 print 'Shutting down old servers...'
 
-instances = client.describe_instances(Filters=[{'Name': 'tag-key', 'Values': ['web-server']}])
+instances = client.describe_instances(Filters=[{'Name': 'tag-key', 'Values': ['web-server']},
+                                               {'Name': 'tag:channel', 'Values': [channel]}])
 instances = instances['Reservations'][0]['Instances']
 terminate = []
 for instance in instances:
@@ -99,7 +109,8 @@ for instanceId in terminate:
 
 print 'Deleting old EBS index volumes...'
 
-volumes = client.describe_volumes(Filters=[{'Name': 'tag-key', 'Values': ['index']}])
+volumes = client.describe_volumes(Filters=[{'Name': 'tag-key', 'Values': ['index']},
+                                           {'Name': 'tag:channel', 'Values': [channel]}])
 volumes = volumes['Volumes']
 for volume in volumes:
     if volumeId != volume['VolumeId']:

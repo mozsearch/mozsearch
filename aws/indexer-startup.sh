@@ -5,6 +5,33 @@ exec &> /root/startup-log
 set -e
 set -x
 
+cat > ./cloudwatch.cfg <<"THEEND"
+[general]
+state_file = /var/awslogs/state/agent-state
+
+[/root/startup-log]
+file = /root/startup-log
+log_group_name = /root/startup-log
+log_stream_name = {instance_id}
+
+[/home/ubuntu/index-log]
+file = /home/ubuntu/index-log
+log_group_name = /home/ubuntu/index-log
+log_stream_name = {instance_id}
+THEEND
+
+wget https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
+chmod +x ./awslogs-agent-setup.py
+./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
+
+#SETCHANNEL
+if [ "x$CHANNEL" = "x" ]
+then
+    CHANNEL=release
+fi
+
+echo "Channel is $CHANNEL"
+
 apt-get update
 apt-get autoremove -y
 
@@ -76,7 +103,7 @@ popd
 pushd mozsearch/aws
 virtualenv env
 ./env/bin/pip install boto3
-VOLUME_ID=$(./env/bin/python attach-index-volume.py $EC2_INSTANCE_ID)
+VOLUME_ID=$(./env/bin/python attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
 popd
 
 while true
@@ -107,7 +134,7 @@ sudo umount /index
 
 pushd mozsearch/aws
 ./env/bin/python detach-index-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-./env/bin/python swap-web-server.py $EC2_INSTANCE_ID $VOLUME_ID
+./env/bin/python swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID
 ./env/bin/python terminate-indexer.py $EC2_INSTANCE_ID
 popd
 

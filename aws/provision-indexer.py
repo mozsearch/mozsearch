@@ -1,10 +1,15 @@
 import boto3
 from datetime import datetime, timedelta
+import sys
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
+# 'release' or 'dev'
+channel = sys.argv[1]
+
 userData = open('indexer-startup.sh').read()
+userData = userData.replace('#SETCHANNEL', 'CHANNEL={}'.format(channel))
 
 blockDevices = []
 
