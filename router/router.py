@@ -40,6 +40,7 @@ class CodeSearch:
         self.buffer = ''
         self.matches = []
         self.wait_ready()
+        self.query = None
 
     def collateMatches(self, matches):
         paths = {}
@@ -50,8 +51,9 @@ class CodeSearch:
 
     def search(self, pattern, fold_case=True, file='.*', repo='.*'):
         query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
+        self.query = json.dumps(query)
         self.state = 'search'
-        self.sock.sendall(json.dumps(query) + '\n')
+        self.sock.sendall(self.query + '\n')
         self.wait_ready()
         matches = self.collateMatches(self.matches)
         self.matches = []
@@ -82,7 +84,8 @@ class CodeSearch:
         elif j['opcode'] == 'ready':
             self.state = 'ready'
         elif j['opcode'] == 'done':
-            pass
+            if j['why'] == 'timeout':
+                print 'Timeout', self.query
         else:
             raise 'Unknown opcode %s' % j['opcode']
 
