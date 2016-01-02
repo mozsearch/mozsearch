@@ -84,7 +84,7 @@ class CodeSearch:
         elif j['opcode'] == 'ready':
             self.state = 'ready'
         elif j['opcode'] == 'done':
-            if j['why'] == 'timeout':
+            if j.get('body', {}).get('why') == 'timeout':
                 print 'Timeout', self.query
         else:
             raise 'Unknown opcode %s' % j['opcode']
