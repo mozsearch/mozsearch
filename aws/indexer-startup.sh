@@ -24,14 +24,6 @@ wget https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setu
 chmod +x ./awslogs-agent-setup.py
 ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
 
-#SETCHANNEL
-if [ "x$CHANNEL" = "x" ]
-then
-    CHANNEL=release
-fi
-
-echo "Channel is $CHANNEL"
-
 apt-get update
 apt-get autoremove -y
 
@@ -62,6 +54,8 @@ cat > ~ubuntu/indexer <<"THEEND"
 set -e
 set -x
 
+exec &> ~ubuntu/index-log
+
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
 mkdir ~/.aws
@@ -74,7 +68,13 @@ export INDEX_TMP=/mnt/index-tmp
 
 cd $INDEX_TMP
 
-exec &> ~ubuntu/index-log
+#SETCHANNEL
+if [ "x$CHANNEL" = "x" ]
+then
+    CHANNEL=release
+fi
+
+echo "Channel is $CHANNEL"
 
 wget http://ftp.mozilla.org/pub/mozilla.org/firefox/tinderbox-builds/mozilla-central-linux64-pgo/latest/jsshell-linux-x86_64.zip
 mkdir js

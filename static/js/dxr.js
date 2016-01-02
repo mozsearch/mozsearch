@@ -17,7 +17,6 @@ $(function() {
   dxr.tree = constants.data('tree');
 
   var timeouts = {};
-  timeouts.scroll = 500;
   timeouts.search = 300;
   // We start the history timeout after the search updates (i.e., after
   // timeouts.search has elapsed).
@@ -197,17 +196,12 @@ $(function() {
    *
    * @param {string} query - The query string
    * @param {bool} isCaseSensitive - Whether the query should be case-sensitive
-   * @param {int} limit - The number of results to return.
-   * @param [int] offset - The cursor position
    */
-  function buildAjaxURL(query, isCaseSensitive, limit, offset) {
+  function buildAjaxURL(query, isCaseSensitive) {
     var search = dxr.searchUrl;
     var params = {};
     params.q = query;
-    params.redirect = false;
     params['case'] = isCaseSensitive;
-    params.limit = limit;
-    params.offset = offset;
 
     return search + '?' + $.param(params);
   }
@@ -424,9 +418,7 @@ $(function() {
     clearTimeout(historyWaiter);
 
     query = $.trim(queryField.val());
-    var myRequestNumber = nextRequestNumber,
-    lineHeight = parseInt(contentContainer.css('line-height'), 10),
-    limit = previousDataLimit = parseInt((window.innerHeight / lineHeight) + 25);
+    var myRequestNumber = nextRequestNumber;
 
     if (query.length === 0) {
       hideBubble();  // Don't complain when I delete what I typed. You didn't complain when it was empty before I typed anything.
@@ -439,7 +431,7 @@ $(function() {
     hideBubble();
     nextRequestNumber += 1;
     oneMoreRequest();
-    var searchUrl = buildAjaxURL(query, caseSensitiveBox.prop('checked'), limit);
+    var searchUrl = buildAjaxURL(query, caseSensitiveBox.prop('checked'));
     $.getJSON(searchUrl, function(data) {
       // New results, overwrite
       if (myRequestNumber > displayedRequestNumber) {

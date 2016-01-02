@@ -100,7 +100,8 @@ for instance in instances:
 
 print 'Terminating {}'.format(terminate)
 
-client.terminate_instances(InstanceIds=terminate)
+if len(terminate):
+    client.terminate_instances(InstanceIds=terminate)
 
 for instanceId in terminate:
     awslib.await_instance(client, instanceId, None, 'terminated')

@@ -136,7 +136,7 @@ def sort_results(results):
 def search_files(path):
     pathFile = os.path.join(indexPath, 'all-files')
     try:
-        results = subprocess.check_output(['grep', '-i', path, pathFile])
+        results = subprocess.check_output(['grep', '-Ei', path, pathFile])
     except:
         return []
     results = results.strip().split('\n')
