@@ -72,6 +72,8 @@ $("#file").on("click", "span[data-id]", function(event) {
   var idName = elt.text();
   var extra = elt.attr("data-extra");
   var kind = elt.attr("data-kind");
+  var jump = elt.attr("data-jump") == "true";
+  var extraJump = elt.attr("data-extra-jump") == "true";
 
   function fmt(s, data) {
     return s.replace("_", "&ldquo;" + data + "&rdquo;");
@@ -86,9 +88,25 @@ $("#file").on("click", "span[data-id]", function(event) {
 
   var menuItems = [];
 
+  var extraName;
+  if (extra) {
+    extraName = extra.replace("#", ".");
+  }
+
+  if (extraJump) {
+    menuItems.push({html: fmt("Goto definition of _", extraName),
+                    href: "/mozilla-central/define?q=" + encodeURIComponent(extra),
+                    icon: "search"});
+  }
+  if (jump) {
+    menuItems.push({html: fmt("Goto definition of _", idName),
+                    href: "/mozilla-central/define?q=" + encodeURIComponent(id),
+                    icon: "search"});
+  }
+
   if (id.startsWith("#")) {
     if (extra) {
-      menuItems.push({html: fmt("Search for property _", extra),
+      menuItems.push({html: fmt("Search for property _", extraName),
                       href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(extra),
                       icon: "search"});
     }
@@ -96,7 +114,7 @@ $("#file").on("click", "span[data-id]", function(event) {
                     href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(id),
                     icon: "search"});
   } else {
-    menuItems.push({html: fmt("Search for variable _", idName),
+    menuItems.push({html: fmt("Search for _", idName),
                     href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(id),
                     icon: "search"});
   }

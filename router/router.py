@@ -209,6 +209,20 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 j = j.replace("/script", "\\/script")
                 template = os.path.join(indexPath, 'templates/search.html')
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': title}, template)
+        elif pathElts[:2] == ['mozilla-central', 'define']:
+            query = urlparse.parse_qs(url.query)
+            symbol = query['q'][0]
+            print symbol
+            results = json.loads(crossrefs.get(symbol, "{}"))
+            print results
+            definition = results['Definitions'][0]
+            filename = definition['path']
+            lineno = definition['lines'][0]['lno']
+            url = '/mozilla-central/source/' + filename + '#' + str(lineno)
+
+            self.send_response(301)
+            self.send_header("Location", url)
+            self.end_headers()
         else:
             return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 

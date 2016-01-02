@@ -565,6 +565,9 @@ span[data-id]:hover {
 span[data-id][data-kind="def"].hovered {
   background-color: cyan;
 }
+span[data-id][data-kind="decl"].hovered {
+  background-color: orange;
+}
 span[data-id][data-kind="use"].hovered {
   background-color: yellow;
 }

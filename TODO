@@ -1,13 +1,35 @@
-Small stuff:
-- case sensitivity
-- Navigation bar
-- path: search (should be faster)
-Help file as home page
-C++ indexing
-Autocomplete
-Autocomplete UI
-Display links on side to nearby methods
-Index XBL, IDL, WebIDL files
+Big tasks:
+* Blame
+* Autocomplete
+* Display links to nearby methods in sidebar
+* Faster!
+
+UI:
+* Help file as home page
+* Search result matches in bold
+* Get rid of Nunjucks (context menu)
+
+C++ indexing:
+* Macros that define functions
+* Jumping to templated code
+* Constructor for templated code outputs wrong
+* Multiple inheritance
+* Index types
+* Better indexing with inheritance (don't just search from root method)
+
+JS indexing:
+* Class support
+* Other indexing improvements?
+* Indexing of test files
+
+Other indexing:
+* XBL
+* HTML
+* IDL
+* WebIDL?
+
+
+
 
 
 C++ indexing:
