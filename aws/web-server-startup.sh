@@ -1,13 +1,11 @@
 #!/bin/bash
 
-apt-get update && apt-get -fy upgrade && [ -f /var/run/reboot-required ] && shutdown -r now
-apt-get autoremove -y
-
 exec &> ~ubuntu/startup-log
 
 set -e
 set -x
 
+apt-get update
 apt-get install -y git
 
 # Livegrep
