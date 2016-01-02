@@ -32,6 +32,8 @@ server {
     try_files /file/$uri /dir/$uri/index.html =404;
     types { }
     default_type text/html;
+    expires 1d;
+    add_header Cache-Control "public";
   }
 
   location /mozilla-central/search {
@@ -39,7 +41,7 @@ server {
   }
 
   location = / {
-    return 301 $uri/mozilla-central/source;
+    return 301  $scheme://$host/mozilla-central/source;
   }
 }
 THEEND

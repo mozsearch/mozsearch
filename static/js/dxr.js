@@ -319,8 +319,9 @@ $(function() {
         }
 
         var elt = elts[i];
-        pathSoFar += "/" + elt;
+        pathSoFar += elt;
         main.append($("<a href='" + makeURL(pathSoFar) + "'>" + elt + "</a>"));
+        pathSoFar += "/";
       }
 
       return row;
