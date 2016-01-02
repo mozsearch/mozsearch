@@ -89,14 +89,14 @@ client.associate_address(InstanceId=webServerInstanceId, PublicIp=elasticIp, All
 
 print 'Shutting down old servers...'
 
-instances = client.describe_instances(Filters=[{'Name': 'tag-key', 'Values': ['web-server']},
-                                               {'Name': 'tag:channel', 'Values': [channel]}])
-instances = instances['Reservations'][0]['Instances']
+r = client.describe_instances(Filters=[{'Name': 'tag-key', 'Values': ['web-server']},
+                                       {'Name': 'tag:channel', 'Values': [channel]}])
 terminate = []
-for instance in instances:
-    instanceId = instance['InstanceId']
-    if instanceId != webServerInstanceId:
-        terminate.append(instanceId)
+for reservation in r['Reservations']:
+    for instance in reservation['Instances']:
+        instanceId = instance['InstanceId']
+        if instanceId != webServerInstanceId:
+            terminate.append(instanceId)
 
 print 'Terminating {}'.format(terminate)
 
