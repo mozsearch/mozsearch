@@ -40,6 +40,10 @@ server {
     proxy_pass http://localhost:8000;
   }
 
+  location /mozilla-central/define {
+    proxy_pass http://localhost:8000;
+  }
+
   location = / {
     return 301  $scheme://$host/mozilla-central/source;
   }
