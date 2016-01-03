@@ -8,16 +8,18 @@ UI:
 ! Help file as home page
 ? Crossref result matches in bold
 * Get rid of Nunjucks (context menu)
+? "Search substring" context menu option
 
 AWS:
 ! Automatic indexing
+! Error reporting
 * Better security
 * Multiple web hosts for performance
 
 C++ indexing:
-! Macros that define functions
-! Jumping to templated code
-! Constructor for templated code outputs wrong
+F? Macros that define functions
+F? Jumping to templated code
+F? Constructor for templated code outputs wrong
 ? Multiple inheritance
 ? Index types
 * Better indexing with inheritance (don't just search from root method)

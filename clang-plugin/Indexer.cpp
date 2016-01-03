@@ -238,33 +238,7 @@ public:
     return method;
   }
 
-  bool VisitFunctionDecl(FunctionDecl *d) {
-    if (!IsInterestingLocation(d->getLocation())) {
-      return true;
-    }
-
-    std::string mangled = GetMangledName(mMangleContext, d);
-    if (CXXMethodDecl::classof(d)) {
-      const CXXMethodDecl *method = FindRootMethod(dyn_cast<CXXMethodDecl>(d));
-      mangled = GetMangledName(mMangleContext, method);
-    }
-
-    std::string loc = LocationToString(d->getLocation());
-
-    StringRef filename = sm.getFilename(d->getLocation());
-    FileInfo *f = GetFileInfo(filename);
-    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-
-    char s[1024];
-    sprintf(s, "%s %s %s %s\n",
-            loc.c_str(), kind, EscapeString(d->getNameAsString()).c_str(), mangled.c_str());
-
-    f->output.push_back(std::string(s));
-
-    return true;
-  }
-
-  void UseToken(SourceLocation loc, std::string mangled) {
+  void VisitToken(const char *kind, SourceLocation loc, std::string mangled) {
     loc = sm.getSpellingLoc(loc);
 
     unsigned startOffset = sm.getFileOffset(loc);
@@ -279,9 +253,27 @@ public:
     FileInfo *f = GetFileInfo(filename);
 
     char s[1024];
-    sprintf(s, "%s use %s %s\n", locStr.c_str(), EscapeString(text).c_str(), mangled.c_str());
+    sprintf(s, "%s %s %s %s\n", locStr.c_str(), kind, EscapeString(text).c_str(), mangled.c_str());
 
     f->output.push_back(std::string(s));
+  }
+
+  bool VisitFunctionDecl(FunctionDecl *d) {
+    if (!IsInterestingLocation(d->getLocation())) {
+      return true;
+    }
+
+    std::string mangled = GetMangledName(mMangleContext, d);
+    if (CXXMethodDecl::classof(d)) {
+      const CXXMethodDecl *method = FindRootMethod(dyn_cast<CXXMethodDecl>(d));
+      mangled = GetMangledName(mMangleContext, method);
+    }
+
+    SourceLocation loc = d->getLocation();
+    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
+    VisitToken(kind, loc, mangled);
+
+    return true;
   }
 
   bool VisitCXXConstructExpr(CXXConstructExpr* e) {
@@ -289,11 +281,13 @@ public:
       return true;
     }
 
-    CXXConstructorDecl* ctor = e->getConstructor();
+    FunctionDecl* ctor = e->getConstructor();
+    if (ctor->isTemplateInstantiation()) {
+      ctor = ctor->getTemplateInstantiationPattern();
+    }
     std::string mangled = GetMangledName(mMangleContext, ctor);
 
-    // Probably want to measure from Loc to ParenOrBraceRange.start (non-inclusive).
-    // Would need to do something different for list initialization.
+    // FIXME: Need to do something different for list initialization.
 
     SourceLocation loc = e->getParenOrBraceRange().getBegin();
     if (loc.isInvalid()) {
@@ -302,7 +296,7 @@ public:
 
     loc = loc.getLocWithOffset(-1);
 
-    UseToken(loc, mangled);
+    VisitToken("use", loc, mangled);
 
     return true;
   }
@@ -322,11 +316,18 @@ public:
     const NamedDecl *namedCallee = dyn_cast<NamedDecl>(callee);
 
     if (namedCallee) {
-      std::string mangled = GetMangledName(mMangleContext, namedCallee);
       if (CXXMethodDecl::classof(namedCallee)) {
-        const CXXMethodDecl *method = FindRootMethod(dyn_cast<CXXMethodDecl>(namedCallee));
-        mangled = GetMangledName(mMangleContext, method);
+        namedCallee = FindRootMethod(dyn_cast<CXXMethodDecl>(namedCallee));
       }
+
+      if (FunctionDecl::classof(namedCallee)) {
+        const FunctionDecl *f = dyn_cast<FunctionDecl>(namedCallee);
+        if (f->isTemplateInstantiation()) {
+          namedCallee = f->getTemplateInstantiationPattern();
+        }
+      }
+
+      std::string mangled = GetMangledName(mMangleContext, namedCallee);
 
       Expr* callee = e->getCallee()->IgnoreParenImpCasts();
 
@@ -354,7 +355,7 @@ public:
         }
       }
 
-      UseToken(loc, mangled);
+      VisitToken("use", loc, mangled);
     }
 
     return true;

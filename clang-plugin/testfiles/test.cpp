@@ -26,6 +26,35 @@ struct T : public S, public S2 {
 void f() {}
 void g();
 
+template<typename T>
+class X {
+  public:
+    X() {}
+
+    void f();
+};
+
+template<typename T>
+void X<T>::f() {}
+
+template<>
+void X<int>::f() {}
+
+template<typename T>
+void templateFunc(const T& arg);
+
+template<>
+void templateFunc(const char& arg);
+
+struct Dummy {
+#define DECL_SOMETHING(Env, Name) \
+    static bool Name() {	  \
+	return Env;		  \
+    }
+
+    DECL_SOMETHING(true, Hello);
+    DECL_SOMETHING(false, Goodbye);
+};
 }
 
 #define HELLO s.m
@@ -43,6 +72,18 @@ int main()
     fp();
 
     NS::S* sp = new NS::S();
+
+    NS::X<char> xx;
+    xx.f();
+
+    NS::X<int> xy;
+    xy.f();
+
+    NS::templateFunc(47);
+
+    NS::templateFunc('c');
+
+    NS::Dummy::Hello();
 
     return 0;
 }
