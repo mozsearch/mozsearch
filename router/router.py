@@ -45,7 +45,11 @@ class CodeSearch:
     def collateMatches(self, matches):
         paths = {}
         for m in matches:
-            paths.setdefault(m['path'], []).append({'lno': m['lno'], 'line': m['line'].strip()})
+            paths.setdefault(m['path'], []).append({
+                'lno': m['lno'],
+                'bounds': m['bounds'],
+                'line': m['line']
+            })
         results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
         return results
 
@@ -177,7 +181,10 @@ def get_json_search_results(query):
     else:
         results = {}
 
-    return json.dumps(sort_results(results))
+    results = sort_results(results)
+    results['query'] = searchString
+    print json.dumps(results)
+    return json.dumps(results)
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):

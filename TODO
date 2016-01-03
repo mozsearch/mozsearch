@@ -1,20 +1,25 @@
 Big tasks:
-* Blame
+? Blame
 * Autocomplete
 * Display links to nearby methods in sidebar
 * Faster!
 
 UI:
-* Help file as home page
-* Search result matches in bold
+! Help file as home page
+? Crossref result matches in bold
 * Get rid of Nunjucks (context menu)
 
+AWS:
+! Automatic indexing
+* Better security
+* Multiple web hosts for performance
+
 C++ indexing:
-* Macros that define functions
-* Jumping to templated code
-* Constructor for templated code outputs wrong
-* Multiple inheritance
-* Index types
+! Macros that define functions
+! Jumping to templated code
+! Constructor for templated code outputs wrong
+? Multiple inheritance
+? Index types
 * Better indexing with inheritance (don't just search from root method)
 
 JS indexing:

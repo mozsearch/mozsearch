@@ -265,8 +265,11 @@ $(function() {
    * @param {object} data - The data returned from the query
    * @param {bool} append - Should the content be appended or overwrite
    */
-  function populateResults(data, append) {
+  function populateResults(data) {
     window.scrollTo(0, 0);
+
+    var query = data.query;
+    delete data.query;
 
     function makeURL(path) {
       return "/" + dxr.tree + "/source/" + path;
@@ -328,11 +331,22 @@ $(function() {
     }
 
     function renderSingleSearchResult(file, line) {
+      var [start, end] = line.bounds || [0, 0];
+      var before = line.line.slice(0, start).replace(/^\s+/, "");
+      var middle = line.line.slice(start, end);
+      var after = line.line.slice(end).replace(/\s+$/, "");
+
+      console.log([start, end], [before, middle, after], line.line);
+
       var row = $("<tr></tr>");
       row.append($("<td class='left-column'><a href='" + makeURL(file.path) + "#" + line.lno + "'>" +
                    line.lno + "</a></td>"));
       row.append($("<td><a href='" + makeURL(file.path) + "#" + line.lno + "'><code></code></a></td>"));
-      $("code", row).text(line.line);
+      var bolded = $("<b></b>");
+      bolded.text(middle);
+      $("code", row).append([document.createTextNode(before),
+                             bolded,
+                             document.createTextNode(after)]);
       return row;
     }
 
@@ -356,7 +370,7 @@ $(function() {
       var user_message = contentContainer.data('no-results');
       contentContainer.empty().append($("<span>" + user_message + "</span>"));
     } else {
-      var container = append ? contentContainer : contentContainer.empty();
+      var container = contentContainer.empty();
 
       if (count) {
         var numResults = $(`<div>Number of results: ${count} (maximum is 1000)</div>`);
@@ -389,13 +403,11 @@ $(function() {
       }
     }
 
-    if (!append) {
-      //document.title = data.query + " - mozsearch";
-    }
+    document.title = query + " - mozsearch";
   }
 
   window.showSearchResults = function(results) {
-    populateResults(results, false);
+    populateResults(results);
   };
 
   /**
@@ -437,7 +449,7 @@ $(function() {
       // New results, overwrite
       if (myRequestNumber > displayedRequestNumber) {
         displayedRequestNumber = myRequestNumber;
-        populateResults(data, false);
+        populateResults(data);
         historyWaiter = setTimeout(pushHistoryState, timeouts.history, searchUrl);
       }
       oneFewerRequest();
