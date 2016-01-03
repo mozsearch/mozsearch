@@ -17,11 +17,8 @@ AWS:
 * Multiple web hosts for performance
 
 C++ indexing:
-F? Macros that define functions
-F? Jumping to templated code
-F? Constructor for templated code outputs wrong
 ? Multiple inheritance
-? Index types
+* Index specialized types (templated, etc.)
 * Better indexing with inheritance (don't just search from root method)
 
 JS indexing:

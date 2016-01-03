@@ -1,5 +1,7 @@
 namespace NS {
 
+struct R;
+
 struct R {
     virtual void v() = 0;
 };

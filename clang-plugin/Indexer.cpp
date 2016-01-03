@@ -269,6 +269,21 @@ public:
       mangled = GetMangledName(mMangleContext, method);
     }
 
+    // FIXME: Need to skip the '~' token for destructors.
+    SourceLocation loc = d->getLocation();
+
+    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
+    VisitToken(kind, loc, mangled);
+
+    return true;
+  }
+
+  bool VisitTagDecl(TagDecl *d) {
+    if (!IsInterestingLocation(d->getLocation())) {
+      return true;
+    }
+
+    std::string mangled = GetMangledName(mMangleContext, d);
     SourceLocation loc = d->getLocation();
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
     VisitToken(kind, loc, mangled);
@@ -361,6 +376,18 @@ public:
     return true;
   }
 
+  bool VisitTagTypeLoc(TagTypeLoc tagLoc) {
+    if (!IsInterestingLocation(tagLoc.getBeginLoc())) {
+      return true;
+    }
+
+    TagDecl* decl = tagLoc.getDecl();
+    std::string mangled = GetMangledName(mMangleContext, decl);
+
+    VisitToken("use", tagLoc.getBeginLoc(), mangled);
+
+    return true;
+  }
 };
 
 class IndexAction : public PluginASTAction
