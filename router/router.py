@@ -90,8 +90,11 @@ class CodeSearch:
         elif j['opcode'] == 'done':
             if j.get('body', {}).get('why') == 'timeout':
                 print 'Timeout', self.query
+        elif j['opcode'] == 'error':
+            self.matches = []
         else:
-            raise 'Unknown opcode %s' % j['opcode']
+            print 'Unknown opcode %s' % j['opcode']
+            raise BaseException()
 
 def parse_search(searchString):
     pieces = searchString.split(' ')
@@ -194,7 +197,11 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         # Strip any extra slashes.
         pathElts = [ elt for elt in pathElts if elt != '' ]
 
-        if pathElts[:2] == ['mozilla-central', 'source']:
+        if pathElts == []:
+            filename = os.path.join(indexPath, 'help.html')
+            data = open(filename).read()
+            self.generate(data, 'text/html')
+        elif pathElts[:2] == ['mozilla-central', 'source']:
             filename = os.path.join(indexPath, 'file', '/'.join(pathElts[2:]))
             try:
                 data = open(filename).read()

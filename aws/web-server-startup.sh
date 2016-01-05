@@ -1,4 +1,4 @@
-#!/bin/bash
+!/bin/bash
 
 exec &> ~ubuntu/startup-log
 
@@ -45,7 +45,10 @@ server {
   }
 
   location = / {
-    return 301  $scheme://$host/mozilla-central/source;
+    root /home/ubuntu/docroot;
+    try_files $uri/help.html =404;
+    expires 1d;
+    add_header Cache-Control "public";
   }
 }
 THEEND
@@ -99,6 +102,7 @@ mkdir -p docroot/file/mozilla-central
 mkdir -p docroot/dir/mozilla-central
 ln -s $HOME/index/file docroot/file/mozilla-central/source
 ln -s $HOME/index/dir docroot/dir/mozilla-central/source
+ln -s $HOME/index/help.html docroot
 
 nohup livegrep/bin/codesearch -listen tcp://localhost:8080 -load_index $HOME/index/livegrep.idx -max_matches 1000 -timeout 10000 > $HOME/codesearch.log 2> $HOME/codesearch.err < /dev/null &
 cd mozsearch

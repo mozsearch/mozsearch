@@ -135,6 +135,9 @@ sudo umount /index
 pushd mozsearch/aws
 ./env/bin/python detach-index-volume.py $EC2_INSTANCE_ID $VOLUME_ID
 ./env/bin/python swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID
+
+# Give logger time to catch up
+sleep 30
 ./env/bin/python terminate-indexer.py $EC2_INSTANCE_ID
 popd
 

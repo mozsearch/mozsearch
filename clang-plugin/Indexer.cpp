@@ -45,6 +45,16 @@ GetMangledName(clang::MangleContext* ctx,
   return out.str().str();
 }
 
+static std::string
+GetMangledName(clang::MangleContext* ctx,
+               const clang::Type* type)
+{
+  llvm::SmallVector<char, 512> output;
+  llvm::raw_svector_ostream out(output);
+  ctx->mangleTypeName(QualType(type, 0), out);
+  return out.str().str();
+}
+
 // BEWARE: use only as a temporary
 const char *
 hash(std::string &str)
@@ -278,18 +288,23 @@ public:
     return true;
   }
 
+#if 0
   bool VisitTagDecl(TagDecl *d) {
     if (!IsInterestingLocation(d->getLocation())) {
       return true;
     }
 
-    std::string mangled = GetMangledName(mMangleContext, d);
     SourceLocation loc = d->getLocation();
+    std::string locStr = LocationToString(loc);
+    printf("TAG %s\n", locStr.c_str());
+
+    std::string mangled = GetMangledName(mMangleContext, d->getTypeForDecl());
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
     VisitToken(kind, loc, mangled);
 
     return true;
   }
+#endif
 
   bool VisitCXXConstructExpr(CXXConstructExpr* e) {
     if (!IsInterestingLocation(e->getLocStart())) {
@@ -376,18 +391,20 @@ public:
     return true;
   }
 
+#if 0
   bool VisitTagTypeLoc(TagTypeLoc tagLoc) {
     if (!IsInterestingLocation(tagLoc.getBeginLoc())) {
       return true;
     }
 
     TagDecl* decl = tagLoc.getDecl();
-    std::string mangled = GetMangledName(mMangleContext, decl);
+    std::string mangled = GetMangledName(mMangleContext, decl->getTypeForDecl());
 
     VisitToken("use", tagLoc.getBeginLoc(), mangled);
 
     return true;
   }
+#endif
 };
 
 class IndexAction : public PluginASTAction

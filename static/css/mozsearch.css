@@ -579,3 +579,10 @@ span[data-id][data-kind="assign"].hovered {
   font-weight: 800;
   margin-top: 15px;
 }
+
+.intro {
+    font: 14px/1.5 Arial, Helvetica, sans-serif;
+    margin-left: 10%;
+    margin-right: 10%;
+    margin-bottom: 10%;
+}

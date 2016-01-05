@@ -207,30 +207,10 @@ $(function() {
   }
 
   /**
-   * Updates the window's history entry to not break the back button with
-   * infinite scroll.
-   * @param {int} offset - The offset to store in the URL
-   */
-  function setHistoryState(offset) {
-    var state = {},
-    re = /offset=\d+/,
-    locationSearch = '';
-
-    if (location.search.indexOf('offset') > -1) {
-      locationSearch = location.search.replace(re, 'offset=' + offset);
-    } else {
-      locationSearch = location.search ? location.search + '&offset=' + offset : '?offset=' + offset;
-    }
-
-    var url = dxr.baseUrl + location.pathname + locationSearch + location.hash;
-
-    history.replaceState(state, '', url);
-  }
-
-  /**
    * Add an entry into the history stack whenever we do a new search.
    */
   function pushHistoryState(searchUrl) {
+    console.log("pushState", searchUrl);
     history.pushState({}, '', searchUrl);
   }
 
@@ -335,8 +315,6 @@ $(function() {
       var before = line.line.slice(0, start).replace(/^\s+/, "");
       var middle = line.line.slice(start, end);
       var after = line.line.slice(end).replace(/\s+$/, "");
-
-      console.log([start, end], [before, middle, after], line.line);
 
       var row = $("<tr></tr>");
       row.append($("<td class='left-column'><a href='" + makeURL(file.path) + "#" + line.lno + "'>" +
@@ -527,11 +505,9 @@ $(function() {
 
   // Reload the page when we go back or forward.
   function popStateHandler(event) {
-    // Check for event state first to avoid nasty complete page reloads on #anchors:
-    if (event.state != null) {
-      window.onpopstate = null;
-      window.location.reload();
-    }
+    // FIXME: This reloads the page when you navigate to #lineno.
+    window.onpopstate = null;
+    window.location.reload();
   }
 
   /**

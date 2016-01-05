@@ -93,15 +93,17 @@ $("#file").on("click", "span[data-id]", function(event) {
     extraName = extra.replace("#", ".");
   }
 
-  if (extraJump) {
-    menuItems.push({html: fmt("Goto definition of _", extraName),
-                    href: "/mozilla-central/define?q=" + encodeURIComponent(extra),
-                    icon: "search"});
-  }
-  if (jump) {
-    menuItems.push({html: fmt("Goto definition of _", idName),
-                    href: "/mozilla-central/define?q=" + encodeURIComponent(id),
-                    icon: "search"});
+  if (kind != "def") {
+    if (extraJump) {
+      menuItems.push({html: fmt("Goto definition of _", extraName),
+                      href: "/mozilla-central/define?q=" + encodeURIComponent(extra),
+                      icon: "search"});
+    }
+    if (jump) {
+      menuItems.push({html: fmt("Goto definition of _", idName),
+                      href: "/mozilla-central/define?q=" + encodeURIComponent(id),
+                      icon: "search"});
+    }
   }
 
   if (id.startsWith("#")) {
