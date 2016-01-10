@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 
 exec &> ~ubuntu/startup-log
 
