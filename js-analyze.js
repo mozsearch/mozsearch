@@ -838,21 +838,14 @@ XBLParser.prototype = {
       Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
     }
 
-    if (tag.getter) {
-      let text = tag.getter.text;
-      line = tag.getter.line;
-      column = tag.getter.column;
+    for (let prop in tag) {
+      if (prop != "getter" && prop != "setter") {
+        continue;
+      }
 
-      let spaces = Array(column + 1).join(" ");
-      text = `(function (val) {\n${spaces}${text}})`;
-
-      let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
-      Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
-    }
-    if (tag.setter) {
-      let text = tag.setter.text;
-      line = tag.setter.line;
-      column = tag.setter.column;
+      let text = tag[prop].text;
+      line = tag[prop].line;
+      column = tag[prop].column;
 
       let spaces = Array(column + 1).join(" ");
       text = `(function (val) {\n${spaces}${text}})`;
