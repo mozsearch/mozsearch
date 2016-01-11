@@ -906,7 +906,7 @@ XBLParser.prototype = {
     for (let p of params) {
       let text = p.attrs.NAME.value;
       line = p.attrs.NAME.line;
-      column = tag.attrs.NAME.column;
+      column = p.attrs.NAME.column;
       [line, column] = this.backup(line, column, text + "\"");
 
       Analyzer.defVar(text, {start: {line: line + 1, column}});
