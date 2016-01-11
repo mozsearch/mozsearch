@@ -38,10 +38,6 @@ for line in lines:
         continue
 
     pathElts = path.split(os.sep)
-    if 'tps.jsm' in pathElts:
-        continue
-    if 'shell' in pathElts:
-        continue
     if 'jit-test' in pathElts:
         continue
     if 'test' in pathElts:
@@ -56,7 +52,7 @@ for line in lines:
         continue
 
     (_, ext) = os.path.splitext(path)
-    if ext in ['.js', '.jsm']:
+    if ext in ['.js', '.jsm', '.xml']:
         js.append('/' + path + '\n')
 
 open(os.path.join(indexRoot, 'all-files'), 'w').writelines(files)

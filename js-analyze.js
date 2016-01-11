@@ -1,5 +1,5 @@
 let nextSymId = 0;
-let localFile, fileIndex;
+let localFile, fileIndex, mozSearchRoot;
 
 function Symbol(name, loc)
 {
@@ -7,6 +7,7 @@ function Symbol(name, loc)
   this.loc = loc;
   this.id = fileIndex + "-" + nextSymId++;
   this.uses = [];
+  this.skip = false;
 }
 
 Symbol.prototype = {
@@ -37,10 +38,7 @@ function locBefore(loc1, loc2) {
 
 function locstr(loc)
 {
-  if (loc.source === localFile)
-    return `${loc.start.line}:${loc.start.column}`;
-  else
-    return `${loc.source}:${loc.start.line}:${loc.start.column}`;
+  return `${loc.start.line}:${loc.start.column}`;
 }
 
 function nameValid(name)
@@ -81,6 +79,23 @@ let Analyzer = {
     this.enter();
     f();
     this.exit();
+  },
+
+  dummyProgram(prog, args) {
+    let stmt = prog.body[0];
+    let expr = stmt.expression;
+
+    for (let {name, skip} of args) {
+      let sym = new Symbol(name, null);
+      sym.skip = true;
+      this.symbols.put(name, sym);
+    }
+
+    if (expr.body.type == "BlockStatement") {
+      this.statement(expr.body);
+    } else {
+      this.expression(expr.body);
+    }
   },
 
   program(prog) {
@@ -155,7 +170,7 @@ let Analyzer = {
     let sym = this.findSymbol(name);
     if (!sym) {
       this.useProp(name, loc);
-    } else {
+    } else if (!sym.skip) {
       print(`${locstr(loc)} use ${name} ${sym.id}`);
     }
   },
@@ -167,7 +182,7 @@ let Analyzer = {
     let sym = this.findSymbol(name);
     if (!sym) {
       this.assignProp(name, loc);
-    } else {
+    } else if (!sym.skip) {
       print(`${locstr(loc)} assign ${name} ${sym.id}`);
     }
   },
@@ -558,6 +573,17 @@ let Analyzer = {
       });
       break;
 
+    case "ClassExpression":
+      this.scoped(() => {
+        if (expr.superClass) {
+          this.expression(expr.superClass);
+        }
+        for (let stmt2 of expr.body) {
+          this.statement(stmt2);
+        }
+      });
+      break;
+
     default:
       print(Error().stack);
       throw `Invalid expression ${expr.type}: ${JSON.stringify(expr.loc)}`;
@@ -618,7 +644,7 @@ let Analyzer = {
   },
 };
 
-function analyzeFile(filename)
+function preprocess(filename, comment)
 {
   let text = snarf(filename);
 
@@ -633,20 +659,20 @@ function analyzeFile(filename)
     }
     let tline = line.trim();
     if (tline.startsWith("#ifdef") || tline.startsWith("#ifndef") || tline.startsWith("#if ")) {
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
       branches.push(branches[branches.length-1]);
     } else if (tline.startsWith("#else") ||
                tline.startsWith("#elif") ||
                tline.startsWith("#elifdef") ||
                tline.startsWith("#elifndef")) {
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
       branches.pop();
       branches.push(false);
     } else if (tline.startsWith("#endif")) {
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
       branches.pop();
     } else if (!branches[branches.length-1]) {
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
     } else if (tline.startsWith("#include")) {
       /*
       let match = tline.match(/#include "?([A-Za-z0-9_.-]+)"?/);
@@ -656,27 +682,291 @@ function analyzeFile(filename)
       let incfile = match[1];
       preprocessedLines.push(`PREPROCESSOR_INCLUDE("${incfile}");`);
       */
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
     } else if (tline.startsWith("#filter substitution")) {
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
       substitution = true;
     } else if (tline.startsWith("#filter")) {
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
     } else if (tline.startsWith("#expand")) {
       preprocessedLines.push(line.substring(String("#expand ").length));
     } else if (tline.startsWith("#")) {
-      preprocessedLines.push("// " + tline);
+      preprocessedLines.push(comment(tline));
     } else {
       preprocessedLines.push(line);
     }
   }
 
-  text = preprocessedLines.join("\n");
+  return preprocessedLines.join("\n");
+}
+
+function analyzeJS(filename)
+{
+  let text = preprocess(filename, line => "// " + line);
 
   let ast = Reflect.parse(text, {loc: true, source: filename, line: 1});
   Analyzer.program(ast);
 }
 
+function replaceEntities(text)
+{
+  return text.replace(/&[a-zA-Z0-9.]+;/g, match => {
+    return "'" + match.slice(1, match.length - 2) + "'";
+  });
+}
+
+function XBLParser(filename, lines, parser)
+{
+  this.filename = filename;
+  this.lines = lines;
+  this.stack = [];
+  this.curText = "";
+  this.curAttrs = {};
+  this.parser = parser;
+}
+
+XBLParser.prototype = {
+  onopentag(tag) {
+    tag.line = this.parser.line;
+    tag.column = this.parser.column;
+    tag.attrs = this.curAttrs;
+    this.curAttrs = {};
+    this.stack.push(tag);
+    this.curText = "";
+  },
+
+  onclosetag(tagName) {
+    let tag = this.stack[this.stack.length - 1];
+    switch (tagName) {
+    case "FIELD":
+      this.onfield(tag);
+      break;
+    case "PROPERTY":
+      this.onproperty(tag);
+      break;
+    case "GETTER":
+      this.ongetter(tag);
+      break;
+    case "SETTER":
+      this.onsetter(tag);
+      break;
+    case "METHOD":
+      this.onmethod(tag);
+      break;
+    case "PARAMETER":
+      this.onparameter(tag);
+      break;
+    case "BODY":
+      this.onbody(tag);
+      break;
+    case "CONSTRUCTOR":
+    case "DESTRUCTOR":
+      this.onstructor(tag);
+      break;
+    }
+
+    this.stack.pop();
+  },
+
+  ontext(text) {
+    this.curText += text;
+  },
+
+  oncdata(text) {
+    this.curText += text;
+  },
+
+  onattribute(attr) {
+    attr.line = this.parser.line;
+    attr.column = this.parser.column;
+    this.curAttrs[attr.name] = attr;
+  },
+
+  backup(line, column, text) {
+    for (let i = text.length - 1; i >= 0; i--) {
+      if (text[i] == "\n") {
+        line--;
+        column = this.lines[line].length;
+      } else {
+        column--;
+      }
+    }
+    return [line, column];
+  },
+
+  onfield(tag) {
+    let {line, column} = tag.attrs.NAME;
+    let name = tag.attrs.NAME.value;
+
+    [line, column] = this.backup(line, column, name + "\"");
+
+    print(`${line + 1}:${column} def ${name} #${name}`);
+
+    let spaces = Array(tag.column).join(" ");
+    let text = spaces + this.curText;
+
+    let ast = Reflect.parse(text, {loc: true, source: this.filename, line: tag.line + 1});
+    Analyzer.program(ast);
+  },
+
+  onproperty(tag) {
+    if (tag.attrs.NAME) {
+      let {line, column} = tag.attrs.NAME;
+      let name = tag.attrs.NAME.value;
+
+      [line, column] = this.backup(line, column, name + "\"");
+
+      print(`${line + 1}:${column} def ${name} #${name}`);
+    }
+
+    let line, column;
+    for (let prop in tag.attrs) {
+      if (prop != "ONGET" && prop != "ONSET") {
+        continue;
+      }
+
+      let text = tag.attrs[prop].value;
+      line = tag.attrs[prop].line;
+      column = tag.attrs[prop].column;
+
+      [line, column] = this.backup(line, column, text + "\"");
+
+      let spaces = Array(column + 1).join(" ");
+      text = `(function (val) {\n${spaces}${text}})`;
+
+      let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
+      Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+    }
+
+    if (tag.getter) {
+      let text = tag.getter.text;
+      line = tag.getter.line;
+      column = tag.getter.column;
+
+      let spaces = Array(column + 1).join(" ");
+      text = `(function (val) {\n${spaces}${text}})`;
+
+      let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
+      Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+    }
+    if (tag.setter) {
+      let text = tag.setter.text;
+      line = tag.setter.line;
+      column = tag.setter.column;
+
+      let spaces = Array(column + 1).join(" ");
+      text = `(function (val) {\n${spaces}${text}})`;
+
+      let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
+      Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+    }
+  },
+
+  ongetter(tag) {
+    tag.text = this.curText;
+    let parentTag = this.stack[this.stack.length - 2];
+    parentTag.getter = tag;
+  },
+
+  onsetter(tag) {
+    tag.text = this.curText;
+    let parentTag = this.stack[this.stack.length - 2];
+    parentTag.setter = tag;
+  },
+
+  onparameter(tag) {
+    let parentTag = this.stack[this.stack.length - 2];
+    if (!parentTag.params) {
+      parentTag.params = [];
+    }
+    parentTag.params.push(tag);
+  },
+
+  onbody(tag) {
+    tag.text = this.curText;
+    let parentTag = this.stack[this.stack.length - 2];
+    parentTag.body = tag;
+  },
+
+  onstructor(tag) {
+    let text = this.curText;
+    let {line, column} = tag;
+
+    let spaces = Array(column + 1).join(" ");
+    text = `(function () {\n${spaces}${text}})`;
+
+    let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
+    Analyzer.scoped(() => Analyzer.dummyProgram(ast, []));
+  },
+
+  onmethod(tag) {
+    let {line, column} = tag.attrs.NAME;
+    let name = tag.attrs.NAME.value;
+
+    [line, column] = this.backup(line, column, name + "\"");
+
+    print(`${line + 1}:${column} def ${name} #${name}`);
+
+    Analyzer.enter();
+
+    let params = tag.params || [];
+    for (let p of params) {
+      let text = p.attrs.NAME.value;
+      line = p.attrs.NAME.line;
+      column = tag.attrs.NAME.column;
+      [line, column] = this.backup(line, column, text + "\"");
+
+      Analyzer.defVar(text, {start: {line: line + 1, column}});
+    }
+
+    let text = tag.body.text;
+    line = tag.body.line;
+    column = tag.body.column;
+
+    params = params.map(p => p.attrs.NAME.value);
+    paramsText = params.join(", ");
+
+    let spaces = Array(column + 1).join(" ");
+    text = `(function (${paramsText}) {\n${spaces}${text}})`;
+
+    let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
+    Analyzer.dummyProgram(ast, []);
+
+    Analyzer.exit();
+  },
+};
+
+function analyzeXBL(filename)
+{
+  let text = replaceEntities(preprocess(filename, line => `<!--${line}-->`));
+
+  let lines = text.split("\n");
+
+  let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true});
+
+  let xbl = new XBLParser(filename, lines, parser);
+  for (let prop of ["onopentag", "onclosetag", "onattribute", "ontext", "oncdata"]) {
+    let x = prop;
+    parser[x] = (...args) => { xbl[x](...args); };
+  }
+
+  parser.write(text);
+  parser.close();
+}
+
+function analyzeFile(filename)
+{
+  if (filename.endsWith(".xml")) {
+    analyzeXBL(filename);
+  } else {
+    analyzeJS(filename);
+  }
+}
+
 fileIndex = scriptArgs[0];
-localFile = scriptArgs[1];
+mozSearchRoot = scriptArgs[1];
+localFile = scriptArgs[2];
+
+run(mozSearchRoot + "/sax/sax.js");
+
 analyzeFile(localFile);
