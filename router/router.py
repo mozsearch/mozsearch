@@ -186,7 +186,6 @@ def get_json_search_results(query):
 
     results = sort_results(results)
     results['query'] = searchString
-    print json.dumps(results)
     return json.dumps(results)
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -226,9 +225,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         elif pathElts[:2] == ['mozilla-central', 'define']:
             query = urlparse.parse_qs(url.query)
             symbol = query['q'][0]
-            print symbol
             results = json.loads(crossrefs.get(symbol, "{}"))
-            print results
             definition = results['Definitions'][0]
             filename = definition['path']
             lineno = definition['lines'][0]['lno']
