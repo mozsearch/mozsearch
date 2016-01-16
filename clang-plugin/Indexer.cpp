@@ -35,6 +35,45 @@ const std::string GENERATED("__GENERATED__/");
 std::string srcdir;
 std::string outdir;
 
+std::string
+ReplaceAll(std::string mangled, const char* pattern, const char* replacement)
+{
+  size_t pos = 0;
+  while ((pos = mangled.find(pattern, pos)) != std::string::npos) {
+    mangled = mangled.replace(pos, strlen(pattern), replacement);
+  }
+  return mangled;
+}
+
+std::string
+XPCOMHack(std::string mangled)
+{
+  if (mangled.find("_external") == std::string::npos) {
+    return mangled;
+  }
+
+  const char* replacements[][2] = {
+    {"nsString",                       "nsString_external"},
+    {"nsCString",                      "nsCString_external"},
+    {"nsDependentString",              "nsDependentString_external"},
+    {"nsDependentCString",             "nsDependentCString_external"},
+    {"NS_ConvertASCIItoUTF16",         "NS_ConvertASCIItoUTF16_external"},
+    {"NS_ConvertUTF8toUTF16",          "NS_ConvertUTF8toUTF16_external"},
+    {"NS_ConvertUTF16toUTF8",          "NS_ConvertUTF16toUTF8_external"},
+    {"NS_LossyConvertUTF16toASCII",    "NS_LossyConvertUTF16toASCII_external"},
+    {"nsGetterCopies",                 "nsGetterCopies_external"},
+    {"nsCGetterCopies",                "nsCGetterCopies_external"},
+    {"nsDependentSubstring",           "nsDependentSubstring_external"},
+    {"nsDependentCSubstring",          "nsDependentCSubstring_external"},
+  };
+  size_t length = sizeof(replacements) / sizeof(*replacements);
+
+  for (size_t i = 0; i < length; i++) {
+    mangled = ReplaceAll(mangled, replacements[i][1], replacements[i][0]);
+  }
+  return mangled;
+}
+
 static std::string
 GetMangledName(clang::MangleContext* ctx,
                const clang::NamedDecl* decl)
@@ -42,9 +81,10 @@ GetMangledName(clang::MangleContext* ctx,
   llvm::SmallVector<char, 512> output;
   llvm::raw_svector_ostream out(output);
   ctx->mangleName(decl, out);
-  return out.str().str();
+  return XPCOMHack(out.str().str());
 }
 
+#if 0
 static std::string
 GetMangledName(clang::MangleContext* ctx,
                const clang::Type* type)
@@ -52,8 +92,9 @@ GetMangledName(clang::MangleContext* ctx,
   llvm::SmallVector<char, 512> output;
   llvm::raw_svector_ostream out(output);
   ctx->mangleTypeName(QualType(type, 0), out);
-  return out.str().str();
+  return XPCOMHack(out.str().str());
 }
+#endif
 
 // BEWARE: use only as a temporary
 const char *
