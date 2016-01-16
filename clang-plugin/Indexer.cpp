@@ -319,13 +319,7 @@ public:
 
     // FIXME: Need to do something different for list initialization.
 
-    SourceLocation loc = e->getParenOrBraceRange().getBegin();
-    if (loc.isInvalid()) {
-      return true;
-    }
-
-    loc = loc.getLocWithOffset(-1);
-
+    SourceLocation loc = e->getLocStart();
     VisitToken("use", loc, mangled);
 
     return true;

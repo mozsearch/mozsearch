@@ -25,6 +25,18 @@ struct T : public S, public S2 {
     void m(int);
 };
 
+template<typename T>
+struct OtherObj {
+    OtherObj(char c) {}
+};
+
+template<typename T>
+struct StackObj {
+    StackObj(int x) : mOther('x') {}
+
+    OtherObj<T> mOther;
+};
+
 void f() {}
 void g();
 
@@ -86,6 +98,8 @@ int main()
     NS::templateFunc('c');
 
     NS::Dummy::Hello();
+
+    NS::StackObj<int> stackobj(10);
 
     return 0;
 }
