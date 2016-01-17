@@ -1,100 +1,20 @@
-import BaseHTTPServer
 import SimpleHTTPServer
+from BaseHTTPServer import HTTPServer
+from SocketServer import ForkingMixIn
 import urllib
 import urlparse
 import sys
 import os
 import os.path
-import socket
 import json
 import re
 import subprocess
 
+import crossrefs
+import codesearch
+
 mozSearchPath = sys.argv[1]
 indexPath = sys.argv[2]
-
-do_codesearch = True
-for opt in sys.argv[3:]:
-    if opt == '--no-codesearch':
-        do_codesearch = False
-
-crossrefs = {}
-
-lines = open(os.path.join(indexPath, 'crossref')).readlines()
-key = None
-for line in lines:
-    if key == None:
-        key = line.strip()
-    else:
-        value = line.strip()
-        crossrefs[key] = value
-        key = None
-
-allFiles = open(os.path.join(indexPath, 'repo-files')).readlines()
-
-class CodeSearch:
-    def __init__(self, host, port):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
-        self.state = 'init'
-        self.buffer = ''
-        self.matches = []
-        self.wait_ready()
-        self.query = None
-
-    def collateMatches(self, matches):
-        paths = {}
-        for m in matches:
-            paths.setdefault(m['path'], []).append({
-                'lno': m['lno'],
-                'bounds': m['bounds'],
-                'line': m['line']
-            })
-        results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
-        return results
-
-    def search(self, pattern, fold_case=True, file='.*', repo='.*'):
-        query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
-        self.query = json.dumps(query)
-        self.state = 'search'
-        self.sock.sendall(self.query + '\n')
-        self.wait_ready()
-        matches = self.collateMatches(self.matches)
-        self.matches = []
-        return matches
-
-    def wait_ready(self):
-        while self.state != 'ready':
-            input = self.sock.recv(1024)
-            self.buffer += input
-            self.handle_input()
-
-    def handle_input(self):
-        try:
-            pos = self.buffer.index('\n')
-        except:
-            pos = -1
-
-        if pos >= 0:
-            line = self.buffer[:pos]
-            self.buffer = self.buffer[pos + 1:]
-            self.handle_line(line)
-            self.handle_input()
-
-    def handle_line(self, line):
-        j = json.loads(line)
-        if j['opcode'] == 'match':
-            self.matches.append(j['body'])
-        elif j['opcode'] == 'ready':
-            self.state = 'ready'
-        elif j['opcode'] == 'done':
-            if j.get('body', {}).get('why') == 'timeout':
-                print 'Timeout', self.query
-        elif j['opcode'] == 'error':
-            self.matches = []
-        else:
-            print 'Unknown opcode %s' % j['opcode']
-            raise BaseException()
 
 def parse_search(searchString):
     pieces = searchString.split(' ')
@@ -170,7 +90,7 @@ def get_json_search_results(query):
     if 'symbol' in parsed:
         # FIXME: Need to deal with path here
         symbol = parsed['symbol']
-        results = json.loads(crossrefs.get(symbol, "{}"))
+        results = crossrefs.lookup(symbol)
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
         substrResults = codesearch.search(parsed['re'], foldCase, file = path)
@@ -230,7 +150,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         elif pathElts[:2] == ['mozilla-central', 'define']:
             query = urlparse.parse_qs(url.query)
             symbol = query['q'][0]
-            results = json.loads(crossrefs.get(symbol, "{}"))
+            results = crossrefs.lookup(symbol)
             definition = results['Definitions'][0]
             filename = definition['path']
             lineno = definition['lines'][0]['lno']
@@ -262,9 +182,11 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self.wfile.write(output)
 
-if do_codesearch:
-    codesearch = CodeSearch('localhost', 8080)
+crossrefs.load(indexPath)
+
+class ForkingServer(ForkingMixIn, HTTPServer):
+    pass
 
 server_address = ('', 8000)
-httpd = BaseHTTPServer.HTTPServer(server_address, Handler)
+httpd = ForkingServer(server_address, Handler)
 httpd.serve_forever()
