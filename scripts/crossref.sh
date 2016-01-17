@@ -7,4 +7,4 @@ set -x # Show commands
 cd $INDEX_ROOT/analysis
 find . -type f | cut -c 2- > /tmp/files
 
-$JS $MOZSEARCH_ROOT/crossref.js $TREE_ROOT/ $INDEX_ROOT $MOZSEARCH_ROOT /tmp/files
+$JS $MOZSEARCH_ROOT/crossref.js $TREE_ROOT/ $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR /tmp/files

@@ -7,6 +7,7 @@ import os.path
 mozSearchRoot = os.environ['MOZSEARCH_ROOT']
 indexRoot = os.environ['INDEX_ROOT']
 treeRoot = os.environ['TREE_ROOT']
+objdir = os.environ['OBJDIR']
 
 plugin_folder = os.path.join(mozSearchRoot, 'clang-plugin')
 
@@ -15,6 +16,7 @@ flags = [
     '-add-plugin', 'mozsearch-index',
     '-plugin-arg-mozsearch-index', treeRoot,
     '-plugin-arg-mozsearch-index', os.path.join(indexRoot, 'analysis'),
+    '-plugin-arg-mozsearch-index', objdir,
 ]
 flags_str = " ".join([ '-Xclang {}'.format(flag) for flag in flags ])
 

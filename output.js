@@ -1,3 +1,11 @@
+function sourcePath(path)
+{
+  if (path.startsWith("/__GENERATED__")) {
+    return path.replace("/__GENERATED__", objdir);
+  }
+  return treeRoot + path;
+}
+
 function fileURL(tree, path)
 {
   return `/${tree}/source${path}`;

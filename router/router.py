@@ -30,7 +30,7 @@ for line in lines:
         crossrefs[key] = value
         key = None
 
-allFiles = open(os.path.join(indexPath, 'all-files')).readlines()
+allFiles = open(os.path.join(indexPath, 'repo-files')).readlines()
 
 class CodeSearch:
     def __init__(self, host, port):
@@ -119,14 +119,19 @@ def sort_results(results):
     def is_test(p):
         return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
 
+    def prio(p):
+        if is_test(p): return 0
+        elif '__GENERATED__' in p: return 1
+        else: return 2
+
     # neg if p1 is before p2
     def sortfunc(p1, p2):
-        t1 = is_test(p1)
-        t2 = is_test(p2)
+        prio1 = prio(p1)
+        prio2 = prio(p2)
         r = cmp(p1, p2)
-        if t1 and not t2:
+        if prio1 < prio2:
             r += 10000
-        elif t2 and not t1:
+        elif prio1 > prio2:
             r -= 10000
         return r
 
@@ -144,7 +149,7 @@ def sort_results(results):
     return { kind: sort_inner(res) for kind, res in results.items() }
 
 def search_files(path):
-    pathFile = os.path.join(indexPath, 'all-files')
+    pathFile = os.path.join(indexPath, 'repo-files')
     try:
         results = subprocess.check_output(['grep', '-Ei', path, pathFile])
     except:

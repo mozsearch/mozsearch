@@ -22,6 +22,8 @@
 #include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 // Needed for sha1 hacks
 #include <fcntl.h>
@@ -33,14 +35,44 @@ using namespace clang;
 const std::string GENERATED("__GENERATED__/");
 
 std::string srcdir;
+std::string objdir;
 std::string outdir;
 
+void
+EnsurePath(std::string path)
+{
+  size_t pos = 0;
+  if (path[0] == '/') {
+    pos++;
+  }
+
+  while ((pos = path.find('/', pos)) != std::string::npos) {
+    std::string portion = path.substr(0, pos);
+    int err = mkdir(portion.c_str(), 0775);
+    if (err == -1 && errno != EEXIST) {
+      perror("mkdir failed");
+      exit(1);
+    }
+
+    pos++;
+  }
+}
+
 std::string
-ReplaceAll(std::string mangled, const char* pattern, const char* replacement)
+ToString(int n)
+{
+  char s[32];
+  sprintf(s, "%06d", n);
+  return std::string(s);
+}
+
+std::string
+ReplaceAll(std::string mangled, std::string pattern, std::string replacement)
 {
   size_t pos = 0;
   while ((pos = mangled.find(pattern, pos)) != std::string::npos) {
-    mangled = mangled.replace(pos, strlen(pattern), replacement);
+    mangled = mangled.replace(pos, pattern.length(), replacement);
+    pos += replacement.length();
   }
   return mangled;
 }
@@ -69,7 +101,13 @@ XPCOMHack(std::string mangled)
   size_t length = sizeof(replacements) / sizeof(*replacements);
 
   for (size_t i = 0; i < length; i++) {
-    mangled = ReplaceAll(mangled, replacements[i][1], replacements[i][0]);
+    std::string pattern = replacements[i][1];
+    pattern = ToString(pattern.length()) + pattern;
+
+    std::string replacement = replacements[i][0];
+    replacement = ToString(replacement.length()) + replacement;
+
+    mangled = ReplaceAll(mangled, pattern, replacement);
   }
   return mangled;
 }
@@ -126,19 +164,20 @@ EscapeString(std::string input)
   return output;
 }
 
-std::string
-ToString(int n)
-{
-  char s[32];
-  sprintf(s, "%06d", n);
-  return std::string(s);
-}
-
 class IndexConsumer;
 
 struct FileInfo
 {
   FileInfo(std::string &rname) : realname(rname) {
+    if (rname.compare(0, objdir.length(), objdir) == 0) {
+      // We're in the objdir, so we are probably a generated header
+      // We use the escape character to indicate the objdir nature.
+      // Note that output also has the `/' already placed
+      interesting = true;
+      realname.replace(0, objdir.length(), GENERATED);
+      return;
+    }
+
     interesting = rname.compare(0, srcdir.length(), srcdir) == 0;
     if (interesting) {
       // Remove the trailing `/' as well.
@@ -257,6 +296,8 @@ public:
 
       std::string filename = outdir;
       filename += it->second->realname;
+
+      EnsurePath(filename);
 
       // Okay, I want to use the standard library for I/O as much as possible,
       // but the C/C++ standard library does not have the feature of "open
@@ -452,10 +493,10 @@ protected:
   bool ParseArgs(const CompilerInstance &CI,
                  const std::vector<std::string>& args)
   {
-    if (args.size() != 2) {
+    if (args.size() != 3) {
       DiagnosticsEngine &D = CI.getDiagnostics();
       unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
-        "Need arguments for the source and output directories");
+        "Need arguments for the source, output, and object directories");
       D.Report(DiagID);
       return false;
     }
@@ -480,6 +521,17 @@ protected:
     }
     outdir = abs_outdir;
     outdir += "/";
+
+    char *abs_objdir = realpath(args[2].c_str(), NULL);
+    if (!abs_objdir) {
+      DiagnosticsEngine &D = CI.getDiagnostics();
+      unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
+        "Objdir '%0' does not exist");
+      D.Report(DiagID) << args[2];
+      return false;
+    }
+    objdir = abs_objdir;
+    objdir += "/";
 
     return true;
   }

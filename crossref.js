@@ -1,11 +1,12 @@
 // Command line options:
-// crossref.js <source-tree-root> <analysis-root> <output-file> <jump-file> file1 file2...
+// crossref.js <tree-root> <analysis-root> <output-file> <jump-file> file1 file2...
 // File paths are relative to the tree roots.
 
-let sourceRoot = scriptArgs[0];
+let treeRoot = scriptArgs[0];
 let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
-let filenamesFile = scriptArgs[3];
+let objdir = scriptArgs[3];
+let filenamesFile = scriptArgs[4];
 
 let analysisRoot = indexRoot + "/analysis";
 let outputFile = indexRoot + "/crossref";
@@ -15,11 +16,11 @@ run(mozSearchRoot + "/output.js");
 
 let identifiers = new Map();
 
-function parseAnalysis(line)
+function parseAnalysis(line, path)
 {
   let parts = line.split(" ");
   if (parts.length != 4 && parts.length != 5) {
-    throw `Invalid analysis line: ${line}`;
+    throw `Invalid analysis line in ${path}: ${line}`;
   }
 
   if (parts[2][0] == '"') {
@@ -47,9 +48,11 @@ function processFile(path)
     return;
   }
 
+  let source = sourcePath(path);
+
   let code;
   try {
-    code = snarf(sourceRoot + path);
+    code = snarf(source);
   } catch (e) {
     return;
   }
@@ -77,7 +80,7 @@ function processFile(path)
   }
 
   for (let analysisLine of analysisLines) {
-    let datum = parseAnalysis(analysisLine);
+    let datum = parseAnalysis(analysisLine, path);
     put(datum.id, datum);
     if (datum.extra) {
       put(datum.extra, datum);

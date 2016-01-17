@@ -3,9 +3,9 @@
 set -e # Errors are fatal
 set -x # Show commands
 
-cat >/tmp/mozconfig <<"EOF"
-. $topsrcdir/browser/config/mozconfig
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/objdir-indexing
+cat >/tmp/mozconfig <<EOF
+. \$topsrcdir/browser/config/mozconfig
+mk_add_options MOZ_OBJDIR=$OBJDIR
 ac_add_options --enable-debug
 ac_add_options --enable-optimize
 ac_add_options --enable-gczeal
@@ -20,7 +20,7 @@ autoconf2.13
 cd $TREE_ROOT/js/src
 autoconf2.13
 
-mkdir -p $TREE_ROOT/objdir-indexing
-cd $TREE_ROOT/objdir-indexing
-MOZCONFIG=/tmp/mozconfig ../configure
+mkdir -p $OBJDIR
+cd $OBJDIR
+MOZCONFIG=/tmp/mozconfig $TREE_ROOT/configure
 

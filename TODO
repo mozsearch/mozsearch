@@ -3,12 +3,14 @@ Big tasks:
 * Autocomplete
 * Display links to nearby methods in sidebar
 * Faster!
+* router.py needs to be much more scalable
 
 UI:
 ! Help file as home page
 * Crossref result matches in bold
 * Get rid of Nunjucks (context menu)
 * "Search substring" context menu option
+* Allow "locking on" a given highlighted symbol (from Kris)
 
 AWS:
 ! Automatic indexing
@@ -20,6 +22,7 @@ C++ indexing:
 ? Multiple inheritance
 ? Indexing types
 * Index specialized types (templated, etc.)
+* Index global variables, enums, macros
 * Better indexing with inheritance (don't just search from root method)
 
 JS indexing:
@@ -28,9 +31,9 @@ JS indexing:
 * Indexing of test files
 
 Other indexing:
-* XBL
-* HTML
 * IDL
+* IPDL
+* HTML
 * WebIDL?
 
 

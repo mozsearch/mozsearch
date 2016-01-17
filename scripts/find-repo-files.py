@@ -55,7 +55,7 @@ for line in lines:
     if ext in ['.js', '.jsm', '.xml']:
         js.append('/' + path + '\n')
 
-open(os.path.join(indexRoot, 'all-files'), 'w').writelines(files)
-open(os.path.join(indexRoot, 'all-dirs'), 'w').writelines(dirs)
+open(os.path.join(indexRoot, 'repo-files'), 'w').writelines(files)
+open(os.path.join(indexRoot, 'repo-dirs'), 'w').writelines(dirs)
 open(os.path.join(indexRoot, 'js-files'), 'w').writelines(js)
 

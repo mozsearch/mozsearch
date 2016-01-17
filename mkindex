@@ -8,9 +8,12 @@ $MOZSEARCH_ROOT/scripts/mkdirs.sh
 
 $MOZSEARCH_ROOT/scripts/cpp-configure.sh
 
-cd $TREE_ROOT/objdir-indexing
+cd $OBJDIR
 make -j8
 cd -
+
+$MOZSEARCH_ROOT/scripts/find-objdir-files.py
+$MOZSEARCH_ROOT/scripts/objdir-mkdirs.sh
 
 $MOZSEARCH_ROOT/scripts/build-codesearch.sh
 

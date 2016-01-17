@@ -3,7 +3,8 @@
 let treeRoot = scriptArgs[0];
 let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
-let filenames = scriptArgs.slice(3);
+let objdir = scriptArgs[3];
+let filenames = scriptArgs.slice(4);
 
 run(mozSearchRoot + "/output.js");
 
@@ -128,28 +129,30 @@ function generateFile(path, opt)
   let datum = parseAnalysis(analysisLines[0]);
   let analysisIndex = 1;
 
+  let source = sourcePath(path);
+
   let code;
   if (language == "skip") {
     code = "binary file";
   } else if (language) {
-    let lineLen = parseInt(runCmd(`wc -L ${treeRoot + path}`));
+    let lineLen = parseInt(runCmd(`wc -L ${source}`));
     if (lineLen > 250) {
       try {
-        code = snarf(treeRoot + path);
+        code = snarf(source);
       } catch (e) {
         code = "binary file";
       }
       code = toHTML(code);
     } else {
       try {
-        code = runCmd(`source-highlight --style-css-file=sh_ide-codewarrior.css -s ${language} -i ${treeRoot + path} | tail -n +5`);
+        code = runCmd(`source-highlight --style-css-file=sh_ide-codewarrior.css -s ${language} -i ${source} | tail -n +5`);
       } catch (e) {
         code = "binary file";
       }
     }
   } else {
     try {
-      code = snarf(treeRoot + path);
+      code = snarf(source);
     } catch (e) {
       code = "binary file";
     }

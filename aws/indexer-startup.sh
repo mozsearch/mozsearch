@@ -122,6 +122,7 @@ sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
 export TREE_ROOT=$INDEX_TMP/mozilla-central
+export OBJDIR=$INDEX_TMP/mozilla-central/objdir-indexing
 export INDEX_ROOT=/index
 export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
 

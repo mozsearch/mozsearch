@@ -4,5 +4,6 @@
     "name": "mozilla-central",
     "path": "mozilla-central",
     "revisions": ["HEAD"]
-  }]
+  }],
+  "fs_paths": ["__GENERATED__"]
 }
