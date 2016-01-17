@@ -5,5 +5,8 @@
     "path": "mozilla-central",
     "revisions": ["HEAD"]
   }],
-  "fs_paths": ["__GENERATED__"]
+  "fs_paths": [{
+    "name": "__GENERATED__",
+    "path": "objdir/"
+  }]
 }
