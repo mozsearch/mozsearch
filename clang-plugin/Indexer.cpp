@@ -58,11 +58,11 @@ EnsurePath(std::string path)
   }
 }
 
-std::string
+static std::string
 ToString(int n)
 {
   char s[32];
-  sprintf(s, "%06d", n);
+  sprintf(s, "%d", n);
   return std::string(s);
 }
 
@@ -195,6 +195,14 @@ struct Comparator {
   }
 };
 
+static std::string
+ToStringPadded(int n)
+{
+  char s[32];
+  sprintf(s, "%06d", n);
+  return std::string(s);
+}
+
 class IndexConsumer : public ASTConsumer,
                       public RecursiveASTVisitor<IndexConsumer>,
                       public DiagnosticConsumer
@@ -258,9 +266,9 @@ private:
     if (!isInvalid) {
       unsigned line = sm.getSpellingLineNumber(loc, &isInvalid);
       if (!isInvalid) {
-        buffer = ToString(line);
+        buffer = ToStringPadded(line);
         buffer += ":";
-        buffer += ToString(column - 1);  // Make 0-based.
+        buffer += ToStringPadded(column - 1);  // Make 0-based.
       }
     }
     return buffer;
