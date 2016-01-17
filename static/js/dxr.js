@@ -210,7 +210,6 @@ $(function() {
    * Add an entry into the history stack whenever we do a new search.
    */
   function pushHistoryState(searchUrl) {
-    console.log("pushState", searchUrl);
     history.pushState({}, '', searchUrl);
   }
 

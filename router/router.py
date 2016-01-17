@@ -9,6 +9,10 @@ import os.path
 import json
 import re
 import subprocess
+import signal
+import time
+import errno
+import traceback
 
 import crossrefs
 import codesearch
@@ -115,6 +119,48 @@ def get_json_search_results(query):
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
+        pid = os.fork()
+        if pid:
+            # Parent process
+            print 'pid %d - %s %s' % (pid, self.log_date_time_string(), self.path)
+
+            timedOut = [False]
+            def handler(signum, frame):
+                print 'timeout %d, killing' % pid
+                timedOut[0] = True
+                os.kill(pid, signal.SIGKILL)
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(15)
+
+            t = time.time()
+            try:
+                (pid2, status) = os.waitpid(pid, 0)
+            except OSError, e:
+                if e.errno != errno.EINTR: raise e
+
+            failed = timedOut[0]
+            if os.WIFEXITED(status) and os.WEXITSTATUS(status) != 0:
+                print 'error pid %d - %f' % (pid, time.time() - t)
+                failed = True
+            else:
+                print 'finish pid %d - %f' % (pid, time.time() - t)
+
+            if failed:
+                self.send_response(504)
+                self.end_headers()
+        else:
+            # Child process
+            try:
+                self.process_request()
+                os._exit(0)
+            except:
+                traceback.print_exc()
+                os._exit(1)
+
+    def log_request(self, *args):
+        pass
+
+    def process_request(self):
         url = urlparse.urlparse(self.path)
         pathElts = url.path.split('/')
 
