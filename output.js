@@ -11,21 +11,6 @@ function fileURL(tree, path)
   return `/${tree}/source${path}`;
 }
 
-function getSuffix(filename)
-{
-  let pos = filename.lastIndexOf(".");
-  if (pos == -1) {
-    return null;
-  }
-  return filename.slice(pos + 1).toLowerCase();
-}
-
-function chooseIcon(path)
-{
-  let suffix = getSuffix(path);
-  return { 'cpp': 'cpp', 'h': 'h', 'c': 'c', 'js': 'js', 'jsm': 'js', 'py': 'py' }[suffix] || "";
-}
-
 function generateBreadcrumbs(path, opt)
 {
   let tree = opt.tree;

@@ -134,34 +134,33 @@ GetMangledName(clang::MangleContext* ctx,
 }
 #endif
 
-// BEWARE: use only as a temporary
-const char *
-hash(std::string &str)
-{
-  static unsigned char rawhash[20];
-  static char hashstr[41];
-  sha1::calc(str.c_str(), str.size(), rawhash);
-  sha1::toHexString(rawhash, hashstr);
-  return hashstr;
-}
-
-std::string
+static std::string
 EscapeString(std::string input)
 {
-  std::string output = "\"";
+  std::string output = "";
   char hex[] = { '0', '1', '2', '3', '4', '5', '6', '7',
                  '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
   for (char c : input) {
     if (isspace(c) || c == '"' || c == '\\') {
-      output += "\\x";
+      output += "\\u00";
       output += hex[c >> 4];
       output += hex[c & 0xf];
     } else {
       output += c;
     }
   }
-  output += '"';
   return output;
+}
+
+static bool
+IsValidToken(std::string input)
+{
+  for (char c : input) {
+    if (isspace(c) || c == '"' || c == '\\') {
+      return false;
+    }
+  }
+  return true;
 }
 
 class IndexConsumer;
@@ -188,20 +187,6 @@ struct FileInfo
   std::vector<std::string> output;
   bool interesting;
 };
-
-struct Comparator {
-  bool operator()(std::string s1, std::string s2) {
-    return s1 <= s2;
-  }
-};
-
-static std::string
-ToStringPadded(int n)
-{
-  char s[32];
-  sprintf(s, "%06d", n);
-  return std::string(s);
-}
 
 class IndexConsumer : public ASTConsumer,
                       public RecursiveASTVisitor<IndexConsumer>,
@@ -258,7 +243,7 @@ private:
     return f->interesting;
   }
 
-  std::string LocationToString(SourceLocation loc) {
+  std::string LocationToString(SourceLocation loc, size_t length = 0) {
     std::string buffer;
     bool isInvalid;
     unsigned column = sm.getSpellingColumnNumber(loc, &isInvalid);
@@ -266,9 +251,13 @@ private:
     if (!isInvalid) {
       unsigned line = sm.getSpellingLineNumber(loc, &isInvalid);
       if (!isInvalid) {
-        buffer = ToStringPadded(line);
+        buffer = ToString(line);
         buffer += ":";
-        buffer += ToStringPadded(column - 1);  // Make 0-based.
+        buffer += ToString(column - 1);  // Make 0-based.
+        if (length) {
+          buffer += "-";
+          buffer += ToString(column - 1 + length);
+        }
       }
     }
     return buffer;
@@ -315,11 +304,6 @@ public:
         continue;
       }
 
-      // There seems to be a bug where the comparator is called with the last
-      // (invalid) iterator. Add a valid element there so we don't crash.
-      info.output.push_back(std::string(""));
-      stable_sort(info.output.begin(), info.output.end() - 1, Comparator());
-
       //write(fd, it->second->realname.c_str(), it->second->realname.length());
       //write(fd, "\n", 1);
       for (std::string& line : info.output) {
@@ -338,13 +322,16 @@ public:
     return method;
   }
 
-  void VisitToken(const char *kind, SourceLocation loc, std::string mangled) {
+  void VisitToken(const char *kind, const char *prettyKind, const char *prettyData,
+                  SourceLocation loc, std::string mangled)
+  {
     loc = sm.getSpellingLoc(loc);
 
     unsigned startOffset = sm.getFileOffset(loc);
     unsigned endOffset = startOffset + Lexer::MeasureTokenLength(loc, sm, ci.getLangOpts());
 
     std::string locStr = LocationToString(loc);
+    std::string locStr2 = LocationToString(loc, endOffset - startOffset);
 
     const char* startChars = sm.getCharacterData(loc);
     std::string text(startChars, endOffset - startOffset);
@@ -352,9 +339,19 @@ public:
     StringRef filename = sm.getFilename(loc);
     FileInfo *f = GetFileInfo(filename);
 
-    char s[1024];
-    sprintf(s, "%s %s %s %s\n", locStr.c_str(), kind, EscapeString(text).c_str(), mangled.c_str());
+    if (!IsValidToken(text)) {
+      return;
+    }
 
+    char s[1024];
+    sprintf(s, "{\"loc\":\"%s\", \"source\":1, \"pretty\":\"%s %s\", \"sym\":\"%s\"}\n",
+            locStr2.c_str(),
+            prettyKind, prettyData ? prettyData : EscapeString(text).c_str(),
+            mangled.c_str());
+    f->output.push_back(std::string(s));
+
+    sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"sym\":\"%s\"}\n",
+            locStr.c_str(), kind, mangled.c_str());
     f->output.push_back(std::string(s));
   }
 
@@ -373,7 +370,7 @@ public:
     SourceLocation loc = d->getLocation();
 
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, loc, mangled);
+    VisitToken(kind, "function", nullptr, loc, mangled);
 
     return true;
   }
@@ -390,7 +387,7 @@ public:
 
     std::string mangled = GetMangledName(mMangleContext, d->getTypeForDecl());
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, loc, mangled);
+    VisitToken(kind, "type", nullptr, loc, mangled);
 
     return true;
   }
@@ -410,7 +407,7 @@ public:
     // FIXME: Need to do something different for list initialization.
 
     SourceLocation loc = e->getLocStart();
-    VisitToken("use", loc, mangled);
+    VisitToken("use", "constructor", ctor->getNameAsString().c_str(), loc, mangled);
 
     return true;
   }
@@ -469,7 +466,7 @@ public:
         }
       }
 
-      VisitToken("use", loc, mangled);
+      VisitToken("use", "function", nullptr, loc, mangled);
     }
 
     return true;
@@ -484,7 +481,7 @@ public:
     TagDecl* decl = tagLoc.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl->getTypeForDecl());
 
-    VisitToken("use", tagLoc.getBeginLoc(), mangled);
+    VisitToken("use", "type", nullptr, tagLoc.getBeginLoc(), mangled);
 
     return true;
   }

@@ -50,7 +50,6 @@ $("#file").on("mousemove", function(event) {
 
   elt = $(elt);
   var id = elt.attr("data-id");
-  var kind = elt.attr("data-kind");
 
   if (id == "?") {
     hovered.removeClass("hovered");
@@ -68,56 +67,26 @@ $("#file").on("click", "span[data-id]", function(event) {
   while (!elt.attr("data-id")) {
     elt = elt.parent();
   }
+  var index = elt.attr("data-i");
   var id = elt.attr("data-id");
-  var idName = elt.text();
-  var extra = elt.attr("data-extra");
-  var kind = elt.attr("data-kind");
-  var jump = elt.attr("data-jump") == "true";
-  var extraJump = elt.attr("data-extra-jump") == "true";
 
   function fmt(s, data) {
-    return s.replace("_", "&ldquo;" + data + "&rdquo;");
+    return s.replace("_", data);
   }
 
-  var propName;
-  if (id.startsWith("#")) {
-    propName = id;
-  } else {
-    propName = idName;
-  }
+  // Comes from the generated page.
+  var data = ANALYSIS_DATA[index];
 
   var menuItems = [];
-
-  var extraName;
-  if (extra) {
-    extraName = extra.replace("#", ".");
-  }
-
-  if (kind != "def") {
-    if (extraJump) {
-      menuItems.push({html: fmt("Goto definition of _", extraName),
-                      href: "/mozilla-central/define?q=" + encodeURIComponent(extra),
+  for (let datum of data) {
+    let {pretty, sym} = datum;
+    if (datum.jump) {
+      menuItems.push({html: fmt("Goto definition of _", pretty),
+                      href: "/mozilla-central/define?q=" + encodeURIComponent(sym),
                       icon: "search"});
     }
-    if (jump) {
-      menuItems.push({html: fmt("Goto definition of _", idName),
-                      href: "/mozilla-central/define?q=" + encodeURIComponent(id),
-                      icon: "search"});
-    }
-  }
-
-  if (id.startsWith("#")) {
-    if (extra) {
-      menuItems.push({html: fmt("Search for property _", extraName),
-                      href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(extra),
-                      icon: "search"});
-    }
-    menuItems.push({html: fmt("Search for property _", idName),
-                    href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(id),
-                    icon: "search"});
-  } else {
-    menuItems.push({html: fmt("Search for _", idName),
-                    href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(id),
+    menuItems.push({html: fmt("Search for _", pretty),
+                    href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(sym),
                     icon: "search"});
   }
 

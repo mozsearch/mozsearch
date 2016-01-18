@@ -76,7 +76,7 @@ fi
 
 echo "Channel is $CHANNEL"
 
-wget http://ftp.mozilla.org/pub/mozilla.org/firefox/tinderbox-builds/mozilla-central-linux64-pgo/latest/jsshell-linux-x86_64.zip
+wget https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/jsshell-linux-x86_64.zip
 mkdir js
 pushd js
 unzip ../jsshell-linux-x86_64.zip

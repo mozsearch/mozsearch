@@ -4,6 +4,7 @@ let mozSearchRoot = scriptArgs[2];
 let objdir = scriptArgs[3];
 let pathFiles = scriptArgs.slice(4);
 
+run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
 
 function runCmd(cmd)

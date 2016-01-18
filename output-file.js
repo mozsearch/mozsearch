@@ -6,6 +6,7 @@ let mozSearchRoot = scriptArgs[2];
 let objdir = scriptArgs[3];
 let filenames = scriptArgs.slice(4);
 
+run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
 
 function runCmd(cmd)
@@ -15,22 +16,6 @@ function runCmd(cmd)
   let data = snarf(outfile);
   os.system(`rm ${outfile}`);
   return data;
-}
-
-function parseAnalysis(line)
-{
-  let parts = line.split(" ");
-  if (parts.length != 4 && parts.length != 5) {
-    throw `Invalid analysis line: ${line}`;
-  }
-
-  if (parts[2][0] == '"') {
-    parts[2] = eval(parts[2]);
-  }
-
-  let [linenum, colnum] = parts[0].split(":");
-  return {line: parseInt(linenum), col: parseInt(colnum),
-          kind: parts[1], name: parts[2], id: parts[3], extra: parts[4]};
 }
 
 let jumps = snarf(indexRoot + "/jumps");
@@ -116,17 +101,16 @@ function generateFile(path, opt)
 {
   let language = chooseLanguage(path);
 
-  let analysisLines = [];
-
+  let analysis = [];
   try {
-    let analysis = snarf(indexRoot + "/analysis" + path);
-    analysisLines = analysis.split("\n");
-    analysisLines.pop();
+    let r = readAnalysis(indexRoot + "/analysis" + path, j => j.source);
+    analysis = r.sources;
   } catch (e) {
+    print(e);
   }
-  analysisLines.push("100000000000:0 eof BAD BAD");
+  analysis.push({loc: {line: 100000000000, col: 0}});
 
-  let datum = parseAnalysis(analysisLines[0]);
+  let datum = analysis[0];
   let analysisIndex = 1;
 
   let source = sourcePath(path);
@@ -195,32 +179,37 @@ function generateFile(path, opt)
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;');
   }
 
+  let generatedJSON = [];
+
   function outputLine(lineNum, line) {
     let col = 0;
     for (let i = 0; i < line.length; ) {
       let ch = line[i];
 
-      if (lineNum == datum.line && col == datum.col) {
-        let extra = "";
-        if (datum.extra) {
-          extra += `data-extra="${datum.extra}" `;
+      if (lineNum == datum.loc.line && col == datum.loc.col[0]) {
+        let id = datum.analysis[0].sym;
+
+        for (let r of datum.analysis) {
+          if (jumps.has(r.sym)) {
+            r.jump = true;
+          }
         }
-        if (jumps.has(datum.id)) {
-          extra += `data-jump="true" `;
-        }
-        if (datum.extra && jumps.has(datum.extra)) {
-          extra += `data-extra-jump="true" `;
-        }
-        out(`<span data-id="${datum.id}" data-kind=${datum.kind} ${extra}>${esc(datum.name)}</span>`);
+
+        let index = analysisIndex - 1;
+        generatedJSON[index] = datum.analysis;
+        out(`<span data-i="${index}" data-id="${id}">`);
 
         // Output the formatted link text.
-        var stop = col + datum.name.length;
+        let stop = datum.loc.col[1];
+        let text = "";
         while (col < stop) {
           ch = line[i];
           if (ch == '&') {
             do {
+              text += line[i];
               i++;
             } while (line[i] != ';');
+            text += line[i];
             col++;
             i++;
             continue;
@@ -234,19 +223,15 @@ function generateFile(path, opt)
             continue;
           }
 
+          text += ch;
           col++;
           i++;
         }
 
-        let lastLine = datum.line;
-        let lastCol = datum.col;
+        out(text);
+        out("</span>");
 
-        do {
-          datum = parseAnalysis(analysisLines[analysisIndex++]);
-        } while (datum.line == lastLine && datum.col == lastCol);
-        if (datum.line < lastLine || (datum.line == lastLine && datum.col < lastCol)) {
-          throw `Invalid analysis loc: ${path} ${JSON.stringify(datum)}`;
-        }
+        datum = analysis[analysisIndex++];
       } else if (ch == '&') {
         do {
           out(line[i]);
@@ -274,7 +259,7 @@ function generateFile(path, opt)
   for (let line of lines) {
     out(`<code id="line-${lineNum}" aria-labelledby="${lineNum}">`);
 
-    if (lineNum != datum.line) {
+    if (lineNum != datum.loc.line) {
       out(line);
     } else {
       outputLine(lineNum, line);
@@ -290,6 +275,11 @@ function generateFile(path, opt)
     </tr>
   </tbody>
 </table>
+`);
+
+  out(`<script>
+var ANALYSIS_DATA = ${JSON.stringify(generatedJSON)};
+</script>
 `);
 
   let fname = path.substring(path.lastIndexOf("/") + 1);

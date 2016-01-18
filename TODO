@@ -180,3 +180,61 @@ Or I could put in each level of qualification as a separate thing, and they woul
 a prefix. That way I could do a binary search, which would be much faster.
 
 How do I make inheritance support better?
+
+
+----------
+IDL: I can find the mangled names of the methods by looking at the already analyzed
+header files in $INDEX/analysis/dist/include/$FILENAME.h. The names appear as "decl"
+lines in the same order they appear in the IDL file.
+
+----------
+
+Better structure for analysis data:
+This needs to support a variety of uses:
+
+* Highlighting of symbols in the output file.
+  * May have multiple analysis lines for a given token
+* Context menu
+  * Goto definition of X
+  * Search for union(X, Y, Z)
+* Need to generate search results for a given list of symbol names, broken up by kind
+
+I'll put the "extra" data as multiple analysis lines. They'll be displayed using
+separate context menu entries.
+
+The data will no longer be stored directly in the span nodes. Instead I'll create a
+separate data structure that will be numbered, and the number will be stored in
+the span node. This data can be nicely structured since it will all be JSON.
+
+What needs to go in the analysis:
+1. Line#, column#
+2. Directive: Could be a search target or a search source.
+3. Kind: decl, def, use, assign, idl.
+4. Pretty: Name to use in the context menu.
+5. Symbols: One symbol or a list of symbols.
+
+The crossref.js script will only use search targets. It will ignore everything else.
+The output-file script will only look at search sources.
+Search targets will always have a single symbol.
+Search sources will have a list of symbols.
+I'll have a library for reading in the analysis data, sorting it, and possibly
+combining data for the same token together.
+Each datum will be JSON on its own line.
+Search sources don't need a "kind".
+
+What will the actual data look like when there are multiple entries for a given token?
+Should consider that a bit more.
+
+What will I do about jumping? If I find a search source that has one target, then
+I'll record that in jumps. And I'll use that in output-file to put a special annotation
+in the data I store there.
+
+I don't need "pretty" or "jump" information for targets.
+
+A. Want to do the extra information for a JS symbol:
+{ loc: "X:Y", search: "source", pretty: "SessionStore.getTabState", jump: true,
+  syms: "SessionStore#getTabState" }
+{ loc: "X:Y", search: "source", pretty: "getTabState", jump: false,
+  syms: "#getTabState" }
+{ loc: "X:Y", search: "target", kind: "def", sym: "#getTabState" }
+{ loc: "X:Y", search: "target", kind: "def", sym: "SessionStore#getTabState" }

@@ -41,9 +41,19 @@ function locstr(loc)
   return `${loc.start.line}:${loc.start.column}`;
 }
 
+function locstr2(loc, str)
+{
+  return `${loc.start.line}:${loc.start.column}-${loc.start.column + str.length}`;
+}
+
 function nameValid(name)
 {
-  return name.indexOf(" ") == -1 && name.indexOf("\n") == -1 && name.indexOf("\0") == -1 && name.indexOf('"') == -1;
+  return name.indexOf(" ") == -1 &&
+         name.indexOf("\n") == -1 &&
+         name.indexOf("\r") == -1 &&
+         name.indexOf("\0") == -1 &&
+         name.indexOf("\\") == -1 &&
+         name.indexOf('"') == -1;
 }
 
 function memberPropLoc(expr)
@@ -104,36 +114,45 @@ let Analyzer = {
     }
   },
 
-  defProp(name, loc, extra) {
+  defProp(name, loc, extra, extraPretty) {
     if (!nameValid(name)) {
       return;
     }
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                          pretty: `property ${name}`, sym: `#${name}`}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", sym: `#${name}`}));
     if (extra) {
-      print(`${locstr(loc)} def ${name} #${name} ${extra}`);
-    } else {
-      print(`${locstr(loc)} def ${name} #${name}`);
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                            pretty: `property ${extraPretty}`, sym: extra}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", sym: extra}));
     }
   },
 
-  useProp(name, loc, extra) {
+  useProp(name, loc, extra, extraPretty) {
     if (!nameValid(name)) {
       return;
     }
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                          pretty: `property ${name}`, sym: `#${name}`}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", sym: `#${name}`}));
     if (extra) {
-      print(`${locstr(loc)} use ${name} #${name} ${extra}`);
-    } else {
-      print(`${locstr(loc)} use ${name} #${name}`);
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                            pretty: `property ${extraPretty}`, sym: extra}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", sym: extra}));
     }
   },
 
-  assignProp(name, loc, extra) {
+  assignProp(name, loc, extra, extraPretty) {
     if (!nameValid(name)) {
       return;
     }
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                          pretty: `property ${name}`, sym: `#${name}`}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", sym: `#${name}`}));
     if (extra) {
-      print(`${locstr(loc)} assign ${name} #${name} ${extra}`);
-    } else {
-      print(`${locstr(loc)} assign ${name} #${name}`);
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                            pretty: `property ${extraPretty}`, sym: extra}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", sym: extra}));
     }
   },
 
@@ -147,7 +166,10 @@ let Analyzer = {
     }
     let sym = new Symbol(name, loc);
     this.symbols.put(name, sym);
-    print(`${locstr(loc)} def ${name} ${sym.id}`);
+
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                          pretty: `variable ${name}`, sym: sym.id}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", sym: sym.id}));
   },
 
   findSymbol(name) {
@@ -171,7 +193,9 @@ let Analyzer = {
     if (!sym) {
       this.useProp(name, loc);
     } else if (!sym.skip) {
-      print(`${locstr(loc)} use ${name} ${sym.id}`);
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                            pretty: `variable ${name}`, sym: sym.id}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", sym: sym.id}));
     }
   },
 
@@ -183,7 +207,9 @@ let Analyzer = {
     if (!sym) {
       this.assignProp(name, loc);
     } else if (!sym.skip) {
-      print(`${locstr(loc)} assign ${name} ${sym.id}`);
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+                            pretty: `variable ${name}`, sym: sym.id}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", sym: sym.id}));
     }
   },
 
@@ -434,11 +460,13 @@ let Analyzer = {
             loc.start.column++;
           }
           let extra = null;
+          let extraPretty = null;
           if (this.nameForThis) {
             extra = `${this.nameForThis}#${name}`;
+            extraPretty = `${this.nameForThis}.${name}`;
           }
           if (name) {
-            this.defProp(name, prop.key.loc, extra);
+            this.defProp(name, prop.key.loc, extra, extraPretty);
           }
         }
 
@@ -485,12 +513,15 @@ let Analyzer = {
         this.expression(expr.left.object);
 
         let extra = null;
+        let extraPretty = null;
         if (expr.left.object.type == "ThisExpression" && this.nameForThis) {
           extra = `${this.nameForThis}#${expr.left.property.name}`;
+          extraPretty = `${this.nameForThis}.${expr.left.property.name}`;
         } else if (expr.left.object.type == "Identifier") {
           extra = `${expr.left.object.name}#${expr.left.property.name}`;
+          extraPretty = `${expr.left.object.name}.${expr.left.property.name}`;
         }
-        this.assignProp(expr.left.property.name, memberPropLoc(expr.left), extra);
+        this.assignProp(expr.left.property.name, memberPropLoc(expr.left), extra, extraPretty);
       } else {
         this.expression(expr.left);
       }
@@ -538,13 +569,16 @@ let Analyzer = {
         this.expression(expr.property);
       } else {
         let extra = null;
+        let extraPretty = null;
         if (expr.object.type == "ThisExpression" && this.nameForThis) {
           extra = `${this.nameForThis}#${expr.property.name}`;
+          extraPretty = `${this.nameForThis}.${expr.property.name}`;
         } else if (expr.object.type == "Identifier") {
           extra = `${expr.object.name}#${expr.property.name}`;
+          extraPretty = `${expr.object.name}.${expr.property.name}`;
         }
 
-        this.useProp(expr.property.name, memberPropLoc(expr), extra);
+        this.useProp(expr.property.name, memberPropLoc(expr), extra, extraPretty);
       }
       break;
 
@@ -800,7 +834,9 @@ XBLParser.prototype = {
 
     [line, column] = this.backup(line, column, name + "\"");
 
-    print(`${line + 1}:${column} def ${name} #${name}`);
+    print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
+                          pretty: `property ${name}`, sym: `#${name}`}));
+    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", sym: `#${name}`}));
 
     let spaces = Array(tag.column).join(" ");
     let text = spaces + this.curText;
@@ -816,7 +852,9 @@ XBLParser.prototype = {
 
       [line, column] = this.backup(line, column, name + "\"");
 
-      print(`${line + 1}:${column} def ${name} #${name}`);
+      print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
+                            pretty: `property ${name}`, sym: `#${name}`}));
+      print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", sym: `#${name}`}));
     }
 
     let line, column;
@@ -898,7 +936,9 @@ XBLParser.prototype = {
 
     [line, column] = this.backup(line, column, name + "\"");
 
-    print(`${line + 1}:${column} def ${name} #${name}`);
+    print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
+                          pretty: `property ${name}`, sym: `#${name}`}));
+    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", sym: `#${name}`}));
 
     Analyzer.enter();
 

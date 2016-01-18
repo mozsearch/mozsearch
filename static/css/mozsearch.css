@@ -561,18 +561,8 @@ mark {
 span[data-id]:hover {
   cursor: pointer;
 }
-
-span[data-id][data-kind="def"].hovered {
-  background-color: cyan;
-}
-span[data-id][data-kind="decl"].hovered {
-  background-color: orange;
-}
-span[data-id][data-kind="use"].hovered {
+span[data-id].hovered {
   background-color: yellow;
-}
-span[data-id][data-kind="assign"].hovered {
-  background-color: greenyellow;
 }
 
 .result-kind {
