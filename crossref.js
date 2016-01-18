@@ -74,7 +74,7 @@ function writeMap()
       if (!obj[kind]) {
         return [];
       }
-      let result = [ {path, lines} for ([path, lines] of obj[kind]) ];
+      let result = Array.from(obj[kind], ([path, lines]) => { return {path, lines}; });
       if (result.length > 1000) {
         return result.slice(0, 1000);
       } else {
