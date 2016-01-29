@@ -1,17 +1,12 @@
 import json
 import sys
 import socket
+import os
 import os.path
+import time
 
 mozSearchPath = sys.argv[1]
 indexPath = sys.argv[2]
-
-do_codesearch = True
-for opt in sys.argv[3:]:
-    if opt == '--no-codesearch':
-        do_codesearch = False
-
-allFiles = open(os.path.join(indexPath, 'repo-files')).readlines()
 
 class CodeSearch:
     def __init__(self, host, port):
@@ -22,6 +17,9 @@ class CodeSearch:
         self.matches = []
         self.wait_ready()
         self.query = None
+
+    def close(self):
+        self.sock.close()
 
     def collateMatches(self, matches):
         paths = {}
@@ -77,13 +75,48 @@ class CodeSearch:
             print 'Unknown opcode %s' % j['opcode']
             raise BaseException()
 
-try:
-    codesearch = CodeSearch('localhost', 8080)
-except socket.error, e:
-    codesearch = None
+def daemonize(args):
+    # Spawn a process to start the daemon
+    pid = os.fork()
+    if pid:
+        # Parent
+        return
+
+    # Double fork
+    pid = os.fork()
+    if pid:
+        os._exit(0)
+
+    pid = os.fork()
+    if pid:
+        os._exit(0)
+
+    print 'Running codesearch (pid %d)' % os.getpid()
+    os.execv(args[0], args)
+
+def startup_codesearch():
+    path = os.environ['CODESEARCH']
+    if not path:
+        return
+
+    args = [path, '-listen', 'tcp://localhost:8080',
+            '-load_index', os.path.join(indexPath, 'livegrep.idx'),
+            '-max_matches', '1000', '-timeout', '10000']
+
+    daemonize(args)
+    time.sleep(5)
 
 def search(pattern, fold_case=True, file='.*', repo='.*'):
-    if codesearch:
+    try:
+        codesearch = CodeSearch('localhost', 8080)
+    except socket.error, e:
+        startup_codesearch()
+        try:
+            codesearch = CodeSearch('localhost', 8080)
+        except socket.error, e:
+            return []
+
+    try:
         return codesearch.search(pattern, fold_case, file, repo)
-    else:
-        return []
+    finally:
+        codesearch.close()

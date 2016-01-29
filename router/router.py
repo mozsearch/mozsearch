@@ -39,6 +39,16 @@ def parse_search(searchString):
 
     return result
 
+def is_trivial_search(parsed):
+    if 'symbol' in parsed:
+        return False
+
+    for k in parsed:
+        if len(parsed[k]) >= 3:
+            return False
+
+    return True
+
 def sort_results(results):
     def is_test(p):
         return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
@@ -90,6 +100,10 @@ def get_json_search_results(query):
         foldCase = True
 
     parsed = parse_search(searchString)
+    if is_trivial_search(parsed):
+        results = {}
+        results['query'] = searchString
+        return json.dumps(results)
 
     if 'symbol' in parsed:
         # FIXME: Need to deal with path here
@@ -133,10 +147,12 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             signal.alarm(15)
 
             t = time.time()
-            try:
-                (pid2, status) = os.waitpid(pid, 0)
-            except OSError, e:
-                if e.errno != errno.EINTR: raise e
+            while True:
+                try:
+                    (pid2, status) = os.waitpid(pid, 0)
+                    break
+                except OSError, e:
+                    if e.errno != errno.EINTR: raise e
 
             failed = timedOut[0]
             if os.WIFEXITED(status) and os.WEXITSTATUS(status) != 0:
