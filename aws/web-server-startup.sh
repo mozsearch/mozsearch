@@ -94,7 +94,7 @@ git clone https://github.com/livegrep/livegrep
 pushd livegrep
 make
 popd
-export CODESEARCH=\$HOME/livegrep/bin/codesearch
+export CODESEARCH=$HOME/livegrep/bin/codesearch
 
 git clone https://github.com/bill-mccloskey/mozsearch
 
