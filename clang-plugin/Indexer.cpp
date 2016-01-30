@@ -80,7 +80,8 @@ ReplaceAll(std::string mangled, std::string pattern, std::string replacement)
 std::string
 XPCOMHack(std::string mangled)
 {
-  if (mangled.find("_external") == std::string::npos) {
+  if (mangled.find("_external") == std::string::npos &&
+      mangled.find("_internal") == std::string::npos) {
     return mangled;
   }
 
@@ -97,6 +98,8 @@ XPCOMHack(std::string mangled)
     {"nsCGetterCopies",                "nsCGetterCopies_external"},
     {"nsDependentSubstring",           "nsDependentSubstring_external"},
     {"nsDependentCSubstring",          "nsDependentCSubstring_external"},
+    {"nsAString",                      "nsAString_internal"},
+    {"nsACString",                     "nsACString_internal"},
   };
   size_t length = sizeof(replacements) / sizeof(*replacements);
 
