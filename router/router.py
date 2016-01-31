@@ -89,7 +89,7 @@ def search_files(path):
     except:
         return []
     results = results.strip().split('\n')
-    results = [ {'path': f[1:], 'lines': []} for f in results ]
+    results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
 def get_json_search_results(query):
