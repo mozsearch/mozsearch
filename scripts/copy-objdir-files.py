@@ -16,15 +16,15 @@ destDir = sys.argv[1]
 
 for d in open(os.path.join(indexRoot, 'objdir-dirs')).readlines():
     d = d.strip()
-    os.system('mkdir -p {}'.format(destDir + d))
+    os.system('mkdir -p {}'.format(os.path.join(destDir, d)))
 
 paths = open(os.path.join(indexRoot, 'objdir-files')).readlines()
 for path in paths:
     path = path.strip()
-    source = path.replace('/__GENERATED__', objdir)
+    source = path.replace('__GENERATED__', objdir)
     data = open(source).read()
 
-    dest = destDir + path
+    dest = os.path.join(destDir, path)
     f = open(dest, 'w')
     f.write(data)
     f.close()

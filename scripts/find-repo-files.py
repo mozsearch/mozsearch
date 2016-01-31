@@ -14,8 +14,8 @@ p = subprocess.Popen('git ls-files', shell=True, stdout=subprocess.PIPE, cwd=tre
 
 files = []
 js = []
-dirs = ['/\n']
-dirDict = {'/': True}
+dirs = []
+dirDict = {}
 
 lines = stdout.split('\n')
 for line in lines:
@@ -30,9 +30,9 @@ for line in lines:
         sub = '/'.join(elts[:i])
         if sub and sub not in dirDict:
             dirDict[sub] = True
-            dirs.append('/' + sub + '\n')
+            dirs.append(sub + '\n')
 
-    files.append('/' + path + '\n')
+    files.append(path + '\n')
 
     if os.access(fullpath, os.X_OK):
         continue
@@ -53,7 +53,7 @@ for line in lines:
 
     (_, ext) = os.path.splitext(path)
     if ext in ['.js', '.jsm', '.xml']:
-        js.append('/' + path + '\n')
+        js.append(path + '\n')
 
 open(os.path.join(indexRoot, 'repo-files'), 'w').writelines(files)
 open(os.path.join(indexRoot, 'repo-dirs'), 'w').writelines(dirs)

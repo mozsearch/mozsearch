@@ -120,13 +120,12 @@ function generateDirectory(dir, path, opt)
 
   let output = generate(content, opt);
 
-  redirect(indexRoot + "/dir" + path + "/index.html");
+  redirect(indexRoot + "/dir/" + path + "/index.html");
   print(output);
 }
 
 function addFile(filename, structure)
 {
-  filename = filename.slice(1); // Skip initial "/"
   let components = filename.split("/");
   let m = structure;
   for (let component of components.slice(0, -1)) {
@@ -188,7 +187,7 @@ function recursiveGenerate(dir, path)
       continue;
     }
 
-    recursiveGenerate(node, path + "/" + filename);
+    recursiveGenerate(node, path == "" ? filename : path + "/" + filename);
   }
 }
 

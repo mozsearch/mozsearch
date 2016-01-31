@@ -69,6 +69,7 @@ let Analyzer = {
   symbolTableStack: [],
 
   nameForThis: null,
+  className: null,
 
   enter() {
     this.symbolTableStack.push(this.symbols);
@@ -344,12 +345,15 @@ let Analyzer = {
     case "ClassStatement":
       this.defVar(stmt.id.name, stmt.loc);
       this.scoped(() => {
+        let oldClass = this.className;
+        this.className = stmt.id.name;
         if (stmt.superClass) {
           this.expression(stmt.superClass);
         }
         for (let stmt2 of stmt.body) {
           this.statement(stmt2);
         }
+        this.className = oldClass;
       });
       break;
 
@@ -477,8 +481,14 @@ let Analyzer = {
     case "FunctionExpression":
     case "ArrowFunctionExpression":
       this.scoped(() => {
-        if (expr.type == "FunctionExpression" && expr.id) {
-          this.defVar(expr.id.name, expr.loc);
+        let name = expr.id ? expr.id.name : "";
+        if (this.className && name == this.className) {
+          // SPIDERMONKEY HACK: Fixes a bug where constructors get the
+          // name of their class instead of "constructor".
+          name = "constructor";
+        }
+        if (expr.type == "FunctionExpression" && name) {
+          this.defVar(name, expr.loc);
         }
         for (let i = 0; i < expr.params.length; i++) {
           this.pattern(expr.params[i]);

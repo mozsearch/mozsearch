@@ -20,9 +20,15 @@ function runCmd(cmd)
 
 let jumps = snarf(indexRoot + "/jumps");
 let jumpLines = jumps.split("\n");
-jumps = new Set();
-for (let id of jumpLines) {
-  jumps.add(id);
+jumps = new Map();
+for (let line of jumpLines) {
+  if (!line.length) {
+    continue;
+  }
+
+  let id, path, lineno;
+  [id, path, lineno] = JSON.parse(line);
+  jumps.set(id, [path, lineno]);
 }
 
 function chooseLanguage(filename)
@@ -69,26 +75,26 @@ function generatePanel(path)
       <h4>Git</h4>
       <ul>
         <li>
-          <a href="https://github.com/mozilla/gecko-dev/commits/master${path}" title="Log" class="log icon">Log</a>
+          <a href="https://github.com/mozilla/gecko-dev/commits/master/${path}" title="Log" class="log icon">Log</a>
         </li>
         <li>
-          <a href="https://github.com/mozilla/gecko-dev/blame/master${path}" title="Blame" class="blame icon">Blame</a>
+          <a href="https://github.com/mozilla/gecko-dev/blame/master/${path}" title="Blame" class="blame icon">Blame</a>
         </li>
         <li>
-          <a href="https://raw.githubusercontent.com/mozilla/gecko-dev/master${path}" title="Raw" class="raw icon">Raw</a>
+          <a href="https://raw.githubusercontent.com/mozilla/gecko-dev/master/${path}" title="Raw" class="raw icon">Raw</a>
         </li>
       </ul>
 
       <h4>Mercurial</h4>
       <ul>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/filelog/tip${path}" title="Log" class="log icon">Log</a>
+          <a href="https://hg.mozilla.org/mozilla-central/filelog/tip/${path}" title="Log" class="log icon">Log</a>
         </li>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/annotate/tip${path}" title="Blame" class="blame icon">Blame</a>
+          <a href="https://hg.mozilla.org/mozilla-central/annotate/tip/${path}" title="Blame" class="blame icon">Blame</a>
         </li>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/raw-file/tip${path}" title="Raw" class="raw icon">Raw</a>
+          <a href="https://hg.mozilla.org/mozilla-central/raw-file/tip/${path}" title="Raw" class="raw icon">Raw</a>
         </li>
       </ul>
 
@@ -103,7 +109,7 @@ function generateFile(path, opt)
 
   let analysis = [];
   try {
-    let r = readAnalysis(indexRoot + "/analysis" + path, j => j.source);
+    let r = readAnalysis(indexRoot + "/analysis/" + path, j => j.source);
     analysis = r.sources;
   } catch (e) {
     print(e);
@@ -191,7 +197,10 @@ function generateFile(path, opt)
 
         for (let r of datum.analysis) {
           if (jumps.has(r.sym)) {
-            r.jump = true;
+            let [jPath, jLineno] = jumps.get(r.sym);
+            if (path != jPath || lineNum != jLineno) {
+              r.jump = true;
+            }
           }
         }
 
@@ -285,7 +294,7 @@ var ANALYSIS_DATA = ${JSON.stringify(generatedJSON)};
   let fname = path.substring(path.lastIndexOf("/") + 1);
   opt.title = `${fname} - mozsearch`;
 
-  redirect(indexRoot + "/file" + path);
+  redirect(indexRoot + "/file/" + path);
   putstr(generate(content, opt));
 }
 

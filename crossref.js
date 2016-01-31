@@ -67,7 +67,7 @@ function processFile(path)
 
 function writeMap()
 {
-  let jumps = new Set();
+  let jumps = new Map();
 
   function build(obj) {
     function buildKind(kind) {
@@ -99,7 +99,7 @@ function writeMap()
     if (obj.def && obj.def.size == 1) {
       for (let [path, lines] of obj.def) {
         if (lines.length == 1) {
-          jumps.add(id);
+          jumps.set(id, {path, lineno: lines[0].lno});
         }
       }
     }
@@ -107,8 +107,8 @@ function writeMap()
 
   redirect(jumpFile);
 
-  for (let id of jumps) {
-    print(id);
+  for (let [id, {path, lineno}] of jumps) {
+    print(JSON.stringify([id, path, lineno]));
   }
 }
 

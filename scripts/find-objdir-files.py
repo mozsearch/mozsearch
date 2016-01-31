@@ -15,8 +15,8 @@ p = subprocess.Popen('find . -type f', shell=True, stdout=subprocess.PIPE,
 (stdout, stderr) = p.communicate()
 
 files = []
-dirs = ['/\n']
-dirDict = {'/': True}
+dirs = []
+dirDict = {}
 
 lines = stdout.split('\n')
 for line in lines:
@@ -34,9 +34,9 @@ for line in lines:
         sub = '/'.join(elts[:i])
         if sub and sub not in dirDict:
             dirDict[sub] = True
-            dirs.append('/' + sub + '\n')
+            dirs.append(sub + '\n')
 
-    files.append('/' + path + '\n')
+    files.append(path + '\n')
 
 open(os.path.join(indexRoot, 'objdir-files'), 'w').writelines(files)
 open(os.path.join(indexRoot, 'objdir-dirs'), 'w').writelines(dirs)

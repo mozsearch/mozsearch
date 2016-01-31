@@ -238,10 +238,3 @@ A. Want to do the extra information for a JS symbol:
   syms: "#getTabState" }
 { loc: "X:Y", search: "target", kind: "def", sym: "#getTabState" }
 { loc: "X:Y", search: "target", kind: "def", sym: "SessionStore#getTabState" }
-
-
-BUG
-When I search for CrashReporter::AnnotateCrashReport, the mangled def is different from the decl.
-
-BUG
-The case sensitivity checkbox seems to be broken.

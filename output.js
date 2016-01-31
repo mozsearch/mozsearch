@@ -1,14 +1,14 @@
 function sourcePath(path)
 {
-  if (path.startsWith("/__GENERATED__")) {
-    return path.replace("/__GENERATED__", objdir);
+  if (path.startsWith("__GENERATED__")) {
+    return path.replace("__GENERATED__", objdir);
   }
-  return treeRoot + path;
+  return treeRoot + "/" + path;
 }
 
 function fileURL(tree, path)
 {
-  return `/${tree}/source${path}`;
+  return `/${tree}/source/${path}`;
 }
 
 function generateBreadcrumbs(path, opt)
@@ -16,10 +16,11 @@ function generateBreadcrumbs(path, opt)
   let tree = opt.tree;
   let breadcrumbs = `<a href="${fileURL(tree, "")}">${tree}</a>`;
   let pathSoFar = "";
-  for (let name of path.slice(1).split("/")) {
+  for (let name of path.split("/")) {
     breadcrumbs += `<span class="path-separator">/</span>`;
-    pathSoFar += "/" + name;
+    pathSoFar += name;
     breadcrumbs += `<a href="${fileURL(tree, pathSoFar)}">${name}</a>`;
+    pathSoFar += "/";
   }
 
   return `<div class="breadcrumbs">
