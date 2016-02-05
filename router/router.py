@@ -69,11 +69,23 @@ def sort_results(results):
             r -= 10000
         return r
 
+    def combine_lines(lines1, lines2):
+        # Eliminate duplicates and sort by line number.
+        dict1 = { l['lno']: l for l in lines1 }
+        dict2 = { l['lno']: l for l in lines2 }
+        dict1.update(dict2)
+        lines = dict1.values()
+        lines.sort(lambda l1, l2: cmp(l1['lno'], l2['lno']))
+        return lines
+
+    def combine(path1r, path2r):
+        return {'path': path1r['path'],
+                'lines': combine_lines(path1r['lines'], path2r['lines'])}
+
     def sort_inner(results):
         m = {}
         for result in results:
-            if result['path'] not in m or len(result['lines']):
-                m[result['path']] = result
+            m[result['path']] = combine(m.get(result['path'], result), result)
 
         paths = m.keys()
         paths.sort(sortfunc)
@@ -107,8 +119,8 @@ def get_json_search_results(query):
 
     if 'symbol' in parsed:
         # FIXME: Need to deal with path here
-        symbol = parsed['symbol']
-        results = crossrefs.lookup(symbol)
+        symbols = parsed['symbol']
+        results = crossrefs.lookup(symbols)
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
         substrResults = codesearch.search(parsed['re'], foldCase, file = path)

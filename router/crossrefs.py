@@ -35,15 +35,23 @@ def load(indexPath):
             key = None
             pos += len(line)
 
-def lookup(symbol):
-    s = crossrefs.get(symbol)
-    if s == None:
-        return {}
+def lookup(symbols):
+    symbols = symbols.split(',')
 
-    (startPos, endPos) = s.split(',')
-    (startPos, endPos) = (int(startPos), int(endPos))
+    results = {}
+    for symbol in symbols:
+        s = crossrefs.get(symbol)
+        if s == None:
+            return {}
 
-    data = mm[startPos:endPos]
-    result = json.loads(data)
-    f.close()
-    return result
+        (startPos, endPos) = s.split(',')
+        (startPos, endPos) = (int(startPos), int(endPos))
+
+        data = mm[startPos:endPos]
+        result = json.loads(data)
+        f.close()
+
+        for (k, v) in result.items():
+            results[k] = results.get(k, []) + result[k]
+
+    return results

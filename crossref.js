@@ -12,6 +12,7 @@ run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
 
 let identifiers = new Map();
+let pretty = new Map();
 
 function cut(str, n)
 {
@@ -54,13 +55,15 @@ function processFile(path)
     if (!files.has(path)) {
       files.set(path, []);
     }
-    files.get(path).push({ lno: loc.line, line: cut(codeLines[loc.line - 1].trim(), 100) });
+    let line = codeLines[loc.line - 1] || "";
+    files.get(path).push({ lno: loc.line, line: cut(line.trim(), 100) });
   }
 
   for (let datum of analysis.targets) {
     let loc = datum.loc;
     for (let inner of datum.analysis) {
       put(inner.sym, loc, inner.kind);
+      pretty.set(inner.sym, inner.pretty);
     }
   }
 }
@@ -87,6 +90,7 @@ function writeMap()
       "Definitions": buildKind("def"),
       "Declarations": buildKind("decl"),
       "Assignments": buildKind("assign"),
+      "IDL": buildKind("idl"),
     };
   }
 
@@ -99,7 +103,7 @@ function writeMap()
     if (obj.def && obj.def.size == 1) {
       for (let [path, lines] of obj.def) {
         if (lines.length == 1) {
-          jumps.set(id, {path, lineno: lines[0].lno});
+          jumps.set(id, {path, lineno: lines[0].lno, pretty: pretty.get(id)});
         }
       }
     }
@@ -107,8 +111,8 @@ function writeMap()
 
   redirect(jumpFile);
 
-  for (let [id, {path, lineno}] of jumps) {
-    print(JSON.stringify([id, path, lineno]));
+  for (let [id, {path, lineno, pretty}] of jumps) {
+    print(JSON.stringify([id, path, lineno, pretty]));
   }
 }
 

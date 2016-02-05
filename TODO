@@ -238,3 +238,6 @@ A. Want to do the extra information for a JS symbol:
   syms: "#getTabState" }
 { loc: "X:Y", search: "target", kind: "def", sym: "#getTabState" }
 { loc: "X:Y", search: "target", kind: "def", sym: "SessionStore#getTabState" }
+
+BUG
+Doesn't fill in "search string" field with what was searched when it comes from URI.

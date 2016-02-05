@@ -340,7 +340,7 @@ $(function() {
       fileCount += data[kind].length;
     }
 
-    var keyOrder = ["Definitions", "Assignments", "Uses", "Declarations", "default"];
+    var keyOrder = ["IDL", "Definitions", "Assignments", "Uses", "Declarations", "default"];
 
     // If no data is returned, inform the user.
     if (!fileCount) {

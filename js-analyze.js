@@ -121,11 +121,11 @@ let Analyzer = {
     }
     print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", sym: `#${name}`}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: name, sym: `#${name}`}));
     if (extra) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                             pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", sym: extra}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: extraPretty, sym: extra}));
     }
   },
 
@@ -135,11 +135,11 @@ let Analyzer = {
     }
     print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", sym: `#${name}`}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: name, sym: `#${name}`}));
     if (extra) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                             pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", sym: extra}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: extraPretty, sym: extra}));
     }
   },
 
@@ -149,11 +149,11 @@ let Analyzer = {
     }
     print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", sym: `#${name}`}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: name, sym: `#${name}`}));
     if (extra) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                             pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", sym: extra}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: extraPretty, sym: extra}));
     }
   },
 
@@ -170,7 +170,7 @@ let Analyzer = {
 
     print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                           pretty: `variable ${name}`, sym: sym.id}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", sym: sym.id}));
+    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: name, sym: sym.id}));
   },
 
   findSymbol(name) {
@@ -196,7 +196,7 @@ let Analyzer = {
     } else if (!sym.skip) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                             pretty: `variable ${name}`, sym: sym.id}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", sym: sym.id}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: name, sym: sym.id}));
     }
   },
 
@@ -210,7 +210,7 @@ let Analyzer = {
     } else if (!sym.skip) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1,
                             pretty: `variable ${name}`, sym: sym.id}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", sym: sym.id}));
+      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: name, sym: sym.id}));
     }
   },
 
@@ -846,7 +846,7 @@ XBLParser.prototype = {
 
     print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", sym: `#${name}`}));
+    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`}));
 
     let spaces = Array(tag.column).join(" ");
     let text = spaces + this.curText;
@@ -864,7 +864,7 @@ XBLParser.prototype = {
 
       print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
                             pretty: `property ${name}`, sym: `#${name}`}));
-      print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", sym: `#${name}`}));
+      print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`}));
     }
 
     let line, column;
@@ -948,7 +948,7 @@ XBLParser.prototype = {
 
     print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", sym: `#${name}`}));
+    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`}));
 
     Analyzer.enter();
 

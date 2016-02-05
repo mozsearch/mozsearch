@@ -14,6 +14,7 @@ p = subprocess.Popen('git ls-files', shell=True, stdout=subprocess.PIPE, cwd=tre
 
 files = []
 js = []
+idl = []
 dirs = []
 dirDict = {}
 
@@ -37,6 +38,10 @@ for line in lines:
     if os.access(fullpath, os.X_OK):
         continue
 
+    (_, ext) = os.path.splitext(path)
+    if ext == '.idl':
+        idl.append(path + '\n')
+
     pathElts = path.split(os.sep)
     if 'jit-test' in pathElts:
         continue
@@ -51,11 +56,11 @@ for line in lines:
     if 'testing' in pathElts:
         continue
 
-    (_, ext) = os.path.splitext(path)
     if ext in ['.js', '.jsm', '.xml']:
         js.append(path + '\n')
 
 open(os.path.join(indexRoot, 'repo-files'), 'w').writelines(files)
 open(os.path.join(indexRoot, 'repo-dirs'), 'w').writelines(dirs)
 open(os.path.join(indexRoot, 'js-files'), 'w').writelines(js)
+open(os.path.join(indexRoot, 'idl-files'), 'w').writelines(idl)
 

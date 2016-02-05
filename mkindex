@@ -19,6 +19,8 @@ $MOZSEARCH_ROOT/scripts/build-codesearch.sh
 
 $MOZSEARCH_ROOT/scripts/js-analyze.sh
 
+$MOZSEARCH_ROOT/scripts/idl-analyze.sh
+
 $MOZSEARCH_ROOT/scripts/crossref.sh
 
 $MOZSEARCH_ROOT/scripts/output.sh

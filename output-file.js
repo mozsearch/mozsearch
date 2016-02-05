@@ -26,9 +26,9 @@ for (let line of jumpLines) {
     continue;
   }
 
-  let id, path, lineno;
-  [id, path, lineno] = JSON.parse(line);
-  jumps.set(id, [path, lineno]);
+  let id, path, lineno, pretty;
+  [id, path, lineno, pretty] = JSON.parse(line);
+  jumps.set(id, [path, lineno, pretty]);
 }
 
 function chooseLanguage(filename)
@@ -195,17 +195,23 @@ function generateFile(path, opt)
       if (lineNum == datum.loc.line && col == datum.loc.col[0]) {
         let id = datum.analysis[0].sym;
 
+        let menuJumps = new Map();
+
         for (let r of datum.analysis) {
-          if (jumps.has(r.sym)) {
-            let [jPath, jLineno] = jumps.get(r.sym);
-            if (path != jPath || lineNum != jLineno) {
-              r.jump = true;
+          let syms = r.sym.split(",");
+          for (let sym of syms) {
+            if (jumps.has(sym)) {
+              let [jPath, jLineno, pretty] = jumps.get(sym);
+              let key = jPath + ":" + jLineno;
+              if (path != jPath || lineNum != jLineno) {
+                menuJumps.set(key, {sym, pretty});
+              }
             }
           }
         }
 
         let index = analysisIndex - 1;
-        generatedJSON[index] = datum.analysis;
+        generatedJSON[index] = [Array.from(menuJumps.values()), datum.analysis];
         out(`<span data-i="${index}" data-id="${id}">`);
 
         // Output the formatted link text.

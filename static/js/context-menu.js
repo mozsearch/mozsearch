@@ -75,16 +75,21 @@ $("#file").on("click", "span[data-id]", function(event) {
   }
 
   // Comes from the generated page.
-  var data = ANALYSIS_DATA[index];
+  var [jumps, searches] = ANALYSIS_DATA[index];
 
   var menuItems = [];
-  for (let datum of data) {
-    let {pretty, sym} = datum;
-    if (datum.jump) {
-      menuItems.push({html: fmt("Goto definition of _", pretty),
-                      href: "/mozilla-central/define?q=" + encodeURIComponent(sym),
-                      icon: "search"});
-    }
+
+  for (var i = 0; i < jumps.length; i++) {
+    var sym = jumps[i].sym;
+    var pretty = jumps[i].pretty;
+    menuItems.push({html: fmt("Goto definition of _", pretty),
+                    href: "/mozilla-central/define?q=" + encodeURIComponent(sym),
+                    icon: "search"});
+  }
+
+  for (var i = 0; i < searches.length; i++) {
+    var sym = searches[i].sym;
+    var pretty = searches[i].pretty;
     menuItems.push({html: fmt("Search for _", pretty),
                     href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(sym),
                     icon: "search"});

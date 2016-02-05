@@ -325,7 +325,9 @@ public:
     return method;
   }
 
-  void VisitToken(const char *kind, const char *prettyKind, const char *prettyData,
+  void VisitToken(const char *kind,
+                  const char *prettyKind, const char *prettyData,
+                  std::string targetPretty,
                   SourceLocation loc, std::string mangled)
   {
     loc = sm.getSpellingLoc(loc);
@@ -353,8 +355,8 @@ public:
             mangled.c_str());
     f->output.push_back(std::string(s));
 
-    sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"sym\":\"%s\"}\n",
-            locStr.c_str(), kind, mangled.c_str());
+    sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
+            locStr.c_str(), kind, targetPretty.c_str(), mangled.c_str());
     f->output.push_back(std::string(s));
   }
 
@@ -373,7 +375,7 @@ public:
     SourceLocation loc = d->getLocation();
 
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, "function", nullptr, loc, mangled);
+    VisitToken(kind, "function", nullptr, d->getQualifiedNameAsString(), loc, mangled);
 
     return true;
   }
@@ -390,7 +392,7 @@ public:
 
     std::string mangled = GetMangledName(mMangleContext, d->getTypeForDecl());
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, "type", nullptr, loc, mangled);
+    VisitToken(kind, "type", nullptr, d->getQualifiedNameAsString(), loc, mangled);
 
     return true;
   }
@@ -410,7 +412,7 @@ public:
     // FIXME: Need to do something different for list initialization.
 
     SourceLocation loc = e->getLocStart();
-    VisitToken("use", "constructor", ctor->getNameAsString().c_str(), loc, mangled);
+    VisitToken("use", "constructor", ctor->getNameAsString().c_str(), ctor->getQualifiedNameAsString(), loc, mangled);
 
     return true;
   }
@@ -469,7 +471,7 @@ public:
         }
       }
 
-      VisitToken("use", "function", nullptr, loc, mangled);
+      VisitToken("use", "function", nullptr, namedCallee->getQualifiedNameAsString(), loc, mangled);
     }
 
     return true;
@@ -484,7 +486,7 @@ public:
     TagDecl* decl = tagLoc.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl->getTypeForDecl());
 
-    VisitToken("use", "type", nullptr, tagLoc.getBeginLoc(), mangled);
+    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), tagLoc.getBeginLoc(), mangled);
 
     return true;
   }
