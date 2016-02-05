@@ -3,19 +3,26 @@ import xpidl
 import os.path
 import json
 
-def find_column(text, token, pos):
+def find_line_column(text, token, pos):
     while text[pos : pos + len(token)] != token:
         if text[pos] == '\n':
-            return 0
+            return (0, 0)
 
         pos += 1
+
+    line = 0
+    while pos > linebreaks[line]:
+        line += 1
+
+    line += 1
 
     col = 0
     pos -= 1
     while pos > 0 and text[pos] != '\n':
         col += 1
         pos -= 1
-    return col
+
+    return (line, col)
 
 def read_cpp_analysis(fname):
     base = os.path.basename(fname)
@@ -37,9 +44,8 @@ def handle_interface(iface):
     #print p.name
     #print 'BASE', p.base
     for m in p.members:
-        lineno = m.location._lineno + 1
         name = getattr(m, 'name', '')
-        colno = find_column(text, name, m.location._lexpos)
+        (lineno, colno) = find_line_column(text, name, m.location._lexpos)
 
         # Want to deal with attributes like noscript, as well as ConstMember
 
@@ -58,7 +64,7 @@ def handle_interface(iface):
             j = {
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
-                'pretty': 'IDL method %s (all)' % m.name,
+                'pretty': 'IDL method %s' % m.name,
                 'sym': mangled + ('' if m.noscript else ',#' + m.name),
             }
             print json.dumps(j)
@@ -147,6 +153,13 @@ fname = sys.argv[2]
 
 text = open(fname).read()
 analysis = read_cpp_analysis(fname)
+
+linebreaks = []
+lines = text.split('\n')
+cur = 0
+for l in lines:
+    cur += len(l) + 1
+    linebreaks.append(cur)
 
 if analysis:
     p = xpidl.IDLParser(outputdir='/tmp')

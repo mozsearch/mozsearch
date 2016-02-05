@@ -162,30 +162,17 @@ $(function() {
   nextRequestNumber = 1, // A monotonically increasing int that keeps old AJAX requests in flight from overwriting the results of newer ones, in case more than one is in flight simultaneously and they arrive out of order.
   requestsInFlight = 0,  // Number of search requests in flight, so we know whether to hide the activity indicator
   displayedRequestNumber = 0,
-  didScroll = false,
   resultCount = 0,
   dataOffset = 0,
   previousDataLimit = 0,
   defaultDataLimit = 100;
 
-  // Has the user been redirected to a direct result?
-  var fromQuery = /[?&]?from=([^&]+)/.exec(location.search);
-  if (fromQuery !== null) {
-    // Offer the user the option to see all the results instead.
-    var viewResultsTxt = 'Showing a direct result. <a href="{{ url }}">Show all results instead.</a>',
-    isCaseSensitive = caseFromUrl();
-
-    var searchUrl = constants.data('search') + '?q=' + fromQuery[1];
-    if (isCaseSensitive !== null) {
-      searchUrl += '&case=' + isCaseSensitive;
+  window.addEventListener("pageshow", function() {
+    console.log("pageshow");
+    var initialSearch = /[?&]?q=([^&]+)/.exec(location.search);
+    if (initialSearch) {
+      queryField.val(initialSearch[1]);
     }
-
-    $('#query').val(decodeURIComponent(fromQuery[1]));
-    showBubble('info', viewResultsTxt.replace('{{ url }}', searchUrl));
-  }
-
-  $(window).scroll(function() {
-    didScroll = true;
   });
 
   /**
