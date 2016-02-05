@@ -3,24 +3,42 @@
 set -e # Errors are fatal
 set -x # Show commands
 
+date
+
 $MOZSEARCH_ROOT/scripts/find-repo-files.py
 $MOZSEARCH_ROOT/scripts/mkdirs.sh
 
 $MOZSEARCH_ROOT/scripts/cpp-configure.sh
 
+date
+
 cd $OBJDIR
 make -j8
 cd -
 
+date
+
 $MOZSEARCH_ROOT/scripts/find-objdir-files.py
 $MOZSEARCH_ROOT/scripts/objdir-mkdirs.sh
 
+date
+
 $MOZSEARCH_ROOT/scripts/build-codesearch.sh
+
+date
 
 $MOZSEARCH_ROOT/scripts/js-analyze.sh
 
+date
+
 $MOZSEARCH_ROOT/scripts/idl-analyze.sh
+
+date
 
 $MOZSEARCH_ROOT/scripts/crossref.sh
 
+date
+
 $MOZSEARCH_ROOT/scripts/output.sh
+
+date
