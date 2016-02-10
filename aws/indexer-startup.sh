@@ -40,7 +40,7 @@ apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev 
 apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang
 
 # Other
-apt-get install -y parallel realpath source-highlight python-virtualenv
+apt-get install -y parallel realpath source-highlight python-virtualenv python-dev
 
 # Setup direct links to clang
 update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-3.6 360
