@@ -160,7 +160,7 @@ function computeSizes(dir, path)
       continue;
     }
 
-    computeSizes(node, path + "/" + filename);
+    computeSizes(node, path == "" ? filename : path + "/" + filename);
   }
 }
 
