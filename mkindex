@@ -12,6 +12,8 @@ date
 
 $MOZSEARCH_ROOT/scripts/cpp-configure.sh
 
+sleep 60
+
 cd $TREE_ROOT
 MOZCONFIG=$INDEX_ROOT/mozconfig ./mach build
 cd -
