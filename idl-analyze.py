@@ -36,7 +36,7 @@ def read_cpp_analysis(fname):
     decls = []
     for line in lines:
         j = json.loads(line.strip())
-        if 'target' in j and j['kind'] == 'decl':
+        if 'target' in j and j['kind'] == 'decl' and j['sym'].startswith('_Z'):
             decls.append(j['sym'])
     return decls
 

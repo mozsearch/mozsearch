@@ -8,12 +8,12 @@ date
 $MOZSEARCH_ROOT/scripts/find-repo-files.py
 $MOZSEARCH_ROOT/scripts/mkdirs.sh
 
-$MOZSEARCH_ROOT/scripts/cpp-configure.sh
-
 date
 
-cd $OBJDIR
-make -j8
+$MOZSEARCH_ROOT/scripts/cpp-configure.sh
+
+cd $TREE_ROOT
+MOZCONFIG=$INDEX_ROOT/mozconfig ./mach build
 cd -
 
 date
