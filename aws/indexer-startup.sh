@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Not sure if this does anything, but I want to make sure the instance
+# is in a good state.
+sleep 30
+
 exec &> /root/startup-log
 
 set -e
