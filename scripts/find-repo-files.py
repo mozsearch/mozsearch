@@ -42,18 +42,7 @@ for line in lines:
     if ext == '.idl':
         idl.append(path + '\n')
 
-    pathElts = path.split(os.sep)
-    if 'jit-test' in pathElts:
-        continue
-    if 'test' in pathElts:
-        continue
-    if 'tests' in pathElts:
-        continue
-    if 'mochitest' in pathElts:
-        continue
-    if 'unit' in pathElts:
-        continue
-    if 'testing' in pathElts:
+    if 'js/src/tests' in path or 'jit-test' in path:
         continue
 
     if ext in ['.js', '.jsm', '.xml']:

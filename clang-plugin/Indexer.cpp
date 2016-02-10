@@ -316,19 +316,21 @@ public:
     }
   }
 
-  const CXXMethodDecl* FindRootMethod(const CXXMethodDecl* method) {
+  void FindOverriddenMethods(const CXXMethodDecl* method, std::vector<std::string>& symbols) {
+    std::string mangled = GetMangledName(mMangleContext, method);
+    symbols.push_back(mangled);
+
     CXXMethodDecl::method_iterator iter = method->begin_overridden_methods();
     CXXMethodDecl::method_iterator end = method->end_overridden_methods();
     for (; iter != end; iter++) {
-      return FindRootMethod(*iter);
+      return FindOverriddenMethods(*iter, symbols);
     }
-    return method;
   }
 
   void VisitToken(const char *kind,
                   const char *prettyKind, const char *prettyData,
                   std::string targetPretty,
-                  SourceLocation loc, std::string mangled)
+                  SourceLocation loc, const std::vector<std::string>& symbols)
   {
     loc = sm.getSpellingLoc(loc);
 
@@ -349,15 +351,39 @@ public:
     }
 
     char s[1024];
-    sprintf(s, "{\"loc\":\"%s\", \"source\":1, \"pretty\":\"%s %s\", \"sym\":\"%s\"}\n",
+
+    std::string symbolList;
+    for (auto it = symbols.begin(); it != symbols.end(); it++) {
+      std::string symbol = *it;
+
+      sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
+              locStr.c_str(), kind, targetPretty.c_str(), symbol.c_str());
+      f->output.push_back(std::string(s));
+
+      if (it != symbols.begin()) {
+        symbolList += ",";
+      }
+      symbolList += symbol;
+    }
+
+    char* buf = new char[1024 + symbolList.length()];
+
+    sprintf(buf, "{\"loc\":\"%s\", \"source\":1, \"pretty\":\"%s %s\", \"sym\":\"%s\"}\n",
             locStr2.c_str(),
             prettyKind, prettyData ? prettyData : EscapeString(text).c_str(),
-            mangled.c_str());
-    f->output.push_back(std::string(s));
+            symbolList.c_str());
+    f->output.push_back(std::string(buf));
 
-    sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
-            locStr.c_str(), kind, targetPretty.c_str(), mangled.c_str());
-    f->output.push_back(std::string(s));
+    delete[] buf;
+  }
+
+  void VisitToken(const char *kind,
+                  const char *prettyKind, const char *prettyData,
+                  std::string targetPretty,
+                  SourceLocation loc, std::string symbol)
+  {
+    std::vector<std::string> v = { symbol };
+    VisitToken(kind, prettyKind, prettyData, targetPretty, loc, v);
   }
 
   bool VisitFunctionDecl(FunctionDecl *d) {
@@ -365,22 +391,21 @@ public:
       return true;
     }
 
-    std::string mangled = GetMangledName(mMangleContext, d);
+    std::vector<std::string> symbols = { GetMangledName(mMangleContext, d) };
     if (CXXMethodDecl::classof(d)) {
-      const CXXMethodDecl *method = FindRootMethod(dyn_cast<CXXMethodDecl>(d));
-      mangled = GetMangledName(mMangleContext, method);
+      symbols.clear();
+      FindOverriddenMethods(dyn_cast<CXXMethodDecl>(d), symbols);
     }
 
     // FIXME: Need to skip the '~' token for destructors.
     SourceLocation loc = d->getLocation();
 
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, "function", nullptr, d->getQualifiedNameAsString(), loc, mangled);
+    VisitToken(kind, "function", nullptr, d->getQualifiedNameAsString(), loc, symbols);
 
     return true;
   }
 
-#if 0
   bool VisitTagDecl(TagDecl *d) {
     if (!IsInterestingLocation(d->getLocation())) {
       return true;
@@ -388,15 +413,14 @@ public:
 
     SourceLocation loc = d->getLocation();
     std::string locStr = LocationToString(loc);
-    printf("TAG %s\n", locStr.c_str());
 
-    std::string mangled = GetMangledName(mMangleContext, d->getTypeForDecl());
+    std::string mangled = std::string("T_") + d->getQualifiedNameAsString();
+
     const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
     VisitToken(kind, "type", nullptr, d->getQualifiedNameAsString(), loc, mangled);
 
     return true;
   }
-#endif
 
   bool VisitCXXConstructExpr(CXXConstructExpr* e) {
     if (!IsInterestingLocation(e->getLocStart())) {
@@ -432,10 +456,6 @@ public:
     const NamedDecl *namedCallee = dyn_cast<NamedDecl>(callee);
 
     if (namedCallee) {
-      if (CXXMethodDecl::classof(namedCallee)) {
-        namedCallee = FindRootMethod(dyn_cast<CXXMethodDecl>(namedCallee));
-      }
-
       if (FunctionDecl::classof(namedCallee)) {
         const FunctionDecl *f = dyn_cast<FunctionDecl>(namedCallee);
         if (f->isTemplateInstantiation()) {
@@ -477,20 +497,18 @@ public:
     return true;
   }
 
-#if 0
   bool VisitTagTypeLoc(TagTypeLoc tagLoc) {
     if (!IsInterestingLocation(tagLoc.getBeginLoc())) {
       return true;
     }
 
     TagDecl* decl = tagLoc.getDecl();
-    std::string mangled = GetMangledName(mMangleContext, decl->getTypeForDecl());
+    std::string mangled = std::string("T_") + decl->getQualifiedNameAsString();
 
     VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), tagLoc.getBeginLoc(), mangled);
 
     return true;
   }
-#endif
 };
 
 class IndexAction : public PluginASTAction

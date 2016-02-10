@@ -1,6 +1,11 @@
 let nextSymId = 0;
 let localFile, fileIndex, mozSearchRoot;
 
+function logError(msg)
+{
+  printErr("ERROR " + msg + "\n");
+}
+
 function Symbol(name, loc)
 {
   this.name = name;
@@ -107,6 +112,17 @@ let Analyzer = {
     } else {
       this.expression(expr.body);
     }
+  },
+
+  parse(text, filename, line) {
+    let ast;
+    try {
+      ast = Reflect.parse(text, {loc: true, source: filename, line: 1});
+    } catch (e) {
+      logError(`Unable to parse JS file ${filename}.`);
+      return null;
+    }
+    return ast;
   },
 
   program(prog) {
@@ -437,6 +453,10 @@ let Analyzer = {
       }
       break;
 
+    case "TaggedTemplate":
+      // Do something eventually!
+      break;
+
     case "ThisExpression":
       // Do something eventually!
       break;
@@ -628,9 +648,13 @@ let Analyzer = {
       });
       break;
 
+    case "MetaProperty":
+      // Not sure what this is!
+      break;
+
     default:
-      print(Error().stack);
-      throw `Invalid expression ${expr.type}: ${JSON.stringify(expr.loc)}`;
+      printErr(Error().stack);
+      throw `Invalid expression ${expr.type}: ${JSON.stringify(expr)}`;
       break;
     }
   },
@@ -690,7 +714,12 @@ let Analyzer = {
 
 function preprocess(filename, comment)
 {
-  let text = snarf(filename);
+  let text;
+  try {
+    text = snarf(filename);
+  } catch (e) {
+    text = "";
+  }
 
   let substitution = false;
   let lines = text.split("\n");
@@ -748,8 +777,10 @@ function analyzeJS(filename)
 {
   let text = preprocess(filename, line => "// " + line);
 
-  let ast = Reflect.parse(text, {loc: true, source: filename, line: 1});
-  Analyzer.program(ast);
+  let ast = Analyzer.parse(text, filename, 1);
+  if (ast) {
+    Analyzer.program(ast);
+  }
 }
 
 function replaceEntities(text)
@@ -839,6 +870,10 @@ XBLParser.prototype = {
   },
 
   onfield(tag) {
+    if (!tag.attrs.NAME) {
+      return;
+    }
+
     let {line, column} = tag.attrs.NAME;
     let name = tag.attrs.NAME.value;
 
@@ -851,8 +886,10 @@ XBLParser.prototype = {
     let spaces = Array(tag.column).join(" ");
     let text = spaces + this.curText;
 
-    let ast = Reflect.parse(text, {loc: true, source: this.filename, line: tag.line + 1});
-    Analyzer.program(ast);
+    let ast = Analyzer.parse(text, this.filename, tag.line + 1);
+    if (ast) {
+      Analyzer.program(ast);
+    }
   },
 
   onproperty(tag) {
@@ -882,8 +919,10 @@ XBLParser.prototype = {
       let spaces = Array(column + 1).join(" ");
       text = `(function (val) {\n${spaces}${text}})`;
 
-      let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
-      Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+      let ast = Analyzer.parse(text, this.filename, line);
+      if (ast) {
+        Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+      }
     }
 
     for (let prop in tag) {
@@ -898,8 +937,10 @@ XBLParser.prototype = {
       let spaces = Array(column + 1).join(" ");
       text = `(function (val) {\n${spaces}${text}})`;
 
-      let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
-      Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+      let ast = Analyzer.parse(text, this.filename, line);
+      if (ast) {
+        Analyzer.scoped(() => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+      }
     }
   },
 
@@ -936,11 +977,17 @@ XBLParser.prototype = {
     let spaces = Array(column + 1).join(" ");
     text = `(function () {\n${spaces}${text}})`;
 
-    let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
-    Analyzer.scoped(() => Analyzer.dummyProgram(ast, []));
+    let ast = Analyzer.parse(text, this.filename, line);
+    if (ast) {
+      Analyzer.scoped(() => Analyzer.dummyProgram(ast, []));
+    }
   },
 
   onmethod(tag) {
+    if (!tag.attrs.NAME) {
+      return;
+    }
+
     let {line, column} = tag.attrs.NAME;
     let name = tag.attrs.NAME.value;
 
@@ -972,8 +1019,10 @@ XBLParser.prototype = {
     let spaces = Array(column + 1).join(" ");
     text = `(function (${paramsText}) {\n${spaces}${text}})`;
 
-    let ast = Reflect.parse(text, {loc: true, source: this.filename, line: line});
-    Analyzer.dummyProgram(ast, []);
+    let ast = Analyzer.parse(text, this.filename, tag.line);
+    if (ast) {
+      Analyzer.dummyProgram(ast, []);
+    }
 
     Analyzer.exit();
   },

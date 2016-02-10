@@ -239,5 +239,15 @@ A. Want to do the extra information for a JS symbol:
 { loc: "X:Y", search: "target", kind: "def", sym: "#getTabState" }
 { loc: "X:Y", search: "target", kind: "def", sym: "SessionStore#getTabState" }
 
-BUG
-Doesn't fill in "search string" field with what was searched when it comes from URI.
+---
+
+New idea:
+
+Function definitions:
+Targets are the list of mangled names of this method and the ones it overrides.
+Source is the same list, comma-separated.
+
+Function uses:
+Target is the name of the method you're calling.
+Source is the same.
+

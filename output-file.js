@@ -112,7 +112,7 @@ function generateFile(path, opt)
     let r = readAnalysis(indexRoot + "/analysis/" + path, j => j.source);
     analysis = r.sources;
   } catch (e) {
-    print(e);
+    printErr(e);
   }
   analysis.push({loc: {line: 100000000000, col: 0}});
 
