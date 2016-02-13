@@ -117,7 +117,7 @@ let Analyzer = {
   parse(text, filename, line) {
     let ast;
     try {
-      ast = Reflect.parse(text, {loc: true, source: filename, line: 1});
+      ast = Reflect.parse(text, {loc: true, source: filename, line});
     } catch (e) {
       logError(`Unable to parse JS file ${filename}.`);
       return null;
@@ -1019,7 +1019,7 @@ XBLParser.prototype = {
     let spaces = Array(column + 1).join(" ");
     text = `(function (${paramsText}) {\n${spaces}${text}})`;
 
-    let ast = Analyzer.parse(text, this.filename, tag.line);
+    let ast = Analyzer.parse(text, this.filename, line);
     if (ast) {
       Analyzer.dummyProgram(ast, []);
     }
