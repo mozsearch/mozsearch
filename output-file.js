@@ -57,8 +57,8 @@ function chooseLanguage(filename)
 
 function toHTML(code)
 {
-  code = code.replace("&", "&amp;", "gm");
-  code = code.replace("<", "&lt;", "gm");
+  code = code.replace(/&/gm, "&amp;");
+  code = code.replace(/</gm, "&lt;");
   return code;
 }
 
