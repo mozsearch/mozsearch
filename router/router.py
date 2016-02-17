@@ -16,6 +16,7 @@ import traceback
 
 import crossrefs
 import codesearch
+from logger import log
 
 mozSearchPath = sys.argv[1]
 indexPath = sys.argv[2]
@@ -105,7 +106,11 @@ def search_files(path):
     return results[:1000]
 
 def get_json_search_results(query):
-    searchString = query['q'][0]
+    try:
+        searchString = query['q'][0]
+    except:
+        searchString = ''
+
     try:
         foldCase = query['case'][0] != 'true'
     except:
@@ -148,11 +153,11 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         pid = os.fork()
         if pid:
             # Parent process
-            print 'pid %d - %s %s' % (pid, self.log_date_time_string(), self.path)
+            log('request(handled by %d) %s', pid, self.path)
 
             timedOut = [False]
             def handler(signum, frame):
-                print 'timeout %d, killing' % pid
+                log('timeout %d, killing', pid)
                 timedOut[0] = True
                 os.kill(pid, signal.SIGKILL)
             signal.signal(signal.SIGALRM, handler)
@@ -168,10 +173,10 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
             failed = timedOut[0]
             if os.WIFEXITED(status) and os.WEXITSTATUS(status) != 0:
-                print 'error pid %d - %f' % (pid, time.time() - t)
+                log('error pid %d - %f', pid, time.time() - t)
                 failed = True
             else:
-                print 'finish pid %d - %f' % (pid, time.time() - t)
+                log('finish pid %d - %f', pid, time.time() - t)
 
             if failed:
                 self.send_response(504)
@@ -182,7 +187,8 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 self.process_request()
                 os._exit(0)
             except:
-                traceback.print_exc()
+                e = traceback.format_exc()
+                log('exception\n%s', e)
                 os._exit(1)
 
     def log_request(self, *args):
@@ -217,7 +223,10 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if 'json' in self.headers.getheader('Accept', ''):
                 self.generate(j, 'application/json')
             else:
-                title = query['q'][0]
+                try:
+                    title = query['q'][0]
+                except:
+                    title = ''
                 j = j.replace("/script", "\\/script")
                 template = os.path.join(indexPath, 'templates/search.html')
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': title}, template)

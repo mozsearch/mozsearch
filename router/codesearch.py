@@ -4,6 +4,7 @@ import socket
 import os
 import os.path
 import time
+from logger import log
 
 mozSearchPath = sys.argv[1]
 indexPath = sys.argv[2]
@@ -34,11 +35,13 @@ class CodeSearch:
 
     def search(self, pattern, fold_case=True, file='.*', repo='.*'):
         query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
+        log('codesearch query %s', json.dumps(query))
         self.query = json.dumps(query)
         self.state = 'search'
         self.sock.sendall(self.query + '\n')
         self.wait_ready()
         matches = self.collateMatches(self.matches)
+        log('codesearch result with %d matches', len(matches))
         self.matches = []
         return matches
 
@@ -61,18 +64,18 @@ class CodeSearch:
             self.handle_input()
 
     def handle_line(self, line):
-        j = json.loads(line)
+        j = json.loads(line, 'latin-1')
         if j['opcode'] == 'match':
             self.matches.append(j['body'])
         elif j['opcode'] == 'ready':
             self.state = 'ready'
         elif j['opcode'] == 'done':
             if j.get('body', {}).get('why') == 'timeout':
-                print 'Timeout', self.query
+                log('Codesearch timeout on query %s', self.query)
         elif j['opcode'] == 'error':
             self.matches = []
         else:
-            print 'Unknown opcode %s' % j['opcode']
+            log('Codesearch unknown opcode %s', j['opcode'])
             raise BaseException()
 
 def daemonize(args):
@@ -91,7 +94,14 @@ def daemonize(args):
     if pid:
         os._exit(0)
 
-    print 'Running codesearch (pid %d)' % os.getpid()
+    si = file('/dev/null', 'r')
+    so = file('/dev/null', 'a+')
+    se = file('/dev/null', 'a+', 0)
+    os.dup2(si.fileno(), sys.stdin.fileno())
+    os.dup2(so.fileno(), sys.stdout.fileno())
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+    log('Running codesearch')
     os.execv(args[0], args)
 
 def startup_codesearch():
