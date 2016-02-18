@@ -497,6 +497,14 @@ public:
     return true;
   }
 
+#if 0
+  bool VisitNamedDecl(NamedDecl* decl) {
+    std::string locStr = LocationToString(decl->getLocStart());
+    printf("NAMED %s %s\n", decl->getQualifiedNameAsString().c_str(), locStr.c_str());
+    return true;
+  }
+#endif
+
   bool VisitTagTypeLoc(TagTypeLoc tagLoc) {
     if (!IsInterestingLocation(tagLoc.getBeginLoc())) {
       return true;

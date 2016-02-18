@@ -171,7 +171,7 @@ $(function() {
     console.log("pageshow");
     var initialSearch = /[?&]?q=([^&]+)/.exec(location.search);
     if (initialSearch) {
-      queryField.val(initialSearch[1]);
+      queryField.val(decodeURIComponent(initialSearch[1]));
     }
   });
 

@@ -2,11 +2,11 @@ Big tasks:
 * Blame
 * Autocomplete
 * Display links to nearby methods in sidebar
-* Faster!
-* router.py needs to be much more scalable
+* Better click UI that includes comments, IDL, etc.
+* Multiple panes for looking through every reference in a file
+* Searching for declarations
 
 UI:
-! Help file as home page
 * Crossref result matches in bold
 * Get rid of Nunjucks (context menu)
 * "Search substring" context menu option
@@ -20,8 +20,6 @@ AWS:
 * Multiple web hosts for performance
 
 C++ indexing:
-? Multiple inheritance
-? Indexing types
 * Index specialized types (templated, etc.)
 * Index global variables, enums, macros
 * Better indexing with inheritance (don't just search from root method)
@@ -38,6 +36,10 @@ Other indexing:
 
 IDL:
 * Need to index <handler> directives.
+* Need to index the name of the IDL class as a type.
+
+BUGS:
+Generated code is not found during cross-referencing.
 
 
 Searching for declarations:
@@ -50,3 +52,14 @@ The search feature would probably just grep through this file since I want to al
 Not sure if that would be fast enough, but it might not be too bad. It would just be defs.
 Or I could put in each level of qualification as a separate thing, and they would have to type
 a prefix. That way I could do a binary search, which would be much faster.
+
+C++ indexing:
+Kinds of decls that I'm interested in:
+- NamespaceAliasDecl
+- NamespaceDecl
+- TemplateDecl
+- VarDecl, FieldDecl (DeclaratorDecl)
+- FunctionDecl
+- TypedefDecl
+- TagDecl
+- UsingDirectiveDecl?

@@ -37,9 +37,7 @@ function processFile(path)
   } catch (e) {
     return;
   }
-  let analysis = readAnalysis(analysisRoot + path, j => j.target);
-
-  path = path.slice(1);
+  let analysis = readAnalysis(analysisRoot + "/" + path, j => j.target);
 
   let codeLines = code.split("\n");
 
