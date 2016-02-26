@@ -10,6 +10,8 @@ $MOZSEARCH_ROOT/scripts/mkdirs.sh
 
 date
 
+sleep 1000
+
 $MOZSEARCH_ROOT/scripts/cpp-configure.sh
 
 cd $TREE_ROOT
