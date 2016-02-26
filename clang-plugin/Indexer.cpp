@@ -119,23 +119,15 @@ static std::string
 GetMangledName(clang::MangleContext* ctx,
                const clang::NamedDecl* decl)
 {
-  llvm::SmallVector<char, 512> output;
-  llvm::raw_svector_ostream out(output);
-  ctx->mangleName(decl, out);
-  return XPCOMHack(out.str().str());
+  if (isa<FunctionDecl>(decl) || isa<VarDecl>(decl)) {
+    llvm::SmallVector<char, 512> output;
+    llvm::raw_svector_ostream out(output);
+    ctx->mangleName(decl, out);
+    return XPCOMHack(out.str().str());
+  } else {
+    return std::string("T_") + decl->getQualifiedNameAsString();
+  }
 }
-
-#if 0
-static std::string
-GetMangledName(clang::MangleContext* ctx,
-               const clang::Type* type)
-{
-  llvm::SmallVector<char, 512> output;
-  llvm::raw_svector_ostream out(output);
-  ctx->mangleTypeName(QualType(type, 0), out);
-  return XPCOMHack(out.str().str());
-}
-#endif
 
 static std::string
 EscapeString(std::string input)
@@ -386,10 +378,17 @@ public:
     VisitToken(kind, prettyKind, prettyData, targetPretty, loc, v);
   }
 
-  bool VisitFunctionDecl(FunctionDecl *d) {
+  bool VisitNamedDecl(NamedDecl* d) {
     if (!IsInterestingLocation(d->getLocation())) {
       return true;
     }
+
+    if (!isa<FunctionDecl>(d) && !isa<TagDecl>(d) && !isa<VarDecl>(d)) {
+      return true;
+    }
+
+    std::string s = LocationToString(d->getLocation());
+    printf("--> %s\n", s.c_str());
 
     std::vector<std::string> symbols = { GetMangledName(mMangleContext, d) };
     if (CXXMethodDecl::classof(d)) {
@@ -400,24 +399,20 @@ public:
     // FIXME: Need to skip the '~' token for destructors.
     SourceLocation loc = d->getLocation();
 
-    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, "function", nullptr, d->getQualifiedNameAsString(), loc, symbols);
-
-    return true;
-  }
-
-  bool VisitTagDecl(TagDecl *d) {
-    if (!IsInterestingLocation(d->getLocation())) {
-      return true;
+    const char* kind = "def";
+    const char* prettyKind = "?";
+    if (FunctionDecl* d2 = dyn_cast<FunctionDecl>(d)) {
+      kind = d2->isThisDeclarationADefinition() ? "def" : "decl";
+      prettyKind = "function";
+    } else if (TagDecl* d2 = dyn_cast<TagDecl>(d)) {
+      kind = d2->isThisDeclarationADefinition() ? "def" : "decl";
+      prettyKind = "type";
+    } else if (VarDecl* d2 = dyn_cast<VarDecl>(d)) {
+      kind = d2->isThisDeclarationADefinition() == VarDecl::DeclarationOnly ? "def" : "decl";
+      prettyKind = "variable";
     }
 
-    SourceLocation loc = d->getLocation();
-    std::string locStr = LocationToString(loc);
-
-    std::string mangled = std::string("T_") + d->getQualifiedNameAsString();
-
-    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, "type", nullptr, d->getQualifiedNameAsString(), loc, mangled);
+    VisitToken(kind, prettyKind, nullptr, d->getQualifiedNameAsString(), loc, symbols);
 
     return true;
   }
@@ -496,14 +491,6 @@ public:
 
     return true;
   }
-
-#if 0
-  bool VisitNamedDecl(NamedDecl* decl) {
-    std::string locStr = LocationToString(decl->getLocStart());
-    printf("NAMED %s %s\n", decl->getQualifiedNameAsString().c_str(), locStr.c_str());
-    return true;
-  }
-#endif
 
   bool VisitTagTypeLoc(TagTypeLoc tagLoc) {
     if (!IsInterestingLocation(tagLoc.getBeginLoc())) {
