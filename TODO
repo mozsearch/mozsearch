@@ -38,10 +38,6 @@ IDL:
 * Need to index <handler> directives.
 * Need to index the name of the IDL class as a type.
 
-BUGS:
-Generated code is not found during cross-referencing.
-
-
 Searching for declarations:
 Perhaps I'll make an index file that can be used to augment the full text search.
 This would be similar to augmenting it with filenames.

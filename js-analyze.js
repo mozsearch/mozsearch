@@ -838,6 +838,9 @@ XBLParser.prototype = {
     case "DESTRUCTOR":
       this.onstructor(tag);
       break;
+    case "HANDLER":
+      this.onhandler(tag);
+      break;
     }
 
     this.stack.pop();
@@ -971,6 +974,19 @@ XBLParser.prototype = {
   },
 
   onstructor(tag) {
+    let text = this.curText;
+    let {line, column} = tag;
+
+    let spaces = Array(column + 1).join(" ");
+    text = `(function () {\n${spaces}${text}})`;
+
+    let ast = Analyzer.parse(text, this.filename, line);
+    if (ast) {
+      Analyzer.scoped(() => Analyzer.dummyProgram(ast, []));
+    }
+  },
+
+  onhandler(tag) {
     let text = this.curText;
     let {line, column} = tag;
 

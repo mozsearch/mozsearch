@@ -41,9 +41,52 @@ def read_cpp_analysis(fname):
     return decls
 
 def handle_interface(iface):
+    (lineno, colno) = find_line_column(text, iface.name, iface.location._lexpos)
+    mangled = 'T_' + iface.name
+
+    # Source
+    j = {
+        'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
+        'source': 1,
+        'pretty': 'IDL class %s' % iface.name,
+        'sym': mangled + ('' if iface.attributes.scriptable else ',#' + iface.name),
+    }
+    print json.dumps(j)
+
+    # C++ target
+    j = {
+        'loc': '%d:%d' % (lineno, colno),
+        'target': 1,
+        'kind': 'idl',
+        'sym': mangled,
+    }
+    print json.dumps(j)
+
+    if iface.attributes.scriptable:
+        # JS target
+        j = {
+            'loc': '%d:%d' % (lineno, colno),
+            'target': 1,
+            'kind': 'idl',
+            'sym': '#' + iface.name,
+        }
+        print json.dumps(j)
+    
+    (lineno, colno) = find_line_column(text, iface.base, iface.location._lexpos)
+    mangled = 'T_' + iface.base
+
+    # Base source
+    j = {
+        'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.base)),
+        'source': 1,
+        'pretty': 'IDL class %s' % iface.base,
+        'sym': mangled + ',#' + iface.base,
+    }
+    print json.dumps(j)
+
     #print p.name
     #print 'BASE', p.base
-    for m in p.members:
+    for m in iface.members:
         name = getattr(m, 'name', '')
         (lineno, colno) = find_line_column(text, name, m.location._lexpos)
 
