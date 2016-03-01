@@ -23,6 +23,8 @@ struct T : public S, public S2 {
     virtual void v();
     void m();
     void m(int);
+
+    int field;
 };
 
 template<typename T>
@@ -40,12 +42,16 @@ struct StackObj {
 void f() {}
 void g();
 
+typedef R OtherR;
+
 template<typename T>
 class X {
   public:
     X() {}
 
     void f();
+
+    int field;
 };
 
 template<typename T>
@@ -73,8 +79,18 @@ struct Dummy {
 
 #define HELLO s.m
 
+class Q {
+    typedef int (Q::*AddressReader)(const char*) const;
+};
+
+extern int GLOBAL;
+
 int main()
 {
+    GLOBAL = 12;
+
+    NS::OtherR* otherr;
+
     NS::f();
     NS::g();
     NS::S s;
@@ -89,6 +105,7 @@ int main()
 
     NS::X<char> xx;
     xx.f();
+    xx.field = 12;
 
     NS::X<int> xy;
     xy.f();

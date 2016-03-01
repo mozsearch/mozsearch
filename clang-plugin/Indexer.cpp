@@ -115,27 +115,52 @@ XPCOMHack(std::string mangled)
   return mangled;
 }
 
+static uint64_t
+GetTranslationUnitID()
+{
+  static uint64_t result = 0;
+  if (!result) {
+    result = (uint64_t(time(nullptr)) << 32) | uint64_t(getpid());
+  }
+  return result;
+}
+
 static std::string
 GetMangledName(clang::MangleContext* ctx,
                const clang::NamedDecl* decl)
 {
-  llvm::SmallVector<char, 512> output;
-  llvm::raw_svector_ostream out(output);
-  ctx->mangleName(decl, out);
-  return XPCOMHack(out.str().str());
-}
+  if (isa<FunctionDecl>(decl) || isa<VarDecl>(decl)) {
+    const DeclContext* dc = decl->getDeclContext();
+    if (isa<TranslationUnitDecl>(dc) ||
+        isa<NamespaceDecl>(dc) ||
+        isa<LinkageSpecDecl>(dc) ||
+        //isa<ExternCContextDecl>(dc) ||
+        isa<TagDecl>(dc))
+    {
+      llvm::SmallVector<char, 512> output;
+      llvm::raw_svector_ostream out(output);
+      if (const CXXConstructorDecl* d = dyn_cast<CXXConstructorDecl>(decl)) {
+        ctx->mangleCXXCtor(d, CXXCtorType::Ctor_Complete, out);
+      } else if (const CXXDestructorDecl* d = dyn_cast<CXXDestructorDecl>(decl)) {
+        ctx->mangleCXXDtor(d, CXXDtorType::Dtor_Complete, out);
+      } else {
+        ctx->mangleName(decl, out);
+      }
+      return XPCOMHack(out.str().str());
+    } else {
+      return std::string("V_") + std::to_string(GetTranslationUnitID()) + std::string("_") +
+        std::to_string((unsigned long)(decl));
+    }
+  } else if (isa<TagDecl>(decl) || isa<TypedefNameDecl>(decl)) {
+    return std::string("T_") + decl->getQualifiedNameAsString();
+  } else if (isa<NamespaceDecl>(decl) || isa<NamespaceAliasDecl>(decl)) {
+    return std::string("NS_") + decl->getQualifiedNameAsString();
+  } else if (isa<FieldDecl>(decl)) {
+    return std::string("F_") + decl->getQualifiedNameAsString();
+  }
 
-#if 0
-static std::string
-GetMangledName(clang::MangleContext* ctx,
-               const clang::Type* type)
-{
-  llvm::SmallVector<char, 512> output;
-  llvm::raw_svector_ostream out(output);
-  ctx->mangleTypeName(QualType(type, 0), out);
-  return XPCOMHack(out.str().str());
+  assert(false);
 }
-#endif
 
 static std::string
 EscapeString(std::string input)
@@ -266,6 +291,12 @@ private:
     return buffer;
   }
 
+  void DebugLocation(SourceLocation loc) {
+    std::string s = LocationToString(loc);
+    StringRef filename = sm.getFilename(loc);
+    printf("--> %s %s\n", std::string(filename).c_str(), s.c_str());
+  }
+
 public:
   IndexConsumer(CompilerInstance &ci)
    : ci(ci)
@@ -350,7 +381,12 @@ public:
       return;
     }
 
-    char s[1024];
+    size_t maxlen = 0;
+    for (auto it = symbols.begin(); it != symbols.end(); it++) {
+      maxlen = std::max(it->length(), maxlen);
+    }
+
+    char *s = new char[1024 + targetPretty.length() + maxlen];
 
     std::string symbolList;
     for (auto it = symbols.begin(); it != symbols.end(); it++) {
@@ -375,6 +411,7 @@ public:
     f->output.push_back(std::string(buf));
 
     delete[] buf;
+    delete[] s;
   }
 
   void VisitToken(const char *kind,
@@ -386,8 +423,37 @@ public:
     VisitToken(kind, prettyKind, prettyData, targetPretty, loc, v);
   }
 
-  bool VisitFunctionDecl(FunctionDecl *d) {
+  bool VisitNamedDecl(NamedDecl *d) {
     if (!IsInterestingLocation(d->getLocation())) {
+      return true;
+    }
+
+    if (isa<ParmVarDecl>(d) && !d->getDeclName().getAsIdentifierInfo()) {
+      // Unnamed parameter in function proto.
+      return true;
+    }
+
+    const char* kind = "def";
+    const char* prettyKind = "?";
+    if (FunctionDecl* d2 = dyn_cast<FunctionDecl>(d)) {
+      kind = d2->isThisDeclarationADefinition() ? "def" : "decl";
+      prettyKind = "function";
+    } else if (TagDecl* d2 = dyn_cast<TagDecl>(d)) {
+      kind = d2->isThisDeclarationADefinition() ? "def" : "decl";
+      prettyKind = "type";
+    } else if (isa<TypedefNameDecl>(d)) {
+      kind = "def";
+      prettyKind = "type";
+    } else if (VarDecl* d2 = dyn_cast<VarDecl>(d)) {
+      kind = d2->isThisDeclarationADefinition() == VarDecl::DeclarationOnly ? "decl" : "def";
+      prettyKind = "variable";
+    } else if (isa<NamespaceDecl>(d) || isa<NamespaceAliasDecl>(d)) {
+      kind = "def";
+      prettyKind = "namespace";
+    } else if (isa<FieldDecl>(d)) {
+      kind = "def";
+      prettyKind = "field";
+    } else {
       return true;
     }
 
@@ -400,24 +466,7 @@ public:
     // FIXME: Need to skip the '~' token for destructors.
     SourceLocation loc = d->getLocation();
 
-    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, "function", nullptr, d->getQualifiedNameAsString(), loc, symbols);
-
-    return true;
-  }
-
-  bool VisitTagDecl(TagDecl *d) {
-    if (!IsInterestingLocation(d->getLocation())) {
-      return true;
-    }
-
-    SourceLocation loc = d->getLocation();
-    std::string locStr = LocationToString(loc);
-
-    std::string mangled = std::string("T_") + d->getQualifiedNameAsString();
-
-    const char* kind = d->isThisDeclarationADefinition() ? "def" : "decl";
-    VisitToken(kind, "type", nullptr, d->getQualifiedNameAsString(), loc, mangled);
+    VisitToken(kind, prettyKind, nullptr, d->getQualifiedNameAsString(), loc, symbols);
 
     return true;
   }
@@ -456,11 +505,13 @@ public:
     const NamedDecl *namedCallee = dyn_cast<NamedDecl>(callee);
 
     if (namedCallee) {
-      if (FunctionDecl::classof(namedCallee)) {
-        const FunctionDecl *f = dyn_cast<FunctionDecl>(namedCallee);
-        if (f->isTemplateInstantiation()) {
-          namedCallee = f->getTemplateInstantiationPattern();
-        }
+      if (!FunctionDecl::classof(namedCallee)) {
+        return true;
+      }
+
+      const FunctionDecl *f = dyn_cast<FunctionDecl>(namedCallee);
+      if (f->isTemplateInstantiation()) {
+        namedCallee = f->getTemplateInstantiationPattern();
       }
 
       std::string mangled = GetMangledName(mMangleContext, namedCallee);
@@ -476,10 +527,8 @@ public:
         MemberExpr* member = dyn_cast<MemberExpr>(callee);
         loc = member->getMemberLoc();
       } else if (DeclRefExpr::classof(callee)) {
-        DeclRefExpr* ref = dyn_cast<DeclRefExpr>(callee);
-        if (ref->hasQualifier()) {
-          loc = ref->getNameInfo().getLoc();
-        }
+        // We handle this in VisitDeclRefExpr.
+        return true;
       }
 
       if (!loc.isValid()) {
@@ -497,24 +546,91 @@ public:
     return true;
   }
 
-#if 0
-  bool VisitNamedDecl(NamedDecl* decl) {
-    std::string locStr = LocationToString(decl->getLocStart());
-    printf("NAMED %s %s\n", decl->getQualifiedNameAsString().c_str(), locStr.c_str());
-    return true;
-  }
-#endif
-
-  bool VisitTagTypeLoc(TagTypeLoc tagLoc) {
-    if (!IsInterestingLocation(tagLoc.getBeginLoc())) {
+  bool VisitTagTypeLoc(TagTypeLoc l) {
+    if (!IsInterestingLocation(l.getBeginLoc())) {
       return true;
     }
 
-    TagDecl* decl = tagLoc.getDecl();
-    std::string mangled = std::string("T_") + decl->getQualifiedNameAsString();
+    TagDecl* decl = l.getDecl();
+    std::string mangled = GetMangledName(mMangleContext, decl);
+    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    return true;
+  }
 
-    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), tagLoc.getBeginLoc(), mangled);
+  bool VisitTypedefTypeLoc(TypedefTypeLoc l) {
+    if (!IsInterestingLocation(l.getBeginLoc())) {
+      return true;
+    }
 
+    NamedDecl* decl = l.getTypedefNameDecl();
+    std::string mangled = GetMangledName(mMangleContext, decl);
+    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    return true;
+  }
+
+  bool VisitInjectedClassNameTypeLoc(InjectedClassNameTypeLoc l) {
+    if (!IsInterestingLocation(l.getBeginLoc())) {
+      return true;
+    }
+
+    NamedDecl* decl = l.getDecl();
+    std::string mangled = GetMangledName(mMangleContext, decl);
+    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    return true;
+  }
+
+  bool VisitTemplateSpecializationTypeLoc(TemplateSpecializationTypeLoc l) {
+    if (!IsInterestingLocation(l.getBeginLoc())) {
+      return true;
+    }
+
+    TemplateDecl* td = l.getTypePtr()->getTemplateName().getAsTemplateDecl();
+    if (ClassTemplateDecl *d = dyn_cast<ClassTemplateDecl>(td)) {
+      NamedDecl* decl = d->getTemplatedDecl();
+      std::string mangled = GetMangledName(mMangleContext, decl);
+      VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    }
+
+    return true;
+  }
+
+  bool VisitDeclRefExpr(DeclRefExpr *e) {
+    if (!IsInterestingLocation(e->getExprLoc())) {
+      return true;
+    }
+
+    SourceLocation loc = e->getExprLoc();
+    if (e->hasQualifier()) {
+      loc = e->getNameInfo().getLoc();
+    }
+
+    NamedDecl* decl = e->getDecl();
+    if (isa<VarDecl>(decl)) {
+      std::string mangled = GetMangledName(mMangleContext, decl);
+      VisitToken("use", "variable", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
+    } else if (isa<FunctionDecl>(decl)) {
+      const FunctionDecl *f = dyn_cast<FunctionDecl>(decl);
+      if (f->isTemplateInstantiation()) {
+        decl = f->getTemplateInstantiationPattern();
+      }
+
+      std::string mangled = GetMangledName(mMangleContext, decl);
+      VisitToken("use", "function", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
+    }
+
+    return true;
+  }
+
+  bool VisitMemberExpr(MemberExpr* e) {
+    if (!IsInterestingLocation(e->getExprLoc())) {
+      return true;
+    }
+
+    ValueDecl* decl = e->getMemberDecl();
+    if (FieldDecl* field = dyn_cast<FieldDecl>(decl)) {
+      std::string mangled = GetMangledName(mMangleContext, field);
+      VisitToken("use", "field", nullptr, field->getQualifiedNameAsString(), e->getExprLoc(), mangled);
+    }
     return true;
   }
 };
