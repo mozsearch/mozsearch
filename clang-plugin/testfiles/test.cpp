@@ -2,7 +2,20 @@ namespace NS {
 
 struct R;
 
+enum {
+    TAG3
+};
+
+typedef struct {
+    int f;
+} Abc;
+
 struct R {
+    enum XYZ {
+	TAG1,
+	TAG2
+    };
+
     virtual void v() = 0;
 };
 
@@ -13,6 +26,10 @@ struct S : public R
     void m();
     void m(int);
     virtual void v();
+};
+
+namespace {
+int xyz;
 };
 
 struct S2 {
@@ -87,7 +104,7 @@ extern int GLOBAL;
 
 int main()
 {
-    GLOBAL = 12;
+    GLOBAL = NS::TAG3;
 
     NS::OtherR* otherr;
 

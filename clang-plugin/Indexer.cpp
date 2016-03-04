@@ -38,6 +38,16 @@ std::string srcdir;
 std::string objdir;
 std::string outdir;
 
+static std::string
+Hash(const std::string& str)
+{
+  static unsigned char rawhash[20];
+  static char hashstr[41];
+  sha1::calc(str.c_str(), str.size(), rawhash);
+  sha1::toHexString(rawhash, hashstr);
+  return std::string(hashstr);
+}
+
 void
 EnsurePath(std::string path)
 {
@@ -123,43 +133,6 @@ GetTranslationUnitID()
     result = (uint64_t(time(nullptr)) << 32) | uint64_t(getpid());
   }
   return result;
-}
-
-static std::string
-GetMangledName(clang::MangleContext* ctx,
-               const clang::NamedDecl* decl)
-{
-  if (isa<FunctionDecl>(decl) || isa<VarDecl>(decl)) {
-    const DeclContext* dc = decl->getDeclContext();
-    if (isa<TranslationUnitDecl>(dc) ||
-        isa<NamespaceDecl>(dc) ||
-        isa<LinkageSpecDecl>(dc) ||
-        //isa<ExternCContextDecl>(dc) ||
-        isa<TagDecl>(dc))
-    {
-      llvm::SmallVector<char, 512> output;
-      llvm::raw_svector_ostream out(output);
-      if (const CXXConstructorDecl* d = dyn_cast<CXXConstructorDecl>(decl)) {
-        ctx->mangleCXXCtor(d, CXXCtorType::Ctor_Complete, out);
-      } else if (const CXXDestructorDecl* d = dyn_cast<CXXDestructorDecl>(decl)) {
-        ctx->mangleCXXDtor(d, CXXDtorType::Dtor_Complete, out);
-      } else {
-        ctx->mangleName(decl, out);
-      }
-      return XPCOMHack(out.str().str());
-    } else {
-      return std::string("V_") + std::to_string(GetTranslationUnitID()) + std::string("_") +
-        std::to_string((unsigned long)(decl));
-    }
-  } else if (isa<TagDecl>(decl) || isa<TypedefNameDecl>(decl)) {
-    return std::string("T_") + decl->getQualifiedNameAsString();
-  } else if (isa<NamespaceDecl>(decl) || isa<NamespaceAliasDecl>(decl)) {
-    return std::string("NS_") + decl->getQualifiedNameAsString();
-  } else if (isa<FieldDecl>(decl)) {
-    return std::string("F_") + decl->getQualifiedNameAsString();
-  }
-
-  assert(false);
 }
 
 static std::string
@@ -289,6 +262,58 @@ private:
       }
     }
     return buffer;
+  }
+
+  std::string GetMangledName(clang::MangleContext* ctx,
+                             const clang::NamedDecl* decl) {
+    if (isa<FunctionDecl>(decl) || isa<VarDecl>(decl)) {
+      const DeclContext* dc = decl->getDeclContext();
+      if (isa<TranslationUnitDecl>(dc) ||
+          isa<NamespaceDecl>(dc) ||
+          isa<LinkageSpecDecl>(dc) ||
+          //isa<ExternCContextDecl>(dc) ||
+          isa<TagDecl>(dc))
+        {
+          llvm::SmallVector<char, 512> output;
+          llvm::raw_svector_ostream out(output);
+          if (const CXXConstructorDecl* d = dyn_cast<CXXConstructorDecl>(decl)) {
+            ctx->mangleCXXCtor(d, CXXCtorType::Ctor_Complete, out);
+          } else if (const CXXDestructorDecl* d = dyn_cast<CXXDestructorDecl>(decl)) {
+            ctx->mangleCXXDtor(d, CXXDtorType::Dtor_Complete, out);
+          } else {
+            ctx->mangleName(decl, out);
+          }
+          return XPCOMHack(out.str().str());
+        } else {
+        return std::string("V_") + std::to_string(GetTranslationUnitID()) + std::string("_") +
+          std::to_string((unsigned long)(decl));
+      }
+    } else if (isa<TagDecl>(decl) || isa<TypedefNameDecl>(decl)) {
+      if (!decl->getIdentifier()) {
+        // Anonymous.
+        return std::string("T_") + Hash(LocationToString(decl->getLocation()));
+      }
+
+      return std::string("T_") + decl->getQualifiedNameAsString();
+    } else if (isa<NamespaceDecl>(decl) || isa<NamespaceAliasDecl>(decl)) {
+      if (!decl->getIdentifier()) {
+        // Anonymous.
+        return std::string("NS_") + Hash(LocationToString(decl->getLocation()));
+      }
+
+      return std::string("NS_") + decl->getQualifiedNameAsString();
+    } else if (const FieldDecl* d2 = dyn_cast<FieldDecl>(decl)) {
+      const RecordDecl* record = d2->getParent();
+      return std::string("F_<") + GetMangledName(ctx, record) + ">_" + ToString(d2->getFieldIndex());
+    } else if (const EnumConstantDecl* d2 = dyn_cast<EnumConstantDecl>(decl)) {
+      const DeclContext* dc = decl->getDeclContext();
+      if (const NamedDecl* named = dyn_cast<NamedDecl>(dc)) {
+        return std::string("E_<") + GetMangledName(ctx, named) + ">_" + d2->getNameAsString();
+      }
+    }
+
+    assert(false);
+    return std::string("");
   }
 
   void DebugLocation(SourceLocation loc) {
@@ -453,6 +478,9 @@ public:
     } else if (isa<FieldDecl>(d)) {
       kind = "def";
       prettyKind = "field";
+    } else if (isa<EnumConstantDecl>(d)) {
+      kind = "def";
+      prettyKind = "enum constant";
     } else {
       return true;
     }
@@ -616,6 +644,9 @@ public:
 
       std::string mangled = GetMangledName(mMangleContext, decl);
       VisitToken("use", "function", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
+    } else if (isa<EnumConstantDecl>(decl)) {
+      std::string mangled = GetMangledName(mMangleContext, decl);
+      VisitToken("use", "enum", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
     }
 
     return true;
