@@ -189,6 +189,37 @@ struct FileInfo
   bool interesting;
 };
 
+class IndexConsumer;
+
+class PreprocessorHook : public PPCallbacks
+{
+  IndexConsumer* indexer;
+
+public:
+  PreprocessorHook(IndexConsumer *c) : indexer(c) {}
+
+  virtual void MacroDefined(const Token &tok, const MacroDirective *md);
+
+  virtual void MacroExpands(const Token &tok, const MacroDirective *md,
+                            SourceRange range, const MacroArgs *ma);
+  virtual void MacroUndefined(const Token &tok, const MacroDirective *md);
+  virtual void Defined(const Token &tok, const MacroDirective *md, SourceRange range);
+  virtual void Ifdef(SourceLocation loc, const Token &tok, const MacroDirective *md);
+  virtual void Ifndef(SourceLocation loc, const Token &tok, const MacroDirective *md);
+
+#if 0
+  virtual void InclusionDirective(SourceLocation hashLoc,
+                                  const Token &includeTok,
+                                  StringRef fileName,
+                                  bool isAngled,
+                                  CharSourceRange filenameRange,
+                                  const FileEntry *file,
+                                  StringRef searchPath,
+                                  StringRef relativePath,
+                                  const Module *imported);
+#endif
+};
+
 class IndexConsumer : public ASTConsumer,
                       public RecursiveASTVisitor<IndexConsumer>,
                       public DiagnosticConsumer
@@ -329,7 +360,7 @@ public:
    , mMangleContext(nullptr)
   {
     //ci.getDiagnostics().setClient(this, false);
-    //ci.getPreprocessor().addPPCallbacks(new PreprocThunk(this));
+    ci.getPreprocessor().addPPCallbacks(llvm::make_unique<PreprocessorHook>(this));
   }
 
   virtual DiagnosticConsumer *clone(DiagnosticsEngine &Diags) const {
@@ -664,7 +695,84 @@ public:
     }
     return true;
   }
+
+  void MacroDefined(const Token &tok, const MacroDirective *macro) {
+    if (macro->getMacroInfo()->isBuiltinMacro()) {
+      return;
+    }
+    if (!IsInterestingLocation(tok.getLocation())) {
+      return;
+    }
+
+    SourceLocation loc = tok.getLocation();
+    IdentifierInfo* ident = tok.getIdentifierInfo();
+    if (ident) {
+      std::string mangled = std::string("M_") + Hash(LocationToString(loc));
+      VisitToken("def", "macro", nullptr, ident->getName(), loc, mangled);
+    }
+  }
+
+  void MacroUsed(const Token &tok, const MacroInfo *macro) {
+    if (macro->isBuiltinMacro()) {
+      return;
+    }
+    if (!IsInterestingLocation(tok.getLocation())) {
+      return;
+    }
+
+    SourceLocation loc = macro->getDefinitionLoc();
+    IdentifierInfo* ident = tok.getIdentifierInfo();
+    if (ident) {
+      std::string mangled = std::string("M_") + Hash(LocationToString(loc));
+      VisitToken("use", "macro", nullptr, ident->getName(), tok.getLocation(), mangled);
+    }
+  }
 };
+
+void
+PreprocessorHook::MacroDefined(const Token &tok, const MacroDirective *md)
+{
+  indexer->MacroDefined(tok, md);
+}
+
+void
+PreprocessorHook::MacroExpands(const Token &tok, const MacroDirective *md,
+                               SourceRange range, const MacroArgs *ma)
+{
+  indexer->MacroUsed(tok, md->getMacroInfo());
+}
+
+void
+PreprocessorHook::MacroUndefined(const Token &tok, const MacroDirective *md)
+{
+  if (md) {
+    indexer->MacroUsed(tok, md->getMacroInfo());
+  }
+}
+
+void
+PreprocessorHook::Defined(const Token &tok, const MacroDirective *md, SourceRange range)
+{
+  if (md) {
+    indexer->MacroUsed(tok, md->getMacroInfo());
+  }
+}
+
+void
+PreprocessorHook::Ifdef(SourceLocation loc, const Token &tok, const MacroDirective *md)
+{
+  if (md) {
+    indexer->MacroUsed(tok, md->getMacroInfo());
+  }
+}
+
+void
+PreprocessorHook::Ifndef(SourceLocation loc, const Token &tok, const MacroDirective *md)
+{
+  if (md) {
+    indexer->MacroUsed(tok, md->getMacroInfo());
+  }
+}
 
 class IndexAction : public PluginASTAction
 {

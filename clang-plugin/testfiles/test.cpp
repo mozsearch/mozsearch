@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 namespace NS {
 
 struct R;
@@ -113,6 +115,16 @@ int main()
     NS::S s;
     s.m();
     HELLO(4);
+
+#ifdef HELLO
+    int abc;
+#endif
+
+#if defined(HELLO)
+    int abc1;
+#endif
+
+#undef HELLO
 
     void (*fp)();
     fp = &NS::f;
