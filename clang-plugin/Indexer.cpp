@@ -295,6 +295,16 @@ private:
     return buffer;
   }
 
+  std::string MangleLocation(SourceLocation loc) {
+    FileInfo *f = GetFileInfo(sm.getPresumedLoc(loc).getFilename());
+    if (f) {
+      std::string filename = f->realname;
+      return Hash(filename + std::string("@") + LocationToString(loc));
+    } else {
+      return std::string("?");
+    }
+  }
+
   std::string GetMangledName(clang::MangleContext* ctx,
                              const clang::NamedDecl* decl) {
     if (isa<FunctionDecl>(decl) || isa<VarDecl>(decl)) {
@@ -322,14 +332,14 @@ private:
     } else if (isa<TagDecl>(decl) || isa<TypedefNameDecl>(decl)) {
       if (!decl->getIdentifier()) {
         // Anonymous.
-        return std::string("T_") + Hash(LocationToString(decl->getLocation()));
+        return std::string("T_") + MangleLocation(decl->getLocation());
       }
 
       return std::string("T_") + decl->getQualifiedNameAsString();
     } else if (isa<NamespaceDecl>(decl) || isa<NamespaceAliasDecl>(decl)) {
       if (!decl->getIdentifier()) {
         // Anonymous.
-        return std::string("NS_") + Hash(LocationToString(decl->getLocation()));
+        return std::string("NS_") + MangleLocation(decl->getLocation());
       }
 
       return std::string("NS_") + decl->getQualifiedNameAsString();
@@ -707,7 +717,7 @@ public:
     SourceLocation loc = tok.getLocation();
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
-      std::string mangled = std::string("M_") + Hash(LocationToString(loc));
+      std::string mangled = std::string("M_") + MangleLocation(loc);
       VisitToken("def", "macro", nullptr, ident->getName(), loc, mangled);
     }
   }
@@ -723,7 +733,7 @@ public:
     SourceLocation loc = macro->getDefinitionLoc();
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
-      std::string mangled = std::string("M_") + Hash(LocationToString(loc));
+      std::string mangled = std::string("M_") + MangleLocation(loc);
       VisitToken("use", "macro", nullptr, ident->getName(), tok.getLocation(), mangled);
     }
   }
