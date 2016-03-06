@@ -22,7 +22,10 @@ paths = open(os.path.join(indexRoot, 'objdir-files')).readlines()
 for path in paths:
     path = path.strip()
     source = path.replace('__GENERATED__', objdir)
-    data = open(source).read()
+    try:
+        data = open(source).read()
+    except:
+        continue
 
     dest = os.path.join(destDir, path)
     f = open(dest, 'w')
