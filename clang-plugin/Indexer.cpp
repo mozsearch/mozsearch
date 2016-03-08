@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/file.h>
 
 // Needed for sha1 hacks
 #include <fcntl.h>
@@ -123,16 +124,6 @@ XPCOMHack(std::string mangled)
     mangled = ReplaceAll(mangled, pattern, replacement);
   }
   return mangled;
-}
-
-static uint64_t
-GetTranslationUnitID()
-{
-  static uint64_t result = 0;
-  if (!result) {
-    result = (uint64_t(time(nullptr)) << 32) | uint64_t(getpid());
-  }
-  return result;
 }
 
 static std::string
@@ -332,9 +323,9 @@ private:
           }
           return XPCOMHack(out.str().str());
         } else {
-        return std::string("V_") + std::to_string(GetTranslationUnitID()) + std::string("_") +
-          std::to_string((unsigned long)(decl));
-      }
+          return std::string("V_") + MangleLocation(decl->getLocation()) + std::string("_") +
+            Hash(decl->getName());
+        }
     } else if (isa<TagDecl>(decl) || isa<TypedefNameDecl>(decl)) {
       if (!decl->getIdentifier()) {
         // Anonymous.
@@ -402,19 +393,44 @@ public:
 
       EnsurePath(filename);
 
-      // Okay, I want to use the standard library for I/O as much as possible,
-      // but the C/C++ standard library does not have the feature of "open
-      // succeeds only if it doesn't exist."
-      FILE* fp = fopen(filename.c_str(), "w");
-      if (fp == nullptr) {
+      int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0666);
+      if (fd == -1) {
         continue;
       }
 
-      //write(fd, it->second->realname.c_str(), it->second->realname.length());
-      //write(fd, "\n", 1);
-      for (std::string& line : info.output) {
+      do {
+        int rv = flock(fd, LOCK_EX);
+        if (rv == 0) {
+          break;
+        }
+      } while (true);
+
+      std::vector<std::string> lines;
+
+      char buffer[65536];
+      FILE* fp = fdopen(dup(fd), "r");
+      while (fgets(buffer, sizeof(buffer), fp)) {
+        lines.push_back(std::string(buffer));
+      }
+      fclose(fp);
+
+      lines.insert(lines.end(), info.output.begin(), info.output.end());
+
+      std::sort(lines.begin(), lines.end());
+
+      std::vector<std::string> nodupes;
+
+      std::unique_copy(lines.begin(), lines.end(), std::back_inserter(nodupes));
+
+      lseek(fd, 0, SEEK_SET);
+
+      fp = fdopen(fd, "w");
+      size_t length = 0;
+      for (std::string& line : nodupes) {
+        length += line.length();
         fwrite(line.c_str(), line.length(), 1, fp);
       }
+      ftruncate(fd, length);
       fclose(fp);
     }
   }
