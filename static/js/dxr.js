@@ -148,8 +148,12 @@ $(function() {
    * returns null.
    */
   function caseFromUrl() {
-    var match = /[?&]?case=([^&]+)/.exec(location.search);
-    return match ? (match[1] === 'true') : null;
+    if (window.location.pathname.endsWith("/search")) {
+      var match = /[?&]case=([^&]+)/.exec(location.search);
+      return match ? (match[1] === 'true') : false;
+    } else {
+      return null;
+    }
   }
 
   var searchForm = $('#basic_search'),
@@ -168,7 +172,6 @@ $(function() {
   defaultDataLimit = 100;
 
   window.addEventListener("pageshow", function() {
-    console.log("pageshow");
     var initialSearch = /[?&]?q=([^&]+)/.exec(location.search);
     if (initialSearch) {
       queryField.val(decodeURIComponent(initialSearch[1]));
@@ -443,6 +446,7 @@ $(function() {
   if (urlCaseSensitive !== null) {
     // Any case-sensitivity specification in the URL overrides what was in localStorage:
     localStorage.setItem('caseSensitive', urlCaseSensitive);
+    caseSensitiveBox.prop('checked', urlCaseSensitive);
   } else {
     // Restore checkbox state from localStorage:
     caseSensitiveBox.prop('checked', 'true' === localStorage.getItem('caseSensitive'));
