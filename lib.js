@@ -42,7 +42,8 @@ function readAnalysis(filePath, keep)
       col2 = parseInt(col2);
       col = [col1, col2];
     } else {
-      col = dummyCol;
+      col = parseInt(col);
+      col = [col, col];
     }
     line = parseInt(line);
     j.loc = {line, col};
@@ -64,14 +65,23 @@ function readAnalysis(filePath, keep)
     });
 
     let result = [];
+    let pushed = {};
     let lastLoc = null;
     let lastElt = null;
     for (let j of list) {
       let loc = j.loc;
       if (lastLoc && loc.line == lastLoc.line && loc.col[0] == lastLoc.col[0]) {
-        lastElt.push(j);
+        let s = JSON.stringify(j);
+        if (!(s in pushed)) {
+          pushed[s] = true;
+          lastElt.push(j);
+        }
       } else {
         lastLoc = loc;
+
+        pushed = {};
+        let s = JSON.stringify(j);
+        pushed[s] = true;
 
         let r = {loc, analysis: [j]};
         lastElt = r.analysis;
