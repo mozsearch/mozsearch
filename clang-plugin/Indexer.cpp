@@ -308,6 +308,12 @@ private:
   std::string GetMangledName(clang::MangleContext* ctx,
                              const clang::NamedDecl* decl) {
     if (isa<FunctionDecl>(decl) || isa<VarDecl>(decl)) {
+      if (const FunctionDecl* f = dyn_cast<FunctionDecl>(decl)) {
+        if (f->isTemplateInstantiation()) {
+          *(int *)0 = 0;
+        }
+      }
+
       const DeclContext* dc = decl->getDeclContext();
       if (isa<TranslationUnitDecl>(dc) ||
           isa<NamespaceDecl>(dc) ||
@@ -420,7 +426,11 @@ public:
     CXXMethodDecl::method_iterator iter = method->begin_overridden_methods();
     CXXMethodDecl::method_iterator end = method->end_overridden_methods();
     for (; iter != end; iter++) {
-      return FindOverriddenMethods(*iter, symbols);
+      const CXXMethodDecl* decl = *iter;
+      if (decl->isTemplateInstantiation()) {
+        decl = dyn_cast<CXXMethodDecl>(decl->getTemplateInstantiationPattern());
+      }
+      return FindOverriddenMethods(decl, symbols);
     }
   }
 
@@ -502,6 +512,9 @@ public:
     const char* kind = "def";
     const char* prettyKind = "?";
     if (FunctionDecl* d2 = dyn_cast<FunctionDecl>(d)) {
+      if (d2->isTemplateInstantiation()) {
+        d = d2->getTemplateInstantiationPattern();
+      }
       kind = d2->isThisDeclarationADefinition() ? "def" : "decl";
       prettyKind = "function";
     } else if (TagDecl* d2 = dyn_cast<TagDecl>(d)) {
