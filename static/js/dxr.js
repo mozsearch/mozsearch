@@ -1,5 +1,11 @@
-/* jshint devel:true, esnext: true */
-/* globals nunjucks: true, $ */
+function hg_mozilla_link(link) {
+  if (window.location.hash[0] == '#') {
+    let lineNo = window.location.hash.substring(1);
+    window.location = link + "#l" + lineNo;
+  } else {
+    window.location = link;
+  }
+}
 
 $(function() {
   'use strict';

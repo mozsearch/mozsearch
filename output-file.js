@@ -1,10 +1,11 @@
 "use strict";
 
 let treeRoot = scriptArgs[0];
-let indexRoot = scriptArgs[1];
-let mozSearchRoot = scriptArgs[2];
-let objdir = scriptArgs[3];
-let filenames = scriptArgs.slice(4);
+let treeRev = scriptArgs[1];
+let indexRoot = scriptArgs[2];
+let mozSearchRoot = scriptArgs[3];
+let objdir = scriptArgs[4];
+let filenames = scriptArgs.slice(5);
 
 run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
@@ -72,29 +73,13 @@ function generatePanel(path)
     </button>
     <section id="panel-content" aria-expanded="true" aria-hidden="false">
 
-      <h4>Git</h4>
-      <ul>
-        <li>
-          <a href="https://github.com/mozilla/gecko-dev/commits/master/${path}" title="Log" class="log icon">Log</a>
-        </li>
-        <li>
-          <a href="https://github.com/mozilla/gecko-dev/blame/master/${path}" title="Blame" class="blame icon">Blame</a>
-        </li>
-        <li>
-          <a href="https://raw.githubusercontent.com/mozilla/gecko-dev/master/${path}" title="Raw" class="raw icon">Raw</a>
-        </li>
-      </ul>
-
       <h4>Mercurial</h4>
       <ul>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/filelog/tip/${path}" title="Log" class="log icon">Log</a>
+          <a href="javascript:hg_mozilla_link('https://hg.mozilla.org/mozilla-central/file/${treeRev}/${path}')" title="Permalink" class="log icon">Permalink</a>
         </li>
         <li>
-          <a href="https://hg.mozilla.org/mozilla-central/annotate/tip/${path}" title="Blame" class="blame icon">Blame</a>
-        </li>
-        <li>
-          <a href="https://hg.mozilla.org/mozilla-central/raw-file/tip/${path}" title="Raw" class="raw icon">Raw</a>
+          <a href="javascript:hg_mozilla_link('https://hg.mozilla.org/mozilla-central/annotate/${treeRev}/${path}')" title="Blame" class="blame icon">Blame</a>
         </li>
       </ul>
 

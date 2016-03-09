@@ -116,6 +116,7 @@ do
     if [ $COUNT -eq 1 ]
     then break
     fi
+    sleep 1
 done
 
 echo "Volume detected"
@@ -129,6 +130,7 @@ export TREE_ROOT=$INDEX_TMP/mozilla-central
 export OBJDIR=$INDEX_TMP/mozilla-central/objdir-indexing
 export INDEX_ROOT=/index
 export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
+export TREE_REV=$($INDEX_TMP/mozsearch/scripts/get-current-rev.py)
 
 $INDEX_TMP/mozsearch/mkindex $INDEX_TMP/mozilla-central /index $INDEX_TMP/mozsearch
 
