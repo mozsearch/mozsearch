@@ -540,6 +540,10 @@ public:
       kind = "def";
       prettyKind = "type";
     } else if (VarDecl* d2 = dyn_cast<VarDecl>(d)) {
+      if (d2->isLocalVarDeclOrParm()) {
+        return true;
+      }
+
       kind = d2->isThisDeclarationADefinition() == VarDecl::DeclarationOnly ? "decl" : "def";
       prettyKind = "variable";
     } else if (isa<NamespaceDecl>(d) || isa<NamespaceAliasDecl>(d)) {
@@ -703,7 +707,10 @@ public:
     }
 
     NamedDecl* decl = e->getDecl();
-    if (isa<VarDecl>(decl)) {
+    if (const VarDecl* d2 = dyn_cast<VarDecl>(decl)) {
+      if (d2->isLocalVarDeclOrParm()) {
+        return true;
+      }
       std::string mangled = GetMangledName(mMangleContext, decl);
       VisitToken("use", "variable", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
     } else if (isa<FunctionDecl>(decl)) {
