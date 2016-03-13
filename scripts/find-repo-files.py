@@ -40,7 +40,10 @@ for line in lines:
 
     (_, ext) = os.path.splitext(path)
     if ext == '.idl':
-        idl.append(path + '\n')
+        # This file causes problems because an IDL file of the same name
+        # exists in browser/ and they both end up in dist/include.
+        if path != 'mobile/android/components/build/nsIShellService.idl':
+            idl.append(path + '\n')
 
     if 'js/src/tests' in path or 'jit-test' in path:
         continue
