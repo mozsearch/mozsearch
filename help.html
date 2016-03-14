@@ -54,22 +54,20 @@ Once you have arrived at a file, you can mouse over identifiers. If
 the color of the identifier changes, then clicking on the identifier
 will open a context menu for cross-referencing identifiers.
 
+<p>
 <div id="file">
 You can see an example by mousing
-over &ldquo;<code><span data-id="#reviveCrashedTab" data-kind="use">reviveCrashedTab</span></code>&rdquo; and
-clicking. A context menu will open and you can choose to jump directly
-to the definition or to search for all references to the symbol
+over &ldquo;<code><span data-id="#reviveCrashedTab" data-i="0">reviveCrashedTab</span></code>&rdquo; and
+clicking. A context menu will open and you can choose to search for all references to the symbol
 (definitions, assignments, and uses).
 
 <p>
 In JavaScript code, a second option is sometimes offered.  Try mousing
 over the same identifier in the following:
-&ldquo;<code>SessionStore.<span data-id="#reviveCrashedTab"
-data-kind="use" data-extra="SessionStore#reviveCrashedTab"
-data-extra-jump="true">reviveCrashedTab</span></code>&rdquo;.
-In this case, you're given the opportunity to jump to only
-<code>SessionStore.reviveCrashedTab</code> and not
-<code>SessionStoreInternal.reviveCrashedTab</code>. Also, since there is only one definition of
+&ldquo;<code>SessionStore.<span data-id="#reviveCrashedTab" data-i="1">reviveCrashedTab</span></code>&rdquo;.
+In this case, you're given the opportunity to search for
+<code>SessionStore.reviveCrashedTab</code> (and not
+<code>SessionStoreInternal.reviveCrashedTab</code>). Also, since there is only one definition of
 <code>SessionStore.reviveCrashedTab</code>, you can jump directly to it.
 </div>
 
@@ -124,3 +122,10 @@ case, the first one is chosen arbitrarily. This is a bug to be fixed.
 Please send bug reports to <a href="mailto:billm@mozilla.com">billm@mozilla.com</a>.
 
 </div>
+
+<script>
+var ANALYSIS_DATA = [
+[[], [{sym: "#reviveCrashedTab", pretty: "property reviveCrashedTab"}]],
+[[{sym: "SessionStore#reviveCrashedTab", pretty: "property SessionStore.reviveCrashedTab"}], [{sym: "SessionStore#reviveCrashedTab", pretty: "property SessionStore.reviveCrashedTab"}, {sym: "#reviveCrashedTab", pretty: "property reviveCrashedTab"}]],
+];
+</script>

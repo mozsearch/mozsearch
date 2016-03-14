@@ -68,7 +68,6 @@ $("#file").on("click", "span[data-id]", function(event) {
     elt = elt.parent();
   }
   var index = elt.attr("data-i");
-  var id = elt.attr("data-id");
 
   function fmt(s, data) {
     return s.replace("_", data);
