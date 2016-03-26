@@ -9,3 +9,4 @@ mozilla-central
 clang-plugin/a.out
 aws/env
 js
+crossref/target
