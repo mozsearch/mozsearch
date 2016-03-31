@@ -120,8 +120,9 @@ function generateDirectory(dir, path, opt)
 
   let output = generate(content, opt);
 
-  redirect(indexRoot + "/dir/" + path + "/index.html");
+  let old = redirect(indexRoot + "/dir/" + path + "/index.html");
   print(output);
+  redirect(old);
 }
 
 function addFile(filename, structure)

@@ -285,8 +285,9 @@ var ANALYSIS_DATA = ${JSON.stringify(generatedJSON)};
   let fname = path.substring(path.lastIndexOf("/") + 1);
   opt.title = `${fname} - mozsearch`;
 
-  redirect(indexRoot + "/file/" + path);
+  let old = redirect(indexRoot + "/file/" + path);
   putstr(generate(content, opt));
+  redirect(old);
 }
 
 for (let filename of filenames) {

@@ -11,5 +11,6 @@ let opt = {tree: "mozilla-central",
 let body = snarf(mozSearchRoot + "/help.html");
 let output = generate(body, opt);
 
-redirect(indexRoot + "/help.html");
+let old = redirect(indexRoot + "/help.html");
 print(output);
+redirect(old);

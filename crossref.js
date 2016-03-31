@@ -92,7 +92,7 @@ function writeMap()
     };
   }
 
-  redirect(outputFile);
+  let old = redirect(outputFile);
 
   for (let [id, obj] of identifiers) {
     print(id);
@@ -107,11 +107,15 @@ function writeMap()
     }
   }
 
-  redirect(jumpFile);
+  redirect(old);
+
+  old = redirect(jumpFile);
 
   for (let [id, {path, lineno, pretty}] of jumps) {
     print(JSON.stringify([id, path, lineno, pretty]));
   }
+
+  redirect(old);
 }
 
 let filenamesString = snarf(filenamesFile);

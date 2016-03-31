@@ -15,5 +15,6 @@ let searchBody = `<script>
 
 let output = generate(searchBody, opt);
 
-redirect(indexRoot + "/templates/search.html");
+let old = redirect(indexRoot + "/templates/search.html");
 print(output);
+redirect(old);
