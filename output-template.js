@@ -17,4 +17,4 @@ let output = generate(searchBody, opt);
 
 let old = redirect(indexRoot + "/templates/search.html");
 print(output);
-redirect(old);
+os.file.close(redirect(old));

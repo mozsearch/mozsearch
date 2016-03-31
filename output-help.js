@@ -13,4 +13,4 @@ let output = generate(body, opt);
 
 let old = redirect(indexRoot + "/help.html");
 print(output);
-redirect(old);
+os.file.close(redirect(old));

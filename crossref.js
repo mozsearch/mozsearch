@@ -107,7 +107,7 @@ function writeMap()
     }
   }
 
-  redirect(old);
+  os.file.close(redirect(old));
 
   old = redirect(jumpFile);
 
@@ -115,7 +115,7 @@ function writeMap()
     print(JSON.stringify([id, path, lineno, pretty]));
   }
 
-  redirect(old);
+  os.file.close(redirect(old));
 }
 
 let filenamesString = snarf(filenamesFile);

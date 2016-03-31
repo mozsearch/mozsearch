@@ -122,7 +122,7 @@ function generateDirectory(dir, path, opt)
 
   let old = redirect(indexRoot + "/dir/" + path + "/index.html");
   print(output);
-  redirect(old);
+  os.file.close(redirect(old));
 }
 
 function addFile(filename, structure)

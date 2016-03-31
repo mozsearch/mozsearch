@@ -287,7 +287,7 @@ var ANALYSIS_DATA = ${JSON.stringify(generatedJSON)};
 
   let old = redirect(indexRoot + "/file/" + path);
   putstr(generate(content, opt));
-  redirect(old);
+  os.file.close(redirect(old));
 }
 
 for (let filename of filenames) {
