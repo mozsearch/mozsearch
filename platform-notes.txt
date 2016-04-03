@@ -1,0 +1,23 @@
+WINDOWS
+
+One-time:
+Need mozilla-build.
+Need visual studio community edition.
+Install git, cmake, ninja.
+  git: https://git-scm.com/download/win
+  cmake: https://cmake.org/files/v3.5/cmake-3.5.1-win32-x86.msi
+  ninja: https://github.com/ninja-build/ninja/releases
+Install clang, clang-cl. Need to install from source.
+  Follow instructions at https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Building_Firefox_on_Windows_with_clang-cl
+  However, need to run cmake with -DCMAKE_INSTALL_PREFIX=/c/llvm-install and run ninja install
+
+Every time:
+Install mozsearch.
+Build mozsearch indexer plugin.
+Figure out how to get index volume attached to Windows machine.
+Compile with the indexer plugin.
+
+
+MAC
+
+https://github.com/tpoechtrager/osxcross
