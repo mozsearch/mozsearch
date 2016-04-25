@@ -1,0 +1,145 @@
+Basic idea:
+I'll build a data structure that's basically a hashtable.
+The key will be a hash of some sort.
+The value will be a LineInfo.
+A LineInfo will have:
+  changeset (when the line was last changed)
+  prev (hash of LineInfo for the previous time the line was changed)
+
+However, I also want to be able to reconstitute the entire file at the time
+of the last change. Getting the contents of a file at a given revision
+is a fast operation in Git. But I also need to get the blame for that
+entire file. That means possibly following lots of links. Also, what if
+a bunch of lines were added in unrelated places?
+
+The correct way to get blame is to walk backwards in the log for the
+given file, I think. A larger file might have ~2000 commits to it.
+Getting the blame is easier with --incremental. It shows what's actually going on.
+
+What if I just compute the blame for every revision of the file
+simulataneously? Then users could just move a slider to decide which
+rev they're interested in, and the results would be immediate.
+I'd have to store more data, potentially, but it doesn't seem like
+that much in total. And maybe I could compress it somehow.
+For each line of each revision, I would store the rev. Git already
+stores the data itself, so there would be no need for that.
+Storing a revision is 20 bytes. So, for a 15000-line file with
+2000 commits, that would be 572MB. That's too big I guess.
+I wonder how big it would be if I gzipped it?
+
+Let's say I already have this information for one version of a file.
+Now I want to store it for a later version. I can look at the diff
+that transforms to the new version. The new version is just the old
+revlist, except any + lines in the diff are now set to the diff rev.
+So I could store it as a range of lines from the old revlist, then some
+new lines, then another range of lines from the old revlist, etc.
+
+Another idea: what if I just stored the revlist for every 50 revs
+or so. Then I could apply diffs from there the way that git blame
+already does. The difference is that I'd never be more than 50 revs
+from where I want to be. That would reduce my storage overhead by
+a factor of 50. Now I'd be storing 11MB for nsDocShell, even without
+any other compression.
+
+Perhaps I should also store the complete list of revs to the file.
+That would also speed things up considerably I think, and it shouldn't be
+too big.
+
+How do I deal with merge commits?
+I need to linearize the commits in some way. That's fine, and I should
+try to do it in the same order as git blame. But I also need to handle
+the actual ordering correctly. Let's say I get to a rev. I need to use
+the blame info for its predecessor rather than just whatever rev I
+did most recently. What if it has multiple predecessors?
+
+  b
+ / \
+a   d <-- HEAD
+ \ /
+  c
+
+How do I compute blame at "d"? The contents of the files could be
+completely different. I guess the merge will sort of tell me
+what happened? Not really. I guess the diff will tell me something.
+
+The diff for the merge commit will show nothing if there were no
+merge conflicts. Otherwise it will show a multi-way diff.
+So I want to take the blame data from both incoming revs.
+I also need some kind of "base" rev to work off of.
+So I need to find the common ancestor of these commits and get
+the blame data for that. Then I can do a 3-way merge.
+In the case of conflicts, I'll arbitrarily go with one side
+or the other. Then I need to apply the merge diff, ignoring
+the side that I ignored before.
+
+When I build the database, can I include more info to make
+this easier?
+
+
+Idea: What if I make a new git repo that looks just like the
+original except that the line data is replaced by revs from
+the original repository? Then I would just need to keep a mapping
+between original revs and the transformed revs. Git would do
+whatever compression it normally does, which is typically
+quite good. I could even make it handle renames and deletion
+in the same way, perhaps?
+
+Can I do the transformation based on the data itself, or do I
+need to use diffs? And if I need to use diffs, how would I
+transform merge commits?
+
+Perhaps I could use git write-tree and git commit-tree and git reset
+to create the commits in the new repo. That would make it easier to do
+merge commits without invoking a merge tool.
+
+Still, how do I generate the merged tree? I would find the parent
+files in the transformed tree, as well as the LCA file. I'd really
+like to ask git to do a merge and provide a 3-way diff to make it
+happen. I wonder if that is possible.
+
+I will have to read out diffs from the tree and do merges myself,
+using them. The merge commit includes the LCA blob as well as the
+branch blobs. I can look these up in the transformed tree and
+apply the same changes to them. It shouldn't be too difficult.
+
+Another idea:
+Most merges do not have conflicts. In that case, I can just
+do git merge-file --ours on the incoming blame files and I'm
+done. If there *are* conflicts, perhaps I could fall back
+to calling git blame? I estimate about .5% of commits would hit
+this (~700).
+
+Is there a way that I can use git blame --incremental to
+get the data I need? It works pretty quickly if you just
+want the top-most commits, which is all I think I want.
+However, I would need to cut it off once I had reached
+the point where I lose interest.
+
+Say I want to compute blame for a given rev and I already
+have blame for the parents. I run git blame --incremental
+and stop it when it outputs a commit that happened before
+one of the parents (inclusive). Generally, the only commit
+this could be is the given one, I think.
+
+But how do I use this? I don't know how many lines were
+overwritten by this commit.
+
+
+IDEA:
+If I want to see the effect of a given changeset, I can do
+  git blame --incremental rev^..rev -- filename
+It will show me the lines changed in that rev and blame everything
+else on rev^. It runs very quickly, even for old changesets.
+But how do I handle merges with this technique?
+
+If I have a changeset R with parents P1, ..., Pn, then I need to run
+  git blame --incremental ^P1 ^P2 ... ^Pn R -- filename
+Then the lines will be blamed to either R or else to P1, ..., Pn.
+I can copy the blame information from P1, ..., Pn based on this.
+
+Basic steps:
+Figure out which files were modified by the commit.
+For each file F:
+  For each parent, get the blame for F by fetching it from the blame repo (or from a cache).
+  Call git blame --incremental on the file
+  Update the blame in the blame repo based on it
