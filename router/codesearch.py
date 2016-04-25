@@ -6,9 +6,6 @@ import os.path
 import time
 from logger import log
 
-mozSearchPath = sys.argv[1]
-indexPath = sys.argv[2]
-
 class CodeSearch:
     def __init__(self, host, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -130,3 +127,7 @@ def search(pattern, fold_case=True, file='.*', repo='.*'):
         return codesearch.search(pattern, fold_case, file, repo)
     finally:
         codesearch.close()
+
+def load(config):
+    global indexPath
+    indexPath = config['index-path']

@@ -16,10 +16,8 @@ import traceback
 
 import crossrefs
 import codesearch
+import blame
 from logger import log
-
-mozSearchPath = sys.argv[1]
-indexPath = sys.argv[2]
 
 def parse_search(searchString):
     pieces = searchString.split(' ')
@@ -242,6 +240,15 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.send_response(301)
             self.send_header("Location", url)
             self.end_headers()
+        elif pathElts[:2] == ['mozilla-central', 'commit']:
+            rev = pathElts[2]
+            filename = '/'.join(pathElts[3:])
+
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+
+            blame.serve(self.wfile, rev, filename)
         else:
             return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
@@ -265,7 +272,19 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self.wfile.write(output)
 
-crossrefs.load(indexPath)
+if len(sys.argv) > 1:
+    config_fname = sys.argv[1]
+else:
+    config_fname = 'router-config.json'
+
+config = json.load(open(config_fname))
+
+mozSearchPath = config['moz-search-path']
+indexPath = config['index-path']
+
+crossrefs.load(config)
+codesearch.load(config)
+blame.load(config)
 
 class ForkingServer(ForkingMixIn, HTTPServer):
     pass

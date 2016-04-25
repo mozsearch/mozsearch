@@ -1,6 +1,3 @@
-import SimpleHTTPServer
-import SocketServer
-
 import sys
 import os.path
 import subprocess
@@ -8,12 +5,7 @@ import pygit2
 import cgi
 import re
 from datetime import datetime, tzinfo, timedelta
-
-tree_root = sys.argv[1]
-blame_root = sys.argv[2]
-
-repo = pygit2.Repository(pygit2.discover_repository(tree_root))
-blame_repo = pygit2.Repository(pygit2.discover_repository(blame_root))
+from logger import log
 
 class MyTimezone(tzinfo):
     def __init__(self, offset):
@@ -103,8 +95,6 @@ def show_file(f, commit, path):
             origin = line[0:len(parents)]
             content = line[len(parents):]
 
-            print new_lineno, old_lineno, line
-
             cur_blame = None
             for i in range(len(parents)):
                 if '-' in origin:
@@ -149,11 +139,11 @@ def show_file(f, commit, path):
             (rev, fname, line, author) = blame.split(':', 3)
             if fname == '%':
                 fname = path
-            print >>f, ('<a href="/commit/%s/%s#%s">' % (rev, fname, line)) + rev[:6] + '/' + author[:20] + '</a>'
+            print >>f, ('<a href="/mozilla-central/commit/%s/%s#%s">' % (rev, fname, line)) + rev[:6] + '/' + author[:20] + '</a>'
         else:
             print >>f, ''
     print >>f, '</pre></td>'
-
+    
     print >>f, '<td><pre>'
     for (lno, blame, origin, line) in output:
         print >>f, '<code style="color: %s;">%s</code>' % (color(origin), origin)
@@ -166,7 +156,15 @@ def show_file(f, commit, path):
 
     print >>f, '</table>'
 
-def show_commit(f, commit, path):
+def serve(f, rev, path):
+    commit = repo.get(rev)
+    if not commit:
+        print >>f, 'No such revision!'
+        return
+
+    if not path:
+        path = None
+
     parents = commit.parents
 
     msg = commit.message
@@ -174,10 +172,12 @@ def show_commit(f, commit, path):
     header = linkify(cgi.escape(msg_lines[0]))
 
     def fmt_rev(rev):
-        return '<a href="/commit/%s">%s</a>' % (rev, rev)
+        return '<a href="/mozilla-central/commit/%s">%s</a>' % (rev, rev)
 
+    print >>f, '<!DOCTYPE html>'
     print >>f, '<html>'
     print >>f, '<head>'
+    print >>f, '<meta charset="utf-8"/>'
     if path:
         print >>f, '<title>Blame - %s (%s)</title>' % (path, commit.id)
     else:
@@ -185,8 +185,8 @@ def show_commit(f, commit, path):
     print >>f, '</head>'
 
     print >>f, '<body>'
-    print >>f, '<h3>' + header + '</h3>'
-    print >>f, '<pre><code>' + cgi.escape('\n'.join(msg_lines[1:])) + '</code></pre>'
+    print >>f, '<h3>' + header.encode('utf-8') + '</h3>'
+    print >>f, '<pre><code>' + cgi.escape('\n'.join(msg_lines[1:])).encode('utf-8') + '</code></pre>'
 
     print >>f, '<table>'
     print >>f, '<tr><td>commit</td><td>' + fmt_rev(commit.id) + '</td></tr>'
@@ -196,8 +196,15 @@ def show_commit(f, commit, path):
         print >>f, '<td>' + fmt_rev(parent.id) + '</td>'
         print >>f, '</tr>'
 
+    if commit.id in hg_map:
+        print >>f, ('<tr><td>hg</td><td><a href="https://hg.mozilla.org/mozilla-central/rev/%s">%s</a></td></tr>' %
+                    (hg_map[commit.id], hg_map[commit.id]))
+
+    print >>f, ('<tr><td>git</td><td><a href="https://github.com/mozilla/gecko-dev/commit/%s">%s</a></td></tr>' %
+                (rev, rev))
+    
     def fmt_sig(signature):
-        return cgi.escape(signature.name) + ' &lt;' + cgi.escape(signature.email) + '&gt;'
+        return (cgi.escape(signature.name) + ' &lt;' + cgi.escape(signature.email) + '&gt;').encode('utf-8')
 
     print >>f, '<tr><td>author</td><td>' + fmt_sig(commit.author) + '</td></tr>'
     print >>f, '<tr><td>committer</td><td>' + fmt_sig(commit.committer) + '</td></tr>'
@@ -229,7 +236,7 @@ def show_commit(f, commit, path):
     print >>f, '<ul>'
 
     for change in file_changes:
-        print >>f, '<li>%s <a href="/commit/%s/%s">%s</a>' % (change[0], commit.id, change[1], cgi.escape(change[1]))
+        print >>f, '<li>%s <a href="/mozilla-central/commit/%s/%s">%s</a>' % (change[0], commit.id, change[1], cgi.escape(change[1]))
     
     print >>f, '</ul>'
 
@@ -239,9 +246,19 @@ def show_commit(f, commit, path):
     print >>f, '</body>'
     print >>f, '</html>'
 
-map = {}
-for commit in blame_repo.walk(blame_repo.head.target):
-    orig = pygit2.Oid(hex=commit.message.split()[1])
-    map[orig] = commit
+def load(config):
+    global repo, blame_repo, tree_root, map, hg_map
 
-show_commit(sys.stdout, repo.get(sys.argv[3]), sys.argv[4])
+    tree_root = config['repo-path']
+    repo = pygit2.Repository(pygit2.discover_repository(config['repo-path']))
+    blame_repo = pygit2.Repository(pygit2.discover_repository(config['blame-repo-path']))
+
+    map = {}
+    hg_map = {}
+    for commit in blame_repo.walk(blame_repo.head.target):
+        pieces = commit.message.split()
+        orig = pygit2.Oid(hex=pieces[1])
+        map[orig] = commit
+        if len(pieces) > 2:
+            hg_id = commit.message.split()[3]
+            hg_map[orig] = hg_id

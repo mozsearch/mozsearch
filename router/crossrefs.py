@@ -3,16 +3,14 @@ import sys
 import mmap
 import os.path
 
-mozSearchPath = sys.argv[1]
-indexPath = sys.argv[2]
-
 f = None
 mm = None
 crossrefs = {}
 
-def load(indexPath):
+def load(config):
     global f, mm
 
+    indexPath = config['index-path']
     f = open(os.path.join(indexPath, 'crossref'))
     mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
     f.close()
