@@ -103,7 +103,6 @@ VENV=$(realpath env)
 
 # Install AWS scripts
 $VENV/bin/pip install boto3
-popd
 
 # Install pygit2
 wget https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
@@ -113,7 +112,7 @@ cmake . -DCMAKE_INSTALL_PREFIX=$VENV
 make
 make install
 popd
-LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" ./env/bin/pip install pygit2
+LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" $VENV/bin/pip install pygit2
 
 git clone https://github.com/bill-mccloskey/mozsearch
 

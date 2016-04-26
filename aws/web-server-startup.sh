@@ -119,7 +119,7 @@ cmake . -DCMAKE_INSTALL_PREFIX=$VENV
 make
 make install
 popd
-LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" ./env/bin/pip install pygit2
+LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" $VENV/bin/pip install pygit2
 
 git clone https://github.com/livegrep/livegrep
 pushd livegrep

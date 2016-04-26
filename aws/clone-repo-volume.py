@@ -13,7 +13,7 @@ client = boto3.client('ec2')
 
 snapshots = client.describe_snapshots(Filters=[{'Name': 'tag-key', 'Values': ['repo']},
                                                {'Name': 'tag:channel', 'Values': [channel]}])
-snapshots = list(volumes['Snapshots'])
+snapshots = list(snapshots['Snapshots'])
 snapshotId = snapshots[0]['SnapshotId']
 
 # Find availability zone
