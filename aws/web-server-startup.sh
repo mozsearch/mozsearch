@@ -11,6 +11,9 @@ apt-get install -y git
 # Livegrep
 apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang g++ mercurial
 
+# pygit2
+apt-get install -y python-virtualenv python-dev libffi-dev
+
 # Other
 apt-get install -y parallel realpath unzip
 
@@ -62,12 +65,27 @@ do
     if [ $COUNT -eq 1 ]
     then break
     fi
+    sleep 1
 done
 
-echo "Volume detected"
+echo "Index volume detected"
 
 mkdir ~ubuntu/index
 mount /dev/xvdf ~ubuntu/index
+
+while true
+do
+    COUNT=$(lsblk | grep xvdg | wc -l)
+    if [ $COUNT -eq 1 ]
+    then break
+    fi
+    sleep 1
+done
+
+echo "Repo volume detected"
+
+mkdir ~ubuntu/repo
+mount /dev/xvdg ~ubuntu/repo
 
 echo "Finished installation"
 
@@ -90,6 +108,19 @@ popd
 export LD_LIBRARY_PATH=\$HOME/js
 export JS=\$HOME/js/js
 
+virtualenv env
+VENV=$(realpath env)
+
+# Install pygit2
+wget https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
+tar xf v0.24.0.tar.gz
+pushd libgit2-0.24.0
+cmake . -DCMAKE_INSTALL_PREFIX=$VENV
+make
+make install
+popd
+LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" ./env/bin/pip install pygit2
+
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
 make
@@ -104,8 +135,17 @@ ln -s $HOME/index/file docroot/file/mozilla-central/source
 ln -s $HOME/index/dir docroot/dir/mozilla-central/source
 ln -s $HOME/index/help.html docroot
 
+cat >router-config.json <<OTHEREND
+{
+  "moz-search-path": "$HOME/mozsearch",
+  "index-path": "$HOME/index",
+  "repo-path": "$HOME/repo/gecko-dev",
+  "blame-repo-path": "$HOME/repo/gecko-blame"
+}
+OTHEREND
+
 cd mozsearch
-nohup python router/router.py $HOME/mozsearch $HOME/index > $HOME/router.log 2> $HOME/router.err < /dev/null &
+nohup $VENV/bin/python router/router.py $HOME/router-config.json > $HOME/router.log 2> $HOME/router.err < /dev/null &
 THEEND
 
 chmod +x ~ubuntu/web-server

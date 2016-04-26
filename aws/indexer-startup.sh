@@ -42,6 +42,9 @@ apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev li
 # Other
 apt-get install -y parallel realpath source-highlight python-virtualenv python-dev
 
+# pygit2
+apt-get install -y python-dev libffi-dev
+
 # Setup direct links to clang
 update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-3.6 360
 update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.6 360
@@ -89,14 +92,28 @@ popd
 export LD_LIBRARY_PATH=$INDEX_TMP/js
 export JS=$INDEX_TMP/js/js
 
-git clone https://github.com/mozilla/gecko-dev
-mv gecko-dev mozilla-central
-
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
 make
 popd
 export CODESEARCH=$INDEX_TMP/livegrep/bin/codesearch
+
+virtualenv env
+VENV=$(realpath env)
+
+# Install AWS scripts
+$VENV/bin/pip install boto3
+popd
+
+# Install pygit2
+wget https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
+tar xf v0.24.0.tar.gz
+pushd libgit2-0.24.0
+cmake . -DCMAKE_INSTALL_PREFIX=$VENV
+make
+make install
+popd
+LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" ./env/bin/pip install pygit2
 
 git clone https://github.com/bill-mccloskey/mozsearch
 
@@ -104,11 +121,9 @@ pushd mozsearch/clang-plugin
 make
 popd
 
-pushd mozsearch/aws
-virtualenv env
-./env/bin/pip install boto3
-VOLUME_ID=$(./env/bin/python attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
-popd
+export AWS_ROOT=$(realpath mozsearch/aws)
+VOLUME_ID=$($VENV/bin/python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
+REPO_VOLUME_ID=$($VENV/bin/python $AWS_ROOT/clone-repo-volume.py $CHANNEL $EC2_INSTANCE_ID)
 
 while true
 do
@@ -119,33 +134,58 @@ do
     sleep 1
 done
 
-echo "Volume detected"
+echo "Index volume detected"
 
 sudo mkfs -t ext4 /dev/xvdf
 sudo mkdir /index
 sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
-export TREE_ROOT=$INDEX_TMP/mozilla-central
-export OBJDIR=$INDEX_TMP/mozilla-central/objdir-indexing
+while true
+do
+    COUNT=$(lsblk | grep xvdg | wc -l)
+    if [ $COUNT -eq 1 ]
+    then break
+    fi
+    sleep 1
+done
+
+echo "Repo volume detected"
+
+sudo mkdir /repo
+sudo mount /dev/xvdg /repo
+sudo chown ubuntu.ubuntu /repo
+
+export VENV
+export REPO_ROOT=/repo
+export HG_ROOT=/repo/mozilla-central
+export TREE_ROOT=/repo/gecko-dev
+export BLAME_ROOT=/repo/gecko-blame
+export OBJDIR=$INDEX_TMP/objdir
 export INDEX_ROOT=/index
 export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
-export TREE_REV=$($INDEX_TMP/mozsearch/scripts/get-current-rev.py)
 
-$INDEX_TMP/mozsearch/mkindex $INDEX_TMP/mozilla-central /index $INDEX_TMP/mozsearch
+$INDEX_TMP/mozsearch/update-repos
+
+pushd /repo/gecko-dev
+export TREE_REV=$(git show-ref -s --head HEAD)
+popd
+
+$INDEX_TMP/mozsearch/mkindex
 
 date
 echo "Indexing complete"
 
 sudo umount /index
+sudo umount /repo
 
-pushd mozsearch/aws
-./env/bin/python detach-index-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-./env/bin/python swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID
+$VENV/bin/python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
+$VENV/bin/python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $REPO_VOLUME_ID
+$VENV/bin/python $AWS_ROOT/swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID $REPO_VOLUME_ID
 
 # Give logger time to catch up
 sleep 30
-./env/bin/python terminate-indexer.py $EC2_INSTANCE_ID
+$VENV/bin/python $AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
 popd
 
 THEEND

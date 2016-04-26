@@ -1,4 +1,4 @@
-function hg_mozilla_link(link) {
+function blame_link(link) {
   if (window.location.hash[0] == '#') {
     let lineNo = window.location.hash.substring(1);
     window.location = link + "#l" + lineNo;

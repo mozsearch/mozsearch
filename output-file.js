@@ -76,10 +76,7 @@ function generatePanel(path)
       <h4>Mercurial</h4>
       <ul>
         <li>
-          <a href="javascript:hg_mozilla_link('https://hg.mozilla.org/mozilla-central/file/${treeRev}/${path}')" title="Permalink" class="log icon">Permalink</a>
-        </li>
-        <li>
-          <a href="javascript:hg_mozilla_link('https://hg.mozilla.org/mozilla-central/annotate/${treeRev}/${path}')" title="Blame" class="blame icon">Blame</a>
+          <a href="javascript:blame_link('/mozilla-central/commit/${treeRev}/${path}')" title="Blame/Permalink" class="blame icon">Blame/Permalink</a>
         </li>
       </ul>
 
