@@ -12,7 +12,7 @@ apt-get install -y git
 apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang g++ mercurial
 
 # pygit2
-apt-get install -y python-virtualenv python-dev libffi-dev
+apt-get install -y python-virtualenv python-dev libffi-dev cmake
 
 # Other
 apt-get install -y parallel realpath unzip

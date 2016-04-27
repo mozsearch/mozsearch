@@ -43,7 +43,7 @@ apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev li
 apt-get install -y parallel realpath source-highlight python-virtualenv python-dev
 
 # pygit2
-apt-get install -y python-dev libffi-dev
+apt-get install -y python-dev libffi-dev cmake
 
 # Setup direct links to clang
 update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-3.6 360
@@ -146,12 +146,13 @@ git clone https://github.com/mozilla/gecko-dev
 
 wget https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
 tar xf gecko-blame.tar
+rm gecko-blame.tar
 popd
 
 export VENV
 export HG_ROOT=$INDEX_TMP/mozilla-central
 export TREE_ROOT=/index/gecko-dev
-export TREE_REV=$(cd $TREE_ROOT; git show-ref -s --head HEAD)
+export TREE_REV=$(cd $TREE_ROOT; git show-ref -s --head ^HEAD$)
 export BLAME_ROOT=/index/gecko-blame
 export OBJDIR=$INDEX_TMP/objdir
 export INDEX_ROOT=/index

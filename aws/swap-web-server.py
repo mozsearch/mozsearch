@@ -32,7 +32,7 @@ client = boto3.client('ec2')
 
 print 'Starting web server instance...'
 
-userData = open('web-server-startup.sh').read()
+userData = open(os.path.join(os.path.dirname(sys.argv[0]), 'web-server-startup.sh')).read()
 
 instances = ec2.instances.filter(InstanceIds=[indexerInstanceId])
 indexerInstance = list(instances)[0]
