@@ -223,6 +223,9 @@ def serve(f, rev, path):
     difflines = splitlines(difftxt)
     file_changes = []
     for line in difflines:
+        if not line:
+            continue
+
         # Skip colons.
         line = line[len(parents):]
 
