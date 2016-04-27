@@ -92,6 +92,8 @@ popd
 export LD_LIBRARY_PATH=$INDEX_TMP/js
 export JS=$INDEX_TMP/js/js
 
+hg clone https://hg.mozilla.org/mozilla-central
+
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
 make
@@ -122,7 +124,6 @@ popd
 
 export AWS_ROOT=$(realpath mozsearch/aws)
 VOLUME_ID=$($VENV/bin/python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
-REPO_VOLUME_ID=$($VENV/bin/python $AWS_ROOT/clone-repo-volume.py $CHANNEL $EC2_INSTANCE_ID)
 
 while true
 do
@@ -140,35 +141,23 @@ sudo mkdir /index
 sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
-while true
-do
-    COUNT=$(lsblk | grep xvdg | wc -l)
-    if [ $COUNT -eq 1 ]
-    then break
-    fi
-    sleep 1
-done
+pushd /index
+git clone https://github.com/mozilla/gecko-dev
 
-echo "Repo volume detected"
-
-sudo mkdir /repo
-sudo mount /dev/xvdg /repo
-sudo chown ubuntu.ubuntu /repo
+wget https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
+tar xf gecko-blame.tar
+popd
 
 export VENV
-export REPO_ROOT=/repo
-export HG_ROOT=/repo/mozilla-central
-export TREE_ROOT=/repo/gecko-dev
-export BLAME_ROOT=/repo/gecko-blame
+export HG_ROOT=$INDEX_TMP/mozilla-central
+export TREE_ROOT=/index/gecko-dev
+export TREE_REV=$(cd $TREE_ROOT; git show-ref -s --head HEAD)
+export BLAME_ROOT=/index/gecko-blame
 export OBJDIR=$INDEX_TMP/objdir
 export INDEX_ROOT=/index
 export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
 
 $INDEX_TMP/mozsearch/update-repos
-
-pushd /repo/gecko-dev
-export TREE_REV=$(git show-ref -s --head HEAD)
-popd
 
 $INDEX_TMP/mozsearch/mkindex
 
@@ -176,11 +165,9 @@ date
 echo "Indexing complete"
 
 sudo umount /index
-sudo umount /repo
 
 $VENV/bin/python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-$VENV/bin/python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $REPO_VOLUME_ID
-$VENV/bin/python $AWS_ROOT/swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID $REPO_VOLUME_ID
+$VENV/bin/python $AWS_ROOT/swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID
 
 # Give logger time to catch up
 sleep 30

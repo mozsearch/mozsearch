@@ -17,7 +17,6 @@ import awslib
 channel = sys.argv[1]
 indexerInstanceId = sys.argv[2]
 volumeId = sys.argv[3]
-repoVolumeId = sys.argv[4]
 
 ELASTIC_IPS = {
     'release': '52.32.131.4',
@@ -73,11 +72,6 @@ print 'Attaching index volume to web server instance...'
 # - Attach INDEX_VOL to the web server
 client.attach_volume(VolumeId=volumeId, InstanceId=webServerInstanceId, Device='xvdf')
 
-print 'Attaching repo volume to web server instance...'
-
-# Attach repo volume to the web server
-client.attach_volume(VolumeId=repoVolumeId, InstanceId=webServerInstanceId, Device='xvdg')
-
 # - Wait until the web server is ready to serve requests
 #   I could just make requests until they succeed
 
@@ -123,12 +117,3 @@ for volume in volumes:
     if volumeId != volume['VolumeId']:
         print 'Deleting {}'.format(volume['VolumeId'])
         client.delete_volume(VolumeId=volume['VolumeId'])
-
-volumes = client.describe_volumes(Filters=[{'Name': 'tag-key', 'Values': ['repo']},
-                                           {'Name': 'tag:channel', 'Values': [channel]}])
-volumes = volumes['Volumes']
-for volume in volumes:
-    if repoVolumeId != volume['VolumeId']:
-        print 'Deleting {}'.format(volume['VolumeId'])
-        client.delete_volume(VolumeId=volume['VolumeId'])
-        

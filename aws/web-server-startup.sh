@@ -47,6 +47,10 @@ server {
     proxy_pass http://localhost:8000;
   }
 
+  location /mozilla-central/commit {
+    proxy_pass http://localhost:8000;
+  }
+
   location = / {
     root /home/ubuntu/docroot;
     try_files $uri/help.html =404;
@@ -72,20 +76,6 @@ echo "Index volume detected"
 
 mkdir ~ubuntu/index
 mount /dev/xvdf ~ubuntu/index
-
-while true
-do
-    COUNT=$(lsblk | grep xvdg | wc -l)
-    if [ $COUNT -eq 1 ]
-    then break
-    fi
-    sleep 1
-done
-
-echo "Repo volume detected"
-
-mkdir ~ubuntu/repo
-mount /dev/xvdg ~ubuntu/repo
 
 echo "Finished installation"
 
@@ -139,8 +129,8 @@ cat >router-config.json <<OTHEREND
 {
   "moz-search-path": "$HOME/mozsearch",
   "index-path": "$HOME/index",
-  "repo-path": "$HOME/repo/gecko-dev",
-  "blame-repo-path": "$HOME/repo/gecko-blame"
+  "repo-path": "$HOME/index/gecko-dev",
+  "blame-repo-path": "$HOME/index/gecko-blame"
 }
 OTHEREND
 
