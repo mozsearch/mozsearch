@@ -1,7 +1,7 @@
 function blame_link(link) {
   if (window.location.hash[0] == '#') {
     let lineNo = window.location.hash.substring(1);
-    window.location = link + "#l" + lineNo;
+    window.location = link + "#" + lineNo;
   } else {
     window.location = link;
   }
