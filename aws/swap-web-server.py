@@ -13,6 +13,8 @@ import sys
 from datetime import datetime
 import boto3
 import awslib
+import os
+import os.path
 
 channel = sys.argv[1]
 indexerInstanceId = sys.argv[2]
