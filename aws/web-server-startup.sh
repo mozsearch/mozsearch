@@ -51,6 +51,10 @@ server {
     proxy_pass http://localhost:8000;
   }
 
+  location /mozilla-central/rev {
+    proxy_pass http://localhost:8000;
+  }
+
   location = / {
     root /home/ubuntu/docroot;
     try_files $uri/help.html =404;

@@ -156,7 +156,27 @@ def show_file(f, commit, path):
 
     print >>f, '</table>'
 
-def serve(f, rev, path):
+def show_rev(f, rev, path):
+    commit = repo.get(rev)
+    if not commit:
+        print >>f, 'No such revision!'
+        return
+
+    print >>f, '<!DOCTYPE html>'
+    print >>f, '<html>'
+    print >>f, '<head>'
+    print >>f, '<meta charset="utf-8"/>'
+    print >>f, '<title>Blame - %s (%s)</title>' % (path, commit.id)
+    print >>f, '</head>'
+
+    print >>f, '<body>'
+
+    show_file(f, commit, path)
+
+    print >>f, '</body>'
+    print >>f, '</html>'
+
+def show_commit(f, rev, path):
     commit = repo.get(rev)
     if not commit:
         print >>f, 'No such revision!'

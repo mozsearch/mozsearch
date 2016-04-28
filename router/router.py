@@ -248,7 +248,16 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'text/html')
             self.end_headers()
 
-            blame.serve(self.wfile, rev, filename)
+            blame.show_commit(self.wfile, rev, filename)
+        elif pathElts[:2] == ['mozilla-central', 'rev']:
+            rev = pathElts[2]
+            filename = '/'.join(pathElts[3:])
+
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+
+            blame.show_rev(self.wfile, rev, filename)
         else:
             return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
