@@ -8,5 +8,5 @@ mozilla-central
 *.pyc
 clang-plugin/a.out
 aws/env
-js
+./js
 crossref/target
