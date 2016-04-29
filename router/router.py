@@ -258,6 +258,14 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.end_headers()
 
             blame.show_rev(self.wfile, rev, filename)
+        elif pathElts[:2] == ['mozilla-central', 'commit-info']:
+            rev = pathElts[2]
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+
+            blame.get_commit_info(self.wfile, rev)
         else:
             return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 

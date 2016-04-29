@@ -4,6 +4,7 @@ import subprocess
 import pygit2
 import cgi
 import re
+import json
 from datetime import datetime, tzinfo, timedelta
 from logger import log
 
@@ -47,8 +48,18 @@ def linkify(msg):
                   r'<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=\1">\1</a>',
                   msg)
 
-def show_file(f, commit, path):
+def show_file(f, commit, path, show_diff):
     parents = commit.parents
+
+    print >>f, '''<style>
+.blame {
+    cursor: pointer;
+}
+
+.blame:hover {
+    text-decoration: underline;
+}
+</style>'''
 
     difftxt = runCmd(['/usr/bin/git', 'diff-tree', '-p', '--cc', '--patience',
                       '--full-index', '--no-prefix', '-U100000',
@@ -64,7 +75,7 @@ def show_file(f, commit, path):
         lines = lines[i + 1:]
 
     output = []
-    if not lines:
+    if not lines or not show_diff:
         blob = get_tree_data(repo, commit.tree, path)
         if not blob:
             print >>f, '<h1>File %s does not exist in commit %s!</h1>' % (path, commit.id)
@@ -133,13 +144,13 @@ def show_file(f, commit, path):
             print >>f, ''
     print >>f, '</pre></td>'
 
-    print >>f, '<td><pre>'
+    print >>f, '<td id="blame-td"><pre>'
     for (lno, blame, origin, line) in output:
         if blame:
             (rev, fname, line, author) = blame.split(':', 3)
             if fname == '%':
                 fname = path
-            print >>f, ('<a href="/mozilla-central/commit/%s/%s#%s">' % (rev, fname, line)) + rev[:6] + '/' + author[:20] + '</a>'
+            print >>f, ('<span class="blame" data-rev="%s" data-link="/mozilla-central/commit/%s/%s#%s">' % (rev, rev, fname, line)) + rev[:6] + '/' + author[:20] + '</span>'
         else:
             print >>f, ''
     print >>f, '</pre></td>'
@@ -171,8 +182,9 @@ def show_rev(f, rev, path):
 
     print >>f, '<body>'
 
-    show_file(f, commit, path)
+    show_file(f, commit, path, False)
 
+    print >>f, '<script src="/static/js/blame.js"></script>'
     print >>f, '</body>'
     print >>f, '</html>'
 
@@ -264,11 +276,25 @@ def show_commit(f, rev, path):
     print >>f, '</ul>'
 
     if path:
-        show_file(f, commit, path)
+        show_file(f, commit, path, True)
 
+    print >>f, '<script src="/static/js/blame.js"></script>'
     print >>f, '</body>'
     print >>f, '</html>'
 
+def get_commit_info(f, rev):
+    commit = repo.get(rev)
+    if not commit:
+        return
+
+    msg = commit.message
+    msg_lines = splitlines(msg)
+    header = linkify(cgi.escape(msg_lines[0][:100]))
+
+    result = {'header': header}
+
+    json.dump(result, f)
+    
 def load(config):
     global repo, blame_repo, tree_root, map, hg_map
 
