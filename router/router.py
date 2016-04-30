@@ -28,7 +28,7 @@ def parse_search(searchString):
         elif pieces[i].startswith('pathre:'):
             result['pathre'] = pieces[i][len('pathre:'):]
         elif pieces[i].startswith('symbol:'):
-            result['symbol'] = pieces[i][len('symbol:'):].strip().replace('.', '#')
+            result['symbol'] = ' '.join(pieces[i:])[len('symbol:'):].strip().replace('.', '#')
         elif pieces[i].startswith('re:'):
             result['re'] = (' '.join(pieces[i:]))[len('re:'):]
             break

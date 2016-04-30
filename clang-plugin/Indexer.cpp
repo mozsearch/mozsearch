@@ -296,6 +296,11 @@ private:
     }
   }
 
+  std::string MangleQualifiedName(std::string name) {
+    std::replace(name.begin(), name.end(), ' ', '_');
+    return name;
+  }
+
   std::string GetMangledName(clang::MangleContext* ctx,
                              const clang::NamedDecl* decl) {
     if (isa<FunctionDecl>(decl) || isa<VarDecl>(decl)) {
@@ -332,14 +337,14 @@ private:
         return std::string("T_") + MangleLocation(decl->getLocation());
       }
 
-      return std::string("T_") + decl->getQualifiedNameAsString();
+      return std::string("T_") + MangleQualifiedName(decl->getQualifiedNameAsString());
     } else if (isa<NamespaceDecl>(decl) || isa<NamespaceAliasDecl>(decl)) {
       if (!decl->getIdentifier()) {
         // Anonymous.
         return std::string("NS_") + MangleLocation(decl->getLocation());
       }
 
-      return std::string("NS_") + decl->getQualifiedNameAsString();
+      return std::string("NS_") + MangleQualifiedName(decl->getQualifiedNameAsString());
     } else if (const FieldDecl* d2 = dyn_cast<FieldDecl>(decl)) {
       const RecordDecl* record = d2->getParent();
       return std::string("F_<") + GetMangledName(ctx, record) + ">_" + ToString(d2->getFieldIndex());
