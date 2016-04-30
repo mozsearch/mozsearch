@@ -103,6 +103,9 @@ def show_file(f, commit, path, show_diff):
         new_lineno = 1
         old_lineno = [1]*len(parents)
         for line in lines:
+            if line.startswith('\\'):
+                continue
+
             origin = line[0:len(parents)]
             content = line[len(parents):]
 
@@ -311,3 +314,9 @@ def load(config):
         if len(pieces) > 2:
             hg_id = commit.message.split()[3]
             hg_map[orig] = hg_id
+
+if __name__ == '__main__':
+    config = json.load(open(sys.argv[1]))
+    load(config)
+    
+    show_commit(sys.stdout, sys.argv[2], sys.argv[3])
