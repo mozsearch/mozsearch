@@ -83,6 +83,10 @@ fi
 
 echo "Channel is $CHANNEL"
 
+# Install Rust.
+curl -sSf https://static.rust-lang.org/rustup.sh | sh
+
+# Install SpiderMonkey.
 wget https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/jsshell-linux-x86_64.zip
 mkdir js
 pushd js
@@ -120,6 +124,10 @@ git clone https://github.com/bill-mccloskey/mozsearch
 
 pushd mozsearch/clang-plugin
 make
+popd
+
+pushd mozsearch/crossref
+cargo build --release
 popd
 
 export AWS_ROOT=$(realpath mozsearch/aws)
