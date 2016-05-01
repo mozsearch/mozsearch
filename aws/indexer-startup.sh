@@ -135,7 +135,7 @@ pushd mozsearch/clang-plugin
 make
 popd
 
-pushd mozsearch/crossref
+pushd mozsearch/tools
 cargo build --release
 popd
 
