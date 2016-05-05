@@ -135,11 +135,11 @@ let Analyzer = {
     if (!nameValid(name)) {
       return;
     }
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
     print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: name, sym: `#${name}`}));
     if (extra) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,prop",
                             pretty: `property ${extraPretty}`, sym: extra}));
       print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: extraPretty, sym: extra}));
     }
@@ -149,11 +149,11 @@ let Analyzer = {
     if (!nameValid(name)) {
       return;
     }
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
     print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: name, sym: `#${name}`}));
     if (extra) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                             pretty: `property ${extraPretty}`, sym: extra}));
       print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: extraPretty, sym: extra}));
     }
@@ -163,11 +163,11 @@ let Analyzer = {
     if (!nameValid(name)) {
       return;
     }
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
     print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: name, sym: `#${name}`}));
     if (extra) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                             pretty: `property ${extraPretty}`, sym: extra}));
       print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: extraPretty, sym: extra}));
     }
@@ -184,7 +184,7 @@ let Analyzer = {
     let sym = new Symbol(name, loc);
     this.symbols.put(name, sym);
 
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,variable",
                           pretty: `variable ${name}`, sym: sym.id}));
     print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: name, sym: sym.id}));
   },
@@ -210,7 +210,7 @@ let Analyzer = {
     if (!sym) {
       this.useProp(name, loc);
     } else if (!sym.skip) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,variable",
                             pretty: `variable ${name}`, sym: sym.id}));
       print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: name, sym: sym.id}));
     }
@@ -224,7 +224,7 @@ let Analyzer = {
     if (!sym) {
       this.assignProp(name, loc);
     } else if (!sym.skip) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1,
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,variable",
                             pretty: `variable ${name}`, sym: sym.id}));
       print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: name, sym: sym.id}));
     }
@@ -883,6 +883,7 @@ XBLParser.prototype = {
     [line, column] = this.backup(line, column, name + "\"");
 
     print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
+                          syntax: "def,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
     print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`}));
 
@@ -903,6 +904,7 @@ XBLParser.prototype = {
       [line, column] = this.backup(line, column, name + "\"");
 
       print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
+                            syntax: "def,prop",
                             pretty: `property ${name}`, sym: `#${name}`}));
       print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`}));
     }
@@ -1010,6 +1012,7 @@ XBLParser.prototype = {
     [line, column] = this.backup(line, column, name + "\"");
 
     print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
+                          syntax: "def,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
     print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`}));
 

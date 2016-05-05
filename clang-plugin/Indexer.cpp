@@ -501,8 +501,10 @@ public:
 
     char* buf = new char[1024 + symbolList.length()];
 
-    sprintf(buf, "{\"loc\":\"%s\", \"source\":1, \"pretty\":\"%s %s\", \"sym\":\"%s\"}\n",
-            locStr2.c_str(),
+    sprintf(buf,
+            "{\"loc\":\"%s\", \"source\":1, \"syntax\": \"%s,%s\", "
+            "\"pretty\":\"%s %s\", \"sym\":\"%s\"}\n",
+            locStr2.c_str(), kind, prettyKind,
             prettyKind, prettyData ? prettyData : EscapeString(text).c_str(),
             symbolList.c_str());
     f->output.push_back(std::string(buf));

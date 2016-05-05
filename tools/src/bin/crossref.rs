@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use std::collections::BTreeMap;
 
 extern crate tools;
-use tools::{read_analysis, read_target, source_path, AnalysisKind};
+use tools::find_source_file;
+use tools::analysis::{read_analysis, read_target, AnalysisKind};
 
 extern crate rustc_serialize;
 use rustc_serialize::json::{Json, ToJson};
@@ -36,7 +37,6 @@ fn main() {
     let objdir = &args[4];
     let filenames_file = &args[5];
 
-    let analysis_root = index_root.to_string() + "/analysis";
     let output_file = index_root.to_string() + "/crossref";
     let jump_file = index_root.to_string() + "/jumps";
 
@@ -48,18 +48,20 @@ fn main() {
         let mut process_file = |path: &str| {
             print!("File {}\n", path);
 
-            let analysis_file = (analysis_root.to_string() + "/").to_string() + path;
+            let analysis_fname = format!("{}/analysis/{}", index_root, path);
+            let analysis = read_analysis(&analysis_fname, &read_target);
 
-            let analysis = read_analysis(&analysis_file, &read_target);
-
-            let source = source_path(path, tree_root, objdir);
-            let f = match File::open(source) {
+            let source_fname = find_source_file(path, tree_root, objdir);
+            let source_file = match File::open(source_fname) {
                 Ok(f) => f,
-                Err(_) => return,
+                Err(_) => {
+                    println!("Unable to open source file");
+                    return;
+                },
             };
-            let file = BufReader::new(&f);
+            let reader = BufReader::new(&source_file);
             let mut lines = Vec::new();
-            for line in file.lines() {
+            for line in reader.lines() {
                 match line {
                     Ok(l) => lines.push(l),
                     Err(_) => lines.push("".to_string()),
