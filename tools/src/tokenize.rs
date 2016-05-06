@@ -1,25 +1,6 @@
 use std::cell::Cell;
-use std::collections::HashMap;
 
-/*
- * Different things we handle generically:
- * - Whitespace
- * - Identifiers/reserved words
- * - String literals (either ' or ")
- * - Single-line comments
- * - Multi-line comments
- * - Multi-line string literals (''' in Python, ` in JS)
- * - Regular expression literals
- * - Punctuation
- *
- * Have a separate lexer for XML/HTML:
- * - HTML-style tags with attributes?
- * - CDATA
- * - Embedding JS inside an HTML-like language? Maybe I'll invoke
- *   the tokenizer recursively?
- * 
- * I'll just return the tokens as a list with position information.
- */
+use languages::LanguageSpec;
 
 #[derive(Debug)]
 pub enum TokenKind {
@@ -37,16 +18,6 @@ pub struct Token {
     pub start: usize,
     pub end: usize,
     pub kind: TokenKind,
-}
-
-pub struct LanguageSpec {
-    pub reserved_words: HashMap<String, String>,
-    pub hash_comment: bool,
-    pub c_style_comments: bool,
-    pub backtick_strings: bool,
-    pub regexp_literals: bool,
-    pub triple_quote_literals: bool,
-    pub c_preprocessor: bool,
 }
 
 pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
