@@ -1,7 +1,6 @@
 import boto3
 from datetime import datetime, timedelta
 import sys
-import os.path
 
 # Usage: provision_indexer.py [release|dev]
 
@@ -11,7 +10,7 @@ client = boto3.client('ec2')
 # 'release' or 'dev'
 channel = sys.argv[1]
 
-userData = open(os.path.join(os.path.dirname(sys.argv[0]), 'indexer-startup.sh')).read()
+userData = open('indexer-startup.sh').read()
 userData = userData.replace('#SETCHANNEL', 'CHANNEL={}'.format(channel))
 
 blockDevices = []
