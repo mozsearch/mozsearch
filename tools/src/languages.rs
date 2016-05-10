@@ -36,6 +36,7 @@ lazy_static! {
         "delete", "implements", "return", "volatile",
         "do", "import", "short", "while",
         "double", "in", "static", "with",
+        "get", "set",
     ];
 
     static ref RESERVED_WORDS_CPP : Vec<&'static str> = vec![

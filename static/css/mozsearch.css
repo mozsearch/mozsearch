@@ -136,7 +136,7 @@ td.code {
 td#line-numbers {
     padding: 0;
 }
-td#line-numbers span {
+.line-number {
     display: block;
     cursor: pointer;
     -moz-user-select: none;
@@ -147,6 +147,7 @@ td#line-numbers span {
     user-select: none;
     text-align: right;
     padding: 0 0.5rem;
+    position: relative;
 }
 .highlighted,
 .multihighlight {
@@ -237,10 +238,6 @@ mark {
 
 .file td {
     padding: 0;
-}
-.file td:first-child a {
-    display: block;
-    padding: 0 .5rem;
 }
 .file pre {
     margin: 0;
@@ -575,4 +572,39 @@ span[data-id].hovered {
     margin-left: 10%;
     margin-right: 10%;
     margin-bottom: 10%;
+}
+
+.blame-strip {
+    top: 0px;
+    width: 20px;
+    left: -20px;
+    height: 16px;
+    position: absolute;
+}
+.c1 {
+    background: lightgray;
+}
+.c2 {
+    background: darkgray;
+}
+
+.blame-popup {
+    display: inline !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 600px;
+    padding: 10px;
+    background: #404040;
+    box-shadow: 3px 3px 3px grey;
+    border-radius: 3px;
+    color: white;
+    text-align: left;
+    z-index: 100;
+    cursor: auto;
+}
+
+.blame-popup a {
+    text-decoration: underline;
+    cursor: pointer;
 }

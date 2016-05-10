@@ -10,7 +10,7 @@ crossrefs = {}
 def load(config):
     global f, mm
 
-    indexPath = config['index-path']
+    indexPath = config['mozilla-central']['index_path']
     f = open(os.path.join(indexPath, 'crossref'))
     mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
     f.close()

@@ -130,4 +130,4 @@ def search(pattern, fold_case=True, file='.*', repo='.*'):
 
 def load(config):
     global indexPath
-    indexPath = config['index-path']
+    indexPath = config['mozilla-central']['index_path']

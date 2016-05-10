@@ -301,9 +301,9 @@ def get_commit_info(f, rev):
 def load(config):
     global repo, blame_repo, tree_root, map, hg_map
 
-    tree_root = config['repo-path']
-    repo = pygit2.Repository(pygit2.discover_repository(config['repo-path']))
-    blame_repo = pygit2.Repository(pygit2.discover_repository(config['blame-repo-path']))
+    tree_root = config['mozilla-central']['repo_path']
+    repo = pygit2.Repository(pygit2.discover_repository(config['mozilla-central']['repo_path']))
+    blame_repo = pygit2.Repository(pygit2.discover_repository(config['mozilla-central']['blame_repo_path']))
 
     map = {}
     hg_map = {}

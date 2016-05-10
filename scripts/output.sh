@@ -11,7 +11,8 @@ fi
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
     parallel --halt 2 -X --eta \
-    $MOZSEARCH_ROOT/tools/target/release/output-file $TREE_ROOT $TREE_REV $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR
+	     $MOZSEARCH_ROOT/tools/target/release/output-file \
+	     $TREE_ROOT $TREE_REV $INDEX_ROOT $MOZSEARCH_ROOT $BLAME_ROOT $OBJDIR
 
 #cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
 #    parallel --halt 2 -X --eta \

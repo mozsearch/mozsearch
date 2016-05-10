@@ -292,7 +292,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 if len(sys.argv) > 1:
     config_fname = sys.argv[1]
 else:
-    config_fname = 'router-config.json'
+    config_fname = 'config.json'
 
 config = json.load(open(config_fname))
 

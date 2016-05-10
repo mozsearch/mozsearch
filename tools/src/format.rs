@@ -1,16 +1,23 @@
+use std::io::{self, Write};
 use std::collections::HashMap;
+use std::path::Path;
 
+use analysis;
 use tokenize;
+use languages;
 use languages::FormatAs;
 
 use analysis::{WithLocation, AnalysisSource, Jump};
+use output::{F, Options, generate_formatted, generate_breadcrumbs, generate_header, generate_footer};
 
-extern crate rustc_serialize;
-use self::rustc_serialize::json;
-use self::rustc_serialize::json::Json;
+use rustc_serialize::json::{self, Json};
+use git2;
 
-pub fn format_text(jumps: &HashMap<String, Jump>, format: FormatAs,
-                   path: &str, input: &String, analysis: &Vec<WithLocation<Vec<AnalysisSource>>>) -> (String, u64, String)
+use config;
+
+pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
+                   path: &str, input: &String,
+                   analysis: &Vec<WithLocation<Vec<AnalysisSource>>>) -> (String, u64, String)
 {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
@@ -185,4 +192,163 @@ pub fn format_text(jumps: &HashMap<String, Jump>, format: FormatAs,
 
     let output = output.replace("\r", "\u{240D}"); // U+240D = CR symbol.
     (output, cur_line, json::encode(&Json::Array(generated_json)).unwrap())
+}
+
+fn read_blob_entry(repo: &git2::Repository, entry: &git2::TreeEntry) -> String {
+    let blob_obj = entry.to_object(repo).unwrap();
+    let blob = blob_obj.as_blob().unwrap();
+    let mut content = Vec::new();
+    content.extend(blob.content());
+    let data = String::from_utf8(content).unwrap();
+    data
+}
+
+pub fn format_path(cfg: &config::Config,
+                   tree_name: &str,
+                   rev: &str,
+                   path: &str,
+                   writer: &mut Write) -> Result<(), &'static str> {
+    let format = languages::select_formatting(path);
+    match format {
+        FormatAs::Binary => {
+            write!(writer, "Binary file").unwrap();
+            return Ok(());
+        },
+        _ => {},
+    };
+
+    // Get the file data.
+    let tree_config = cfg.trees.get(tree_name).unwrap();
+    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+    let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
+    let commit_tree = try!(commit.tree().map_err(|_| "Bad revision"));
+    let entry = try!(commit_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
+
+    match entry.kind() {
+        Some(git2::ObjectType::Blob) => {},
+        _ => return Err("Invalid path; expected file"),
+    }
+
+    if entry.filemode() == 120000 {
+        return Err("Path is to a symlink");
+    }
+
+    let data = read_blob_entry(&tree_config.repo, &entry);
+
+    // Get the blame.
+    let blame_oid = try!(tree_config.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
+    let blame_commit = try!(tree_config.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
+    let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
+    let blame_entry = try!(blame_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
+
+    let blame = read_blob_entry(&tree_config.blame_repo, &blame_entry);
+    let blame_lines = blame.lines().collect::<Vec<_>>();
+
+    let jumps : HashMap<String, analysis::Jump> = HashMap::new();
+    let analysis = Vec::new();
+    let (output, num_lines, _) = format_code(&jumps, format, path, &data, &analysis);
+
+    let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
+    let title = format!("{} - mozsearch", filename);
+    let opt = Options {
+        title: &title,
+        tree_name: tree_name,
+        include_date: true,
+    };
+
+    try!(generate_header(&opt, writer));
+
+    generate_breadcrumbs(&opt, writer, path).unwrap();
+
+    let f = F::Seq(vec![
+        F::S("<table id=\"file\" class=\"file\">"),
+        F::Indent(vec![
+            F::S("<thead class=\"visually-hidden\">"),
+            F::Indent(vec![
+                F::S("<th scope=\"col\">Line</th>"),
+                F::S("<th scope=\"col\">Code</th>"),
+            ]),
+            F::S("</thead>"),
+
+            F::S("<tbody>"),
+            F::Indent(vec![
+                F::S("<tr>"),
+                F::Indent(vec![
+                    F::S("<td id=\"line-numbers\">"),
+                ]),
+            ]),
+        ]),
+    ]);
+
+    generate_formatted(writer, &f, 0).unwrap();
+
+    let mut last_rev = None;
+    let mut last_color = false;
+    let mut strip_id = 0;
+    for i in 0 .. num_lines-1 {
+        let lineno = i + 1;
+
+        let blame_line = blame_lines[i as usize];
+        let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
+        let rev = pieces[0];
+        let filespec = pieces[1];
+        let blame_lineno = pieces[2];
+        let filename = if filespec == "%" { &path[..] } else { filespec };
+
+        let color = if last_rev == Some(rev) { last_color } else { !last_color };
+        if color != last_color {
+            strip_id += 1;
+        }
+        last_rev = Some(rev);
+        last_color = color;
+        let class = if color { 1 } else { 2 };
+        let link = format!("/mozilla-central/commit/{}/{}#{}", rev, filename, blame_lineno);
+        let blame_data = format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
+                                 class, rev, link, strip_id);
+
+        let f = F::Seq(vec![
+            F::T(format!("<span id=\"{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)),
+            F::T(format!("<div{}></div>", blame_data)),
+            F::S("</span>")
+        ]);
+
+        generate_formatted(writer, &f, 0).unwrap();
+    }
+
+    let f = F::Seq(vec![
+        F::Indent(vec![
+            F::Indent(vec![
+                F::Indent(vec![
+                    F::S("</td>"),
+                    F::S("<td class=\"code\">"),
+                ]),
+            ]),
+        ]),
+    ]);
+    generate_formatted(writer, &f, 0).unwrap();
+    
+    write!(writer, "<pre>").unwrap();
+    write!(writer, "{}", output).unwrap();
+    write!(writer, "</pre>").unwrap();
+
+    let f = F::Seq(vec![
+        F::Indent(vec![
+            F::Indent(vec![
+                F::Indent(vec![
+                    F::S("</td>"),
+                ]),
+                F::S("</tr>"),
+            ]),
+            F::S("</tbody>"),
+        ]),
+        F::S("</table>"),
+    ]);
+    generate_formatted(writer, &f, 0).unwrap();
+
+    let analysis_json = "[]";
+    write!(writer, "<script>var ANALYSIS_DATA = {};</script>\n", analysis_json).unwrap();
+
+    generate_footer(&opt, writer).unwrap();
+    
+    Ok(())
 }

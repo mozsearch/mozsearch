@@ -29,7 +29,7 @@ pub fn file_url(opt: &Options, path: &str) -> String {
     format!("/{}/source/{}", opt.tree_name, path)
 }
 
-pub fn generate_breadcrumbs(opt: &Options, writer: &mut Write, path: &str) -> io::Result<()>
+pub fn generate_breadcrumbs(opt: &Options, writer: &mut Write, path: &str) -> Result<(), &'static str>
 {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
@@ -41,7 +41,7 @@ pub fn generate_breadcrumbs(opt: &Options, writer: &mut Write, path: &str) -> io
         path_so_far.push('/');
     }
 
-    try!(write!(*writer, "<div class=\"breadcrumbs\">{}</div>\n", breadcrumbs));
+    try!(write!(*writer, "<div class=\"breadcrumbs\">{}</div>\n", breadcrumbs).map_err(|_| "Write err"));
 
     Ok(())
 }
@@ -53,7 +53,7 @@ pub enum F {
     S(&'static str),
 }
 
-pub fn generate_formatted(writer: &mut Write, formatted: &F, indent: u32) -> io::Result<()>
+pub fn generate_formatted(writer: &mut Write, formatted: &F, indent: u32) -> Result<(), &'static str>
 {
     match *formatted {
         F::Indent(ref seq) => {
@@ -70,22 +70,22 @@ pub fn generate_formatted(writer: &mut Write, formatted: &F, indent: u32) -> io:
         },
         F::T(ref text) => {
             for _ in 0 .. indent {
-                try!(write!(writer, "  "));
+                try!(write!(writer, "  ").map_err(|_| "Write err"));
             }
-            try!(write!(writer, "{}\n", text));
+            try!(write!(writer, "{}\n", text).map_err(|_| "Write err"));
             Ok(())
         },
         F::S(text) => {
             for _ in 0 .. indent {
-                try!(write!(writer, "  "));
+                try!(write!(writer, "  ").map_err(|_| "Write err"));
             }
-            try!(write!(writer, "{}\n", text));
+            try!(write!(writer, "{}\n", text).map_err(|_| "Write err"));
             Ok(())
         },
     }
 }
 
-pub fn generate_header(opt: &Options, writer: &mut Write) -> io::Result<()>
+pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static str>
 {
     let css = [
         "mozsearch.css",
@@ -187,7 +187,7 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> io::Result<()>
     Ok(())
 }
 
-pub fn generate_footer(opt: &Options, writer: &mut Write) -> io::Result<()>
+pub fn generate_footer(opt: &Options, writer: &mut Write) -> Result<(), &'static str>
 {
     let mut date = F::Seq(vec![]);
     if opt.include_date {
@@ -213,6 +213,7 @@ pub fn generate_footer(opt: &Options, writer: &mut Write) -> io::Result<()>
         "filter.js",
         "panel.js",
         "code-highlighter.js",
+        "blame.js",
     ];
     let script_tags: Vec<_> =
         scripts.iter().map(|s| F::T(format!("<script src=\"/static/js/{}\"></script>", s))).collect();
