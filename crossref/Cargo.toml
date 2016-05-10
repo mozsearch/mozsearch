@@ -1,5 +1,5 @@
 [package]
-name = "tools"
+name = "crossref"
 version = "0.1.0"
 authors = ["Bill McCloskey <billm@mozilla.com>"]
 
