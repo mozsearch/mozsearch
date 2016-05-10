@@ -122,13 +122,7 @@ LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" $VENV
 
 git clone https://github.com/bill-mccloskey/mozsearch
 pushd mozsearch
-if [ $CHANNEL = "release" ]
-then
-  MOZSEARCH_REV=1a5754de6630bbfce1447c5d2b3defe4e5c785df
-else
-  MOZSEARCH_REV=c2fb81989e456b7a58d64cf9429b65d0671a2361
-fi
-git checkout -b working $MOZSEARCH_REV
+git checkout -b working $(cat revs/$CHANNEL)
 popd
 
 pushd mozsearch/clang-plugin
