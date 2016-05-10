@@ -116,7 +116,13 @@ make install
 popd
 LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" $VENV/bin/pip install pygit2
 
-git clone https://github.com/bill-mccloskey/mozsearch
+BRANCH=master
+if [ $CHANNEL != release ]
+then
+    BRANCH=$CHANNEL
+fi
+
+git clone -b $BRANCH https://github.com/bill-mccloskey/mozsearch
 
 pushd mozsearch/clang-plugin
 make
