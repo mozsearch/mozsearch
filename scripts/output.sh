@@ -11,11 +11,7 @@ fi
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
     parallel --halt 2 -X --eta \
-    $MOZSEARCH_ROOT/tools/target/release/output-file $TREE_ROOT $TREE_REV $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR
-
-#cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
-#    parallel --halt 2 -X --eta \
-#    $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT $TREE_REV $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR
+    $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT $TREE_REV $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" > /tmp/dirs
 $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR /tmp/dirs
