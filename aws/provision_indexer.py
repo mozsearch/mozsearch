@@ -1,7 +1,6 @@
 import boto3
 from datetime import datetime, timedelta
 import sys
-import subprocess
 import os.path
 
 # Usage: provision_indexer.py [release|dev]
@@ -12,10 +11,7 @@ client = boto3.client('ec2')
 # 'release' or 'dev'
 channel = sys.argv[1]
 
-rev = open(os.path.join(os.path.dirname(sys.argv[0]), '..', 'revs', channel)).read().strip()
-print 'Channel %s is rev %s' % (channel, rev)
-userData = subprocess.check_output(['git', 'show', rev + ':aws/indexer-startup.sh'],
-                                   cwd=os.path.dirname(sys.argv[0]))
+userData = open(os.path.join(os.path.dirname(sys.argv[0]), 'indexer-startup.sh')).read()
 userData = userData.replace('#SETCHANNEL', 'CHANNEL={}'.format(channel))
 
 blockDevices = []
