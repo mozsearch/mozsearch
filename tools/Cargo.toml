@@ -6,5 +6,3 @@ authors = ["Bill McCloskey <billm@mozilla.com>"]
 [dependencies]
 chrono = "0.2"
 rustc-serialize = "0.3.18"
-git2 = { path = "./git2-rs" }
-lazy_static = "0.2.1"

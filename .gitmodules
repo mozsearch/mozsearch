@@ -1,3 +1,0 @@
-[submodule "tools/git2-rs"]
-	path = tools/git2-rs
-	url = https://github.com/alexcrichton/git2-rs
