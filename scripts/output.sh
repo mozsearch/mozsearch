@@ -3,7 +3,10 @@
 set -e # Errors are fatal
 set -x # Show commands
 
-FILTER=$1
+CONFIG_FILE=$1
+TREE_NAME=$2
+
+FILTER=$3
 if [ "x${FILTER}" = "x" ]
 then
   FILTER=".*"
@@ -11,12 +14,7 @@ fi
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
     parallel --files --halt 2 -X --eta \
-	     $MOZSEARCH_ROOT/tools/target/release/output-file \
-	     $TREE_ROOT $TREE_REV $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR $BLAME_ROOT
-
-#cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
-#    parallel --halt 2 -X --eta \
-#    $JS $MOZSEARCH_ROOT/output-file.js $TREE_ROOT $TREE_REV $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR
+	     $MOZSEARCH_ROOT/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" > /tmp/dirs
 $JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR /tmp/dirs

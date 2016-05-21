@@ -13,28 +13,26 @@ use tools::analysis::{read_analysis, read_source, read_jumps};
 use tools::languages;
 use tools::languages::FormatAs;
 use tools::format::format_code;
+use tools::config;
 
 use tools::output::{F, Options, generate_formatted, generate_breadcrumbs, generate_header, generate_footer};
 
-extern crate git2;
-use git2::Repository;
-
 fn main() {
     let args: Vec<_> = env::args().collect();
-    let (base_args, fname_args) = args.split_at(7);
+    let (base_args, fname_args) = args.split_at(3);
 
-    let tree_root = &base_args[1];
-    //let tree_rev = &base_args[2];
-    let index_root = &base_args[3];
-    //let mozsearch_root = &base_args[4];
-    let objdir = &base_args[5];
-    let blame_root = &base_args[6];
+    let cfg = config::load(&base_args[1], false);
+    println!("Config file read");
 
-    let jumps_fname = index_root.to_string() + "/jumps";
-    let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
-    //let jumps = read_jumps(&jumps_fname);
+    let tree_name = &base_args[2];
+    let tree_config = cfg.trees.get(tree_name).unwrap();
 
-    let blame_repo = Repository::open(blame_root).unwrap();
+    let jumps_fname = format!("{}/jumps", tree_config.paths.index_path);
+    //let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
+    let jumps = read_jumps(&jumps_fname);
+    println!("Jumps read");
+
+    let blame_repo = &tree_config.blame_repo;
 
     let head_oid = blame_repo.refname_to_id("HEAD").unwrap();
     let head_commit = blame_repo.find_commit(head_oid).unwrap();
@@ -43,11 +41,11 @@ fn main() {
     for path in fname_args {
         println!("File {}", path);
 
-        let output_fname = format!("{}/file/{}", index_root, path);
+        let output_fname = format!("{}/file/{}", tree_config.paths.index_path, path);
         let output_file = File::create(output_fname).unwrap();
         let mut writer = BufWriter::new(output_file);
 
-        let source_fname = find_source_file(path, tree_root, objdir);
+        let source_fname = find_source_file(path, &tree_config.paths.repo_path, &tree_config.paths.objdir_path);
         let source_file = match File::open(source_fname.clone()) {
             Ok(f) => f,
             Err(_) => {
@@ -91,7 +89,7 @@ fn main() {
             None
         };
 
-        let analysis_fname = format!("{}/analysis/{}", index_root, path);
+        let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &read_source);
 
         let mut reader = BufReader::new(&source_file);

@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 extern crate tools;
 use tools::find_source_file;
 use tools::analysis::{read_analysis, read_target, AnalysisKind};
+use tools::config;
 
 extern crate rustc_serialize;
 use rustc_serialize::json::{Json, ToJson};
@@ -31,14 +32,15 @@ impl ToJson for SearchResult {
 fn main() {
     let args: Vec<_> = env::args().collect();
 
-    let tree_root = &args[1];
-    let index_root = &args[2];
-    //let mozsearch_root = &args[3];
-    let objdir = &args[4];
-    let filenames_file = &args[5];
+    let cfg = config::load(&args[1], false);
 
-    let output_file = index_root.to_string() + "/crossref";
-    let jump_file = index_root.to_string() + "/jumps";
+    let tree_name = &args[2];
+    let tree_config = cfg.trees.get(tree_name).unwrap();
+
+    let filenames_file = &args[3];
+    
+    let output_file = format!("{}/crossref", tree_config.paths.index_path);
+    let jump_file = format!("{}/jumps", tree_config.paths.index_path);
 
     let mut table = HashMap::new();
     let mut pretty_table = HashMap::new();
@@ -48,10 +50,10 @@ fn main() {
         let mut process_file = |path: &str| {
             print!("File {}\n", path);
 
-            let analysis_fname = format!("{}/analysis/{}", index_root, path);
+            let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
             let analysis = read_analysis(&analysis_fname, &read_target);
 
-            let source_fname = find_source_file(path, tree_root, objdir);
+            let source_fname = find_source_file(path, &tree_config.paths.repo_path, &tree_config.paths.objdir_path);
             let source_file = match File::open(source_fname) {
                 Ok(f) => f,
                 Err(_) => {

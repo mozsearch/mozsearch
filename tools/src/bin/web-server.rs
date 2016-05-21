@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
 use std::path::Path;
+use std::env;
 
 use hyper::status::StatusCode;
 use hyper::method::Method;
@@ -163,7 +164,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
 }
 
 fn main_thread(tx: mpsc::Sender<WebResponse>, rx: mpsc::Receiver<WebRequest>) {
-    let cfg = config::load();
+    let cfg = config::load(&env::args().nth(1).unwrap(), true);
 
     loop {
         let req = rx.recv().unwrap();

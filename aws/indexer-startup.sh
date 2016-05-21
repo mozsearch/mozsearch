@@ -140,6 +140,10 @@ then
 fi
 
 git clone -b $BRANCH https://github.com/bill-mccloskey/mozsearch
+pushd mozsearch
+git submodule init
+git submodule update
+popd
 
 pushd mozsearch/clang-plugin
 make
@@ -195,11 +199,24 @@ export OBJDIR=$INDEX_TMP/objdir
 export INDEX_ROOT=/index
 export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
 
+cat >$INDEX_TMP/config.json <<OTHEREND
+{
+  "mozsearch_path": "$MOZSEARCH_ROOT",
+
+  "mozilla-central": {
+    "index_path": "$INDEX_ROOT",
+    "repo_path": "$TREE_ROOT",
+    "blame_repo_path": "$BLAME_ROOT",
+    "objdir_path": "$OBJDIR"
+  }
+}
+OTHEREND
+
 $INDEX_TMP/mozsearch/update-repos
 
 date
 
-$INDEX_TMP/mozsearch/mkindex
+$INDEX_TMP/mozsearch/mkindex $INDEX_TMP/config.json mozilla-central
 
 date
 echo "Indexing complete"

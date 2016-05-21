@@ -14,6 +14,7 @@ pub struct TreeConfigPaths {
     pub index_path: String,
     pub repo_path: String,
     pub blame_repo_path: String,
+    pub objdir_path: String,
 }
 
 pub struct TreeConfig {
@@ -27,7 +28,6 @@ pub struct TreeConfig {
 
 pub struct Config {
     pub trees: BTreeMap<String, TreeConfig>,
-    pub objdir: String,
     pub mozsearch_path: String,
 }
 
@@ -56,17 +56,14 @@ fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid
     (blame_map, hg_map)
 }
 
-pub fn load() -> Config {
-    let config_file = File::open("config.json").unwrap();
+pub fn load(config_path: &str, need_indexes: bool) -> Config {
+    let config_file = File::open(config_path).unwrap();
     let mut reader = BufReader::new(&config_file);
     let mut input = String::new();
     reader.read_to_string(&mut input).unwrap();
     let config = Json::from_str(&input).unwrap();
 
     let mut obj = config.as_object().unwrap().clone();
-
-    let objdir_json = obj.remove("objdir").unwrap();
-    let objdir = objdir_json.as_string().unwrap();
 
     let mozsearch_json = obj.remove("mozsearch_path").unwrap();
     let mozsearch = mozsearch_json.as_string().unwrap();
@@ -79,7 +76,11 @@ pub fn load() -> Config {
         let repo = Repository::open(&paths.repo_path).unwrap();
         let blame_repo = Repository::open(&paths.blame_repo_path).unwrap();
 
-        let (blame_map, hg_map) = index_blame(&repo, &blame_repo);
+        let (blame_map, hg_map) = if need_indexes {
+            index_blame(&repo, &blame_repo)
+        } else {
+            (HashMap::new(), HashMap::new())
+        };
 
         trees.insert(tree_name, TreeConfig {
             paths: paths,
@@ -91,5 +92,5 @@ pub fn load() -> Config {
         });
     }
 
-    Config { trees: trees, objdir: objdir.to_owned(), mozsearch_path: mozsearch.to_owned() }
+    Config { trees: trees, mozsearch_path: mozsearch.to_owned() }
 }

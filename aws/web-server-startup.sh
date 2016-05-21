@@ -143,6 +143,10 @@ then
 fi
 
 git clone -b $BRANCH https://github.com/bill-mccloskey/mozsearch
+pushd mozsearch
+git submodule init
+git submodule update
+popd
 
 pushd mozsearch/tools
 cargo build --release
@@ -154,19 +158,24 @@ ln -s $HOME/index/file docroot/file/mozilla-central/source
 ln -s $HOME/index/dir docroot/dir/mozilla-central/source
 ln -s $HOME/index/help.html docroot
 
-cat >router-config.json <<OTHEREND
+cat >$HOME/config.json <<OTHEREND
 {
-  "moz-search-path": "$HOME/mozsearch",
-  "index-path": "$HOME/index",
-  "repo-path": "$HOME/index/gecko-dev",
-  "blame-repo-path": "$HOME/index/gecko-blame"
+  "mozsearch_path": "$HOME/mozsearch",
+
+  "mozilla-central": {
+    "index_path": "$HOME/index",
+    "repo_path": "$HOME/index/gecko-dev",
+    "blame_repo_path": "$HOME/index/gecko-blame",
+    "objdir_path": ""
+  }
 }
 OTHEREND
 
 cd mozsearch
-nohup $VENV/bin/python router/router.py $HOME/router-config.json > $HOME/router.log 2> $HOME/router.err < /dev/null &
 
-nohup tools/target/release/web-server > $HOME/rust-server.log 2> $HOME/rust-server.err < /dev/null &
+nohup $VENV/bin/python router/router.py $HOME/config.json > $HOME/router.log 2> $HOME/router.err < /dev/null &
+
+nohup tools/target/release/web-server $HOME/config.json > $HOME/rust-server.log 2> $HOME/rust-server.err < /dev/null &
 
 THEEND
 

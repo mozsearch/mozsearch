@@ -3,6 +3,9 @@
 set -e # Errors are fatal
 set -x # Show commands
 
+CONFIG_FILE=$1
+TREE_NAME=$2
+
 date
 
 $MOZSEARCH_ROOT/scripts/find-repo-files.py
@@ -39,10 +42,10 @@ $MOZSEARCH_ROOT/scripts/idl-analyze.sh
 
 date
 
-$MOZSEARCH_ROOT/scripts/crossref.sh
+$MOZSEARCH_ROOT/scripts/crossref.sh $CONFIG_FILE $TREE_NAME
 
 date
 
-$MOZSEARCH_ROOT/scripts/output.sh
+$MOZSEARCH_ROOT/scripts/output.sh $CONFIG_FILE $TREE_NAME
 
 date
