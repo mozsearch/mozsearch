@@ -2,6 +2,8 @@
 extern crate lazy_static;
 extern crate rustc_serialize;
 extern crate git2;
+extern crate regex;
+extern crate chrono;
 
 pub mod analysis;
 pub mod config;

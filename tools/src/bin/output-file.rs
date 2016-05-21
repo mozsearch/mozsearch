@@ -34,7 +34,6 @@ fn main() {
     let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
     //let jumps = read_jumps(&jumps_fname);
 
-    let tree_repo = Repository::open(tree_root).unwrap();
     let blame_repo = Repository::open(blame_root).unwrap();
 
     let head_oid = blame_repo.refname_to_id("HEAD").unwrap();
@@ -105,7 +104,7 @@ fn main() {
             }
         }
 
-        let (output, num_lines, analysis_json) = format_code(&jumps, format, path, &input, &analysis);
+        let (output_lines, analysis_json) = format_code(&jumps, format, path, &input, &analysis);
 
         let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
         let title = format!("{} - mozsearch", filename);
@@ -144,7 +143,7 @@ fn main() {
         let mut last_rev = None;
         let mut last_color = false;
         let mut strip_id = 0;
-        for i in 0 .. num_lines-1 {
+        for i in 0 .. output_lines.len() {
             let lineno = i + 1;
 
             let blame_data = if let Some(ref lines) = blame_lines {
@@ -193,7 +192,10 @@ fn main() {
         generate_formatted(&mut writer, &f, 0).unwrap();
         
         write!(writer, "<pre>").unwrap();
-        write!(writer, "{}", output).unwrap();
+        for (i, line) in output_lines.iter().enumerate() {
+            write!(writer, "<code id=\"line-{}\" aria-labelledby=\"{}\">{}\n</code>",
+                   i + 1, i + 1, line).unwrap();
+        }
         write!(writer, "</pre>").unwrap();
 
         let f = F::Seq(vec![

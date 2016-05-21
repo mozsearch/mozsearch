@@ -184,7 +184,7 @@ let Analyzer = {
     let sym = new Symbol(name, loc);
     this.symbols.put(name, sym);
 
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,variable",
+    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "deflocal,variable",
                           pretty: `variable ${name}`, sym: sym.id}));
     print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: name, sym: sym.id}));
   },
@@ -210,7 +210,7 @@ let Analyzer = {
     if (!sym) {
       this.useProp(name, loc);
     } else if (!sym.skip) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,variable",
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "uselocal,variable",
                             pretty: `variable ${name}`, sym: sym.id}));
       print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: name, sym: sym.id}));
     }
@@ -224,7 +224,7 @@ let Analyzer = {
     if (!sym) {
       this.assignProp(name, loc);
     } else if (!sym.skip) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,variable",
+      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "uselocal,variable",
                             pretty: `variable ${name}`, sym: sym.id}));
       print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: name, sym: sym.id}));
     }

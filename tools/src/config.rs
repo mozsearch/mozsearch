@@ -28,9 +28,10 @@ pub struct TreeConfig {
 pub struct Config {
     pub trees: BTreeMap<String, TreeConfig>,
     pub objdir: String,
+    pub mozsearch_path: String,
 }
 
-fn index_blame(repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
+fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
     let mut walk = blame_repo.revwalk().unwrap();
     walk.push_head().unwrap();
 
@@ -66,6 +67,9 @@ pub fn load() -> Config {
 
     let objdir_json = obj.remove("objdir").unwrap();
     let objdir = objdir_json.as_string().unwrap();
+
+    let mozsearch_json = obj.remove("mozsearch_path").unwrap();
+    let mozsearch = mozsearch_json.as_string().unwrap();
     
     let mut trees = BTreeMap::new();
     for (tree_name, tree_config) in obj {
@@ -87,5 +91,5 @@ pub fn load() -> Config {
         });
     }
 
-    Config { trees: trees, objdir: objdir.to_owned() }
+    Config { trees: trees, objdir: objdir.to_owned(), mozsearch_path: mozsearch.to_owned() }
 }

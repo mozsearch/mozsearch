@@ -1,3 +1,0 @@
-~/Downloads/livegrep/bin/codesearch livegrep-index.json -load_index temp-index/livegrep.idx -max_matches 1000 -listen tcp://localhost:8080
-
-python router/router.py . temp-index/

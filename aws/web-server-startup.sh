@@ -48,15 +48,15 @@ server {
   }
 
   location /mozilla-central/commit {
-    proxy_pass http://localhost:8000;
+    proxy_pass http://localhost:8001;
   }
 
   location /mozilla-central/rev {
-    proxy_pass http://localhost:8000;
+    proxy_pass http://localhost:8001;
   }
 
   location /mozilla-central/commit-info {
-    proxy_pass http://localhost:8000;
+    proxy_pass http://localhost:8001;
   }
 
   location = / {
@@ -97,6 +97,17 @@ cd $HOME
 
 exec &> $HOME/web-server-log
 
+#SETCHANNEL
+if [ "x$CHANNEL" = "x" ]
+then
+    CHANNEL=release
+fi
+
+echo "Channel is $CHANNEL"
+
+# Install Rust.
+curl -sSf https://static.rust-lang.org/rustup.sh | sh
+
 wget https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/jsshell-linux-x86_64.zip
 mkdir js
 pushd js
@@ -125,7 +136,17 @@ make
 popd
 export CODESEARCH=$HOME/livegrep/bin/codesearch
 
-git clone https://github.com/bill-mccloskey/mozsearch
+BRANCH=master
+if [ $CHANNEL != release ]
+then
+    BRANCH=$CHANNEL
+fi
+
+git clone -b $BRANCH https://github.com/bill-mccloskey/mozsearch
+
+pushd mozsearch/tools
+cargo build --release
+popd
 
 mkdir -p docroot/file/mozilla-central
 mkdir -p docroot/dir/mozilla-central
@@ -144,6 +165,9 @@ OTHEREND
 
 cd mozsearch
 nohup $VENV/bin/python router/router.py $HOME/router-config.json > $HOME/router.log 2> $HOME/router.err < /dev/null &
+
+nohup tools/target/release/web-server > $HOME/rust-server.log 2> $HOME/rust-server.err < /dev/null &
+
 THEEND
 
 chmod +x ~ubuntu/web-server

@@ -296,8 +296,8 @@ else:
 
 config = json.load(open(config_fname))
 
-mozSearchPath = config['moz-search-path']
-indexPath = config['index-path']
+mozSearchPath = config['mozsearch_path']
+indexPath = config['mozilla-central']['index_path']
 
 crossrefs.load(config)
 codesearch.load(config)

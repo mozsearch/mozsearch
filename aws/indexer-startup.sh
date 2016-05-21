@@ -24,6 +24,8 @@ log_group_name = /home/ubuntu/index-log
 log_stream_name = {instance_id}
 THEEND
 
+date
+
 wget https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
 chmod +x ./awslogs-agent-setup.py
 ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
@@ -51,6 +53,7 @@ update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.6 360
 update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.6 360
 
 echo "Finished installation"
+date
 
 mkdir /mnt/index-tmp
 chown ubuntu.ubuntu /mnt/index-tmp
@@ -62,6 +65,8 @@ set -e
 set -x
 
 exec &> ~ubuntu/index-log
+
+date
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
@@ -96,13 +101,19 @@ popd
 export LD_LIBRARY_PATH=$INDEX_TMP/js
 export JS=$INDEX_TMP/js/js
 
+date
+
 hg clone https://hg.mozilla.org/mozilla-central
+
+date
 
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
 make
 popd
 export CODESEARCH=$INDEX_TMP/livegrep/bin/codesearch
+
+date
 
 virtualenv env
 VENV=$(realpath env)
@@ -120,24 +131,27 @@ make install
 popd
 LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" $VENV/bin/pip install pygit2
 
-git clone https://github.com/bill-mccloskey/mozsearch
-pushd mozsearch
-if [ $CHANNEL = "release" ]
+date
+
+BRANCH=master
+if [ $CHANNEL != release ]
 then
-  MOZSEARCH_REV=1a5754de6630bbfce1447c5d2b3defe4e5c785df
-else
-  MOZSEARCH_REV=c2fb81989e456b7a58d64cf9429b65d0671a2361
+    BRANCH=$CHANNEL
 fi
-git checkout -b working $MOZSEARCH_REV
-popd
+
+git clone -b $BRANCH https://github.com/bill-mccloskey/mozsearch
 
 pushd mozsearch/clang-plugin
 make
 popd
 
+date
+
 pushd mozsearch/tools
 cargo build --release
 popd
+
+date
 
 export AWS_ROOT=$(realpath mozsearch/aws)
 VOLUME_ID=$($VENV/bin/python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
@@ -158,13 +172,19 @@ sudo mkdir /index
 sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
+date
+
 pushd /index
 git clone https://github.com/mozilla/gecko-dev
+
+date
 
 wget https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
 tar xf gecko-blame.tar
 rm gecko-blame.tar
 popd
+
+date
 
 export VENV
 export HG_ROOT=$INDEX_TMP/mozilla-central
@@ -176,6 +196,8 @@ export INDEX_ROOT=/index
 export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
 
 $INDEX_TMP/mozsearch/update-repos
+
+date
 
 $INDEX_TMP/mozsearch/mkindex
 

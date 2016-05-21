@@ -151,7 +151,7 @@ td#line-numbers {
 }
 .highlighted,
 .multihighlight {
-    background: none repeat scroll 0 0 rgb(255, 255, 204);
+    background: none repeat scroll 0 0 rgb(255, 255, 204) !important;
 }
 td.code {
     display: block;
@@ -607,4 +607,12 @@ span[data-id].hovered {
 .blame-popup a {
     text-decoration: underline;
     cursor: pointer;
+}
+
+.minus-line {
+    background-color: rgb(255, 204, 204);
+}
+
+.plus-line {
+    background-color: rgb(153, 204, 255);
 }
