@@ -42,7 +42,9 @@ $(function () {
 
     function generateLines(selected, lines) {
       for (var i = 0; i < selected.length; i++) {
-        lines.push(parseInt(selected[i].id, 10));
+        if (selected[i].id) {
+          lines.push(parseInt(selected[i].id, 10));
+        }
       }
       return lines;
     }

@@ -10,12 +10,10 @@ use std::path::Path;
 extern crate tools;
 use tools::find_source_file;
 use tools::analysis::{read_analysis, read_source, read_jumps};
-use tools::languages;
-use tools::languages::FormatAs;
-use tools::format::format_code;
+use tools::format::format_file_data;
 use tools::config;
 
-use tools::output::{F, Options, generate_formatted, generate_breadcrumbs, generate_header, generate_footer};
+use tools::output::{PanelItem, PanelSection};
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -32,11 +30,12 @@ fn main() {
     let jumps = read_jumps(&jumps_fname);
     println!("Jumps read");
 
-    let blame_repo = &tree_config.blame_repo;
+    let repo = &tree_config.repo;
+    let head_oid = repo.refname_to_id("HEAD").unwrap();
 
-    let head_oid = blame_repo.refname_to_id("HEAD").unwrap();
-    let head_commit = blame_repo.find_commit(head_oid).unwrap();
-    let head_tree = head_commit.tree().unwrap();
+    let blame_repo = &tree_config.blame_repo;
+    let blame_oid = blame_repo.refname_to_id("HEAD").unwrap();
+    let blame_commit = blame_repo.find_commit(blame_oid).unwrap();
 
     for path in fname_args {
         println!("File {}", path);
@@ -62,33 +61,6 @@ fn main() {
             continue;
         }
 
-        let format = languages::select_formatting(path);
-        match format {
-            FormatAs::Binary => {
-                write!(writer, "Binary file").unwrap();
-                continue;
-            },
-            _ => {},
-        };
-
-        let blame_data = match head_tree.get_path(Path::new(path)) {
-            Ok(tree) => {
-                let blame_obj = tree.to_object(&blame_repo).unwrap();
-                let blame_blob = blame_obj.as_blob().unwrap();
-                let mut content = Vec::new();
-                content.extend(blame_blob.content());
-                let blame_data = String::from_utf8(content).unwrap();
-                Some(blame_data)
-            },
-
-            Err(_) => None,
-        };
-        let blame_lines = if let Some(ref data) = blame_data {
-            Some(data.split('\n').collect::<Vec<_>>())
-        } else {
-            None
-        };
-
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &read_source);
 
@@ -102,116 +74,28 @@ fn main() {
             }
         }
 
-        let (output_lines, analysis_json) = format_code(&jumps, format, path, &input, &analysis);
+        let panel = vec![PanelSection {
+            name: "Revision control".to_owned(),
+            items: vec![PanelItem {
+                title: "Permalink".to_owned(),
+                link: format!("/mozilla-central/rev/{}/{}", head_oid, path),
+            }, PanelItem {
+                title: "Log".to_owned(),
+                link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+            }, PanelItem {
+                title: "Blame".to_owned(),
+                link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+            }],
+        }];
 
-        let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
-        let title = format!("{} - mozsearch", filename);
-        let opt = Options {
-            title: &title,
-            tree_name: "mozilla-central",
-            include_date: true,
-        };
-
-        generate_header(&opt, &mut writer).unwrap();
-
-        generate_breadcrumbs(&opt, &mut writer, path).unwrap();
-
-        let f = F::Seq(vec![
-            F::S("<table id=\"file\" class=\"file\">"),
-            F::Indent(vec![
-                F::S("<thead class=\"visually-hidden\">"),
-                F::Indent(vec![
-                    F::S("<th scope=\"col\">Line</th>"),
-                    F::S("<th scope=\"col\">Code</th>"),
-                ]),
-                F::S("</thead>"),
-
-                F::S("<tbody>"),
-                F::Indent(vec![
-                    F::S("<tr>"),
-                    F::Indent(vec![
-                        F::S("<td id=\"line-numbers\">"),
-                    ]),
-                ]),
-            ]),
-        ]);
-
-        generate_formatted(&mut writer, &f, 0).unwrap();
-
-        let mut last_rev = None;
-        let mut last_color = false;
-        let mut strip_id = 0;
-        for i in 0 .. output_lines.len() {
-            let lineno = i + 1;
-
-            let blame_data = if let Some(ref lines) = blame_lines {
-                let blame_line = lines[i as usize];
-                let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
-                let rev = pieces[0];
-                let filespec = pieces[1];
-                let blame_lineno = pieces[2];
-                let filename = if filespec == "%" { &path[..] } else { filespec };
-
-                let color = if last_rev == Some(rev) { last_color } else { !last_color };
-                if color != last_color {
-                    strip_id += 1;
-                }
-                last_rev = Some(rev);
-                last_color = color;
-                let class = if color { 1 } else { 2 };
-                let link = format!("/mozilla-central/commit/{}/{}#{}", rev, filename, blame_lineno);
-                let data = format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
-                                   class, rev, link, strip_id);
-
-                data
-            } else {
-                "".to_owned()
-            };
-
-            let f = F::Seq(vec![
-                F::T(format!("<span id=\"{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)),
-                F::T(format!("<div{}></div>", blame_data)),
-                F::S("</span>")
-            ]);
-
-            generate_formatted(&mut writer, &f, 0).unwrap();
-        }
-
-        let f = F::Seq(vec![
-            F::Indent(vec![
-                F::Indent(vec![
-                    F::Indent(vec![
-                        F::S("</td>"),
-                        F::S("<td class=\"code\">"),
-                    ]),
-                ]),
-            ]),
-        ]);
-        generate_formatted(&mut writer, &f, 0).unwrap();
-        
-        write!(writer, "<pre>").unwrap();
-        for (i, line) in output_lines.iter().enumerate() {
-            write!(writer, "<code id=\"line-{}\" aria-labelledby=\"{}\">{}\n</code>",
-                   i + 1, i + 1, line).unwrap();
-        }
-        write!(writer, "</pre>").unwrap();
-
-        let f = F::Seq(vec![
-            F::Indent(vec![
-                F::Indent(vec![
-                    F::Indent(vec![
-                        F::S("</td>"),
-                    ]),
-                    F::S("</tr>"),
-                ]),
-                F::S("</tbody>"),
-            ]),
-            F::S("</table>"),
-        ]);
-        generate_formatted(&mut writer, &f, 0).unwrap();
-
-        write!(writer, "<script>var ANALYSIS_DATA = {};</script>\n", analysis_json).unwrap();
-
-        generate_footer(&opt, &mut writer).unwrap();
+        format_file_data(&cfg,
+                         tree_name,
+                         &panel,
+                         &blame_commit,
+                         path,
+                         input,
+                         &jumps,
+                         &analysis,
+                         &mut writer).unwrap();
     }
 }

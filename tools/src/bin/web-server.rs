@@ -2,8 +2,7 @@ extern crate hyper;
 extern crate env_logger;
 extern crate tools;
 
-use std::thread;
-use std::sync::{mpsc, Mutex};
+use std::sync::Mutex;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
@@ -111,7 +110,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         },
 
-        "commit" => {
+        "diff" => {
             if path.len() < 3 {
                 return not_found();
             }
@@ -121,7 +120,29 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             let path = path.join("/");
 
             let mut writer = Vec::new();
-            match format::format_commit(cfg, &tree_name, &rev, &path, &mut writer) {
+            match format::format_diff(cfg, &tree_name, &rev, &path, &mut writer) {
+                Ok(()) => {
+                    let output = String::from_utf8(writer).unwrap();
+                    WebResponse { status: StatusCode::Ok, content_type: "text/html".to_owned(), output: output }
+                },
+                Err(err) =>
+                    WebResponse {
+                        status: StatusCode::InternalServerError,
+                        content_type: "text/plain".to_owned(),
+                        output: err.to_owned(),
+                    }
+            }
+        },
+
+        "commit" => {
+            if path.len() < 3 {
+                return not_found();
+            }
+
+            let rev = &path[2];
+
+            let mut writer = Vec::new();
+            match format::format_commit(cfg, &tree_name, &rev, &mut writer) {
                 Ok(()) => {
                     let output = String::from_utf8(writer).unwrap();
                     WebResponse { status: StatusCode::Ok, content_type: "text/html".to_owned(), output: output }
@@ -163,26 +184,11 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
     }
 }
 
-fn main_thread(tx: mpsc::Sender<WebResponse>, rx: mpsc::Receiver<WebRequest>) {
-    let cfg = config::load(&env::args().nth(1).unwrap(), true);
-
-    loop {
-        let req = rx.recv().unwrap();
-        println!("main got {}", req.path);
-
-        let response = handle(&cfg, req);
-        tx.send(response).unwrap();
-    }
-}
-
 fn main() {
     env_logger::init().unwrap();
 
-    let (tx1, rx2) = mpsc::channel();
-    let (tx2, rx1) = mpsc::channel();
-    let th = thread::spawn(move || { main_thread(tx1, rx1); });
-
-    let channels = Mutex::new((tx2, rx2));
+    let cfg = config::load(&env::args().nth(1).unwrap(), true);
+    let cfg = Mutex::new(cfg);
 
     let handler = move |req: Request, mut res: Response| {
         if req.method != Method::Get {
@@ -198,11 +204,13 @@ fn main() {
             _ => panic!("Unexpected URI"),
         };
 
-        let guard = channels.lock().unwrap();
-        let (ref tx, ref rx) = *guard;
+        let guard = match cfg.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let ref cfg = *guard;
 
-        tx.send(WebRequest { path: path }).unwrap();
-        let response = rx.recv().unwrap();
+        let response = handle(cfg, WebRequest { path: path });
 
         *res.status_mut() = response.status;
         let output = response.output.into_bytes();
@@ -213,6 +221,4 @@ fn main() {
 
     println!("On 8001");
     let _listening = hyper::Server::http("127.0.0.1:8001").unwrap().handle(handler);
-
-    th.join().unwrap();
 }

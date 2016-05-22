@@ -47,6 +47,10 @@ server {
     proxy_pass http://localhost:8000;
   }
 
+  location /mozilla-central/diff {
+    proxy_pass http://localhost:8001;
+  }
+
   location /mozilla-central/commit {
     proxy_pass http://localhost:8001;
   }

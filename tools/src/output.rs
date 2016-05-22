@@ -231,3 +231,52 @@ pub fn generate_footer(opt: &Options, writer: &mut Write) -> Result<(), &'static
 
     Ok(())
 }
+
+pub struct PanelItem {
+    pub title: String,
+    pub link: String,
+}
+
+pub struct PanelSection {
+    pub name: String,
+    pub items: Vec<PanelItem>,
+}
+
+pub fn generate_panel(writer: &mut Write, sections: &Vec<PanelSection>) -> Result<(), &'static str> {
+    let sections = sections.iter().map(|section| {
+        let items = section.items.iter().map(|item| {
+            F::Seq(vec![
+                F::S("<li>"),
+                F::T(format!("<a href=\"{}\" title=\"{}\" class=\"icon\">{}</a>", item.link, item.title, item.title)),
+                F::S("</li>"),
+            ])
+        }).collect::<Vec<_>>();
+
+        F::Seq(vec![
+            F::T(format!("<h4>{}</h4>", section.name)),
+            F::S("<ul>"),
+            F::Seq(items),
+            F::S("</ul>"),
+        ])
+    }).collect::<Vec<_>>();
+
+    let f = F::Seq(vec![
+        F::S("<div class=\"panel\">"),
+        F::Indent(vec![
+            F::S("<button id=\"panel-toggle\">"),
+            F::Indent(vec![
+                F::S("<span class=\"navpanel-icon expanded\" aria-hidden=\"false\"></span>"),
+                F::S("Navigation"),
+            ]),
+            F::S("</button>"),
+            F::S("<section id=\"panel-content\" aria-expanded=\"true\" aria-hidden=\"false\">"),
+            F::Seq(sections),
+            F::S("</section>"),
+        ]),
+        F::S("</div>"),
+    ]);
+
+    try!(generate_formatted(writer, &f, 0));
+
+    Ok(())
+}

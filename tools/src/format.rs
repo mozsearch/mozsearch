@@ -10,7 +10,7 @@ use languages;
 use languages::FormatAs;
 
 use analysis::{WithLocation, AnalysisSource, Jump};
-use output::{F, Options, generate_formatted, generate_breadcrumbs, generate_header, generate_footer};
+use output::{self, F, Options, PanelItem, PanelSection};
 
 use rustc_serialize::json::{self, Json};
 use git2;
@@ -202,11 +202,17 @@ fn read_blob_entry(repo: &git2::Repository, entry: &git2::TreeEntry) -> String {
     data
 }
 
-pub fn format_path(cfg: &config::Config,
-                   tree_name: &str,
-                   rev: &str,
-                   path: &str,
-                   writer: &mut Write) -> Result<(), &'static str> {
+pub fn format_file_data(cfg: &config::Config,
+                        tree_name: &str,
+                        panel: &Vec<PanelSection>,
+                        blame_commit: &git2::Commit,
+                        path: &str,
+                        data: String,
+                        jumps: &HashMap<String, Jump>,
+                        analysis: &Vec<WithLocation<Vec<AnalysisSource>>>,
+                        writer: &mut Write) -> Result<(), &'static str>  {
+    let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
+
     let format = languages::select_formatting(path);
     match format {
         FormatAs::Binary => {
@@ -216,36 +222,19 @@ pub fn format_path(cfg: &config::Config,
         _ => {},
     };
 
-    // Get the file data.
-    let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
-    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
-    let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
-    let commit_tree = try!(commit.tree().map_err(|_| "Bad revision"));
-    let entry = try!(commit_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
+    let (output_lines, analysis_json) = format_code(jumps, format, path, &data, &analysis);
 
-    match entry.kind() {
-        Some(git2::ObjectType::Blob) => {},
-        _ => return Err("Invalid path; expected file"),
-    }
-
-    if entry.filemode() == 120000 {
-        return Err("Path is to a symlink");
-    }
-
-    let data = read_blob_entry(&tree_config.repo, &entry);
-
-    // Get the blame.
-    let blame_oid = try!(tree_config.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
-    let blame_commit = try!(tree_config.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
     let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
-    let blame_entry = try!(blame_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
+    let blame = match blame_tree.get_path(Path::new(path)) {
+        Ok(blame_entry) => Some(read_blob_entry(&tree_config.blame_repo, &blame_entry)),
+        Err(_) => None,
+    };
 
-    let blame = read_blob_entry(&tree_config.blame_repo, &blame_entry);
-    let blame_lines = blame.lines().collect::<Vec<_>>();
-
-    let jumps : HashMap<String, analysis::Jump> = HashMap::new();
-    let analysis = Vec::new();
-    let (output_lines, _) = format_code(&jumps, format, path, &data, &analysis);
+    let blame_lines = if let Some(ref data) = blame {
+        Some(data.lines().collect::<Vec<_>>())
+    } else {
+        None
+    };
 
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
@@ -255,9 +244,11 @@ pub fn format_path(cfg: &config::Config,
         include_date: true,
     };
 
-    try!(generate_header(&opt, writer));
+    try!(output::generate_header(&opt, writer));
 
-    try!(generate_breadcrumbs(&opt, writer, path));
+    try!(output::generate_breadcrumbs(&opt, writer, path));
+
+    try!(output::generate_panel(writer, panel));
 
     let f = F::Seq(vec![
         F::S("<table id=\"file\" class=\"file\">"),
@@ -279,7 +270,7 @@ pub fn format_path(cfg: &config::Config,
         ]),
     ]);
 
-    generate_formatted(writer, &f, 0).unwrap();
+    output::generate_formatted(writer, &f, 0).unwrap();
 
     let mut last_rev = None;
     let mut last_color = false;
@@ -287,23 +278,28 @@ pub fn format_path(cfg: &config::Config,
     for i in 0 .. output_lines.len() {
         let lineno = i + 1;
 
-        let blame_line = blame_lines[i as usize];
-        let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
-        let rev = pieces[0];
-        let filespec = pieces[1];
-        let blame_lineno = pieces[2];
-        let filename = if filespec == "%" { &path[..] } else { filespec };
+        let blame_data = if let Some(ref lines) = blame_lines {
+            let blame_line = lines[i as usize];
+            let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
+            let rev = pieces[0];
+            let filespec = pieces[1];
+            let blame_lineno = pieces[2];
+            let filename = if filespec == "%" { &path[..] } else { filespec };
 
-        let color = if last_rev == Some(rev) { last_color } else { !last_color };
-        if color != last_color {
-            strip_id += 1;
-        }
-        last_rev = Some(rev);
-        last_color = color;
-        let class = if color { 1 } else { 2 };
-        let link = format!("/mozilla-central/commit/{}/{}#{}", rev, filename, blame_lineno);
-        let blame_data = format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
-                                 class, rev, link, strip_id);
+            let color = if last_rev == Some(rev) { last_color } else { !last_color };
+            if color != last_color {
+                strip_id += 1;
+            }
+            last_rev = Some(rev);
+            last_color = color;
+            let class = if color { 1 } else { 2 };
+            let link = format!("/mozilla-central/diff/{}/{}#{}", rev, filename, blame_lineno);
+            let data = format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
+                               class, rev, link, strip_id);
+            data
+        } else {
+            "".to_owned()
+        };
 
         let f = F::Seq(vec![
             F::T(format!("<span id=\"{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)),
@@ -311,7 +307,7 @@ pub fn format_path(cfg: &config::Config,
             F::S("</span>")
         ]);
 
-        generate_formatted(writer, &f, 0).unwrap();
+        output::generate_formatted(writer, &f, 0).unwrap();
     }
 
     let f = F::Seq(vec![
@@ -324,7 +320,7 @@ pub fn format_path(cfg: &config::Config,
             ]),
         ]),
     ]);
-    generate_formatted(writer, &f, 0).unwrap();
+    output::generate_formatted(writer, &f, 0).unwrap();
     
     write!(writer, "<pre>").unwrap();
     for (i, line) in output_lines.iter().enumerate() {
@@ -345,12 +341,71 @@ pub fn format_path(cfg: &config::Config,
         ]),
         F::S("</table>"),
     ]);
-    generate_formatted(writer, &f, 0).unwrap();
+    output::generate_formatted(writer, &f, 0).unwrap();
 
-    let analysis_json = "[]";
     write!(writer, "<script>var ANALYSIS_DATA = {};</script>\n", analysis_json).unwrap();
 
-    generate_footer(&opt, writer).unwrap();
+    output::generate_footer(&opt, writer).unwrap();
+    
+    Ok(())
+}
+
+pub fn format_path(cfg: &config::Config,
+                   tree_name: &str,
+                   rev: &str,
+                   path: &str,
+                   writer: &mut Write) -> Result<(), &'static str> {
+    // Get the file data.
+    let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
+    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+    let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
+    let commit_tree = try!(commit.tree().map_err(|_| "Bad revision"));
+    let entry = try!(commit_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
+
+    // Get blame.
+    let blame_oid = try!(tree_config.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
+    let blame_commit = try!(tree_config.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
+
+    match entry.kind() {
+        Some(git2::ObjectType::Blob) => {},
+        _ => return Err("Invalid path; expected file"),
+    }
+
+    if entry.filemode() == 120000 {
+        return Err("Path is to a symlink");
+    }
+
+    let data = read_blob_entry(&tree_config.repo, &entry);
+
+    let jumps : HashMap<String, analysis::Jump> = HashMap::new();
+    let analysis = Vec::new();
+
+    let panel = vec![PanelSection {
+        name: "Revision control".to_owned(),
+        items: vec![PanelItem {
+            title: "Show changeset".to_owned(),
+            link: format!("/mozilla-central/commit/{}", rev),
+        }, PanelItem {
+            title: "Goto latest version".to_owned(),
+            link: format!("/mozilla-central/source/{}", path),
+        }, PanelItem {
+            title: "Log".to_owned(),
+            link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+        }, PanelItem {
+            title: "Blame".to_owned(),
+            link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+        }],
+    }];
+
+    try!(format_file_data(cfg,
+                          tree_name,
+                          &panel,
+                          &blame_commit,
+                          path,
+                          data,
+                          &jumps,
+                          &analysis,
+                          writer));
     
     Ok(())
 }
@@ -363,111 +418,11 @@ fn split_lines(s: &str) -> Vec<&str> {
     split
 }
 
-fn generate_commit_info(tree_config: &config::TreeConfig,
-                        writer: &mut Write,
-                        commit: &git2::Commit)  -> Result<(), &'static str> {
-    let msg = try!(commit.message().ok_or("Invalid message"));
-    let mut iter = msg.split('\n');
-    let header = iter.next().unwrap();
-    let remainder = iter.collect::<Vec<_>>().join("\n");
-    let header = blame::linkify(header);
-
-    fn format_rev(oid: git2::Oid) -> String {
-        format!("<a href=\"/mozilla-central/commit/{}\">{}</a>", oid, oid)
-    }
-
-    fn format_sig(sig: git2::Signature) -> String {
-        format!("{} &lt;{}>", sig.name().unwrap(), sig.email().unwrap())
-    }
-
-    let parents = commit.parent_ids().map(|p| {
-        F::T(format!("<tr><td>parent</td><td>{}</td></tr>", format_rev(p)))
-    }).collect::<Vec<_>>();
-
-    let hg = match tree_config.hg_map.get(&commit.id()) {
-        Some(hg_id) => {
-            let hg_link = format!("<a href=\"https://hg.mozilla.org/mozilla-central/rev/{}\">{}</a>", hg_id, hg_id);
-            vec![F::T(format!("<tr><td>hg</td><td>{}</td></tr>", hg_link))]
-        },
-
-        None => vec![]
-    };
-
-    let git = format!("<a href=\"https://github.com/mozilla/gecko-dev/commit/{}\">{}</a>",
-                      commit.id(), commit.id());
-
-    let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
-    let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
-    let t : DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
-    let t = t.to_rfc2822();
-
-    let f = F::Seq(vec![
-        F::T(format!("<h3>{}</h3>", header)),
-        F::T(format!("<pre><code>{}</code></pre>", remainder)),
-
-        F::S("<table>"),
-        F::Indent(vec![
-            F::T(format!("<tr><td>commit</td><td>{}</td></tr>", format_rev(commit.id()))),
-            F::Seq(parents),
-            F::Seq(hg),
-            F::T(format!("<tr><td>git</td><td>{}</td></tr>", git)),
-            F::T(format!("<tr><td>author</td><td>{}</td></tr>", format_sig(commit.author()))),
-            F::T(format!("<tr><td>committer</td><td>{}</td></tr>", format_sig(commit.committer()))),
-            F::T(format!("<tr><td>commit time</td><td>{}</td></tr>", t)),
-        ]),
-        F::S("</table>"),
-    ]);
-        
-    try!(generate_formatted(writer, &f, 0));
-
-    let output = try!(Command::new("/usr/bin/git")
-                      .arg("show")
-                      .arg("--cc")
-                      .arg("--pretty=format:")
-                      .arg("--raw")
-                      .arg(format!("{}", commit.id()))
-                      .current_dir(&tree_config.paths.repo_path)
-                      .output()
-                      .map_err(|_| "Diff failed 1"));
-    if !output.status.success() {
-        println!("ERR\n{}", String::from_utf8(output.stderr).unwrap());
-        return Err("Diff failed 2");
-    }
-    let difftxt = try!(String::from_utf8(output.stdout).map_err(|_| "Invalid diff output"));
-
-    let lines = split_lines(&difftxt);
-    let mut changes = Vec::new();
-    for line in lines {
-        if line.len() == 0 {
-            continue;
-        }
-
-        let suffix = &line[commit.parents().count() ..];
-        let prefix_size = 2 * (commit.parents().count() + 1);
-        let mut data = suffix.splitn(prefix_size + 1, ' ');
-        let data = try!(data.nth(prefix_size).ok_or("Invalid diff output"));
-        let file_info = data.split('\t').take(2).collect::<Vec<_>>();
-
-        let f = F::T(format!("<li>{} <a href=\"/mozilla-central/commit/{}/{}\">{}</a>",
-                             file_info[0], commit.id(), file_info[1], file_info[1]));
-        changes.push(f);
-    }
-
-    let f = F::Seq(vec![
-        F::S("<ul>"),
-        F::Indent(changes),
-        F::S("</ul>"),
-    ]);
-    try!(generate_formatted(writer, &f, 0));
-    
-    Ok(())
-}
-
-pub fn format_commit(cfg: &config::Config,
-                     tree_name: &str,
-                     rev: &str,
-                     path: &str,
-                     writer: &mut Write) -> Result<(), &'static str> {
+pub fn format_diff(cfg: &config::Config,
+                   tree_name: &str,
+                   rev: &str,
+                   path: &str,
+                   writer: &mut Write) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
     let output = try!(Command::new("/usr/bin/git")
@@ -582,9 +537,25 @@ pub fn format_commit(cfg: &config::Config,
         include_date: true,
     };
 
-    try!(generate_header(&opt, writer));
+    try!(output::generate_header(&opt, writer));
 
-    try!(generate_commit_info(&tree_config, writer, commit));
+    let sections = vec![PanelSection {
+        name: "Revision control".to_owned(),
+        items: vec![PanelItem {
+            title: "Show changeset".to_owned(),
+            link: format!("/mozilla-central/commit/{}", rev),
+        }, PanelItem {
+            title: "Show file without diff".to_owned(),
+            link: format!("/mozilla-central/rev/{}/{}", rev, path),
+        }, PanelItem {
+            title: "Goto latest version".to_owned(),
+            link: format!("/mozilla-central/source/{}", path),
+        }, PanelItem {
+            title: "Log".to_owned(),
+            link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+        }],
+    }];
+    try!(output::generate_panel(writer, &sections));
 
     let f = F::Seq(vec![
         F::S("<table id=\"file\" class=\"file\">"),
@@ -606,7 +577,7 @@ pub fn format_commit(cfg: &config::Config,
         ]),
     ]);
 
-    generate_formatted(writer, &f, 0).unwrap();
+    output::generate_formatted(writer, &f, 0).unwrap();
 
     let mut last_rev = None;
     let mut last_color = false;
@@ -627,7 +598,7 @@ pub fn format_commit(cfg: &config::Config,
                 last_rev = Some(rev);
                 last_color = color;
                 let class = if color { 1 } else { 2 };
-                let link = format!("/mozilla-central/commit/{}/{}#{}", rev, filename, blame_lineno);
+                let link = format!("/mozilla-central/diff/{}/{}#{}", rev, filename, blame_lineno);
                 format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
                         class, rev, link, strip_id)
             },
@@ -645,7 +616,7 @@ pub fn format_commit(cfg: &config::Config,
             F::S("</span>")
         ]);
 
-        generate_formatted(writer, &f, 0).unwrap();
+        output::generate_formatted(writer, &f, 0).unwrap();
     }
 
     let f = F::Seq(vec![
@@ -658,7 +629,7 @@ pub fn format_commit(cfg: &config::Config,
             ]),
         ]),
     ]);
-    generate_formatted(writer, &f, 0).unwrap();
+    output::generate_formatted(writer, &f, 0).unwrap();
     
     fn entity_replace(s: String) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
@@ -701,9 +672,134 @@ pub fn format_commit(cfg: &config::Config,
         ]),
         F::S("</table>"),
     ]);
-    generate_formatted(writer, &f, 0).unwrap();
+    output::generate_formatted(writer, &f, 0).unwrap();
 
-    generate_footer(&opt, writer).unwrap();
+    output::generate_footer(&opt, writer).unwrap();
+
+    Ok(())
+}
+
+fn generate_commit_info(tree_config: &config::TreeConfig,
+                        writer: &mut Write,
+                        commit: &git2::Commit)  -> Result<(), &'static str> {
+    let msg = try!(commit.message().ok_or("Invalid message"));
+    let mut iter = msg.split('\n');
+    let header = iter.next().unwrap();
+    let remainder = iter.collect::<Vec<_>>().join("\n");
+    let header = blame::linkify(header);
+
+    fn format_rev(oid: git2::Oid) -> String {
+        format!("<a href=\"/mozilla-central/diff/{}\">{}</a>", oid, oid)
+    }
+
+    fn format_sig(sig: git2::Signature) -> String {
+        format!("{} &lt;{}>", sig.name().unwrap(), sig.email().unwrap())
+    }
+
+    let parents = commit.parent_ids().map(|p| {
+        F::T(format!("<tr><td>parent</td><td>{}</td></tr>", format_rev(p)))
+    }).collect::<Vec<_>>();
+
+    let hg = match tree_config.hg_map.get(&commit.id()) {
+        Some(hg_id) => {
+            let hg_link = format!("<a href=\"https://hg.mozilla.org/mozilla-central/rev/{}\">{}</a>", hg_id, hg_id);
+            vec![F::T(format!("<tr><td>hg</td><td>{}</td></tr>", hg_link))]
+        },
+
+        None => vec![]
+    };
+
+    let git = format!("<a href=\"https://github.com/mozilla/gecko-dev/commit/{}\">{}</a>",
+                      commit.id(), commit.id());
+
+    let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
+    let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
+    let t : DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
+    let t = t.to_rfc2822();
+
+    let f = F::Seq(vec![
+        F::T(format!("<h3>{}</h3>", header)),
+        F::T(format!("<pre><code>{}</code></pre>", remainder)),
+
+        F::S("<table>"),
+        F::Indent(vec![
+            F::T(format!("<tr><td>commit</td><td>{}</td></tr>", format_rev(commit.id()))),
+            F::Seq(parents),
+            F::Seq(hg),
+            F::T(format!("<tr><td>git</td><td>{}</td></tr>", git)),
+            F::T(format!("<tr><td>author</td><td>{}</td></tr>", format_sig(commit.author()))),
+            F::T(format!("<tr><td>committer</td><td>{}</td></tr>", format_sig(commit.committer()))),
+            F::T(format!("<tr><td>commit time</td><td>{}</td></tr>", t)),
+        ]),
+        F::S("</table>"),
+    ]);
+        
+    try!(output::generate_formatted(writer, &f, 0));
+
+    let output = try!(Command::new("/usr/bin/git")
+                      .arg("show")
+                      .arg("--cc")
+                      .arg("--pretty=format:")
+                      .arg("--raw")
+                      .arg(format!("{}", commit.id()))
+                      .current_dir(&tree_config.paths.repo_path)
+                      .output()
+                      .map_err(|_| "Diff failed 1"));
+    if !output.status.success() {
+        println!("ERR\n{}", String::from_utf8(output.stderr).unwrap());
+        return Err("Diff failed 2");
+    }
+    let difftxt = try!(String::from_utf8(output.stdout).map_err(|_| "Invalid diff output"));
+
+    let lines = split_lines(&difftxt);
+    let mut changes = Vec::new();
+    for line in lines {
+        if line.len() == 0 {
+            continue;
+        }
+
+        let suffix = &line[commit.parents().count() ..];
+        let prefix_size = 2 * (commit.parents().count() + 1);
+        let mut data = suffix.splitn(prefix_size + 1, ' ');
+        let data = try!(data.nth(prefix_size).ok_or("Invalid diff output"));
+        let file_info = data.split('\t').take(2).collect::<Vec<_>>();
+
+        let f = F::T(format!("<li>{} <a href=\"/mozilla-central/diff/{}/{}\">{}</a>",
+                             file_info[0], commit.id(), file_info[1], file_info[1]));
+        changes.push(f);
+    }
+
+    let f = F::Seq(vec![
+        F::S("<ul>"),
+        F::Indent(changes),
+        F::S("</ul>"),
+    ]);
+    try!(output::generate_formatted(writer, &f, 0));
+    
+    Ok(())
+}
+
+pub fn format_commit(cfg: &config::Config,
+                     tree_name: &str,
+                     rev: &str,
+                     writer: &mut Write) -> Result<(), &'static str> {
+    let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
+
+    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+    let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
+
+    let title = format!("{} - mozsearch", rev);
+    let opt = Options {
+        title: &title,
+        tree_name: tree_name,
+        include_date: true,
+    };
+
+    try!(output::generate_header(&opt, writer));
+
+    try!(generate_commit_info(&tree_config, writer, commit));
+
+    output::generate_footer(&opt, writer).unwrap();
 
     Ok(())
 }
