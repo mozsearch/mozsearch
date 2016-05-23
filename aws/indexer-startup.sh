@@ -226,6 +226,9 @@ sudo umount /index
 $VENV/bin/python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
 $VENV/bin/python $AWS_ROOT/swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID
 
+gzip -k ~ubuntu/index-log
+$VENV/bin/pythin $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`
+
 # Give logger time to catch up
 sleep 30
 $VENV/bin/python $AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
