@@ -379,6 +379,10 @@ public:
     return new IndexConsumer(ci);
   }
 
+  bool shouldVisitTemplateInstantiations() const {
+    return true;
+  }
+
   // All we need is to follow the final declaration.
   virtual void HandleTranslationUnit(ASTContext &ctx) {
     mMangleContext = clang::ItaniumMangleContext::create(ctx, ci.getDiagnostics());
