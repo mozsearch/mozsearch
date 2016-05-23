@@ -24,7 +24,7 @@ function updateBlamePopup() {
   var strip = blameElt.dataset.strip;
 
   function showPopup(content) {
-    content += '<br><a href="' + link + '">Diff</a>';
+    content += '<br><a href="' + link + '">Show annotated diff</a>';
 
     var parent = blameElt.parentNode;
     var height = blameElt.getBoundingClientRect().height;

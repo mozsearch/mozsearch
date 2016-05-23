@@ -235,6 +235,7 @@ pub fn generate_footer(opt: &Options, writer: &mut Write) -> Result<(), &'static
 pub struct PanelItem {
     pub title: String,
     pub link: String,
+    pub update_link_lineno: bool,
 }
 
 pub struct PanelSection {
@@ -245,9 +246,15 @@ pub struct PanelSection {
 pub fn generate_panel(writer: &mut Write, sections: &Vec<PanelSection>) -> Result<(), &'static str> {
     let sections = sections.iter().map(|section| {
         let items = section.items.iter().map(|item| {
+            let update_attr = if item.update_link_lineno {
+                format!(" data-update-link=\"true\" data-link=\"{}\"", item.link)
+            } else {
+                "".to_owned()
+            };
             F::Seq(vec![
                 F::S("<li>"),
-                F::T(format!("<a href=\"{}\" title=\"{}\" class=\"icon\">{}</a>", item.link, item.title, item.title)),
+                F::T(format!("<a href=\"{}\" title=\"{}\" class=\"icon\"{}>{}</a>",
+                             item.link, item.title, update_attr, item.title)),
                 F::S("</li>"),
             ])
         }).collect::<Vec<_>>();

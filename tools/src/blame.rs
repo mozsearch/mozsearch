@@ -17,6 +17,9 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Resu
     let msg = msg.split('\n').next().unwrap();
     let msg = linkify(msg);
 
+    let sig = commit.author();
+    let msg = format!("{}\n<br><i>{} &lt;{}></i>", msg, sig.name().unwrap(), sig.email().unwrap());
+
     let mut obj = BTreeMap::new();
     obj.insert("header".to_owned(), Json::String(msg));
     let json = Json::Object(obj);

@@ -78,15 +78,24 @@ fn main() {
             name: "Revision control".to_owned(),
             items: vec![PanelItem {
                 title: "Permalink".to_owned(),
-                link: format!("/mozilla-central/rev/{}/{}", head_oid, path),
+                link: format!("/{}/rev/{}/{}", tree_name, head_oid, path),
+                update_link_lineno: true,
             }, PanelItem {
                 title: "Log".to_owned(),
                 link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+                update_link_lineno: false,
             }, PanelItem {
                 title: "Blame".to_owned(),
                 link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+                update_link_lineno: false,
             }],
         }];
+
+        let panel = if path.contains("__GENERATED__") {
+            vec![]
+        } else {
+            panel
+        };
 
         format_file_data(&cfg,
                          tree_name,

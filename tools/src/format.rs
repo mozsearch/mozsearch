@@ -293,7 +293,7 @@ pub fn format_file_data(cfg: &config::Config,
             last_rev = Some(rev);
             last_color = color;
             let class = if color { 1 } else { 2 };
-            let link = format!("/mozilla-central/diff/{}/{}#{}", rev, filename, blame_lineno);
+            let link = format!("/{}/diff/{}/{}#{}", tree_name, rev, filename, blame_lineno);
             let data = format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
                                class, rev, link, strip_id);
             data
@@ -383,17 +383,17 @@ pub fn format_path(cfg: &config::Config,
     let panel = vec![PanelSection {
         name: "Revision control".to_owned(),
         items: vec![PanelItem {
-            title: "Show changeset".to_owned(),
-            link: format!("/mozilla-central/commit/{}", rev),
-        }, PanelItem {
             title: "Goto latest version".to_owned(),
-            link: format!("/mozilla-central/source/{}", path),
+            link: format!("/{}/source/{}", tree_name, path),
+            update_link_lineno: true,
         }, PanelItem {
             title: "Log".to_owned(),
             link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+            update_link_lineno: false,
         }, PanelItem {
             title: "Blame".to_owned(),
             link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+            update_link_lineno: false,
         }],
     }];
 
@@ -543,16 +543,20 @@ pub fn format_diff(cfg: &config::Config,
         name: "Revision control".to_owned(),
         items: vec![PanelItem {
             title: "Show changeset".to_owned(),
-            link: format!("/mozilla-central/commit/{}", rev),
+            link: format!("/{}/commit/{}", tree_name, rev),
+            update_link_lineno: false,
         }, PanelItem {
             title: "Show file without diff".to_owned(),
-            link: format!("/mozilla-central/rev/{}/{}", rev, path),
+            link: format!("/{}/rev/{}/{}", tree_name, rev, path),
+            update_link_lineno: true,
         }, PanelItem {
             title: "Goto latest version".to_owned(),
-            link: format!("/mozilla-central/source/{}", path),
+            link: format!("/{}/source/{}", tree_name, path),
+            update_link_lineno: true,
         }, PanelItem {
             title: "Log".to_owned(),
             link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+            update_link_lineno: false,
         }],
     }];
     try!(output::generate_panel(writer, &sections));
@@ -598,7 +602,7 @@ pub fn format_diff(cfg: &config::Config,
                 last_rev = Some(rev);
                 last_color = color;
                 let class = if color { 1 } else { 2 };
-                let link = format!("/mozilla-central/diff/{}/{}#{}", rev, filename, blame_lineno);
+                let link = format!("/{}/diff/{}/{}#{}", tree_name, rev, filename, blame_lineno);
                 format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
                         class, rev, link, strip_id)
             },
@@ -679,7 +683,8 @@ pub fn format_diff(cfg: &config::Config,
     Ok(())
 }
 
-fn generate_commit_info(tree_config: &config::TreeConfig,
+fn generate_commit_info(tree_name: &str,
+                        tree_config: &config::TreeConfig,
                         writer: &mut Write,
                         commit: &git2::Commit)  -> Result<(), &'static str> {
     let msg = try!(commit.message().ok_or("Invalid message"));
@@ -688,8 +693,8 @@ fn generate_commit_info(tree_config: &config::TreeConfig,
     let remainder = iter.collect::<Vec<_>>().join("\n");
     let header = blame::linkify(header);
 
-    fn format_rev(oid: git2::Oid) -> String {
-        format!("<a href=\"/mozilla-central/diff/{}\">{}</a>", oid, oid)
+    fn format_rev(tree_name: &str, oid: git2::Oid) -> String {
+        format!("<a href=\"/{}/diff/{}\">{}</a>", tree_name, oid, oid)
     }
 
     fn format_sig(sig: git2::Signature) -> String {
@@ -697,7 +702,7 @@ fn generate_commit_info(tree_config: &config::TreeConfig,
     }
 
     let parents = commit.parent_ids().map(|p| {
-        F::T(format!("<tr><td>parent</td><td>{}</td></tr>", format_rev(p)))
+        F::T(format!("<tr><td>parent</td><td>{}</td></tr>", format_rev(tree_name, p)))
     }).collect::<Vec<_>>();
 
     let hg = match tree_config.hg_map.get(&commit.id()) {
@@ -723,7 +728,7 @@ fn generate_commit_info(tree_config: &config::TreeConfig,
 
         F::S("<table>"),
         F::Indent(vec![
-            F::T(format!("<tr><td>commit</td><td>{}</td></tr>", format_rev(commit.id()))),
+            F::T(format!("<tr><td>commit</td><td>{}</td></tr>", format_rev(tree_name, commit.id()))),
             F::Seq(parents),
             F::Seq(hg),
             F::T(format!("<tr><td>git</td><td>{}</td></tr>", git)),
@@ -797,7 +802,7 @@ pub fn format_commit(cfg: &config::Config,
 
     try!(output::generate_header(&opt, writer));
 
-    try!(generate_commit_info(&tree_config, writer, commit));
+    try!(generate_commit_info(tree_name, &tree_config, writer, commit));
 
     output::generate_footer(&opt, writer).unwrap();
 
