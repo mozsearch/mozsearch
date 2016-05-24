@@ -400,6 +400,8 @@ $(function() {
       table.innerHTML = html;
 
       if (counter > 100 && !full) {
+        data.query = query;
+
         var epoch = populateEpoch;
         setTimeout(function() {
           if (populateEpoch == epoch) {
