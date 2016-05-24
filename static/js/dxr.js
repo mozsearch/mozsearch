@@ -11,7 +11,6 @@ $(function() {
   'use strict';
 
   var constants = $('#data');
-  var stateConstants = $('#state');
   var dxr = {},
   docElem = document.documentElement;
 

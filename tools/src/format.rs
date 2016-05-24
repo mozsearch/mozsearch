@@ -345,7 +345,7 @@ pub fn format_file_data(cfg: &config::Config,
 
     write!(writer, "<script>var ANALYSIS_DATA = {};</script>\n", analysis_json).unwrap();
 
-    output::generate_footer(&opt, writer).unwrap();
+    output::generate_footer(&opt, tree_name, writer).unwrap();
     
     Ok(())
 }
@@ -678,7 +678,7 @@ pub fn format_diff(cfg: &config::Config,
     ]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    output::generate_footer(&opt, writer).unwrap();
+    output::generate_footer(&opt, tree_name, writer).unwrap();
 
     Ok(())
 }
@@ -804,7 +804,7 @@ pub fn format_commit(cfg: &config::Config,
 
     try!(generate_commit_info(tree_name, &tree_config, writer, commit));
 
-    output::generate_footer(&opt, writer).unwrap();
+    output::generate_footer(&opt, tree_name, writer).unwrap();
 
     Ok(())
 }
