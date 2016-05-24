@@ -233,13 +233,11 @@ $(function() {
     doQuery();
   }
 
-  /**
-   * Populates the results template.
-   * @param {object} tmpl - The template to use to render results.
-   * @param {object} data - The data returned from the query
-   * @param {bool} append - Should the content be appended or overwrite
-   */
-  function populateResults(data) {
+  var populateEpoch = 0;
+
+  function populateResults(data, full) {
+    populateEpoch++;
+
     window.scrollTo(0, 0);
 
     var query = data.query;
@@ -281,27 +279,29 @@ $(function() {
     }
 
     function renderPath(fileResult) {
-      var row = $("<tr class='result-head'></tr>");
-      var icon = $("<td class='left-column'><div class='" + chooseIcon(fileResult.path) + " icon-container'></div></td>");
-      row.append(icon);
+      var html = "";
+      html += "<tr class='result-head'>";
+      html += "<td class='left-column'><div class='" + chooseIcon(fileResult.path) + " icon-container'></div></td>";
 
-      var main = $("<td></td>");
-      row.append(main);
+      html += "<td>";
 
       var elts = fileResult.path.split("/");
       var pathSoFar = "";
       for (var i = 0; i < elts.length; i++) {
         if (i != 0) {
-          main.append($("<span class='path-separator'>/</span>"));
+          html += "<span class='path-separator'>/</span>";
         }
 
         var elt = elts[i];
         pathSoFar += elt;
-        main.append($("<a href='" + makeURL(pathSoFar) + "'>" + elt + "</a>"));
+        html += "<a href='" + makeURL(pathSoFar) + "'>" + elt + "</a>";
         pathSoFar += "/";
       }
 
-      return row;
+      html += "</td>";
+      html += "</tr>"
+
+      return html;
     }
 
     function renderSingleSearchResult(file, line) {
@@ -310,16 +310,27 @@ $(function() {
       var middle = line.line.slice(start, end);
       var after = line.line.slice(end).replace(/\s+$/, "");
 
-      var row = $("<tr></tr>");
-      row.append($("<td class='left-column'><a href='" + makeURL(file.path) + "#" + line.lno + "'>" +
-                   line.lno + "</a></td>"));
-      row.append($("<td><a href='" + makeURL(file.path) + "#" + line.lno + "'><code></code></a></td>"));
-      var bolded = $("<b></b>");
-      bolded.text(middle);
-      $("code", row).append([document.createTextNode(before),
-                             bolded,
-                             document.createTextNode(after)]);
-      return row;
+      var html = "";
+      html += "<tr>";
+      html += "<td class='left-column'><a href='" + makeURL(file.path) + "#" + line.lno + "'>" +
+        line.lno + "</a></td>";
+      html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
+
+      function escape(s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;");
+      }
+
+      html += "<code>";
+      html += escape(before);
+      html += "<b>" + escape(middle) + "</b>";
+      html += escape(after);
+      html += "</code>";
+
+      html += "</a>";
+      html += "</td>";
+      html += "</tr>";
+
+      return html;
     }
 
     var count = 0;
@@ -349,29 +360,52 @@ $(function() {
         container.append(numResults);
       }
 
-      var table = $("<table class='results'></table>");
-      container.append(table);
+      var table = document.createElement("table");
+      table.className = "results";
 
+      container.append($(table));
+
+      var counter = 0;
+
+      var html = "";
       for (var k = 0; k < keyOrder.length; k++) {
         var kind = keyOrder[k];
         if (!(kind in data)) {
           continue;
         }
         if (kind != "default" && data[kind].length) {
-          var headerRow = $("<tr><td class='left-column'></td><td><div class='result-kind'>" + kind + "</div></td> </tr>");
-          table.append(headerRow);
+          html += "<tr><td class='left-column'></td><td><div class='result-kind'>" + kind + "</div></td></tr>"
         }
 
         for (var i = 0; i < data[kind].length; i++) {
           var file = data[kind][i];
-          var fileRow = renderPath(file);
-          table.append(fileRow);
 
-          var lineResults = file.lines.map(function(line) {
-            return renderSingleSearchResult(file, line);
+          if (counter > 100 && !full) {
+            break;
+          }
+
+          html += renderPath(file);
+
+          file.lines.map(function(line) {
+            counter++;
+            if (counter > 100 && !full) {
+              return;
+            }
+
+            html += renderSingleSearchResult(file, line);
           });
-          table.append(lineResults);
         }
+      }
+
+      table.innerHTML = html;
+
+      if (counter > 100 && !full) {
+        var epoch = populateEpoch;
+        setTimeout(function() {
+          if (populateEpoch == epoch) {
+            populateResults(data, true);
+          }
+        }, 750);
       }
     }
 
@@ -379,7 +413,7 @@ $(function() {
   }
 
   window.showSearchResults = function(results) {
-    populateResults(results);
+    populateResults(results, true);
   };
 
   /**
@@ -421,7 +455,7 @@ $(function() {
       // New results, overwrite
       if (myRequestNumber > displayedRequestNumber) {
         displayedRequestNumber = myRequestNumber;
-        populateResults(data);
+        populateResults(data, false);
         historyWaiter = setTimeout(pushHistoryState, timeouts.history, searchUrl);
       }
       oneFewerRequest();
