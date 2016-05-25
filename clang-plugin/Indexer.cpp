@@ -380,7 +380,8 @@ public:
   }
 
   bool shouldVisitTemplateInstantiations() const {
-    return true;
+    //return true;
+    return false;
   }
 
   // All we need is to follow the final declaration.
