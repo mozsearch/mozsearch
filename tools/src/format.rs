@@ -302,7 +302,7 @@ pub fn format_file_data(cfg: &config::Config,
         };
 
         let f = F::Seq(vec![
-            F::T(format!("<span id=\"{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)),
+            F::T(format!("<span id=\"l{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)),
             F::T(format!("<div{}></div>", blame_data)),
             F::S("</span>")
         ]);
@@ -610,7 +610,7 @@ pub fn format_diff(cfg: &config::Config,
         };
 
         let line_str = if lineno > 0 {
-            format!("<span id=\"{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)
+            format!("<span id=\"l{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)
         } else {
             "<span class=\"line-number\">&nbsp;".to_owned()
         };

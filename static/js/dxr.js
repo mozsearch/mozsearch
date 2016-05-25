@@ -109,13 +109,21 @@ $(function() {
    * @param {string} id = The id of the highlighted table row
    */
   function scrollIntoView(id) {
-    var lineElement = document.getElementById(id);
-
-    if (lineElement === null)  // There is no line #1. Empty file.
+    if (document.getElementById(id)) {
       return;
+    }
 
-    if ((getMaxScrollY() - lineElement.offsetTop) > 100) {
-      window.scroll(0, window.scrollY - 150);
+    var firstLineno = id.split(/[,-]/)[0];
+    var elt = document.getElementById("l" + firstLineno);
+
+    var gotoElt = document.createElement("div");
+    gotoElt.id = id;
+    gotoElt.className = "goto";
+    elt.appendChild(gotoElt);
+
+    // Need this for Chrome.
+    if (navigator.userAgent.indexOf("Firefox") == -1) {
+      window.location = window.location;
     }
   }
 
@@ -134,18 +142,30 @@ $(function() {
    * @param {string} level - The seriousness: 'info', 'warning', or 'error'
    * @param {string} html - The HTML message to be displayed
    */
-  function showBubble(level, html) {
+  function showBubble(level, html, which) {
     // If hideBubble() was already called, abort the hide animation:
-    $('.bubble').stop();
+    $(".bubble").stop();
 
-    $('.bubble').html(html)
-      .removeClass('error warning info')
+    if (!which) {
+      if ($("#path-bubble").is(":focus")) {
+        which = "path";
+      } else {
+        which = "query";
+      }
+    }
+
+    var other = which == "path" ? "query" : "path";
+
+    $(`#${which}-bubble`).html(html)
+      .removeClass("error warning info")
       .addClass(level)
       .show();
+
+    $(`#${other}-bubble`).fadeOut(300);
   }
 
-  function hideBubble() {
-    $('.bubble').fadeOut(300);
+  function hideBubbles() {
+    $(".bubble").fadeOut(300);
   }
 
   /**
@@ -163,8 +183,9 @@ $(function() {
 
   var searchForm = $('#basic_search'),
   queryField = $('#query'),
-  query = null,
+  pathField = $('#path'),
   caseSensitiveBox = $('#case'),
+  regexpBox = $('#regexp'),
   contentContainer = $('#content'),
   waiter = null,
   historyWaiter = null,
@@ -181,6 +202,15 @@ $(function() {
     if (initialSearch) {
       queryField.val(decodeURIComponent(initialSearch[1]));
     }
+
+    var initialPath = /[?&]?path=([^&]+)/.exec(location.search);
+    if (initialPath) {
+      pathField.val(decodeURIComponent(initialPath[1]));
+    }
+
+    var match = /[?&]regexp=([^&]+)/.exec(location.search);
+    var regexp = match ? (match[1] === 'true') : false;
+    regexpBox.prop('checked', regexp);
   });
 
   /**
@@ -192,11 +222,13 @@ $(function() {
    * @param {string} query - The query string
    * @param {bool} isCaseSensitive - Whether the query should be case-sensitive
    */
-  function buildAjaxURL(query, isCaseSensitive) {
+  function buildAjaxURL(query) {
     var search = dxr.searchUrl;
     var params = {};
     params.q = query;
-    params['case'] = isCaseSensitive;
+    params['case'] = caseSensitiveBox.prop('checked');
+    params.regexp = regexpBox.prop('checked');
+    params.path = $.trim(pathField.val());
 
     return search + '?' + $.param(params);
   }
@@ -238,10 +270,15 @@ $(function() {
   function populateResults(data, full) {
     populateEpoch++;
 
-    window.scrollTo(0, 0);
+    var title = data["*title*"];
+    if (title) {
+      delete data["*title*"];
+      document.title = title + " - mozsearch";
+    }
 
-    var query = data.query;
-    delete data.query;
+    console.log(data);
+
+    window.scrollTo(0, 0);
 
     function makeURL(path) {
       return "/" + dxr.tree + "/source/" + path;
@@ -317,7 +354,7 @@ $(function() {
       html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
 
       function escape(s) {
-        return s.replace("&", "&amp;").replace("<", "&lt;");
+        return s.replace(/&/gm, "&amp;").replace(/</gm, "&lt;");
       }
 
       html += "<code>";
@@ -400,8 +437,6 @@ $(function() {
       table.innerHTML = html;
 
       if (counter > 100 && !full) {
-        data.query = query;
-
         var epoch = populateEpoch;
         setTimeout(function() {
           if (populateEpoch == epoch) {
@@ -410,8 +445,6 @@ $(function() {
         }, 750);
       }
     }
-
-    document.title = query + " - mozsearch";
   }
 
   window.showSearchResults = function(results) {
@@ -438,21 +471,29 @@ $(function() {
 
     clearTimeout(historyWaiter);
 
-    query = $.trim(queryField.val());
+    var query = $.trim(queryField.val());
+    var pathFilter = $.trim(pathField.val());
+
     var myRequestNumber = nextRequestNumber;
 
-    if (query.length === 0) {
-      hideBubble();  // Don't complain when I delete what I typed. You didn't complain when it was empty before I typed anything.
+    if (query.length > 0 && query.length < 3) {
+      showBubble("info", "Enter at least 3 characters to do a search.", "query");
       return;
-    } else if (query.length < 3) {
-      showBubble('info', 'Enter at least 3 characters to do a search.');
+    }
+    if (pathFilter.length > 0 && pathFilter.length < 3) {
+      showBubble("info", "Enter at least 3 characters to do a search.", "path");
       return;
     }
 
-    hideBubble();
+    hideBubbles();
+
+    if (query.length == 0 && pathFilter.length == 0) {
+      return;
+    }
+
     nextRequestNumber += 1;
     oneMoreRequest();
-    var searchUrl = buildAjaxURL(query, caseSensitiveBox.prop('checked'));
+    var searchUrl = buildAjaxURL(query);
     $.getJSON(searchUrl, function(data) {
       // New results, overwrite
       if (myRequestNumber > displayedRequestNumber) {
@@ -472,15 +513,18 @@ $(function() {
         if (jqxhr.responseJSON)
           showBubble(jqxhr.responseJSON.error_level, jqxhr.responseJSON.error_html);
         else
-          showBubble('error', 'An error occurred. Please try again.');
+          showBubble("error", "An error occurred. Please try again.");
       });
   }
 
   // Do a search every time you pause typing for 300ms:
   queryField.on('input', querySoon);
+  pathField.on('input', querySoon);
 
   // Update the search when the case-sensitive box is toggled, canceling any pending query:
   caseSensitiveBox.on('change', updateLocalStorageAndQueryNow);
+
+  regexpBox.on('change', queryNow);
 
 
   var urlCaseSensitive = caseFromUrl();

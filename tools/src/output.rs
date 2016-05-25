@@ -88,7 +88,6 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
 {
     let css = [
         "mozsearch.css",
-        "forms.css",
         "icons.css",
         "selector-common.css",
         "filter.css",
@@ -106,48 +105,49 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
     head_seq.extend(css_tags);
 
     let fieldset = vec![
-        F::S("<div id=\"search-box\" class=\"flex-container\" role=\"group\">"),
+        F::S("<div id=\"search-box\" class=\"h-flex-container\" role=\"group\">"),
         F::Indent(vec![
-            F::S("<div class=\"elem_container find\">"),
+            F::S("<div id=\"query-section\">"),
             F::Indent(vec![
                 F::S("<label for=\"query\" class=\"query_label visually-hidden\">Find</label>"),
-                F::T(format!("<input type=\"text\" name=\"q\" value=\"\" maxlength=\"2048\" id=\"query\" class=\"query\" accesskey=\"s\" title=\"Search\" placeholder=\"Search {}\" autocomplete=\"off\" />",
+                F::T(format!("<input type=\"text\" name=\"q\" value=\"\" maxlength=\"2048\" id=\"query\" accesskey=\"s\" title=\"Search\" placeholder=\"Search {}\" autocomplete=\"off\" />",
                              opt.tree_name)),
                 F::S("<div class=\"zero-size-container\">"),
                 F::Indent(vec![
-                    F::S("<div class=\"bubble\">"),
+                    F::S("<div class=\"bubble\" id=\"query-bubble\">"),
                     F::S("</div>"),
                 ]),
                 F::S("</div>"),
-
-                F::S("<section id=\"search-filter\" class=\"search-filter\">"),
-                F::Indent(vec![
-                    F::S("<button type=\"button\" class=\"sf-select-trigger\" aria-label=\"Select Filter\">"),
-                    F::Indent(vec![
-                        F::S("<!-- arrow icon using icon font -->"),
-                        F::S("<span aria-hidden=\"true\" data-filter-arrow=\"&#xe801;\" class=\"sf-selector-arrow\">"),
-                        F::Indent(vec![F::S("Filters")]),
-                        F::S("</span>"),
-                    ]),
-                    F::S("</button>"),
-                ]),
-                F::S("</section>"),
-                F::S("<div class=\"sf-select-options sf-modal\" aria-expanded=\"false\">"),
-                F::Indent(vec![
-                    F::S("<ul class=\"selector-options\" tabindex=\"-1\">"),
-                    F::S("</ul>"),
-                ]),
-                F::S("</div>"),
+                F::S("<section id=\"spinner\"></section>"),
             ]),
             F::S("</div>"),
 
-            F::S("<div class=\"elem_container case\">"),
+            F::S("<div id=\"option-section\" class=\"v-flex-container\">"),
             F::Indent(vec![
                 F::S("<label for=\"case\">"),
                 F::Indent(vec![
-                    F::S("<input type=\"checkbox\" name=\"case\" id=\"case\" class=\"checkbox_case\" value=\"true\" accesskey=\"c\"/><span class=\"access-key\">C</span>ase-sensitive"),
+                    F::S("<input type=\"checkbox\" name=\"case\" id=\"case\" class=\"option-checkbox\" value=\"true\" accesskey=\"c\"/><span class=\"access-key\">C</span>ase-sensitive"),
                 ]),
                 F::S("</label>"),
+
+                F::S("<label for=\"regexp\">"),
+                F::Indent(vec![
+                    F::S("<input type=\"checkbox\" name=\"regexp\" id=\"regexp\" class=\"option-checkbox\" value=\"true\" accesskey=\"r\"/><span class=\"access-key\">R</span>egexp search"),
+                ]),
+                F::S("</label>"),
+            ]),
+            F::S("</div>"),
+
+            F::S("<div id=\"path-section\">"),
+            F::Indent(vec![
+                F::S("<label for=\"query\" class=\"query_label visually-hidden\">Path</label>"),
+                F::S("<input type=\"text\" name=\"path\" value=\"\" maxlength=\"2048\" id=\"path\" accesskey=\"p\" title=\"Path\" placeholder=\"Path filter\" autocomplete=\"off\" />"),
+                F::S("<div class=\"zero-size-container\">"),
+                F::Indent(vec![
+                    F::S("<div class=\"bubble\" id=\"path-bubble\">"),
+                    F::S("</div>"),
+                ]),
+                F::S("</div>"),
             ]),
             F::S("</div>"),
         ]),
@@ -158,8 +158,6 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
         F::S("<fieldset>"),
         F::Indent(fieldset),
         F::S("</fieldset>"),
-        F::T(format!("<input type=\"hidden\" value=\"{}\" id=\"ts-value\" />", opt.tree_name)),
-        F::S("<input type=\"hidden\" name=\"redirect\" value=\"true\" id=\"redirect\" />"),
         F::S("<input type=\"submit\" value=\"Search\" class=\"visually-hidden\" />"),
     ];
 

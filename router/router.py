@@ -19,6 +19,10 @@ import codesearch
 import blame
 from logger import log
 
+# TODO:
+# Move spinner to the right end?
+# Make a help box?
+
 def parse_search(searchString):
     pieces = searchString.split(' ')
     result = {}
@@ -104,6 +108,17 @@ def search_files(path):
     results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
+# This basically will work as a glob. If you do glob, then it will add
+# a $ at the end.
+def parse_path_filter(filter):
+    if '*' in filter:
+        filter = filter.replace('.', '\\.')
+        filter = filter.replace('*', '.*')
+        filter = filter + '$'
+        return filter
+    else:
+        return re.escape(filter)
+
 def get_json_search_results(query):
     try:
         searchString = query['q'][0]
@@ -115,15 +130,44 @@ def get_json_search_results(query):
     except:
         foldCase = True
 
+    try:
+        regexp = query['regexp'][0] == 'true'
+    except:
+        regexp = False
+
+    try:
+        pathFilter = query['path'][0]
+    except:
+        pathFilter = ''
+
     parsed = parse_search(searchString)
+
+    if pathFilter:
+        parsed['pathre'] = parse_path_filter(pathFilter)
+
+    if regexp:
+        if 'default' in parsed:
+            del parsed['default']
+        if 're' in parsed:
+            del parsed['re']
+        parsed['re'] = searchString
+
+    if 'default' in parsed and len(parsed['default']) == 0:
+        del parsed['default']
+
     if is_trivial_search(parsed):
         results = {}
-        results['query'] = searchString
+        results['*error*'] = 'Invalid query'
         return json.dumps(results)
+
+    title = searchString
+    if not title:
+        title = 'Files ' + pathFilter
 
     if 'symbol' in parsed:
         # FIXME: Need to deal with path here
         symbols = parsed['symbol']
+        title = 'Symbol ' + symbols
         results = crossrefs.lookup(symbols)
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
@@ -141,10 +185,11 @@ def get_json_search_results(query):
         path = parsed['pathre']
         results = {"default": search_files(path)}
     else:
+        assert False
         results = {}
 
     results = sort_results(results)
-    results['query'] = searchString
+    results['*title*'] = title
     return json.dumps(results)
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -222,13 +267,9 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if 'json' in self.headers.getheader('Accept', ''):
                 self.generate(j, 'application/json')
             else:
-                try:
-                    title = query['q'][0]
-                except:
-                    title = ''
                 j = j.replace("/script", "\\/script")
                 template = os.path.join(indexPath, 'templates/search.html')
-                self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': title}, template)
+                self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
         elif pathElts[:2] == ['mozilla-central', 'define']:
             query = urlparse.parse_qs(url.query)
             symbol = query['q'][0]

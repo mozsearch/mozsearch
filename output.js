@@ -76,7 +76,6 @@ function generate(content, opt)
   <title>${title}</title>
 
   <link href="/static/css/mozsearch.css" rel="stylesheet" type="text/css" media="screen"/>
-  <link href="/static/css/forms.css" rel="stylesheet" type="text/css" media="screen" />
   <link href="/static/css/icons.css" rel="stylesheet" type="text/css" media="screen" />
   <link href="/static/css/selector-common.css" rel="stylesheet" type="text/css" media="screen" />
   <link href="/static/css/filter.css" rel="stylesheet" type="text/css" media="screen" />
@@ -86,37 +85,34 @@ function generate(content, opt)
 <body>
   <form method="get" action="/${tree}/search" id="basic_search" class="search-box">
     <fieldset>
-        <div id="search-box" class="flex-container" role="group">
-            <div class="elem_container find">
-                <label for="query" class="query_label visually-hidden">Find</label>
-                <input type="text" name="q" ${shouldAutofocusQuery ? "autofocus " : ""} value="${query}" maxlength="2048" id="query" class="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" />
-                <div class="zero-size-container">
-                  <div class="bubble">
-                  </div>
+        <div id="search-box" class="h-flex-container" role="group">
+          <div id="query-section">
+              <label for="query" class="query_label visually-hidden">Find</label>
+              <input type="text" name="q"  value="${query}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" />
+              <div class="zero-size-container">
+                <div class="bubble" id="query-bubble">
                 </div>
-                <section id="search-filter" class="search-filter">
-                  <button type="button" class="sf-select-trigger" aria-label="Select Filter">
-                      <!-- arrow icon using icon font -->
-                      <span aria-hidden="true" data-filter-arrow="&#xe801;" class="sf-selector-arrow">
-                          Filters
-                      </span>
-                  </button>
-                </section>
-                <div class="sf-select-options sf-modal" aria-expanded="false">
-                  <ul class="selector-options" tabindex="-1">
-                    ${filterText}
-                  </ul>
+              </div>
+              <section id="spinner"></section>
+          </div>
+          <div id="option-section" class="v-flex-container">
+              <label for="case">
+                  <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" ${isCaseSensitive ? "checked" : ""}/><span class="access-key">C</span>ase-sensitive
+              </label>
+              <label for="regexp">
+                  <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search
+              </label>
+          </div>
+          <div id="path-section">
+              <label for="path" class="query_label visually-hidden">Path</label>
+              <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter" autocomplete="off" />
+              <div class="zero-size-container">
+                <div class="bubble" id="path-bubble">
                 </div>
-            </div>
-             <div class="elem_container case">
-                <label for="case">
-                    <input type="checkbox" name="case" id="case" class="checkbox_case" value="true" accesskey="c" ${isCaseSensitive ? "checked" : ""}/><span class="access-key">C</span>ase-sensitive
-                </label>
-            </div>
+              </div>
+          </div>
         </div>
     </fieldset>
-    <input type="hidden" value="${tree}" id="ts-value" />
-    <input type="hidden" name="redirect" value="true" id="redirect" />
     <input type="submit" value="Search" class="visually-hidden" />
   </form>
 
