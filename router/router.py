@@ -96,7 +96,8 @@ def sort_results(results):
 def search_files(path):
     pathFile = os.path.join(indexPath, 'repo-files')
     try:
-        results = subprocess.check_output(['grep', '-Ei', path, pathFile])
+        # We set the locale to make grep much faster.
+        results = subprocess.check_output(['grep', '-Ei', path, pathFile], env={'LC_CTYPE': 'C'})
     except:
         return []
     results = results.strip().split('\n')

@@ -103,7 +103,9 @@ export JS=$INDEX_TMP/js/js
 
 date
 
-hg clone https://hg.mozilla.org/mozilla-central
+wget https://s3-us-west-2.amazonaws.com/gecko-repo/mozilla-central.tar
+tar xf mozilla-central.tar
+rm mozilla-central.tar
 
 date
 
@@ -179,7 +181,9 @@ sudo chown ubuntu.ubuntu /index
 date
 
 pushd /index
-git clone https://github.com/mozilla/gecko-dev
+wget https://s3-us-west-2.amazonaws.com/gecko-repo/gecko-dev.tar
+tar xf gecko-dev.tar
+rm gecko-dev.tar
 
 date
 
@@ -225,6 +229,9 @@ sudo umount /index
 
 $VENV/bin/python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
 $VENV/bin/python $AWS_ROOT/swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID
+
+gzip -k ~ubuntu/index-log
+$VENV/bin/python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`
 
 # Give logger time to catch up
 sleep 30
