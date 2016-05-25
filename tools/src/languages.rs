@@ -181,14 +181,14 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         None => "",
     };
     match ext {
-        "c" | "cc" | "cpp" | "h" | "hh" => FormatAs::FormatCLike(&*CPP_SPEC),
+        "c" | "cc" | "cpp" | "h" | "hh" | "mm" => FormatAs::FormatCLike(&*CPP_SPEC),
         "ipdl" | "ipdlh" => FormatAs::FormatCLike(&*IPDL_SPEC),
         "idl" => FormatAs::FormatCLike(&*IDL_SPEC),
         "webidl" => FormatAs::FormatCLike(&*WEBIDL_SPEC),
         "js" | "jsm" | "json" => FormatAs::FormatCLike(&*JS_SPEC),
         "py" | "build" => FormatAs::FormatCLike(&*PYTHON_SPEC),
 
-        "html" | "htm" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
+        "html" | "htm" | "xhtml" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
 
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" |
         "gif" | "ogv" | "jpg" | "bmp" | "icns" | "ico" |
