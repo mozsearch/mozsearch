@@ -317,7 +317,7 @@ $(function() {
       html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
 
       function escape(s) {
-        return s.replace("&", "&amp;").replace("<", "&lt;");
+        return s.replace(/&/gm, "&amp;").replace(/</gm, "&lt;");
       }
 
       html += "<code>";
