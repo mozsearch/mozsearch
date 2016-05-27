@@ -6,11 +6,8 @@ var mouseElt;
 var prevRev;
 var prevContent;
 
-var pendingReq;
-
 function updateBlamePopup() {
   if (popupBox) {
-    pending_req = null;
     popupBox.remove();
     popupBox = null;
   }
@@ -19,11 +16,16 @@ function updateBlamePopup() {
     return;
   }
 
-  var rev = blameElt.dataset.rev;
-  var link = blameElt.dataset.link;
-  var strip = blameElt.dataset.strip;
+  var elt = blameElt;
+  var rev = elt.dataset.rev;
+  var link = elt.dataset.link;
+  var strip = elt.dataset.strip;
 
   function showPopup(content) {
+    if (blameElt != elt) {
+      return;
+    }
+
     content += '<br><a href="' + link + '">Show annotated diff</a>';
 
     var parent = blameElt.parentNode;
@@ -40,11 +42,6 @@ function updateBlamePopup() {
   }
 
   function reqListener() {
-    if (!pendingReq) {
-      return;
-    }
-    pendingReq = null;
-
     var response = JSON.parse(this.responseText);
     var content = response.header;
     showPopup(content);
@@ -55,9 +52,8 @@ function updateBlamePopup() {
 
   if (prevRev == rev) {
     showPopup(prevContent);
-  } else if (!pendingReq) {
+  } else {
     var req = new XMLHttpRequest();
-    pendingReq = req;
     req.addEventListener("load", reqListener);
     req.open("GET", "/mozilla-central/commit-info/" + rev);
     req.send();
@@ -90,9 +86,9 @@ function blameHoverHandler(event) {
         return;
       }
       elt = elt.parentNode;
-      if (!elt || !(elt instanceof Element)) {
-        return;
-      }
+    }
+    if (!elt || !(elt instanceof Element)) {
+      return;
     }
 
     blameElt = mouseElt;
