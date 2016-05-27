@@ -274,7 +274,6 @@ pub fn format_file_data(cfg: &config::Config,
 
     let mut last_rev = None;
     let mut last_color = false;
-    let mut strip_id = 0;
     for i in 0 .. output_lines.len() {
         let lineno = i + 1;
 
@@ -284,25 +283,20 @@ pub fn format_file_data(cfg: &config::Config,
             let rev = pieces[0];
             let filespec = pieces[1];
             let blame_lineno = pieces[2];
-            let filename = if filespec == "%" { &path[..] } else { filespec };
 
             let color = if last_rev == Some(rev) { last_color } else { !last_color };
-            if color != last_color {
-                strip_id += 1;
-            }
             last_rev = Some(rev);
             last_color = color;
             let class = if color { 1 } else { 2 };
-            let link = format!("/{}/diff/{}/{}#{}", tree_name, rev, filename, blame_lineno);
-            let data = format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
-                               class, rev, link, strip_id);
+            let data = format!(" class=\"blame-strip c{}\" data-blame=\"{}#{}#{}\"",
+                               class, rev, filespec, blame_lineno);
             data
         } else {
             "".to_owned()
         };
 
         let f = F::Seq(vec![
-            F::T(format!("<span id=\"{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)),
+            F::T(format!("<span id=\"{}\" class=\"line-number\">{}", lineno, lineno)),
             F::T(format!("<div{}></div>", blame_data)),
             F::S("</span>")
         ]);
@@ -345,7 +339,7 @@ pub fn format_file_data(cfg: &config::Config,
 
     write!(writer, "<script>var ANALYSIS_DATA = {};</script>\n", analysis_json).unwrap();
 
-    output::generate_footer(&opt, tree_name, writer).unwrap();
+    output::generate_footer(&opt, tree_name, path, writer).unwrap();
     
     Ok(())
 }
@@ -585,7 +579,6 @@ pub fn format_diff(cfg: &config::Config,
 
     let mut last_rev = None;
     let mut last_color = false;
-    let mut strip_id = 0;
     for &(lineno, blame, ref _origin, _content) in &output {
         let blame_data = match blame {
             Some(blame) => {
@@ -593,24 +586,19 @@ pub fn format_diff(cfg: &config::Config,
                 let rev = pieces[0];
                 let filespec = pieces[1];
                 let blame_lineno = pieces[2];
-                let filename = if filespec == "%" { &path[..] } else { filespec };
 
                 let color = if last_rev == Some(rev) { last_color } else { !last_color };
-                if color != last_color {
-                    strip_id += 1;
-                }
                 last_rev = Some(rev);
                 last_color = color;
                 let class = if color { 1 } else { 2 };
-                let link = format!("/{}/diff/{}/{}#{}", tree_name, rev, filename, blame_lineno);
-                format!(" class=\"blame-strip c{}\" data-rev=\"{}\" data-link=\"{}\" data-strip=\"{}\"",
-                        class, rev, link, strip_id)
+                format!(" class=\"blame-strip c{}\" data-blame=\"{}#{}#{}\"",
+                        class, rev, filespec, blame_lineno)
             },
             None => "".to_owned(),
         };
 
         let line_str = if lineno > 0 {
-            format!("<span id=\"{}\" class=\"line-number\" unselectable=\"on\">{}", lineno, lineno)
+            format!("<span id=\"{}\" class=\"line-number\">{}", lineno, lineno)
         } else {
             "<span class=\"line-number\">&nbsp;".to_owned()
         };
@@ -678,7 +666,7 @@ pub fn format_diff(cfg: &config::Config,
     ]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    output::generate_footer(&opt, tree_name, writer).unwrap();
+    output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
     Ok(())
 }
@@ -804,7 +792,7 @@ pub fn format_commit(cfg: &config::Config,
 
     try!(generate_commit_info(tree_name, &tree_config, writer, commit));
 
-    output::generate_footer(&opt, tree_name, writer).unwrap();
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
 
     Ok(())
 }
