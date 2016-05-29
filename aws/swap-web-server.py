@@ -15,6 +15,8 @@ import boto3
 import awslib
 import os
 import os.path
+import subprocess
+import time
 
 channel = sys.argv[1]
 indexerInstanceId = sys.argv[2]
@@ -76,11 +78,17 @@ print 'Attaching index volume to web server instance...'
 client.attach_volume(VolumeId=volumeId, InstanceId=webServerInstanceId, Device='xvdf')
 
 # - Wait until the web server is ready to serve requests
-#   I could just make requests until they succeed
 
 ip = webServerInstance.public_ip_address
 
-#FIXME!!!!!!!
+while True:
+    try:
+        subprocess.check_call(["curl", "-f", "-m", "5.0",
+                               "http://%s/mozilla-central/search?q=nsGlobalWindow" % ip])
+    except:
+        time.sleep(1)
+        continue
+    break
 
 # - Attach the elastic IP to the new web server
 
