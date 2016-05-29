@@ -736,6 +736,24 @@ public:
     return true;
   }
 
+  bool VisitCXXConstructorDecl(CXXConstructorDecl *d) {
+    if (!IsInterestingLocation(d->getLocation())) {
+      return true;
+    }
+
+    for (CXXConstructorDecl::init_const_iterator it = d->init_begin(); it != d->init_end(); ++it) {
+      const CXXCtorInitializer *ci = *it;
+      if (!ci->getMember() || !ci->isWritten()) {
+        continue;
+      }
+      FieldDecl* member = ci->getMember();
+      std::string mangled = GetMangledName(mMangleContext, member);
+      VisitToken("use", "field", nullptr, member->getQualifiedNameAsString(), ci->getMemberLocation(), mangled);
+    }
+
+    return true;
+  }
+
   bool VisitMemberExpr(MemberExpr* e) {
     if (!IsInterestingLocation(e->getExprLoc())) {
       return true;
