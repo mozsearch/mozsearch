@@ -49,7 +49,7 @@ r = client.run_instances(
     KeyName='Main Key Pair',
     SecurityGroups=['web-server'],
     UserData=userData,
-    InstanceType='t2.medium',
+    InstanceType='t2.large',
     Placement={'AvailabilityZone': indexerInstance.placement['AvailabilityZone']},
 )
 
