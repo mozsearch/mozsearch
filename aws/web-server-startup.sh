@@ -112,7 +112,7 @@ echo "Channel is $CHANNEL"
 # Install Rust.
 curl -sSf https://static.rust-lang.org/rustup.sh | sh
 
-wget https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/jsshell-linux-x86_64.zip
+wget -q https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/jsshell-linux-x86_64.zip
 mkdir js
 pushd js
 unzip ../jsshell-linux-x86_64.zip
@@ -125,7 +125,7 @@ virtualenv env
 VENV=$(realpath env)
 
 # Install pygit2
-wget https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
+wget -q https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
 tar xf v0.24.0.tar.gz
 pushd libgit2-0.24.0
 cmake . -DCMAKE_INSTALL_PREFIX=$VENV

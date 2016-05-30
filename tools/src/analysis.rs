@@ -40,14 +40,8 @@ pub struct AnalysisSource {
     pub pretty: String,
     pub sym: String,
     pub syntax: Vec<String>,
+    pub no_crossref: bool,
 }
-
-/*
-struct AnalysisIterator<T, LinesIter> {
-    filter: &Fn(Json) -> Option<T>,
-    lines: LinesIter,
-}
- */
 
 fn parse_location(loc: &str) -> Location {
     let v : Vec<&str> = loc.split(":").collect();
@@ -161,7 +155,12 @@ pub fn read_source(obj : &Object) -> Option<AnalysisSource> {
     };
     let sym = obj.get("sym").unwrap().as_string().unwrap().to_string();
 
-    Some(AnalysisSource { pretty: pretty, sym: sym, syntax: syntax })
+    let no_crossref = match obj.get("no_crossref") {
+        Some(_) => true,
+        None => false,
+    };
+
+    Some(AnalysisSource { pretty: pretty, sym: sym, syntax: syntax, no_crossref: no_crossref })
 }
 
 pub struct Jump {

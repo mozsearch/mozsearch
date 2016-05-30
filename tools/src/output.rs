@@ -184,7 +184,7 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
     Ok(())
 }
 
-pub fn generate_footer(opt: &Options, tree_name: &str, writer: &mut Write) -> Result<(), &'static str>
+pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut Write) -> Result<(), &'static str>
 {
     let mut date = F::Seq(vec![]);
     if opt.include_date {
@@ -219,8 +219,8 @@ pub fn generate_footer(opt: &Options, tree_name: &str, writer: &mut Write) -> Re
         F::Indent(vec![
             F::Indent(vec![F::S("</div>")]),
             date,
-            F::T(format!("<span id=\"data\" data-root=\"/\" data-search=\"/{}/search\" data-tree=\"{}\"></span>",
-                         tree_name, tree_name)),
+            F::T(format!("<span id=\"data\" data-root=\"/\" data-search=\"/{}/search\" data-tree=\"{}\" data-path=\"{}\"></span>",
+                         tree_name, tree_name, path)),
             F::Seq(script_tags),
             F::S("</body>"),
         ]),

@@ -4,13 +4,10 @@ var blameElt;
 var mouseElt;
 
 var prevRev;
-var prevContent;
-
-var pendingReq;
+var prevJson;
 
 function updateBlamePopup() {
   if (popupBox) {
-    pending_req = null;
     popupBox.remove();
     popupBox = null;
   }
@@ -19,12 +16,33 @@ function updateBlamePopup() {
     return;
   }
 
-  var rev = blameElt.dataset.rev;
-  var link = blameElt.dataset.link;
-  var strip = blameElt.dataset.strip;
+  var elt = blameElt;
+  var blame = elt.dataset.blame;
 
-  function showPopup(content) {
-    content += '<br><a href="' + link + '">Show annotated diff</a>';
+  var [rev, filespec, lineno] = blame.split("#");
+  var path = $("#data").data("path");
+  var tree = $("#data").data("tree");
+  if (filespec != "%") {
+    path = filespec;
+  }
+
+  function showPopup(json) {
+    if (blameElt != elt) {
+      return;
+    }
+
+    var content = json.header;
+
+    var diffLink = `/${tree}/diff/${rev}/${path}#${lineno}`;
+    content += `<br><a href="${diffLink}">Show annotated diff</a>`;
+
+    if (json.parent) {
+      var parentLink = `/${tree}/rev/${json.parent}/${path}#${lineno}`;
+      content += ` <a href="${parentLink}">Show annotated parent</a>`;
+    }
+
+    var revLink = `/${tree}/rev/${rev}/${path}#${lineno}`;
+    content += ` <a href="${revLink}">Show annotated file</a>`;
 
     var parent = blameElt.parentNode;
     var height = blameElt.getBoundingClientRect().height;
@@ -40,26 +58,19 @@ function updateBlamePopup() {
   }
 
   function reqListener() {
-    if (!pendingReq) {
-      return;
-    }
-    pendingReq = null;
-
     var response = JSON.parse(this.responseText);
-    var content = response.header;
-    showPopup(content);
+    showPopup(response);
 
     prevRev = rev;
-    prevContent = content;
+    prevJson = response;
   }
 
   if (prevRev == rev) {
-    showPopup(prevContent);
-  } else if (!pendingReq) {
+    showPopup(prevJson);
+  } else {
     var req = new XMLHttpRequest();
-    pendingReq = req;
     req.addEventListener("load", reqListener);
-    req.open("GET", "/mozilla-central/commit-info/" + rev);
+    req.open("GET", `/${tree}/commit-info/${rev}`);
     req.send();
   }
 }
@@ -81,7 +92,7 @@ function blameHoverHandler(event) {
   } else {
     var elt = event.target;
     while (elt && elt instanceof Element) {
-      if (elt.hasAttribute("data-rev")) {
+      if (elt.hasAttribute("data-blame")) {
         mouseElt = elt;
         break;
       }
@@ -90,9 +101,9 @@ function blameHoverHandler(event) {
         return;
       }
       elt = elt.parentNode;
-      if (!elt || !(elt instanceof Element)) {
-        return;
-      }
+    }
+    if (!elt || !(elt instanceof Element)) {
+      return;
     }
 
     blameElt = mouseElt;

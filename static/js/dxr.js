@@ -267,7 +267,7 @@ $(function() {
 
   var populateEpoch = 0;
 
-  function populateResults(data, full) {
+  function populateResults(data, full, jumpToSingle) {
     populateEpoch++;
 
     var title = data["*title*"];
@@ -383,6 +383,21 @@ $(function() {
       fileCount += data[kind].length;
     }
 
+    if (jumpToSingle && (count == 1 || (fileCount == 1 && count == 0))) {
+      var kind = Object.keys(data)[0];
+      var file = data[kind][0];
+      var path = file.path;
+
+      if (count == 1) {
+        var line = file.lines[0];
+        var lno = line.lno;
+        window.location = `/${dxr.tree}/source/${path}#${lno}`;
+      } else {
+        window.location = `/${dxr.tree}/source/${path}`;
+      }
+      return;
+    }
+
     var keyOrder = ["IDL", "Definitions", "Assignments", "Uses", "Declarations", "default"];
 
     // If no data is returned, inform the user.
@@ -440,7 +455,7 @@ $(function() {
         var epoch = populateEpoch;
         setTimeout(function() {
           if (populateEpoch == epoch) {
-            populateResults(data, true);
+            populateResults(data, true, false);
           }
         }, 750);
       }
@@ -448,7 +463,7 @@ $(function() {
   }
 
   window.showSearchResults = function(results) {
-    populateResults(results, true);
+    populateResults(results, true, true);
   };
 
   /**
@@ -498,7 +513,7 @@ $(function() {
       // New results, overwrite
       if (myRequestNumber > displayedRequestNumber) {
         displayedRequestNumber = myRequestNumber;
-        populateResults(data, false);
+        populateResults(data, false, false);
         historyWaiter = setTimeout(pushHistoryState, timeouts.history, searchUrl);
       }
       oneFewerRequest();

@@ -62,9 +62,9 @@ $("#file").on("mousemove", function(event) {
   hovered.addClass("hovered");
 });
 
-$("#file").on("click", "span[data-id]", function(event) {
+$("#file").on("click", "span[data-i]", function(event) {
   var elt = $(event.target);
-  while (!elt.attr("data-id")) {
+  while (!elt.attr("data-i")) {
     elt = elt.parent();
   }
   var index = elt.attr("data-i");

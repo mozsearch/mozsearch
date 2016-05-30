@@ -21,7 +21,14 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Resu
     let msg = format!("{}\n<br><i>{} &lt;{}></i>", msg, sig.name().unwrap(), sig.email().unwrap());
 
     let mut obj = BTreeMap::new();
+
     obj.insert("header".to_owned(), Json::String(msg));
+
+    let parents = commit.parent_ids().collect::<Vec<_>>();
+    if parents.len() == 1 {
+        obj.insert("parent".to_owned(), Json::String(parents[0].to_string()));
+    }
+
     let json = Json::Object(obj);
 
     Ok(json.to_string())

@@ -26,7 +26,7 @@ THEEND
 
 date
 
-wget https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
+wget -q https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
 chmod +x ./awslogs-agent-setup.py
 ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
 
@@ -92,7 +92,7 @@ echo "Channel is $CHANNEL"
 curl -sSf https://static.rust-lang.org/rustup.sh | sh
 
 # Install SpiderMonkey.
-wget https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/jsshell-linux-x86_64.zip
+wget -q https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/jsshell-linux-x86_64.zip
 mkdir js
 pushd js
 unzip ../jsshell-linux-x86_64.zip
@@ -103,7 +103,7 @@ export JS=$INDEX_TMP/js/js
 
 date
 
-wget https://s3-us-west-2.amazonaws.com/gecko-repo/mozilla-central.tar
+wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/mozilla-central.tar
 tar xf mozilla-central.tar
 rm mozilla-central.tar
 
@@ -124,7 +124,7 @@ VENV=$(realpath env)
 $VENV/bin/pip install boto3
 
 # Install pygit2
-wget https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
+wget -q https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
 tar xf v0.24.0.tar.gz
 pushd libgit2-0.24.0
 cmake . -DCMAKE_INSTALL_PREFIX=$VENV
@@ -181,13 +181,13 @@ sudo chown ubuntu.ubuntu /index
 date
 
 pushd /index
-wget https://s3-us-west-2.amazonaws.com/gecko-repo/gecko-dev.tar
+wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/gecko-dev.tar
 tar xf gecko-dev.tar
 rm gecko-dev.tar
 
 date
 
-wget https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
+wget -q https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
 tar xf gecko-blame.tar
 rm gecko-blame.tar
 popd
