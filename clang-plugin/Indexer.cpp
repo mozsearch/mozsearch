@@ -455,10 +455,15 @@ public:
     }
   }
 
+  enum {
+    NO_CROSSREF = 1,
+  };
+
   void VisitToken(const char *kind,
                   const char *prettyKind, const char *prettyData,
                   std::string targetPretty,
-                  SourceLocation loc, const std::vector<std::string>& symbols)
+                  SourceLocation loc, const std::vector<std::string>& symbols,
+                  int flags = 0)
   {
     loc = sm.getSpellingLoc(loc);
 
@@ -483,43 +488,52 @@ public:
       maxlen = std::max(it->length(), maxlen);
     }
 
-    char *s = new char[1024 + targetPretty.length() + maxlen];
-
     std::string symbolList;
-    for (auto it = symbols.begin(); it != symbols.end(); it++) {
-      std::string symbol = *it;
+    {
+      char *s = new char[1024 + targetPretty.length() + maxlen];
+      for (auto it = symbols.begin(); it != symbols.end(); it++) {
+        std::string symbol = *it;
 
-      sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
-              locStr.c_str(), kind, targetPretty.c_str(), symbol.c_str());
-      f->output.push_back(std::string(s));
+        if (!(flags & NO_CROSSREF)) {
+          sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
+                  locStr.c_str(), kind, targetPretty.c_str(), symbol.c_str());
+          f->output.push_back(std::string(s));
+        }
 
-      if (it != symbols.begin()) {
-        symbolList += ",";
+        if (it != symbols.begin()) {
+          symbolList += ",";
+        }
+        symbolList += symbol;
       }
-      symbolList += symbol;
+      delete[] s;
     }
 
     char* buf = new char[1024 + symbolList.length()];
 
+    const char* no_crossref = "";
+    if (flags & NO_CROSSREF) {
+      no_crossref = ", \"no_crossref\":1";
+    }
+
     sprintf(buf,
             "{\"loc\":\"%s\", \"source\":1, \"syntax\": \"%s,%s\", "
-            "\"pretty\":\"%s %s\", \"sym\":\"%s\"}\n",
+            "\"pretty\":\"%s %s\", \"sym\":\"%s\"%s}\n",
             locStr2.c_str(), kind, prettyKind,
             prettyKind, prettyData ? prettyData : EscapeString(text).c_str(),
-            symbolList.c_str());
+            symbolList.c_str(),
+            no_crossref);
     f->output.push_back(std::string(buf));
 
     delete[] buf;
-    delete[] s;
   }
 
   void VisitToken(const char *kind,
                   const char *prettyKind, const char *prettyData,
                   std::string targetPretty,
-                  SourceLocation loc, std::string symbol)
+                  SourceLocation loc, std::string symbol, int flags = 0)
   {
     std::vector<std::string> v = { symbol };
-    VisitToken(kind, prettyKind, prettyData, targetPretty, loc, v);
+    VisitToken(kind, prettyKind, prettyData, targetPretty, loc, v, flags);
   }
 
   bool VisitNamedDecl(NamedDecl *d) {
@@ -532,6 +546,7 @@ public:
       return true;
     }
 
+    int flags = 0;
     const char* kind = "def";
     const char* prettyKind = "?";
     if (FunctionDecl* d2 = dyn_cast<FunctionDecl>(d)) {
@@ -548,7 +563,7 @@ public:
       prettyKind = "type";
     } else if (VarDecl* d2 = dyn_cast<VarDecl>(d)) {
       if (d2->isLocalVarDeclOrParm()) {
-        return true;
+        flags = NO_CROSSREF;
       }
 
       kind = d2->isThisDeclarationADefinition() == VarDecl::DeclarationOnly ? "decl" : "def";
@@ -575,7 +590,7 @@ public:
     // FIXME: Need to skip the '~' token for destructors.
     SourceLocation loc = d->getLocation();
 
-    VisitToken(kind, prettyKind, nullptr, d->getQualifiedNameAsString(), loc, symbols);
+    VisitToken(kind, prettyKind, nullptr, d->getQualifiedNameAsString(), loc, symbols, flags);
 
     return true;
   }
@@ -715,11 +730,12 @@ public:
 
     NamedDecl* decl = e->getDecl();
     if (const VarDecl* d2 = dyn_cast<VarDecl>(decl)) {
+      int flags = 0;
       if (d2->isLocalVarDeclOrParm()) {
-        return true;
+        flags = NO_CROSSREF;
       }
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "variable", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "variable", nullptr, decl->getQualifiedNameAsString(), loc, mangled, flags);
     } else if (isa<FunctionDecl>(decl)) {
       const FunctionDecl *f = dyn_cast<FunctionDecl>(decl);
       if (f->isTemplateInstantiation()) {

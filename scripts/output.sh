@@ -9,7 +9,7 @@ fi
 set -e # Errors are fatal
 set -x # Show commands
 
-CONFIG_FILE=$1
+CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
 FILTER=$3

@@ -101,8 +101,10 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
             (&tokenize::TokenKind::Identifier(None), Some(d)) => {
                 let ref id = d[0].sym;
 
+                let d = d.iter().filter(|item| { !item.no_crossref }).collect::<Vec<_>>();
+
                 let mut menu_jumps : HashMap<String, Json> = HashMap::new();
-                for item in d {
+                for item in d.iter() {
                     let syms = item.sym.split(',');
                     for sym in syms {
                         match jumps.get(sym) {
@@ -130,9 +132,12 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                 let menu_jumps = menu_jumps.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
 
                 let index = generated_json.len();
-                generated_json.push(Json::Array(vec![Json::Array(menu_jumps), Json::Array(items)]));
-
-                format!("data-id=\"{}\" data-i=\"{}\" ", id, index)
+                if items.len() > 0 {
+                    generated_json.push(Json::Array(vec![Json::Array(menu_jumps), Json::Array(items)]));
+                    format!("data-id=\"{}\" data-i=\"{}\" ", id, index)
+                } else {
+                    format!("data-id=\"{}\" ", id)
+                }
             },
             _ => "".to_string()
         };

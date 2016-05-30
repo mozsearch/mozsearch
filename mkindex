@@ -5,6 +5,7 @@ set -x # Show commands
 
 CONFIG_FILE=$1
 TREE_NAME=$2
+NOSLEEP=$3
 
 date
 
@@ -13,7 +14,10 @@ $MOZSEARCH_ROOT/scripts/mkdirs.sh
 
 date
 
-sleep 1000
+if [ "x$NOSLEEP" != "x1" ]
+then
+    sleep 1000
+fi
 
 date
 
