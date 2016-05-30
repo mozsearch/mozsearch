@@ -24,7 +24,10 @@ function setContextMenu(menu, event)
 
 // Remove the menu when a user clicks outside it.
 window.addEventListener('mousedown', function() {
-  //toggleSymbolHighlights();
+  $('#context-menu').remove();
+}, false);
+
+window.addEventListener("pageshow", function() {
   $('#context-menu').remove();
 }, false);
 
