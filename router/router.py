@@ -108,16 +108,30 @@ def search_files(path):
     results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
-# This basically will work as a glob. If you do glob, then it will add
-# a $ at the end.
+# Simple globbing implementation, except ^ and $ are also allowed.
 def parse_path_filter(filter):
-    if '*' in filter:
-        filter = filter.replace('.', '\\.')
-        filter = filter.replace('*', '.*')
-        filter = filter + '$'
-        return filter
-    else:
-        return re.escape(filter)
+    filter = filter.replace('(', '\\(')
+    filter = filter.replace(')', '\\)')
+    filter = filter.replace('|', '\\|')
+    filter = filter.replace('.', '\\.')
+
+    def star_repl(m):
+        if m.group(0) == '*':
+            return '[^/]*'
+        else:
+            return '.*'
+    filter = re.sub(r'\*\*|\*', star_repl, filter)
+
+    filter = filter.replace('?', '.')
+
+    def repl(m):
+        s = m.group(1)
+        components = s.split(',')
+        s = '|'.join(components)
+        return '(' + s + ')'
+    filter = re.sub('{([^}]*)}', repl, filter)
+
+    return filter
 
 def get_json_search_results(query):
     try:
