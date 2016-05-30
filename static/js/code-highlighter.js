@@ -30,6 +30,12 @@ $(function () {
     // tweak in order to account for inverted ranges like 150-120
     return Math.min(a[0],a[1]) - Math.min(b[0],b[1]);
   }
+  function lineFromId(id) {
+    if (id) {
+      return id.slice(1);
+    }
+    return id;
+  }
   function generateSelectedArrays() {
     var line = null;
     var rangeMax = null;
@@ -43,7 +49,7 @@ $(function () {
     function generateLines(selected, lines) {
       for (var i = 0; i < selected.length; i++) {
         if (selected[i].id) {
-          lines.push(parseInt(selected[i].id, 10));
+          lines.push(parseInt(lineFromId(selected[i].id), 10));
         }
       }
       return lines;
@@ -189,10 +195,10 @@ $(function () {
 
   //first bind to all .line-number click events only
   container.on('click', '.line-number', function (event) {
-    var clickedNum = parseInt($(this).attr('id'), 10); // get the clicked line number
-    var line = $('#' + clickedNum + ', #line-' + clickedNum); // get line-number and code
+    var clickedNum = parseInt(lineFromId($(this).attr('id')), 10); // get the clicked line number
+    var line = $('#l' + clickedNum + ', #line-' + clickedNum); // get line-number and code
     var lastSelectedLine = $('.line-number.last-selected, code.last-selected');
-    var lastSelectedNum = parseInt($('.line-number.last-selected').attr('id'), 10); // get last selected line number as integer
+    var lastSelectedNum = parseInt(lineFromId($('.line-number.last-selected').attr('id')), 10); // get last selected line number as integer
     var selectedLineNums = null; // used for selecting elements with class .line-number
     var selectedLineCode = null; // used for selecting code elements in .code class
     var self = this;
@@ -278,14 +284,14 @@ $(function () {
   $(document).ready(function () {
     if (window.location.hash.substring(1)) {
       var toHighlight = getSortedHashLines(),
-      jumpPosition = $('#' + toHighlight.lineStart).offset(),
+      jumpPosition = $('#l' + toHighlight.lineStart).offset(),
       highlights = toHighlight.highlights,
       ranges = toHighlight.ranges;
 
       if (highlights !== null) {
         //add single line highlights
         for (var i=0; i < highlights.length; i++) {
-          $('#' + highlights[i] + ', #line-' + highlights[i]).addClass('highlighted');
+          $('#l' + highlights[i] + ', #line-' + highlights[i]).addClass('highlighted');
         }
       }
 
@@ -294,7 +300,7 @@ $(function () {
         for (var j=0; j < ranges.length; j++) {
           //handle a single set of line ranges here; the c counter must be <= since it is a line id
           for (var c = ranges[j][0]; c <= ranges[j][1]; c++) {
-            $('#' + c + ', #line-' + c).addClass('highlighted');
+            $('#l' + c + ', #line-' + c).addClass('highlighted');
           }
         }
       }
