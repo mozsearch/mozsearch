@@ -118,6 +118,7 @@ $(function () {
     if (windowHash) {
       windowHash = windowHash.replace(reCleanup, '');
       history.replaceState(null, '', windowHash);
+      scrollIntoView(windowHash.slice(1), false);
 
       $("a[data-update-link=true]").each(function(i, elt) {
         $(elt).attr("href", $(elt).attr("data-link") + windowHash);

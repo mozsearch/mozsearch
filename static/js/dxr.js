@@ -1,9 +1,25 @@
-function blame_link(link) {
-  if (window.location.hash[0] == '#') {
-    let lineNo = window.location.hash.substring(1);
-    window.location = link + "#" + lineNo;
-  } else {
-    window.location = link;
+/**
+ * Because we have a fixed header and often link to anchors inside pages, we can
+ * run into the situation where the highled anchor is hidden behind the header.
+ * This ensures that the highlighted anchor will always be in view.
+ * @param {string} id = The id of the highlighted table row
+ */
+function scrollIntoView(id, navigate = true) {
+  if (document.getElementById(id)) {
+    return;
+  }
+
+  var firstLineno = id.split(/[,-]/)[0];
+  var elt = document.getElementById("l" + firstLineno);
+
+  var gotoElt = document.createElement("div");
+  gotoElt.id = id;
+  gotoElt.className = "goto";
+  elt.appendChild(gotoElt);
+
+  // Need this for Chrome.
+  if (navigate && navigator.userAgent.indexOf("Firefox") == -1) {
+    window.location = window.location;
   }
 }
 
@@ -100,31 +116,6 @@ $(function() {
     // simply return it, else return the calculated value above.
     // @see https://developer.mozilla.org/en-US/docs/Web/API/Window.scrollMaxY
     return window.scrollMaxY || (docElem.scrollHeight - window.innerHeight);
-  }
-
-  /**
-   * Because we have a fixed header and often link to anchors inside pages, we can
-   * run into the situation where the highled anchor is hidden behind the header.
-   * This ensures that the highlighted anchor will always be in view.
-   * @param {string} id = The id of the highlighted table row
-   */
-  function scrollIntoView(id) {
-    if (document.getElementById(id)) {
-      return;
-    }
-
-    var firstLineno = id.split(/[,-]/)[0];
-    var elt = document.getElementById("l" + firstLineno);
-
-    var gotoElt = document.createElement("div");
-    gotoElt.id = id;
-    gotoElt.className = "goto";
-    elt.appendChild(gotoElt);
-
-    // Need this for Chrome.
-    if (navigator.userAgent.indexOf("Firefox") == -1) {
-      window.location = window.location;
-    }
   }
 
   // Check if the currently loaded page has a hash in the URL
