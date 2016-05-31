@@ -105,7 +105,7 @@ function generate(content, opt)
           </div>
           <div id="path-section">
               <label for="path" class="query_label visually-hidden">Path</label>
-              <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter" autocomplete="off" />
+              <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />
               <div class="zero-size-container">
                 <div class="bubble" id="path-bubble">
                 </div>

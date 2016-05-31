@@ -141,7 +141,7 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
             F::S("<div id=\"path-section\">"),
             F::Indent(vec![
                 F::S("<label for=\"query\" class=\"query_label visually-hidden\">Path</label>"),
-                F::S("<input type=\"text\" name=\"path\" value=\"\" maxlength=\"2048\" id=\"path\" accesskey=\"p\" title=\"Path\" placeholder=\"Path filter\" autocomplete=\"off\" />"),
+                F::S("<input type=\"text\" name=\"path\" value=\"\" maxlength=\"2048\" id=\"path\" accesskey=\"p\" title=\"Path\" placeholder=\"Path filter (supports globbing and ^, $)\" autocomplete=\"off\" />"),
                 F::S("<div class=\"zero-size-container\">"),
                 F::Indent(vec![
                     F::S("<div class=\"bubble\" id=\"path-bubble\">"),

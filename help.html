@@ -10,41 +10,41 @@
 Searchfox is a source code indexing tool for Mozilla Firefox. It
 indexes C++ and JavaScript code. This is the help page for Searchfox.
 
-<h3>Sample Queries</h3>
+<h3>Query Language</h3>
+
+Queries entered into the search box use exact string matching. No
+search operators are supported. Case insensitive matching and regular
+expression matching can be requested with the check boxes.
+
+Path filtering uses globbing. A path matches even if only a substring
+of the path is matched by the glob. Use the <code>^</code>
+and <code>$</code> operators to match the beginning or end of the
+path. Here are some examples:
 
 <dl>
 
-<dt><code>sample-string</code></dt>
-<dd>Do a full-text search for <code>sample-string</code> anywhere in the code.
-The search will be case-sensitive based on the checkbox to the right of the searchbox.
-You can use spaces or any other characters in the string; they will be treated as
-part of the search term.
-As a convenience, this search will also return files whose path contains
-<code>sample-string</code>.
+<dt><code>test</code></dt>
+<dd>Find all paths containing the substring "<code>test</code>".
 
-<dt><code><b>re:</b>sample.str([in]*)g</code></dt>
-<dd>Search for the given regular expression in the code.
-Case sensitivity is also determined by the check box.
+<dt><code>^js/src</code></dt>
+<dd>Find all paths starting with <code>js/src</code>.
 
-<dt><code><b>path:</b>browser/base</code></dt>
-<dd>List all files whose path contains the string <code>browser/base</code>.
-This search is always case-insensitive. Spaces are not allowed in paths.
+<dt><code>*.cpp</code></dt>
+<dd>Find all paths containing "<code>.cpp</code>".
 
-<dt><code><b>pathre:</b>.*\.ipdl$</code></dt>
-<dd>List all files whose path matches the given regular expression.
-This search is always case-insensitive. Spaces are not allowed in the
-regular expression.
+<dt><code>*.cpp$</code></dt>
+<dd>Find all paths ending with "<code>.cpp</code>".
 
-<dt><code><b>path:</b>browser/base addTabsProgressListener</code></dt>
-<dd>Find all instances of the string <code>addTabProgressListener</code>
-in files whose path contains <code>browser/base</code>. The search term
-is case sensitive according to the check box. The path is always searched
-case insensitively.
+<dt><code>^js/src/*.cpp$</code></dt>
+<dd>Find all C++ files in <code>js/src</code>, but not in
+subdirectories (i.e., <code>*</code> does not match <code>/</code>).
 
-<dt><code><b>pathre:</b>\.ipdl$ <b>re:</b>\bns(Int)?Re</code></dt>
-<dd>Search for the given regular expression in files whose path matches
-the path regular expression. As above, the path regular expression cannot
-contain spaces. The other regular expression can contain spaces.
+<dt><code>^js/src/**.cpp$</code></dt>
+<dd>Find all C++ files in <code>js/src</code> or in subdirectories
+(i.e., <code>**</code> matches <code>/</code>).
+
+<dt><code>^js/src/**.{cpp,h}$</code></dt>
+<dd>Find all C++ source or header files in <code>js/src</code> or in subdirectories.
 
 </dl>
 
@@ -79,7 +79,20 @@ implementations of that method as well as the IDL
 declaration. Visiting the IDL declaration and searching from there
 will yield all implementations.
 
+<h3>Syntax Highlighting</h3>
+
+Searchfox uses semantic syntax highlighting. Types are shown in teal
+(blue-green). Definitions are shown in bold. Hovering over an
+identifier highlights other uses of that identifier.
+
 <h3>Releases</h3>
+
+<h4>Version 2.0 (May 31, 2016)</h4>
+
+<ul>
+  <li>Insta-blame
+  <li>Semantic syntax highlighting
+</ul>
 
 <h4>Version 1.5 (March 16, 2016)</h4>
 
