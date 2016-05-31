@@ -230,6 +230,21 @@ let Analyzer = {
     }
   },
 
+  functionDecl(f) {
+    for (let i = 0; i < f.params.length; i++) {
+      this.pattern(f.params[i]);
+      this.maybeExpression(f.defaults[i]);
+    }
+    if (f.rest) {
+      this.defVar(f.rest.name, f.rest.loc);
+    }
+    if (f.body.type == "BlockStatement") {
+      this.statement(f.body);
+    } else {
+      this.expression(f.body);
+    }
+  },
+
   statement(stmt) {
     switch (stmt.type) {
     case "EmptyStatement":
@@ -339,18 +354,7 @@ let Analyzer = {
     case "FunctionDeclaration":
       this.defVar(stmt.id.name, stmt.loc);
       this.scoped(() => {
-        for (let i = 0; i < stmt.params.length; i++) {
-          this.pattern(stmt.params[i]);
-          this.maybeExpression(stmt.defaults[i]);
-        }
-        if (stmt.rest) {
-          this.defVar(stmt.rest.name, stmt.rest.loc);
-        }
-        if (stmt.body.type == "BlockStatement") {
-          this.statement(stmt.body);
-        } else {
-          this.expression(stmt.body);
-        }
+        this.functionDecl(stmt);
       });
       break;
 
@@ -374,7 +378,18 @@ let Analyzer = {
       break;
 
     case "ClassMethod":
-      this.expression(stmt.body);
+      if (stmt.name.type == "Identifier") {
+        this.defProp(stmt.name.name, stmt.name.loc);
+      }
+
+      this.scoped(() => {
+        if (stmt.body.type == "FunctionExpression") {
+          // Don't want to find the name twice.
+          this.functionDecl(stmt.body);
+        } else {
+          this.expression(stmt.body);
+        }
+      });
       break;
 
     default:
@@ -510,18 +525,8 @@ let Analyzer = {
         if (expr.type == "FunctionExpression" && name) {
           this.defVar(name, expr.loc);
         }
-        for (let i = 0; i < expr.params.length; i++) {
-          this.pattern(expr.params[i]);
-          this.maybeExpression(expr.defaults[i]);
-        }
-        if (expr.rest) {
-          this.defVar(expr.rest.name, expr.rest.loc);
-        }
-        if (expr.body.type == "BlockStatement") {
-          this.statement(expr.body);
-        } else {
-          this.expression(expr.body);
-        }
+
+        this.functionDecl(expr);
       });
       break;
 
