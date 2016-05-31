@@ -35,9 +35,6 @@ for line in lines:
 
     files.append(path + '\n')
 
-    if os.access(fullpath, os.X_OK):
-        continue
-
     (_, ext) = os.path.splitext(path)
     if ext == '.idl':
         # This file causes problems because an IDL file of the same name
