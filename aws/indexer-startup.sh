@@ -154,7 +154,7 @@ popd
 date
 
 pushd mozsearch/tools
-cargo build --release
+cargo build --release --verbose
 popd
 
 date
