@@ -1,4 +1,5 @@
 import boto3
+import time
 
 def await_volume(client, volumeId, waitingState, finishedState):
     while True:
@@ -6,6 +7,7 @@ def await_volume(client, volumeId, waitingState, finishedState):
         state = volumes['Volumes'][0]['State']
         if state != waitingState:
             break
+        time.sleep(1)
 
     if state != finishedState:
         print 'Unexpected volume state (expected {}): {}'.format(finishedState, volumes)
@@ -19,6 +21,7 @@ def await_instance(client, instanceId, waitingState, finishedState):
             break
         if state == finishedState:
             break
+        time.sleep(1)
 
     if state != finishedState:
         print 'Unexpected instance state (expected {}): {}'.format(finishedState, instances)
