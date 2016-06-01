@@ -38,11 +38,11 @@ function updateBlamePopup() {
 
     if (json.parent) {
       var parentLink = `/${tree}/rev/${json.parent}/${path}#${lineno}`;
-      content += ` <a href="${parentLink}">Show annotated parent</a>`;
+      content += `<br><a href="${parentLink}" class="deemphasize">Show latest version without this line</a>`;
     }
 
     var revLink = `/${tree}/rev/${rev}/${path}#${lineno}`;
-    content += ` <a href="${revLink}">Show annotated file</a>`;
+    content += `<br><a href="${revLink}" class="deemphasize">Show earliest version with this line</a>`;
 
     var parent = blameElt.parentNode;
     var height = blameElt.getBoundingClientRect().height;

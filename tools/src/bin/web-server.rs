@@ -38,8 +38,7 @@ fn not_found() -> WebResponse {
     }
 }
 
-fn handle_static(cfg: &config::Config, req: WebRequest) -> WebResponse {
-    let path = cfg.mozsearch_path.clone() + &req.path;
+fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
     let source_file = match File::open(&path) {
         Ok(f) => f,
         Err(_) => {
@@ -55,7 +54,7 @@ fn handle_static(cfg: &config::Config, req: WebRequest) -> WebResponse {
         }
     }
 
-    let content_type = match Path::new(&path).extension() {
+    let inferred_content_type = match Path::new(&path).extension() {
         Some(ext) =>
             match ext.to_str().unwrap() {
                 "css" => "text/css",
@@ -63,6 +62,10 @@ fn handle_static(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 _ => "text/html",
             },
         None => "text/html"
+    };
+    let content_type = match content_type {
+        Some(ct) => ct,
+        None => inferred_content_type,
     };
     
     WebResponse { status: StatusCode::Ok, content_type: content_type.to_owned(), output: input }
@@ -73,7 +76,8 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
     let path = path[1..].split('/').collect::<Vec<_>>();
 
     if path.len() > 0 && path[0] == "static" {
-        return handle_static(cfg, req);
+        let path = cfg.mozsearch_path.clone() + &req.path;
+        return handle_static(path, None);
     }
     
     if path.len() < 2 {
@@ -108,6 +112,16 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                         output: err.to_owned(),
                     }
             }
+        },
+
+        "source" => {
+            let path = path.clone().split_off(2);
+            let path = path.join("/");
+
+            let tree_config = cfg.trees.get(*tree_name).unwrap();
+
+            let path = format!("{}/file/{}", tree_config.paths.index_path, path);
+            return handle_static(path, Some("text/html"));
         },
 
         "diff" => {

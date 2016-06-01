@@ -250,6 +250,11 @@ mark {
     padding: 1rem 2rem;
 }
 
+body.old-rev .content {
+    margin-top: 90px;
+    padding: 1rem 2rem;
+}
+
 /* Breadcrumbs */
 .path-separator {
     margin: 0 .2rem;
@@ -432,6 +437,9 @@ span[data-id].hovered {
     text-decoration: underline;
     cursor: pointer;
 }
+.deemphasize {
+    color: #8c8c8c !important;
+}
 .minus-line {
     background-color: rgb(255, 204, 204);
 }
@@ -484,6 +492,17 @@ input[type="checkbox"] {
     padding: .8rem;
     width: 100%;
     z-index: 100;
+}
+body.old-rev .search-box {
+    padding-bottom: .4rem;
+}
+#revision {
+    padding-top: .2rem;
+    color: #656565;
+}
+#revision a {
+    text-decoration: underline;
+    cursor: pointer;
 }
 .h-flex-container {
     display: flex;

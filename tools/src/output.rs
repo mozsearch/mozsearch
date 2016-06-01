@@ -7,6 +7,7 @@ use self::chrono::{DateTime, Local};
 pub struct Options<'a> {
     pub title: &'a str,
     pub tree_name: &'a str,
+    pub revision: Option<(&'a str, &'a str)>,
     pub include_date: bool,
 }
 
@@ -154,11 +155,28 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
         F::S("</div>"),
     ];
 
+    let revision = match opt.revision {
+        Some((rev_id, rev_desc)) => vec![
+            F::T(format!("<span id=\"rev-id\">Showing <a href=\"/{}/commit/{}\">{}</a>:</span>",
+                         opt.tree_name, rev_id, &rev_id[..8])),
+            F::T(format!("<span id=\"rev-desc\">{}</span>", rev_desc)),
+        ],
+        None => vec![],
+    };
+
+    let body_class = match opt.revision {
+        Some(_) => "old-rev",
+        None => "",
+    };
+
     let form = vec![
         F::S("<fieldset>"),
         F::Indent(fieldset),
         F::S("</fieldset>"),
         F::S("<input type=\"submit\" value=\"Search\" class=\"visually-hidden\" />"),
+        F::S("<div id=\"revision\">"),
+        F::Indent(revision),
+        F::S("</div>"),
     ];
 
     let f = F::Seq(vec![
@@ -168,7 +186,7 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
         F::Indent(head_seq),
         F::S("</head>"),
         F::S(""),
-        F::S("<body>"),
+        F::T(format!("<body class=\"{}\">", body_class)),
         F::Indent(vec![
             F::T(format!("<form method=\"get\" action=\"/{}/search\" id=\"basic_search\" class=\"search-box\">",
                          opt.tree_name)),

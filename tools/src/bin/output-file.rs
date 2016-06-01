@@ -100,6 +100,7 @@ fn main() {
         format_file_data(&cfg,
                          tree_name,
                          &panel,
+                         None,
                          &blame_commit,
                          path,
                          input,

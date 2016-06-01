@@ -210,6 +210,7 @@ fn read_blob_entry(repo: &git2::Repository, entry: &git2::TreeEntry) -> String {
 pub fn format_file_data(cfg: &config::Config,
                         tree_name: &str,
                         panel: &Vec<PanelSection>,
+                        commit: Option<&git2::Commit>,
                         blame_commit: &git2::Commit,
                         path: &str,
                         data: String,
@@ -241,12 +242,26 @@ pub fn format_file_data(cfg: &config::Config,
         None
     };
 
+    let revision_owned = match commit {
+        Some(commit) => {
+            let rev = commit.id().to_string();
+            let header = try!(blame::commit_header(commit));
+            Some((rev, header))
+        },
+        None => None,
+    };
+    let revision = match revision_owned {
+        Some((ref rev, ref header)) => Some((rev.as_str(), header.as_str())),
+        None => None,
+    };
+
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
     let opt = Options {
         title: &title,
         tree_name: tree_name,
         include_date: true,
+        revision: revision,
     };
 
     try!(output::generate_header(&opt, writer));
@@ -399,6 +414,7 @@ pub fn format_path(cfg: &config::Config,
     try!(format_file_data(cfg,
                           tree_name,
                           &panel,
+                          Some(&commit),
                           &blame_commit,
                           path,
                           data,
@@ -528,12 +544,15 @@ pub fn format_diff(cfg: &config::Config,
     let analysis = Vec::new();
     let (formatted_lines, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 
+    let header = try!(blame::commit_header(&commit));
+
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
     let opt = Options {
         title: &title,
         tree_name: tree_name,
         include_date: true,
+        revision: Some((rev, &header)),
     };
 
     try!(output::generate_header(&opt, writer));
@@ -687,7 +706,7 @@ fn generate_commit_info(tree_name: &str,
     let header = blame::linkify(header);
 
     fn format_rev(tree_name: &str, oid: git2::Oid) -> String {
-        format!("<a href=\"/{}/diff/{}\">{}</a>", tree_name, oid, oid)
+        format!("<a href=\"/{}/commit/{}\">{}</a>", tree_name, oid, oid)
     }
 
     fn format_sig(sig: git2::Signature) -> String {
@@ -762,8 +781,8 @@ fn generate_commit_info(tree_name: &str,
         let data = try!(data.nth(prefix_size).ok_or("Invalid diff output"));
         let file_info = data.split('\t').take(2).collect::<Vec<_>>();
 
-        let f = F::T(format!("<li>{} <a href=\"/mozilla-central/diff/{}/{}\">{}</a>",
-                             file_info[0], commit.id(), file_info[1], file_info[1]));
+        let f = F::T(format!("<li>{} <a href=\"/{}/diff/{}/{}\">{}</a>",
+                             file_info[0], tree_name, commit.id(), file_info[1], file_info[1]));
         changes.push(f);
     }
 
@@ -791,6 +810,7 @@ pub fn format_commit(cfg: &config::Config,
         title: &title,
         tree_name: tree_name,
         include_date: true,
+        revision: None,
     };
 
     try!(output::generate_header(&opt, writer));
