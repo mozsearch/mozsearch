@@ -454,7 +454,8 @@ $(function() {
   }
 
   window.showSearchResults = function(results) {
-    populateResults(results, true, true);
+    var jumpToSingle = window.location.search.indexOf("&redirect=false") == -1;
+    populateResults(results, true, jumpToSingle);
   };
 
   /**

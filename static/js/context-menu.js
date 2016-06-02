@@ -85,7 +85,7 @@ $("#file").on("click", "span[data-i]", function(event) {
     var sym = jumps[i].sym;
     var pretty = jumps[i].pretty;
     menuItems.push({html: fmt("Goto definition of _", pretty),
-                    href: "/mozilla-central/define?q=" + encodeURIComponent(sym),
+                    href: `/mozilla-central/define?q=${encodeURIComponent(sym)}&redirect=false`,
                     icon: "search"});
   }
 
@@ -93,7 +93,7 @@ $("#file").on("click", "span[data-i]", function(event) {
     var sym = searches[i].sym;
     var pretty = searches[i].pretty;
     menuItems.push({html: fmt("Search for _", pretty),
-                    href: "/mozilla-central/search?q=symbol:" + encodeURIComponent(sym),
+                    href: `/mozilla-central/search?q=symbol:${encodeURIComponent(sym)}&redirect=false`,
                     icon: "search"});
   }
 
