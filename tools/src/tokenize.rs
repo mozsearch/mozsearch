@@ -301,7 +301,8 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
 
             // Horrible hack to treat '/' in (1+2)/3 as division and not regexp literal.
             let s = string[start .. peek_pos()].to_string();
-            next_token_maybe_regexp_literal = s == "=" || s == "(" || s == "{" || s == ":" || s == "&" || s == "|";
+            next_token_maybe_regexp_literal = s == "=" || s == "(" || s == "{" ||
+                s == ":" || s == "&" || s == "|" || s == "!";
         }
     }
 
