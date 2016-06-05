@@ -592,8 +592,25 @@ public:
       FindOverriddenMethods(dyn_cast<CXXMethodDecl>(d), symbols);
     }
 
-    // FIXME: Need to skip the '~' token for destructors.
     SourceLocation loc = d->getLocation();
+
+    // For destructors, loc points to the ~ character. We want to skip to the
+    // class name.
+    if (isa<CXXDestructorDecl>(d)) {
+      const char* p = sm.getCharacterData(loc);
+      assert(p == '~');
+      p++;
+
+      unsigned skipped = 1;
+      while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') {
+        p++;
+        skipped++;
+      }
+
+      loc = loc.getLocWithOffset(skipped);
+
+      prettyKind = "destructor";
+    }
 
     VisitToken(kind, prettyKind, nullptr, d->getQualifiedNameAsString(), loc, symbols, flags);
 
