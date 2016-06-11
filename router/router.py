@@ -23,12 +23,37 @@ from logger import log
 # Move spinner to the right end?
 # Make a help box?
 
+# Simple globbing implementation, except ^ and $ are also allowed.
+def parse_path_filter(filter):
+    filter = filter.replace('(', '\\(')
+    filter = filter.replace(')', '\\)')
+    filter = filter.replace('|', '\\|')
+    filter = filter.replace('.', '\\.')
+
+    def star_repl(m):
+        if m.group(0) == '*':
+            return '[^/]*'
+        else:
+            return '.*'
+    filter = re.sub(r'\*\*|\*', star_repl, filter)
+
+    filter = filter.replace('?', '.')
+
+    def repl(m):
+        s = m.group(1)
+        components = s.split(',')
+        s = '|'.join(components)
+        return '(' + s + ')'
+    filter = re.sub('{([^}]*)}', repl, filter)
+
+    return filter
+
 def parse_search(searchString):
     pieces = searchString.split(' ')
     result = {}
     for i in range(len(pieces)):
         if pieces[i].startswith('path:'):
-            result['pathre'] = re.escape(pieces[i][len('path:'):])
+            result['pathre'] = parse_path_filter(pieces[i][len('path:'):])
         elif pieces[i].startswith('pathre:'):
             result['pathre'] = pieces[i][len('pathre:'):]
         elif pieces[i].startswith('symbol:'):
@@ -108,31 +133,6 @@ def search_files(path):
     results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
-# Simple globbing implementation, except ^ and $ are also allowed.
-def parse_path_filter(filter):
-    filter = filter.replace('(', '\\(')
-    filter = filter.replace(')', '\\)')
-    filter = filter.replace('|', '\\|')
-    filter = filter.replace('.', '\\.')
-
-    def star_repl(m):
-        if m.group(0) == '*':
-            return '[^/]*'
-        else:
-            return '.*'
-    filter = re.sub(r'\*\*|\*', star_repl, filter)
-
-    filter = filter.replace('?', '.')
-
-    def repl(m):
-        s = m.group(1)
-        components = s.split(',')
-        s = '|'.join(components)
-        return '(' + s + ')'
-    filter = re.sub('{([^}]*)}', repl, filter)
-
-    return filter
-
 def get_json_search_results(query):
     try:
         searchString = query['q'][0]
@@ -171,7 +171,6 @@ def get_json_search_results(query):
 
     if is_trivial_search(parsed):
         results = {}
-        results['*error*'] = 'Invalid query'
         return json.dumps(results)
 
     title = searchString

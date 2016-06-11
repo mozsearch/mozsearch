@@ -267,8 +267,6 @@ $(function() {
       document.title = title + " - mozsearch";
     }
 
-    console.log(data);
-
     window.scrollTo(0, 0);
 
     function makeURL(path) {
