@@ -520,10 +520,17 @@ public:
       no_crossref = ", \"no_crossref\":1";
     }
 
+    char syntax[256] = { 0 };
+    if (!(flags & NO_CROSSREF)) {
+      sprintf(syntax, "\"syntax\": \"%s,%s\", ", kind, prettyKind);
+    } else {
+      sprintf(syntax, "\"syntax\": \"\", ");
+    }
+
     sprintf(buf,
-            "{\"loc\":\"%s\", \"source\":1, \"syntax\": \"%s,%s\", "
+            "{\"loc\":\"%s\", \"source\":1, %s"
             "\"pretty\":\"%s %s\", \"sym\":\"%s\"%s}\n",
-            locStr2.c_str(), kind, prettyKind,
+            locStr2.c_str(), syntax,
             prettyKind, prettyData ? prettyData : EscapeString(text).c_str(),
             symbolList.c_str(),
             no_crossref);
