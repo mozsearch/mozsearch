@@ -290,7 +290,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                     }
                     tokens.push(Token {start: nl, end: peek_pos(), kind: TokenKind::Newline});
                     start = peek_pos();
-                } else if next == '\\' {
+                } else if next == '\\' && peek_char() != '\n' {
                     get_char();
                 }
             }
