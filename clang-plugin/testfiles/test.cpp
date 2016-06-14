@@ -10,6 +10,8 @@ enum {
 
 typedef struct {
     int f;
+
+    bool operator()(int);
 } Abc;
 
 struct R {

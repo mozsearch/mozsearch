@@ -46,7 +46,10 @@ lazy_static! {
         "const", "constexpr", "const_cast", "continue", "decltype", "default", "delete",
         "do", "double", "dynamic_cast", "else", "enum", "explicit", "export", "extern", "false",
         "float", "for", "friend", "goto", "if", "inline", "int", "import", "long", "module",
-        "mutable", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator",
+        "mutable", "namespace", "new", "noexcept", "not", "not_eq", "nullptr",
+        // Don't mark "operator" as a keyword so that people can click
+        // on it.
+        //"operator",
         "or", "or_eq", "private", "protected", "public", "register", "reinterpret_cast",
         "requires", "return", "short", "signed", "sizeof", "static", "static_assert",
         "static_cast", "struct", "switch", "synchronized", "template", "this", "thread_local",
