@@ -1,5 +1,4 @@
 Big tasks:
-* Blame
 * Autocomplete
 * Display links to nearby methods in sidebar
 * Better click UI that includes comments, IDL, etc.
@@ -21,12 +20,9 @@ AWS:
 
 C++ indexing:
 * Index specialized types (templated, etc.)
-* Index global variables, enums, macros
 * Better indexing with inheritance (don't just search from root method)
 
 JS indexing:
-* Class support
-* Other indexing improvements?
 * Indexing of test files
 
 Other indexing:
@@ -35,7 +31,6 @@ Other indexing:
 * WebIDL?
 
 IDL:
-* Need to index <handler> directives.
 * Need to index the name of the IDL class as a type.
 
 Searching for declarations:
@@ -49,13 +44,46 @@ Not sure if that would be fast enough, but it might not be too bad. It would jus
 Or I could put in each level of qualification as a separate thing, and they would have to type
 a prefix. That way I could do a binary search, which would be much faster.
 
-C++ indexing:
-Kinds of decls that I'm interested in:
-- NamespaceAliasDecl
-- NamespaceDecl
-- TemplateDecl
-- VarDecl, FieldDecl (DeclaratorDecl)
-- FunctionDecl
-- TypedefDecl
-- TagDecl
-- UsingDirectiveDecl?
+C++:
+
+For a given (static type, method) combo, I think I should have one
+canonical set of results regardless of whether you're searching from a
+def or a use. That set will include:
+  - all possible method defs that can be dispatched to from that static type
+  - all possible call sites that might call those methods
+  - related methods up the inheritance chain?
+
+class A {
+  virtual void foo() {}
+  // Result for def:A#foo
+  // Searches for use:A#foo
+};
+
+class B : A {
+};
+
+class C : B {
+  virtual void foo() {}
+  // Result for def:A#foo, def:B#foo, def:C#foo
+  // Searches for use:A#foo, use:B#foo, use:C#foo, def:A#foo
+};
+
+int main() {
+  A* a;
+  B* b;
+  C* c;
+
+  a->foo();
+  // Searches for def:A#foo, use:A#foo
+  // Result for use:A#foo
+
+  b->foo();
+  // Searches for def:B#foo, use:A#foo, use:B#foo
+  // Result for def:B#foo
+
+  c->foo();
+  // Searches for def:C#foo, use:A#foo, use:B#foo, use:C#foo
+  // Result for use:C#foo
+}
+
+What sort of pretty names should I use throughout all this?
