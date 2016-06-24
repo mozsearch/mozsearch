@@ -2,7 +2,8 @@ let treeRoot = scriptArgs[0];
 let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
 let objdir = scriptArgs[3];
-let pathFiles = scriptArgs.slice(4);
+let treeName = scriptArgs[4];
+let pathFiles = scriptArgs.slice(5);
 
 run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
@@ -89,7 +90,7 @@ function generateDirectory(dir, path, opt)
       }
     }
 
-    let relative_url = fileURL(opt.tree, path == "/" ? "/" + filename : path + "/" + filename);
+    let relative_url = fileURL(opt.tree, path == "/" ? filename : path + "/" + filename);
 
     entryContent += `
         <tr>
@@ -115,7 +116,7 @@ function generateDirectory(dir, path, opt)
   </table>
 `;
 
-  let dirname = path.substring(path.lastIndexOf("/") + 1);
+  let dirname = path == "/" ? "/" : path.substring(path.lastIndexOf("/") + 1);
   opt.title = `${dirname} - mozsearch`;
 
   let output = generate(content, opt);
@@ -181,7 +182,7 @@ function readPathFile(pathFile, structure)
 
 function recursiveGenerate(dir, path)
 {
-  generateDirectory(dir, path == "" ? "/" : path, {tree: "mozilla-central", includeDate: true});
+  generateDirectory(dir, path == "" ? "/" : path, {tree: treeName, includeDate: true});
 
   for (let [filename, node] of dir) {
     if (node instanceof FileInfo) {

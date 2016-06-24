@@ -23,7 +23,7 @@ cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
 	     $MOZSEARCH_ROOT/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files > /tmp/dirs
-$JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR /tmp/dirs
+$JS $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR $TREE_NAME /tmp/dirs
 
-$JS $MOZSEARCH_ROOT/output-template.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT
+$JS $MOZSEARCH_ROOT/output-template.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT $TREE_NAME
 $JS $MOZSEARCH_ROOT/output-help.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT

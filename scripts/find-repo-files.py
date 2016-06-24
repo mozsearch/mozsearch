@@ -4,13 +4,16 @@ import os
 import os.path
 import sys
 import subprocess
+import json
 
-mozSearchRoot = os.environ['MOZSEARCH_ROOT']
-indexRoot = os.environ['INDEX_ROOT']
-treeRoot = os.environ['TREE_ROOT']
+from lib import run
 
-p = subprocess.Popen('git ls-files', shell=True, stdout=subprocess.PIPE, cwd=treeRoot)
-(stdout, stderr) = p.communicate()
+config = json.load(open(sys.argv[1]))
+tree_name = sys.argv[2]
+
+repo_path = config['repos'][tree_name]['repo_path']
+
+stdout = run('git ls-files', shell=True, cwd=repo_path)
 
 files = []
 js = []
@@ -24,7 +27,7 @@ for line in lines:
     if not path:
         continue
 
-    fullpath = os.path.join(treeRoot, path)
+    fullpath = os.path.join(repo_path, path)
 
     elts = path.split('/')
     for i in range(len(elts)):
@@ -48,8 +51,9 @@ for line in lines:
     if ext in ['.js', '.jsm', '.xml']:
         js.append(path + '\n')
 
-open(os.path.join(indexRoot, 'repo-files'), 'w').writelines(files)
-open(os.path.join(indexRoot, 'repo-dirs'), 'w').writelines(dirs)
-open(os.path.join(indexRoot, 'js-files'), 'w').writelines(js)
-open(os.path.join(indexRoot, 'idl-files'), 'w').writelines(idl)
+index_path = config['repos'][tree_name]["index_path"]
+open(os.path.join(index_path, 'repo-files'), 'w').writelines(files)
+open(os.path.join(index_path, 'repo-dirs'), 'w').writelines(dirs)
+open(os.path.join(index_path, 'js-files'), 'w').writelines(js)
+open(os.path.join(index_path, 'idl-files'), 'w').writelines(idl)
 

@@ -1,11 +1,12 @@
 let treeRoot = scriptArgs[0];
 let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
+let treeName = scriptArgs[3];
 
 run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
 
-let opt = {tree: "mozilla-central",
+let opt = {tree: treeName,
            title: "{{TITLE}} - mozsearch"};
 
 let searchBody = `<script>

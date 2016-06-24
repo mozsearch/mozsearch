@@ -30,8 +30,9 @@ class CodeSearch:
         results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
         return results
 
-    def search(self, pattern, fold_case=True, file='.*', repo='.*'):
+    def search(self, pattern, fold_case, file, repo):
         query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
+        print 'QUERY', query
         log('codesearch query %s', json.dumps(query))
         self.query = json.dumps(query)
         self.state = 'search'
@@ -99,21 +100,19 @@ def daemonize(args):
     os.dup2(se.fileno(), sys.stderr.fileno())
 
     log('Running codesearch')
-    os.execv(args[0], args)
+    os.execvp(args[0], args)
 
 def startup_codesearch():
-    path = os.environ['CODESEARCH']
-    if not path:
-        return
-
-    args = [path, '-listen', 'tcp://localhost:8080',
-            '-load_index', os.path.join(indexPath, 'livegrep.idx'),
+    args = ['codesearch', '-listen', 'tcp://localhost:8080',
+            '-load_index', os.path.join(livegrep_path, 'livegrep.idx'),
             '-max_matches', '1000', '-timeout', '10000']
 
     daemonize(args)
     time.sleep(5)
 
-def search(pattern, fold_case=True, file='.*', repo='.*'):
+def search(pattern, fold_case, path, tree_name):
+    repo = '%s|%s-__GENERATED__' % (tree_name, tree_name)
+
     try:
         codesearch = CodeSearch('localhost', 8080)
     except socket.error, e:
@@ -124,10 +123,10 @@ def search(pattern, fold_case=True, file='.*', repo='.*'):
             return []
 
     try:
-        return codesearch.search(pattern, fold_case, file, repo)
+        return codesearch.search(pattern, fold_case, path, repo)
     finally:
         codesearch.close()
 
 def load(config):
-    global indexPath
-    indexPath = config['mozilla-central']['index_path']
+    global livegrep_path
+    livegrep_path = config['livegrep_path']

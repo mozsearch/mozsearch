@@ -2,8 +2,6 @@
 .vagrant
 fastcgi/obj
 ./temp-index
-mozilla-central
-hg-mozilla-central
 *.o
 *.so
 *.pyc
@@ -13,4 +11,6 @@ tools/target
 paths
 config.json
 env
-temp-index
+repos
+index
+addons

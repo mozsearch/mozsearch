@@ -7,9 +7,12 @@ CONFIG_FILE=$1
 TREE_NAME=$2
 NOSLEEP=$3
 
+export MOZSEARCH_ROOT=$(scripts/read-json.py $CONFIG_FILE mozsearch_path)
+. $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+
 date
 
-$MOZSEARCH_ROOT/scripts/find-repo-files.py
+$MOZSEARCH_ROOT/scripts/find-repo-files.py $CONFIG_FILE $TREE_NAME
 $MOZSEARCH_ROOT/scripts/mkdirs.sh
 
 date
@@ -21,20 +24,12 @@ fi
 
 date
 
-$MOZSEARCH_ROOT/scripts/cpp-configure.sh
-
-cd $TREE_ROOT
-MOZCONFIG=$INDEX_ROOT/mozconfig ./mach build
-cd -
+$MOZSEARCH_ROOT/repos-setup/$TREE_NAME/build
 
 date
 
 $MOZSEARCH_ROOT/scripts/find-objdir-files.py
 $MOZSEARCH_ROOT/scripts/objdir-mkdirs.sh
-
-date
-
-$MOZSEARCH_ROOT/scripts/build-codesearch.sh
 
 date
 

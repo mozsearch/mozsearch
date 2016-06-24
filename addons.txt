@@ -1,0 +1,15 @@
+Design for add-ons repo:
+- Will download the latest version of every public add-on.
+- Will unzip the XPI.
+- Directory structure will be:
+    `${prefix1}/${prefix2}/${addonId}/${addonName}/${fileId}/...`
+- Will unzip any subsidiary jar files within the addon.
+
+This will probably be quite large in the end. Many gigabytes.
+I'll only allow full-text searching--no analysis. That wouldn't be
+very useful and it would be wasteful of memory and disk.
+There also won't be any blame information.
+
+I'll tar all this up at the end and upload it to AWS, like all the
+other stuff.
+

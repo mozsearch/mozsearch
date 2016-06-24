@@ -103,17 +103,11 @@ export JS=$INDEX_TMP/js/js
 
 date
 
-wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/mozilla-central.tar
-tar xf mozilla-central.tar
-rm mozilla-central.tar
-
-date
-
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
 make
 popd
-export CODESEARCH=$INDEX_TMP/livegrep/bin/codesearch
+export PATH=$PATH:$INDEX_TMP/livegrep/bin
 
 date
 
@@ -146,6 +140,7 @@ pushd mozsearch
 git submodule init
 git submodule update
 popd
+export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
 
 pushd mozsearch/clang-plugin
 make
@@ -178,49 +173,48 @@ sudo mkdir /index
 sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
-date
-
-pushd /index
-wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/gecko-dev.tar
-tar xf gecko-dev.tar
-rm gecko-dev.tar
-
-date
-
-wget -q https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
-tar xf gecko-blame.tar
-rm gecko-blame.tar
-popd
-
-date
-
 export VENV
-export HG_ROOT=$INDEX_TMP/mozilla-central
-export TREE_ROOT=/index/gecko-dev
-export TREE_REV=$(cd $TREE_ROOT; git show-ref -s --head ^HEAD$)
-export BLAME_ROOT=/index/gecko-blame
-export OBJDIR=$INDEX_TMP/objdir
-export INDEX_ROOT=/index
-export MOZSEARCH_ROOT=$INDEX_TMP/mozsearch
+export CONFIG_FILE=$INDEX_TMP/config.json
 
-cat >$INDEX_TMP/config.json <<OTHEREND
+cat >$CONFIG_FILE <<OTHEREND
 {
   "mozsearch_path": "$MOZSEARCH_ROOT",
+  "livegrep_path": "/index",
 
-  "mozilla-central": {
-    "index_path": "$INDEX_ROOT",
-    "repo_path": "$TREE_ROOT",
-    "blame_repo_path": "$BLAME_ROOT",
-    "objdir_path": "$OBJDIR"
+  "repos": {
+    "mozilla-central": {
+      "index_path": "/index/mozilla-central",
+      "repo_path": "/index/mozilla-central/gecko-dev",
+      "hg_path": "$INDEX_TMP/mozilla-central",
+      "blame_repo_path": "/index/mozilla-central/gecko-blame",
+      "objdir_path": "$INDEX_TMP/mozilla-central/objdir"
+    }
   }
 }
 OTHEREND
 
-$INDEX_TMP/mozsearch/update-repos
+for TREE_NAME in $($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos)
+do
+   .  $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+    mkdir -p $INDEX_ROOT
+
+    date
+    $MOZSEARCH_ROOT/repos-setup/$TREE_NAME/setup
+done
 
 date
 
-$INDEX_TMP/mozsearch/mkindex $INDEX_TMP/config.json mozilla-central
+for TREE_NAME in $($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos)
+do
+    date
+    $MOZSEARCH_ROOT/update-repos $CONFIG_FILE $TREE_NAME
+
+    date
+    $MOZSEARCH_ROOT/mkindex $CONFIG_FILE $TREE_NAME
+done
+
+date
+$MOZSEARCH_ROOT/scripts/build-codesearch.py $CONFIG_FILE
 
 date
 echo "Indexing complete"

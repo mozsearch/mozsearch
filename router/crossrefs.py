@@ -3,38 +3,44 @@ import sys
 import mmap
 import os.path
 
-f = None
-mm = None
-crossrefs = {}
+repo_data = {}
 
 def load(config):
-    global f, mm
+    global repo_data
 
-    indexPath = config['mozilla-central']['index_path']
-    f = open(os.path.join(indexPath, 'crossref'))
-    mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
-    f.close()
+    for repo_name in config['repos']:
+        print 'Loading', repo_name
+        index_path = config['repos'][repo_name]['index_path']
 
-    key = None
-    pos = 0
+        f = open(os.path.join(index_path, 'crossref'))
+        mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
+        f.close()
 
-    while True:
-        line = mm.readline()
-        if line == '':
-            break
+        key = None
+        pos = 0
 
-        if key == None:
-            pos += len(line)
-            key = line.strip()
-        else:
-            value = line.strip()
-            s = "{},{}".format(pos, pos + len(value))
-            crossrefs[key] = s
-            key = None
-            pos += len(line)
+        crossrefs = {}
+        while True:
+            line = mm.readline()
+            if line == '':
+                break
 
-def lookup(symbols):
+            if key == None:
+                pos += len(line)
+                key = line.strip()
+            else:
+                value = line.strip()
+                s = "{},{}".format(pos, pos + len(value))
+                crossrefs[key] = s
+                key = None
+                pos += len(line)
+
+        repo_data[repo_name] = (mm, crossrefs)
+
+def lookup(tree_name, symbols):
     symbols = symbols.split(',')
+
+    (mm, crossrefs) = repo_data[tree_name]
 
     results = {}
     for symbol in symbols:
@@ -47,7 +53,6 @@ def lookup(symbols):
 
         data = mm[startPos:endPos]
         result = json.loads(data)
-        f.close()
 
         for (k, v) in result.items():
             results[k] = results.get(k, []) + result[k]

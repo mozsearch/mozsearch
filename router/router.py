@@ -16,12 +16,14 @@ import traceback
 
 import crossrefs
 import codesearch
-import blame
 from logger import log
 
 # TODO:
 # Move spinner to the right end?
 # Make a help box?
+
+def index_path(tree_name):
+    return config['repos'][tree_name]['index_path']
 
 # Simple globbing implementation, except ^ and $ are also allowed.
 def parse_path_filter(filter):
@@ -122,8 +124,8 @@ def sort_results(results):
 
     return { kind: sort_inner(res) for kind, res in results.items() }
 
-def search_files(path):
-    pathFile = os.path.join(indexPath, 'repo-files')
+def search_files(tree_name, path):
+    pathFile = os.path.join(index_path(tree_name), 'repo-files')
     try:
         # We set the locale to make grep much faster.
         results = subprocess.check_output(['grep', '-Ei', path, pathFile], env={'LC_CTYPE': 'C'})
@@ -133,7 +135,7 @@ def search_files(path):
     results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
-def get_json_search_results(query):
+def get_json_search_results(tree_name, query):
     try:
         searchString = query['q'][0]
     except:
@@ -181,22 +183,22 @@ def get_json_search_results(query):
         # FIXME: Need to deal with path here
         symbols = parsed['symbol']
         title = 'Symbol ' + symbols
-        results = crossrefs.lookup(symbols)
+        results = crossrefs.lookup(tree_name, symbols)
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
-        substrResults = codesearch.search(parsed['re'], foldCase, file = path)
+        substrResults = codesearch.search(parsed['re'], foldCase, path, tree_name)
         results = {'default': substrResults}
     elif 'default' in parsed:
         path = parsed.get('pathre', '.*')
-        substrResults = codesearch.search(parsed['default'], foldCase, file = path)
+        substrResults = codesearch.search(parsed['default'], foldCase, path, tree_name)
         if 'pathre' in parsed:
             fileResults = []
         else:
-            fileResults = search_files(parsed['default'])
+            fileResults = search_files(tree_name, parsed['default'])
         results = {'default': fileResults + substrResults}
     elif 'pathre' in parsed:
         path = parsed['pathre']
-        results = {"default": search_files(path)}
+        results = {"default": search_files(tree_name, path)}
     else:
         assert False
         results = {}
@@ -253,74 +255,51 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def process_request(self):
         url = urlparse.urlparse(self.path)
-        pathElts = url.path.split('/')
+        path_elts = url.path.split('/')
 
         # Strip any extra slashes.
-        pathElts = [ elt for elt in pathElts if elt != '' ]
+        path_elts = [ elt for elt in path_elts if elt != '' ]
 
-        if pathElts == []:
-            filename = os.path.join(indexPath, 'help.html')
+        if not path_elts:
+            filename = os.path.join(index_path('nss'), 'help.html')
             data = open(filename).read()
             self.generate(data, 'text/html')
-        elif pathElts[:2] == ['mozilla-central', 'source']:
-            filename = os.path.join(indexPath, 'file', '/'.join(pathElts[2:]))
+        elif path_elts[1] == 'source':
+            tree_name = path_elts[0]
+            filename = os.path.join(index_path(tree_name), 'file', '/'.join(path_elts[2:]))
             try:
                 data = open(filename).read()
             except:
-                filename = os.path.join(indexPath, 'dir', '/'.join(pathElts[2:]), 'index.html')
+                filename = os.path.join(index_path(tree_name), 'dir', '/'.join(path_elts[2:]), 'index.html')
                 try:
                     data = open(filename).read()
                 except:
                     return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
             self.generate(data, 'text/html')
-        elif pathElts[:2] == ['mozilla-central', 'search']:
+        elif path_elts[1] == 'search':
+            tree_name = path_elts[0]
             query = urlparse.parse_qs(url.query)
-            j = get_json_search_results(query)
+            j = get_json_search_results(tree_name, query)
             if 'json' in self.headers.getheader('Accept', ''):
                 self.generate(j, 'application/json')
             else:
                 j = j.replace("/script", "\\/script")
-                template = os.path.join(indexPath, 'templates/search.html')
+                template = os.path.join(index_path(tree_name), 'templates/search.html')
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
-        elif pathElts[:2] == ['mozilla-central', 'define']:
+        elif path_elts[1] == 'define':
+            tree_name = path_elts[0]
             query = urlparse.parse_qs(url.query)
             symbol = query['q'][0]
-            results = crossrefs.lookup(symbol)
+            results = crossrefs.lookup(tree_name, symbol)
             definition = results['Definitions'][0]
             filename = definition['path']
             lineno = definition['lines'][0]['lno']
-            url = '/mozilla-central/source/' + filename + '#' + str(lineno)
+            url = '/' + tree_name + '/source/' + filename + '#' + str(lineno)
 
             self.send_response(301)
             self.send_header("Location", url)
             self.end_headers()
-        elif pathElts[:2] == ['mozilla-central', 'commit']:
-            rev = pathElts[2]
-            filename = '/'.join(pathElts[3:])
-
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-
-            blame.show_commit(self.wfile, rev, filename)
-        elif pathElts[:2] == ['mozilla-central', 'rev']:
-            rev = pathElts[2]
-            filename = '/'.join(pathElts[3:])
-
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-
-            blame.show_rev(self.wfile, rev, filename)
-        elif pathElts[:2] == ['mozilla-central', 'commit-info']:
-            rev = pathElts[2]
-
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-
-            blame.get_commit_info(self.wfile, rev)
         else:
             return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
@@ -351,12 +330,8 @@ else:
 
 config = json.load(open(config_fname))
 
-mozSearchPath = config['mozsearch_path']
-indexPath = config['mozilla-central']['index_path']
-
 crossrefs.load(config)
 codesearch.load(config)
-blame.load(config)
 
 class ForkingServer(ForkingMixIn, HTTPServer):
     pass

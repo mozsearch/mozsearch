@@ -7,6 +7,8 @@ mkdir -p $INDEX_ROOT/analysis
 mkdir -p $INDEX_ROOT/file
 mkdir -p $INDEX_ROOT/dir
 
+mkdir -p $INDEX_ROOT/analysis/__GENERATED__
+
 cat $INDEX_ROOT/repo-dirs | while IFS= read dir
 do
   mkdir -p "$INDEX_ROOT/file/$dir"

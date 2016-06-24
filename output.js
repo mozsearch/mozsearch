@@ -16,11 +16,13 @@ function generateBreadcrumbs(path, opt)
   let tree = opt.tree;
   let breadcrumbs = `<a href="${fileURL(tree, "")}">${tree}</a>`;
   let pathSoFar = "";
-  for (let name of path.split("/")) {
-    breadcrumbs += `<span class="path-separator">/</span>`;
-    pathSoFar += name;
-    breadcrumbs += `<a href="${fileURL(tree, pathSoFar)}">${name}</a>`;
-    pathSoFar += "/";
+  if (path != "/") {
+    for (let name of path.split("/")) {
+      breadcrumbs += `<span class="path-separator">/</span>`;
+      pathSoFar += name;
+      breadcrumbs += `<a href="${fileURL(tree, pathSoFar)}">${name}</a>`;
+      pathSoFar += "/";
+    }
   }
 
   return `<div class="breadcrumbs">

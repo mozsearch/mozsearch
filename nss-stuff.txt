@@ -1,0 +1,5 @@
+0. Need to compile with:
+     USE_64=1 make nss_build_all
+
+1. The Linux.mk file hard codes gcc as the compiler. Need to fix CC and CCC.
+2. Need to set CCC to $CXX.

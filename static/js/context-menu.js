@@ -66,6 +66,8 @@ $("#file").on("mousemove", function(event) {
 });
 
 $("#file").on("click", "span[data-i]", function(event) {
+  var tree = $("#data").data("tree");
+
   var elt = $(event.target);
   while (!elt.attr("data-i")) {
     elt = elt.parent();
@@ -85,7 +87,7 @@ $("#file").on("click", "span[data-i]", function(event) {
     var sym = jumps[i].sym;
     var pretty = jumps[i].pretty;
     menuItems.push({html: fmt("Goto definition of _", pretty),
-                    href: `/mozilla-central/define?q=${encodeURIComponent(sym)}&redirect=false`,
+                    href: `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`,
                     icon: "search"});
   }
 
@@ -93,7 +95,7 @@ $("#file").on("click", "span[data-i]", function(event) {
     var sym = searches[i].sym;
     var pretty = searches[i].pretty;
     menuItems.push({html: fmt("Search for _", pretty),
-                    href: `/mozilla-central/search?q=symbol:${encodeURIComponent(sym)}&redirect=false`,
+                    href: `/${tree}/search?q=symbol:${encodeURIComponent(sym)}&redirect=false`,
                     icon: "search"});
   }
 

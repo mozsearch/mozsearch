@@ -67,9 +67,11 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
 
     let mozsearch_json = obj.remove("mozsearch_path").unwrap();
     let mozsearch = mozsearch_json.as_string().unwrap();
+
+    let repos = obj.get("repos").unwrap().as_object().unwrap().clone();
     
     let mut trees = BTreeMap::new();
-    for (tree_name, tree_config) in obj {
+    for (tree_name, tree_config) in repos {
         let mut decoder = json::Decoder::new(tree_config);
         let paths = TreeConfigPaths::decode(&mut decoder).unwrap();
 

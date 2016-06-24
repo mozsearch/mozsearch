@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -e # Errors are fatal
+set -x # Show commands
+
+date
+
+pushd $INDEX_TMP
+wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/mozilla-central.tar
+tar xf mozilla-central.tar
+rm mozilla-central.tar
+popd
+
+date
+
+pushd $INDEX_ROOT
+wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/gecko-dev.tar
+tar xf gecko-dev.tar
+rm gecko-dev.tar
+popd
+
+date
+
+pushd $INDEX_ROOT
+wget -q https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
+tar xf gecko-blame.tar
+rm gecko-blame.tar
+popd
+
+date
