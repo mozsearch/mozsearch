@@ -165,12 +165,15 @@ ln -s $HOME/index/help.html docroot
 cat >$HOME/config.json <<OTHEREND
 {
   "mozsearch_path": "$HOME/mozsearch",
+  "livegrep_path": "$HOME/index",
 
-  "mozilla-central": {
-    "index_path": "$HOME/index",
-    "repo_path": "$HOME/index/gecko-dev",
-    "blame_repo_path": "$HOME/index/gecko-blame",
-    "objdir_path": ""
+  "repos": {
+    "mozilla-central": {
+      "index_path": "$HOME/index/mozilla-central",
+      "repo_path": "$HOME/index/mozilla-central/gecko-dev",
+      "blame_repo_path": "$HOME/index/mozilla-central/gecko-blame",
+      "objdir_path": ""
+    }
   }
 }
 OTHEREND
