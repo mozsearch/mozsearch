@@ -158,9 +158,9 @@ popd
 
 mkdir -p docroot/file/mozilla-central
 mkdir -p docroot/dir/mozilla-central
-ln -s $HOME/index/file docroot/file/mozilla-central/source
-ln -s $HOME/index/dir docroot/dir/mozilla-central/source
-ln -s $HOME/index/help.html docroot
+ln -s $HOME/index/mozilla-central/file docroot/file/mozilla-central/source
+ln -s $HOME/index/mozilla-central/dir docroot/dir/mozilla-central/source
+ln -s $HOME/index/mozilla-central/help.html docroot
 
 cat >$HOME/config.json <<OTHEREND
 {
@@ -179,6 +179,8 @@ cat >$HOME/config.json <<OTHEREND
 OTHEREND
 
 cd mozsearch
+
+export PATH=$PATH:$HOME/livegrep/bin
 
 nohup $VENV/bin/python router/router.py $HOME/config.json > $HOME/router.log 2> $HOME/router.err < /dev/null &
 
