@@ -7,7 +7,8 @@ CONFIG_FILE=$1
 TREE_NAME=$2
 NOSLEEP=$3
 
-export MOZSEARCH_ROOT=$(scripts/read-json.py $CONFIG_FILE mozsearch_path)
+SCRIPT_PATH=$(readlink -f "$0")
+MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")
 . $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
 date

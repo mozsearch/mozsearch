@@ -136,7 +136,7 @@ LIBGIT2=$VENV LDFLAGS="-Wl,-rpath='$VENV/lib',--enable-new-dtags $LDFLAGS" $VENV
 
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
-make
+make bin/codesearch
 popd
 export CODESEARCH=$HOME/livegrep/bin/codesearch
 

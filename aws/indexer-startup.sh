@@ -105,7 +105,7 @@ date
 
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
-make
+make bin/codesearch
 popd
 export PATH=$PATH:$INDEX_TMP/livegrep/bin
 

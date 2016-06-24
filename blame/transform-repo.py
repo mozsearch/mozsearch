@@ -139,7 +139,7 @@ def fixup_blame(info, path, parent_path):
     return str_blame_info(rev, fname, int(lineno), author)
 
 def blame_for_path(file_movement, commit, path):
-    print '  ', '/'.join(path)
+    #print '  ', '/'.join(path)
 
     blob = get_tree_data(old_repo, commit.tree, path)
     lines = splitlines(blob.data)
@@ -149,7 +149,6 @@ def blame_for_path(file_movement, commit, path):
         parent_path = path
         if blob.id in file_movement.get(parent.id, {}):
             parent_path = file_movement[parent.id][blob.id].split('/')
-            print parent_path
 
         parent_blob = get_tree_data(old_repo, parent.tree, parent_path)
         if not parent_blob:
@@ -196,8 +195,6 @@ def build_blame_tree(builder, file_movement, commit, path):
 def transform_revision(commit):
     new_parents = [ blame_map[parent_id].id for parent_id in commit.parent_ids ]
 
-    print 'Y', commit.id
-    
     file_movement = {}
     if len(commit.parents) == 1:
         parent = commit.parents[0]
@@ -210,7 +207,6 @@ def transform_revision(commit):
 
         for patch in diff:
             delta = patch.delta
-            print 'X', delta.new_file.path, delta.old_file.path
             if delta.old_file.path != delta.new_file.path:
                 movement[delta.new_file.id] = delta.old_file.path
 
@@ -220,8 +216,6 @@ def transform_revision(commit):
     with Timer("build_blame_tree"):
         build_blame_tree(builder, file_movement, commit, [])
     tree = builder.write()
-
-    return
 
     reference = None
     try:
@@ -355,7 +349,7 @@ def transform():
 
         find_mercurial_commit(commit)
 
-        if commit.id not in blame_map or commit.id == pygit2.Oid(hex='bf65ba4ce1c2ff59a9677f07cbb50569ed1f5ba7'):
+        if commit.id not in blame_map:
             print 'Transforming', commit.id, '(' + str(index) + ')', 'hg', git_to_hg_map.get(commit.id)
 
             transform_revision(commit)
