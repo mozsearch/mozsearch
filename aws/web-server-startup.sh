@@ -5,6 +5,9 @@ exec &> ~ubuntu/startup-log
 set -e
 set -x
 
+# This is intended to fix a bug in EC2.
+sudo rm -rf /var/lib/apt/lists/*
+
 apt-get update
 apt-get install -y git
 
