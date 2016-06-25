@@ -203,7 +203,7 @@ def transform_revision(commit):
         with Timer("diff"):
             diff = old_repo.diff(a=parent.tree, b=commit.tree)
         with Timer("find_similar"):
-            diff.find_similar(flags=pygit2.GIT_DIFF_FIND_COPIES)
+            diff.find_similar(flags=pygit2.GIT_DIFF_FIND_COPIES, rename_limit=1000000)
 
         for patch in diff:
             delta = patch.delta
