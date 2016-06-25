@@ -103,7 +103,7 @@ export JS=$INDEX_TMP/js/js
 
 date
 
-wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/mozilla-central.tar
+wget -q https://s3-us-west-2.amazonaws.com/searchfox.repositories/mozilla-central.tar
 tar xf mozilla-central.tar
 rm mozilla-central.tar
 
@@ -181,13 +181,13 @@ sudo chown ubuntu.ubuntu /index
 date
 
 pushd /index
-wget -q https://s3-us-west-2.amazonaws.com/gecko-repo/gecko-dev.tar
+wget -q https://s3-us-west-2.amazonaws.com/searchfox.repositories/gecko-dev.tar
 tar xf gecko-dev.tar
 rm gecko-dev.tar
 
 date
 
-wget -q https://s3-us-west-2.amazonaws.com/blame-repo/gecko-blame.tar
+wget -q https://s3-us-west-2.amazonaws.com/searchfox.repositories/gecko-blame.tar
 tar xf gecko-blame.tar
 rm gecko-blame.tar
 popd
