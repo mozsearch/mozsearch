@@ -111,7 +111,7 @@ date
 
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
-make
+make bin/codesearch
 popd
 export CODESEARCH=$INDEX_TMP/livegrep/bin/codesearch
 
