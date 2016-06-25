@@ -1,0 +1,40 @@
+#!/bin/bash
+
+set -e # Errors are fatal
+set -x # Show commands
+
+date
+
+mkdir -p $INDEX_TMP/nss
+
+pushd $INDEX_TMP/nss
+wget -q https://s3-us-west-2.amazonaws.com/searchfox.repositories/nss-hg.tar
+tar xf nss-hg.tar
+rm nss-hg.tar
+popd
+
+date
+
+pushd $INDEX_ROOT
+wget -q https://s3-us-west-2.amazonaws.com/searchfox.repositories/nss-nspr.tar
+tar xf nss-nspr.tar
+rm nss-nspr.tar
+popd
+
+date
+
+pushd $INDEX_ROOT
+wget -q https://s3-us-west-2.amazonaws.com/searchfox.repositories/nss-git.tar
+tar xf nss-git.tar
+rm nss-git.tar
+popd
+
+date
+
+pushd $INDEX_ROOT
+wget -q https://s3-us-west-2.amazonaws.com/searchfox.repositories/nss-blame.tar
+tar xf nss-blame.tar
+rm nss-blame.tar
+popd
+
+date

@@ -182,6 +182,14 @@ cat >$CONFIG_FILE <<OTHEREND
   "livegrep_path": "/index",
 
   "repos": {
+    "nss": {
+      "index_path": "/index/nss",
+      "repo_path": "/index/nss/git",
+      "hg_path": "$INDEX_TMP/nss/hg",
+      "blame_repo_path": "/index/nss/blame",
+      "objdir_path": "$INDEX_TMP/nss/dist"
+    },
+
     "mozilla-central": {
       "index_path": "/index/mozilla-central",
       "repo_path": "/index/mozilla-central/gecko-dev",
