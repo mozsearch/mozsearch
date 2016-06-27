@@ -264,7 +264,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             filename = os.path.join(index_path('nss'), 'help.html')
             data = open(filename).read()
             self.generate(data, 'text/html')
-        elif path_elts[1] == 'source':
+        elif len(path_elts) >= 2 and path_elts[1] == 'source':
             tree_name = path_elts[0]
             filename = os.path.join(index_path(tree_name), 'file', '/'.join(path_elts[2:]))
             try:

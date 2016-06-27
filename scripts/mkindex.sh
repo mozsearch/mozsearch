@@ -3,12 +3,18 @@
 set -e # Errors are fatal
 set -x # Show commands
 
-CONFIG_FILE=$1
-TREE_NAME=$2
-NOSLEEP=$3
+if [ $# != 3 ]
+then
+    echo "usage: $0 <config-repo-path> <config-file> <tree-name>"
+    exit 1
+fi
+
+CONFIG_REPO=$1
+CONFIG_FILE=$2
+TREE_NAME=$3
 
 SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")
+MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")/..
 . $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
 date
@@ -18,14 +24,7 @@ $MOZSEARCH_ROOT/scripts/mkdirs.sh
 
 date
 
-if [ "x$NOSLEEP" != "x1" ]
-then
-    sleep 1000
-fi
-
-date
-
-$MOZSEARCH_ROOT/repos-setup/$TREE_NAME/build
+$CONFIG_REPO/$TREE_NAME/build
 
 date
 

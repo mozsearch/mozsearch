@@ -10,7 +10,7 @@ then
 fi
 
 cat $INDEX_ROOT/js-files | grep "$FILTER" | \
-    parallel --halt 2 $JS -f $MOZSEARCH_ROOT/setversion.js \
+    parallel --halt 2 js -f $MOZSEARCH_ROOT/setversion.js \
     -f $MOZSEARCH_ROOT/js-analyze.js -- {#} \
     $MOZSEARCH_ROOT $TREE_ROOT/{} ">" $INDEX_ROOT/analysis/{}
 echo $?
