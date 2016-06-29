@@ -189,18 +189,26 @@ $(function() {
   defaultDataLimit = 100;
 
   window.addEventListener("pageshow", function() {
-    var initialSearch = /[?&]?q=([^&]+)/.exec(location.search);
+    function getQuery(key) {
+      var val = new RegExp('[&?]' + key + '=([^&]*)').exec(location.search);
+      if (val) {
+        val = val[1];
+        val = val.replace(/\+/g, ' ');
+        val = decodeURIComponent(val);
+        return val;
+      }
+    }
+    var initialSearch = getQuery('q');
     if (initialSearch) {
-      queryField.val(decodeURIComponent(initialSearch[1]));
+      queryField.val(initialSearch);
     }
 
-    var initialPath = /[?&]?path=([^&]+)/.exec(location.search);
+    var initialPath = getQuery('path');
     if (initialPath) {
-      pathField.val(decodeURIComponent(initialPath[1]));
+      pathField.val(initialPath);
     }
 
-    var match = /[?&]regexp=([^&]+)/.exec(location.search);
-    var regexp = match ? (match[1] === 'true') : false;
+    var regexp = getQuery('regexp') === 'true';
     regexpBox.prop('checked', regexp);
   });
 
