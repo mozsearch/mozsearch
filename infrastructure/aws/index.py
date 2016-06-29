@@ -3,21 +3,31 @@ from datetime import datetime, timedelta
 import sys
 import os.path
 
-# Usage: provision_indexer.py [release|dev]
+# Usage: provision_indexer.py <config-repo> [release|dev]
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
-# 'release' or 'dev'
-channel = sys.argv[1]
+config_repo = sys.argv[1]
 
-userData = open(os.path.join(os.path.dirname(sys.argv[0]), 'indexer-startup.sh')).read()
-userData = userData.replace('#SETCHANNEL', 'CHANNEL={}'.format(channel))
+# 'release' or 'dev'
+channel = sys.argv[2]
+
+userData = '''
+#!/bin/bash
+
+cd ~ubuntu
+update.sh "{channel}" "{config_repo}"
+sudo -u ubuntu mozsearch/infrastructure/aws/index.sh "{channel}" "{config_repo}"
+'''.format(channel=channel, config_repo=config_repo)
 
 blockDevices = []
 
+images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['indexer']}])
+image_id = images['Images'][0]['ImageId']
+
 launchSpec = {
-    'ImageId': 'ami-5189a661',
+    'ImageId': image_id,
     'KeyName': 'Main Key Pair',
     'SecurityGroups': ['indexer'],
     'UserData': userData,
