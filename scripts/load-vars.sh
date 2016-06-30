@@ -5,8 +5,10 @@ TREE_NAME=$2
 
 if [ "x$MOZSEARCH_ROOT" == "x" ]
 then
-    export MOZSEARCH_ROOT=$(pwd)
+    MOZSEARCH_ROOT=$(pwd)
 fi
+
+export MOZSEARCH_ROOT
 
 export INDEX_ROOT=$($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos/$TREE_NAME/index_path)
 export TREE_ROOT=$($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos/$TREE_NAME/repo_path)
