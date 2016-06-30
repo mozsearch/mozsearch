@@ -17,7 +17,7 @@ MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/..
 CHANNEL=$1
 CONFIG_REPO=$(readlink -f $2)
 
-sudo mkdir /mnt/tmp
+sudo mkdir -p /mnt/tmp
 sudo chown ubuntu.ubuntu /mnt/tmp
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
@@ -51,8 +51,8 @@ sudo mkdir /index
 sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
-$MOZSEARCH_PATH/indexer-setup.sh config /index /mnt/tmp
-$MOZSEARCH_PATH/indexer-run.sh config /mnt/tmp
+$MOZSEARCH_PATH/indexer-setup.sh $CONFIG_REPO /index /mnt/tmp
+$MOZSEARCH_PATH/indexer-run.sh $CONFIG_REPO /mnt/tmp
 
 date
 echo "Indexing complete"

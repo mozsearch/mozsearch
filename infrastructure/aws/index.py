@@ -17,8 +17,8 @@ userData = '''
 #!/bin/bash
 
 cd ~ubuntu
-update.sh "{channel}" "{config_repo}"
-sudo -u ubuntu mozsearch/infrastructure/aws/index.sh "{channel}" "{config_repo}"
+./update.sh "{channel}" "{config_repo}"
+sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{channel}" config
 '''.format(channel=channel, config_repo=config_repo)
 
 blockDevices = []
