@@ -27,7 +27,7 @@ for repo in config['repos']:
 
     print '''
   location /%(repo)s/source {
-    root %(doc_root)s/%(repo)s;
+    root %(doc_root)s;
     try_files /file/$uri /dir/$uri/index.html =404;
     types { }
     default_type text/html;
@@ -62,7 +62,7 @@ for repo in config['repos']:
 del fmt['repo']
 print '''
   location = / {
-    root %(doc_root)s/mozilla-central;
+    root %(doc_root)s;
     try_files $uri/help.html =404;
     expires 1d;
     add_header Cache-Control "public";
