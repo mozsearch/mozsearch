@@ -32,7 +32,7 @@ export INDEX_TMP=/mnt/tmp
 
 echo "Channel is $CHANNEL"
 
-export AWS_ROOT=$(realpath $MOZSEARCH_PATH/aws)
+export AWS_ROOT=$(realpath $MOZSEARCH_PATH/infrastructure/aws)
 VOLUME_ID=$(python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
 
 while true
@@ -60,7 +60,7 @@ echo "Indexing complete"
 sudo umount /index
 
 python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-python $AWS_ROOT/swap-web-server.py $CHANNEL $EC2_INSTANCE_ID $VOLUME_ID
+python $AWS_ROOT/trigger-web-server.py $CHANNEL $VOLUME_ID
 
 gzip -k ~ubuntu/index-log
 python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`

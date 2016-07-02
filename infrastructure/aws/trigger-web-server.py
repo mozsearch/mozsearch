@@ -7,7 +7,7 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: swap-web-server.py <channel> <indexer-instance-id> <index-volume-id>
+# Usage: swap-web-server.py <channel> <index-volume-id>
 
 import sys
 from datetime import datetime
@@ -19,8 +19,7 @@ import subprocess
 import time
 
 channel = sys.argv[1]
-indexerInstanceId = sys.argv[2]
-volumeId = sys.argv[3]
+volumeId = sys.argv[2]
 
 ELASTIC_IPS = {
     'release': '52.32.131.4',
@@ -32,25 +31,39 @@ elasticIp = ELASTIC_IPS[channel]
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
+userData = '''
+#!/bin/bash
+
+cd ~ubuntu
+./update.sh "{channel}" "{config_repo}"
+sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config
+'''.format(channel=channel, config_repo=config_repo)
+
+volumes = client.describe_volumes(VolumeIds=[volumeId])
+availability_zone = volumes['Volumes'][0]['AvailabilityZone']
+
+if volumes['Volumes'][0]['Attachments']:
+    attachment = volumes['Volumes'][0]['Attachments']
+    if attachment['State'] == 'attached':
+        instance.detach_volume(VolumeId=volumeId)
+        awslib.await_volume(client, volumeId, 'in-use', 'available')
+
 # - Start the web server instance, tag it as a web server
 
 print 'Starting web server instance...'
 
-userData = open(os.path.join(os.path.dirname(sys.argv[0]), 'web-server-startup.sh')).read()
-userData = userData.replace('#SETCHANNEL', 'CHANNEL={}'.format(channel))
-
-instances = ec2.instances.filter(InstanceIds=[indexerInstanceId])
-indexerInstance = list(instances)[0]
+images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server']}])
+image_id = images['Images'][0]['ImageId']
 
 r = client.run_instances(
-    ImageId='ami-5189a661', # Ubuntu 14.04
+    ImageId=image_id,
     MinCount=1,
     MaxCount=1,
     KeyName='Main Key Pair',
     SecurityGroups=['web-server'],
     UserData=userData,
     InstanceType='t2.large',
-    Placement={'AvailabilityZone': indexerInstance.placement['AvailabilityZone']},
+    Placement={'AvailabilityZone': availability_zone},
 )
 
 webServerInstanceId = r['Instances'][0]['InstanceId']
