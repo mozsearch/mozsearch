@@ -13,8 +13,7 @@ config_repo = sys.argv[1]
 # 'release' or 'dev'
 channel = sys.argv[2]
 
-userData = '''
-#!/bin/bash
+userData = '''#!/bin/bash
 
 cd ~ubuntu
 ./update.sh "{channel}" "{config_repo}"

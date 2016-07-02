@@ -32,10 +32,10 @@ elasticIp = ELASTIC_IPS[channel]
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
-userData = '''
-#!/bin/bash
+userData = '''#!/bin/bash
 
 cd ~ubuntu
+touch web_server_started
 ./update.sh "{channel}" "{config_repo}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config
 '''.format(channel=channel, config_repo=config_repo)
