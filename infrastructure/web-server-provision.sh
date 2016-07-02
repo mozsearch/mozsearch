@@ -3,20 +3,20 @@
 set -e
 set -x
 
-apt-get update
-apt-get install -y git
+sudo apt-get update
+sudo apt-get install -y git
 
 # Livegrep
-apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang g++ mercurial
+sudo apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang g++ mercurial
 
 # pygit2
-apt-get install -y python-virtualenv python-dev libffi-dev cmake
+sudo apt-get install -y python-virtualenv python-dev libffi-dev cmake
 
 # Other
-apt-get install -y parallel realpath unzip
+sudo apt-get install -y parallel realpath unzip
 
 # Nginx
-apt-get install -y nginx
+sudo apt-get install -y nginx
 
 # Install Rust.
 curl -sSf https://static.rust-lang.org/rustup.sh | sh

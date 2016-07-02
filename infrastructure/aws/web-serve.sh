@@ -1,11 +1,11 @@
 #!/bin/bash
 
-exec &> /home/ubuntu/index-log
+exec &> /home/ubuntu/web-serve-log
 
 set -e
 set -x
 
-if [ $# != 2 ]
+if [ $# != 1 ]
 then
     echo "usage: $0 <config-repo-path>"
     exit 1
