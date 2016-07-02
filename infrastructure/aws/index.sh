@@ -12,7 +12,7 @@ then
 fi
 
 SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/..
+MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/../..
 
 CHANNEL=$1
 CONFIG_REPO=$2
@@ -23,7 +23,7 @@ sudo chown ubuntu.ubuntu /mnt/tmp
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
-mkdir ~/.aws
+mkdir -p ~/.aws
 cat > ~/.aws/config <<"STOP"
 [default]
 region = us-west-2
@@ -52,8 +52,8 @@ sudo mkdir /index
 sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
-$MOZSEARCH_PATH/indexer-setup.sh $CONFIG_REPO_PATH /index /mnt/tmp
-$MOZSEARCH_PATH/indexer-run.sh $CONFIG_REPO_PATH /mnt/tmp
+$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH /index /mnt/tmp
+$MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /mnt/tmp
 
 date
 echo "Indexing complete"
