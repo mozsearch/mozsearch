@@ -7,7 +7,7 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: swap-web-server.py <channel> <index-volume-id>
+# Usage: swap-web-server.py <channel> <config-repo> <index-volume-id>
 
 import sys
 from datetime import datetime
@@ -19,7 +19,8 @@ import subprocess
 import time
 
 channel = sys.argv[1]
-volumeId = sys.argv[2]
+config_repo = sys.argv[2]
+volumeId = sys.argv[3]
 
 ELASTIC_IPS = {
     'release': '52.32.131.4',
