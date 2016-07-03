@@ -54,13 +54,13 @@ for key in repos:
 
     livegrep_config['fs_paths'].append({
         'name': key + '-__GENERATED__',
-        'path': 'objdir-' + key,
+        'path': 'objdir-%s/' % key,
     })
 
 json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
 
 run(['codesearch', '/tmp/livegrep.json', '-dump_index', '%s/livegrep.idx' % config['livegrep_path'],
-     '-max_matches', '1000'], stdin=open('/dev/null'))
+     '-max_matches', '1000'], stdin=open('/dev/null'), cwd='/tmp/dummy')
 
 run(['rm', '-rf', '/tmp/dummy'])
 run(['rm', '-rf', '/tmp/livegrep.json'])
