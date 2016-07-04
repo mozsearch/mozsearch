@@ -7,6 +7,7 @@ def run(cmd, **extra):
 
     if p.returncode:
         print >>sys.stderr, 'Command failed', cmd
+        print >>sys.stderr, 'Return code', p.returncode
         print >>sys.stderr, stdout
         print >>sys.stderr, '---'
         print >>sys.stderr, stderr
