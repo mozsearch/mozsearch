@@ -5,6 +5,7 @@ use std::io::BufRead;
 use std::io::Write;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 extern crate tools;
 use tools::find_source_file;
@@ -41,9 +42,11 @@ fn main() {
     
     let output_file = format!("{}/crossref", tree_config.paths.index_path);
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
+    let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
     let mut table = HashMap::new();
     let mut pretty_table = HashMap::new();
+    let mut id_table = HashMap::new();
     let mut jumps = Vec::new();
 
     {
@@ -94,6 +97,12 @@ fn main() {
                     t3.push(SearchResult { lineno: datum.loc.lineno, line: buf });
 
                     pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
+
+                    let ch = piece.sym.chars().nth(0).unwrap();
+                    if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
+                        let t1 = id_table.entry(piece.pretty.to_owned()).or_insert(BTreeSet::new());
+                        t1.insert(piece.sym.to_owned());
+                    }
                 }
             }
         };
@@ -151,5 +160,21 @@ fn main() {
     let mut jumpf = File::create(jump_file).unwrap();
     for jump in jumps {
         let _ = jumpf.write_all((jump.to_string() + "\n").as_bytes());
+    }
+
+    let mut idf = File::create(id_file).unwrap();
+    for (id, syms) in id_table {
+        for sym in syms {
+            let components = id.split("::").collect::<Vec<_>>();
+            for i in 0..components.len() {
+                let sub = &components[i..components.len()];
+                let sub = sub.join("::");
+
+                if !sub.is_empty() {
+                    let line = format!("{} {}\n", sub, sym);
+                    let _ = idf.write_all(line.as_bytes());
+                }
+            }
+        }
     }
 }
