@@ -33,7 +33,8 @@ Other indexing:
 IDL:
 * Need to index the name of the IDL class as a type.
 
-Searching for declarations:
+== Searching for declarations ==
+
 Perhaps I'll make an index file that can be used to augment the full text search.
 This would be similar to augmenting it with filenames.
 When doing the analysis, a given decl would generate a fully-qualified name and a line/column number.
@@ -44,7 +45,21 @@ Not sure if that would be fast enough, but it might not be too bad. It would jus
 Or I could put in each level of qualification as a separate thing, and they would have to type
 a prefix. That way I could do a binary search, which would be much faster.
 
-C++:
+There are two ways to make this fast:
+1. Use codesearch to search through the file. It would probably go in a separate repo.
+2. Use binary search. The file would be sorted. For this, though, I would need to include
+   all levels of qualification. I guess the JS analysis already does this.
+3. Just grep through the file. It's hard to see how this would be fast enough though.
+
+Actually, though, I don't want just defs. I also want uses. So this will be a very big file.
+I'll start out using binary search. It makes sense to have the crossref code generate this
+file I think.
+
+ID table: This will be a map from identifiers (with all levels of
+qualification) to symbols. Once we have a symbol, we can look up the
+symbol in the crossref file.
+
+== C++ ==
 
 For a given (static type, method) combo, I think I should have one
 canonical set of results regardless of whether you're searching from a

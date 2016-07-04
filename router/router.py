@@ -13,14 +13,17 @@ import signal
 import time
 import errno
 import traceback
+import collections
 
 import crossrefs
+import identifiers
 import codesearch
 from logger import log
 
-# TODO:
-# Move spinner to the right end?
-# Make a help box?
+#FIXME:
+# If you have an identifier search that includes lots of symbols, it will be very slow. Need to limit the result count, but we need to return 1000 results even if there are dupes.
+# Need case insensitivity.
+# Path restriction?
 
 def index_path(tree_name):
     return config['repos'][tree_name]['index_path']
@@ -63,6 +66,8 @@ def parse_search(searchString):
         elif pieces[i].startswith('re:'):
             result['re'] = (' '.join(pieces[i:]))[len('re:'):]
             break
+        elif pieces[i].startswith('id:'):
+            result['id'] = pieces[i][len('id:'):]
         else:
             result['default'] = re.escape(' '.join(pieces[i:]))
             break
@@ -80,6 +85,19 @@ def is_trivial_search(parsed):
     return True
 
 def sort_results(results):
+    # Semantic results are everything except "Textual Occurrences".
+    # We track them so they can be removed from "Textual Occurrences".
+    semantic_results = {}
+    for (kind, rs) in results.items():
+        if kind == 'Textual Occurrences':
+            continue
+
+        for result in rs:
+            path = result['path']
+            for line_info in result['lines']:
+                lno = line_info['lno']
+                semantic_results[(path, lno)] = True
+
     def is_test(p):
         return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
 
@@ -99,30 +117,75 @@ def sort_results(results):
             r -= 10000
         return r
 
-    def combine_lines(lines1, lines2):
+    result_count = [0]
+    max_result_count = 1000
+
+    def combine_lines(kind, path, lines1, lines2):
         # Eliminate duplicates and sort by line number.
         dict1 = { l['lno']: l for l in lines1 }
         dict2 = { l['lno']: l for l in lines2 }
         dict1.update(dict2)
         lines = dict1.values()
+
+        # If this is a "Textual Occurrences" result, remove semantic matches.
+        if kind == 'Textual Occurrences':
+            def keep(l):
+                return (path, l['lno']) not in semantic_results
+            lines = [ l for l in lines if keep(l) ]
+
         lines.sort(lambda l1, l2: cmp(l1['lno'], l2['lno']))
+
+        result_count[0] += len(lines)
+        if result_count[0] > max_result_count:
+            n = result_count[0] - max_result_count
+            lines = lines[:-n]
+            result_count[0] -= n
+
         return lines
 
-    def combine(path1r, path2r):
+    def combine(kind, path1r, path2r):
         return {'path': path1r['path'],
-                'lines': combine_lines(path1r['lines'], path2r['lines'])}
+                'lines': combine_lines(kind, path1r['path'], path1r['lines'], path2r['lines'])}
 
-    def sort_inner(results):
+    def sort_inner(kind, results):
         m = {}
         for result in results:
-            m[result['path']] = combine(m.get(result['path'], result), result)
+            r = combine(kind, m.get(result['path'], result), result)
+
+            # We may have removed everything (due to them being
+            # semantic matches). Don't record the path in this case.
+            if len(r['lines']):
+                m[result['path']] = r
 
         paths = m.keys()
         paths.sort(sortfunc)
 
         return [ m[path] for path in paths ]
 
-    return { kind: sort_inner(res) for kind, res in results.items() }
+    # Return results in this order.
+    key_precedences = ["IDL", "Definitions", "Assignments", "Uses", "Textual Occurrences", "Declarations"]
+
+    def key_precedence(k):
+        for (prec, kind) in enumerate(key_precedences):
+            if k.startswith(kind):
+                return prec
+        return len(key_precedences)
+
+    def key_sort(k1, k2):
+        prec1 = key_precedence(k1)
+        prec2 = key_precedence(k2)
+        if prec1 == prec2:
+            return cmp(k1, k2)
+        else:
+            return cmp(prec1, prec2)
+
+    keys = list(results.keys())
+    keys.sort(key_sort)
+
+    r = collections.OrderedDict()
+    for k in keys:
+        r[k] = sort_inner(k, results[k])
+    return r
 
 def search_files(tree_name, path):
     pathFile = os.path.join(index_path(tree_name), 'repo-files')
@@ -135,16 +198,50 @@ def search_files(tree_name, path):
     results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
+def num_lines(results):
+    count = 0
+    for k in results:
+        for pathspec in results[k]:
+            count += len(pathspec['lines'])
+    return count
+
+def identifier_search(tree_name, needle, complete, path):
+    needle = re.sub(r'\\(.)', r'\1', needle)
+
+    pieces = re.split(r'\.|:', needle)
+    if not complete and len(pieces[-1]) < 3:
+        return {}
+
+    ids = identifiers.lookup(tree_name, needle, complete)
+    print 'IDS', ids
+    result = {}
+    count = 0
+    for (qualified, sym) in ids:
+        results = crossrefs.lookup(tree_name, sym)
+        for kind in results:
+            if path:
+                pass
+            else:
+                k = '%s (%s)' % (kind, qualified)
+                result[k] = result.get(k, []) + results[kind]
+
+        count += num_lines(results)
+        if count > 1000:
+            
+            break
+
+    return result
+
 def get_json_search_results(tree_name, query):
     try:
-        searchString = query['q'][0]
+        search_string = query['q'][0]
     except:
-        searchString = ''
+        search_string = ''
 
     try:
-        foldCase = query['case'][0] != 'true'
+        fold_case = query['case'][0] != 'true'
     except:
-        foldCase = True
+        fold_case = True
 
     try:
         regexp = query['regexp'][0] == 'true'
@@ -152,21 +249,21 @@ def get_json_search_results(tree_name, query):
         regexp = False
 
     try:
-        pathFilter = query['path'][0]
+        path_filter = query['path'][0]
     except:
-        pathFilter = ''
+        path_filter = ''
 
-    parsed = parse_search(searchString)
+    parsed = parse_search(search_string)
 
-    if pathFilter:
-        parsed['pathre'] = parse_path_filter(pathFilter)
+    if path_filter:
+        parsed['pathre'] = parse_path_filter(path_filter)
 
     if regexp:
         if 'default' in parsed:
             del parsed['default']
         if 're' in parsed:
             del parsed['re']
-        parsed['re'] = searchString
+        parsed['re'] = search_string
 
     if 'default' in parsed and len(parsed['default']) == 0:
         del parsed['default']
@@ -175,30 +272,38 @@ def get_json_search_results(tree_name, query):
         results = {}
         return json.dumps(results)
 
-    title = searchString
+    title = search_string
     if not title:
-        title = 'Files ' + pathFilter
+        title = 'Files ' + path_filter
 
     if 'symbol' in parsed:
-        # FIXME: Need to deal with path here
         symbols = parsed['symbol']
         title = 'Symbol ' + symbols
         results = crossrefs.lookup(tree_name, symbols)
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
-        substrResults = codesearch.search(parsed['re'], foldCase, path, tree_name)
-        results = {'default': substrResults}
+        substr_results = codesearch.search(parsed['re'], fold_case, path, tree_name)
+        results = {'Textual Occurrences': substr_results}
+    elif 'id' in parsed:
+        results = identifier_search(tree_name, parsed['id'], complete=True, path=parsed.get('pathre'))
     elif 'default' in parsed:
         path = parsed.get('pathre', '.*')
-        substrResults = codesearch.search(parsed['default'], foldCase, path, tree_name)
+        substr_results = codesearch.search(parsed['default'], fold_case, path, tree_name)
         if 'pathre' in parsed:
-            fileResults = []
+            file_results = []
+            id_results = []
         else:
-            fileResults = search_files(tree_name, parsed['default'])
-        results = {'default': fileResults + substrResults}
+            file_results = search_files(tree_name, parsed['default'])
+
+        print 'A'
+        id_results = identifier_search(tree_name, parsed['default'], complete=False, path=parsed.get('pathre'))
+        print 'B'
+
+        results = {'Textual Occurrences': file_results + substr_results}
+        results.update(id_results)
     elif 'pathre' in parsed:
         path = parsed['pathre']
-        results = {"default": search_files(tree_name, path)}
+        results = {'Textual Occurrences': search_files(tree_name, path)}
     else:
         assert False
         results = {}
@@ -332,6 +437,7 @@ config = json.load(open(config_fname))
 
 crossrefs.load(config)
 codesearch.load(config)
+identifiers.load(config)
 
 class ForkingServer(ForkingMixIn, HTTPServer):
     pass

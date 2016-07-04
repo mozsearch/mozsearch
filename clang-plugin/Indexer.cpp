@@ -126,24 +126,6 @@ XPCOMHack(std::string mangled)
   return mangled;
 }
 
-static std::string
-EscapeString(std::string input)
-{
-  std::string output = "";
-  char hex[] = { '0', '1', '2', '3', '4', '5', '6', '7',
-                 '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-  for (char c : input) {
-    if (isspace(c) || c == '"' || c == '\\') {
-      output += "\\u00";
-      output += hex[c >> 4];
-      output += hex[c & 0xf];
-    } else {
-      output += c;
-    }
-  }
-  return output;
-}
-
 static bool
 IsValidToken(std::string input)
 {
@@ -465,9 +447,10 @@ public:
   };
 
   void VisitToken(const char *kind,
-                  const char *prettyKind, const char *prettyData,
-                  std::string targetPretty,
-                  SourceLocation loc, const std::vector<std::string>& symbols,
+                  const char *syntaxKind,
+                  std::string qualName,
+                  SourceLocation loc,
+                  const std::vector<std::string>& symbols,
                   int flags = 0)
   {
     loc = sm.getSpellingLoc(loc);
@@ -476,7 +459,7 @@ public:
     unsigned endOffset = startOffset + Lexer::MeasureTokenLength(loc, sm, ci.getLangOpts());
 
     std::string locStr = LocationToString(loc);
-    std::string locStr2 = LocationToString(loc, endOffset - startOffset);
+    std::string rangeStr = LocationToString(loc, endOffset - startOffset);
 
     const char* startChars = sm.getCharacterData(loc);
     std::string text(startChars, endOffset - startOffset);
@@ -495,13 +478,13 @@ public:
 
     std::string symbolList;
     {
-      char *s = new char[1024 + targetPretty.length() + maxlen];
+      char *s = new char[1024 + qualName.length() + maxlen];
       for (auto it = symbols.begin(); it != symbols.end(); it++) {
         std::string symbol = *it;
 
         if (!(flags & NO_CROSSREF)) {
           sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
-                  locStr.c_str(), kind, targetPretty.c_str(), symbol.c_str());
+                  locStr.c_str(), kind, qualName.c_str(), symbol.c_str());
           f->output.push_back(std::string(s));
         }
 
@@ -522,7 +505,7 @@ public:
 
     char syntax[256] = { 0 };
     if (!(flags & NO_CROSSREF)) {
-      sprintf(syntax, "\"syntax\": \"%s,%s\", ", kind, prettyKind);
+      sprintf(syntax, "\"syntax\": \"%s,%s\", ", kind, syntaxKind);
     } else {
       sprintf(syntax, "\"syntax\": \"\", ");
     }
@@ -530,8 +513,10 @@ public:
     sprintf(buf,
             "{\"loc\":\"%s\", \"source\":1, %s"
             "\"pretty\":\"%s %s\", \"sym\":\"%s\"%s}\n",
-            locStr2.c_str(), syntax,
-            prettyKind, prettyData ? prettyData : EscapeString(text).c_str(),
+            rangeStr.c_str(),
+            syntax,
+            syntaxKind,
+            qualName.c_str(),
             symbolList.c_str(),
             no_crossref);
     f->output.push_back(std::string(buf));
@@ -540,12 +525,14 @@ public:
   }
 
   void VisitToken(const char *kind,
-                  const char *prettyKind, const char *prettyData,
-                  std::string targetPretty,
-                  SourceLocation loc, std::string symbol, int flags = 0)
+                  const char *syntaxKind,
+                  std::string qualName,
+                  SourceLocation loc,
+                  std::string symbol,
+                  int flags = 0)
   {
     std::vector<std::string> v = { symbol };
-    VisitToken(kind, prettyKind, prettyData, targetPretty, loc, v, flags);
+    VisitToken(kind, syntaxKind, qualName, loc, v, flags);
   }
 
   bool VisitNamedDecl(NamedDecl *d) {
@@ -619,7 +606,7 @@ public:
       prettyKind = "destructor";
     }
 
-    VisitToken(kind, prettyKind, nullptr, d->getQualifiedNameAsString(), loc, symbols, flags);
+    VisitToken(kind, prettyKind, d->getQualifiedNameAsString(), loc, symbols, flags);
 
     return true;
   }
@@ -638,7 +625,7 @@ public:
     // FIXME: Need to do something different for list initialization.
 
     SourceLocation loc = e->getLocStart();
-    VisitToken("use", "constructor", ctor->getNameAsString().c_str(), ctor->getQualifiedNameAsString(), loc, mangled);
+    VisitToken("use", "constructor", ctor->getQualifiedNameAsString(), loc, mangled);
 
     return true;
   }
@@ -693,7 +680,7 @@ public:
         }
       }
 
-      VisitToken("use", "function", nullptr, namedCallee->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled);
     }
 
     return true;
@@ -706,7 +693,7 @@ public:
 
     TagDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
     return true;
   }
 
@@ -717,7 +704,7 @@ public:
 
     NamedDecl* decl = l.getTypedefNameDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
     return true;
   }
 
@@ -728,7 +715,7 @@ public:
 
     NamedDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
     return true;
   }
 
@@ -741,7 +728,7 @@ public:
     if (ClassTemplateDecl *d = dyn_cast<ClassTemplateDecl>(td)) {
       NamedDecl* decl = d->getTemplatedDecl();
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "type", nullptr, decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+      VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
     }
 
     return true;
@@ -764,7 +751,7 @@ public:
         flags = NO_CROSSREF;
       }
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "variable", nullptr, decl->getQualifiedNameAsString(), loc, mangled, flags);
+      VisitToken("use", "variable", decl->getQualifiedNameAsString(), loc, mangled, flags);
     } else if (isa<FunctionDecl>(decl)) {
       const FunctionDecl *f = dyn_cast<FunctionDecl>(decl);
       if (f->isTemplateInstantiation()) {
@@ -772,10 +759,10 @@ public:
       }
 
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "function", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "function", decl->getQualifiedNameAsString(), loc, mangled);
     } else if (isa<EnumConstantDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "enum", nullptr, decl->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "enum", decl->getQualifiedNameAsString(), loc, mangled);
     }
 
     return true;
@@ -793,7 +780,7 @@ public:
       }
       FieldDecl* member = ci->getMember();
       std::string mangled = GetMangledName(mMangleContext, member);
-      VisitToken("use", "field", nullptr, member->getQualifiedNameAsString(), ci->getMemberLocation(), mangled);
+      VisitToken("use", "field", member->getQualifiedNameAsString(), ci->getMemberLocation(), mangled);
     }
 
     return true;
@@ -807,7 +794,7 @@ public:
     ValueDecl* decl = e->getMemberDecl();
     if (FieldDecl* field = dyn_cast<FieldDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, field);
-      VisitToken("use", "field", nullptr, field->getQualifiedNameAsString(), e->getExprLoc(), mangled);
+      VisitToken("use", "field", field->getQualifiedNameAsString(), e->getExprLoc(), mangled);
     }
     return true;
   }
@@ -824,7 +811,7 @@ public:
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
       std::string mangled = std::string("M_") + MangleLocation(loc);
-      VisitToken("def", "macro", nullptr, ident->getName(), loc, mangled);
+      VisitToken("def", "macro", ident->getName(), loc, mangled);
     }
   }
 
@@ -840,7 +827,7 @@ public:
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
       std::string mangled = std::string("M_") + MangleLocation(loc);
-      VisitToken("use", "macro", nullptr, ident->getName(), tok.getLocation(), mangled);
+      VisitToken("use", "macro", ident->getName(), tok.getLocation(), mangled);
     }
   }
 };
