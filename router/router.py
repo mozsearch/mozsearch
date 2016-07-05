@@ -84,109 +84,119 @@ def is_trivial_search(parsed):
 
     return True
 
-def sort_results(results):
-    # Semantic results are everything except "Textual Occurrences".
-    # We track them so they can be removed from "Textual Occurrences".
-    semantic_results = {}
-    for (kind, rs) in results.items():
-        if kind == 'Textual Occurrences':
-            continue
+class SearchResults(object):
+    def __init__(self):
+        self.results = []
+        self.qualified_results = []
 
-        for result in rs:
-            path = result['path']
-            for line_info in result['lines']:
-                lno = line_info['lno']
-                semantic_results[(path, lno)] = True
+        self.results_hash = {}
+        self.compiled = collections.OrderedDict()
 
-    def is_test(p):
-        return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
+        self.count = 0
 
-    def prio(p):
-        if is_test(p): return 0
-        elif '__GENERATED__' in p: return 1
-        else: return 2
+    def add_results(self, results):
+        self.results.append(results)
 
-    # neg if p1 is before p2
-    def sortfunc(p1, p2):
-        prio1 = prio(p1)
-        prio2 = prio(p2)
-        r = cmp(p1, p2)
-        if prio1 < prio2:
-            r += 10000
-        elif prio1 > prio2:
-            r -= 10000
-        return r
+    def add_qualified_results(self, qual, f):
+        self.qualified_results.append((qual, f))
 
-    result_count = [0]
-    max_result_count = 1000
+    max_count = 1000
+    key_precedences = ["IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
 
-    def combine_lines(kind, path, lines1, lines2):
-        # Eliminate duplicates and sort by line number.
-        dict1 = { l['lno']: l for l in lines1 }
-        dict2 = { l['lno']: l for l in lines2 }
-        dict1.update(dict2)
-        lines = dict1.values()
-
-        # If this is a "Textual Occurrences" result, remove semantic matches.
-        if kind == 'Textual Occurrences':
-            def keep(l):
-                return (path, l['lno']) not in semantic_results
-            lines = [ l for l in lines if keep(l) ]
-
-        lines.sort(lambda l1, l2: cmp(l1['lno'], l2['lno']))
-
-        result_count[0] += len(lines)
-        if result_count[0] > max_result_count:
-            n = result_count[0] - max_result_count
-            lines = lines[:-n]
-            result_count[0] -= n
-
-        return lines
-
-    def combine(kind, path1r, path2r):
-        return {'path': path1r['path'],
-                'lines': combine_lines(kind, path1r['path'], path1r['lines'], path2r['lines'])}
-
-    def sort_inner(kind, results):
-        m = {}
-        for result in results:
-            r = combine(kind, m.get(result['path'], result), result)
-
-            # We may have removed everything (due to them being
-            # semantic matches). Don't record the path in this case.
-            if len(r['lines']):
-                m[result['path']] = r
-
-        paths = m.keys()
-        paths.sort(sortfunc)
-
-        return [ m[path] for path in paths ]
-
-    # Return results in this order.
-    key_precedences = ["IDL", "Definitions", "Assignments", "Uses", "Textual Occurrences", "Declarations"]
-
-    def key_precedence(k):
-        for (prec, kind) in enumerate(key_precedences):
-            if k.startswith(kind):
-                return prec
-        return len(key_precedences)
-
-    def key_sort(k1, k2):
-        prec1 = key_precedence(k1)
-        prec2 = key_precedence(k2)
-        if prec1 == prec2:
-            return cmp(k1, k2)
+    def add_path_result(self, kind, qual, pathr):
+        if qual:
+            qkind = '%s (%s)' % (kind, qual)
         else:
-            return cmp(prec1, prec2)
+            qkind = kind
 
-    keys = list(results.keys())
-    keys.sort(key_sort)
+        path = pathr['path']
+        lines = pathr['lines']
 
-    r = collections.OrderedDict()
-    for k in keys:
-        r[k] = sort_inner(k, results[k])
-    return r
+        # compiled is a map {qkind: {path: {lno: line}}}
+        path_results = self.compiled.setdefault(qkind, {}).setdefault(path, {})
 
+        for line in lines:
+            lno = line['lno']
+
+            key = (path, lno)
+            if key in self.results_hash:
+                continue
+            self.results_hash[key] = True
+            
+            path_results[lno] = line
+            self.count += 1
+
+            if self.maxed_out():
+                break
+
+    def maxed_out(self):
+        return self.count == self.max_count
+            
+    def compile(self):
+        def is_test(p):
+            return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
+
+        def prio(p):
+            if is_test(p): return 0
+            elif '__GENERATED__' in p: return 1
+            else: return 2
+
+        # neg if p1 is before p2
+        def sortfunc(p1, p2):
+            prio1 = prio(p1)
+            prio2 = prio(p2)
+            r = cmp(p1, p2)
+            if prio1 < prio2:
+                r += 10000
+            elif prio1 > prio2:
+                r -= 10000
+            return r
+
+        result = collections.OrderedDict()
+        for qkind in self.compiled:
+            result[qkind] = []
+
+            paths = self.compiled[qkind].keys()
+            paths.sort(sortfunc)
+            for path in paths:
+                lines_map = self.compiled[qkind][path]
+                lnos = lines_map.keys()
+                lnos.sort()
+                lines = [ lines_map[lno] for lno in lnos ]
+                result[qkind].append({'path': path, 'lines': lines})
+
+        return result
+
+    def get(self):
+        self.qualified_results.sort()
+
+        for kind in self.key_precedences:
+            for (qual, f) in self.qualified_results:
+                for pathr in f(kind):
+                    self.add_path_result(kind, qual, pathr)
+
+                    if self.maxed_out():
+                        break
+
+                if self.maxed_out():
+                    break
+
+            for results in self.results:
+                for pathr in results.get(kind, []):
+                    self.add_path_result(kind, None, pathr)
+
+                    if self.maxed_out():
+                        break
+
+                if self.maxed_out():
+                    break
+                
+            if self.maxed_out():
+                break
+
+        r = self.compile()
+        return r
+                
 def search_files(tree_name, path):
     pathFile = os.path.join(index_path(tree_name), 'repo-files')
     try:
@@ -198,14 +208,7 @@ def search_files(tree_name, path):
     results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
-def num_lines(results):
-    count = 0
-    for k in results:
-        for pathspec in results[k]:
-            count += len(pathspec['lines'])
-    return count
-
-def identifier_search(tree_name, needle, complete, path):
+def identifier_search(search, tree_name, needle, complete):
     needle = re.sub(r'\\(.)', r'\1', needle)
 
     pieces = re.split(r'\.|:', needle)
@@ -213,24 +216,14 @@ def identifier_search(tree_name, needle, complete, path):
         return {}
 
     ids = identifiers.lookup(tree_name, needle, complete)
-    print 'IDS', ids
-    result = {}
-    count = 0
     for (qualified, sym) in ids:
-        results = crossrefs.lookup(tree_name, sym)
-        for kind in results:
-            if path:
-                pass
-            else:
-                k = '%s (%s)' % (kind, qualified)
-                result[k] = result.get(k, []) + results[kind]
+        def closure(sym):
+            def f(kind):
+                results = crossrefs.lookup(tree_name, sym)
+                return results.get(kind, [])
+            search.add_qualified_results(qualified, f)
 
-        count += num_lines(results)
-        if count > 1000:
-            
-            break
-
-    return result
+        closure(sym)
 
 def get_json_search_results(tree_name, query):
     try:
@@ -276,39 +269,36 @@ def get_json_search_results(tree_name, query):
     if not title:
         title = 'Files ' + path_filter
 
+    search = SearchResults()
+
     if 'symbol' in parsed:
         symbols = parsed['symbol']
         title = 'Symbol ' + symbols
-        results = crossrefs.lookup(tree_name, symbols)
+        search.add_results(crossrefs.lookup(tree_name, symbols))
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
         substr_results = codesearch.search(parsed['re'], fold_case, path, tree_name)
-        results = {'Textual Occurrences': substr_results}
+        search.add_results({'Textual Occurrences': substr_results})
     elif 'id' in parsed:
-        results = identifier_search(tree_name, parsed['id'], complete=True, path=parsed.get('pathre'))
+        identifier_search(search, tree_name, parsed['id'], complete=True)
     elif 'default' in parsed:
         path = parsed.get('pathre', '.*')
         substr_results = codesearch.search(parsed['default'], fold_case, path, tree_name)
-        if 'pathre' in parsed:
-            file_results = []
-            id_results = []
-        else:
+        search.add_results({'Textual Occurrences': substr_results})
+        if 'pathre' not in parsed:
             file_results = search_files(tree_name, parsed['default'])
+            search.add_results({'Textual Occurrences': file_results})
 
-        print 'A'
-        id_results = identifier_search(tree_name, parsed['default'], complete=False, path=parsed.get('pathre'))
-        print 'B'
-
-        results = {'Textual Occurrences': file_results + substr_results}
-        results.update(id_results)
+            identifier_search(search, tree_name, parsed['default'], complete=False)
     elif 'pathre' in parsed:
         path = parsed['pathre']
-        results = {'Textual Occurrences': search_files(tree_name, path)}
+        search.add_results({'Textual Occurrences': search_files(tree_name, path)})
     else:
         assert False
         results = {}
 
-    results = sort_results(results)
+    results = search.get()
+
     results['*title*'] = title
     return json.dumps(results)
 
