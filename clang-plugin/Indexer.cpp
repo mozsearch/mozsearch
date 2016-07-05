@@ -520,7 +520,7 @@ public:
     buf = StringFormat("{\"loc\":\"%s\", \"source\":1, %s"
                        "\"pretty\":\"%s %s\", \"sym\":\"%s\"%s}\n",
                        rangeStr.c_str(),
-                       syntax,
+                       syntax.c_str(),
                        syntaxKind,
                        qualName.c_str(),
                        symbolList.c_str(),

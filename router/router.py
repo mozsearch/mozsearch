@@ -20,11 +20,6 @@ import identifiers
 import codesearch
 from logger import log
 
-#FIXME:
-# If you have an identifier search that includes lots of symbols, it will be very slow. Need to limit the result count, but we need to return 1000 results even if there are dupes.
-# Need case insensitivity.
-# Path restriction?
-
 def index_path(tree_name):
     return config['repos'][tree_name]['index_path']
 
@@ -101,7 +96,7 @@ class SearchResults(object):
         self.qualified_results.append((qual, f))
 
     max_count = 1000
-    key_precedences = ["IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
+    key_precedences = ["Files", "IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
 
     def add_path_result(self, kind, qual, pathr):
         if qual:
@@ -154,8 +149,6 @@ class SearchResults(object):
 
         result = collections.OrderedDict()
         for qkind in self.compiled:
-            result[qkind] = []
-
             paths = self.compiled[qkind].keys()
             paths.sort(sortfunc)
             for path in paths:
@@ -163,7 +156,8 @@ class SearchResults(object):
                 lnos = lines_map.keys()
                 lnos.sort()
                 lines = [ lines_map[lno] for lno in lnos ]
-                result[qkind].append({'path': path, 'lines': lines})
+                if lines or qkind == 'Files':
+                    result.setdefault(qkind, []).append({'path': path, 'lines': lines})
 
         return result
 
@@ -208,20 +202,35 @@ def search_files(tree_name, path):
     results = [ {'path': f, 'lines': []} for f in results ]
     return results[:1000]
 
-def identifier_search(search, tree_name, needle, complete):
+def demangle(sym):
+    p = subprocess.Popen(['c++filt', '--no-params', sym], stdout=subprocess.PIPE)
+    (stdout, stderr) = p.communicate()
+    if not p.returncode:
+        return stdout.strip()
+    else:
+        return sym
+
+def identifier_search(search, tree_name, needle, complete, fold_case, limit5=True):
     needle = re.sub(r'\\(.)', r'\1', needle)
 
     pieces = re.split(r'\.|:', needle)
     if not complete and len(pieces[-1]) < 3:
         return {}
 
-    ids = identifiers.lookup(tree_name, needle, complete)
-    for (qualified, sym) in ids:
+    ids = identifiers.lookup(tree_name, needle, complete, fold_case)
+    for (i, (qualified, sym)) in enumerate(ids):
+        if i >= 5 and limit5:
+            break
+
+        q = demangle(sym)
+        if q == sym:
+            q = qualified
+
         def closure(sym):
             def f(kind):
                 results = crossrefs.lookup(tree_name, sym)
                 return results.get(kind, [])
-            search.add_qualified_results(qualified, f)
+            search.add_qualified_results(q, f)
 
         closure(sym)
 
@@ -280,19 +289,19 @@ def get_json_search_results(tree_name, query):
         substr_results = codesearch.search(parsed['re'], fold_case, path, tree_name)
         search.add_results({'Textual Occurrences': substr_results})
     elif 'id' in parsed:
-        identifier_search(search, tree_name, parsed['id'], complete=True)
+        identifier_search(search, tree_name, parsed['id'], complete=True, fold_case=fold_case, limit5=False)
     elif 'default' in parsed:
         path = parsed.get('pathre', '.*')
         substr_results = codesearch.search(parsed['default'], fold_case, path, tree_name)
         search.add_results({'Textual Occurrences': substr_results})
         if 'pathre' not in parsed:
             file_results = search_files(tree_name, parsed['default'])
-            search.add_results({'Textual Occurrences': file_results})
+            search.add_results({'Files': file_results})
 
-            identifier_search(search, tree_name, parsed['default'], complete=False)
+            identifier_search(search, tree_name, parsed['default'], complete=False, fold_case=fold_case)
     elif 'pathre' in parsed:
         path = parsed['pathre']
-        search.add_results({'Textual Occurrences': search_files(tree_name, path)})
+        search.add_results({'Files': search_files(tree_name, path)})
     else:
         assert False
         results = {}

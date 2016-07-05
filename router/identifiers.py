@@ -35,13 +35,15 @@ def get_line(mm, pos):
     return mm[start:end]
 
 def bisect(mm, needle, upper_bound):
+    needle = needle.upper()
+
     first = 0
     count = mm.size()
     while count > 0:
         step = count / 2
         pos = first + step
 
-        line = get_line(mm, pos)
+        line = get_line(mm, pos).upper()
         if line < needle or (upper_bound and line == needle):
             first = pos + 1
             count -= step + 1
@@ -50,11 +52,11 @@ def bisect(mm, needle, upper_bound):
 
     return first
 
-def lookup(tree_name, needle, complete):
+def lookup(tree_name, needle, complete, fold_case):
     mm = repo_data[tree_name]
 
     first = bisect(mm, needle, False)
-    last = bisect(mm, needle + '~', False)
+    last = bisect(mm, needle + '~', True)
 
     result = []
     mm.seek(first)
@@ -63,6 +65,8 @@ def lookup(tree_name, needle, complete):
         pieces = line.split(' ')
         suffix = pieces[0][len(needle):]
         if ':' in suffix or '.' in suffix or (complete and suffix):
+            continue
+        if not fold_case and not pieces[0].startswith(needle):
             continue
         result.append(pieces[0:2])
 
