@@ -39,6 +39,16 @@ std::string srcdir;
 std::string objdir;
 std::string outdir;
 
+template<typename ... Args>
+std::string
+StringFormat(const std::string& format, Args... args)
+{
+  size_t len = snprintf(nullptr, 0, format.c_str(), args...);
+  std::unique_ptr<char[]> buf(new char[len + 1]);
+  snprintf(buf.get(), len + 1, format.c_str(), args...);
+  return std::string(buf.get(), buf.get() + len);
+}
+
 static std::string
 Hash(const std::string& str)
 {
@@ -72,9 +82,7 @@ EnsurePath(std::string path)
 static std::string
 ToString(int n)
 {
-  char s[32];
-  sprintf(s, "%d", n);
-  return std::string(s);
+  return StringFormat("%d", n);
 }
 
 std::string
@@ -478,13 +486,13 @@ public:
 
     std::string symbolList;
     {
-      char *s = new char[1024 + qualName.length() + maxlen];
       for (auto it = symbols.begin(); it != symbols.end(); it++) {
         std::string symbol = *it;
 
         if (!(flags & NO_CROSSREF)) {
-          sprintf(s, "{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
-                  locStr.c_str(), kind, qualName.c_str(), symbol.c_str());
+          std::string s;
+          s = StringFormat("{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
+                           locStr.c_str(), kind, qualName.c_str(), symbol.c_str());
           f->output.push_back(std::string(s));
         }
 
@@ -493,35 +501,31 @@ public:
         }
         symbolList += symbol;
       }
-      delete[] s;
     }
 
-    char* buf = new char[1024 + symbolList.length()];
+    std::string buf;
 
     const char* no_crossref = "";
     if (flags & NO_CROSSREF) {
       no_crossref = ", \"no_crossref\":1";
     }
 
-    char syntax[256] = { 0 };
+    std::string syntax;
     if (!(flags & NO_CROSSREF)) {
-      sprintf(syntax, "\"syntax\": \"%s,%s\", ", kind, syntaxKind);
+      syntax = StringFormat("\"syntax\": \"%s,%s\", ", kind, syntaxKind);
     } else {
-      sprintf(syntax, "\"syntax\": \"\", ");
+      syntax = StringFormat("\"syntax\": \"\", ");
     }
 
-    sprintf(buf,
-            "{\"loc\":\"%s\", \"source\":1, %s"
-            "\"pretty\":\"%s %s\", \"sym\":\"%s\"%s}\n",
-            rangeStr.c_str(),
-            syntax,
-            syntaxKind,
-            qualName.c_str(),
-            symbolList.c_str(),
-            no_crossref);
+    buf = StringFormat("{\"loc\":\"%s\", \"source\":1, %s"
+                       "\"pretty\":\"%s %s\", \"sym\":\"%s\"%s}\n",
+                       rangeStr.c_str(),
+                       syntax,
+                       syntaxKind,
+                       qualName.c_str(),
+                       symbolList.c_str(),
+                       no_crossref);
     f->output.push_back(std::string(buf));
-
-    delete[] buf;
   }
 
   void VisitToken(const char *kind,
