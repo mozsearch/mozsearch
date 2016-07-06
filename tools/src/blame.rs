@@ -10,18 +10,24 @@ pub fn linkify(s: &str) -> String {
     re.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$bugno</a>")
 }
 
-pub fn commit_header(commit: &git2::Commit) -> Result<String, &'static str> {
+pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static str> {
+    fn entity_replace(s: &str) -> String {
+        s.replace("&", "&amp;").replace("<", "&lt;")
+    }
+
     let msg = try!(commit.message().ok_or("Invalid message"));
-    let msg = msg.split('\n').next().unwrap();
-    let msg = linkify(msg);
-    Ok(msg)
+    let mut iter = msg.split('\n');
+    let header = iter.next().unwrap();
+    let remainder = iter.collect::<Vec<_>>().join("\n");
+    let header = linkify(&entity_replace(header));
+    Ok((header, entity_replace(&remainder)))
 }
 
 pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Result<String, &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
     let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
     let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
-    let msg = try!(commit_header(&commit));
+    let (msg, _) = try!(commit_header(&commit));
 
     let sig = commit.author();
     let msg = format!("{}\n<br><i>{} &lt;{}></i>", msg, sig.name().unwrap(), sig.email().unwrap());

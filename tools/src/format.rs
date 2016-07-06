@@ -245,7 +245,7 @@ pub fn format_file_data(cfg: &config::Config,
     let revision_owned = match commit {
         Some(commit) => {
             let rev = commit.id().to_string();
-            let header = try!(blame::commit_header(commit));
+            let (header, _) = try!(blame::commit_header(commit));
             Some((rev, header))
         },
         None => None,
@@ -544,7 +544,7 @@ pub fn format_diff(cfg: &config::Config,
     let analysis = Vec::new();
     let (formatted_lines, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 
-    let header = try!(blame::commit_header(&commit));
+    let (header, _) = try!(blame::commit_header(&commit));
 
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
@@ -699,11 +699,7 @@ fn generate_commit_info(tree_name: &str,
                         tree_config: &config::TreeConfig,
                         writer: &mut Write,
                         commit: &git2::Commit)  -> Result<(), &'static str> {
-    let msg = try!(commit.message().ok_or("Invalid message"));
-    let mut iter = msg.split('\n');
-    let header = iter.next().unwrap();
-    let remainder = iter.collect::<Vec<_>>().join("\n");
-    let header = blame::linkify(header);
+    let (header, remainder) = try!(blame::commit_header(&commit));
 
     fn format_rev(tree_name: &str, oid: git2::Oid) -> String {
         format!("<a href=\"/{}/commit/{}\">{}</a>", tree_name, oid, oid)
