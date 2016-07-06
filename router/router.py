@@ -365,7 +365,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         path_elts = [ elt for elt in path_elts if elt != '' ]
 
         if not path_elts:
-            filename = os.path.join(index_path('nss'), 'help.html')
+            filename = os.path.join(index_path('mozilla-central'), 'help.html')
             data = open(filename).read()
             self.generate(data, 'text/html')
         elif len(path_elts) >= 2 and path_elts[1] == 'source':

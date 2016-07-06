@@ -6,7 +6,8 @@ run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
 
 let opt = {tree: "mozilla-central",
-           title: "Searchfox"};
+           title: "Searchfox",
+           autofocusSearch: true};
 
 let body = snarf(mozSearchRoot + "/help.html");
 let output = generate(body, opt);

@@ -12,6 +12,10 @@ set -x # Show commands
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
+SCRIPT_PATH=$(readlink -f "$0")
+MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")/..
+. $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+
 FILTER=$3
 if [ "x${FILTER}" = "x" ]
 then

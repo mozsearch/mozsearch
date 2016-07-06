@@ -90,7 +90,7 @@ function generate(content, opt)
         <div id="search-box" class="h-flex-container" role="group">
           <div id="query-section">
               <label for="query" class="query_label visually-hidden">Find</label>
-              <input type="text" name="q"  value="${query}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" />
+              <input type="text" name="q"  value="${query}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" ${opt.autofocusSearch ? "autofocus" : ""}/>
               <div class="zero-size-container">
                 <div class="bubble" id="query-bubble">
                 </div>
