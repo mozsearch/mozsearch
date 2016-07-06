@@ -7,12 +7,11 @@ var prevRev;
 var prevJson;
 
 function updateBlamePopup() {
-  if (popupBox) {
-    popupBox.remove();
-    popupBox = null;
-  }
-
   if (!blameElt) {
+    if (popupBox) {
+      popupBox.remove();
+      popupBox = null;
+    }
     return;
   }
 
@@ -29,6 +28,11 @@ function updateBlamePopup() {
   function showPopup(json) {
     if (blameElt != elt) {
       return;
+    }
+
+    if (popupBox) {
+      popupBox.remove();
+      popupBox = null;
     }
 
     var content = json.header;
