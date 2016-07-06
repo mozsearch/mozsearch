@@ -62,7 +62,10 @@ class CodeSearch:
             self.handle_input()
 
     def handle_line(self, line):
-        j = json.loads(line, 'latin-1')
+        try:
+            j = json.loads(line)
+        except:
+            j = json.loads(line, 'latin-1')
         if j['opcode'] == 'match':
             self.matches.append(j['body'])
         elif j['opcode'] == 'ready':

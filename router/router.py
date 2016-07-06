@@ -381,7 +381,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                     return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
             self.generate(data, 'text/html')
-        elif path_elts[1] == 'search':
+        elif len(path_elts) >= 2 and path_elts[1] == 'search':
             tree_name = path_elts[0]
             query = urlparse.parse_qs(url.query)
             j = get_json_search_results(tree_name, query)
