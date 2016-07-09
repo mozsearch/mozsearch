@@ -11,7 +11,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "web" do |web|
-    web.vm.provision :shell, path: "infrastructure/web-provision.sh"
+    web.vm.provision :shell, path: "infrastructure/web-server-provision.sh"
     web.vm.network :forwarded_port, guest: 80, host: 8000
   end
 end

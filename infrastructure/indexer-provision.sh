@@ -14,7 +14,7 @@ sudo apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0
 sudo apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang
 
 # Other
-sudo apt-get install -y parallel realpath source-highlight python-virtualenv python-dev
+sudo apt-get install -y parallel realpath python-virtualenv
 
 # pygit2
 sudo apt-get install -y python-dev libffi-dev cmake
