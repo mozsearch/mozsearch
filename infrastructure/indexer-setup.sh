@@ -33,5 +33,4 @@ do
    mkdir -p $TEMP_PATH
 
     $CONFIG_REPO/$TREE_NAME/setup
-    $CONFIG_REPO/$TREE_NAME/update
 done
