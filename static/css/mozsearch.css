@@ -207,6 +207,14 @@ mark {
 {
     display: inline;
 }
+
+.result-context {
+    font-style: italic;
+    margin-left: 10px;
+    padding-left: 4px;
+    padding-right: 4px;
+    color: royalblue;
+}
 /* End search results */
 
 .file td {

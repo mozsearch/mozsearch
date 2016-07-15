@@ -2,9 +2,12 @@
 
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/ASTMatchers/ASTMatchers.h"
+#include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -32,6 +35,7 @@
 #include "sha1.h"
 
 using namespace clang;
+using namespace clang::ast_matchers;
 
 const std::string GENERATED("__GENERATED__/");
 
@@ -211,6 +215,7 @@ private:
   std::ostream *out;
   std::map<std::string, FileInfo *> relmap;
   MangleContext *mMangleContext;
+  ASTContext* mASTContext;
 
   FileInfo *GetFileInfo(const std::string &filename) {
     std::map<std::string, FileInfo *>::iterator it;
@@ -360,6 +365,7 @@ public:
    : ci(ci)
    , sm(ci.getSourceManager())
    , mMangleContext(nullptr)
+   , mASTContext(nullptr)
   {
     //ci.getDiagnostics().setClient(this, false);
     ci.getPreprocessor().addPPCallbacks(llvm::make_unique<PreprocessorHook>(this));
@@ -378,6 +384,7 @@ public:
   virtual void HandleTranslationUnit(ASTContext &ctx) {
     mMangleContext = clang::ItaniumMangleContext::create(ctx, ci.getDiagnostics());
 
+    mASTContext = &ctx;
     TraverseDecl(ctx.getTranslationUnitDecl());
 
     // Emit all files now
@@ -454,11 +461,51 @@ public:
     NO_CROSSREF = 1,
   };
 
+  class ContextFinder : public MatchFinder::MatchCallback {
+   public:
+    std::string mContext;
+
+    virtual void run(const MatchFinder::MatchResult& result) override {
+      if (auto f = result.Nodes.getNodeAs<FunctionDecl>("f")) {
+        mContext = f->getQualifiedNameAsString();
+      } else if (auto e = result.Nodes.getNodeAs<EnumDecl>("e")) {
+        mContext = e->getQualifiedNameAsString();
+      } else if (auto r = result.Nodes.getNodeAs<RecordDecl>("r")) {
+        mContext = r->getQualifiedNameAsString();
+      } else {
+        assert(false);
+      }
+    }
+  };
+
+  std::string GetContext(Stmt* stmt) {
+    StatementMatcher contextMatcher =
+      hasAncestor(decl(anyOf(functionDecl().bind("f"), enumDecl().bind("e"), recordDecl().bind("r"))));
+
+    ContextFinder callback;
+    MatchFinder finder;
+    finder.addMatcher(contextMatcher, &callback);
+    finder.match(*stmt, *mASTContext);
+    return callback.mContext;
+  }
+
+  std::string GetContext(Decl* d) {
+    DeclarationMatcher contextMatcher =
+      hasAncestor(decl(anyOf(functionDecl().bind("f"), enumDecl().bind("e"), recordDecl().bind("r"))));
+
+    ContextFinder callback;
+    MatchFinder finder;
+    finder.addMatcher(contextMatcher, &callback);
+    finder.match(*d, *mASTContext);
+    return callback.mContext;
+  }
+
   void VisitToken(const char *kind,
                   const char *syntaxKind,
                   std::string qualName,
                   SourceLocation loc,
                   const std::vector<std::string>& symbols,
+                  std::string context = "",
                   int flags = 0)
   {
     loc = sm.getSpellingLoc(loc);
@@ -484,6 +531,11 @@ public:
       maxlen = std::max(it->length(), maxlen);
     }
 
+    std::string contextJson;
+    if (!context.empty()) {
+      contextJson = StringFormat(", \"context\": \"%s\"", context.c_str());
+    }
+
     std::string symbolList;
     {
       for (auto it = symbols.begin(); it != symbols.end(); it++) {
@@ -491,8 +543,10 @@ public:
 
         if (!(flags & NO_CROSSREF)) {
           std::string s;
-          s = StringFormat("{\"loc\":\"%s\", \"target\":1, \"kind\":\"%s\", \"pretty\": \"%s\", \"sym\":\"%s\"}\n",
-                           locStr.c_str(), kind, qualName.c_str(), symbol.c_str());
+          s = StringFormat("{\"loc\":\"%s\", \"target\":1, "
+                           "\"kind\":\"%s\", \"pretty\": \"%s\", "
+                           "\"sym\":\"%s\"%s}\n",
+                           locStr.c_str(), kind, qualName.c_str(), symbol.c_str(), contextJson.c_str());
           f->output.push_back(std::string(s));
         }
 
@@ -533,10 +587,11 @@ public:
                   std::string qualName,
                   SourceLocation loc,
                   std::string symbol,
+                  std::string context = "",
                   int flags = 0)
   {
     std::vector<std::string> v = { symbol };
-    VisitToken(kind, syntaxKind, qualName, loc, v, flags);
+    VisitToken(kind, syntaxKind, qualName, loc, v, context, flags);
   }
 
   bool VisitNamedDecl(NamedDecl *d) {
@@ -610,7 +665,7 @@ public:
       prettyKind = "destructor";
     }
 
-    VisitToken(kind, prettyKind, d->getQualifiedNameAsString(), loc, symbols, flags);
+    VisitToken(kind, prettyKind, d->getQualifiedNameAsString(), loc, symbols, GetContext(d), flags);
 
     return true;
   }
@@ -629,7 +684,7 @@ public:
     // FIXME: Need to do something different for list initialization.
 
     SourceLocation loc = e->getLocStart();
-    VisitToken("use", "constructor", ctor->getQualifiedNameAsString(), loc, mangled);
+    VisitToken("use", "constructor", ctor->getQualifiedNameAsString(), loc, mangled, GetContext(e));
 
     return true;
   }
@@ -684,7 +739,7 @@ public:
         }
       }
 
-      VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled, GetContext(e));
     }
 
     return true;
@@ -755,7 +810,7 @@ public:
         flags = NO_CROSSREF;
       }
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "variable", decl->getQualifiedNameAsString(), loc, mangled, flags);
+      VisitToken("use", "variable", decl->getQualifiedNameAsString(), loc, mangled, GetContext(e), flags);
     } else if (isa<FunctionDecl>(decl)) {
       const FunctionDecl *f = dyn_cast<FunctionDecl>(decl);
       if (f->isTemplateInstantiation()) {
@@ -763,10 +818,10 @@ public:
       }
 
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "function", decl->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "function", decl->getQualifiedNameAsString(), loc, mangled, GetContext(e));
     } else if (isa<EnumConstantDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "enum", decl->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "enum", decl->getQualifiedNameAsString(), loc, mangled, GetContext(e));
     }
 
     return true;
@@ -784,7 +839,8 @@ public:
       }
       FieldDecl* member = ci->getMember();
       std::string mangled = GetMangledName(mMangleContext, member);
-      VisitToken("use", "field", member->getQualifiedNameAsString(), ci->getMemberLocation(), mangled);
+      VisitToken("use", "field", member->getQualifiedNameAsString(), ci->getMemberLocation(), mangled,
+                 GetContext(d));
     }
 
     return true;
@@ -798,7 +854,7 @@ public:
     ValueDecl* decl = e->getMemberDecl();
     if (FieldDecl* field = dyn_cast<FieldDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, field);
-      VisitToken("use", "field", field->getQualifiedNameAsString(), e->getExprLoc(), mangled);
+      VisitToken("use", "field", field->getQualifiedNameAsString(), e->getExprLoc(), mangled, GetContext(e));
     }
     return true;
   }

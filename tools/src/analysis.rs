@@ -33,6 +33,7 @@ pub struct AnalysisTarget {
     pub kind: AnalysisKind,
     pub pretty: String,
     pub sym: String,
+    pub context: String,
 }
 
 #[derive(Debug)]
@@ -133,9 +134,13 @@ pub fn read_target(obj : &Object) -> Option<AnalysisTarget> {
         Some(json) => json.as_string().unwrap().to_string(),
         None => "".to_string()
     };
+    let context = match obj.get("context") {
+        Some(json) => json.as_string().unwrap().to_string(),
+        None => "".to_string()
+    };
     let sym = obj.get("sym").unwrap().as_string().unwrap().to_string();
 
-    Some(AnalysisTarget { kind: kind, pretty: pretty, sym: sym })
+    Some(AnalysisTarget { kind: kind, pretty: pretty, sym: sym, context: context })
 }
 
 pub fn read_source(obj : &Object) -> Option<AnalysisSource> {

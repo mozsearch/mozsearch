@@ -19,6 +19,7 @@ use rustc_serialize::json::{Json, ToJson};
 struct SearchResult {
     lineno: u32,
     line: String,
+    context: String,
 }
 
 impl ToJson for SearchResult {
@@ -26,6 +27,7 @@ impl ToJson for SearchResult {
         let mut obj = BTreeMap::new();
         obj.insert("lno".to_string(), self.lineno.to_json());
         obj.insert("line".to_string(), self.line.to_json());
+        obj.insert("context".to_string(), self.context.to_json());
         Json::Object(obj)
     }
 }
@@ -94,7 +96,7 @@ fn main() {
                             break;
                         }
                     }
-                    t3.push(SearchResult { lineno: datum.loc.lineno, line: buf });
+                    t3.push(SearchResult { lineno: datum.loc.lineno, line: buf, context: piece.context });
 
                     pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
 

@@ -10,7 +10,7 @@ build: libclang-index-plugin.so
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
 libclang-index-plugin.so: Indexer.o sha1.o
-	$(CXX) $(LDFLAGS) $^ -o $@
+	$(CXX) $(LDFLAGS) $^ -o $@ -lclangASTMatchers
 
 check: build
 	which clang

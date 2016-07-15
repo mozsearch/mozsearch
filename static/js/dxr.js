@@ -286,6 +286,11 @@ $(function() {
       html += "</code>";
 
       html += "</a>";
+
+      if (line.context) {
+        html += " <span class='result-context'>// found in <code>" + line.context + "</code></span>";
+      }
+
       html += "</td>";
       html += "</tr>";
 
