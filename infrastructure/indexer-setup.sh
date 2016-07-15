@@ -9,22 +9,17 @@ then
     exit 1
 fi
 
-SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/..
-MOZSEARCH_ROOT=$MOZSEARCH_PATH
+MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 CONFIG_REPO=$(readlink -f $1)
 BASE=$(readlink -f $2)
 TEMP=$(readlink -f $3)
 
+$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $BASE $TEMP
+
 CONFIG_FILE=$TEMP/config.json
 
-export MOZSEARCH_PATH
-export BASE
-export TEMP
-envsubst < $CONFIG_REPO/config.json > $CONFIG_FILE
-
-for TREE_NAME in $($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE repos)
+for TREE_NAME in $($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees)
 do
    .  $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
    mkdir -p $INDEX_ROOT
@@ -33,5 +28,4 @@ do
    mkdir -p $TEMP_PATH
 
     $CONFIG_REPO/$TREE_NAME/setup
-    $CONFIG_REPO/$TREE_NAME/update
 done

@@ -5,10 +5,8 @@ import os.path
 import sys
 import subprocess
 
-mozSearchRoot = os.environ['MOZSEARCH_ROOT']
+mozSearchRoot = os.environ['MOZSEARCH_PATH']
 indexRoot = os.environ['INDEX_ROOT']
-treeRoot = os.environ['TREE_ROOT']
-objdir = os.environ['OBJDIR']
 
 p = subprocess.Popen('find . -type f', shell=True, stdout=subprocess.PIPE,
                      cwd=os.path.join(indexRoot, 'analysis', '__GENERATED__'))

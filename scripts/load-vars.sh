@@ -1,17 +1,14 @@
 #!/bin/bash
 
-CONFIG_FILE=$1
-TREE_NAME=$2
+export MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
-if [ "x$MOZSEARCH_ROOT" == "x" ]
-then
-    MOZSEARCH_ROOT=$(pwd)
-fi
+export CONFIG_FILE=$1
+export TREE_NAME=$2
 
-export MOZSEARCH_ROOT
+export INDEX_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/index_path)
+export FILES_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/files_path)
+export OBJDIR=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/objdir_path)
 
-export INDEX_ROOT=$($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos/$TREE_NAME/index_path)
-export TREE_ROOT=$($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos/$TREE_NAME/repo_path)
-export HG_ROOT=$($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos/$TREE_NAME/hg_path)
-export BLAME_ROOT=$($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos/$TREE_NAME/blame_repo_path)
-export OBJDIR=$($MOZSEARCH_ROOT/scripts/read-json.py $CONFIG_FILE repos/$TREE_NAME/objdir_path)
+export GIT_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/git_path)
+export BLAME_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/git_blame_path)
+export HG_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/hg_path)

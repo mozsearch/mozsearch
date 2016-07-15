@@ -9,9 +9,7 @@ then
     exit 1
 fi
 
-SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/..
-MOZSEARCH_ROOT=$MOZSEARCH_PATH
+MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 TEMP_PATH=$(readlink -f $1)
 CONFIG_FILE=$TEMP_PATH/config.json

@@ -30,12 +30,16 @@ fn main() {
     let jumps = read_jumps(&jumps_fname);
     println!("Jumps read");
 
-    let repo = &tree_config.repo;
-    let head_oid = repo.refname_to_id("HEAD").unwrap();
-
-    let blame_repo = &tree_config.blame_repo;
-    let blame_oid = blame_repo.refname_to_id("HEAD").unwrap();
-    let blame_commit = blame_repo.find_commit(blame_oid).unwrap();
+    let (blame_commit, head_oid) = match &tree_config.git {
+        &Some(ref git) => {
+            let head_oid = git.repo.refname_to_id("HEAD").unwrap();
+            let blame_oid = git.blame_repo.refname_to_id("HEAD").unwrap();
+            let blame_commit = Some(git.blame_repo.find_commit(blame_oid).unwrap());
+            (blame_commit, Some(head_oid))
+        },
+        &None => (None, None),
+    };
+    let blame_commit_ref = match blame_commit { Some(ref bc) => Some(bc), None => None };
 
     for path in fname_args {
         println!("File {}", path);
@@ -44,7 +48,7 @@ fn main() {
         let output_file = File::create(output_fname).unwrap();
         let mut writer = BufWriter::new(output_file);
 
-        let source_fname = find_source_file(path, &tree_config.paths.repo_path, &tree_config.paths.objdir_path);
+        let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
         let source_file = match File::open(source_fname.clone()) {
             Ok(f) => f,
             Err(_) => {
@@ -74,34 +78,34 @@ fn main() {
             }
         }
 
-        let panel = vec![PanelSection {
-            name: "Revision control".to_owned(),
-            items: vec![PanelItem {
-                title: "Permalink".to_owned(),
-                link: format!("/{}/rev/{}/{}", tree_name, head_oid, path),
-                update_link_lineno: true,
-            }, PanelItem {
-                title: "Log".to_owned(),
-                link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
-                update_link_lineno: false,
-            }, PanelItem {
-                title: "Blame".to_owned(),
-                link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
-                update_link_lineno: false,
-            }],
-        }];
-
         let panel = if path.contains("__GENERATED__") {
             vec![]
+        } else if let Some(oid) = head_oid {
+            vec![PanelSection {
+                name: "Revision control".to_owned(),
+                items: vec![PanelItem {
+                    title: "Permalink".to_owned(),
+                    link: format!("/{}/rev/{}/{}", tree_name, oid, path),
+                    update_link_lineno: true,
+                }, PanelItem {
+                    title: "Log".to_owned(),
+                    link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+                    update_link_lineno: false,
+                }, PanelItem {
+                    title: "Blame".to_owned(),
+                    link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+                    update_link_lineno: false,
+                }],
+            }]
         } else {
-            panel
+            vec![]
         };
 
         format_file_data(&cfg,
                          tree_name,
                          &panel,
                          None,
-                         &blame_commit,
+                         blame_commit_ref,
                          path,
                          input,
                          &jumps,
