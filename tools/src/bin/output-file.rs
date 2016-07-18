@@ -5,6 +5,7 @@ use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Read;
 use std::io::Write;
+use std::io::Seek;
 use std::path::Path;
 
 extern crate tools;
@@ -69,8 +70,17 @@ fn main() {
         match reader.read_to_string(&mut input) {
             Ok(_) => {},
             Err(_) => {
-                println!("Unable to read file");
-                continue;
+                let mut bytes = Vec::new();
+                reader.seek(std::io::SeekFrom::Start(0)).unwrap();
+                match reader.read_to_end(&mut bytes) {
+                    Ok(_) => {
+                        input.push_str(&bytes.iter().map(|c| *c as char).collect::<String>());
+                    },
+                    Err(e) => {
+                        println!("Unable to read file: {:?}", e);
+                        continue;
+                    }
+                }
             }
         }
 
