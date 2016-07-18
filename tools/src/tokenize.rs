@@ -221,6 +221,11 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
         } else if ch == '`' && spec.backtick_strings {
             let mut start = start;
             loop {
+                if peek_pos() == string.len() {
+                    writeln!(&mut std::io::stderr(), "Unterminated backtick string").unwrap();
+                    return tokens;
+                }
+
                 let (_, next) = get_char();
                 if next == '`' {
                     break;

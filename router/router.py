@@ -84,10 +84,22 @@ class SearchResults(object):
         self.results = []
         self.qualified_results = []
 
+        self.pathre = None
         self.results_hash = {}
         self.compiled = collections.OrderedDict()
 
         self.count = 0
+
+    def set_path_filter(self, path):
+        if not path or path == '.*':
+            self.pathre = None
+            return
+
+        try:
+            self.pathre = re.compile(path, re.IGNORECASE)
+        except re.error:
+            # In case the pattern is not a valid RE, treat it as literal string.
+            self.pathre = re.compile(re.escape(path), re.IGNORECASE)
 
     def add_results(self, results):
         self.results.append(results)
@@ -106,6 +118,9 @@ class SearchResults(object):
 
         path = pathr['path']
         lines = pathr['lines']
+
+        if self.pathre and not self.pathre.search(path):
+            return
 
         # compiled is a map {qkind: {path: {lno: line}}}
         path_results = self.compiled.setdefault(qkind, {}).setdefault(path, {})
@@ -281,6 +296,7 @@ def get_json_search_results(tree_name, query):
     search = SearchResults()
 
     if 'symbol' in parsed:
+        search.set_path_filter(parsed.get('pathre'))
         symbols = parsed['symbol']
         title = 'Symbol ' + symbols
         search.add_results(crossrefs.lookup(tree_name, symbols))
@@ -289,6 +305,7 @@ def get_json_search_results(tree_name, query):
         substr_results = codesearch.search(parsed['re'], fold_case, path, tree_name)
         search.add_results({'Textual Occurrences': substr_results})
     elif 'id' in parsed:
+        search.set_path_filter(parsed.get('pathre'))
         identifier_search(search, tree_name, parsed['id'], complete=True, fold_case=fold_case, limit5=False)
     elif 'default' in parsed:
         path = parsed.get('pathre', '.*')
