@@ -21,7 +21,7 @@ import codesearch
 from logger import log
 
 def index_path(tree_name):
-    return config['repos'][tree_name]['index_path']
+    return config['trees'][tree_name]['index_path']
 
 # Simple globbing implementation, except ^ and $ are also allowed.
 def parse_path_filter(filter):

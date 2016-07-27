@@ -1061,19 +1061,21 @@ XBLParser.prototype = {
       Analyzer.defVar(text, {start: {line: line + 1, column}});
     }
 
-    let text = tag.body.text;
-    line = tag.body.line;
-    column = tag.body.column;
+    if (tag.body) {
+      let text = tag.body.text;
+      line = tag.body.line;
+      column = tag.body.column;
 
-    params = params.map(p => p.attrs.NAME.value);
-    paramsText = params.join(", ");
+      params = params.map(p => p.attrs.NAME.value);
+      paramsText = params.join(", ");
 
-    let spaces = Array(column + 1).join(" ");
-    text = `(function (${paramsText}) {\n${spaces}${text}})`;
+      let spaces = Array(column + 1).join(" ");
+      text = `(function (${paramsText}) {\n${spaces}${text}})`;
 
-    let ast = Analyzer.parse(text, this.filename, line);
-    if (ast) {
-      Analyzer.dummyProgram(ast, []);
+      let ast = Analyzer.parse(text, this.filename, line);
+      if (ast) {
+        Analyzer.dummyProgram(ast, []);
+      }
     }
 
     Analyzer.exit();

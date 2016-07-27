@@ -14,11 +14,10 @@ fi
 CONFIG_REPO=$1
 CHANNEL=$2
 
-SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")/../..
+MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 mkdir /tmp/lambda
-cp $MOZSEARCH_ROOT/infrastructure/aws/trigger_indexer.py /tmp/lambda
+cp $MOZSEARCH_PATH/infrastructure/aws/trigger_indexer.py /tmp/lambda
 
 cat >/tmp/lambda/lambda-indexer-start.py <<EOF
 #!/usr/bin/env python
