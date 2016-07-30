@@ -27,9 +27,10 @@ do
     mkdir -p docroot/dir/$TREE_NAME
     ln -s $HOME/index/$TREE_NAME/file docroot/file/$TREE_NAME/source
     ln -s $HOME/index/$TREE_NAME/dir docroot/dir/$TREE_NAME/source
-done
 
-ln -s $HOME/index/mozilla-central/help.html docroot
+    rm -f docroot/help.html
+    ln -s $HOME/index/$TREE_NAME/help.html docroot
+done
 
 DOCROOT=$(realpath docroot)
 python $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT > /tmp/nginx

@@ -46,6 +46,6 @@ $MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME
 
 date
 
-$MOZSEARCH_PATH/scripts/output.sh $CONFIG_FILE $TREE_NAME
+$MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME
 
 date
