@@ -310,7 +310,7 @@ $(function() {
       fileCount += data[kind].length;
     }
 
-    if (jumpToSingle && (count == 1 || (fileCount == 1 && count == 0))) {
+    if (jumpToSingle && fileCount == 1 && count <= 1) {
       var kind = Object.keys(data)[0];
       var file = data[kind][0];
       var path = file.path;
