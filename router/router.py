@@ -405,7 +405,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if 'json' in self.headers.getheader('Accept', ''):
                 self.generate(j, 'application/json')
             else:
-                j = j.replace("/script", "\\/script")
+                j = j.replace("</", "<\\/")
                 template = os.path.join(index_path(tree_name), 'templates/search.html')
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
         elif path_elts[1] == 'define':
