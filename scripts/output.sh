@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $# -ne 2 -a $# -ne 3 ]
+if [ $# -ne 3 -a $# -ne 4 ]
 then
-    echo "Usage: output.sh config-file.json tree_name [file_filter]"
+    echo "Usage: output.sh config_repo config-file.json tree_name [file_filter]"
     exit 1
 fi
 
@@ -16,7 +16,7 @@ TREE_NAME=$3
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
-FILTER=$3
+FILTER=$4
 if [ "x${FILTER}" = "x" ]
 then
     FILTER=".*"

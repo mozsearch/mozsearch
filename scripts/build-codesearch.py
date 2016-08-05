@@ -51,9 +51,11 @@ for key in repos:
     else:
         run(['ln', '-s', repos[key]['files_path'], '/tmp/dummy/%s' % key])
 
+        # If we don't include the trailing '/', then all search
+        # results will include an initial slash in their paths.
         livegrep_config['fs_paths'].append({
             'name': key,
-            'path': repos[key]['files_path']
+            'path': repos[key]['files_path'] + '/'
         })
 
     tmp_objdir = '/tmp/dummy/objdir-%s' % key
