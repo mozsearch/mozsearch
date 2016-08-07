@@ -6,8 +6,6 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -22,10 +20,13 @@
 #include <memory>
 #include <iostream>
 #include <map>
+#include <unordered_set>
 #include <sstream>
+#include <tuple>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/file.h>
 
@@ -35,7 +36,6 @@
 #include "sha1.h"
 
 using namespace clang;
-using namespace clang::ast_matchers;
 
 const std::string GENERATED("__GENERATED__/");
 
@@ -61,6 +61,14 @@ Hash(const std::string& str)
   sha1::calc(str.c_str(), str.size(), rawhash);
   sha1::toHexString(rawhash, hashstr);
   return std::string(hashstr);
+}
+
+static double
+Time()
+{
+  struct timeval tv;
+  gettimeofday(&tv, nullptr);
+  return double(tv.tv_sec) + double(tv.tv_usec) / 1000000.;
 }
 
 void
@@ -205,6 +213,95 @@ public:
 #endif
 };
 
+class JSONFormatter
+{
+  struct Property {
+    const char* mName;
+    const char* mLiteralValue;
+    const std::string* mStringValue;
+    int mIntValue;
+  };
+
+  static const int kMaxProperties = 32;
+
+  Property mProperties[kMaxProperties];
+  int mPropertyCount;
+  size_t mLength;
+
+ public:
+  JSONFormatter()
+   : mPropertyCount(0)
+   , mLength(0)
+  {}
+
+  void Add(const char* name, const char* value) {
+    assert(mPropertyCount < kMaxProperties);
+    mProperties[mPropertyCount].mName = name;
+    mProperties[mPropertyCount].mLiteralValue = value;
+    mProperties[mPropertyCount].mStringValue = nullptr;
+    mPropertyCount++;
+
+    mLength += strlen(name) + 3 + strlen(value) + 2 + 1;
+  }
+
+  void Add(const char* name, const std::string& value) {
+    assert(mPropertyCount < kMaxProperties);
+    mProperties[mPropertyCount].mName = name;
+    mProperties[mPropertyCount].mLiteralValue = nullptr;
+    mProperties[mPropertyCount].mStringValue = &value;
+    mPropertyCount++;
+
+    mLength += strlen(name) + 3 + value.length() + 2 + 1;
+  }
+
+  void Add(const char* name, int value) {
+    // 1 digit
+    assert(value >= 0 && value < 10);
+
+    assert(mPropertyCount < kMaxProperties);
+    mProperties[mPropertyCount].mName = name;
+    mProperties[mPropertyCount].mLiteralValue = nullptr;
+    mProperties[mPropertyCount].mStringValue = nullptr;
+    mProperties[mPropertyCount].mIntValue = value;
+    mPropertyCount++;
+
+    mLength += strlen(name) + 3 + 2;
+  }
+
+  void Format(std::string& result) {
+    result.reserve(mLength + 2);
+
+    result.push_back('{');
+    for (int i = 0; i < mPropertyCount; i++) {
+      result.push_back('"');
+      result.append(mProperties[i].mName);
+      result.push_back('"');
+      result.push_back(':');
+
+      if (mProperties[i].mLiteralValue) {
+        result.push_back('"');
+        result.append(mProperties[i].mLiteralValue);
+        result.push_back('"');
+      } else if (mProperties[i].mStringValue) {
+        result.push_back('"');
+        result.append(*mProperties[i].mStringValue);
+        result.push_back('"');
+      } else {
+        result.push_back(mProperties[i].mIntValue + '0');
+      }
+
+      if (i + 1 != mPropertyCount) {
+        result.push_back(',');
+      }
+    }
+
+    result.push_back('}');
+    result.push_back('\n');
+
+    assert(result.length() == mLength + 2);
+  }
+};
+
 class IndexConsumer : public ASTConsumer,
                       public RecursiveASTVisitor<IndexConsumer>,
                       public DiagnosticConsumer
@@ -213,82 +310,82 @@ private:
   CompilerInstance &ci;
   SourceManager &sm;
   std::ostream *out;
-  std::map<std::string, FileInfo *> relmap;
+  std::map<FileID, FileInfo *> mFileMap;
   MangleContext *mMangleContext;
   ASTContext* mASTContext;
 
-  FileInfo *GetFileInfo(const std::string &filename) {
-    std::map<std::string, FileInfo *>::iterator it;
-    it = relmap.find(filename);
-    if (it == relmap.end()) {
+  typedef RecursiveASTVisitor<IndexConsumer> Super;
+
+  struct AutoSetContext {
+    AutoSetContext(IndexConsumer* self, NamedDecl* context)
+     : mSelf(self), mPrev(self->mDeclContext), mDecl(context)
+    {
+      mSelf->mDeclContext = this;
+    }
+
+    ~AutoSetContext() {
+      mSelf->mDeclContext = mPrev;
+    }
+
+    IndexConsumer* mSelf;
+    AutoSetContext* mPrev;
+    NamedDecl* mDecl;
+  };
+
+  AutoSetContext* mDeclContext;
+
+  FileInfo *GetFileInfo(SourceLocation loc) {
+    FileID id = sm.getFileID(loc);
+
+    std::map<FileID, FileInfo *>::iterator it;
+    it = mFileMap.find(id);
+    if (it == mFileMap.end()) {
       // We haven't seen this file before. We need to make the FileInfo
       // structure information ourselves
-      const char *real = realpath(filename.c_str(), NULL);
+      std::string filename = sm.getFilename(loc);
+      const char *real = realpath(filename.c_str(), nullptr);
       std::string realstr(real ? real : filename.c_str());
-      it = relmap.find(realstr);
-      if (it == relmap.end()) {
-        // Still didn't find it. Make the FileInfo structure
-        FileInfo *info = new FileInfo(realstr);
-        it = relmap.insert(make_pair(realstr, info)).first;
-      }
-      it = relmap.insert(make_pair(filename, it->second)).first;
+
+      FileInfo *info = new FileInfo(realstr);
+      it = mFileMap.insert(std::make_pair(id, info)).first;
     }
     return it->second;
-  }
-
-  FileInfo *GetFileInfo(const char *filename) {
-    std::string filenamestr(filename);
-    return GetFileInfo(filenamestr);
   }
 
   // Helpers for processing declarations
   // Should we ignore this location?
   bool IsInterestingLocation(SourceLocation loc) {
-    // If we don't have a valid location... it's probably not interesting.
-    if (loc.isInvalid())
+    if (loc.isInvalid()) {
       return false;
-    // I'm not sure this is the best, since it's affected by #line and #file
-    // et al. On the other hand, if I just do spelling, I get really wrong
-    // values for locations in macros, especially when ## is involved.
-    // TODO: So yeah, maybe use sm.getFilename(loc) instead.
-    std::string filename = sm.getPresumedLoc(loc).getFilename();
-    // Invalid locations and built-ins: not interesting at all
-    if (filename[0] == '<')
-      return false;
+    }
 
-    // Get the real filename
-    FileInfo *f = GetFileInfo(filename);
-    return f->interesting;
+    return GetFileInfo(loc)->interesting;
   }
 
   std::string LocationToString(SourceLocation loc, size_t length = 0) {
-    std::string buffer;
-    bool isInvalid;
-    unsigned column = sm.getSpellingColumnNumber(loc, &isInvalid);
+    std::pair<FileID, unsigned> pair = sm.getDecomposedLoc(loc);
 
-    if (!isInvalid) {
-      unsigned line = sm.getSpellingLineNumber(loc, &isInvalid);
-      if (!isInvalid) {
-        buffer = ToString(line);
-        buffer += ":";
-        buffer += ToString(column - 1);  // Make 0-based.
-        if (length) {
-          buffer += "-";
-          buffer += ToString(column - 1 + length);
-        }
-      }
+    bool isInvalid;
+    unsigned line = sm.getLineNumber(pair.first, pair.second, &isInvalid);
+    if (isInvalid) {
+      return "";
     }
-    return buffer;
+    unsigned column = sm.getColumnNumber(pair.first, pair.second, &isInvalid);
+    if (isInvalid) {
+      return "";
+    }
+
+    if (length) {
+      return StringFormat("%d:%d-%d", line, column - 1, column - 1 + length);
+    } else {
+      return StringFormat("%d:%d", line, column - 1);
+    }
   }
 
   std::string MangleLocation(SourceLocation loc) {
-    FileInfo *f = GetFileInfo(sm.getPresumedLoc(loc).getFilename());
-    if (f) {
-      std::string filename = f->realname;
-      return Hash(filename + std::string("@") + LocationToString(loc));
-    } else {
-      return std::string("?");
-    }
+    FileInfo *f = GetFileInfo(loc);
+    std::string filename = f->realname;
+    return Hash(filename + std::string("@") + LocationToString(loc));
   }
 
   std::string MangleQualifiedName(std::string name) {
@@ -366,6 +463,7 @@ public:
    , sm(ci.getSourceManager())
    , mMangleContext(nullptr)
    , mASTContext(nullptr)
+   , mDeclContext(nullptr)
   {
     //ci.getDiagnostics().setClient(this, false);
     ci.getPreprocessor().addPPCallbacks(llvm::make_unique<PreprocessorHook>(this));
@@ -376,9 +474,16 @@ public:
   }
 
   bool shouldVisitTemplateInstantiations() const {
-    //return true;
     return false;
   }
+
+  struct AutoTime {
+    AutoTime(double* counter) : mCounter(counter), mStart(Time()) {}
+    ~AutoTime() { if (mStart) { *mCounter += Time() - mStart; } }
+    void stop() { *mCounter += Time() - mStart; mStart = 0; }
+    double* mCounter;
+    double mStart;
+  };
 
   // All we need is to follow the final declaration.
   virtual void HandleTranslationUnit(ASTContext &ctx) {
@@ -388,8 +493,8 @@ public:
     TraverseDecl(ctx.getTranslationUnitDecl());
 
     // Emit all files now
-    std::map<std::string, FileInfo *>::iterator it;
-    for (it = relmap.begin(); it != relmap.end(); it++) {
+    std::map<FileID, FileInfo *>::iterator it;
+    for (it = mFileMap.begin(); it != mFileMap.end(); it++) {
       if (!it->second->interesting)
         continue;
 
@@ -437,7 +542,9 @@ public:
         length += line.length();
         fwrite(line.c_str(), line.length(), 1, fp);
       }
-      ftruncate(fd, length);
+      if (ftruncate(fd, length)) {
+        return;
+      }
       fclose(fp);
     }
   }
@@ -461,43 +568,66 @@ public:
     NO_CROSSREF = 1,
   };
 
-  class ContextFinder : public MatchFinder::MatchCallback {
-   public:
-    std::string mContext;
+  bool TraverseEnumDecl(EnumDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseEnumDecl(d);
+  }
 
-    virtual void run(const MatchFinder::MatchResult& result) override {
-      if (auto f = result.Nodes.getNodeAs<FunctionDecl>("f")) {
-        mContext = f->getQualifiedNameAsString();
-      } else if (auto e = result.Nodes.getNodeAs<EnumDecl>("e")) {
-        mContext = e->getQualifiedNameAsString();
-      } else if (auto r = result.Nodes.getNodeAs<RecordDecl>("r")) {
-        mContext = r->getQualifiedNameAsString();
-      } else {
-        assert(false);
-      }
+  bool TraverseRecordDecl(RecordDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseRecordDecl(d);
+  }
+  bool TraverseCXXRecordDecl(CXXRecordDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseCXXRecordDecl(d);
+  }
+
+  bool TraverseFunctionDecl(FunctionDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseFunctionDecl(d);
+  }
+  bool TraverseCXXMethodDecl(CXXMethodDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseCXXMethodDecl(d);
+  }
+  bool TraverseCXXConstructorDecl(CXXConstructorDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseCXXConstructorDecl(d);
+  }
+  bool TraverseCXXConversionDecl(CXXConversionDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseCXXConversionDecl(d);
+  }
+  bool TraverseCXXDestructorDecl(CXXDestructorDecl* d) {
+    AutoSetContext asc(this, d);
+    return Super::TraverseCXXDestructorDecl(d);
+  }
+
+  std::string TranslateContext(NamedDecl* d) {
+    const FunctionDecl *f = dyn_cast<FunctionDecl>(d);
+    if (f && f->isTemplateInstantiation()) {
+      d = f->getTemplateInstantiationPattern();
     }
-  };
+
+    return d->getQualifiedNameAsString();
+  }
 
   std::string GetContext(Stmt* stmt) {
-    StatementMatcher contextMatcher =
-      hasAncestor(decl(anyOf(functionDecl().bind("f"), enumDecl().bind("e"), recordDecl().bind("r"))));
-
-    ContextFinder callback;
-    MatchFinder finder;
-    finder.addMatcher(contextMatcher, &callback);
-    finder.match(*stmt, *mASTContext);
-    return callback.mContext;
+    if (mDeclContext) {
+      return TranslateContext(mDeclContext->mDecl);
+    }
+    return "";
   }
 
   std::string GetContext(Decl* d) {
-    DeclarationMatcher contextMatcher =
-      hasAncestor(decl(anyOf(functionDecl().bind("f"), enumDecl().bind("e"), recordDecl().bind("r"))));
-
-    ContextFinder callback;
-    MatchFinder finder;
-    finder.addMatcher(contextMatcher, &callback);
-    finder.match(*d, *mASTContext);
-    return callback.mContext;
+    AutoSetContext* ctxt = mDeclContext;
+    while (ctxt) {
+      if (ctxt->mDecl != d) {
+        return TranslateContext(ctxt->mDecl);
+      }
+      ctxt = ctxt->mPrev;
+    }
+    return "";
   }
 
   void VisitToken(const char *kind,
@@ -508,8 +638,6 @@ public:
                   std::string context = "",
                   int flags = 0)
   {
-    loc = sm.getSpellingLoc(loc);
-
     unsigned startOffset = sm.getFileOffset(loc);
     unsigned endOffset = startOffset + Lexer::MeasureTokenLength(loc, sm, ci.getLangOpts());
 
@@ -519,67 +647,77 @@ public:
     const char* startChars = sm.getCharacterData(loc);
     std::string text(startChars, endOffset - startOffset);
 
-    StringRef filename = sm.getFilename(loc);
-    FileInfo *f = GetFileInfo(filename);
+    FileInfo *f = GetFileInfo(loc);
 
     if (!IsValidToken(text)) {
       return;
     }
 
-    size_t maxlen = 0;
-    for (auto it = symbols.begin(); it != symbols.end(); it++) {
-      maxlen = std::max(it->length(), maxlen);
-    }
-
-    std::string contextJson;
-    if (!context.empty()) {
-      contextJson = StringFormat(",\"context\":\"%s\"", context.c_str());
-    }
-
     std::string symbolList;
-    {
-      for (auto it = symbols.begin(); it != symbols.end(); it++) {
-        std::string symbol = *it;
 
-        if (!(flags & NO_CROSSREF)) {
-          std::string s;
-          s = StringFormat("{\"loc\":\"%s\",\"target\":1,"
-                           "\"kind\":\"%s\",\"pretty\":\"%s\","
-                           "\"sym\":\"%s\"%s}\n",
-                           locStr.c_str(), kind, qualName.c_str(), symbol.c_str(), contextJson.c_str());
-          f->output.push_back(std::string(s));
+    size_t total = 0;
+    for (auto it = symbols.begin(); it != symbols.end(); it++) {
+      total += it->length();
+    }
+    total += symbols.size() - 1;
+
+    symbolList.reserve(total);
+
+    for (auto it = symbols.begin(); it != symbols.end(); it++) {
+      std::string symbol = *it;
+
+      if (!(flags & NO_CROSSREF)) {
+        JSONFormatter fmt;
+
+        fmt.Add("loc", locStr);
+        fmt.Add("target", 1);
+        fmt.Add("kind", kind);
+        fmt.Add("pretty", qualName);
+        fmt.Add("sym", symbol);
+        if (!context.empty()) {
+          fmt.Add("context", context);
         }
 
-        if (it != symbols.begin()) {
-          symbolList += ",";
-        }
-        symbolList += symbol;
+        std::string s;
+        fmt.Format(s);
+        f->output.push_back(std::move(s));
       }
+
+      if (it != symbols.begin()) {
+        symbolList.push_back(',');
+      }
+      symbolList.append(symbol);
+    }
+
+    JSONFormatter fmt;
+
+    fmt.Add("loc", rangeStr);
+    fmt.Add("source", 1);
+
+    std::string syntax;
+    if (flags & NO_CROSSREF) {
+      fmt.Add("syntax", "");
+    } else {
+      syntax = kind;
+      syntax.push_back(',');
+      syntax.append(syntaxKind);
+      fmt.Add("syntax", syntax);
+    }
+
+    std::string pretty(syntaxKind);
+    pretty.push_back(' ');
+    pretty.append(qualName);
+    fmt.Add("pretty", pretty);
+
+    fmt.Add("sym", symbolList);
+
+    if (flags & NO_CROSSREF) {
+      fmt.Add("no_crossref", 1);
     }
 
     std::string buf;
-
-    const char* no_crossref = "";
-    if (flags & NO_CROSSREF) {
-      no_crossref = ",\"no_crossref\":1";
-    }
-
-    std::string syntax;
-    if (!(flags & NO_CROSSREF)) {
-      syntax = StringFormat("\"syntax\":\"%s,%s\",", kind, syntaxKind);
-    } else {
-      syntax = StringFormat("\"syntax\":\"\",");
-    }
-
-    buf = StringFormat("{\"loc\":\"%s\",\"source\":1,%s"
-                       "\"pretty\":\"%s %s\",\"sym\":\"%s\"%s}\n",
-                       rangeStr.c_str(),
-                       syntax.c_str(),
-                       syntaxKind,
-                       qualName.c_str(),
-                       symbolList.c_str(),
-                       no_crossref);
-    f->output.push_back(std::string(buf));
+    fmt.Format(buf);
+    f->output.push_back(std::move(buf));
   }
 
   void VisitToken(const char *kind,
@@ -594,8 +732,14 @@ public:
     VisitToken(kind, syntaxKind, qualName, loc, v, context, flags);
   }
 
+  void NormalizeLocation(SourceLocation* loc) {
+    *loc = sm.getSpellingLoc(*loc);
+  }
+
   bool VisitNamedDecl(NamedDecl *d) {
-    if (!IsInterestingLocation(d->getLocation())) {
+    SourceLocation loc = d->getLocation();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
@@ -645,8 +789,6 @@ public:
       FindOverriddenMethods(dyn_cast<CXXMethodDecl>(d), symbols);
     }
 
-    SourceLocation loc = d->getLocation();
-
     // For destructors, loc points to the ~ character. We want to skip to the
     // class name.
     if (isa<CXXDestructorDecl>(d)) {
@@ -671,7 +813,9 @@ public:
   }
 
   bool VisitCXXConstructExpr(CXXConstructExpr* e) {
-    if (!IsInterestingLocation(e->getLocStart())) {
+    SourceLocation loc = e->getLocStart();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
@@ -683,103 +827,103 @@ public:
 
     // FIXME: Need to do something different for list initialization.
 
-    SourceLocation loc = e->getLocStart();
     VisitToken("use", "constructor", ctor->getQualifiedNameAsString(), loc, mangled, GetContext(e));
 
     return true;
   }
 
   bool VisitCallExpr(CallExpr *e) {
-    if (!IsInterestingLocation(e->getLocStart())) {
-      return true;
-    }
-
     Decl *callee = e->getCalleeDecl();
-    if (!callee ||
-        !IsInterestingLocation(callee->getLocation()) ||
-        !NamedDecl::classof(callee)) {
+    if (!callee || !FunctionDecl::classof(callee)) {
       return true;
     }
 
     const NamedDecl *namedCallee = dyn_cast<NamedDecl>(callee);
 
-    if (namedCallee) {
-      if (!FunctionDecl::classof(namedCallee)) {
-        return true;
-      }
-
-      const FunctionDecl *f = dyn_cast<FunctionDecl>(namedCallee);
-      if (f->isTemplateInstantiation()) {
-        namedCallee = f->getTemplateInstantiationPattern();
-      }
-
-      std::string mangled = GetMangledName(mMangleContext, namedCallee);
-
-      Expr* callee = e->getCallee()->IgnoreParenImpCasts();
-
-      SourceLocation loc;
-      if (CXXOperatorCallExpr::classof(e)) {
-        // Just take the first token.
-        CXXOperatorCallExpr* op = dyn_cast<CXXOperatorCallExpr>(e);
-        loc = op->getOperatorLoc();
-      } else if (MemberExpr::classof(callee)) {
-        MemberExpr* member = dyn_cast<MemberExpr>(callee);
-        loc = member->getMemberLoc();
-      } else if (DeclRefExpr::classof(callee)) {
-        // We handle this in VisitDeclRefExpr.
-        return true;
-      }
-
-      if (!loc.isValid()) {
-        loc = callee->getLocStart();
-        if (callee->getLocEnd() != loc) {
-          // Skip this call. If we can't find a single token, we don't have a
-          // good UI for displaying the call.
-          return true;
-        }
-      }
-
-      VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled, GetContext(e));
+    SourceLocation startLoc = callee->getLocStart();
+    SourceLocation loc = startLoc;
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
+      return true;
     }
+
+    const FunctionDecl *f = dyn_cast<FunctionDecl>(namedCallee);
+    if (f->isTemplateInstantiation()) {
+      namedCallee = f->getTemplateInstantiationPattern();
+    }
+
+    std::string mangled = GetMangledName(mMangleContext, namedCallee);
+
+    Expr* calleeExpr = e->getCallee()->IgnoreParenImpCasts();
+
+    if (CXXOperatorCallExpr::classof(e)) {
+      // Just take the first token.
+      CXXOperatorCallExpr* op = dyn_cast<CXXOperatorCallExpr>(e);
+      loc = op->getOperatorLoc();
+      NormalizeLocation(&loc);
+    } else if (MemberExpr::classof(calleeExpr)) {
+      MemberExpr* member = dyn_cast<MemberExpr>(calleeExpr);
+      loc = member->getMemberLoc();
+      NormalizeLocation(&loc);
+    } else if (DeclRefExpr::classof(calleeExpr)) {
+      // We handle this in VisitDeclRefExpr.
+      return true;
+    } else {
+      if (callee->getLocEnd() != startLoc) {
+        // Skip this call. If we can't find a single token, we don't have a
+        // good UI for displaying the call.
+        return true;
+      }
+    }
+
+    VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled, GetContext(e));
 
     return true;
   }
 
   bool VisitTagTypeLoc(TagTypeLoc l) {
-    if (!IsInterestingLocation(l.getBeginLoc())) {
+    SourceLocation loc = l.getBeginLoc();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
     TagDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
     return true;
   }
 
   bool VisitTypedefTypeLoc(TypedefTypeLoc l) {
-    if (!IsInterestingLocation(l.getBeginLoc())) {
+    SourceLocation loc = l.getBeginLoc();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
     NamedDecl* decl = l.getTypedefNameDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
     return true;
   }
 
   bool VisitInjectedClassNameTypeLoc(InjectedClassNameTypeLoc l) {
-    if (!IsInterestingLocation(l.getBeginLoc())) {
+    SourceLocation loc = l.getBeginLoc();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
     NamedDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
     return true;
   }
 
   bool VisitTemplateSpecializationTypeLoc(TemplateSpecializationTypeLoc l) {
-    if (!IsInterestingLocation(l.getBeginLoc())) {
+    SourceLocation loc = l.getBeginLoc();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
@@ -787,20 +931,22 @@ public:
     if (ClassTemplateDecl *d = dyn_cast<ClassTemplateDecl>(td)) {
       NamedDecl* decl = d->getTemplatedDecl();
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "type", decl->getQualifiedNameAsString(), l.getBeginLoc(), mangled);
+      VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
     }
 
     return true;
   }
 
   bool VisitDeclRefExpr(DeclRefExpr *e) {
-    if (!IsInterestingLocation(e->getExprLoc())) {
+    SourceLocation loc = e->getExprLoc();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
-    SourceLocation loc = e->getExprLoc();
     if (e->hasQualifier()) {
       loc = e->getNameInfo().getLoc();
+      NormalizeLocation(&loc);
     }
 
     NamedDecl* decl = e->getDecl();
@@ -837,24 +983,32 @@ public:
       if (!ci->getMember() || !ci->isWritten()) {
         continue;
       }
+
+      SourceLocation loc = ci->getMemberLocation();
+      NormalizeLocation(&loc);
+      if (!IsInterestingLocation(loc)) {
+        continue;
+      }
+
       FieldDecl* member = ci->getMember();
       std::string mangled = GetMangledName(mMangleContext, member);
-      VisitToken("use", "field", member->getQualifiedNameAsString(), ci->getMemberLocation(), mangled,
-                 GetContext(d));
+      VisitToken("use", "field", member->getQualifiedNameAsString(), loc, mangled, GetContext(d));
     }
 
     return true;
   }
 
   bool VisitMemberExpr(MemberExpr* e) {
-    if (!IsInterestingLocation(e->getExprLoc())) {
+    SourceLocation loc = e->getExprLoc();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return true;
     }
 
     ValueDecl* decl = e->getMemberDecl();
     if (FieldDecl* field = dyn_cast<FieldDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, field);
-      VisitToken("use", "field", field->getQualifiedNameAsString(), e->getExprLoc(), mangled, GetContext(e));
+      VisitToken("use", "field", field->getQualifiedNameAsString(), loc, mangled, GetContext(e));
     }
     return true;
   }
@@ -863,11 +1017,12 @@ public:
     if (macro->getMacroInfo()->isBuiltinMacro()) {
       return;
     }
-    if (!IsInterestingLocation(tok.getLocation())) {
+    SourceLocation loc = tok.getLocation();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return;
     }
 
-    SourceLocation loc = tok.getLocation();
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
       std::string mangled = std::string("M_") + MangleLocation(loc);
@@ -879,15 +1034,16 @@ public:
     if (macro->isBuiltinMacro()) {
       return;
     }
-    if (!IsInterestingLocation(tok.getLocation())) {
+    SourceLocation loc = tok.getLocation();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
       return;
     }
 
-    SourceLocation loc = macro->getDefinitionLoc();
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
-      std::string mangled = std::string("M_") + MangleLocation(loc);
-      VisitToken("use", "macro", ident->getName(), tok.getLocation(), mangled);
+      std::string mangled = std::string("M_") + MangleLocation(macro->getDefinitionLoc());
+      VisitToken("use", "macro", ident->getName(), loc, mangled);
     }
   }
 };
