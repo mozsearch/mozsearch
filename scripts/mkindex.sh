@@ -13,38 +13,39 @@ CONFIG_REPO=$1
 CONFIG_FILE=$2
 TREE_NAME=$3
 
-SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")/..
-. $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+. $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+
+export PYTHONPATH=$MOZSEARCH_PATH/scripts
 
 date
 
-$MOZSEARCH_ROOT/scripts/find-repo-files.py $CONFIG_FILE $TREE_NAME
-$MOZSEARCH_ROOT/scripts/mkdirs.sh
+$CONFIG_REPO/$TREE_NAME/find-repo-files $CONFIG_FILE $TREE_NAME
+$MOZSEARCH_PATH/scripts/mkdirs.sh
 
 date
 
-$CONFIG_REPO/$TREE_NAME/build
+$CONFIG_REPO/$TREE_NAME/build || echo "Build failed: $TREE_NAME"
 
 date
 
-$MOZSEARCH_ROOT/scripts/find-objdir-files.py
-$MOZSEARCH_ROOT/scripts/objdir-mkdirs.sh
+$MOZSEARCH_PATH/scripts/find-objdir-files.py
+$MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
 
-$MOZSEARCH_ROOT/scripts/js-analyze.sh
+$MOZSEARCH_PATH/scripts/js-analyze.sh
 
 date
 
-$MOZSEARCH_ROOT/scripts/idl-analyze.sh
+$MOZSEARCH_PATH/scripts/idl-analyze.sh
 
 date
 
-$MOZSEARCH_ROOT/scripts/crossref.sh $CONFIG_FILE $TREE_NAME
+$MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME
 
 date
 
-$MOZSEARCH_ROOT/scripts/output.sh $CONFIG_FILE $TREE_NAME
+$MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME
 
 date

@@ -12,23 +12,42 @@ use git2::{Oid, Repository};
 #[derive(RustcDecodable, RustcEncodable)]
 pub struct TreeConfigPaths {
     pub index_path: String,
-    pub repo_path: String,
-    pub blame_repo_path: String,
+    pub files_path: String,
+    pub git_path: Option<String>,
+    pub git_blame_path: Option<String>,
     pub objdir_path: String,
 }
 
-pub struct TreeConfig {
-    pub paths: TreeConfigPaths,
+pub struct GitData {
     pub repo: Repository,
     pub blame_repo: Repository,
 
     pub blame_map: HashMap<Oid, Oid>, // Maps repo OID to blame_repo OID.
-    pub hg_map: HashMap<Oid, String>, // Maps repo OID to HG rev.
+    pub hg_map: HashMap<Oid, String>, // Maps repo OID to Hg rev.
+}
+
+pub struct TreeConfig {
+    pub paths: TreeConfigPaths,
+    pub git: Option<GitData>,
 }
 
 pub struct Config {
     pub trees: BTreeMap<String, TreeConfig>,
     pub mozsearch_path: String,
+}
+
+pub fn get_git(tree_config: &TreeConfig) -> Result<&GitData, &'static str> {
+    match &tree_config.git {
+        &Some(ref git) => Ok(git),
+        &None => Err("History data unavailable"),
+    }
+}
+
+pub fn get_git_path(tree_config: &TreeConfig) -> Result<&str, &'static str> {
+    match &tree_config.paths.git_path {
+        &Some(ref git_path) => Ok(git_path),
+        &None => Err("History data unavailable"),
+    }
 }
 
 fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
@@ -68,29 +87,37 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
     let mozsearch_json = obj.remove("mozsearch_path").unwrap();
     let mozsearch = mozsearch_json.as_string().unwrap();
 
-    let repos = obj.get("repos").unwrap().as_object().unwrap().clone();
+    let trees_obj = obj.get("trees").unwrap().as_object().unwrap().clone();
     
     let mut trees = BTreeMap::new();
-    for (tree_name, tree_config) in repos {
+    for (tree_name, tree_config) in trees_obj {
         let mut decoder = json::Decoder::new(tree_config);
         let paths = TreeConfigPaths::decode(&mut decoder).unwrap();
 
-        let repo = Repository::open(&paths.repo_path).unwrap();
-        let blame_repo = Repository::open(&paths.blame_repo_path).unwrap();
+        let git = match (&paths.git_path, &paths.git_blame_path) {
+            (&Some(ref git_path), &Some(ref git_blame_path)) => {
+                let repo = Repository::open(&git_path).unwrap();
+                let blame_repo = Repository::open(&git_blame_path).unwrap();
 
-        let (blame_map, hg_map) = if need_indexes {
-            index_blame(&repo, &blame_repo)
-        } else {
-            (HashMap::new(), HashMap::new())
+                let (blame_map, hg_map) = if need_indexes {
+                    index_blame(&repo, &blame_repo)
+                } else {
+                    (HashMap::new(), HashMap::new())
+                };
+
+                Some(GitData {
+                    repo: repo,
+                    blame_repo: blame_repo,
+                    blame_map: blame_map,
+                    hg_map: hg_map,
+                })
+            },
+            _ => None,
         };
 
         trees.insert(tree_name, TreeConfig {
             paths: paths,
-            repo: repo,
-            blame_repo: blame_repo,
-
-            blame_map: blame_map,
-            hg_map: hg_map,
+            git: git,
         });
     }
 

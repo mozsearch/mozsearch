@@ -36,17 +36,27 @@ livegrep_config = {
 }
 
 config = json.load(open(config_fname))
-repos = config['repos']
+repos = config['trees']
 for key in repos:
     repo_name = key
-    
-    run(['ln', '-s', repos[key]['repo_path'], '/tmp/dummy/%s' % key])
 
-    livegrep_config['repositories'].append({
-        'name': key,
-        'path': repos[key]['repo_path'],
-        'revisions': ['HEAD']
-    })
+    if 'git_path' in repos[key]:
+        run(['ln', '-s', repos[key]['git_path'], '/tmp/dummy/%s' % key])
+
+        livegrep_config['repositories'].append({
+            'name': key,
+            'path': repos[key]['git_path'],
+            'revisions': ['HEAD']
+        })
+    else:
+        run(['ln', '-s', repos[key]['files_path'], '/tmp/dummy/%s' % key])
+
+        # If we don't include the trailing '/', then all search
+        # results will include an initial slash in their paths.
+        livegrep_config['fs_paths'].append({
+            'name': key,
+            'path': repos[key]['files_path'] + '/'
+        })
 
     tmp_objdir = '/tmp/dummy/objdir-%s' % key
     os.mkdir(tmp_objdir)

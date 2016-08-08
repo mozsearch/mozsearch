@@ -8,9 +8,9 @@ repo_data = {}
 def load(config):
     global repo_data
 
-    for repo_name in config['repos']:
+    for repo_name in config['trees']:
         print 'Loading identifiers for', repo_name
-        index_path = config['repos'][repo_name]['index_path']
+        index_path = config['trees'][repo_name]['index_path']
 
         f = open(os.path.join(index_path, 'identifiers'))
         mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)

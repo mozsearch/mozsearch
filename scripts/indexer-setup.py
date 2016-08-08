@@ -4,9 +4,9 @@ import sys
 import os
 import os.path
 
-mozSearchRoot = os.environ['MOZSEARCH_ROOT']
+mozSearchRoot = os.environ['MOZSEARCH_PATH']
 indexRoot = os.environ['INDEX_ROOT']
-treeRoot = os.environ['TREE_ROOT']
+treeRoot = os.environ['FILES_ROOT']
 objdir = os.environ['OBJDIR']
 
 plugin_folder = os.path.join(mozSearchRoot, 'clang-plugin')

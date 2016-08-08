@@ -7,9 +7,8 @@ import os.path
 import sys
 import subprocess
 
-mozSearchRoot = os.environ['MOZSEARCH_ROOT']
+mozSearchPath = os.environ['MOZSEARCH_PATH']
 indexRoot = os.environ['INDEX_ROOT']
-treeRoot = os.environ['TREE_ROOT']
 objdir = os.environ['OBJDIR']
 
 destDir = sys.argv[1]

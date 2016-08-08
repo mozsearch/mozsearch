@@ -1,22 +1,22 @@
 #!/bin/bash
 
-if [ $# -ne 2 -a $# -ne 3 ]
+if [ $# -ne 3 -a $# -ne 4 ]
 then
-    echo "Usage: output.sh config-file.json tree_name [file_filter]"
+    echo "Usage: output.sh config_repo config-file.json tree_name [file_filter]"
     exit 1
 fi
 
 set -e # Errors are fatal
 set -x # Show commands
 
-CONFIG_FILE=$(realpath $1)
-TREE_NAME=$2
+CONFIG_REPO=$(realpath $1)
+CONFIG_FILE=$(realpath $2)
+TREE_NAME=$3
 
-SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")/..
-. $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+. $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
-FILTER=$3
+FILTER=$4
 if [ "x${FILTER}" = "x" ]
 then
     FILTER=".*"
@@ -24,10 +24,10 @@ fi
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
     parallel --files --halt 2 -X --eta \
-	     $MOZSEARCH_ROOT/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
+	     $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
 
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files > /tmp/dirs
-js $MOZSEARCH_ROOT/output-dir.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT $OBJDIR $TREE_NAME /tmp/dirs
+js $MOZSEARCH_PATH/output-dir.js $FILES_ROOT $INDEX_ROOT $MOZSEARCH_PATH $OBJDIR $TREE_NAME /tmp/dirs
 
-js $MOZSEARCH_ROOT/output-template.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT $TREE_NAME
-js $MOZSEARCH_ROOT/output-help.js $TREE_ROOT $INDEX_ROOT $MOZSEARCH_ROOT
+js $MOZSEARCH_PATH/output-template.js $FILES_ROOT $INDEX_ROOT $MOZSEARCH_PATH $TREE_NAME
+js $MOZSEARCH_PATH/output-help.js $CONFIG_REPO/help.html $INDEX_ROOT $MOZSEARCH_PATH

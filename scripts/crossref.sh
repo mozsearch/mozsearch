@@ -6,9 +6,8 @@ set -x # Show commands
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
-SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_ROOT=$(dirname "$SCRIPT_PATH")/..
-. $MOZSEARCH_ROOT/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+. $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
 echo Root is $INDEX_ROOT
 
@@ -17,7 +16,7 @@ cd $INDEX_ROOT/analysis
 find . -type f | cut -c 3- > /tmp/files
 cd -
 
-$MOZSEARCH_ROOT/tools/target/release/crossref $CONFIG_FILE $TREE_NAME /tmp/files
+$MOZSEARCH_PATH/tools/target/release/crossref $CONFIG_FILE $TREE_NAME /tmp/files
 
 ID_FILE=$INDEX_ROOT/identifiers
 LC_ALL=C sort -f $ID_FILE > /tmp/ids

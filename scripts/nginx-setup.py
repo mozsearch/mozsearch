@@ -22,7 +22,7 @@ print '''server {
   }
 ''' % fmt
 
-for repo in config['repos']:
+for repo in config['trees']:
     fmt['repo'] = repo
 
     print '''

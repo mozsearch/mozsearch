@@ -533,7 +533,7 @@ public:
 
     std::string contextJson;
     if (!context.empty()) {
-      contextJson = StringFormat(", \"context\": \"%s\"", context.c_str());
+      contextJson = StringFormat(",\"context\":\"%s\"", context.c_str());
     }
 
     std::string symbolList;
@@ -543,8 +543,8 @@ public:
 
         if (!(flags & NO_CROSSREF)) {
           std::string s;
-          s = StringFormat("{\"loc\":\"%s\", \"target\":1, "
-                           "\"kind\":\"%s\", \"pretty\": \"%s\", "
+          s = StringFormat("{\"loc\":\"%s\",\"target\":1,"
+                           "\"kind\":\"%s\",\"pretty\":\"%s\","
                            "\"sym\":\"%s\"%s}\n",
                            locStr.c_str(), kind, qualName.c_str(), symbol.c_str(), contextJson.c_str());
           f->output.push_back(std::string(s));
@@ -561,18 +561,18 @@ public:
 
     const char* no_crossref = "";
     if (flags & NO_CROSSREF) {
-      no_crossref = ", \"no_crossref\":1";
+      no_crossref = ",\"no_crossref\":1";
     }
 
     std::string syntax;
     if (!(flags & NO_CROSSREF)) {
-      syntax = StringFormat("\"syntax\": \"%s,%s\", ", kind, syntaxKind);
+      syntax = StringFormat("\"syntax\":\"%s,%s\",", kind, syntaxKind);
     } else {
-      syntax = StringFormat("\"syntax\": \"\", ");
+      syntax = StringFormat("\"syntax\":\"\",");
     }
 
-    buf = StringFormat("{\"loc\":\"%s\", \"source\":1, %s"
-                       "\"pretty\":\"%s %s\", \"sym\":\"%s\"%s}\n",
+    buf = StringFormat("{\"loc\":\"%s\",\"source\":1,%s"
+                       "\"pretty\":\"%s %s\",\"sym\":\"%s\"%s}\n",
                        rangeStr.c_str(),
                        syntax.c_str(),
                        syntaxKind,

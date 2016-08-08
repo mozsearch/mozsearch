@@ -25,7 +25,8 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
 
 pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Result<String, &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
-    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+    let git = try!(config::get_git(tree_config));
+    let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
     let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
     let (msg, _) = try!(commit_header(&commit));
 

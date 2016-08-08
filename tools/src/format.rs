@@ -211,7 +211,7 @@ pub fn format_file_data(cfg: &config::Config,
                         tree_name: &str,
                         panel: &Vec<PanelSection>,
                         commit: Option<&git2::Commit>,
-                        blame_commit: &git2::Commit,
+                        blame_commit: Option<&git2::Commit>,
                         path: &str,
                         data: String,
                         jumps: &HashMap<String, Jump>,
@@ -230,16 +230,20 @@ pub fn format_file_data(cfg: &config::Config,
 
     let (output_lines, analysis_json) = format_code(jumps, format, path, &data, &analysis);
 
-    let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
-    let blame = match blame_tree.get_path(Path::new(path)) {
-        Ok(blame_entry) => Some(read_blob_entry(&tree_config.blame_repo, &blame_entry)),
-        Err(_) => None,
-    };
+    let mut _blame = String::new();
+    let blame_lines = match (&tree_config.git, blame_commit) {
+        (&Some(ref git_data), Some(blame_commit)) => {
+            let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
 
-    let blame_lines = if let Some(ref data) = blame {
-        Some(data.lines().collect::<Vec<_>>())
-    } else {
-        None
+            match blame_tree.get_path(Path::new(path)) {
+                Ok(blame_entry) => {
+                    _blame = read_blob_entry(&git_data.blame_repo, &blame_entry);
+                    Some(_blame.lines().collect::<Vec<_>>())
+                },
+                Err(_) => None,
+            }
+        },
+        _ => None,
     };
 
     let revision_owned = match commit {
@@ -371,14 +375,15 @@ pub fn format_path(cfg: &config::Config,
                    writer: &mut Write) -> Result<(), &'static str> {
     // Get the file data.
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
-    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+    let git = try!(config::get_git(tree_config));
+    let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
     let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
     let commit_tree = try!(commit.tree().map_err(|_| "Bad revision"));
     let entry = try!(commit_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
 
     // Get blame.
-    let blame_oid = try!(tree_config.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
-    let blame_commit = try!(tree_config.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
+    let blame_oid = try!(git.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
+    let blame_commit = try!(git.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
 
     match entry.kind() {
         Some(git2::ObjectType::Blob) => {},
@@ -389,7 +394,7 @@ pub fn format_path(cfg: &config::Config,
         return Err("Path is to a symlink");
     }
 
-    let data = read_blob_entry(&tree_config.repo, &entry);
+    let data = read_blob_entry(&git.repo, &entry);
 
     let jumps : HashMap<String, analysis::Jump> = HashMap::new();
     let analysis = Vec::new();
@@ -415,7 +420,7 @@ pub fn format_path(cfg: &config::Config,
                           tree_name,
                           &panel,
                           Some(&commit),
-                          &blame_commit,
+                          Some(&blame_commit),
                           path,
                           data,
                           &jumps,
@@ -440,6 +445,7 @@ pub fn format_diff(cfg: &config::Config,
                    writer: &mut Write) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
+    let git_path = try!(config::get_git_path(tree_config));
     let output = try!(Command::new("/usr/bin/git")
                       .arg("diff-tree")
                       .arg("-p")
@@ -451,7 +457,7 @@ pub fn format_diff(cfg: &config::Config,
                       .arg(rev)
                       .arg("--")
                       .arg(path)
-                      .current_dir(&tree_config.paths.repo_path)
+                      .current_dir(&git_path)
                       .output()
                       .map_err(|_| "Diff failed 1"));
     if !output.status.success() {
@@ -464,18 +470,19 @@ pub fn format_diff(cfg: &config::Config,
         return format_path(cfg, tree_name, rev, path, writer);
     }
 
-    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+    let git = try!(config::get_git(tree_config));
+    let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
     let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
 
     let mut blames = Vec::new();
 
     for parent_oid in commit.parent_ids() {
-        let blame_oid = try!(tree_config.blame_map.get(&parent_oid).ok_or("Unable to find blame"));
-        let blame_commit = try!(tree_config.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
+        let blame_oid = try!(git.blame_map.get(&parent_oid).ok_or("Unable to find blame"));
+        let blame_commit = try!(git.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
         let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
         match blame_tree.get_path(Path::new(path)) {
             Ok(blame_entry) => {
-                let blame = read_blob_entry(&tree_config.blame_repo, &blame_entry);
+                let blame = read_blob_entry(&git.blame_repo, &blame_entry);
                 let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
                 blames.push(Some(blame_lines));
             },
@@ -713,7 +720,8 @@ fn generate_commit_info(tree_name: &str,
         F::T(format!("<tr><td>parent</td><td>{}</td></tr>", format_rev(tree_name, p)))
     }).collect::<Vec<_>>();
 
-    let hg = match tree_config.hg_map.get(&commit.id()) {
+    let git = try!(config::get_git(tree_config));
+    let hg = match git.hg_map.get(&commit.id()) {
         Some(hg_id) => {
             let hg_link = format!("<a href=\"https://hg.mozilla.org/mozilla-central/rev/{}\">{}</a>", hg_id, hg_id);
             vec![F::T(format!("<tr><td>hg</td><td>{}</td></tr>", hg_link))]
@@ -749,13 +757,14 @@ fn generate_commit_info(tree_name: &str,
         
     try!(output::generate_formatted(writer, &f, 0));
 
+    let git_path = try!(config::get_git_path(tree_config));
     let output = try!(Command::new("/usr/bin/git")
                       .arg("show")
                       .arg("--cc")
                       .arg("--pretty=format:")
                       .arg("--raw")
                       .arg(format!("{}", commit.id()))
-                      .current_dir(&tree_config.paths.repo_path)
+                      .current_dir(&git_path)
                       .output()
                       .map_err(|_| "Diff failed 1"));
     if !output.status.success() {
@@ -798,7 +807,8 @@ pub fn format_commit(cfg: &config::Config,
                      writer: &mut Write) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
-    let commit_obj = try!(tree_config.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+    let git = try!(config::get_git(tree_config));
+    let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
     let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
 
     let title = format!("{} - mozsearch", rev);
