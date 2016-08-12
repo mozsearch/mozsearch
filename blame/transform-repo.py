@@ -358,5 +358,8 @@ def transform():
             if count % 100 == 0:
                 print_timers()
 
+            if count % 25000 == 0:
+                run_cmd(['git', 'gc'], cwd=new_path)
+
 transform()
 print_timers()
