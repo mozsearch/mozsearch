@@ -127,7 +127,7 @@ let Analyzer = {
     try {
       ast = Reflect.parse(text, {loc: true, source: filename, line});
     } catch (e) {
-      logError(`Unable to parse JS file ${filename}.`);
+      logError(`Unable to parse JS file ${filename}:${line}.`);
       return null;
     }
     return ast;
@@ -814,22 +814,33 @@ function analyzeJS(filename)
 
 function replaceEntities(text)
 {
+  var table = {
+    "&amp;&amp;": "&&        ",
+    "&amp;": "&    ",
+    "&lt;": "<   ",
+    "&gt;": ">   ",
+  };
+
+  for (let ent in table) {
+    let re = RegExp(ent, "gi");
+    text = text.replace(re, table[ent]);
+  }
+
   return text.replace(/&[a-zA-Z0-9.]+;/g, match => {
     return "'" + match.slice(1, match.length - 2) + "'";
   });
 }
 
-function XBLParser(filename, lines, parser)
-{
-  this.filename = filename;
-  this.lines = lines;
-  this.stack = [];
-  this.curText = "";
-  this.curAttrs = {};
-  this.parser = parser;
-}
+class XMLParser {
+  constructor(filename, lines, parser) {
+    this.filename = filename;
+    this.lines = lines;
+    this.stack = [];
+    this.curText = "";
+    this.curAttrs = {};
+    this.parser = parser;
+  }
 
-XBLParser.prototype = {
   onopentag(tag) {
     tag.line = this.parser.line;
     tag.column = this.parser.column;
@@ -837,10 +848,48 @@ XBLParser.prototype = {
     this.curAttrs = {};
     this.stack.push(tag);
     this.curText = "";
-  },
+  }
 
   onclosetag(tagName) {
     let tag = this.stack[this.stack.length - 1];
+
+    this.ontag(tagName, tag);
+
+    this.stack.pop();
+  }
+
+  ontag(tagName, tag) {
+  }
+
+  ontext(text) {
+    this.curText += text;
+  }
+
+  oncdata(text) {
+    this.curText += text;
+  }
+
+  onattribute(attr) {
+    attr.line = this.parser.line;
+    attr.column = this.parser.column;
+    this.curAttrs[attr.name] = attr;
+  }
+
+  backup(line, column, text) {
+    for (let i = text.length - 1; i >= 0; i--) {
+      if (text[i] == "\n") {
+        line--;
+        column = this.lines[line].length;
+      } else {
+        column--;
+      }
+    }
+    return [line, column];
+  }
+}
+
+class XBLParser extends XMLParser {
+  ontag(tagName, tag) {
     switch (tagName) {
     case "FIELD":
       this.onfield(tag);
@@ -871,35 +920,7 @@ XBLParser.prototype = {
       this.onhandler(tag);
       break;
     }
-
-    this.stack.pop();
-  },
-
-  ontext(text) {
-    this.curText += text;
-  },
-
-  oncdata(text) {
-    this.curText += text;
-  },
-
-  onattribute(attr) {
-    attr.line = this.parser.line;
-    attr.column = this.parser.column;
-    this.curAttrs[attr.name] = attr;
-  },
-
-  backup(line, column, text) {
-    for (let i = text.length - 1; i >= 0; i--) {
-      if (text[i] == "\n") {
-        line--;
-        column = this.lines[line].length;
-      } else {
-        column--;
-      }
-    }
-    return [line, column];
-  },
+  }
 
   onfield(tag) {
     if (!tag.attrs.NAME) {
@@ -924,7 +945,7 @@ XBLParser.prototype = {
     if (ast) {
       Analyzer.program(ast);
     }
-  },
+  }
 
   onproperty(tag) {
     let name = null;
@@ -979,19 +1000,19 @@ XBLParser.prototype = {
         Analyzer.scoped(name, () => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
       }
     }
-  },
+  }
 
   ongetter(tag) {
     tag.text = this.curText;
     let parentTag = this.stack[this.stack.length - 2];
     parentTag.getter = tag;
-  },
+  }
 
   onsetter(tag) {
     tag.text = this.curText;
     let parentTag = this.stack[this.stack.length - 2];
     parentTag.setter = tag;
-  },
+  }
 
   onparameter(tag) {
     let parentTag = this.stack[this.stack.length - 2];
@@ -999,13 +1020,13 @@ XBLParser.prototype = {
       parentTag.params = [];
     }
     parentTag.params.push(tag);
-  },
+  }
 
   onbody(tag) {
     tag.text = this.curText;
     let parentTag = this.stack[this.stack.length - 2];
     parentTag.body = tag;
-  },
+  }
 
   onstructor(tag) {
     let text = this.curText;
@@ -1018,7 +1039,7 @@ XBLParser.prototype = {
     if (ast) {
       Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
     }
-  },
+  }
 
   onhandler(tag) {
     let text = this.curText;
@@ -1031,7 +1052,7 @@ XBLParser.prototype = {
     if (ast) {
       Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
     }
-  },
+  }
 
   onmethod(tag) {
     if (!tag.attrs.NAME) {
@@ -1067,7 +1088,7 @@ XBLParser.prototype = {
       column = tag.body.column;
 
       params = params.map(p => p.attrs.NAME.value);
-      paramsText = params.join(", ");
+      let paramsText = params.join(", ");
 
       let spaces = Array(column + 1).join(" ");
       text = `(function (${paramsText}) {\n${spaces}${text}})`;
@@ -1079,8 +1100,8 @@ XBLParser.prototype = {
     }
 
     Analyzer.exit();
-  },
-};
+  }
+}
 
 function analyzeXBL(filename)
 {
@@ -1100,10 +1121,78 @@ function analyzeXBL(filename)
   parser.close();
 }
 
+class XULParser extends XMLParser {
+  ontag(tagName, tag) {
+    switch (tagName) {
+    case "SCRIPT":
+      this.onscript(tag);
+      break;
+    }
+
+    let line, column;
+    for (let prop in tag.attrs) {
+      if (!prop.startsWith("ON")) {
+        continue;
+      }
+
+      let text = tag.attrs[prop].value;
+      line = tag.attrs[prop].line;
+      column = tag.attrs[prop].column;
+
+      [line, column] = this.backup(line, column, text + "\"");
+
+      let spaces = Array(column + 1).join(" ");
+      text = `(function (val) {\n${spaces}${text}})`;
+
+      let ast = Analyzer.parse(text, this.filename, line);
+      if (ast) {
+        Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
+      }
+    }
+  }
+
+  onscript(tag) {
+    let text = this.curText;
+    let {line, column} = tag;
+
+    let spaces = Array(column + 1).join(" ");
+    text = `(function () {\n${spaces}${text}})`;
+
+    let ast = Analyzer.parse(text, this.filename, line);
+    if (ast) {
+      Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
+    }
+  }
+}
+
+function analyzeXUL(filename)
+{
+  let text = replaceEntities(preprocess(filename, line => `<!--${line}-->`));
+
+  if (filename.endsWith(".inc")) {
+    text = "<root>" + text + "</root>";
+  }
+
+  let lines = text.split("\n");
+
+  let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: true});
+
+  let xul = new XULParser(filename, lines, parser);
+  for (let prop of ["onopentag", "onclosetag", "onattribute", "ontext", "oncdata"]) {
+    let x = prop;
+    parser[x] = (...args) => { xul[x](...args); };
+  }
+
+  parser.write(text);
+  parser.close();
+}
+
 function analyzeFile(filename)
 {
   if (filename.endsWith(".xml")) {
     analyzeXBL(filename);
+  } else if (filename.endsWith(".xul") || filename.endsWith(".inc")) {
+    analyzeXUL(filename);
   } else {
     analyzeJS(filename);
   }

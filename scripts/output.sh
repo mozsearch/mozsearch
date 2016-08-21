@@ -26,8 +26,11 @@ cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | grep "$FILTER" | \
     parallel --files --halt 2 -X --eta \
 	     $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
 
-cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files > /tmp/dirs
-js $MOZSEARCH_PATH/output-dir.js $FILES_ROOT $INDEX_ROOT $MOZSEARCH_PATH $OBJDIR $TREE_NAME /tmp/dirs
+if [ "${FILTER}" = ".*" ]
+then
+    cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files > /tmp/dirs
+    js $MOZSEARCH_PATH/output-dir.js $FILES_ROOT $INDEX_ROOT $MOZSEARCH_PATH $OBJDIR $TREE_NAME /tmp/dirs
 
-js $MOZSEARCH_PATH/output-template.js $FILES_ROOT $INDEX_ROOT $MOZSEARCH_PATH $TREE_NAME
-js $MOZSEARCH_PATH/output-help.js $CONFIG_REPO/help.html $INDEX_ROOT $MOZSEARCH_PATH
+    js $MOZSEARCH_PATH/output-template.js $FILES_ROOT $INDEX_ROOT $MOZSEARCH_PATH $TREE_NAME
+    js $MOZSEARCH_PATH/output-help.js $CONFIG_REPO/help.html $INDEX_ROOT $MOZSEARCH_PATH
+fi

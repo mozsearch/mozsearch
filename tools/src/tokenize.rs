@@ -669,10 +669,10 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
                     literal_is_id = true;
                 }
 
-                if peek(&tag_stack, 0, "property") && (attr_name == "onget" || attr_name == "onset") {
+                if attr_name.starts_with("on") {
                     literal_is_js = true;
                 }
-                
+
                 result.push(token);
             },
             TokenKind::PlainText | TokenKind::Newline | TokenKind::Comment => {

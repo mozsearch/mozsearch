@@ -34,7 +34,7 @@ $MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
 
-$MOZSEARCH_PATH/scripts/js-analyze.sh
+$MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME
 
 date
 
