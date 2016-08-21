@@ -101,6 +101,7 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
 
     let mut head_seq = vec![
         F::S("<meta charset=\"utf-8\" />"),
+        F::S("<link href=\"/static/icons/search.png\" rel=\"shortcut icon\">"),
         F::T(format!("<title>{}</title>", opt.title)),
     ];
     head_seq.extend(css_tags);
