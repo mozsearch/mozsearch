@@ -420,20 +420,18 @@ $(function() {
 
     var myRequestNumber = nextRequestNumber;
 
-    if (query.length > 0 && query.length < 3) {
-      showBubble("info", "Enter at least 3 characters to do a search.", "query");
+    if (query.length == 0 && pathFilter.length == 0) {
+      hideBubbles();
       return;
     }
-    if (pathFilter.length > 0 && pathFilter.length < 3) {
-      showBubble("info", "Enter at least 3 characters to do a search.", "path");
+
+    if (query.length < 3 && pathFilter.length < 3) {
+      showBubble("info", "Enter at least 3 characters to do a search.",
+                 query.length ? "query" : "path");
       return;
     }
 
     hideBubbles();
-
-    if (query.length == 0 && pathFilter.length == 0) {
-      return;
-    }
 
     nextRequestNumber += 1;
     oneMoreRequest();
