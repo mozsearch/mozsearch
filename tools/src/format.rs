@@ -402,7 +402,7 @@ pub fn format_path(cfg: &config::Config,
     let panel = vec![PanelSection {
         name: "Revision control".to_owned(),
         items: vec![PanelItem {
-            title: "Goto latest version".to_owned(),
+            title: "Go to latest version".to_owned(),
             link: format!("/{}/source/{}", tree_name, path),
             update_link_lineno: true,
         }, PanelItem {
@@ -575,7 +575,7 @@ pub fn format_diff(cfg: &config::Config,
             link: format!("/{}/rev/{}/{}", tree_name, rev, path),
             update_link_lineno: true,
         }, PanelItem {
-            title: "Goto latest version".to_owned(),
+            title: "Go to latest version".to_owned(),
             link: format!("/{}/source/{}", tree_name, path),
             update_link_lineno: true,
         }, PanelItem {

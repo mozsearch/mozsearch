@@ -86,7 +86,7 @@ $("#file").on("click", "span[data-i]", function(event) {
   for (var i = 0; i < jumps.length; i++) {
     var sym = jumps[i].sym;
     var pretty = jumps[i].pretty;
-    menuItems.push({html: fmt("Goto definition of _", pretty),
+    menuItems.push({html: fmt("Go to definition of _", pretty),
                     href: `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`,
                     icon: "search"});
   }
