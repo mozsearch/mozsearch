@@ -61,6 +61,9 @@ def parse_search(searchString):
         elif pieces[i].startswith('re:'):
             result['re'] = (' '.join(pieces[i:]))[len('re:'):]
             break
+        elif pieces[i].startswith('text:'):
+            result['re'] = re.escape((' '.join(pieces[i:]))[len('text:'):])
+            break
         elif pieces[i].startswith('id:'):
             result['id'] = pieces[i][len('id:'):]
         else:
@@ -132,7 +135,7 @@ class SearchResults(object):
             if key in self.results_hash:
                 continue
             self.results_hash[key] = True
-            
+
             path_results[lno] = line
             self.count += 1
 
@@ -141,7 +144,7 @@ class SearchResults(object):
 
     def maxed_out(self):
         return self.count == self.max_count
-            
+
     def compile(self):
         def is_test(p):
             return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
@@ -199,13 +202,13 @@ class SearchResults(object):
 
                 if self.maxed_out():
                     break
-                
+
             if self.maxed_out():
                 break
 
         r = self.compile()
         return r
-                
+
 def search_files(tree_name, path):
     pathFile = os.path.join(index_path(tree_name), 'repo-files')
     try:
