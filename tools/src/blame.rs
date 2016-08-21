@@ -5,6 +5,10 @@ use rustc_serialize::json::Json;
 use regex::Regex;
 use git2;
 
+use chrono::naive::datetime::NaiveDateTime;
+use chrono::offset::fixed::FixedOffset;
+use chrono::datetime::DateTime;
+
 pub fn linkify(s: &str) -> String {
     let re = Regex::new(r"\b(?P<bugno>[1-9][0-9]{4,9})\b").unwrap();
     re.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$bugno</a>")
@@ -30,8 +34,14 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Resu
     let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
     let (msg, _) = try!(commit_header(&commit));
 
+    let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
+    let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
+    let t : DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
+    let t = t.to_rfc2822();
+
     let sig = commit.author();
-    let msg = format!("{}\n<br><i>{} &lt;{}></i>", msg, sig.name().unwrap(), sig.email().unwrap());
+
+    let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, sig.name().unwrap(), sig.email().unwrap(), t);
 
     let mut obj = BTreeMap::new();
 
@@ -41,6 +51,8 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Resu
     if parents.len() == 1 {
         obj.insert("parent".to_owned(), Json::String(parents[0].to_string()));
     }
+
+    obj.insert("date".to_owned(), Json::String(t));
 
     let json = Json::Object(obj);
 
