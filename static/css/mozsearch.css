@@ -177,7 +177,7 @@ mark {
 .file td:first-child {
     text-align: right;
     color: #aaa;
-    width: 6ex;
+    width: 8ex;
 }
 .results td {
     padding: .1rem .5rem;
@@ -214,6 +214,24 @@ mark {
     padding-left: 4px;
     padding-right: 4px;
     color: royalblue;
+}
+
+.section {
+    text-align: right;
+    font-size: 150%;
+}
+
+.result-pathkind {
+  font-size: 150%;
+}
+
+.result-kind {
+  font-weight: 800;
+}
+
+.expando {
+  cursor: pointer;
+  color: black;
 }
 /* End search results */
 
@@ -390,12 +408,6 @@ span[data-id]:hover {
 }
 span[data-id].hovered {
   background-color: yellow;
-}
-
-/* Search results */
-.result-kind {
-  font-weight: 800;
-  margin-top: 15px;
 }
 
 /* Help screen */

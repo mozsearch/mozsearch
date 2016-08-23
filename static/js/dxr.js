@@ -23,6 +23,17 @@ function scrollIntoView(id, navigate = true) {
   }
 }
 
+String.prototype.hashCode = function() {
+  var hash = 0;
+  if (this.length == 0) return hash;
+  for (i = 0; i < this.length; i++) {
+    char = this.charCodeAt(i);
+    hash = ((hash<<5)-hash)+char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash;
+}
+
 $(function() {
   'use strict';
 
@@ -181,6 +192,27 @@ $(function() {
     queryNow();
   }
 
+  function classOfResult(pathkind, qkind) {
+    var klass = pathkind + ":" + qkind;
+    klass = String(klass.hashCode());
+    return "EXPANDO" + klass;
+  }
+
+  function onExpandoClick(event) {
+    var target = $(event.target);
+    var open = target.hasClass("open");
+
+    if (open) {
+      $("." + target.data("klass")).hide();
+      target.removeClass("open");
+      target.html("+");
+    } else {
+      $("." + target.data("klass")).show();
+      target.addClass("open");
+      target.html("&#8722;");
+    }
+  }
+
   /**
    * Clears any existing query timer and queries immediately.
    */
@@ -237,9 +269,11 @@ $(function() {
       }[suffix] || "unknown";
     }
 
-    function renderPath(fileResult) {
+    function renderPath(pathkind, qkind, fileResult) {
+      var klass = classOfResult(pathkind, qkind);
+
       var html = "";
-      html += "<tr class='result-head'>";
+      html += "<tr class='result-head " + klass + "'>";
       html += "<td class='left-column'><div class='" + chooseIcon(fileResult.path) + " icon-container'></div></td>";
 
       html += "<td>";
@@ -263,14 +297,15 @@ $(function() {
       return html;
     }
 
-    function renderSingleSearchResult(file, line) {
+    function renderSingleSearchResult(pathkind, qkind, file, line) {
       var [start, end] = line.bounds || [0, 0];
       var before = line.line.slice(0, start).replace(/^\s+/, "");
       var middle = line.line.slice(start, end);
       var after = line.line.slice(end).replace(/\s+$/, "");
 
+      var klass = classOfResult(pathkind, qkind);
       var html = "";
-      html += "<tr>";
+      html += "<tr class='" + klass + "'>";
       html += "<td class='left-column'><a href='" + makeURL(file.path) + "#" + line.lno + "'>" +
         line.lno + "</a></td>";
       html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
@@ -298,21 +333,26 @@ $(function() {
     }
 
     var count = 0;
-    for (var kind in data) {
-      for (var k = 0; k < data[kind].length; k++) {
-        var path = data[kind][k];
-        count += path.lines.length;
+    for (var pathkind in data) {
+      for (var qkind in data[pathkind]) {
+        for (var k = 0; k < data[pathkind][qkind].length; k++) {
+          var path = data[pathkind][qkind][k];
+          count += path.lines.length;
+        }
       }
     }
 
     var fileCount = 0;
-    for (var kind in data) {
-      fileCount += data[kind].length;
+    for (var pathkind in data) {
+      for (var qkind in data[pathkind]) {
+        fileCount += data[pathkind][qkind].length;
+      }
     }
 
     if (jumpToSingle && fileCount == 1 && count <= 1) {
-      var kind = Object.keys(data)[0];
-      var file = data[kind][0];
+      var pathkind = Object.keys(data)[0];
+      var qkind = Object.keys(data[pathkind])[0];
+      var file = data[pathkind][qkind][0];
       var path = file.path;
 
       if (count == 1) {
@@ -324,9 +364,6 @@ $(function() {
       }
       return;
     }
-
-    //var keyOrder = ["IDL", "Definitions", "Assignments", "Uses", "Declarations", "default"];
-    var keyOrder = Object.keys(data);
 
     // If no data is returned, inform the user.
     if (!fileCount) {
@@ -347,37 +384,56 @@ $(function() {
 
       var counter = 0;
 
+      var pathkindNames = {
+        "normal": null,
+        "test": "Test files",
+        "generated": "Generated code",
+      };
+
       var html = "";
-      for (var k = 0; k < keyOrder.length; k++) {
-        var kind = keyOrder[k];
-        if (!(kind in data)) {
-          continue;
-        }
-        if ((kind != "Textual Occurrences" || keyOrder.length > 1) && data[kind].length) {
-          html += "<tr><td class='left-column'></td><td><div class='result-kind'>" + kind + "</div></td></tr>"
+      for (var pathkind in data) {
+        var pathkindName = pathkindNames[pathkind];
+        if (pathkindName) {
+          html += "<tr><td>&nbsp;</td></tr>"
+          html += "<tr><td class='section'>§</td><td><div class='result-pathkind'>" + pathkindName + "</div></td></tr>"
         }
 
-        for (var i = 0; i < data[kind].length; i++) {
-          var file = data[kind][i];
+        var qkinds = Object.keys(data[pathkind]);
+        for (var qkind in data[pathkind]) {
+          if (data[pathkind][qkind].length) {
+            html += "<tr><td>&nbsp;</td></tr>";
 
-          if (counter > 100 && !full) {
-            break;
+            html += "<tr><td class='left-column'>";
+            html += "<div class='expando open' data-klass='" + classOfResult(pathkind, qkind) + "'>&#8722;</div>";
+            html += "</td>";
+
+            html += "<td><div class='result-kind'>" + qkind + "</div></td></tr>";
           }
 
-          html += renderPath(file);
+          for (var i = 0; i < data[pathkind][qkind].length; i++) {
+            var file = data[pathkind][qkind][i];
 
-          file.lines.map(function(line) {
-            counter++;
             if (counter > 100 && !full) {
-              return;
+              break;
             }
 
-            html += renderSingleSearchResult(file, line);
-          });
+            html += renderPath(pathkind, qkind, file);
+
+            file.lines.map(function(line) {
+              counter++;
+              if (counter > 100 && !full) {
+                return;
+              }
+
+              html += renderSingleSearchResult(pathkind, qkind, file, line);
+            });
+          }
         }
       }
 
       table.innerHTML = html;
+
+      $(".expando").click(onExpandoClick);
 
       if (counter > 100 && !full) {
         var epoch = populateEpoch;

@@ -89,7 +89,7 @@ class SearchResults(object):
 
         self.pathre = None
         self.results_hash = {}
-        self.compiled = collections.OrderedDict()
+        self.compiled = {}
 
         self.count = 0
 
@@ -111,9 +111,21 @@ class SearchResults(object):
         self.qualified_results.append((qual, f))
 
     max_count = 1000
+    path_precedences = ['normal', 'test', 'generated']
     key_precedences = ["Files", "IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
 
-    def add_path_result(self, kind, qual, pathr):
+    def categorize_path(self, path):
+        def is_test(p):
+            return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
+
+        if '__GENERATED__' in path:
+            return 'generated'
+        elif is_test(path):
+            return 'test'
+        else:
+            return 'normal'
+
+    def compile_result(self, kind, qual, pathr):
         if qual:
             qkind = '%s (%s)' % (kind, qual)
         else:
@@ -122,11 +134,14 @@ class SearchResults(object):
         path = pathr['path']
         lines = pathr['lines']
 
+        pathkind = self.categorize_path(path)
+
         if self.pathre and not self.pathre.search(path):
             return
 
-        # compiled is a map {qkind: {path: {lno: line}}}
-        path_results = self.compiled.setdefault(qkind, {}).setdefault(path, {})
+        # compiled is a map {pathkind: {qkind: {path: {lno: line}}}}
+        kind_results = self.compiled.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, {})
+        path_results = kind_results.setdefault(path, {})
 
         for line in lines:
             lno = line['lno']
@@ -145,37 +160,19 @@ class SearchResults(object):
     def maxed_out(self):
         return self.count == self.max_count
 
-    def compile(self):
-        def is_test(p):
-            return '/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p
-
-        def prio(p):
-            if is_test(p): return 0
-            elif '__GENERATED__' in p: return 1
-            else: return 2
-
-        # neg if p1 is before p2
-        def sortfunc(p1, p2):
-            prio1 = prio(p1)
-            prio2 = prio(p2)
-            r = cmp(p1, p2)
-            if prio1 < prio2:
-                r += 10000
-            elif prio1 > prio2:
-                r -= 10000
-            return r
-
+    def sort_compiled(self):
         result = collections.OrderedDict()
-        for qkind in self.compiled:
-            paths = self.compiled[qkind].keys()
-            paths.sort(sortfunc)
-            for path in paths:
-                lines_map = self.compiled[qkind][path]
-                lnos = lines_map.keys()
-                lnos.sort()
-                lines = [ lines_map[lno] for lno in lnos ]
-                if lines or qkind == 'Files':
-                    result.setdefault(qkind, []).append({'path': path, 'lines': lines})
+        for pathkind in self.path_precedences:
+            for qkind in self.compiled.get(pathkind, []):
+                paths = self.compiled[pathkind][qkind].keys()
+                paths.sort()
+                for path in paths:
+                    lines_map = self.compiled[pathkind][qkind][path]
+                    lnos = lines_map.keys()
+                    lnos.sort()
+                    lines = [ lines_map[lno] for lno in lnos ]
+                    if lines or qkind == 'Files':
+                        result.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, []).append({'path': path, 'lines': lines})
 
         return result
 
@@ -185,7 +182,7 @@ class SearchResults(object):
         for kind in self.key_precedences:
             for (qual, f) in self.qualified_results:
                 for pathr in f(kind):
-                    self.add_path_result(kind, qual, pathr)
+                    self.compile_result(kind, qual, pathr)
 
                     if self.maxed_out():
                         break
@@ -195,7 +192,7 @@ class SearchResults(object):
 
             for results in self.results:
                 for pathr in results.get(kind, []):
-                    self.add_path_result(kind, None, pathr)
+                    self.compile_result(kind, None, pathr)
 
                     if self.maxed_out():
                         break
@@ -206,7 +203,7 @@ class SearchResults(object):
             if self.maxed_out():
                 break
 
-        r = self.compile()
+        r = self.sort_compiled()
         return r
 
 def search_files(tree_name, path):
