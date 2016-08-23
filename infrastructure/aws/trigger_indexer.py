@@ -3,18 +3,18 @@ from datetime import datetime, timedelta
 import sys
 import os.path
 
-# Usage: trigger_indexer.py <config-repo> [release|dev]
+# Usage: trigger_indexer.py <config-repo> <branch> [release|dev]
 
-def trigger(config_repo, channel, spot=False):
+def trigger(config_repo, branch, channel, spot=False):
     ec2 = boto3.resource('ec2')
     client = boto3.client('ec2')
 
     user_data = '''#!/bin/bash
 
 cd ~ubuntu
-./update.sh "{channel}" "{config_repo}"
-sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{channel}" "{config_repo}" config
-'''.format(channel=channel, config_repo=config_repo)
+./update.sh "{branch}" "{config_repo}"
+sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{branch}" "{channel}" "{config_repo}" config
+'''.format(branch=branch, channel=channel, config_repo=config_repo)
 
     block_devices = []
 
@@ -53,8 +53,9 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{channel}" "{config_rep
 
 if __name__ == '__main__':
     config_repo = sys.argv[1]
+    branch = sys.argv[2]
 
     # 'release' or 'dev'
-    channel = sys.argv[2]
+    channel = sys.argv[3]
 
-    trigger(config_repo, channel, spot=False)
+    trigger(config_repo, branch, channel, spot=False)

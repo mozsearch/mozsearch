@@ -55,21 +55,15 @@ date
 
 if [ $# != 2 ]
 then
-    echo "usage: $0 <channel> <config-repo>"
+    echo "usage: $0 <branch> <config-repo>"
     exit 1
 fi
 
-CHANNEL=$1
+BRANCH=$1
 CONFIG_REPO=$2
 
-echo Channel is $CHANNEL
+echo Branch is $BRANCH
 echo Config repository is $CONFIG_REPO
-
-BRANCH=master
-if [ $CHANNEL != release ]
-then
-    BRANCH=$CHANNEL
-fi
 
 # Install mozsearch.
 rm -rf mozsearch

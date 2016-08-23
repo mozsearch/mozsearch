@@ -5,18 +5,19 @@ exec &> /home/ubuntu/index-log
 set -e
 set -x
 
-if [ $# != 3 ]
+if [ $# != 4 ]
 then
-    echo "usage: $0 <channel> <config-repo> <config-repo-path>"
+    echo "usage: $0 <branch> <channel> <config-repo> <config-repo-path>"
     exit 1
 fi
 
 SCRIPT_PATH=$(readlink -f "$0")
 MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/../..
 
-CHANNEL=$1
-CONFIG_REPO=$2
-CONFIG_REPO_PATH=$(readlink -f $3)
+BRANCH=$1
+CHANNEL=$2
+CONFIG_REPO=$3
+CONFIG_REPO_PATH=$(readlink -f $4)
 
 sudo mkdir -p /mnt/tmp
 sudo chown ubuntu.ubuntu /mnt/tmp
@@ -31,6 +32,7 @@ STOP
 
 export INDEX_TMP=/mnt/tmp
 
+echo "Branch is $BRANCH"
 echo "Channel is $CHANNEL"
 
 export AWS_ROOT=$(realpath $MOZSEARCH_PATH/infrastructure/aws)
@@ -61,7 +63,7 @@ echo "Indexing complete"
 sudo umount /index
 
 python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-python $AWS_ROOT/trigger-web-server.py $CHANNEL $CONFIG_REPO $VOLUME_ID
+python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $CONFIG_REPO $VOLUME_ID
 
 gzip -k ~ubuntu/index-log
 python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`

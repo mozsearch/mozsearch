@@ -7,7 +7,7 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: swap-web-server.py <channel> <config-repo> <index-volume-id>
+# Usage: swap-web-server.py <branch> <channel> <config-repo> <index-volume-id>
 
 import sys
 from datetime import datetime
@@ -18,9 +18,10 @@ import os.path
 import subprocess
 import time
 
-channel = sys.argv[1]
-config_repo = sys.argv[2]
-volumeId = sys.argv[3]
+branch = sys.argv[1]
+channel = sys.argv[2]
+config_repo = sys.argv[3]
+volumeId = sys.argv[4]
 
 ELASTIC_IPS = {
     'release': '52.32.131.4',
@@ -36,9 +37,9 @@ userData = '''#!/bin/bash
 
 cd ~ubuntu
 touch web_server_started
-./update.sh "{channel}" "{config_repo}"
+./update.sh "{branch}" "{config_repo}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config
-'''.format(channel=channel, config_repo=config_repo)
+'''.format(branch=branch, channel=channel, config_repo=config_repo)
 
 volumes = client.describe_volumes(VolumeIds=[volumeId])
 availability_zone = volumes['Volumes'][0]['AvailabilityZone']
