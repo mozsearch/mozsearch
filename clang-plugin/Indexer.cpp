@@ -513,7 +513,7 @@ public:
     unsigned startOffset = sm.getFileOffset(loc);
     unsigned endOffset = startOffset + Lexer::MeasureTokenLength(loc, sm, ci.getLangOpts());
 
-    std::string locStr = LocationToString(loc);
+    std::string locStr = LocationToString(loc, endOffset - startOffset);
     std::string rangeStr = LocationToString(loc, endOffset - startOffset);
 
     const char* startChars = sm.getCharacterData(loc);

@@ -96,7 +96,7 @@ def handle_interface(analysis, iface):
 
     # C++ target
     j = {
-        'loc': '%d:%d' % (lineno, colno),
+        'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
         'target': 1,
         'kind': 'idl',
         'sym': mangled,
@@ -106,7 +106,7 @@ def handle_interface(analysis, iface):
     if iface.attributes.scriptable:
         # JS target
         j = {
-            'loc': '%d:%d' % (lineno, colno),
+            'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
             'target': 1,
             'kind': 'idl',
             'sym': '#' + iface.name,
@@ -138,13 +138,13 @@ def handle_interface(analysis, iface):
             mangled = analysis[method_name(m)]
             # C++ target
             j = {
-                'loc': '%d:%d' % (lineno, colno),
+                'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
                 'sym': mangled,
             }
             print json.dumps(j)
-            
+
             # Source
             j = {
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
@@ -157,7 +157,7 @@ def handle_interface(analysis, iface):
             if not m.noscript:
                 # JS target
                 j = {
-                    'loc': '%d:%d' % (lineno, colno),
+                    'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
                     'sym': '#' + m.name,
@@ -168,7 +168,7 @@ def handle_interface(analysis, iface):
             if not m.noscript:
                 # JS target
                 j = {
-                    'loc': '%d:%d' % (lineno, colno),
+                    'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
                     'sym': '#' + m.name,
@@ -179,7 +179,7 @@ def handle_interface(analysis, iface):
 
             # C++ target (getter)
             j = {
-                'loc': '%d:%d' % (lineno, colno),
+                'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
                 'sym': mangled_getter,
@@ -191,7 +191,7 @@ def handle_interface(analysis, iface):
 
                 # C++ target (setter)
                 j = {
-                    'loc': '%d:%d' % (lineno, colno),
+                    'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
                     'sym': mangled_setter,
@@ -217,7 +217,7 @@ def handle_interface(analysis, iface):
 
             # JS target
             j = {
-                'loc': '%d:%d' % (lineno, colno),
+                'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
                 'sym': '#' + m.name,
