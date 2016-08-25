@@ -70,5 +70,5 @@ python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`
 
 # Give logger time to catch up
 sleep 30
-python $AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
+#python $AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
 popd
