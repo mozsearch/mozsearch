@@ -228,7 +228,7 @@ def demangle(sym):
 def identifier_search(search, tree_name, needle, complete, fold_case, limit5=True):
     needle = re.sub(r'\\(.)', r'\1', needle)
 
-    pieces = re.split(r'\.|:', needle)
+    pieces = re.split(r'\.|::', needle)
     if not complete and len(pieces[-1]) < 3:
         return {}
 
@@ -244,7 +244,14 @@ def identifier_search(search, tree_name, needle, complete, fold_case, limit5=Tru
         def closure(sym):
             def f(kind):
                 results = crossrefs.lookup(tree_name, sym)
-                return results.get(kind, [])
+                results = results.get(kind, [])
+                for path in results:
+                    for line in path['lines']:
+                        if 'bounds' in line:
+                            (start, end) = line['bounds']
+                            end = start + len(pieces[-1])
+                            line['bounds'] = [start, end]
+                return results
             search.add_qualified_results(q, f)
 
         closure(sym)

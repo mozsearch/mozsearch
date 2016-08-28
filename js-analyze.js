@@ -145,12 +145,12 @@ let Analyzer = {
     }
     print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: name, sym: `#${name}`,
+    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "def", pretty: name, sym: `#${name}`,
                           context: this.context}));
     if (extra) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,prop",
                             pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: extraPretty, sym: extra,
+      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "def", pretty: extraPretty, sym: extra,
                             context: this.context}));
     }
   },
@@ -161,12 +161,12 @@ let Analyzer = {
     }
     print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: name, sym: `#${name}`,
+    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "use", pretty: name, sym: `#${name}`,
                           context: this.context}));
     if (extra) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                             pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: extraPretty, sym: extra,
+      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "use", pretty: extraPretty, sym: extra,
                             context: this.context}));
     }
   },
@@ -177,12 +177,12 @@ let Analyzer = {
     }
     print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                           pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: name, sym: `#${name}`,
+    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "assign", pretty: name, sym: `#${name}`,
                           context: this.context}));
     if (extra) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
                             pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: extraPretty, sym: extra,
+      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "assign", pretty: extraPretty, sym: extra,
                             context: this.context}));
     }
   },
@@ -200,7 +200,7 @@ let Analyzer = {
 
     print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "deflocal,variable",
                           pretty: `variable ${name}`, sym: sym.id}));
-    print(JSON.stringify({loc: locstr(loc), target: 1, kind: "def", pretty: name, sym: sym.id,
+    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "def", pretty: name, sym: sym.id,
                           context: this.context}));
   },
 
@@ -227,7 +227,7 @@ let Analyzer = {
     } else if (!sym.skip) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "uselocal,variable",
                             pretty: `variable ${name}`, sym: sym.id}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "use", pretty: name, sym: sym.id,
+      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "use", pretty: name, sym: sym.id,
                             context: this.context}));
     }
   },
@@ -242,7 +242,7 @@ let Analyzer = {
     } else if (!sym.skip) {
       print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "uselocal,variable",
                             pretty: `variable ${name}`, sym: sym.id}));
-      print(JSON.stringify({loc: locstr(loc), target: 1, kind: "assign", pretty: name, sym: sym.id,
+      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "assign", pretty: name, sym: sym.id,
                             context: this.context}));
     }
   },

@@ -18,14 +18,19 @@ use rustc_serialize::json::{Json, ToJson};
 #[derive(Debug, RustcEncodable, RustcDecodable)]
 struct SearchResult {
     lineno: u32,
+    bounds: (u32, u32),
     line: String,
     context: String,
 }
 
 impl ToJson for SearchResult {
     fn to_json(&self) -> Json {
+        let (st, en) = self.bounds;
+        let bounds = vec![st, en];
+
         let mut obj = BTreeMap::new();
         obj.insert("lno".to_string(), self.lineno.to_json());
+        obj.insert("bounds".to_string(), bounds.to_json());
         obj.insert("line".to_string(), self.line.to_json());
         obj.insert("context".to_string(), self.context.to_json());
         Json::Object(obj)
@@ -41,7 +46,7 @@ fn main() {
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     let filenames_file = &args[3];
-    
+
     let output_file = format!("{}/crossref", tree_config.paths.index_path);
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
@@ -86,7 +91,10 @@ fn main() {
                         return;
                     }
                     let line = lines[lineno].clone();
-                    let line_cut = line.trim();
+                    let line_cut = line.trim_right();
+                    let len = line_cut.len();
+                    let line_cut = line_cut.trim_left();
+                    let offset = (len - line_cut.len()) as u32;
                     let mut buf = String::new();
                     let mut i = 0;
                     for c in line_cut.chars() {
@@ -96,7 +104,12 @@ fn main() {
                             break;
                         }
                     }
-                    t3.push(SearchResult { lineno: datum.loc.lineno, line: buf, context: piece.context });
+                    t3.push(SearchResult {
+                        lineno: datum.loc.lineno,
+                        bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
+                        line: buf,
+                        context: piece.context,
+                    });
 
                     pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
 
