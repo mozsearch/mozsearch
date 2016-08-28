@@ -7,22 +7,28 @@ sudo apt-get update
 
 sudo apt-get install -y git
 
-# Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
-sudo apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev libgtk-3-dev libglib2.0-dev libdbus-1-dev libdbus-glib-1-dev libasound2-dev libcurl4-openssl-dev libiw-dev libxt-dev mesa-common-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libpulse-dev m4 flex libx11-xcb-dev ccache libgconf2-dev clang-3.6 libclang-3.6-dev
+# Clang
+sudo apt-get install -y clang-3.8 clang-3.8-dev
 
-# Livegrep
-sudo apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang
+# Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
+sudo apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev libgtk-3-dev libglib2.0-dev libdbus-1-dev libdbus-glib-1-dev libasound2-dev libcurl4-openssl-dev libiw-dev libxt-dev mesa-common-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libpulse-dev m4 flex libx11-xcb-dev ccache libgconf2-dev
+
+# Livegrep (Bazel is needed for Livegrep builds)
+echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install -y bazel libssl-dev
 
 # Other
-sudo apt-get install -y parallel realpath python-virtualenv
+sudo apt-get install -y parallel realpath python-virtualenv python-pip
 
 # pygit2
 sudo apt-get install -y python-dev libffi-dev cmake
 
 # Setup direct links to clang
-sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-3.6 360
-sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.6 360
-sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.6 360
+sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-3.8 380
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.8 380
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.8 380
 
 # Install Rust.
 curl -sSf https://static.rust-lang.org/rustup.sh | sh
@@ -30,8 +36,8 @@ curl -sSf https://static.rust-lang.org/rustup.sh | sh
 # Install codesearch.
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
-make bin/codesearch
-sudo install bin/codesearch /usr/local/bin
+bazel build //src/tools:codesearch
+sudo install bazel-bin/src/tools/codesearch /usr/local/bin
 popd
 
 # Install AWS scripts.

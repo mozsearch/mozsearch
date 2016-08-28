@@ -54,7 +54,7 @@ if volumes['Volumes'][0]['Attachments']:
 
 print 'Starting web server instance...'
 
-images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server']}])
+images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-16.04']}])
 image_id = images['Images'][0]['ImageId']
 
 r = client.run_instances(

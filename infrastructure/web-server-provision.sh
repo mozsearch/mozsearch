@@ -6,14 +6,17 @@ set -x
 sudo apt-get update
 sudo apt-get install -y git
 
-# Livegrep
-sudo apt-get install -y libgflags-dev libgit2-dev libjson0-dev libboost-system-dev libboost-filesystem-dev libsparsehash-dev cmake golang g++ mercurial
+# Livegrep (Bazel is needed for Livegrep builds)
+echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install -y bazel libssl-dev
 
 # pygit2
 sudo apt-get install -y python-virtualenv python-dev libffi-dev cmake
 
 # Other
-sudo apt-get install -y parallel realpath unzip
+sudo apt-get install -y parallel realpath unzip python-pip
 
 # Nginx
 sudo apt-get install -y nginx
@@ -24,8 +27,8 @@ curl -sSf https://static.rust-lang.org/rustup.sh | sh
 # Install codesearch.
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
-make bin/codesearch
-sudo install bin/codesearch /usr/local/bin
+bazel build //src/tools:codesearch
+sudo install bazel-bin/src/tools/codesearch /usr/local/bin
 popd
 
 # Install AWS scripts.

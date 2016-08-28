@@ -18,7 +18,7 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{branch}" "{channel}" "
 
     block_devices = []
 
-    images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['indexer']}])
+    images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['indexer-16.04']}])
     image_id = images['Images'][0]['ImageId']
 
     launch_spec = {
