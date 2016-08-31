@@ -139,19 +139,36 @@ let Analyzer = {
     }
   },
 
+  source(loc, name, syntax, pretty, sym) {
+    let locProp;
+    if (typeof(loc) == "object" && "start" in loc) {
+      locProp = locstr2(loc, name);
+    } else {
+      locProp = loc;
+    }
+    print(JSON.stringify({loc: locProp, source: 1, syntax, pretty, sym}));
+  },
+
+  target(loc, name, kind, pretty, sym) {
+    let locProp;
+    if (typeof(loc) == "object" && "start" in loc) {
+      locProp = locstr2(loc, name);
+    } else {
+      locProp = loc;
+    }
+    print(JSON.stringify({loc: locProp, target: 1, kind, pretty, sym,
+                          context: this.context}));
+  },
+
   defProp(name, loc, extra, extraPretty) {
     if (!nameValid(name)) {
       return;
     }
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,prop",
-                          pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "def", pretty: name, sym: `#${name}`,
-                          context: this.context}));
+    this.source(loc, name, "def,prop", `property ${name}`, `#${name}`);
+    this.target(loc, name, "def", name, `#${name}`);
     if (extra) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "def,prop",
-                            pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "def", pretty: extraPretty, sym: extra,
-                            context: this.context}));
+      this.source(loc, name, "def,prop", `property ${extraPretty}`, extra);
+      this.target(loc, name, "def", extraPretty, extra);
     }
   },
 
@@ -159,15 +176,11 @@ let Analyzer = {
     if (!nameValid(name)) {
       return;
     }
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
-                          pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "use", pretty: name, sym: `#${name}`,
-                          context: this.context}));
+    this.source(loc, name, "use,prop", `property ${name}`, `#${name}`);
+    this.target(loc, name, "use", name, `#${name}`);
     if (extra) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
-                            pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "use", pretty: extraPretty, sym: extra,
-                            context: this.context}));
+      this.source(loc, name, "use,prop", `property ${extraPretty}`, extra);
+      this.target(loc, name, "use", extraPretty, extra);
     }
   },
 
@@ -175,15 +188,11 @@ let Analyzer = {
     if (!nameValid(name)) {
       return;
     }
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
-                          pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "assign", pretty: name, sym: `#${name}`,
-                          context: this.context}));
+    this.source(loc, name, "use,prop", `property ${name}`, `#${name}`);
+    this.target(loc, name, "assign", name, `#${name}`);
     if (extra) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "use,prop",
-                            pretty: `property ${extraPretty}`, sym: extra}));
-      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "assign", pretty: extraPretty, sym: extra,
-                            context: this.context}));
+      this.source(loc, name, "use,prop", `property ${extraPretty}`, extra);
+      this.target(loc, name, "assign", extraPretty, extra);
     }
   },
 
@@ -198,10 +207,8 @@ let Analyzer = {
     let sym = new Symbol(name, loc);
     this.symbols.put(name, sym);
 
-    print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "deflocal,variable",
-                          pretty: `variable ${name}`, sym: sym.id}));
-    print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "def", pretty: name, sym: sym.id,
-                          context: this.context}));
+    this.source(loc, name, "deflocal,variable", `variable ${name}`, sym.id);
+    this.target(loc, name, "def", name, sym.id);
   },
 
   findSymbol(name) {
@@ -225,10 +232,8 @@ let Analyzer = {
     if (!sym) {
       this.useProp(name, loc);
     } else if (!sym.skip) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "uselocal,variable",
-                            pretty: `variable ${name}`, sym: sym.id}));
-      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "use", pretty: name, sym: sym.id,
-                            context: this.context}));
+      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id);
+      this.target(loc, name, "use", name, sym.id);
     }
   },
 
@@ -240,10 +245,8 @@ let Analyzer = {
     if (!sym) {
       this.assignProp(name, loc);
     } else if (!sym.skip) {
-      print(JSON.stringify({loc: locstr2(loc, name), source: 1, syntax: "uselocal,variable",
-                            pretty: `variable ${name}`, sym: sym.id}));
-      print(JSON.stringify({loc: locstr2(loc, name), target: 1, kind: "assign", pretty: name, sym: sym.id,
-                            context: this.context}));
+      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id);
+      this.target(loc, name, "assign", name, sym.id);
     }
   },
 
@@ -531,19 +534,28 @@ let Analyzer = {
           }
         }
 
+        this.contextStack.push(name);
         this.expression(prop.value);
+        this.contextStack.pop();
       }
       break;
 
     case "FunctionExpression":
     case "ArrowFunctionExpression":
-      let name = expr.id ? expr.id.name : "";
+      // In theory this could declare a variable that can be used in
+      // the function. But most of the time, it appears on class
+      // methods that don't actually define such a variable. This is
+      // probably a SpiderMonkey bug. We just don't do anything here
+      // to be correct in the common case.
+      //let name = expr.id ? expr.id.name : "";
+      let name = null;
       this.scoped(name, () => {
         if (this.className && name == this.className) {
           // SPIDERMONKEY HACK: Fixes a bug where constructors get the
           // name of their class instead of "constructor".
           name = "constructor";
         }
+
         if (expr.type == "FunctionExpression" && name) {
           this.defVar(name, expr.loc);
         }
@@ -932,11 +944,9 @@ class XBLParser extends XMLParser {
 
     [line, column] = this.backup(line, column, name + "\"");
 
-    print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
-                          syntax: "def,prop",
-                          pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`,
-                          context: this.context}));
+    let locStr = `${line + 1}:${column}-${column + name.length}`;
+    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`);
+    Analyzer.target(locStr, name, "def", name, `#${name}`);
 
     let spaces = Array(tag.column).join(" ");
     let text = spaces + this.curText;
@@ -955,11 +965,9 @@ class XBLParser extends XMLParser {
 
       [line, column] = this.backup(line, column, name + "\"");
 
-      print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
-                            syntax: "def,prop",
-                            pretty: `property ${name}`, sym: `#${name}`}));
-      print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`,
-                            context: this.context}));
+      let locStr = `${line + 1}:${column}-${column + name.length}`;
+      Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`);
+      Analyzer.target(locStr, name, "def", name, `#${name}`);
     }
 
     let line, column;
@@ -1064,11 +1072,9 @@ class XBLParser extends XMLParser {
 
     [line, column] = this.backup(line, column, name + "\"");
 
-    print(JSON.stringify({loc: `${line + 1}:${column}-${column + name.length}`, source: 1,
-                          syntax: "def,prop",
-                          pretty: `property ${name}`, sym: `#${name}`}));
-    print(JSON.stringify({loc: `${line + 1}:${column}`, target: 1, kind: "def", pretty: name, sym: `#${name}`,
-                          context: this.context}));
+    let locStr = `${line + 1}:${column}-${column + name.length}`;
+    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`);
+    Analyzer.target(locStr, name, "def", name, `#${name}`);
 
     Analyzer.enter(name);
 

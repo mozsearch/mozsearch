@@ -21,6 +21,7 @@ struct SearchResult {
     bounds: (u32, u32),
     line: String,
     context: String,
+    contextsym: String,
 }
 
 impl ToJson for SearchResult {
@@ -33,6 +34,7 @@ impl ToJson for SearchResult {
         obj.insert("bounds".to_string(), bounds.to_json());
         obj.insert("line".to_string(), self.line.to_json());
         obj.insert("context".to_string(), self.context.to_json());
+        obj.insert("contextsym".to_string(), self.contextsym.to_json());
         Json::Object(obj)
     }
 }
@@ -109,6 +111,7 @@ fn main() {
                         bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
                         line: buf,
                         context: piece.context,
+                        contextsym: piece.contextsym,
                     });
 
                     pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());

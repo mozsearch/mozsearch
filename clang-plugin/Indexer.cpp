@@ -568,6 +568,15 @@ public:
     NO_CROSSREF = 1,
   };
 
+  struct Context {
+    std::string mName;
+    std::string mSymbol;
+
+    Context() {}
+    Context(std::string name, std::string symbol) :
+     mName(name), mSymbol(symbol) {}
+  };
+
   bool TraverseEnumDecl(EnumDecl* d) {
     AutoSetContext asc(this, d);
     return Super::TraverseEnumDecl(d);
@@ -603,23 +612,36 @@ public:
     return Super::TraverseCXXDestructorDecl(d);
   }
 
-  std::string TranslateContext(NamedDecl* d) {
+  Context TranslateContext(NamedDecl* d) {
     const FunctionDecl *f = dyn_cast<FunctionDecl>(d);
     if (f && f->isTemplateInstantiation()) {
       d = f->getTemplateInstantiationPattern();
     }
 
-    return d->getQualifiedNameAsString();
+    return Context(d->getQualifiedNameAsString(),
+                   GetMangledName(mMangleContext, d));
   }
 
-  std::string GetContext(Stmt* stmt) {
+  Context GetContext(SourceLocation loc) {
+    if (sm.isMacroBodyExpansion(loc)) {
+      // If we're inside a macro definition, we don't return any context. It
+      // will probably not be what the user expects if we do.
+      return Context();
+    }
+
     if (mDeclContext) {
       return TranslateContext(mDeclContext->mDecl);
     }
-    return "";
+    return Context();
   }
 
-  std::string GetContext(Decl* d) {
+  Context GetContext(Decl* d) {
+    if (sm.isMacroBodyExpansion(d->getLocation())) {
+      // If we're inside a macro definition, we don't return any context. It
+      // will probably not be what the user expects if we do.
+      return Context();
+    }
+
     AutoSetContext* ctxt = mDeclContext;
     while (ctxt) {
       if (ctxt->mDecl != d) {
@@ -627,7 +649,7 @@ public:
       }
       ctxt = ctxt->mPrev;
     }
-    return "";
+    return Context();
   }
 
   void VisitToken(const char *kind,
@@ -635,7 +657,7 @@ public:
                   std::string qualName,
                   SourceLocation loc,
                   const std::vector<std::string>& symbols,
-                  std::string context = "",
+                  Context context = Context(),
                   int flags = 0)
   {
     unsigned startOffset = sm.getFileOffset(loc);
@@ -674,8 +696,11 @@ public:
         fmt.Add("kind", kind);
         fmt.Add("pretty", qualName);
         fmt.Add("sym", symbol);
-        if (!context.empty()) {
-          fmt.Add("context", context);
+        if (!context.mName.empty()) {
+          fmt.Add("context", context.mName);
+        }
+        if (!context.mSymbol.empty()) {
+          fmt.Add("contextsym", context.mSymbol);
         }
 
         std::string s;
@@ -725,7 +750,7 @@ public:
                   std::string qualName,
                   SourceLocation loc,
                   std::string symbol,
-                  std::string context = "",
+                  Context context = Context(),
                   int flags = 0)
   {
     std::vector<std::string> v = { symbol };
@@ -827,7 +852,7 @@ public:
 
     // FIXME: Need to do something different for list initialization.
 
-    VisitToken("use", "constructor", ctor->getQualifiedNameAsString(), loc, mangled, GetContext(e));
+    VisitToken("use", "constructor", ctor->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
 
     return true;
   }
@@ -876,7 +901,7 @@ public:
       }
     }
 
-    VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled, GetContext(e));
+    VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
 
     return true;
   }
@@ -890,7 +915,7 @@ public:
 
     TagDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
     return true;
   }
 
@@ -903,7 +928,7 @@ public:
 
     NamedDecl* decl = l.getTypedefNameDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
     return true;
   }
 
@@ -916,7 +941,7 @@ public:
 
     NamedDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
+    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
     return true;
   }
 
@@ -931,7 +956,7 @@ public:
     if (ClassTemplateDecl *d = dyn_cast<ClassTemplateDecl>(td)) {
       NamedDecl* decl = d->getTemplatedDecl();
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled);
+      VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
     }
 
     return true;
@@ -956,7 +981,7 @@ public:
         flags = NO_CROSSREF;
       }
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "variable", decl->getQualifiedNameAsString(), loc, mangled, GetContext(e), flags);
+      VisitToken("use", "variable", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc), flags);
     } else if (isa<FunctionDecl>(decl)) {
       const FunctionDecl *f = dyn_cast<FunctionDecl>(decl);
       if (f->isTemplateInstantiation()) {
@@ -964,10 +989,10 @@ public:
       }
 
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "function", decl->getQualifiedNameAsString(), loc, mangled, GetContext(e));
+      VisitToken("use", "function", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
     } else if (isa<EnumConstantDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "enum", decl->getQualifiedNameAsString(), loc, mangled, GetContext(e));
+      VisitToken("use", "enum", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
     }
 
     return true;
@@ -1008,7 +1033,7 @@ public:
     ValueDecl* decl = e->getMemberDecl();
     if (FieldDecl* field = dyn_cast<FieldDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, field);
-      VisitToken("use", "field", field->getQualifiedNameAsString(), loc, mangled, GetContext(e));
+      VisitToken("use", "field", field->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
     }
     return true;
   }

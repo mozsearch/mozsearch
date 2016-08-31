@@ -323,7 +323,12 @@ $(function() {
       html += "</a>";
 
       if (line.context) {
-        html += " <span class='result-context'>// found in <code>" + line.context + "</code></span>";
+        var inside = line.context;
+        if (line.contextsym) {
+          var url = `/${dxr.tree}/search?q=symbol:${encodeURIComponent(line.contextsym)}&redirect=false`;
+          inside = "<a href='" + url + "'>" + line.context + "</a>";
+        }
+        html += " <span class='result-context'>// found in <code>" + inside + "</code></span>";
       }
 
       html += "</td>";
