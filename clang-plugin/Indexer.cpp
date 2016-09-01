@@ -382,6 +382,78 @@ private:
     }
   }
 
+  // Returns the qualified name of `d` without considering template parameters.
+  std::string GetQualifiedName(const NamedDecl* d) {
+    const DeclContext* ctx = d->getDeclContext();
+    if (ctx->isFunctionOrMethod()) {
+      return d->getQualifiedNameAsString();
+    }
+
+    std::vector<const DeclContext *> contexts;
+
+    // Collect contexts.
+    while (ctx && isa<NamedDecl>(ctx)) {
+      contexts.push_back(ctx);
+      ctx = ctx->getParent();
+    }
+
+    std::string result;
+
+    std::reverse(contexts.begin(), contexts.end());
+
+    for (const DeclContext *dc : contexts) {
+      if (const auto *spec = dyn_cast<ClassTemplateSpecializationDecl>(dc)) {
+        result += spec->getNameAsString();
+
+        if (spec->getSpecializationKind() == TSK_ExplicitSpecialization) {
+          std::string backing;
+          llvm::raw_string_ostream stream(backing);
+          const TemplateArgumentList &templateArgs = spec->getTemplateArgs();
+#if CLANG_VERSION_MAJOR > 3 || (CLANG_VERSION_MAJOR == 3 && CLANG_VERSION_MINOR >= 9)
+          TemplateSpecializationType::PrintTemplateArgumentList(
+            stream, templateArgs.asArray(), PrintingPolicy(ci.getLangOpts()));
+#else
+          TemplateSpecializationType::PrintTemplateArgumentList(
+            stream, templateArgs.data(), templateArgs.size(), PrintingPolicy(ci.getLangOpts()));
+#endif
+          result += stream.str();
+        }
+      } else if (const auto *nd = dyn_cast<NamespaceDecl>(dc)) {
+        if (nd->isAnonymousNamespace() || nd->isInline()) {
+          continue;
+        }
+        result += nd->getNameAsString();
+      } else if (const auto *rd = dyn_cast<RecordDecl>(dc)) {
+        if (!rd->getIdentifier()) {
+          result += "(anonymous)";
+        } else {
+          result += rd->getNameAsString();
+        }
+      } else if (const auto *fd = dyn_cast<FunctionDecl>(dc)) {
+        result += fd->getNameAsString();
+      } else if (const auto *ed = dyn_cast<EnumDecl>(dc)) {
+        // C++ [dcl.enum]p10: Each enum-name and each unscoped
+        // enumerator is declared in the scope that immediately contains
+        // the enum-specifier. Each scoped enumerator is declared in the
+        // scope of the enumeration.
+        if (ed->isScoped() || ed->getIdentifier())
+          result += ed->getNameAsString();
+        else
+          continue;
+      } else {
+        result += cast<NamedDecl>(dc)->getNameAsString();
+      }
+      result += "::";
+    }
+
+    if (d->getDeclName())
+      result += d->getNameAsString();
+    else
+      result += "(anonymous)";
+
+    return result;
+  }
+
   std::string MangleLocation(SourceLocation loc) {
     FileInfo *f = GetFileInfo(loc);
     std::string filename = f->realname;
@@ -429,14 +501,14 @@ private:
         return std::string("T_") + MangleLocation(decl->getLocation());
       }
 
-      return std::string("T_") + MangleQualifiedName(decl->getQualifiedNameAsString());
+      return std::string("T_") + MangleQualifiedName(GetQualifiedName(decl));
     } else if (isa<NamespaceDecl>(decl) || isa<NamespaceAliasDecl>(decl)) {
       if (!decl->getIdentifier()) {
         // Anonymous.
         return std::string("NS_") + MangleLocation(decl->getLocation());
       }
 
-      return std::string("NS_") + MangleQualifiedName(decl->getQualifiedNameAsString());
+      return std::string("NS_") + MangleQualifiedName(GetQualifiedName(decl));
     } else if (const FieldDecl* d2 = dyn_cast<FieldDecl>(decl)) {
       const RecordDecl* record = d2->getParent();
       return std::string("F_<") + GetMangledName(ctx, record) + ">_" + ToString(d2->getFieldIndex());
@@ -464,6 +536,7 @@ public:
    , mMangleContext(nullptr)
    , mASTContext(nullptr)
    , mDeclContext(nullptr)
+   , mTemplateStack(nullptr)
   {
     //ci.getDiagnostics().setClient(this, false);
     ci.getPreprocessor().addPPCallbacks(llvm::make_unique<PreprocessorHook>(this));
@@ -471,10 +544,6 @@ public:
 
   virtual DiagnosticConsumer *clone(DiagnosticsEngine &Diags) const {
     return new IndexConsumer(ci);
-  }
-
-  bool shouldVisitTemplateInstantiations() const {
-    return false;
   }
 
   struct AutoTime {
@@ -683,6 +752,128 @@ public:
     return symbolList;
   }
 
+  struct AutoTemplateContext {
+    AutoTemplateContext(IndexConsumer* self)
+     : mSelf(self)
+     , mMode(Mode::GatherDependent)
+     , mParent(self->mTemplateStack)
+    {
+      self->mTemplateStack = this;
+    }
+
+    ~AutoTemplateContext() {
+      mSelf->mTemplateStack = mParent;
+    }
+
+    // We traverse templates in two modes:
+    enum class Mode {
+      // Gather mode does not traverse into specializations. It looks for
+      // locations where it would help to have more info from template
+      // specializations.
+      GatherDependent,
+
+      // Analyze mode traverses into template specializations and records
+      // information about token locations saved in gather mode.
+      AnalyzeDependent,
+    };
+
+    void VisitDependent(SourceLocation loc) {
+      if (mMode == Mode::AnalyzeDependent) {
+        return;
+      }
+
+      mDependentLocations.insert(loc.getRawEncoding());
+      if (mParent) {
+        mParent->VisitDependent(loc);
+      }
+    }
+
+    bool NeedsAnalysis() const {
+      if (!mDependentLocations.empty()) {
+        return true;
+      }
+      if (mParent) {
+        return mParent->NeedsAnalysis();
+      }
+      return false;
+    }
+
+    void SwitchMode() {
+      mMode = Mode::AnalyzeDependent;
+    }
+
+    bool ShouldVisitTemplateInstantiations() const {
+      if (mMode == Mode::AnalyzeDependent) {
+        return true;
+      }
+      if (mParent) {
+        return mParent->ShouldVisitTemplateInstantiations();
+      }
+      return false;
+    }
+
+    bool ShouldVisit(SourceLocation loc) {
+      if (mMode == Mode::GatherDependent) {
+        return true;
+      }
+      if (mDependentLocations.find(loc.getRawEncoding()) != mDependentLocations.end()) {
+        return true;
+      }
+      if (mParent) {
+        return mParent->ShouldVisit(loc);
+      }
+      return false;
+    }
+
+   private:
+    IndexConsumer* mSelf;
+    Mode mMode;
+    std::unordered_set<unsigned> mDependentLocations;
+    AutoTemplateContext* mParent;
+  };
+
+  AutoTemplateContext* mTemplateStack;
+
+  bool shouldVisitTemplateInstantiations() const {
+    if (mTemplateStack) {
+      return mTemplateStack->ShouldVisitTemplateInstantiations();
+    }
+    return false;
+  }
+
+  bool TraverseClassTemplateDecl(ClassTemplateDecl* d) {
+    AutoTemplateContext atc(this);
+    Super::TraverseClassTemplateDecl(d);
+
+    if (!atc.NeedsAnalysis()) {
+      return true;
+    }
+
+    atc.SwitchMode();
+
+    return Super::TraverseClassTemplateDecl(d);
+  }
+
+  bool TraverseFunctionTemplateDecl(FunctionTemplateDecl* d) {
+    AutoTemplateContext atc(this);
+    Super::TraverseFunctionTemplateDecl(d);
+
+    if (!atc.NeedsAnalysis()) {
+      return true;
+    }
+
+    atc.SwitchMode();
+
+    return Super::TraverseFunctionTemplateDecl(d);
+  }
+
+  bool ShouldVisit(SourceLocation loc) {
+    if (mTemplateStack) {
+      return mTemplateStack->ShouldVisit(loc);
+    }
+    return true;
+  }
+
   void VisitToken(const char *kind,
                   const char *syntaxKind,
                   std::string qualName,
@@ -691,6 +882,10 @@ public:
                   Context context = Context(),
                   int flags = 0)
   {
+    if (!ShouldVisit(loc)) {
+      return;
+    }
+
     unsigned startOffset = sm.getFileOffset(loc);
     unsigned endOffset = startOffset + Lexer::MeasureTokenLength(loc, sm, ci.getLangOpts());
 
@@ -1066,6 +1261,19 @@ public:
     if (FieldDecl* field = dyn_cast<FieldDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, field);
       VisitToken("use", "field", field->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+    }
+    return true;
+  }
+
+  bool VisitCXXDependentScopeMemberExpr(CXXDependentScopeMemberExpr* e) {
+    SourceLocation loc = e->getMemberLoc();
+    NormalizeLocation(&loc);
+    if (!IsInterestingLocation(loc)) {
+      return true;
+    }
+
+    if (mTemplateStack) {
+      mTemplateStack->VisitDependent(loc);
     }
     return true;
   }
