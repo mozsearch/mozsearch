@@ -39,6 +39,28 @@ impl ToJson for SearchResult {
     }
 }
 
+fn split_scopes(id: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut start = 0;
+    let mut argument_nesting = 0;
+    for (index, m) in id.match_indices(|c| c == ':' || c == '<' || c == '>') {
+        if m == ":" && argument_nesting == 0 {
+            if start != index {
+                result.push(id[start .. index].to_owned());
+                start = index + 1;
+            } else {
+                start = index + 1;
+            }
+        } else if m == "<" {
+            argument_nesting += 1;
+        } else if m == ">" {
+            argument_nesting -= 1;
+        }
+    }
+    result.push(id[start ..].to_owned());
+    return result;
+}
+
 fn main() {
     let args: Vec<_> = env::args().collect();
 
@@ -183,7 +205,7 @@ fn main() {
     let mut idf = File::create(id_file).unwrap();
     for (id, syms) in id_table {
         for sym in syms {
-            let components = id.split("::").collect::<Vec<_>>();
+            let components = split_scopes(&id);
             for i in 0..components.len() {
                 let sub = &components[i..components.len()];
                 let sub = sub.join("::");
