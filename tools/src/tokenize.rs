@@ -412,6 +412,7 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
                         tokens.push(Token {start: start, end: peek_pos(), kind: TokenKind::Punctuation});
                         tag_state = TagState::TagCDATA(peek_pos());
                     } else if peek_ahead("!DOCTYPE") || peek_ahead("!doctype") {
+                        tokens.push(Token {start: start, end: peek_pos(), kind: TokenKind::Punctuation});
                         tag_state = TagState::Doctype(false);
                     } else if peek_ahead("?") {
                         tag_state = TagState::TagPI(start);
