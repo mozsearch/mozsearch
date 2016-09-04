@@ -570,11 +570,11 @@ public:
 
   struct Context {
     std::string mName;
-    std::string mSymbol;
+    std::vector<std::string> mSymbols;
 
     Context() {}
-    Context(std::string name, std::string symbol) :
-     mName(name), mSymbol(symbol) {}
+    Context(std::string name, std::vector<std::string> symbols) :
+     mName(name), mSymbols(symbols) {}
   };
 
   bool TraverseEnumDecl(EnumDecl* d) {
@@ -618,8 +618,13 @@ public:
       d = f->getTemplateInstantiationPattern();
     }
 
+    std::vector<std::string> symbols = { GetMangledName(mMangleContext, d) };
+    if (CXXMethodDecl::classof(d)) {
+      symbols.clear();
+      FindOverriddenMethods(dyn_cast<CXXMethodDecl>(d), symbols);
+    }
     return Context(d->getQualifiedNameAsString(),
-                   GetMangledName(mMangleContext, d));
+                   symbols);
   }
 
   Context GetContext(SourceLocation loc) {
@@ -650,6 +655,32 @@ public:
       ctxt = ctxt->mPrev;
     }
     return Context();
+  }
+
+  static std::string ConcatSymbols(const std::vector<std::string> symbols) {
+    if (symbols.empty()) {
+      return "";
+    }
+
+    size_t total = 0;
+    for (auto it = symbols.begin(); it != symbols.end(); it++) {
+      total += it->length();
+    }
+    total += symbols.size() - 1;
+
+    std::string symbolList;
+    symbolList.reserve(total);
+
+    for (auto it = symbols.begin(); it != symbols.end(); it++) {
+      std::string symbol = *it;
+
+      if (it != symbols.begin()) {
+        symbolList.push_back(',');
+      }
+      symbolList.append(symbol);
+    }
+
+    return symbolList;
   }
 
   void VisitToken(const char *kind,
@@ -699,8 +730,9 @@ public:
         if (!context.mName.empty()) {
           fmt.Add("context", context.mName);
         }
-        if (!context.mSymbol.empty()) {
-          fmt.Add("contextsym", context.mSymbol);
+        std::string contextSymbol = ConcatSymbols(context.mSymbols);
+        if (!contextSymbol.empty()) {
+          fmt.Add("contextsym", contextSymbol);
         }
 
         std::string s;
