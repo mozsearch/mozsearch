@@ -1059,7 +1059,7 @@ public:
       prettyKind = "destructor";
     }
 
-    VisitToken(kind, prettyKind, d->getQualifiedNameAsString(), loc, symbols, GetContext(d), flags);
+    VisitToken(kind, prettyKind, GetQualifiedName(d), loc, symbols, GetContext(d), flags);
 
     return true;
   }
@@ -1079,7 +1079,7 @@ public:
 
     // FIXME: Need to do something different for list initialization.
 
-    VisitToken("use", "constructor", ctor->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+    VisitToken("use", "constructor", GetQualifiedName(ctor), loc, mangled, GetContext(loc));
 
     return true;
   }
@@ -1128,7 +1128,7 @@ public:
       }
     }
 
-    VisitToken("use", "function", namedCallee->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+    VisitToken("use", "function", GetQualifiedName(namedCallee), loc, mangled, GetContext(loc));
 
     return true;
   }
@@ -1142,7 +1142,7 @@ public:
 
     TagDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+    VisitToken("use", "type", GetQualifiedName(decl), loc, mangled, GetContext(loc));
     return true;
   }
 
@@ -1155,7 +1155,7 @@ public:
 
     NamedDecl* decl = l.getTypedefNameDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+    VisitToken("use", "type", GetQualifiedName(decl), loc, mangled, GetContext(loc));
     return true;
   }
 
@@ -1168,7 +1168,7 @@ public:
 
     NamedDecl* decl = l.getDecl();
     std::string mangled = GetMangledName(mMangleContext, decl);
-    VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+    VisitToken("use", "type", GetQualifiedName(decl), loc, mangled, GetContext(loc));
     return true;
   }
 
@@ -1183,7 +1183,7 @@ public:
     if (ClassTemplateDecl *d = dyn_cast<ClassTemplateDecl>(td)) {
       NamedDecl* decl = d->getTemplatedDecl();
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "type", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+      VisitToken("use", "type", GetQualifiedName(decl), loc, mangled, GetContext(loc));
     }
 
     return true;
@@ -1208,7 +1208,7 @@ public:
         flags = NO_CROSSREF;
       }
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "variable", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc), flags);
+      VisitToken("use", "variable", GetQualifiedName(decl), loc, mangled, GetContext(loc), flags);
     } else if (isa<FunctionDecl>(decl)) {
       const FunctionDecl *f = dyn_cast<FunctionDecl>(decl);
       if (f->isTemplateInstantiation()) {
@@ -1216,10 +1216,10 @@ public:
       }
 
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "function", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+      VisitToken("use", "function", GetQualifiedName(decl), loc, mangled, GetContext(loc));
     } else if (isa<EnumConstantDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, decl);
-      VisitToken("use", "enum", decl->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+      VisitToken("use", "enum", GetQualifiedName(decl), loc, mangled, GetContext(loc));
     }
 
     return true;
@@ -1244,7 +1244,7 @@ public:
 
       FieldDecl* member = ci->getMember();
       std::string mangled = GetMangledName(mMangleContext, member);
-      VisitToken("use", "field", member->getQualifiedNameAsString(), loc, mangled, GetContext(d));
+      VisitToken("use", "field", GetQualifiedName(member), loc, mangled, GetContext(d));
     }
 
     return true;
@@ -1260,7 +1260,7 @@ public:
     ValueDecl* decl = e->getMemberDecl();
     if (FieldDecl* field = dyn_cast<FieldDecl>(decl)) {
       std::string mangled = GetMangledName(mMangleContext, field);
-      VisitToken("use", "field", field->getQualifiedNameAsString(), loc, mangled, GetContext(loc));
+      VisitToken("use", "field", GetQualifiedName(field), loc, mangled, GetContext(loc));
     }
     return true;
   }
