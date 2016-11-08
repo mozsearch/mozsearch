@@ -30,6 +30,9 @@ cat > ~/.aws/config <<"STOP"
 region = us-west-2
 STOP
 
+# Create a crontab entry to send email if indexing takes too long.
+$MOZSEARCH_PATH/infrastructure/aws/make-crontab.py
+
 export INDEX_TMP=/mnt/tmp
 
 echo "Branch is $BRANCH"
