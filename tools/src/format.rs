@@ -173,13 +173,13 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 
         match token.kind {
             tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
-                output.push_str(&input[last .. token.start]);
+                output.push_str(&entity_replace(input[last .. token.start].to_string()));
                 output.push_str(&entity_replace(input[token.start .. token.end].to_string()));
                 last = token.end;
             },
             _ => {
                 if style != "" || data != "" {
-                    output.push_str(&input[last .. token.start]);
+                    output.push_str(&entity_replace(input[last .. token.start].to_string()));
                     output.push_str(&format!("<span {}{}>", style, data));
                     output.push_str(&entity_replace(input[token.start .. token.end].to_string()));
                     output.push_str("</span>");
