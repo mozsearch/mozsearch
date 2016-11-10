@@ -121,8 +121,9 @@ for targetInfo in r['TargetHealthDescriptions']:
 elb.register_targets(TargetGroupArn=targetGroupArn,
                      Targets=[{'Id': webServerInstanceId, 'Port': 80}])
 
-elb.deregister_targets(TargetGroupArn=targetGroupArn,
-                       Targets=oldTargets)
+if oldTargets:
+    elb.deregister_targets(TargetGroupArn=targetGroupArn,
+                           Targets=oldTargets)
 
 # - Shut down any old web server (a web server not equal to the one I've started)
 
