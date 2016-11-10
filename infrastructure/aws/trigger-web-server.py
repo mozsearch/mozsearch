@@ -30,7 +30,8 @@ TARGET_GROUPS = {
 
 targetGroup = TARGET_GROUPS[channel]
 
-ec2 = boto3.resource('ec2')
+ec2_resource = boto3.resource('ec2')
+ec2 = boto3.client('ec2')
 elb = boto3.client('elbv2')
 
 userData = '''#!/bin/bash
@@ -76,7 +77,7 @@ print '  State is running.'
 
 print 'Tagging web server instance...'
 
-instances = ec2.instances.filter(InstanceIds=[webServerInstanceId])
+instances = ec2_resource.instances.filter(InstanceIds=[webServerInstanceId])
 webServerInstance = list(instances)[0]
 
 ec2.create_tags(Resources=[webServerInstanceId], Tags=[{
