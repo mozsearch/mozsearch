@@ -136,7 +136,6 @@ for reservation in r['Reservations']:
     for instance in reservation['Instances']:
         instanceId = instance['InstanceId']
         if instanceId != webServerInstanceId:
-            elb.deregister_targets()
             terminate.append(instanceId)
 
 print 'Terminating {}'.format(terminate)
