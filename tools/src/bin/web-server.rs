@@ -11,7 +11,7 @@ use std::env;
 
 use hyper::status::StatusCode;
 use hyper::method::Method;
-use hyper::server::{Request, Response, Handler};
+use hyper::server::{Request, Response};
 use hyper::header::ContentType;
 use hyper::mime::Mime;
 use hyper::uri;
