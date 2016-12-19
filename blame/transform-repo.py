@@ -17,9 +17,9 @@ old_path = sys.argv[1]
 new_path = sys.argv[2]
 
 if len(sys.argv) == 4:
-    hg_path = sys.argv[3]
+    hg_map_file = sys.argv[3]
 else:
-    hg_path = None
+    hg_map_file = None
 
 old_repo = pygit2.Repository(pygit2.discover_repository(old_path))
 new_repo = pygit2.Repository(pygit2.discover_repository(new_path))
@@ -43,7 +43,7 @@ class Timer:
 def print_timers():
     for (name, t) in timers.items():
         print name, t
-        
+
 class MyTimezone(tzinfo):
     def __init__(self, offset):
         self.offset = offset
@@ -59,7 +59,7 @@ def find_email(s):
     if m:
         s = m.group(1)
     return s
-    
+
 def run_cmd(*args, **kwargs):
     p = subprocess.Popen(*args, **kwargs)
     (stdout, stderr) = p.communicate()
@@ -123,7 +123,7 @@ def unmodified_lines(new_blob, old_blob):
     return unchanged
 
 def str_blame_info(rev, path, lineno, author):
-    return '%s:%s:%d:%s' % (rev, path, lineno, author) 
+    return '%s:%s:%d:%s' % (rev, path, lineno, author)
 
 def blame_info(commit, lineno):
     return str_blame_info(commit.id, '%', lineno,
@@ -242,54 +242,14 @@ def transform_revision(commit):
         blame_map[commit.id] = new_repo.get(oid)
         print '  ->', oid
 
-def index_mercurial(hg_path):
-    if not hg_path:
-        return {}
+def index_mercurial(map_file):
+    f = open(map_file)
+    m = {}
+    for line in f.readlines():
+        (git_rev, hg_rev) = line.strip().split()
+        m[pygit2.Oid(hex=git_rev)] = hg_rev
 
-    #try:
-    #    f = open('hg-map.pickle')
-    #except:
-    #    f = None
-
-    #if f:
-    #    return cPickle.load(f)
-
-    hg_map = {}
-    out = run_cmd(['hg', 'log', '-R', hg_path,
-                   '--template', '{node}\n{date|hgdate}\n{author}\n{parents}\n{desc|firstline}\n', '--debug'],
-                  stdout=subprocess.PIPE)
-    lines = splitlines(out)
-    i = 0
-    while i < len(lines):
-        node = lines[i]
-        date = lines[i + 1]
-        author = sanitize(lines[i + 2])
-        parents = lines[i + 3]
-        desc = sanitize(lines[i + 4])
-        i += 5
-
-        if author == 'Alexander Surkov <h<surkov.alexander@gmail.com>':
-            author = 'hsurkov.alexander@gmail.com'
-        if author[0] == '<' and author[-1] == '>':
-            author = author[1:-1]
-        if author[0] == '"' and author[-1] == '"':
-            author = author[1:-1]
-        author = find_email(author)
-
-        (ts, offset) = date.split(' ')
-        offset = int(offset)
-        offset = (offset / 60) * 60
-        date = '%s %d' % (ts, offset)
-
-        parents = parents.split(' ')
-        parents = [ x.split(':')[1] for x in parents if x and x != '-1:0000000000000000000000000000000000000000' ]
-
-        hg_map[(frozenset(parents), date, author, desc)] = node
-
-    f = open('hg-map.pickle', 'wb')
-    cPickle.dump(hg_map, f)
-
-    return hg_map
+    return m
 
 def index_existing():
     try:
@@ -304,50 +264,17 @@ def index_existing():
 
     return blame_map
 
-def find_mercurial_commit(commit):
-    if not hg_path or commit.id in git_to_hg_map:
-        return
-
-    if commit.author.email == commit.author.name or commit.author.email == 'none@none':
-        commit_user = commit.author.name
-    elif commit.author.name == '':
-        commit_user = commit.author.email
-    elif ' ext:' in commit.author.name:
-        i = commit.author.name.index(' ext:')
-        name = commit.author.name[:i]
-        ext = urllib.unquote(commit.author.name[i + 6:-1])
-        commit_user = '%s <%s>%s' % (name, commit.author.email, ext)
-    else:
-        commit_user = '%s <%s>' % (urllib.unquote(commit.author.name), commit.author.email)
-    commit_user = find_email(commit_user)
-
-    commit_desc = splitlines(commit.message)[0]
-    commit_date = '%d %d' % (commit.author.time, -(commit.author.offset * 60))
-
-    parents = [ git_to_hg_map.get(parent.id) for parent in commit.parents ]
-
-    key = (frozenset(parents), commit_date, sanitize(commit_user), sanitize(commit_desc))
-    if key in hg_map:
-        git_to_hg_map[commit.id] = hg_map[key]
-
 print 'Indexing mercurial...'
-hg_map = index_mercurial(hg_path)
+git_to_hg_map = index_mercurial(hg_map_file)
 
 print 'Computing existing blame map...'
 blame_map = index_existing()
-        
-git_to_hg_map = {pygit2.Oid(hex='05e5d33a570d48aed58b2d38f5dfc0a7870ff8d3'):
-                 '9b2a99adc05e53cd4010de512f50118594756650',
-                 pygit2.Oid(hex='127762a4a507dd361c98e30e9c6a261f09083786'):
-                 '39ed20d043d6f3dfbc764307aede7366a9c037d6'}
-        
+
 def transform():
     index = 0
     count = 0
     for commit in old_repo.walk(old_repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL | pygit2.GIT_SORT_REVERSE):
         index += 1
-
-        find_mercurial_commit(commit)
 
         if commit.id not in blame_map:
             print 'Transforming', commit.id, '(' + str(index) + ')', 'hg', git_to_hg_map.get(commit.id)
