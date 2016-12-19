@@ -11,4 +11,3 @@ export OBJDIR=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NA
 
 export GIT_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/git_path)
 export BLAME_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/git_blame_path)
-export HG_ROOT=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees/$TREE_NAME/hg_path)
