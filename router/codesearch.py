@@ -105,9 +105,9 @@ def daemonize(args):
     log('Running codesearch')
     os.execvp(args[0], args)
 
-def startup_codesearch():
-    args = ['codesearch', '-listen', 'tcp://localhost:8080',
-            '-load_index', os.path.join(livegrep_path, 'livegrep.idx'),
+def startup_codesearch(data):
+    args = ['codesearch', '-listen', 'tcp://localhost:' + str(data['codesearch_port']),
+            '-load_index', data['codesearch_path'],
             '-max_matches', '1000', '-timeout', '10000']
 
     daemonize(args)
@@ -115,13 +115,14 @@ def startup_codesearch():
 
 def search(pattern, fold_case, path, tree_name):
     repo = '%s|%s-__GENERATED__' % (tree_name, tree_name)
+    data = tree_data[tree_name]
 
     try:
-        codesearch = CodeSearch('localhost', 8080)
+        codesearch = CodeSearch('localhost', data['codesearch_port'])
     except socket.error, e:
-        startup_codesearch()
+        startup_codesearch(data)
         try:
-            codesearch = CodeSearch('localhost', 8080)
+            codesearch = CodeSearch('localhost', data['codesearch_port'])
         except socket.error, e:
             return []
 
@@ -131,5 +132,10 @@ def search(pattern, fold_case, path, tree_name):
         codesearch.close()
 
 def load(config):
-    global livegrep_path
-    livegrep_path = config['livegrep_path']
+    global tree_data
+    tree_data = {}
+    for tree_name in config['trees']:
+        tree_data[tree_name] = {
+            'codesearch_path': config['trees'][tree_name]['codesearch_path'],
+            'codesearch_port': config['trees'][tree_name]['codesearch_port'],
+        }

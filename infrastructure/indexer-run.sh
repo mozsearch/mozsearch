@@ -22,4 +22,3 @@ do
     $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME
 done
 
-$MOZSEARCH_PATH/scripts/build-codesearch.py $CONFIG_FILE

@@ -28,6 +28,7 @@ def copy_objdir_files(dest_dir, config):
 os.mkdir('/tmp/dummy')
 
 config_fname = sys.argv[1]
+tree_name = sys.argv[2]
 
 livegrep_config = {
     'name': 'Searchfox',
@@ -36,40 +37,38 @@ livegrep_config = {
 }
 
 config = json.load(open(config_fname))
-repos = config['trees']
-for key in repos:
-    repo_name = key
+tree = config['trees'][tree_name]
 
-    if 'git_path' in repos[key]:
-        run(['ln', '-s', repos[key]['git_path'], '/tmp/dummy/%s' % key])
+if 'git_path' in tree:
+    run(['ln', '-s', tree['git_path'], '/tmp/dummy/%s' % tree_name])
 
-        livegrep_config['repositories'].append({
-            'name': key,
-            'path': repos[key]['git_path'],
-            'revisions': ['HEAD']
-        })
-    else:
-        run(['ln', '-s', repos[key]['files_path'], '/tmp/dummy/%s' % key])
-
-        # If we don't include the trailing '/', then all search
-        # results will include an initial slash in their paths.
-        livegrep_config['fs_paths'].append({
-            'name': key,
-            'path': repos[key]['files_path'] + '/'
-        })
-
-    tmp_objdir = '/tmp/dummy/objdir-%s' % key
-    os.mkdir(tmp_objdir)
-    copy_objdir_files(tmp_objdir, repos[key])
-
-    livegrep_config['fs_paths'].append({
-        'name': key + '-__GENERATED__',
-        'path': 'objdir-%s/' % key,
+    livegrep_config['repositories'].append({
+        'name': tree_name,
+        'path': tree['git_path'],
+        'revisions': ['HEAD']
     })
+else:
+    run(['ln', '-s', tree['files_path'], '/tmp/dummy/%s' % tree_name])
+
+    # If we don't include the trailing '/', then all search
+    # results will include an initial slash in their paths.
+    livegrep_config['fs_paths'].append({
+        'name': tree_name,
+        'path': tree['files_path'] + '/'
+    })
+
+tmp_objdir = '/tmp/dummy/objdir-%s' % tree_name
+os.mkdir(tmp_objdir)
+copy_objdir_files(tmp_objdir, tree)
+
+livegrep_config['fs_paths'].append({
+    'name': tree_name + '-__GENERATED__',
+    'path': 'objdir-%s/' % tree_name,
+})
 
 json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
 
-run(['codesearch', '/tmp/livegrep.json', '-dump_index', '%s/livegrep.idx' % config['livegrep_path'],
+run(['codesearch', '/tmp/livegrep.json', '-dump_index', tree['codesearch_path'],
      '-max_matches', '1000'], stdin=open('/dev/null'), cwd='/tmp/dummy')
 
 run(['rm', '-rf', '/tmp/dummy'])
