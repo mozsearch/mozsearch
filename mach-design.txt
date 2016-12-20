@@ -1,0 +1,60 @@
+Directories used during indexing:
+- Source directory (gecko-dev)
+- Hg source dir (mozilla-central)
+- Blame output (gecko-blame)
+- Objdir
+- Analysis files
+- Output files
+- Output dir listings
+- Help file
+- repo-files, repo-dirs, js-files, idl-files
+- objdir-files, objdir-dirs
+- crossrefs, jumps, identifiers
+- Codesearch index (one per repo now!)
+
+New S3 index uploads:
+Web server can download its own copy of the repos just as the index server does (also via S3).
+Where will blame be generated? In a separate stage, I guess?
+Don't need objdir.
+Need analysis files.
+Output files and dir listings can be generated on web server before it's switched in.
+Crossref needs to be done after we have all the analysis files.
+Generating repo-files, etc. is easy, so that can be done independently on each server.
+Need per-repo codesearch index.
+
+Features:
+1. Configure location of directories (index dir, config repo) and save persistently
+2. Download all the S3 inputs
+
+3. Update the repos
+4. Build blame
+
+5. Build/analyze C++ code
+6. Analyze JS
+7. Analyze IDL
+8. Build crossref
+9. Build codesearch index
+A. Output files
+
+Ideas:
+If the repo has updated, then I can automatically clobber everything (or suggest doing so).
+Have a command to update the repos and blame.
+Have a command to update all the data for a particular file (C++, JS, or IDL). What about crossref/codesearch?
+
+Commands:
+
+mach config
+  Ask questions about the locations of various things.
+
+mach fetch
+  Download all the S3 data
+
+mach update
+  Update all the repos and (optionally) re-index blame.
+
+mach build [file/dir]
+  Do steps 5 through 9. If param is given, do one of steps 5, 6, or 7. If param is given, can optionally do 8, 9.
+
+mach serve
+  Do step A and start server. Ideally just the rust server, which would be able to do everything.
+

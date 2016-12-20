@@ -42,6 +42,10 @@ $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME
 
 date
 
+$MOZSEARCH_PATH/scripts/ipdl-analyze.sh $CONFIG_FILE $TREE_NAME
+
+date
+
 $MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME
 
 date

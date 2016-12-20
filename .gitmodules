@@ -1,3 +1,6 @@
 [submodule "tools/git2-rs"]
 	path = tools/git2-rs
 	url = https://github.com/alexcrichton/git2-rs
+[submodule "tools/ipdl_parser"]
+	path = tools/ipdl_parser
+	url = https://github.com/amccreight/ipdl_parser/

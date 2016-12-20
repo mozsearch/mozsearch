@@ -19,8 +19,10 @@ lines = files.split('\n')
 files = []
 js = []
 idl = []
+ipdl = []
 dirs = []
 dirDict = {}
+ipdl_dirs = collections.OrderedDict()
 
 for line in lines:
     path = line.strip()
@@ -46,6 +48,15 @@ for line in lines:
         if not path.endswith('nsIShellService.idl'):
             idl.append(path + '\n')
 
+    if ext == '.ipdl' or ext == '.ipdlh':
+        if 'ipc/ipdl/test' in path or 'accessible/ipc/win' in path or 'widget/win' in path:
+            continue
+
+        ipdl.append(path + '\n')
+
+        dir = '/'.join(elts[:-1])
+        ipdl_dirs[dir] = True
+
     if 'js/src/tests' in path or 'jit-test' in path:
         continue
 
@@ -57,4 +68,5 @@ open(os.path.join(index_path, 'repo-files'), 'w').writelines(files)
 open(os.path.join(index_path, 'repo-dirs'), 'w').writelines(dirs)
 open(os.path.join(index_path, 'js-files'), 'w').writelines(js)
 open(os.path.join(index_path, 'idl-files'), 'w').writelines(idl)
-
+open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
+open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join([ '-I ' + d for d in ipdl_dirs ]))

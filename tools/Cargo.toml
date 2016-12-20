@@ -11,3 +11,5 @@ lazy_static = "0.2.1"
 hyper = "0.9"
 env_logger = "0.3.3"
 regex = "0.1"
+ipdl_parser = { path = "./ipdl_parser" }
+getopts = "0.2.14"
