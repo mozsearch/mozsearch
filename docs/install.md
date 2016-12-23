@@ -44,7 +44,7 @@ ones and how they use arguments and environment variables to pass
 data.
 
 Indexing is largely driven by the `config.json` file in the
-configuration repository (`mozsearch-mozilla` for example). This file
+configuration repository ([`mozsearch-mozilla/config.json`](https://github.com/bill-mccloskey/mozsearch-mozilla/blob/master/config.json) for example). This file
 lists every repo to be indexed and the paths where the index should be
 stored.
 
