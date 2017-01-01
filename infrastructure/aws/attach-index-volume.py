@@ -18,7 +18,7 @@ instances = ec2.instances.filter(InstanceIds=[instanceId])
 instance = list(instances)[0]
 
 r = client.create_volume(
-    Size=60,
+    Size=100,
     VolumeType='gp2',
     AvailabilityZone=instance.placement['AvailabilityZone'],
 )
