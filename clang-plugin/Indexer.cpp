@@ -219,6 +219,7 @@ class JSONFormatter
     const char* mName;
     const char* mLiteralValue;
     const std::string* mStringValue;
+    const std::string* mEscapedStringValue;
     int mIntValue;
   };
 
@@ -228,30 +229,66 @@ class JSONFormatter
   int mPropertyCount;
   size_t mLength;
 
+  std::string* Escape(const std::string& input) {
+    bool needsEscape = false;
+    for (char c : input) {
+      if (c == '\\' || c == '"') {
+        needsEscape = true;
+        break;
+      }
+    }
+
+    if (!needsEscape) {
+      return nullptr;
+    }
+
+    std::string cur = input;
+    cur = ReplaceAll(cur, "\\", "\\\\");
+    cur = ReplaceAll(cur, "\"", "\\\"");
+    return new std::string(cur);
+  }
+
  public:
   JSONFormatter()
    : mPropertyCount(0)
    , mLength(0)
   {}
 
+  ~JSONFormatter() {
+    for (int i = 0; i < mPropertyCount; i++) {
+      if (mProperties[i].mEscapedStringValue) {
+        delete mProperties[i].mEscapedStringValue;
+      }
+    }
+  }
+
   void Add(const char* name, const char* value) {
     assert(mPropertyCount < kMaxProperties);
     mProperties[mPropertyCount].mName = name;
     mProperties[mPropertyCount].mLiteralValue = value;
     mProperties[mPropertyCount].mStringValue = nullptr;
+    mProperties[mPropertyCount].mEscapedStringValue = nullptr;
     mPropertyCount++;
 
     mLength += strlen(name) + 3 + strlen(value) + 2 + 1;
   }
 
   void Add(const char* name, const std::string& value) {
+    std::string* escaped = Escape(value);
+
     assert(mPropertyCount < kMaxProperties);
     mProperties[mPropertyCount].mName = name;
     mProperties[mPropertyCount].mLiteralValue = nullptr;
-    mProperties[mPropertyCount].mStringValue = &value;
+    mProperties[mPropertyCount].mStringValue = nullptr;
+    mProperties[mPropertyCount].mEscapedStringValue = nullptr;
+    if (escaped) {
+      mProperties[mPropertyCount].mEscapedStringValue = escaped;
+      mLength += strlen(name) + 3 + escaped->length() + 2 + 1;
+    } else {
+      mProperties[mPropertyCount].mStringValue = &value;
+      mLength += strlen(name) + 3 + value.length() + 2 + 1;
+    }
     mPropertyCount++;
-
-    mLength += strlen(name) + 3 + value.length() + 2 + 1;
   }
 
   void Add(const char* name, int value) {
@@ -262,6 +299,7 @@ class JSONFormatter
     mProperties[mPropertyCount].mName = name;
     mProperties[mPropertyCount].mLiteralValue = nullptr;
     mProperties[mPropertyCount].mStringValue = nullptr;
+    mProperties[mPropertyCount].mEscapedStringValue = nullptr;
     mProperties[mPropertyCount].mIntValue = value;
     mPropertyCount++;
 
@@ -285,6 +323,10 @@ class JSONFormatter
       } else if (mProperties[i].mStringValue) {
         result.push_back('"');
         result.append(*mProperties[i].mStringValue);
+        result.push_back('"');
+      } else if (mProperties[i].mEscapedStringValue) {
+        result.push_back('"');
+        result.append(*mProperties[i].mEscapedStringValue);
         result.push_back('"');
       } else {
         result.push_back(mProperties[i].mIntValue + '0');
