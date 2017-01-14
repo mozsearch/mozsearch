@@ -102,7 +102,60 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
 
     while cur_pos.get() < chars.len() {
         let (start, ch) = get_char();
-        if is_ident(ch) {
+
+        if ch == 'R' && peek_char() == '"' {
+            // Handle raw literals per
+            // <http://en.cppreference.com/w/cpp/language/string_literal>.
+            get_char();
+
+            // Read the delimiter.
+            let paren;
+            loop {
+                let (idx, c) = get_char();
+                if c == '(' {
+                    paren = idx;
+                    break;
+                }
+
+                if peek_pos() == string.len() {
+                    writeln!(&mut std::io::stderr(), "Expecting '(' after raw string literal").unwrap();
+                    return tokens;
+                }
+            }
+
+            let delimiter = &string[start + 2 .. paren];
+            'raw_string: loop {
+                if peek_pos() == string.len() {
+                    writeln!(&mut std::io::stderr(), "Unterminated raw string").unwrap();
+                    return tokens;
+                }
+
+                let (_, next) = get_char();
+                if next != ')' {
+                    continue;
+                }
+
+                // Find the delimiter.
+                for c in delimiter.chars() {
+                    if c != peek_char() {
+                        continue 'raw_string;
+                    }
+                    get_char();
+                }
+
+                // Is this the end quote?
+                if peek_char() != '"' {
+                    continue;
+                }
+                get_char();
+
+                // Done!
+                break;
+            }
+
+            tokens.push(Token {start: start, end: peek_pos(), kind: TokenKind::StringLiteral});
+            next_token_maybe_regexp_literal = false;
+        } else if is_ident(ch) {
             while is_ident(peek_char()) {
                 get_char();
             }
@@ -757,4 +810,46 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use languages::*;
+
+    fn token_matches(start: usize, end: usize, kind: TokenKind, rhs: &Token) {
+        assert_eq!(start, rhs.start, "start matches");
+        assert_eq!(end, rhs.end, "end matches");
+        assert_eq!(kind, rhs.kind, "kind matches");
+    }
+
+    #[test]
+    fn test_raw_strings_cpp() {
+        let spec = match select_formatting("test.cpp") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => panic!("wrong spec"),
+        };
+
+        // NB: Expects `R"...";` (note the trailing semicolon to ensure we don't
+        // simply grab the whole string as a single token.
+        let check_simple = |s: &str| {
+            let simple_raw = String::from(s);
+            token_matches(0, simple_raw.len() - 1, TokenKind::StringLiteral,
+                          tokenize_c_like(&simple_raw, spec).first().unwrap());
+        };
+
+        check_simple(r##"R"(hello)";"##);
+        check_simple(r##"R"foo(hel"lo)foo";"##);
+        check_simple(r##"R"foo(hello)fooo)foo";"##);
+        check_simple(r##"R"124.foo(hello)fooo)124.foo";"##);
+        check_simple(r##"R"1234567890123456(just long enough)1234567890123456";"##);
+
+        let check_empty = |s: &str| {
+            let simple_raw = String::from(s);
+            assert!(tokenize_c_like(&simple_raw, spec).is_empty());
+        };
+
+        check_empty(r##"R"foo(unterminated string literal)""##);
+        check_empty(r##"R"foo"##); // unterminated sentinel
+    }
 }
