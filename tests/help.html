@@ -1,0 +1,146 @@
+<div class="intro">
+
+<h1>Welcome to Searchfox</h1>
+
+<h3>
+<a href="/mozilla-central/source" style="text-decoration: underline;">Direct link to the mozilla-central</a>
+| <a href="/comm-central/source" style="text-decoration: underline;">comm-central</a>
+| <a href="/nss/source" style="text-decoration: underline;">nss</a>
+</h3>
+
+<p>
+Searchfox is a source code indexing tool for Mozilla Firefox. It
+indexes C++ and JavaScript code. This is the help page for Searchfox.
+
+<h3>Query Language</h3>
+
+Queries entered into the search box use exact string matching. No
+search operators are supported. Case insensitive matching and regular
+expression matching can be requested with the check boxes.
+
+Path filtering uses globbing. A path matches even if only a substring
+of the path is matched by the glob. Use the <code>^</code>
+and <code>$</code> operators to match the beginning or end of the
+path. Here are some examples:
+
+<dl>
+
+<dt><code>test</code></dt>
+<dd>Find all paths containing the substring "<code>test</code>".
+
+<dt><code>^js/src</code></dt>
+<dd>Find all paths starting with <code>js/src</code>.
+
+<dt><code>*.cpp</code></dt>
+<dd>Find all paths containing "<code>.cpp</code>".
+
+<dt><code>*.cpp$</code></dt>
+<dd>Find all paths ending with "<code>.cpp</code>".
+
+<dt><code>^js/src/*.cpp$</code></dt>
+<dd>Find all C++ files in <code>js/src</code>, but not in
+subdirectories (i.e., <code>*</code> does not match <code>/</code>).
+
+<dt><code>^js/src/**.cpp$</code></dt>
+<dd>Find all C++ files in <code>js/src</code> or in subdirectories
+(i.e., <code>**</code> matches <code>/</code>).
+
+<dt><code>^js/src/**.{cpp,h}$</code></dt>
+<dd>Find all C++ source or header files in <code>js/src</code> or in subdirectories.
+
+</dl>
+
+<h3>Cross-referencing</h3>
+
+Once you have arrived at a file, you can mouse over identifiers. If
+the color of the identifier changes, then clicking on the identifier
+will open a context menu for cross-referencing identifiers.
+
+<p>
+<div id="file">
+You can see an example by mousing
+over &ldquo;<code><span data-id="#reviveCrashedTab" data-i="0">reviveCrashedTab</span></code>&rdquo; and
+clicking. A context menu will open and you can choose to search for all references to the symbol
+(definitions, assignments, and uses).
+
+<p>
+In JavaScript code, a second option is sometimes offered.  Try mousing
+over the same identifier in the following:
+&ldquo;<code>SessionStore.<span data-id="#reviveCrashedTab" data-i="1">reviveCrashedTab</span></code>&rdquo;.
+In this case, you're given the opportunity to search for
+<code>SessionStore.reviveCrashedTab</code> (and not
+<code>SessionStoreInternal.reviveCrashedTab</code>). Also, since there is only one definition of
+<code>SessionStore.reviveCrashedTab</code>, you can jump directly to it.
+</div>
+
+<p>
+In some cases there is ambiguity whether to search for C++ or
+JavaScript implementations of an XPCOM method. Searching for the
+method from C++ or JavaScript will find the same-language
+implementations of that method as well as the IDL
+declaration. Visiting the IDL declaration and searching from there
+will yield all implementations.
+
+<h3>Syntax Highlighting</h3>
+
+Searchfox uses semantic syntax highlighting. Types are shown in teal
+(blue-green). Definitions are shown in bold. Hovering over an
+identifier highlights other uses of that identifier.
+
+<h3>Releases</h3>
+
+<h4>Version 2.0 (May 31, 2016)</h4>
+
+<ul>
+  <li>Insta-blame
+  <li>Semantic syntax highlighting
+</ul>
+
+<h4>Version 1.5 (March 16, 2016)</h4>
+
+<ul>
+  <li>IDL support
+  <li>XBL support
+  <li>Support for C++ variables, enums, and macros
+  <li>Indexes generated code
+</ul>
+
+<h4>Version 1.0 (January 10, 2016)</h4>
+
+<ul>
+<li>Full text search of entire tree<br>
+
+Indexing is provided via <a href="https://livegrep.com">Livegrep</a>.
+
+<li>Cross-referencing JavaScript code<br>
+
+Global variables are indexed as properties. Heuristics allow code
+like <code>this.method</code> to be indexed
+as <code>Class.method</code> based on context. A variety of class
+patterns are supported, although not ES6 classes yet. Test files are
+not yet indexed. JavaScript in HTML, XUL, and XBL filed is not yet
+indexed.
+
+<li>Cross-referencing C++ code<br>
+
+Only functions are indexed. Support for fields and types is coming
+soon.  Methods are indexed by walking up the inheritance hierarchy to
+find the uppermost declaration of the method (the root). All methods
+transitively overriding that method are indexed together. With
+multiple inheritance, there may be more than one root method; in this
+case, the first one is chosen arbitrarily. This is a bug to be fixed.
+
+</ul>
+
+<h3>Bug reports</h3>
+
+Please send bug reports to <a href="mailto:billm@mozilla.com">billm@mozilla.com</a>.
+
+</div>
+
+<script>
+var ANALYSIS_DATA = [
+[[], [{sym: "#reviveCrashedTab", pretty: "property reviveCrashedTab"}]],
+[[{sym: "SessionStore#reviveCrashedTab", pretty: "property SessionStore.reviveCrashedTab"}], [{sym: "SessionStore#reviveCrashedTab", pretty: "property SessionStore.reviveCrashedTab"}, {sym: "#reviveCrashedTab", pretty: "property reviveCrashedTab"}]],
+];
+</script>

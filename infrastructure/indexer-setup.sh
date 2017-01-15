@@ -11,7 +11,7 @@ fi
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
-CONFIG_REPO=$(readlink -f $1)
+export CONFIG_REPO=$(readlink -f $1)
 BASE=$(readlink -f $2)
 TEMP=$(readlink -f $3)
 

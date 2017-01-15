@@ -458,6 +458,8 @@ else:
 
 config = json.load(open(config_fname))
 
+os.chdir(config['mozsearch_path'])
+
 crossrefs.load(config)
 codesearch.load(config)
 identifiers.load(config)

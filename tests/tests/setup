@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cp -r $CONFIG_REPO/tests/files $INDEX_ROOT
