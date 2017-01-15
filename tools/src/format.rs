@@ -189,7 +189,7 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
         }
     }
 
-    output.push_str(&input[last ..]);
+    output.push_str(&entity_replace(input[last ..].to_string()));
 
     if output.len() > 0 {
         output_lines.push(fixup(output));
