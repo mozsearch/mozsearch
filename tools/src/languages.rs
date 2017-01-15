@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+#[derive(Debug)]
 pub struct LanguageSpec {
     pub reserved_words: HashMap<String, String>,
     pub hash_comment: bool,
@@ -171,6 +172,7 @@ lazy_static! {
     };
 }
 
+#[derive(Debug)]
 pub enum FormatAs {
     FormatCLike(&'static LanguageSpec),
     FormatTagLike(&'static LanguageSpec),

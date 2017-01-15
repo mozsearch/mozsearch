@@ -90,7 +90,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
         let (_, ch) = chars[cur_pos.get() + 1];
         ch
     };
-    
+
     let peek_pos = || {
         if cur_pos.get() == chars.len() {
             return string.len();
@@ -307,7 +307,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
             // Horrible hack to treat '/' in (1+2)/3 as division and not regexp literal.
             let s = string[start .. peek_pos()].to_string();
             next_token_maybe_regexp_literal = s == "=" || s == "(" || s == "{" ||
-                s == ":" || s == "&" || s == "|" || s == "!";
+                s == ":" || s == "&" || s == "|" || s == "!" || s == ",";
         }
     }
 
@@ -347,7 +347,7 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
         let sub = sub.iter().map(|&(_, ch)| ch).collect::<String>();
         return &sub == s;
     };
-    
+
     let peek_pos = || {
         if cur_pos.get() == chars.len() {
             return string.len();
@@ -389,7 +389,7 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
         if ch == '\n' {
             cur_line += 1;
         }
-        
+
         match tag_state {
             TagState::TagNone(plain_start) => {
                 let skip = in_script_tag && !peek_ahead("/script");
@@ -576,7 +576,7 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
                 if ch == ']' && peek_ahead("]>") {
                     let _ = get_char();
                     let _ = get_char();
-                    
+
                     if cdata_start < peek_pos() {
                         tokens.push(Token {start: cdata_start, end: peek_pos(), kind: TokenKind::PlainText});
                     }

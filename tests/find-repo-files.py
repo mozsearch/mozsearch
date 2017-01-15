@@ -13,7 +13,7 @@ tree_name = sys.argv[2]
 
 repo_path = config['trees'][tree_name]['files_path']
 
-files = run('find . -name *.cpp -or -name *.html', shell=True, cwd=repo_path)
+files = run("find . -name '*.cpp' -or -name '*.html' -or -name '*.jsm'", shell=True, cwd=repo_path)
 lines = files.split('\n')
 
 files = []
