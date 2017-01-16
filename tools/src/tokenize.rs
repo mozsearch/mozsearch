@@ -307,7 +307,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
             // Horrible hack to treat '/' in (1+2)/3 as division and not regexp literal.
             let s = string[start .. peek_pos()].to_string();
             next_token_maybe_regexp_literal = s == "=" || s == "(" || s == "{" ||
-                s == ":" || s == "&" || s == "|" || s == "!" || s == ",";
+                s == ":" || s == "&" || s == "|" || s == "!" || s == "," || s == "?";
         }
     }
 
@@ -746,6 +746,14 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
                 result.push(token);
             },
         }
+    }
+
+    if in_script {
+        let script_toks = tokenize_c_like(&script, script_spec);
+        let script_toks = script_toks.into_iter().map(
+            |t| Token {start: t.start + script_start, end: t.end + script_start, kind: t.kind}
+        );
+        result.extend(script_toks);
     }
 
     result
