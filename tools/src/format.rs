@@ -36,7 +36,7 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
     let mut last = 0;
 
     fn fixup(s: String) -> String {
-        s.replace("\r", "\u{240D}") // U+240D = CR symbol.
+        s.replace("\r", "\u{21A9}") // U+21A9 = LEFTWARDS ARROW WITH HOOK.
     }
 
     let mut line_start = 0;
