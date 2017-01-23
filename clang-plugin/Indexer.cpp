@@ -704,22 +704,49 @@ public:
 
   bool TraverseFunctionDecl(FunctionDecl* d) {
     AutoSetContext asc(this, d);
+    const FunctionDecl* def;
+    // If a method on a templated class is declared out-of-line, we need to
+    // analyze the definition inside the scope of the template or else we won't
+    // properly handle member access on the templated type.
+    if (mTemplateStack && d->isDefined(def) && def && d != def) {
+      TraverseFunctionDecl(const_cast<FunctionDecl*>(def));
+    }
     return Super::TraverseFunctionDecl(d);
   }
   bool TraverseCXXMethodDecl(CXXMethodDecl* d) {
     AutoSetContext asc(this, d);
+    const FunctionDecl* def;
+    // See TraverseFunctionDecl.
+    if (mTemplateStack && d->isDefined(def) && def && d != def) {
+      TraverseFunctionDecl(const_cast<FunctionDecl*>(def));
+    }
     return Super::TraverseCXXMethodDecl(d);
   }
   bool TraverseCXXConstructorDecl(CXXConstructorDecl* d) {
     AutoSetContext asc(this, d);
+    const FunctionDecl* def;
+    // See TraverseFunctionDecl.
+    if (mTemplateStack && d->isDefined(def) && def && d != def) {
+      TraverseFunctionDecl(const_cast<FunctionDecl*>(def));
+    }
     return Super::TraverseCXXConstructorDecl(d);
   }
   bool TraverseCXXConversionDecl(CXXConversionDecl* d) {
     AutoSetContext asc(this, d);
+    const FunctionDecl* def;
+    // See TraverseFunctionDecl.
+    if (mTemplateStack && d->isDefined(def) && def && d != def) {
+      TraverseFunctionDecl(const_cast<FunctionDecl*>(def));
+    }
     return Super::TraverseCXXConversionDecl(d);
   }
   bool TraverseCXXDestructorDecl(CXXDestructorDecl* d) {
     AutoSetContext asc(this, d);
+    const FunctionDecl* def;
+    // See TraverseFunctionDecl.
+    if (mTemplateStack && d->isDefined(def) && def && d != def) {
+      TraverseFunctionDecl(const_cast<FunctionDecl*>(def));
+    }
     return Super::TraverseCXXDestructorDecl(d);
   }
 
@@ -893,7 +920,21 @@ public:
 
     atc.SwitchMode();
 
-    return Super::TraverseClassTemplateDecl(d);
+    if (d != d->getCanonicalDecl()) {
+      return true;
+    }
+
+    for (auto* spec : d->specializations()) {
+      for (auto* rd : spec->redecls()) {
+        // We don't want to visit injected-class-names in this traversal.
+        if (cast<CXXRecordDecl>(rd)->isInjectedClassName())
+          continue;
+
+        TraverseDecl(rd);
+      }
+    }
+
+    return true;
   }
 
   bool TraverseFunctionTemplateDecl(FunctionTemplateDecl* d) {
@@ -906,7 +947,17 @@ public:
 
     atc.SwitchMode();
 
-    return Super::TraverseFunctionTemplateDecl(d);
+    if (d != d->getCanonicalDecl()) {
+      return true;
+    }
+
+    for (auto* spec : d->specializations()) {
+      for (auto* rd : spec->redecls()) {
+        TraverseDecl(rd);
+      }
+    }
+
+    return true;
   }
 
   bool ShouldVisit(SourceLocation loc) {
