@@ -17,4 +17,4 @@ date
 
 wget -q https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
 chmod +x awslogs-agent-setup.py
-./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
+sudo ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg

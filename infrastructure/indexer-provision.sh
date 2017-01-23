@@ -46,9 +46,9 @@ popd
 sudo pip install boto3
 
 # Install pygit2.
-wget -q https://github.com/libgit2/libgit2/archive/v0.24.0.tar.gz
-tar xf v0.24.0.tar.gz
-pushd libgit2-0.24.0
+wget -q https://github.com/libgit2/libgit2/archive/v0.25.0.tar.gz
+tar xf v0.25.0.tar.gz
+pushd libgit2-0.25.0
 cmake .
 make
 sudo make install
