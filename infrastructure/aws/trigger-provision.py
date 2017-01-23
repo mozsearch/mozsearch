@@ -5,12 +5,14 @@ from datetime import datetime, timedelta
 import sys
 import os.path
 
-provisioner = sys.argv[1]
+provisioners = sys.argv[1:]
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
-script = open(provisioner).read()
+script = ''
+for provisioner in provisioners:
+    script += open(provisioner).read() + '\n'
 
 user_data = '''#!/bin/bash
 
