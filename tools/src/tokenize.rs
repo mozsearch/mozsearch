@@ -63,6 +63,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
     let mut tokens = Vec::new();
 
     let chars : Vec<(usize, char)> = string.char_indices().collect();
+    let mut backtick_nesting : Vec<Cell<u32>> = Vec::new();
     let cur_pos = Cell::new(0);
 
     let mut next_token_maybe_regexp_literal = true;
@@ -102,6 +103,23 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
 
     while cur_pos.get() < chars.len() {
         let (start, ch) = get_char();
+        let mut continue_backtick = false;
+        if let Some(braces) = backtick_nesting.last_mut() {
+            match ch {
+                '{' => { braces.set(braces.get() + 1); }
+                '}' => {
+                    braces.set(braces.get() - 1);
+                    continue_backtick = braces.get() == 0;
+                }
+                _ => {}
+            }
+        }
+
+        // If continue_backtick is true, then backtick_nesting.last() is
+        // non-None and 0, so pop it off the stack before continuing.
+        if continue_backtick {
+            backtick_nesting.pop();
+        }
 
         if ch == 'R' && peek_char() == '"' {
             // Handle raw literals per
@@ -271,7 +289,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                 tokens.push(Token {start: start, end: peek_pos(), kind: TokenKind::Punctuation});
                 next_token_maybe_regexp_literal = true;
             }
-        } else if ch == '`' && spec.backtick_strings {
+        } else if continue_backtick || (ch == '`' && spec.backtick_strings) {
             let mut start = start;
             loop {
                 if peek_pos() == string.len() {
@@ -293,26 +311,13 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                 } else if next == '\\' {
                     get_char();
                 } else if next == '$' && peek_char() == '{' {
+                    // A template! Note that we're in a template and start
+                    // counting unconsumed { and } tokens. When we find the
+                    // last close brace that isn't part of a string or regexp,
+                    // we'll come back in here to finish this template string.
                     get_char(); // Skip '{'.
-                    tokens.push(Token {start: start, end: peek_pos(), kind: TokenKind::StringLiteral});
-
-                    let sub_start = peek_pos();
-                    while peek_char() != '}' {
-                        if peek_char() == '`' {
-                            writeln!(&mut std::io::stderr(), "Nested template string not supported").unwrap();
-                            return tokenize_plain(string);
-                        }
-                        get_char();
-                    }
-
-                    let inner = tokenize_c_like(&string[sub_start .. peek_pos()].to_string(), spec);
-                    let inner = inner.into_iter().map(
-                        |t| Token {start: t.start + sub_start, end: t.end + sub_start, kind: t.kind}
-                    );
-                    tokens.extend(inner);
-
-                    start = peek_pos();
-                    get_char();
+                    backtick_nesting.push(Cell::new(1));
+                    break;
                 }
             }
             if peek_pos() != start {
@@ -851,5 +856,56 @@ mod tests {
 
         check_empty(r##"R"foo(unterminated string literal)""##);
         check_empty(r##"R"foo"##); // unterminated sentinel
+    }
+
+    #[test]
+    fn test_template_strings_js() {
+        let spec = match select_formatting("test.js") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => { panic!("wrong spec"); }
+        };
+
+        let check = |s: &str, expected: &[(&str, TokenKind)]| {
+            let s_owned = s.to_owned();
+            let toks = tokenize_c_like(&s_owned, spec);
+            if toks.is_empty() != expected.is_empty() {
+                panic!("should{} have tokens",
+                       if expected.is_empty() { "n't" } else { "" });
+            }
+
+            for (a, b) in toks.iter().zip(expected.iter()) {
+                assert_eq!(&s_owned[a.start..a.end], b.0, "token strings should match");
+                assert_eq!(a.kind, b.1, "token types should match");
+            }
+        };
+
+        check(r##"`Hello, world`"##,
+              &vec![("`Hello, world`", TokenKind::StringLiteral)]);
+        check(r##"`Hello ${'w' + 'orld'}`"##,
+              &vec![("`Hello ${", TokenKind::StringLiteral),
+                    ("'w'", TokenKind::StringLiteral),
+                    ("+", TokenKind::Punctuation),
+                    ("'orld'", TokenKind::StringLiteral),
+                    ("}`", TokenKind::StringLiteral)]);
+        check(r##"`Hello ${`${w}` + 'orld'}`"##,
+              &vec![("`Hello ${", TokenKind::StringLiteral),
+                    ("`${", TokenKind::StringLiteral),
+                    ("w", TokenKind::Identifier(None)),
+                    ("}`", TokenKind::StringLiteral),
+                    ("+", TokenKind::Punctuation),
+                    ("'orld'", TokenKind::StringLiteral),
+                    ("}`", TokenKind::StringLiteral)]);
+        check(r##"`${() => { 'no}op' } + 'oop'}`"##,
+              &vec![("`${", TokenKind::StringLiteral),
+                    ("(", TokenKind::Punctuation),
+                    (")", TokenKind::Punctuation),
+                    ("=", TokenKind::Punctuation),
+                    (">", TokenKind::Punctuation),
+                    ("{", TokenKind::Punctuation),
+                    ("'no}op'", TokenKind::StringLiteral),
+                    ("}", TokenKind::Punctuation),
+                    ("+", TokenKind::Punctuation),
+                    ("'oop'", TokenKind::StringLiteral),
+                    ("}`", TokenKind::StringLiteral)]);
     }
 }
