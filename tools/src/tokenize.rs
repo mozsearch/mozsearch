@@ -101,6 +101,17 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
         i
     };
 
+    // Breaks the current token across a newline to keep line numbering
+    // correct. Returns the new value for `start` on the new line.
+    let push_newline = |start: usize, tokens: &mut Vec<_>, cur_tok_kind: TokenKind| -> usize {
+        let nl = peek_pos() - 1;
+        if start != nl {
+            tokens.push(Token {start: start, end: nl, kind: cur_tok_kind});
+        }
+        tokens.push(Token {start: nl, end: peek_pos(), kind: TokenKind::Newline});
+        nl + 1
+    };
+
     while cur_pos.get() < chars.len() {
         let (start, ch) = get_char();
         let mut continue_backtick = false;
@@ -142,6 +153,8 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
             }
 
             let delimiter = &string[start + 2 .. paren];
+
+            let mut start = start;
             'raw_string: loop {
                 if peek_pos() == string.len() {
                     writeln!(&mut std::io::stderr(), "Unterminated raw string").unwrap();
@@ -149,6 +162,10 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                 }
 
                 let (_, next) = get_char();
+                if next == '\n' {
+                    // Tokens shouldn't span across lines.
+                    start = push_newline(start, &mut tokens, TokenKind::StringLiteral);
+                }
                 if next != ')' {
                     continue;
                 }
@@ -241,12 +258,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                         break;
                     } else if next == '\n' {
                         // Tokens shouldn't span across lines.
-                        let nl = peek_pos() - 1;
-                        if start != nl {
-                            tokens.push(Token {start: start, end: nl, kind: TokenKind::Comment});
-                        }
-                        tokens.push(Token {start: nl, end: peek_pos(), kind: TokenKind::Newline});
-                        start = peek_pos();
+                        start = push_newline(start, &mut tokens, TokenKind::Comment);
                     }
                 }
                 get_char();
@@ -302,12 +314,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                     break;
                 } else if next == '\n' {
                     // Tokens shouldn't span across lines.
-                    let nl = peek_pos() - 1;
-                    if start != nl {
-                        tokens.push(Token {start: start, end: nl, kind: TokenKind::StringLiteral});
-                    }
-                    tokens.push(Token {start: nl, end: peek_pos(), kind: TokenKind::Newline});
-                    start = peek_pos();
+                    start = push_newline(start, &mut tokens, TokenKind::StringLiteral);
                 } else if next == '\\' {
                     get_char();
                 } else if next == '$' && peek_char() == '{' {
@@ -347,12 +354,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                     break;
                 } else if next == '\n' {
                     // Tokens shouldn't span across lines.
-                    let nl = peek_pos() - 1;
-                    if start != nl {
-                        tokens.push(Token {start: start, end: nl, kind: TokenKind::StringLiteral});
-                    }
-                    tokens.push(Token {start: nl, end: peek_pos(), kind: TokenKind::Newline});
-                    start = peek_pos();
+                    start = push_newline(start, &mut tokens, TokenKind::StringLiteral);
                 } else if next == '\\' && peek_char() != '\n' {
                     get_char();
                 }
@@ -828,6 +830,17 @@ mod tests {
         assert_eq!(kind, rhs.kind, "kind matches");
     }
 
+    fn check_tokens(s: &str, expected: &[(&str, TokenKind)], spec: &LanguageSpec) {
+        let s_owned = s.to_owned();
+        let toks = tokenize_c_like(&s_owned, spec);
+        assert_eq!(toks.len(), expected.len(), "should have the same number of tokens");
+
+        for (a, b) in toks.iter().zip(expected.iter()) {
+            assert_eq!(&s_owned[a.start..a.end], b.0, "token strings should match");
+            assert_eq!(a.kind, b.1, "token types should match");
+        }
+    }
+
     #[test]
     fn test_raw_strings_cpp() {
         let spec = match select_formatting("test.cpp") {
@@ -866,17 +879,7 @@ mod tests {
         };
 
         let check = |s: &str, expected: &[(&str, TokenKind)]| {
-            let s_owned = s.to_owned();
-            let toks = tokenize_c_like(&s_owned, spec);
-            if toks.is_empty() != expected.is_empty() {
-                panic!("should{} have tokens",
-                       if expected.is_empty() { "n't" } else { "" });
-            }
-
-            for (a, b) in toks.iter().zip(expected.iter()) {
-                assert_eq!(&s_owned[a.start..a.end], b.0, "token strings should match");
-                assert_eq!(a.kind, b.1, "token types should match");
-            }
+            check_tokens(s, expected, spec);
         };
 
         check(r##"`Hello, world`"##,
@@ -907,5 +910,37 @@ mod tests {
                     ("+", TokenKind::Punctuation),
                     ("'oop'", TokenKind::StringLiteral),
                     ("}`", TokenKind::StringLiteral)]);
+    }
+
+    #[test]
+    fn check_newlines() {
+        let js_spec = match select_formatting("test.js") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => { panic!("wrong spec"); }
+        };
+        let cpp_spec = match select_formatting("test.cpp") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => { panic!("wrong spec"); }
+        };
+
+        // C++ raw literal with a newline:
+        check_tokens("R\"(foo\nbar)\"",
+                     &vec![("R\"(foo", TokenKind::StringLiteral),
+                           ("\n", TokenKind::Newline),
+                           ("bar)\"", TokenKind::StringLiteral)],
+                     &cpp_spec);
+        check_tokens("/* one line\nanother line */",
+                     &vec![("/* one line", TokenKind::Comment),
+                           ("\n", TokenKind::Newline),
+                           ("another line */", TokenKind::Comment)],
+                     &cpp_spec);
+        check_tokens("`Hello ${world\n}\nanother line`",
+                     &vec![("`Hello ${", TokenKind::StringLiteral),
+                           ("world", TokenKind::Identifier(None)),
+                           ("\n", TokenKind::Newline),
+                           ("}", TokenKind::StringLiteral),
+                           ("\n", TokenKind::Newline),
+                           ("another line`", TokenKind::StringLiteral)],
+                     &js_spec);
     }
 }
