@@ -288,7 +288,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                         while peek_char() != ']' {
                             get_char();
                         }
-                    } else if next == '\\' {
+                    } else if next == '\\' && peek_char() != '\n' {
                         get_char();
                     } else if next == '\n' {
                         writeln!(&mut std::io::stderr(), "Invalid regexp literal").unwrap();
