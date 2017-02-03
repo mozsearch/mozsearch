@@ -30,5 +30,5 @@ echo "Index volume detected"
 mkdir ~ubuntu/index
 sudo mount /dev/xvdf ~ubuntu/index
 
-$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO index /tmp
-$MOZSEARCH_PATH/web-server-run.sh /tmp
+$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO index
+$MOZSEARCH_PATH/web-server-run.sh index

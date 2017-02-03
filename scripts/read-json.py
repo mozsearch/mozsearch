@@ -6,6 +6,9 @@ import sys
 j = json.load(open(sys.argv[1]))
 components = sys.argv[2].split('/')
 for component in components:
+    if component not in j:
+        print ''
+        sys.exit(0)
     j = j[component]
 
 if type(j) == str or type(j) == unicode:

@@ -1,3 +1,4 @@
 #!/bin/bash
 
-cp -r $CONFIG_REPO/tests/files $INDEX_ROOT
+rm -f $INDEX_ROOT/tests
+ln -s $CONFIG_REPO/tests/files $INDEX_ROOT

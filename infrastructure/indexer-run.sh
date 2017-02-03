@@ -5,16 +5,16 @@ set -x
 
 if [ $# != 2 ]
 then
-    echo "usage: $0 <config-repo-path> <temp-path>"
+    echo "usage: $0 <config-repo-path> <working-path>"
     exit 1
 fi
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 CONFIG_REPO=$(readlink -f $1)
-TEMP_PATH=$(readlink -f $2)
+WORKING=$(readlink -f $2)
 
-CONFIG_FILE=$TEMP_PATH/config.json
+CONFIG_FILE=$WORKING/config.json
 
 for TREE_NAME in $($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees)
 do

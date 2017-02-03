@@ -3,20 +3,19 @@
 set -e
 set -x
 
-if [ $# != 3 ]
+if [ $# != 2 ]
 then
-    echo "usage: $0 <config-repo-path> <base-path> <temp-path>"
+    echo "usage: $0 <config-repo-path> <working-path>"
     exit 1
 fi
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 CONFIG_REPO=$(readlink -f $1)
-BASE=$(readlink -f $2)
-TEMP=$(readlink -f $3)
-CONFIG_FILE=$TEMP/config.json
+WORKING=$(readlink -f $2)
+CONFIG_FILE=$WORKING/config.json
 
-$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $BASE $TEMP
+$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 
 sudo mkdir -p /etc/nginx/sites-enabled
 sudo rm /etc/nginx/sites-enabled/default

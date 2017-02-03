@@ -5,14 +5,14 @@ set -x
 
 if [ $# != 1 ]
 then
-    echo "usage: $0 <temp-path>"
+    echo "usage: $0 <working-path>"
     exit 1
 fi
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
-TEMP_PATH=$(readlink -f $1)
-CONFIG_FILE=$TEMP_PATH/config.json
+WORKING=$(readlink -f $1)
+CONFIG_FILE=$WORKING/config.json
 
 nohup python $MOZSEARCH_PATH/router/router.py $CONFIG_FILE > router.log 2> router.err < /dev/null &
 

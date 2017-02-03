@@ -3,10 +3,10 @@
 
   "trees": {
     "tests": {
-      "index_path": "$BASE/tests",
-      "files_path": "$BASE/tests/files",
-      "objdir_path": "$BASE/tests/objdir",
-      "codesearch_path": "$BASE/tests/livegrep.idx",
+      "index_path": "$WORKING/tests",
+      "files_path": "$WORKING/tests/files",
+      "objdir_path": "$WORKING/tests/objdir",
+      "codesearch_path": "$WORKING/tests/livegrep.idx",
       "codesearch_port": 8081
     }
   }
