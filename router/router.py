@@ -88,10 +88,7 @@ class SearchResults(object):
         self.qualified_results = []
 
         self.pathre = None
-        self.results_hash = {}
         self.compiled = {}
-
-        self.count = 0
 
     def set_path_filter(self, path):
         if not path or path == '.*':
@@ -107,10 +104,11 @@ class SearchResults(object):
     def add_results(self, results):
         self.results.append(results)
 
-    def add_qualified_results(self, qual, f):
-        self.qualified_results.append((qual, f))
+    def add_qualified_results(self, qual, results, modifier):
+        self.qualified_results.append((qual, results, modifier))
 
     max_count = 1000
+    max_work = 750
     path_precedences = ['normal', 'test', 'generated']
     key_precedences = ["Files", "IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
 
@@ -131,7 +129,7 @@ class SearchResults(object):
         else:
             return 'normal'
 
-    def compile_result(self, kind, qual, pathr):
+    def compile_result(self, kind, qual, pathr, line_modifier):
         if qual:
             qkind = '%s (%s)' % (kind, qual)
         else:
@@ -145,69 +143,70 @@ class SearchResults(object):
         if self.pathre and not self.pathre.search(path):
             return
 
-        # compiled is a map {pathkind: {qkind: {path: {lno: line}}}}
+        # compiled is a map {pathkind: {qkind: {path: [(lines, line_modifier)]}}}
         kind_results = self.compiled.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, {})
-        path_results = kind_results.setdefault(path, {})
-
-        for line in lines:
-            lno = line['lno']
-
-            key = (path, lno)
-            if key in self.results_hash:
-                continue
-            self.results_hash[key] = True
-
-            path_results[lno] = line
-            self.count += 1
-
-            if self.maxed_out():
-                break
-
-    def maxed_out(self):
-        return self.count == self.max_count
+        path_results = kind_results.setdefault(path, ([], line_modifier))
+        path_results[0].extend(lines)
 
     def sort_compiled(self):
+        count = 0
+
+        line_hash = {}
+
         result = collections.OrderedDict()
         for pathkind in self.path_precedences:
             for qkind in self.compiled.get(pathkind, []):
                 paths = self.compiled[pathkind][qkind].keys()
                 paths.sort()
                 for path in paths:
-                    lines_map = self.compiled[pathkind][qkind][path]
-                    lnos = lines_map.keys()
-                    lnos.sort()
-                    lines = [ lines_map[lno] for lno in lnos ]
-                    if lines or qkind == 'Files':
-                        result.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, []).append({'path': path, 'lines': lines})
+                    (lines, line_modifier) = self.compiled[pathkind][qkind][path]
+                    lines.sort(key=lambda l: l['lno'])
+                    lines_out = []
+                    for line in lines:
+                        lno = line['lno']
+                        key = (path, lno)
+                        if key in line_hash:
+                            continue
+                        line_hash[key] = True
+                        if line_modifier:
+                            line_modifier(line)
+                        lines_out.append(line)
+                        count += 1
+                        if count == self.max_count:
+                            break
+
+                    if lines_out or qkind == 'Files':
+                        l = result.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, [])
+                        l.append({'path': path, 'lines': lines_out})
+                    if count == self.max_count:
+                        break
+                if count == self.max_count:
+                    break
+            if count == self.max_count:
+                break
 
         return result
 
-    def get(self):
+    def get(self, work_limit):
+        # compile_result will categorize each path that it sees.
+        # It will build a list of paths indexed by pathkind, qkind.
+        # Later I'll iterate over this, remove dupes, sort, and keep the top ones.
+
         self.qualified_results.sort()
-
         for kind in self.key_precedences:
-            for (qual, f) in self.qualified_results:
-                for pathr in f(kind):
-                    self.compile_result(kind, qual, pathr)
-
-                    if self.maxed_out():
-                        break
-
-                if self.maxed_out():
+            work = 0
+            for (qual, results, line_modifier) in self.qualified_results:
+                if work > self.max_work and work_limit:
+                    print 'WORK LIMIT HIT'
                     break
+                for pathr in results.get(kind, []):
+                    self.compile_result(kind, qual, pathr, line_modifier)
+                    work += 1
 
             for results in self.results:
                 for pathr in results.get(kind, []):
-                    self.compile_result(kind, None, pathr)
-
-                    if self.maxed_out():
-                        break
-
-                if self.maxed_out():
-                    break
-
-            if self.maxed_out():
-                break
+                    self.compile_result(kind, None, pathr, None)
+                    work += 1
 
         r = self.sort_compiled()
         return r
@@ -231,36 +230,30 @@ def demangle(sym):
     else:
         return sym
 
-def identifier_search(search, tree_name, needle, complete, fold_case, limit5=True):
+def identifier_search(search, tree_name, needle, complete, fold_case):
     needle = re.sub(r'\\(.)', r'\1', needle)
 
     pieces = re.split(r'\.|::', needle)
     if not complete and len(pieces[-1]) < 3:
         return {}
 
+    def line_modifier(line):
+        if 'bounds' in line:
+            (start, end) = line['bounds']
+            end = start + len(pieces[-1])
+            line['bounds'] = [start, end]
+
     ids = identifiers.lookup(tree_name, needle, complete, fold_case)
     for (i, (qualified, sym)) in enumerate(ids):
-        if i >= 5 and limit5:
+        if i > 500:
             break
 
         q = demangle(sym)
         if q == sym:
             q = qualified
 
-        def closure(sym):
-            def f(kind):
-                results = crossrefs.lookup(tree_name, sym)
-                results = results.get(kind, [])
-                for path in results:
-                    for line in path['lines']:
-                        if 'bounds' in line:
-                            (start, end) = line['bounds']
-                            end = start + len(pieces[-1])
-                            line['bounds'] = [start, end]
-                return results
-            search.add_qualified_results(q, f)
-
-        closure(sym)
+        results = crossrefs.lookup(tree_name, sym)
+        search.add_qualified_results(q, results, line_modifier)
 
 def get_json_search_results(tree_name, query):
     try:
@@ -308,6 +301,8 @@ def get_json_search_results(tree_name, query):
 
     search = SearchResults()
 
+    work_limit = False
+
     if 'symbol' in parsed:
         search.set_path_filter(parsed.get('pathre'))
         symbols = parsed['symbol']
@@ -319,8 +314,9 @@ def get_json_search_results(tree_name, query):
         search.add_results({'Textual Occurrences': substr_results})
     elif 'id' in parsed:
         search.set_path_filter(parsed.get('pathre'))
-        identifier_search(search, tree_name, parsed['id'], complete=True, fold_case=fold_case, limit5=False)
+        identifier_search(search, tree_name, parsed['id'], complete=True, fold_case=fold_case)
     elif 'default' in parsed:
+        work_limit = True
         path = parsed.get('pathre', '.*')
         substr_results = codesearch.search(parsed['default'], fold_case, path, tree_name)
         search.add_results({'Textual Occurrences': substr_results})
@@ -336,7 +332,7 @@ def get_json_search_results(tree_name, query):
         assert False
         results = {}
 
-    results = search.get()
+    results = search.get(work_limit)
 
     results['*title*'] = title
     return json.dumps(results)
