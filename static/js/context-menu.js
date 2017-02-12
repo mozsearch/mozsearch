@@ -1,5 +1,12 @@
 function setContextMenu(menu, event)
 {
+  var selObj = window.getSelection();
+  if (selObj.toString() != "") {
+    // Don't display the context menu if there's a selection.
+    // User could be trying to select something and the context menu will undo it.
+    return;
+  }
+
   var top = event.clientY + window.scrollY;
   var left = event.clientX;
 
