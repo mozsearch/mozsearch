@@ -67,7 +67,7 @@ fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
         Some(ct) => ct,
         None => inferred_content_type,
     };
-    
+
     WebResponse { status: StatusCode::Ok, content_type: content_type.to_owned(), output: input }
 }
 
@@ -79,7 +79,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         let path = cfg.mozsearch_path.clone() + &req.path;
         return handle_static(path, None);
     }
-    
+
     if path.len() < 2 {
         return not_found();
     }
