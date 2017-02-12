@@ -79,6 +79,10 @@ CONFIG_REPO=$2
 echo Branch is $BRANCH
 echo Config repository is $CONFIG_REPO
 
+# Re-install Rust (make sure we have the latest version).
+# Building Firefox requires a recent version of Rust.
+curl -sSf https://static.rust-lang.org/rustup.sh | sh
+
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js
 wget -q https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
