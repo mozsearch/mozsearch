@@ -12,7 +12,7 @@ def trigger(config_repo, branch, channel, spot=False):
     user_data = '''#!/bin/bash
 
 cd ~ubuntu
-./update.sh "{branch}" "{config_repo}"
+HOME=/home/ubuntu ./update.sh "{branch}" "{config_repo}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{branch}" "{channel}" "{config_repo}" config
 '''.format(branch=branch, channel=channel, config_repo=config_repo)
 
