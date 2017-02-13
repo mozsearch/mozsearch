@@ -496,9 +496,12 @@ private:
     return result;
   }
 
-  std::string MangleLocation(SourceLocation loc) {
+  std::string MangleLocation(SourceLocation loc, std::string backup = std::string()) {
     FileInfo *f = GetFileInfo(loc);
     std::string filename = f->realname;
+    if (filename.length() == 0 && backup.length() != 0) {
+      return backup;
+    }
     return Hash(filename + std::string("@") + LocationToString(loc));
   }
 
@@ -1387,7 +1390,7 @@ public:
 
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
-      std::string mangled = std::string("M_") + MangleLocation(loc);
+      std::string mangled = std::string("M_") + MangleLocation(loc, ident->getName());
       VisitToken("def", "macro", ident->getName(), loc, mangled);
     }
   }
@@ -1407,7 +1410,7 @@ public:
 
     IdentifierInfo* ident = tok.getIdentifierInfo();
     if (ident) {
-      std::string mangled = std::string("M_") + MangleLocation(macro->getDefinitionLoc());
+      std::string mangled = std::string("M_") + MangleLocation(macro->getDefinitionLoc(), ident->getName());
       VisitToken("use", "macro", ident->getName(), loc, mangled);
     }
   }
