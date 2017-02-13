@@ -12,5 +12,5 @@ source $INDEX_ROOT/config
 cd $INDEX_ROOT/files
 for f in *.cpp
 do
-  $CXX $f -c -o $OBJDIR/${f%%.cpp}.o -Wall
+  $CXX $f -std=c++14 -c -o $OBJDIR/${f%%.cpp}.o -Wall
 done

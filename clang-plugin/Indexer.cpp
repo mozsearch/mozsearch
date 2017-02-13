@@ -1277,6 +1277,10 @@ public:
       NamedDecl* decl = d->getTemplatedDecl();
       std::string mangled = GetMangledName(mMangleContext, decl);
       VisitToken("use", "type", GetQualifiedName(decl), loc, mangled, GetContext(loc));
+    } else if (TypeAliasTemplateDecl *d = dyn_cast<TypeAliasTemplateDecl>(td)) {
+      NamedDecl* decl = d->getTemplatedDecl();
+      std::string mangled = GetMangledName(mMangleContext, decl);
+      VisitToken("use", "type", GetQualifiedName(decl), loc, mangled, GetContext(loc));
     }
 
     return true;
