@@ -53,6 +53,11 @@ sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
 $MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH /index
+if [ $CHANNEL == release ]
+then
+    # Only upload files on release channel.
+    $MOZSEARCH_PATH/infrastructure/indexer-upload.sh $CONFIG_REPO_PATH /index
+fi
 $MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index
 
 date
