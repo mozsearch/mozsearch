@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 
 extern crate tools;
 use tools::find_source_file;
-use tools::analysis::{read_analysis, read_target, AnalysisKind};
+use tools::file_format::analysis::{read_analysis, read_target, AnalysisKind};
 use tools::config;
 
 extern crate rustc_serialize;

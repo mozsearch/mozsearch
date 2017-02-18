@@ -5,7 +5,8 @@ extern crate git2;
 extern crate regex;
 extern crate chrono;
 
-pub mod analysis;
+pub mod file_format;
+
 pub mod config;
 pub mod blame;
 pub mod output;

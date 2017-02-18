@@ -10,7 +10,7 @@ use std::path::Path;
 
 extern crate tools;
 use tools::find_source_file;
-use tools::analysis::{read_analysis, read_source, read_jumps};
+use tools::file_format::analysis::{read_analysis, read_source, read_jumps};
 use tools::format::format_file_data;
 use tools::config;
 

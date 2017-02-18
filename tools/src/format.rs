@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
-use analysis;
+use file_format::analysis;
 use blame;
 use tokenize;
 use languages;
 use languages::FormatAs;
 
-use analysis::{WithLocation, AnalysisSource, Jump};
+use file_format::analysis::{WithLocation, AnalysisSource, Jump};
 use output::{self, F, Options, PanelItem, PanelSection};
 
 use rustc_serialize::json::{self, Json};

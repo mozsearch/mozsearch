@@ -10,7 +10,7 @@ extern crate getopts;
 
 use getopts::Options;
 
-use tools::analysis::{read_analysis, read_target, WithLocation, AnalysisTarget, AnalysisKind};
+use tools::file_format::analysis::{read_analysis, read_target, WithLocation, AnalysisTarget, AnalysisKind};
 
 use ipdl_parser::parser;
 use ipdl_parser::ast;
