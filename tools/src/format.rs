@@ -198,13 +198,25 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
     (output_lines, json::encode(&Json::Array(generated_json)).unwrap())
 }
 
+fn latin1_to_string(bytes: Vec<u8>) -> String {
+    bytes.iter().map(|&c| c as char).collect()
+}
+
+fn decode_bytes(bytes: Vec<u8>) -> String {
+    match String::from_utf8(bytes.clone()) {
+        Ok(s) => s,
+        Err(_) => {
+            latin1_to_string(bytes)
+        }
+    }
+}
+
 fn read_blob_entry(repo: &git2::Repository, entry: &git2::TreeEntry) -> String {
     let blob_obj = entry.to_object(repo).unwrap();
     let blob = blob_obj.as_blob().unwrap();
     let mut content = Vec::new();
     content.extend(blob.content());
-    let data = String::from_utf8(content).unwrap();
-    data
+    decode_bytes(content)
 }
 
 pub fn format_file_data(cfg: &config::Config,
@@ -339,7 +351,7 @@ pub fn format_file_data(cfg: &config::Config,
         ]),
     ]);
     output::generate_formatted(writer, &f, 0).unwrap();
-    
+
     write!(writer, "<pre>").unwrap();
     for (i, line) in output_lines.iter().enumerate() {
         write!(writer, "<code id=\"line-{}\" aria-labelledby=\"{}\">{}\n</code>",
@@ -364,7 +376,7 @@ pub fn format_file_data(cfg: &config::Config,
     write!(writer, "<script>var ANALYSIS_DATA = {};</script>\n", analysis_json).unwrap();
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
-    
+
     Ok(())
 }
 
@@ -426,7 +438,7 @@ pub fn format_path(cfg: &config::Config,
                           &jumps,
                           &analysis,
                           writer));
-    
+
     Ok(())
 }
 
@@ -446,6 +458,18 @@ pub fn format_diff(cfg: &config::Config,
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
     let git_path = try!(config::get_git_path(tree_config));
+    println!("CMD: {:?}", Command::new("/usr/bin/git")
+                      .arg("diff-tree")
+                      .arg("-p")
+                      .arg("--cc")
+                      .arg("--patience")
+                      .arg("--full-index")
+                      .arg("--no-prefix")
+                      .arg("-U100000")
+                      .arg(rev)
+                      .arg("--")
+                      .arg(path)
+                      .current_dir(&git_path));
     let output = try!(Command::new("/usr/bin/git")
                       .arg("diff-tree")
                       .arg("-p")
@@ -458,13 +482,12 @@ pub fn format_diff(cfg: &config::Config,
                       .arg("--")
                       .arg(path)
                       .current_dir(&git_path)
-                      .output()
-                      .map_err(|_| "Diff failed 1"));
+                      .output().map_err(|_| "Diff failed 1"));
     if !output.status.success() {
-        println!("ERR\n{}", String::from_utf8(output.stderr).unwrap());
+        println!("ERR\n{}", decode_bytes(output.stderr));
         return Err("Diff failed 2");
     }
-    let difftxt = try!(String::from_utf8(output.stdout).map_err(|_| "Invalid diff output"));
+    let difftxt = decode_bytes(output.stdout);
 
     if difftxt.len() == 0 {
         return format_path(cfg, tree_name, rev, path, writer);
@@ -653,7 +676,7 @@ pub fn format_diff(cfg: &config::Config,
         ]),
     ]);
     output::generate_formatted(writer, &f, 0).unwrap();
-    
+
     fn entity_replace(s: String) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
@@ -754,7 +777,7 @@ fn generate_commit_info(tree_name: &str,
         ]),
         F::S("</table>"),
     ]);
-        
+
     try!(output::generate_formatted(writer, &f, 0));
 
     let git_path = try!(config::get_git_path(tree_config));
@@ -768,10 +791,10 @@ fn generate_commit_info(tree_name: &str,
                       .output()
                       .map_err(|_| "Diff failed 1"));
     if !output.status.success() {
-        println!("ERR\n{}", String::from_utf8(output.stderr).unwrap());
+        println!("ERR\n{}", decode_bytes(output.stderr));
         return Err("Diff failed 2");
     }
-    let difftxt = try!(String::from_utf8(output.stdout).map_err(|_| "Invalid diff output"));
+    let difftxt = decode_bytes(output.stdout);
 
     let lines = split_lines(&difftxt);
     let mut changes = Vec::new();
@@ -783,7 +806,7 @@ fn generate_commit_info(tree_name: &str,
         let suffix = &line[commit.parents().count() ..];
         let prefix_size = 2 * (commit.parents().count() + 1);
         let mut data = suffix.splitn(prefix_size + 1, ' ');
-        let data = try!(data.nth(prefix_size).ok_or("Invalid diff output"));
+        let data = try!(data.nth(prefix_size).ok_or("Invalid diff output 3"));
         let file_info = data.split('\t').take(2).collect::<Vec<_>>();
 
         let f = F::T(format!("<li>{} <a href=\"/{}/diff/{}/{}\">{}</a>",
@@ -797,7 +820,7 @@ fn generate_commit_info(tree_name: &str,
         F::S("</ul>"),
     ]);
     try!(output::generate_formatted(writer, &f, 0));
-    
+
     Ok(())
 }
 

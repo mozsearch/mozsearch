@@ -234,5 +234,5 @@ fn main() {
     };
 
     println!("On 8001");
-    let _listening = hyper::Server::http("127.0.0.1:8001").unwrap().handle(handler);
+    let _listening = hyper::Server::http("0.0.0.0:8001").unwrap().handle(handler);
 }
