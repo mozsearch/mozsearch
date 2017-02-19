@@ -8,6 +8,7 @@ use std::io::BufReader;
 use std::io::Read;
 use std::path::Path;
 use std::env;
+use std::collections::HashMap;
 
 use hyper::status::StatusCode;
 use hyper::method::Method;
@@ -19,6 +20,7 @@ use hyper::uri;
 use tools::config;
 use tools::blame;
 use tools::format;
+use tools::file_format::identifiers::IdentMap;
 
 struct WebRequest {
     path: String,
@@ -71,7 +73,7 @@ fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
     WebResponse { status: StatusCode::Ok, content_type: content_type.to_owned(), output: input }
 }
 
-fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
+fn handle(cfg: &config::Config, ident_map: &HashMap<String, IdentMap>, req: WebRequest) -> WebResponse {
     let path = req.path.clone();
     let path = path[1..].split('/').collect::<Vec<_>>();
 
@@ -192,6 +194,16 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         },
 
+        "complete" => {
+            let ids = ident_map.get(&tree_name.to_string()).unwrap();
+            let json = ids.lookup_json(&path[2], false, false, 6);
+            WebResponse {
+                status: StatusCode::Ok,
+                content_type: "application/json".to_owned(),
+                output: json
+            }
+        },
+
         _ => {
             not_found()
         }
@@ -202,7 +214,9 @@ fn main() {
     env_logger::init().unwrap();
 
     let cfg = config::load(&env::args().nth(1).unwrap(), true);
-    let cfg = Mutex::new(cfg);
+    let ident_map = IdentMap::load(&cfg);
+
+    let internal_data = Mutex::new((cfg, ident_map));
 
     let handler = move |req: Request, mut res: Response| {
         if req.method != Method::Get {
@@ -218,13 +232,13 @@ fn main() {
             _ => panic!("Unexpected URI"),
         };
 
-        let guard = match cfg.lock() {
+        let guard = match internal_data.lock() {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let ref cfg = *guard;
+        let (ref cfg, ref ident_map) = *guard;
 
-        let response = handle(cfg, WebRequest { path: path });
+        let response = handle(&cfg, &ident_map, WebRequest { path: path });
 
         *res.status_mut() = response.status;
         let output = response.output.into_bytes();

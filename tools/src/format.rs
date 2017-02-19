@@ -458,18 +458,6 @@ pub fn format_diff(cfg: &config::Config,
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
     let git_path = try!(config::get_git_path(tree_config));
-    println!("CMD: {:?}", Command::new("/usr/bin/git")
-                      .arg("diff-tree")
-                      .arg("-p")
-                      .arg("--cc")
-                      .arg("--patience")
-                      .arg("--full-index")
-                      .arg("--no-prefix")
-                      .arg("-U100000")
-                      .arg(rev)
-                      .arg("--")
-                      .arg(path)
-                      .current_dir(&git_path));
     let output = try!(Command::new("/usr/bin/git")
                       .arg("diff-tree")
                       .arg("-p")

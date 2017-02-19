@@ -1,0 +1,25 @@
+{
+  "name": "SearchFox++",
+  "description": "Provides a better experience for searchfox.org",
+  "author": "Bill McCloskey",
+  "developer": {
+    "name": "Bill McCloskey",
+    "url": "https://searchfox.org"
+  },
+  "version": "1.0",
+  "manifest_version": 2,
+
+  "background": {
+    "scripts": ["background.js"]
+  },
+
+  "omnibox": {
+    "keyword": "sf"
+  },
+
+  "permissions": [
+    "*://searchfox.org/",
+    "*://localhost:8001/*",
+    "<all_urls>"
+  ]
+}
