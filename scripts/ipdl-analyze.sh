@@ -23,7 +23,7 @@ fi
 
 pushd $FILES_ROOT
 cat $INDEX_ROOT/ipdl-files | grep "$FILTER" | \
-    xargs $MOZSEARCH_PATH/tools/target/debug/ipdl-analyze $(cat $INDEX_ROOT/ipdl-includes) \
+    xargs $MOZSEARCH_PATH/tools/target/release/ipdl-analyze $(cat $INDEX_ROOT/ipdl-includes) \
           -d $INDEX_ROOT/analysis/__GENERATED__/ipc/ipdl/_ipdlheaders \
           -b $FILES_ROOT \
           -a $INDEX_ROOT/analysis
