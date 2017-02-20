@@ -111,10 +111,6 @@ fn main() {
         Err(f) => { panic!(f.to_string()) },
     };
 
-    if matches.free.is_empty() {
-        panic!("Expected at least one IPDL file to be specified.");
-    }
-
     let mut include_dirs = Vec::new();
     for i in matches.opt_strs("I") {
         include_dirs.push(PathBuf::from(i))
