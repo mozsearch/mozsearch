@@ -99,7 +99,7 @@ ip = webServerInstance.public_ip_address
 
 while True:
     try:
-        subprocess.check_call(["curl", "-f", "-m", "5.0",
+        subprocess.check_call(["curl", "-f", "-m", "10.0",
                                "http://%s/mozilla-central/search?q=nsGlobalWindow" % ip])
     except:
         time.sleep(1)
