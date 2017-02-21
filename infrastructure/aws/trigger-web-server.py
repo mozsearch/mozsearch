@@ -38,7 +38,7 @@ userData = '''#!/bin/bash
 
 cd ~ubuntu
 touch web_server_started
-./update.sh "{branch}" "{config_repo}"
+HOME=/home/ubuntu ./update.sh "{branch}" "{config_repo}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config
 '''.format(branch=branch, channel=channel, config_repo=config_repo)
 

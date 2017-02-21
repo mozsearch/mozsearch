@@ -68,6 +68,9 @@ CONFIG_REPO=$2
 echo Branch is $BRANCH
 echo Config repository is $CONFIG_REPO
 
+# Re-install Rust (make sure we have the latest version).
+curl -sSf https://static.rust-lang.org/rustup.sh | sh
+
 # Install mozsearch.
 rm -rf mozsearch
 git clone -b $BRANCH https://github.com/bill-mccloskey/mozsearch
