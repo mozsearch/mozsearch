@@ -29,7 +29,10 @@ for repo in config['trees']:
   location /%(repo)s/source {
     root %(doc_root)s;
     try_files /file/$uri /dir/$uri/index.html =404;
-    types { }
+    types {
+      image/png png;
+      image/jpeg jpeg;
+    }
     default_type text/html;
     expires 1d;
     add_header Cache-Control "public";

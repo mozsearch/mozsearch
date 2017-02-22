@@ -173,9 +173,16 @@ lazy_static! {
 }
 
 #[derive(Debug)]
+pub enum DocType {
+    Markdown,
+    ReStructuredText,
+}
+
+#[derive(Debug)]
 pub enum FormatAs {
     FormatCLike(&'static LanguageSpec),
     FormatTagLike(&'static LanguageSpec),
+    FormatDoc(DocType),
     Plain,
     Binary,
 }
@@ -200,6 +207,9 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "mp4" | "sqlite" | "jar" | "webm" | "woff" |
         "class" | "m4s" | "mgif" | "wav" | "opus" |
         "mp3" | "otf" => FormatAs::Binary,
+
+        "md" => FormatAs::FormatDoc(DocType::Markdown),
+        "rst" => FormatAs::FormatDoc(DocType::ReStructuredText),
 
         _ => FormatAs::Plain,
     }

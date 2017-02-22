@@ -57,6 +57,9 @@ popd
 sudo ldconfig
 sudo pip install pygit2
 
+# Install pandoc
+sudo apt-get install -y pandoc
+
 # Create update script.
 cat > update.sh <<"THEEND"
 #!/bin/bash
