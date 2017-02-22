@@ -10,7 +10,8 @@
 # Usage: swap-web-server.py <branch> <channel> <config-repo> <index-volume-id>
 
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
+import dateutil.parser
 import boto3
 import awslib
 import os
@@ -135,7 +136,18 @@ terminate = []
 for reservation in r['Reservations']:
     for instance in reservation['Instances']:
         instanceId = instance['InstanceId']
-        if instanceId != webServerInstanceId:
+        tags = instance['Tags']
+        kill = False
+        for tag in tags:
+            if tag['Key'] == 'web-server':
+                t = dateutil.parser.parse(tag['Value'])
+                # Always leave one old server around so we can switch
+                # to it in an emergency.
+                if datetime.now() - t >= timedelta(1.5):
+                    kill = True
+
+        if kill:
+            assert instanceId != webServerInstanceId
             terminate.append(instanceId)
 
 print 'Terminating {}'.format(terminate)
@@ -151,7 +163,8 @@ for instanceId in terminate:
 print 'Deleting old EBS index volumes...'
 
 volumes = ec2.describe_volumes(Filters=[{'Name': 'tag-key', 'Values': ['index']},
-                                        {'Name': 'tag:channel', 'Values': [channel]}])
+                                        {'Name': 'tag:channel', 'Values': [channel]},
+                                        {'Name': 'status', 'Values': ['available']}])
 volumes = volumes['Volumes']
 for volume in volumes:
     if volumeId != volume['VolumeId']:
