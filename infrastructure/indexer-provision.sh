@@ -36,6 +36,7 @@ curl -sSf https://static.rust-lang.org/rustup.sh | sh
 # Install codesearch.
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
+git reset --hard 48a06ed14127f37e2537a14be86713ae538cebb5
 # The last two options turn off the bazel sandbox, which doesn't work
 # inside an LDX container.
 bazel build //src/tools:codesearch --spawn_strategy=standalone --genrule_strategy=standalone

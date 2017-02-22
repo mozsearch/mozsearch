@@ -27,6 +27,7 @@ curl -sSf https://static.rust-lang.org/rustup.sh | sh
 # Install codesearch.
 git clone https://github.com/livegrep/livegrep
 pushd livegrep
+git reset --hard 48a06ed14127f37e2537a14be86713ae538cebb5
 bazel build //src/tools:codesearch
 sudo install bazel-bin/src/tools/codesearch /usr/local/bin
 popd
