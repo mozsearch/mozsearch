@@ -190,7 +190,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "ipdl" | "ipdlh" => FormatAs::FormatCLike(&*IPDL_SPEC),
         "idl" => FormatAs::FormatCLike(&*IDL_SPEC),
         "webidl" => FormatAs::FormatCLike(&*WEBIDL_SPEC),
-        "js" | "jsm" | "json" => FormatAs::FormatCLike(&*JS_SPEC),
+        "js" | "jsm" | "json" | "sjs" => FormatAs::FormatCLike(&*JS_SPEC),
         "py" | "build" | "configure" => FormatAs::FormatCLike(&*PYTHON_SPEC),
 
         "html" | "htm" | "xhtml" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
