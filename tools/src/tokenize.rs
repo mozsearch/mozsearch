@@ -113,7 +113,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
     };
 
     while cur_pos.get() < chars.len() {
-        let (start, ch) = get_char();
+        let (start, mut ch) = get_char();
         let mut continue_backtick = false;
         if let Some(braces) = backtick_nesting.last_mut() {
             match ch {
@@ -132,16 +132,68 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
             backtick_nesting.pop();
         }
 
-        let ch =
-            if spec.rust_tweaks && ch == 'b' &&
-               (peek_char() == '\'' || peek_char() == '"') {
-               let (_, next) = get_char();
-               next
-            } else {
-               ch
-            };
+        // Pre-process rust byte strings here. To do so, scan ahead a little:
+        // - If the next character is not a quote or an r, this is an
+        //   identifier. No action is taken.
+        // - If the next character is a quote, we have a byte string.
+        // - If the next character is an r, check the following character:
+        //   - If that character is a # or a quote, then this is a raw byte
+        //     string literal.
+        // In the cases where we don't have a byte string, we do nothing.
+        // Otherwise, consume the 'b', but leave `start` alone. This way, 'ch'
+        // will point to the proper character to consume this token (either
+        // the 'r' for a raw string literal or a quote for a byte string).
+        if spec.rust_tweaks && ch == 'b' {
+            match (peek_char(), peek_char2()) {
+                ('\'', _) | ('"', _) | ('r', '"') | ('r', '#') => {
+                    let (_, next) = get_char();
+                    ch = next;
+                }
+                _ => {}
+            }
+        }
 
-        if ch == 'R' && peek_char() == '"' {
+        if spec.rust_tweaks && ch == 'r' &&
+            (peek_char() == '#' || peek_char() == '"') {
+            // Rust raw string literals.
+            // Consume 0 or more #s.
+            let mut nhashes = 0;
+            loop {
+                let (_, ch) = get_char();
+                if ch == '"' {
+                    break;
+                }
+                nhashes += 1;
+            }
+
+            let mut start = start;
+            'rust_raw_string: loop {
+                if peek_pos() == string.len() {
+                    writeln!(&mut std::io::stderr(), "Unterminated raw string").unwrap();
+                    return tokens;
+                }
+
+                let (_, next) = get_char();
+                if next == '\n' {
+                    // Tokens shouldn't span across lines.
+                    start = push_newline(start, &mut tokens, TokenKind::StringLiteral);
+                }
+                if next != '"' {
+                    continue;
+                }
+
+                // Consume nhashes #s.
+                for _ in 0..nhashes {
+                    if peek_char() != '#' {
+                        continue 'rust_raw_string;
+                    }
+                    get_char();
+                }
+
+                break;
+            }
+            tokens.push(Token {start: start, end: peek_pos(), kind: TokenKind::StringLiteral});
+        } else if ch == 'R' && peek_char() == '"' {
             // Handle raw literals per
             // <http://en.cppreference.com/w/cpp/language/string_literal>.
             get_char();
@@ -1014,6 +1066,23 @@ mod tests {
         check_tokens("'b' while",
                      &vec![("'b'", TokenKind::StringLiteral),
                            ("while", TokenKind::Identifier(Some(String::from("style=\"color: blue;\" "))))],
+                     &rust_spec);
+
+        // Rust raw strings
+        check_tokens(r##"r#"hello"world"#"##,
+                     &vec![(r##"r#"hello"world"#"##, TokenKind::StringLiteral)],
+                     &rust_spec);
+        check_tokens(r#"r"hello world""#,
+                     &vec![(r#"r"hello world""#, TokenKind::StringLiteral)],
+                     &rust_spec);
+        check_tokens(r###"r##"hello world"# there"##"###,
+                     &vec![(r###"r##"hello world"# there"##"###, TokenKind::StringLiteral)],
+                     &rust_spec);
+        check_tokens("br\"hello world\"",
+                     &vec![("br\"hello world\"", TokenKind::StringLiteral)],
+                     &rust_spec);
+        check_tokens("br#\"hello world \" there\"#",
+                     &vec![("br#\"hello world \" there\"#", TokenKind::StringLiteral)],
                      &rust_spec);
     }
 }
