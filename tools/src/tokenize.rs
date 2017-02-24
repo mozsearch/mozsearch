@@ -132,6 +132,15 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
             backtick_nesting.pop();
         }
 
+        let ch =
+            if spec.rust_tweaks && ch == 'b' &&
+               (peek_char() == '\'' || peek_char() == '"') {
+               let (_, next) = get_char();
+               next
+            } else {
+               ch
+            };
+
         if ch == 'R' && peek_char() == '"' {
             // Handle raw literals per
             // <http://en.cppreference.com/w/cpp/language/string_literal>.
@@ -942,5 +951,19 @@ mod tests {
                            ("\n", TokenKind::Newline),
                            ("another line`", TokenKind::StringLiteral)],
                      &js_spec);
+    }
+
+    #[test]
+    fn check_rust_stuff() {
+        let rust_spec = match select_formatting("test.rs") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => { panic!("wrong spec"); }
+        };
+
+        // Rust byte strings
+        check_tokens(r##"b'a' b"bbb""##,
+                     &vec![("b'a'", TokenKind::StringLiteral),
+                           (r#"b"bbb""#, TokenKind::StringLiteral)],
+                     &rust_spec);
     }
 }
