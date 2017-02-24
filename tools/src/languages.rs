@@ -10,6 +10,8 @@ pub struct LanguageSpec {
     pub regexp_literals: bool,
     pub triple_quote_literals: bool,
     pub c_preprocessor: bool,
+    // Rust is mostly C-like, with a couple of differences.
+    pub rust_tweaks: bool,
 }
 
 fn make_reserved(v: &Vec<&str>) -> HashMap<String, String> {
@@ -111,6 +113,23 @@ lazy_static! {
         "def", "for", "lambda", "try",
     ];
 
+    // List of Rust reserved words pulled from
+    // https://github.com/rust-lang/rust/blob/master/src/libsyntax/symbol.rs
+    static ref RESERVED_WORDS_RUST : Vec<&'static str> = vec![
+        "as", "box", "break", "const", "continue", "crate",
+        "else", "enum", "extern", "false", "fn", "for", "if",
+        "impl", "in", "let", "loop", "match", "mod", "move",
+        "mut", "pub", "ref", "return", "self", "Self", "static",
+        "struct", "super", "trait", "true", "type", "unsafe",
+        "use", "where", "while",
+
+        "abstract", "alignof", "become", "do", "final", "macro",
+        "offsetof", "override", "priv", "proc", "pure", "sizeof",
+        "typeof", "unsized", "virtual", "yield",
+
+        "default", "union",
+    ];
+
     static ref JS_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_JS),
         hash_comment: false,
@@ -119,6 +138,7 @@ lazy_static! {
         regexp_literals: true,
         triple_quote_literals: false,
         c_preprocessor: false,
+        rust_tweaks: false,
     };
 
     static ref CPP_SPEC : LanguageSpec = LanguageSpec {
@@ -129,6 +149,7 @@ lazy_static! {
         regexp_literals: false,
         triple_quote_literals: false,
         c_preprocessor: true,
+        rust_tweaks: false,
     };
 
     static ref IPDL_SPEC : LanguageSpec = LanguageSpec {
@@ -139,6 +160,7 @@ lazy_static! {
         regexp_literals: false,
         triple_quote_literals: false,
         c_preprocessor: false,
+        rust_tweaks: false,
     };
 
     static ref IDL_SPEC : LanguageSpec = LanguageSpec {
@@ -149,6 +171,7 @@ lazy_static! {
         regexp_literals: false,
         triple_quote_literals: false,
         c_preprocessor: false,
+        rust_tweaks: false,
     };
 
     static ref WEBIDL_SPEC : LanguageSpec = LanguageSpec {
@@ -159,6 +182,7 @@ lazy_static! {
         regexp_literals: false,
         triple_quote_literals: false,
         c_preprocessor: false,
+        rust_tweaks: false,
     };
 
     static ref PYTHON_SPEC : LanguageSpec = LanguageSpec {
@@ -169,6 +193,18 @@ lazy_static! {
         regexp_literals: false,
         triple_quote_literals: true,
         c_preprocessor: false,
+        rust_tweaks: false,
+    };
+
+    static ref RUST_SPEC : LanguageSpec = LanguageSpec {
+        reserved_words: make_reserved(&*RESERVED_WORDS_RUST),
+        hash_comment: false,
+        c_style_comments: true,
+        backtick_strings: false,
+        regexp_literals: false,
+        triple_quote_literals: false,
+        c_preprocessor: false,
+        rust_tweaks: true,
     };
 }
 
@@ -199,6 +235,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "webidl" => FormatAs::FormatCLike(&*WEBIDL_SPEC),
         "js" | "jsm" | "json" | "sjs" => FormatAs::FormatCLike(&*JS_SPEC),
         "py" | "build" | "configure" => FormatAs::FormatCLike(&*PYTHON_SPEC),
+        "rs" => FormatAs::FormatCLike(&*RUST_SPEC),
 
         "html" | "htm" | "xhtml" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
 
