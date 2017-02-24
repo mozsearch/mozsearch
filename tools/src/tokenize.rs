@@ -347,6 +347,30 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                 get_char();
             }
 
+            // In Rust, ' could be the start of a byte literal *or* a
+            // Lisp-like atom. Check for that here (but be careful for
+            // something like '\n').
+            if spec.rust_tweaks && ch == '\'' &&
+                peek_char() != '\\' && peek_char2() != '\'' {
+
+                // Push the lonely quote.
+                tokens.push(Token {start: start, end: start + 1, kind: TokenKind::Punctuation});
+                loop {
+                    if peek_pos() == string.len() {
+                        break;
+                    }
+
+                    if !is_ident(peek_char()) {
+                        break;
+                    }
+                    get_char();
+                }
+
+                // Push the rest of the label.
+                tokens.push(Token {start: start + 1, end: peek_pos(), kind: TokenKind::Identifier(None)});
+                continue;
+            }
+
             let mut start = start;
             loop {
                 if peek_pos() == string.len() {
@@ -964,6 +988,32 @@ mod tests {
         check_tokens(r##"b'a' b"bbb""##,
                      &vec![("b'a'", TokenKind::StringLiteral),
                            (r#"b"bbb""#, TokenKind::StringLiteral)],
+                     &rust_spec);
+
+        // Rust labels
+        check_tokens("&'static",
+                     &vec![("&", TokenKind::Punctuation),
+                           ("'", TokenKind::Punctuation),
+                           ("static", TokenKind::Identifier(None))],
+                     &rust_spec);
+        check_tokens("&'static ",
+                     &vec![("&", TokenKind::Punctuation),
+                           ("'", TokenKind::Punctuation),
+                           ("static", TokenKind::Identifier(None))],
+                     &rust_spec);
+        check_tokens("'label: while",
+                     &vec![("'", TokenKind::Punctuation),
+                           ("label", TokenKind::Identifier(None)),
+                           (":", TokenKind::Punctuation),
+                           ("while", TokenKind::Identifier(Some(String::from("style=\"color: blue;\" "))))],
+                     &rust_spec);
+        check_tokens("'\\n' while",
+                     &vec![("'\\n'", TokenKind::StringLiteral),
+                           ("while", TokenKind::Identifier(Some(String::from("style=\"color: blue;\" "))))],
+                     &rust_spec);
+        check_tokens("'b' while",
+                     &vec![("'b'", TokenKind::StringLiteral),
+                           ("while", TokenKind::Identifier(Some(String::from("style=\"color: blue;\" "))))],
                      &rust_spec);
     }
 }
