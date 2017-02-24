@@ -306,6 +306,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
         } else if ch == '/' && spec.c_style_comments {
             let ch = peek_char();
             if ch == '*' {
+                let mut nesting = 1;
                 let mut start = start;
                 get_char();
                 loop {
@@ -316,10 +317,15 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
 
                     let (_, next) = get_char();
                     if next == '*' && peek_char() == '/' {
-                        break;
+                        if nesting == 1 {
+                            break;
+                        }
+                        nesting -= 1;
                     } else if next == '\n' {
                         // Tokens shouldn't span across lines.
                         start = push_newline(start, &mut tokens, TokenKind::Comment);
+                    } else if spec.rust_tweaks && next == '/' && peek_char() == '*' {
+                        nesting += 1;
                     }
                 }
                 get_char();
@@ -1014,8 +1020,8 @@ mod tests {
                            ("\n", TokenKind::Newline),
                            ("bar)\"", TokenKind::StringLiteral)],
                      &cpp_spec);
-        check_tokens("/* one line\nanother line */",
-                     &vec![("/* one line", TokenKind::Comment),
+        check_tokens("/* one /* line\nanother line */",
+                     &vec![("/* one /* line", TokenKind::Comment),
                            ("\n", TokenKind::Newline),
                            ("another line */", TokenKind::Comment)],
                      &cpp_spec);
@@ -1083,6 +1089,14 @@ mod tests {
                      &rust_spec);
         check_tokens("br#\"hello world \" there\"#",
                      &vec![("br#\"hello world \" there\"#", TokenKind::StringLiteral)],
+                     &rust_spec);
+
+        // Rust nested comments
+        check_tokens("/* hello world */",
+                     &vec![("/* hello world */", TokenKind::Comment)],
+                     &rust_spec);
+        check_tokens("/* hello /* world */ there */",
+                     &vec![("/* hello /* world */ there */", TokenKind::Comment)],
                      &rust_spec);
     }
 }
