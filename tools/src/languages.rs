@@ -198,7 +198,7 @@ lazy_static! {
 
     static ref RUST_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_RUST),
-        hash_comment: false,
+        hash_comment: true, // for now, for attributes
         c_style_comments: true,
         backtick_strings: false,
         regexp_literals: false,
