@@ -222,7 +222,7 @@ pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut 
 
     let scripts = [
         "libs/jquery-2.1.3.min.js",
-        "libs/nunjucks.min.js",
+        "libs/jquery.menu-aim.js",
         "utils.js",
         "dxr.js",
         "context-menu.js",

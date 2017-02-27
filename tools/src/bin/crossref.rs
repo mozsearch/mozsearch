@@ -22,6 +22,8 @@ struct SearchResult {
     line: String,
     context: String,
     contextsym: String,
+    brief_comment: String,
+    raw_comment: String,
 }
 
 impl ToJson for SearchResult {
@@ -35,6 +37,12 @@ impl ToJson for SearchResult {
         obj.insert("line".to_string(), self.line.to_json());
         obj.insert("context".to_string(), self.context.to_json());
         obj.insert("contextsym".to_string(), self.contextsym.to_json());
+        if !self.brief_comment.is_empty() {
+            obj.insert("briefComment".to_string(), self.brief_comment.to_json());
+        }
+        if !self.raw_comment.is_empty() {
+            obj.insert("rawComment".to_string(), self.raw_comment.to_json());
+        }
         Json::Object(obj)
     }
 }
@@ -134,6 +142,8 @@ fn main() {
                         line: buf,
                         context: piece.context,
                         contextsym: piece.contextsym,
+                        brief_comment: piece.brief_comment,
+                        raw_comment: piece.raw_comment,
                     });
 
                     pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());

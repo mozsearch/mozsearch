@@ -35,6 +35,8 @@ pub struct AnalysisTarget {
     pub sym: String,
     pub context: String,
     pub contextsym: String,
+    pub brief_comment: String,
+    pub raw_comment: String,
 }
 
 #[derive(Debug)]
@@ -72,7 +74,7 @@ pub fn read_analysis<T>(filename: &str, filter: &Fn(&Object) -> Option<T>) -> Ve
         let data = Json::from_str(&line);
         let data = match data {
             Ok(data) => data,
-            Err(_) => panic!("error on line {}: {}", lineno, &line),
+            Err(e) => panic!("error {} on line {}: {}", e, lineno, &line),
         };
         lineno += 1;
         let obj = data.as_object().unwrap();
@@ -143,9 +145,19 @@ pub fn read_target(obj : &Object) -> Option<AnalysisTarget> {
         Some(json) => json.as_string().unwrap().to_string(),
         None => "".to_string()
     };
+    let brief_comment = match obj.get("briefComment") {
+        Some(json) => json.as_string().unwrap().to_string(),
+        None => "".to_string()
+    };
+    let raw_comment = match obj.get("rawComment") {
+        Some(json) => json.as_string().unwrap().to_string(),
+        None => "".to_string()
+    };
     let sym = obj.get("sym").unwrap().as_string().unwrap().to_string();
 
-    Some(AnalysisTarget { kind: kind, pretty: pretty, sym: sym, context: context, contextsym: contextsym })
+    Some(AnalysisTarget { kind: kind, pretty: pretty, sym: sym, context: context,
+                          contextsym: contextsym, brief_comment: brief_comment,
+                          raw_comment: raw_comment })
 }
 
 pub fn read_source(obj : &Object) -> Option<AnalysisSource> {

@@ -88,7 +88,8 @@ table.folder-content tr:nth-child(even) {
 }
 table.folder-content tbody tr:hover,
 table tbody tr:hover,
-.context-menu a:hover {
+.context-menu a:hover,
+.context-menu-item.context-menu-maintain-hover {
     background-color: #e8e8e8;
 }
 table.folder-content td {
@@ -249,15 +250,9 @@ mark {
     margin: 0;
     padding: 0;
     border: 1px solid #333;
-    -webkit-border-radius: 6px;
-    -moz-border-radius: 6px;
-    border-radius: 6px;
-    -webkit-border-top-left-radius: 0;
-    -moz-border-top-left-radius: 0;
-    border-top-left-radius: 0;
     width: auto;
     list-style: none;
-    z-index: 2;
+    z-index: 3;
 }
 .context-menu a {
     display: block;
@@ -270,6 +265,38 @@ mark {
     border-bottom-right-radius: 6px;
     border-bottom-left-radius: 6px;
 }
+
+.context-submenu {
+  display: none;
+  position: absolute;
+  background-color: #fff;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #333;
+  width: 600px;
+  list-style: none;
+  z-index: 2;
+}
+
+.submenu-path-header {
+  background-color: #ddd;
+  padding: 3px;
+}
+
+.submenu-path-header a {
+  display: inline;
+  color: #0095dd;
+}
+
+.submenu-context-header {
+  background-color: #eee;
+  padding: 3px;
+}
+
+.context-submenu pre {
+  padding: 3px;
+}
+
 
 .content {
     margin-top: 70px;

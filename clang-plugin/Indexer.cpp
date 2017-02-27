@@ -229,10 +229,24 @@ class JSONFormatter
   int mPropertyCount;
   size_t mLength;
 
+  /**
+   * Hacky escaping logic with the goal of not upsetting the much more thorough
+   * rust JSON parsing library that actually understands UTF-8.  Double-quote
+   * and (escaping) backslash are escaped, as is tab (\t), with newlines (\r\n
+   * and \n) normalized to escaped \n.
+   *
+   * Additionally, everything that's not printable ASCII is simply erased.  The
+   * motivating file is media/openmax_il/il112/OMX_Other.h#93 which has a
+   * corrupted apostrophe as <92> in there.  The better course of action would
+   * be a validating UTF-8 parse that discards corrupt/non-printable characters.
+   * Since this is motivated by a commenting proof-of-concept and builds are
+   * already slow, I'm punting on that.
+   */
   std::string* Escape(const std::string& input) {
     bool needsEscape = false;
     for (char c : input) {
-      if (c == '\\' || c == '"') {
+      if (c == '\\' || c == '"' || c == '\n' || c == '\r' || c == '\t' ||
+          c < 32 || c > 126) {
         needsEscape = true;
         break;
       }
@@ -245,6 +259,12 @@ class JSONFormatter
     std::string cur = input;
     cur = ReplaceAll(cur, "\\", "\\\\");
     cur = ReplaceAll(cur, "\"", "\\\"");
+    cur = ReplaceAll(cur, "\t", "\\t");
+    cur = ReplaceAll(cur, "\r\n", "\\n");
+    cur = ReplaceAll(cur, "\n", "\\n");
+    cur.erase(std::remove_if(cur.begin(), cur.end(),
+                             [](char c){ return c < 32 || c > 126; }),
+              cur.end());
     return new std::string(cur);
   }
 
@@ -976,7 +996,8 @@ public:
                   SourceLocation loc,
                   const std::vector<std::string>& symbols,
                   Context context = Context(),
-                  int flags = 0)
+                  int flags = 0,
+                  Decl* commentDecl = nullptr)
   {
     if (!ShouldVisit(loc)) {
       return;
@@ -995,6 +1016,18 @@ public:
 
     if (!IsValidToken(text)) {
       return;
+    }
+
+    // Credit to https://stackoverflow.com/questions/25275212/
+    std::string briefComment;
+    std::string rawComment;
+    if (commentDecl) {
+      const RawComment* rc =
+        mASTContext->getRawCommentForDeclNoCache(commentDecl);
+      if (rc) {
+        briefComment = rc->getBriefText(*mASTContext);
+        rawComment = rc->getRawText(sm);
+      }
     }
 
     std::string symbolList;
@@ -1024,6 +1057,12 @@ public:
         std::string contextSymbol = ConcatSymbols(context.mSymbols);
         if (!contextSymbol.empty()) {
           fmt.Add("contextsym", contextSymbol);
+        }
+        if (!briefComment.empty()) {
+          fmt.Add("briefComment", briefComment);
+        }
+        if (!rawComment.empty()) {
+          fmt.Add("rawComment", rawComment);
         }
 
         std::string s;
@@ -1074,10 +1113,11 @@ public:
                   SourceLocation loc,
                   std::string symbol,
                   Context context = Context(),
-                  int flags = 0)
+                  int flags = 0,
+                  Decl* commentDecl = nullptr)
   {
     std::vector<std::string> v = { symbol };
-    VisitToken(kind, syntaxKind, qualName, loc, v, context, flags);
+    VisitToken(kind, syntaxKind, qualName, loc, v, context, flags, commentDecl);
   }
 
   void NormalizeLocation(SourceLocation* loc) {
@@ -1155,7 +1195,8 @@ public:
       prettyKind = "destructor";
     }
 
-    VisitToken(kind, prettyKind, GetQualifiedName(d), loc, symbols, GetContext(d), flags);
+    VisitToken(kind, prettyKind, GetQualifiedName(d), loc, symbols,
+               GetContext(d), flags, d);
 
     return true;
   }

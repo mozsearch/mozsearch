@@ -38,7 +38,7 @@ $(function() {
   'use strict';
 
   var constants = $('#data');
-  var dxr = {},
+  var dxr = window.dxr = {},
   docElem = document.documentElement;
 
   dxr.wwwRoot = constants.data('root');
@@ -167,6 +167,7 @@ $(function() {
 
     return search + '?' + $.param(params);
   }
+  window.buildAjaxURL = buildAjaxURL; // expose for context-menu.js
 
   /**
    * Add an entry into the history stack whenever we do a new search.
