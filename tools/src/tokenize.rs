@@ -1098,5 +1098,15 @@ mod tests {
         check_tokens("/* hello /* world */ there */",
                      &vec![("/* hello /* world */ there */", TokenKind::Comment)],
                      &rust_spec);
+
+        // Rust numbers
+        // NB: This result is a little unexpected, but it's fine since we
+        // don't actually need to generate code. The resulting output should
+        // look the same as though we actually parsed `1.5`.
+        check_tokens("1.5",
+                     &vec![("1", TokenKind::Identifier(None)),
+                           (".", TokenKind::Punctuation),
+                           ("5", TokenKind::Identifier(None))],
+                     &rust_spec);
     }
 }
