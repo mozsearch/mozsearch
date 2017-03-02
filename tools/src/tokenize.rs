@@ -320,11 +320,13 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
                         if nesting == 1 {
                             break;
                         }
+                        get_char();
                         nesting -= 1;
                     } else if next == '\n' {
                         // Tokens shouldn't span across lines.
                         start = push_newline(start, &mut tokens, TokenKind::Comment);
                     } else if spec.rust_tweaks && next == '/' && peek_char() == '*' {
+                        get_char();
                         nesting += 1;
                     }
                 }
@@ -1097,6 +1099,9 @@ mod tests {
                      &rust_spec);
         check_tokens("/* hello /* world */ there */",
                      &vec![("/* hello /* world */ there */", TokenKind::Comment)],
+                     &rust_spec);
+        check_tokens("/*/**/*/",
+                     &vec![("/*/**/*/", TokenKind::Comment)],
                      &rust_spec);
 
         // Rust numbers
