@@ -1044,7 +1044,7 @@ public:
           sm.getColumnNumber(pair.first, pair.second, &isInvalid);
         if (!isInvalid && firstColumn) {
           std::string indentPattern = "\n" + std::string(firstColumn - 1, ' ');
-          rawComment = ReplaceAll(rawComment, indentPattern, "\\n");
+          rawComment = ReplaceAll(rawComment, indentPattern, "\n");
         }
       }
     }
