@@ -81,6 +81,16 @@ def setter_name(attr):
         return 'Set' + attr.binaryname
     return 'Set' + attr.name[0].capitalize() + attr.name[1:]
 
+# The IDL parser only marks doxygen style "/**" comments as doccomments.  This
+# mean normalization is simply an issue of collapsing a run of more than one
+# leading whitespace character to a single character.
+COMMENT_NORMALIZER = re.compile('^[ ]{2,}\*', re.MULTILINE)
+def apply_comments(thing, jsonRep):
+    if thing.doccomments and len(thing.doccomments):
+        # Just use the comment that immediately preceded the thing.
+        jsonRep['rawComment'] = COMMENT_NORMALIZER.sub(' *',
+                                                       thing.doccomments[-1])
+
 def handle_interface(analysis, iface):
     (lineno, colno) = find_line_column(text, iface.name, iface.location._lexpos)
     mangled = 'T_' + iface.name
@@ -101,6 +111,7 @@ def handle_interface(analysis, iface):
         'kind': 'idl',
         'sym': mangled,
     }
+    apply_comments(iface, j)
     print json.dumps(j)
 
     if iface.attributes.scriptable:
@@ -111,6 +122,7 @@ def handle_interface(analysis, iface):
             'kind': 'idl',
             'sym': '#' + iface.name,
         }
+        apply_comments(iface, j)
         print json.dumps(j)
 
     if iface.base:
@@ -143,6 +155,7 @@ def handle_interface(analysis, iface):
                 'kind': 'idl',
                 'sym': mangled,
             }
+            apply_comments(m, j)
             print json.dumps(j)
 
             # Source
@@ -162,6 +175,7 @@ def handle_interface(analysis, iface):
                     'kind': 'idl',
                     'sym': '#' + m.name,
                 }
+                apply_comments(m, j)
                 print json.dumps(j)
 
         elif isinstance(m, xpidl.Attribute):
@@ -173,6 +187,7 @@ def handle_interface(analysis, iface):
                     'kind': 'idl',
                     'sym': '#' + m.name,
                 }
+                apply_comments(m, j)
                 print json.dumps(j)
 
             mangled_getter = analysis[getter_name(m)]
@@ -184,6 +199,7 @@ def handle_interface(analysis, iface):
                 'kind': 'idl',
                 'sym': mangled_getter,
             }
+            apply_comments(m, j)
             print json.dumps(j)
 
             if not m.readonly:
@@ -196,6 +212,7 @@ def handle_interface(analysis, iface):
                     'kind': 'idl',
                     'sym': mangled_setter,
                 }
+                apply_comments(m, j)
                 print json.dumps(j)
 
             # Source
@@ -222,6 +239,7 @@ def handle_interface(analysis, iface):
                 'kind': 'idl',
                 'sym': '#' + m.name,
             }
+            apply_comments(m, j)
             print json.dumps(j)
 
             # JS source
