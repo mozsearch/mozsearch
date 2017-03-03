@@ -1018,7 +1018,13 @@ public:
       return;
     }
 
-    // Credit to https://stackoverflow.com/questions/25275212/
+    // Extract and normalize comments and their whitespace.  We emit (processed)
+    // strings rather than range info because clang is able to perform extensive
+    // comment parsing.  In the future it could be leveraged to emit structured
+    // information, whereas if we only emitted the range we would have to do
+    // the parsing/processing in subsequent pipeline steps.
+    //
+    // Good comment AST info from https://stackoverflow.com/questions/25275212/
     std::string briefComment;
     std::string rawComment;
     if (commentDecl) {
@@ -1026,7 +1032,20 @@ public:
         mASTContext->getRawCommentForDeclNoCache(commentDecl);
       if (rc) {
         briefComment = rc->getBriefText(*mASTContext);
+        // Normalize whitespace by finding the column number of the first line
+        // of the comment and stripping off an equivalent amount of (non-tab)
+        // whitespace off any subsequent lines.
         rawComment = rc->getRawText(sm);
+
+        bool isInvalid;
+        std::pair<FileID, unsigned> pair =
+          sm.getDecomposedLoc(rc->getLocStart());
+        unsigned firstColumn =
+          sm.getColumnNumber(pair.first, pair.second, &isInvalid);
+        if (!isInvalid && firstColumn) {
+          std::string indentPattern = "\n" + std::string(firstColumn - 1, ' ');
+          rawComment = ReplaceAll(rawComment, indentPattern, "\\n");
+        }
       }
     }
 
