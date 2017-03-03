@@ -12,5 +12,6 @@ paths
 config.json
 env
 repos
-index
+/index
+/scratch
 addons
