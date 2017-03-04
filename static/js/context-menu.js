@@ -1,9 +1,12 @@
 /**
- * Dynamically updating 2-tier menu, allowing for the menu to be immediately
- * displayed with what's available and to update as search results arrive.
- * Replaces the nunjucks-based template mechanism.  (nunjucks supports async
- * rendering that delays the render, but does not seem to support streaming
- * DOM updates.)
+ * Dynamically updating 2-tier menu w/header, allowing for the menu to be
+ * immediately displayed with what's available and to update as search results
+ * arrive.
+ *
+ * The menuDef consists of:
+ * - header: { label, href }.  A header that spans the primary menu column and
+ *   the secondary detail popup that they trigger.
+ * - menuItems: See below.
  *
  * Menu items must have:
  * - label: The textContent of the <li> menu item; no HTML.
@@ -16,12 +19,37 @@
  *   synchronously.  If you are doing something asynchronously, populate it when
  *   you have the data, keeping in mind that the element may no longer be in the
  *   document by the time you go to populate the element.
+ *
+ * ## Layout
+ *
+ * CSS Grid would be ideal for this, but it's not available yet.  So we're
+ * adopting a flexbox layout.  See the block comment above ".context-menu" in
+ * mozsearch.css for some idea of what's going on.
  */
 function MegaMenu(menuDef) {
-  var rootElem = this.rootElem = document.createElement('ul');
+  var rootElem = this.rootElem = document.createElement('div');
   rootElem.id = 'context-menu';
   rootElem.className = 'context-menu';
   rootElem.setAttribute('tabindex', '0');
+
+  if (menuDef.header) {
+    var headerElem = this.headerElem = document.createElement('h3');
+    headerElem.className = 'context-menu-header';
+    headerElem.textContent = menuDef.header.label;
+    rootElem.appendChild(headerElem);
+  }
+
+  var menuBody = document.createElement('div');
+  menuBody.className = 'context-menu-body';
+  rootElem.appendChild(menuBody);
+
+  var menuItemContainer = this.menuItemContainer = document.createElement('ul');
+  menuItemContainer.className = 'context-menu-item-container';
+  menuBody.appendChild(menuItemContainer);
+
+  var submenuContainer = this.submenuContainer = document.createElement('div');
+  submenuContainer.className = 'context-submenu-container';
+  menuBody.appendChild(submenuContainer);
 
   this.itemCount = 0;
   this.addMenuItems(menuDef.menuItems);
@@ -42,14 +70,15 @@ MegaMenu.prototype = {
       var subElem = document.createElement('div');
       subElem.className = 'context-submenu';
       try {
-        item.populateSubmenu(subElem);
-        listElem.appendChild(subElem);
+        item.populateSubmenu(subElem, this);
+        linkElem.subMenuElem = subElem; // save it on an expando.
+        this.submenuContainer.appendChild(subElem);
       } catch(ex) {
         console.warn('Problem populating submenu:', ex);
       }
     }
 
-    this.rootElem.appendChild(listElem);
+    this.menuItemContainer.appendChild(listElem);
   },
 
   addMenuItems: function(items) {
@@ -74,34 +103,50 @@ function setContextMenu(menu, event)
   var megaMenu = new MegaMenu(menu);
   $('body').append(megaMenu.rootElem);
   var currentContextMenu = $('#context-menu');
+
+  var menuWidth = megaMenu.rootElem.offsetWidth;
+  var viewportWidth = window.innerWidth;
+  var obscuredMenuWidth = Math.max((left + menuWidth) - viewportWidth, 0);
+  var itemWidth = megaMenu.menuItemContainer.offsetWidth;
+  // Positioning goals:
+  // * Have the first menu item be beneath the user's mouse so its submenu is
+  //   visible.
+  // * Have the menu be horizontally visible on the screen.
+  // * Try and avoid having the user's mouse obscure the menu options.  (Icons
+  //   help with this.)
+  //
+  // Our main adjustment is then to conceptually slide the menu left until the
+  // menu is horizontally on the screen or the mouse would no longer be over the
+  // first menu item.
   currentContextMenu.css({
-    top: top - 4,
-    left: left - 4
+    top: top - megaMenu.headerElem.offsetHeight - 8,
+    // In my non-extensive testing, itemWidth right now ends up being sized at
+    // ~17 pixels wider than it actually ends up and I'm not really quite sure
+    // why that is.  I'm subtracting that off and a little extra as a hack for
+    // now.  Once the menu items are more constrained, the item row can be
+    // explicitly sized which should eliminate sizing instability.
+    left: left - Math.min(obscuredMenuWidth, itemWidth - 21) - 4
   });
 
   // Move focus to the context menu
-  //currentContextMenu[0].focus();
+  currentContextMenu[0].focus();
 
-  currentContextMenu.menuAim({
-    submenuSelector: '.context-menu-item',
+  // Use the menuItemContainer which is where the items actually live.  This is
+  // important so its calculated slopes are accurate and it can cancel change
+  // timers when the mouse leaves the menu area.
+  $(megaMenu.menuItemContainer).menuAim({
+    rowSelector: '.context-menu-item',
     activate: function(row) {
-      var subElem = row.querySelector('.context-submenu');
-
-      $(subElem).css({
-        display: 'block',
-        top: -1,
-        left: currentContextMenu.width(),
-        minHeight: currentContextMenu.outerHeight()
-      });
-
-      row.querySelector('a.context-menu-item').classList.add('context-menu-maintain-hover');
+      if (row.subMenuElem) {
+        row.subMenuElem.style.visibility = 'visible';
+      }
+      row.classList.add('context-menu-maintain-hover');
     },
     deactivate: function(row) {
-      var subElem = row.querySelector('.context-submenu');
-      if (subElem) {
-        subElem.style.display = 'none';
+      if (row.subMenuElem) {
+        row.subMenuElem.style.visibility = 'hidden';
       }
-      row.querySelector('a.context-menu-item').classList.remove('context-menu-maintain-hover');
+      row.classList.remove('context-menu-maintain-hover');
     }
   });
 
@@ -245,9 +290,11 @@ function normalizeSymbolInfo(data) {
   }
 
   chewQKinds(data.normal || []);
+  chewQKinds(data.generated || []);
 
   return {
-    declDefs: decls.concat(defs),
+    decls: decls,
+    defs: defs,
     uses: uses,
     totalUses: totalUses
   };
@@ -297,10 +344,17 @@ function makePathElements(path, className, optionalLno) {
  * full comment if available, failing over to the single "line" excerpt
  * otherwise.
  */
-function makeCommentSubmenuPopulater(sym) {
+function makeDeclarationPopulater(sym) {
   return function(menuElem) {
     loadSymbolInfo(sym).then(function(info) {
-      info.declDefs.forEach(function(fileResult) {
+      var fileResults;
+      // This is a hack to support treating type definitions as declarations.
+      if (info.decls.length) {
+        fileResults = info.decls;
+      } else {
+        fileResults = info.defs;
+      }
+      fileResults.forEach(function(fileResult) {
         var path = fileResult.path;
         var lines = fileResult.lines;
         // In the single hit case (which should be all of them for decls/defs),
@@ -322,7 +376,7 @@ function makeCommentSubmenuPopulater(sym) {
 
           var codeElem = document.createElement('pre');
           if (line.rawComment) {
-            codeElem.textContent = line.rawComment;
+            codeElem.textContent = line.rawComment + '\n' + line.line;
           } else {
             codeElem.textContent = line.line;
           }
@@ -407,19 +461,25 @@ $("#file").on("click", "span[data-i]", function(event) {
   }
 
   // Comes from the generated page.
-  var [jumps, searches] = ANALYSIS_DATA[index];
+  // NOTE! We now ignore the "jumps" data.  The differences between "jumps" and
+  // "searches" are:
+  // - "jumps" stem from the crossref process sourced from "target" data,
+  //   whereas "searches" are sourced from the "source" data.  The only
+  //   difference from our perspective is the "source" "pretty" value includes
+  //   the syntax kind as a prefix, so we get "type foo::Foo" and
+  //   "constructor foo::Foo::Foo" instead of bare "foo::Foo" and
+  //   "foo::Foo::Foo".
+  // - Jumps are not emitted on their own source line, because indeed it would
+  //   be silly to suggest jumping to the line you're already on.
+  //
+  // The extra syntax kind information is useful for our UI display purpose,
+  // plus we always want to be able to expose the declaration, so we always
+  // want to display the information regardless of whether jumping makes sense.
+  var searches = ANALYSIS_DATA[index][1];
 
   var menuItems = [];
 
-  // HACK: ANALYSIS_DATA currently has no idea that we like to expose the
-  // decl/defs in our mega-menu, so create a synthetic menu item with a
-  // different label so that we can expose the information even when the user
-  // is clicking on the canonical definition token.
-  var syntheticJump = false;
-  if (!jumps.length && searches.length === 1) {
-    syntheticJump = true;
-    jumps.push(searches[0]);
-  }
+  /*
   for (var i = 0; i < jumps.length; i++) {
     var sym = jumps[i].sym;
     var pretty = jumps[i].pretty;
@@ -436,17 +496,55 @@ $("#file").on("click", "span[data-i]", function(event) {
       populateSubmenu: makeCommentSubmenuPopulater(sym),
     });
   }
+  */
 
+  // For the header we want the most specific symbol we have.
+  var longestPretty = '';
   for (var i = 0; i < searches.length; i++) {
     var sym = searches[i].sym;
     var pretty = searches[i].pretty;
+
+    // Attempt to extract the syntaxKind
+    var prettyParts = pretty.split(' ');
+    var syntaxKind;
+    if (prettyParts.length > 1) {
+      syntaxKind = prettyParts[0];
+      pretty = prettyParts[1];
+    }
+
+    if (pretty.length > longestPretty.length) {
+      longestPretty = pretty;
+    }
+
+    var label;
+    if (syntaxKind) {
+      label = syntaxKind[0].toUpperCase() + syntaxKind.substring(1) +
+                " declaration";
+    } else {
+      label = "Declaration";
+    }
+
+    // Display the declaration immediately.
     menuItems.push({
-      label: fmt("Search for _", pretty),
+      label: label,
+      href: `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`,
+      icon: "search",
+      populateSubmenu: makeDeclarationPopulater(sym),
+    });
+    /*
+    menuItems.push({
+      label: label,
       href: `/${tree}/search?q=symbol:${encodeURIComponent(sym)}&redirect=false`,
       icon: "search",
       populateSubmenu: makeUsesSubmenuPopulater(sym),
     });
+    */
+
+    // Let uses be looked up asynchronously.
+    // TODO
   }
 
-  setContextMenu({menuItems: menuItems}, event);
+  var menuHeader = { label: longestPretty };
+
+  setContextMenu({ header: menuHeader, menuItems: menuItems }, event);
 });

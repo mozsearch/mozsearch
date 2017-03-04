@@ -243,37 +243,62 @@ mark {
     margin: 0;
 }
 
-/* Context menu */
+/* Context menu.  Looks like:
+ *
+ * /----------------------\
+ * |[        header      ]|
+ * |--------+-------------+
+ * |[ item ]|   submenu   | \
+ * |[ item ]|     ...     | | Body
+ * |[ item ]|     ...     | /
+ * \--------+-------------/
+ */
 .context-menu {
     position: absolute;
+    display: flex;
+    flex-direction: column;
     background-color: #fff;
     margin: 0;
     padding: 0;
     border: 1px solid #333;
     width: auto;
-    list-style: none;
     z-index: 3;
 }
+.context-menu-body {
+  display: flex;
+  flex-direction: row;
+}
+.context-menu-header {
+  margin: 0;
+  padding: 5px;
+  border-bottom: 1px solid #333;
+}
+
 .context-menu a {
     display: block;
     text-decoration: none;
 }
-.context-menu li:first-child a:hover {
-    border-top-right-radius: 6px;
-}
-.context-menu li:last-child a:hover {
-    border-bottom-right-radius: 6px;
-    border-bottom-left-radius: 6px;
+.context-menu-item-container {
+  display: block;
+  list-style: none;
+  border-right: 1px solid #333;
+  margin: 0;
+  padding: 0;
 }
 
+
+.context-submenu-container {
+  position: relative;
+  width: 600px;
+  min-height: 400px;
+}
 .context-submenu {
-  display: none;
   position: absolute;
+  visibility: hidden;
   background-color: #fff;
   margin: 0;
   padding: 0;
-  border: 1px solid #333;
-  width: 600px;
+  width: 100%;
   list-style: none;
   z-index: 2;
 }
