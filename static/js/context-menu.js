@@ -242,20 +242,6 @@ function normalizeSymbolInfo(data) {
   // represents the number of files containing uses.
   var totalUses = 0;
 
-  // Filter predicate that drops forward declarations.
-  // XXX It seems like searchfox should probably move forward declarations to
-  // a different kind?
-  function dropForwardDecls(fileResult) {
-    if (fileResult.lines.length === 1) {
-      var lineContent = fileResult.lines[0].line;
-      // Our goal is to drop declaration lines that look like:
-      // "struct Foo;" "class Foo;", in particular without an opening brace or
-      // delimiting whitespace.
-      return !(/^(?:class|struct) [^{\s]+;$/.test(lineContent));
-    }
-    return true;
-  }
-
   function chewQKinds(qkinds) {
     for (var qk in qkinds) {
       var value = qkinds[qk];
@@ -265,7 +251,7 @@ function normalizeSymbolInfo(data) {
       switch (qk[2]) {
         case "c": // "Declarations (".length === 14
           prettySymbol = qk.slice(14, -1);
-          decls = decls.concat(value.filter(dropForwardDecls));
+          decls = decls.concat(value);
           break;
         case "f": // "Definitions (".length === 13
           prettySymbol = qk.slice(13, -1);
@@ -375,8 +361,8 @@ function makeDeclarationPopulater(sym) {
           linkElem.href = makeSourceURL(path + '#' + line.lno);
 
           var codeElem = document.createElement('pre');
-          if (line.rawComment) {
-            codeElem.textContent = line.rawComment + '\n' + line.line;
+          if (line.peekLines) {
+            codeElem.textContent = line.peekLines;
           } else {
             codeElem.textContent = line.line;
           }

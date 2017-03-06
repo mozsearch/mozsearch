@@ -22,8 +22,7 @@ struct SearchResult {
     line: String,
     context: String,
     contextsym: String,
-    brief_comment: String,
-    raw_comment: String,
+    peek_lines: String,
 }
 
 impl ToJson for SearchResult {
@@ -37,11 +36,8 @@ impl ToJson for SearchResult {
         obj.insert("line".to_string(), self.line.to_json());
         obj.insert("context".to_string(), self.context.to_json());
         obj.insert("contextsym".to_string(), self.contextsym.to_json());
-        if !self.brief_comment.is_empty() {
-            obj.insert("briefComment".to_string(), self.brief_comment.to_json());
-        }
-        if !self.raw_comment.is_empty() {
-            obj.insert("rawComment".to_string(), self.raw_comment.to_json());
+        if !self.peek_lines.is_empty() {
+            obj.insert("peekLines".to_string(), self.peek_lines.to_json());
         }
         Json::Object(obj)
     }
@@ -67,6 +63,34 @@ fn split_scopes(id: &str) -> Vec<String> {
     }
     result.push(id[start ..].to_owned());
     return result;
+}
+
+// Returns a trimmed string as well as the number of characters that were
+// trimmed on the left.
+fn trim_whitespace(s: &str, max_left_trim: u32) -> (String, u32) {
+    let s = s.trim_right();
+
+    let mut whitespace_offset = 0;
+    let mut buf = String::new();
+    let mut i = 0;
+    let mut is_whitespace = if max_left_trim == 0 { false } else { true };
+    for c in s.chars() {
+        if !is_whitespace || (c != ' ' && c != '\t') {
+            is_whitespace = false;
+            buf.push(c);
+            i += 1;
+            if i > 100 {
+                break;
+            }
+        } else {
+            whitespace_offset += 1;
+            if whitespace_offset == max_left_trim {
+                is_whitespace = false;
+            }
+        }
+    }
+
+    return (buf, whitespace_offset);
 }
 
 fn main() {
@@ -117,33 +141,37 @@ fn main() {
                     let t1 = table.entry(piece.sym.to_owned()).or_insert(BTreeMap::new());
                     let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
                     let t3 = t2.entry(path.to_owned()).or_insert(Vec::new());
+
                     let lineno = (datum.loc.lineno - 1) as usize;
                     if lineno >= lines.len() {
                         print!("Bad line number in file {} (line {})\n", path, lineno);
                         return;
                     }
-                    let line = lines[lineno].clone();
-                    let line_cut = line.trim_right();
-                    let len = line_cut.len();
-                    let line_cut = line_cut.trim_left();
-                    let offset = (len - line_cut.len()) as u32;
-                    let mut buf = String::new();
-                    let mut i = 0;
-                    for c in line_cut.chars() {
-                        buf.push(c);
-                        i += 1;
-                        if i > 100 {
-                            break;
+                    let (line_cut, offset) = trim_whitespace(&lines[lineno], 0);
+
+                    let peek_start = piece.peek_range.start_lineno;
+                    let peek_end = piece.peek_range.end_lineno;
+                    let mut peek_lines = String::new();
+                    if peek_start != 0 {
+                        let (first, offset) = trim_whitespace(&lines[(peek_start - 1) as usize], 0);
+                        peek_lines.push_str(&first);
+                        peek_lines.push('\n');
+
+                        for peek_line_index in peek_start .. peek_end {
+                            let peek_line = &lines[peek_line_index as usize];
+                            let (trimmed, _) = trim_whitespace(peek_line, offset);
+                            peek_lines.push_str(&trimmed);
+                            peek_lines.push('\n');
                         }
                     }
+
                     t3.push(SearchResult {
                         lineno: datum.loc.lineno,
                         bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
-                        line: buf,
+                        line: line_cut,
                         context: piece.context,
                         contextsym: piece.contextsym,
-                        brief_comment: piece.brief_comment,
-                        raw_comment: piece.raw_comment,
+                        peek_lines: peek_lines,
                     });
 
                     pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
