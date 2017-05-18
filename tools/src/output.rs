@@ -96,57 +96,57 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
     ];
     let css_tags =
         css.iter().map(|c| {
-            F::T(format!("<link href=\"/static/css/{}\" rel=\"stylesheet\" type=\"text/css\" media=\"screen\"/>", c))
+            F::T(format!(r#"<link href="/static/css/{}" rel="stylesheet" type="text/css" media="screen"/>"#, c))
         });
 
     let mut head_seq = vec![
-        F::S("<meta charset=\"utf-8\" />"),
-        F::S("<link href=\"/static/icons/search.png\" rel=\"shortcut icon\">"),
+        F::S(r#"<meta charset="utf-8" />"#),
+        F::S(r#"<link href="/static/icons/search.png" rel="shortcut icon">"#),
         F::T(format!("<title>{}</title>", opt.title)),
     ];
     head_seq.extend(css_tags);
 
     let fieldset = vec![
-        F::S("<div id=\"search-box\" class=\"h-flex-container\" role=\"group\">"),
+        F::S(r#"<div id="search-box" class="h-flex-container" role="group">"#),
         F::Indent(vec![
-            F::S("<div id=\"query-section\">"),
+            F::S(r#"<div id="query-section">"#),
             F::Indent(vec![
-                F::S("<label for=\"query\" class=\"query_label visually-hidden\">Find</label>"),
-                F::T(format!("<input type=\"text\" name=\"q\" value=\"\" maxlength=\"2048\" id=\"query\" accesskey=\"s\" title=\"Search\" placeholder=\"Search {}\" autocomplete=\"off\" />",
+                F::S(r#"<label for="query" class="query_label visually-hidden">Find</label>"#),
+                F::T(format!(r#"<input type="text" name="q" value="" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {}" autocomplete="off" />"#,
                              opt.tree_name)),
-                F::S("<div class=\"zero-size-container\">"),
+                F::S(r#"<div class="zero-size-container">"#),
                 F::Indent(vec![
-                    F::S("<div class=\"bubble\" id=\"query-bubble\">"),
+                    F::S(r#"<div class="bubble" id="query-bubble">"#),
                     F::S("</div>"),
                 ]),
                 F::S("</div>"),
-                F::S("<section id=\"spinner\"></section>"),
+                F::S(r#"<section id="spinner"></section>"#),
             ]),
             F::S("</div>"),
 
-            F::S("<div id=\"option-section\" class=\"v-flex-container\">"),
+            F::S(r#"<div id="option-section" class="v-flex-container">"#),
             F::Indent(vec![
-                F::S("<label for=\"case\">"),
+                F::S(r#"<label for="case">"#),
                 F::Indent(vec![
-                    F::S("<input type=\"checkbox\" name=\"case\" id=\"case\" class=\"option-checkbox\" value=\"true\" accesskey=\"c\"/><span class=\"access-key\">C</span>ase-sensitive"),
+                    F::S(r#"<input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c"/><span class="access-key">C</span>ase-sensitive"#),
                 ]),
                 F::S("</label>"),
 
-                F::S("<label for=\"regexp\">"),
+                F::S(r#"<label for="regexp">"#),
                 F::Indent(vec![
-                    F::S("<input type=\"checkbox\" name=\"regexp\" id=\"regexp\" class=\"option-checkbox\" value=\"true\" accesskey=\"r\"/><span class=\"access-key\">R</span>egexp search"),
+                    F::S(r#"<input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search"#),
                 ]),
                 F::S("</label>"),
             ]),
             F::S("</div>"),
 
-            F::S("<div id=\"path-section\">"),
+            F::S(r#"<div id="path-section">"#),
             F::Indent(vec![
-                F::S("<label for=\"query\" class=\"query_label visually-hidden\">Path</label>"),
-                F::S("<input type=\"text\" name=\"path\" value=\"\" maxlength=\"2048\" id=\"path\" accesskey=\"p\" title=\"Path\" placeholder=\"Path filter (supports globbing and ^, $)\" autocomplete=\"off\" />"),
-                F::S("<div class=\"zero-size-container\">"),
+                F::S(r#"<label for="query" class="query_label visually-hidden">Path</label>"#),
+                F::S(r#"<input type="text" name="path" value="" maxlength="2048" id="path" accesskey="p" title="Path" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />"#),
+                F::S(r#"<div class="zero-size-container">"#),
                 F::Indent(vec![
-                    F::S("<div class=\"bubble\" id=\"path-bubble\">"),
+                    F::S(r#"<div class="bubble" id="path-bubble">"#),
                     F::S("</div>"),
                 ]),
                 F::S("</div>"),
@@ -158,9 +158,9 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
 
     let revision = match opt.revision {
         Some((rev_id, rev_desc)) => vec![
-            F::T(format!("<span id=\"rev-id\">Showing <a href=\"/{}/commit/{}\">{}</a>:</span>",
+            F::T(format!(r#"<span id="rev-id">Showing <a href="/{}/commit/{}">{}</a>:</span>"#,
                          opt.tree_name, rev_id, &rev_id[..8])),
-            F::T(format!("<span id=\"rev-desc\">{}</span>", rev_desc)),
+            F::T(format!(r#"<span id="rev-desc">{}</span>"#, rev_desc)),
         ],
         None => vec![],
     };
@@ -174,27 +174,27 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
         F::S("<fieldset>"),
         F::Indent(fieldset),
         F::S("</fieldset>"),
-        F::S("<input type=\"submit\" value=\"Search\" class=\"visually-hidden\" />"),
-        F::S("<div id=\"revision\">"),
+        F::S(r#"<input type="submit" value="Search" class="visually-hidden" />"#),
+        F::S(r#"<div id="revision">"#),
         F::Indent(revision),
         F::S("</div>"),
     ];
 
     let f = F::Seq(vec![
         F::S("<!DOCTYPE html>"),
-        F::S("<html lang=\"en-US\">"),
+        F::S(r#"<html lang="en-US">"#),
         F::S("<head>"),
         F::Indent(head_seq),
         F::S("</head>"),
         F::S(""),
-        F::T(format!("<body class=\"{}\">", body_class)),
+        F::T(format!(r#"<body class="{}">"#, body_class)),
         F::Indent(vec![
-            F::T(format!("<form method=\"get\" action=\"/{}/search\" id=\"basic_search\" class=\"search-box\">",
+            F::T(format!(r#"<form method="get" action="/{}/search" id="basic_search" class="search-box">"#,
                          opt.tree_name)),
             F::Indent(form),
             F::S("</form>"),
 
-            F::S("<div id=\"content\" class=\"content\" data-no-results=\"No results for current query.\">"),
+            F::S(r#"<div id="content" class="content" data-no-results="No results for current query.">"#),
         ]),
     ]);
 
@@ -211,10 +211,9 @@ pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut 
         let time_str = local.to_rfc2822();
 
         date = F::Seq(vec![
-            F::S("<div id=\"foot\" class=\"footer\">"),
+            F::S(r#"<div id="foot" class="footer">"#),
             F::Indent(vec![
-                F::T(format!("This page was generated by Searchfox \
-                              <span class=\"pretty-date\" data-datetime=\"{}\"></span>.", time_str)),
+                F::T(format!(r#"This page was generated by Searchfox <span class="pretty-date" data-datetime="{}"></span>."#, time_str)),
             ]),
             F::S("</div>"),
         ]);
@@ -232,13 +231,13 @@ pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut 
         "blame.js",
     ];
     let script_tags: Vec<_> =
-        scripts.iter().map(|s| F::T(format!("<script src=\"/static/js/{}\"></script>", s))).collect();
+        scripts.iter().map(|s| F::T(format!(r#"<script src="/static/js/{}"></script>"#, s))).collect();
 
     let f = F::Seq(vec![
         F::Indent(vec![
             F::Indent(vec![F::S("</div>")]),
             date,
-            F::T(format!("<span id=\"data\" data-root=\"/\" data-search=\"/{}/search\" data-tree=\"{}\" data-path=\"{}\"></span>",
+            F::T(format!(r#"<span id="data" data-root="/" data-search="/{}/search" data-tree="{}" data-path="{}"></span>"#,
                          tree_name, tree_name, path)),
             F::Seq(script_tags),
             F::S("</body>"),
@@ -266,13 +265,13 @@ pub fn generate_panel(writer: &mut Write, sections: &Vec<PanelSection>) -> Resul
     let sections = sections.iter().map(|section| {
         let items = section.items.iter().map(|item| {
             let update_attr = if item.update_link_lineno {
-                format!(" data-update-link=\"true\" data-link=\"{}\"", item.link)
+                format!(r#" data-update-link="true" data-link="{}""#, item.link)
             } else {
                 "".to_owned()
             };
             F::Seq(vec![
                 F::S("<li>"),
-                F::T(format!("<a href=\"{}\" title=\"{}\" class=\"icon\"{}>{}</a>",
+                F::T(format!(r#"<a href="{}" title="{}" class="icon"{}>{}</a>"#,
                              item.link, item.title, update_attr, item.title)),
                 F::S("</li>"),
             ])
@@ -287,15 +286,15 @@ pub fn generate_panel(writer: &mut Write, sections: &Vec<PanelSection>) -> Resul
     }).collect::<Vec<_>>();
 
     let f = F::Seq(vec![
-        F::S("<div class=\"panel\">"),
+        F::S(r#"<div class="panel">"#),
         F::Indent(vec![
-            F::S("<button id=\"panel-toggle\">"),
+            F::S(r#"<button id="panel-toggle">"#),
             F::Indent(vec![
-                F::S("<span class=\"navpanel-icon expanded\" aria-hidden=\"false\"></span>"),
+                F::S(r#"<span class="navpanel-icon expanded" aria-hidden="false"></span>"#),
                 F::S("Navigation"),
             ]),
             F::S("</button>"),
-            F::S("<section id=\"panel-content\" aria-expanded=\"true\" aria-hidden=\"false\">"),
+            F::S(r#"<section id="panel-content" aria-expanded="true" aria-hidden="false">"#),
             F::Seq(sections),
             F::S("</section>"),
         ]),
