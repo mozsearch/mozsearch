@@ -58,6 +58,10 @@ for repo in config['trees']:
     proxy_pass http://localhost:8001;
   }
 
+  location /%(repo)s/complete {
+    proxy_pass http://localhost:8001;
+  }
+
   location /%(repo)s/commit-info {
     proxy_pass http://localhost:8001;
   }''' % fmt
