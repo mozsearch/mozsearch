@@ -8,7 +8,7 @@ chrono = "0.2"
 rustc-serialize = "0.3.18"
 git2 = { path = "./git2-rs" }
 lazy_static = "0.2.1"
-hyper = "0.9"
+hyper = "0.10"
 env_logger = "0.3.3"
 regex = "0.1"
 ipdl_parser = { path = "./ipdl_parser" }
