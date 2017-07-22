@@ -1013,27 +1013,35 @@ class XBLParser extends XMLParser {
   ongetter(tag) {
     tag.text = this.curText;
     let parentTag = this.stack[this.stack.length - 2];
-    parentTag.getter = tag;
+    if (parentTag) {
+      parentTag.getter = tag;
+    }
   }
 
   onsetter(tag) {
     tag.text = this.curText;
     let parentTag = this.stack[this.stack.length - 2];
-    parentTag.setter = tag;
+    if (parentTag) {
+      parentTag.setter = tag;
+    }
   }
 
   onparameter(tag) {
     let parentTag = this.stack[this.stack.length - 2];
-    if (!parentTag.params) {
-      parentTag.params = [];
+    if (parentTag) {
+      if (!parentTag.params) {
+        parentTag.params = [];
+      }
+      parentTag.params.push(tag);
     }
-    parentTag.params.push(tag);
   }
 
   onbody(tag) {
     tag.text = this.curText;
     let parentTag = this.stack[this.stack.length - 2];
-    parentTag.body = tag;
+    if (parentTag) {
+      parentTag.body = tag;
+    }
   }
 
   onstructor(tag) {
