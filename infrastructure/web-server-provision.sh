@@ -21,6 +21,9 @@ sudo apt-get install -y parallel realpath unzip python-pip
 # Nginx
 sudo apt-get install -y nginx
 
+# Install pkg-config (needed for Rust's OpenSSL wrappers)
+sudo apt-get install pkg-config
+
 # Install Rust.
 curl -sSf https://static.rust-lang.org/rustup.sh | sh
 
