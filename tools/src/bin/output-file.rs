@@ -138,7 +138,7 @@ fn main() {
                     update_link_lineno: false,
                  }, PanelItem {
                     title: "Raw".to_owned(),
-                    link: format!("https://hg.mozilla.org/mozilla-central/raw-file/{}/{}", oid, path),
+                    link: format!("https://raw.githubusercontent.com/mozilla/gecko-dev/{}/{}", oid, path),
                     update_link_lineno: false,
                 }, PanelItem {
                     title: "Blame".to_owned(),
