@@ -7,6 +7,12 @@ sudo apt-get update
 
 sudo apt-get install -y git
 
+# Livegrep (Bazel is needed for Livegrep builds)
+echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install -y bazel libssl-dev
+
 # Clang
 wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-4.0 main"
@@ -15,12 +21,6 @@ sudo apt-get install -y clang-4.0 clang-4.0-dev
 
 # Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
 sudo apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev libgtk-3-dev libglib2.0-dev libdbus-1-dev libdbus-glib-1-dev libasound2-dev libcurl4-openssl-dev libiw-dev libxt-dev mesa-common-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libpulse-dev m4 flex libx11-xcb-dev ccache libgconf2-dev
-
-# Livegrep (Bazel is needed for Livegrep builds)
-echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
-sudo apt-get update
-sudo apt-get install -y bazel libssl-dev
 
 # Other
 sudo apt-get install -y parallel realpath python-virtualenv python-pip
