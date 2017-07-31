@@ -136,6 +136,10 @@ fn main() {
                     title: "Log".to_owned(),
                     link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
                     update_link_lineno: false,
+                 }, PanelItem {
+                    title: "Raw".to_owned(),
+                    link: format!("https://raw.githubusercontent.com/mozilla/gecko-dev/{}/{}", oid, path),
+                    update_link_lineno: false,
                 }, PanelItem {
                     title: "Blame".to_owned(),
                     link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
