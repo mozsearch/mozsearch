@@ -6,8 +6,8 @@ Vagrant.configure("2") do |config|
     indexer.vm.provision "build", type:"shell", path: "infrastructure/vagrant/indexer-provision.sh"
 
     indexer.vm.provider "virtualbox" do |v|
-      v.memory = 8192
-      v.cpus = 2
+      v.memory = 32768
+      v.cpus = 4
     end
   end
 
