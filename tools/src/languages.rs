@@ -14,7 +14,7 @@ pub struct LanguageSpec {
     pub rust_tweaks: bool,
 }
 
-fn make_reserved(v: &Vec<&str>) -> HashMap<String, String> {
+fn make_reserved(v: &[&str]) -> HashMap<String, String> {
     let mut reserved_words = HashMap::new();
     for word in v {
         reserved_words.insert(word.to_string(), "style=\"color: blue;\" ".to_string());

@@ -29,7 +29,7 @@ fn is_whitespace(ch : char) -> bool {
     ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
 
-pub fn tokenize_plain(string: &String) -> Vec<Token> {
+pub fn tokenize_plain(string: &str) -> Vec<Token> {
     let lines = string.split('\n');
     let mut tokens = Vec::new();
     let mut start = 0;
@@ -55,7 +55,7 @@ pub fn tokenize_plain(string: &String) -> Vec<Token> {
     tokens
 }
 
-pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
+pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
     fn is_ident(ch: char) -> bool {
         (ch == '_') || ch.is_alphabetic() || ch.is_digit(10)
     }
@@ -467,7 +467,7 @@ pub fn tokenize_c_like(string: &String, spec: &LanguageSpec) -> Vec<Token> {
     tokens
 }
 
-pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Token> {
+pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token> {
     fn is_ident(ch: char) -> bool {
         ch == '.' || ch == '_' || ch == '-' || ch == ':' || ch.is_alphabetic() || ch.is_digit(10)
     }
@@ -787,7 +787,7 @@ pub fn tokenize_tag_like(string: &String, script_spec: &LanguageSpec) -> Vec<Tok
         _ => {},
     }
 
-    fn peek(tag_stack: &Vec<&str>, index: usize, check: &str) -> bool {
+    fn peek(tag_stack: &[&str], index: usize, check: &str) -> bool {
         if tag_stack.len() <= index {
             return false;
         }

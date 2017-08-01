@@ -261,7 +261,7 @@ pub struct PanelSection {
     pub items: Vec<PanelItem>,
 }
 
-pub fn generate_panel(writer: &mut Write, sections: &Vec<PanelSection>) -> Result<(), &'static str> {
+pub fn generate_panel(writer: &mut Write, sections: &[PanelSection]) -> Result<(), &'static str> {
     let sections = sections.iter().map(|section| {
         let items = section.items.iter().map(|item| {
             let update_attr = if item.update_link_lineno {

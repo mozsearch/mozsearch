@@ -46,7 +46,7 @@ fn mangle_simple(s: &str) -> String {
     format!("{}{}", s.len(), s)
 }
 
-fn mangle_nested_name(ns: &Vec<String>, protocol: &str, name: &str) -> String {
+fn mangle_nested_name(ns: &[String], protocol: &str, name: &str) -> String {
     format!("_ZN{}{}{}E",
             ns.iter().map(|id| mangle_simple(&id)).collect::<Vec<_>>().join(""),
             mangle_simple(protocol),
