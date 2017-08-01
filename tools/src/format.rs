@@ -21,8 +21,8 @@ use chrono::datetime::DateTime;
 use config;
 
 pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
-                   path: &str, input: &String,
-                   analysis: &Vec<WithLocation<Vec<AnalysisSource>>>) -> (Vec<String>, String)
+                   path: &str, input: &str,
+                   analysis: &[WithLocation<Vec<AnalysisSource>>]) -> (Vec<String>, String)
 {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
@@ -222,13 +222,13 @@ fn read_blob_entry(repo: &git2::Repository, entry: &git2::TreeEntry) -> String {
 
 pub fn format_file_data(cfg: &config::Config,
                         tree_name: &str,
-                        panel: &Vec<PanelSection>,
+                        panel: &[PanelSection],
                         commit: Option<&git2::Commit>,
                         blame_commit: Option<&git2::Commit>,
                         path: &str,
                         data: String,
                         jumps: &HashMap<String, Jump>,
-                        analysis: &Vec<WithLocation<Vec<AnalysisSource>>>,
+                        analysis: &[WithLocation<Vec<AnalysisSource>>],
                         writer: &mut Write) -> Result<(), &'static str>  {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
