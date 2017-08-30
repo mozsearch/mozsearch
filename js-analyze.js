@@ -535,7 +535,9 @@ let Analyzer = {
         }
 
         this.contextStack.push(name);
-        this.expression(prop.value);
+        if (prop.value) {
+          this.expression(prop.value);
+        }
         this.contextStack.pop();
       }
       break;
