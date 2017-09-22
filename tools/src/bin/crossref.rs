@@ -25,6 +25,7 @@ struct SearchResult {
     line: Rc<String>,
     context: Rc<String>,
     contextsym: Rc<String>,
+    peek_lines: Rc<String>,
 }
 
 impl ToJson for SearchResult {
@@ -38,6 +39,9 @@ impl ToJson for SearchResult {
         obj.insert("line".to_string(), self.line.to_json());
         obj.insert("context".to_string(), self.context.to_json());
         obj.insert("contextsym".to_string(), self.contextsym.to_json());
+        if !self.peek_lines.is_empty() {
+            obj.insert("peekLines".to_string(), self.peek_lines.to_json());
+        }
         Json::Object(obj)
     }
 }
@@ -159,13 +163,28 @@ fn main() {
                     print!("Bad line number in file {} (line {})\n", path, lineno);
                     continue;
                 }
+
                 let (line, offset) = lines[lineno].clone();
+
+                let peek_start = piece.peek_range.start_lineno;
+                let peek_end = piece.peek_range.end_lineno;
+                let mut peek_lines = String::new();
+                if peek_start != 0 {
+                    // NB: previous patch version also included peek_start-1 for some reason.
+                    for peek_line_index in peek_start .. peek_end {
+                        let peek_line = &lines[peek_line_index as usize].0;
+                        peek_lines.push_str(&peek_line);
+                        peek_lines.push('\n');
+                    }
+                }
+
                 t3.push(SearchResult {
                     lineno: datum.loc.lineno,
                     bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
                     line: line,
                     context: strings.add(piece.context),
                     contextsym: strings.add(piece.contextsym),
+                    peek_lines: strings.add(peek_lines),
                 });
 
                 let pretty = strings.add(piece.pretty.to_owned());

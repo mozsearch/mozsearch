@@ -229,10 +229,24 @@ class JSONFormatter
   int mPropertyCount;
   size_t mLength;
 
+  /**
+   * Hacky escaping logic with the goal of not upsetting the much more thorough
+   * rust JSON parsing library that actually understands UTF-8.  Double-quote
+   * and (escaping) backslash are escaped, as is tab (\t), with newlines (\r\n
+   * and \n) normalized to escaped \n.
+   *
+   * Additionally, everything that's not printable ASCII is simply erased.  The
+   * motivating file is media/openmax_il/il112/OMX_Other.h#93 which has a
+   * corrupted apostrophe as <92> in there.  The better course of action would
+   * be a validating UTF-8 parse that discards corrupt/non-printable characters.
+   * Since this is motivated by a commenting proof-of-concept and builds are
+   * already slow, I'm punting on that.
+   */
   std::string* Escape(const std::string& input) {
     bool needsEscape = false;
     for (char c : input) {
-      if (c == '\\' || c == '"') {
+      if (c == '\\' || c == '"' || c == '\n' || c == '\r' || c == '\t' ||
+          c < 32 || c > 126) {
         needsEscape = true;
         break;
       }
@@ -245,6 +259,12 @@ class JSONFormatter
     std::string cur = input;
     cur = ReplaceAll(cur, "\\", "\\\\");
     cur = ReplaceAll(cur, "\"", "\\\"");
+    cur = ReplaceAll(cur, "\t", "\\t");
+    cur = ReplaceAll(cur, "\r\n", "\\n");
+    cur = ReplaceAll(cur, "\n", "\\n");
+    cur.erase(std::remove_if(cur.begin(), cur.end(),
+                             [](char c){ return c < 32 || c > 126; }),
+              cur.end());
     return new std::string(cur);
   }
 
@@ -422,6 +442,23 @@ private:
     } else {
       return StringFormat("%d:%d", line, column - 1);
     }
+  }
+
+  std::string LineRangeToString(SourceRange range) {
+    std::pair<FileID, unsigned> begin = sm.getDecomposedLoc(range.getBegin());
+    std::pair<FileID, unsigned> end = sm.getDecomposedLoc(range.getEnd());
+
+    bool isInvalid;
+    unsigned line1 = sm.getLineNumber(begin.first, begin.second, &isInvalid);
+    if (isInvalid) {
+      return "";
+    }
+    unsigned line2 = sm.getLineNumber(end.first, end.second, &isInvalid);
+    if (isInvalid) {
+      return "";
+    }
+
+    return StringFormat("%d-%d", line1, line2);
   }
 
   // Returns the qualified name of `d` without considering template parameters.
@@ -976,7 +1013,8 @@ public:
                   SourceLocation loc,
                   const std::vector<std::string>& symbols,
                   Context context = Context(),
-                  int flags = 0)
+                  int flags = 0,
+                  SourceRange peekRange = SourceRange())
   {
     if (!ShouldVisit(loc)) {
       return;
@@ -987,6 +1025,7 @@ public:
 
     std::string locStr = LocationToString(loc, endOffset - startOffset);
     std::string rangeStr = LocationToString(loc, endOffset - startOffset);
+    std::string peekRangeStr;
 
     const char* startChars = sm.getCharacterData(loc);
     std::string text(startChars, endOffset - startOffset);
@@ -1024,6 +1063,12 @@ public:
         std::string contextSymbol = ConcatSymbols(context.mSymbols);
         if (!contextSymbol.empty()) {
           fmt.Add("contextsym", contextSymbol);
+        }
+        if (peekRange.isValid()) {
+          peekRangeStr = LineRangeToString(peekRange);
+          if (!peekRangeStr.empty()) {
+            fmt.Add("peekRange", peekRangeStr);
+          }
         }
 
         std::string s;
@@ -1074,14 +1119,102 @@ public:
                   SourceLocation loc,
                   std::string symbol,
                   Context context = Context(),
-                  int flags = 0)
+                  int flags = 0,
+                  SourceRange peekRange = SourceRange())
   {
     std::vector<std::string> v = { symbol };
-    VisitToken(kind, syntaxKind, qualName, loc, v, context, flags);
+    VisitToken(kind, syntaxKind, qualName, loc, v, context, flags, peekRange);
   }
 
   void NormalizeLocation(SourceLocation* loc) {
     *loc = sm.getSpellingLoc(*loc);
+  }
+
+  SourceRange GetFunctionPeekRange(FunctionDecl* d) {
+    // We always start at the start of the function decl, which may include the
+    // return type on a separate line.
+    SourceLocation start = d->getLocStart();
+
+    // By default, we end at the line containing the function's name.
+    SourceLocation end = d->getLocation();
+
+    std::pair<FileID, unsigned> funcLoc = sm.getDecomposedLoc(end);
+
+    // But if there are parameters, we want to include those as well.
+    for (ParmVarDecl* param : d->parameters()) {
+      std::pair<FileID, unsigned> paramLoc = sm.getDecomposedLoc(param->getLocation());
+
+      // It's possible there are macros involved or something. We don't include
+      // the parameters in that case.
+      if (paramLoc.first == funcLoc.first) {
+        // Assume parameters are in order, so we always take the last one.
+        end = param->getLocEnd();
+      }
+    }
+
+    return SourceRange(start, end);
+  }
+
+  SourceRange GetTagPeekRange(TagDecl* d) {
+    SourceLocation start = d->getOuterLocStart();
+
+    // By default, we end at the line containing the name.
+    SourceLocation end = d->getLocation();
+
+    std::pair<FileID, unsigned> funcLoc = sm.getDecomposedLoc(end);
+
+    if (CXXRecordDecl* d2 = dyn_cast<CXXRecordDecl>(d)) {
+      // But if there are parameters, we want to include those as well.
+      for (CXXBaseSpecifier& base : d2->bases()) {
+        std::pair<FileID, unsigned> loc = sm.getDecomposedLoc(base.getLocEnd());
+
+        // It's possible there are macros involved or something. We don't include
+        // the parameters in that case.
+        if (loc.first == funcLoc.first) {
+          // Assume parameters are in order, so we always take the last one.
+          end = base.getLocEnd();
+        }
+      }
+    }
+
+    return SourceRange(start, end);
+  }
+
+  SourceRange GetCommentRange(NamedDecl* d) {
+    const RawComment* rc =
+      mASTContext->getRawCommentForDeclNoCache(d);
+    if (!rc) {
+      return SourceRange();
+    }
+
+    return rc->getSourceRange();
+  }
+
+  SourceRange CombineRanges(SourceRange range1, SourceRange range2) {
+    if (range1.isInvalid()) {
+      return range2;
+    }
+    if (range2.isInvalid()) {
+      return range1;
+    }
+
+    std::pair<FileID, unsigned> begin1 = sm.getDecomposedLoc(range1.getBegin());
+    std::pair<FileID, unsigned> end1 = sm.getDecomposedLoc(range1.getEnd());
+    std::pair<FileID, unsigned> begin2 = sm.getDecomposedLoc(range2.getBegin());
+    std::pair<FileID, unsigned> end2 = sm.getDecomposedLoc(range2.getEnd());
+
+    if (end1.first != begin2.first) {
+      // Something weird is probably happening with the preprocessor. Just
+      // return the first range.
+      return range1;
+    }
+
+    // See which range comes first.
+    if (begin1.second <= end2.second) {
+      return SourceRange(range1.getBegin(), range2.getEnd());
+    } else {
+      return SourceRange(range2.getBegin(), range1.getEnd());
+    }
   }
 
   bool VisitNamedDecl(NamedDecl *d) {
@@ -1099,18 +1232,28 @@ public:
     int flags = 0;
     const char* kind = "def";
     const char* prettyKind = "?";
+    SourceRange peekRange(d->getLocStart(), d->getLocEnd());
     if (FunctionDecl* d2 = dyn_cast<FunctionDecl>(d)) {
       if (d2->isTemplateInstantiation()) {
         d = d2->getTemplateInstantiationPattern();
       }
       kind = d2->isThisDeclarationADefinition() ? "def" : "decl";
       prettyKind = "function";
+
+      peekRange = GetFunctionPeekRange(d2);
     } else if (TagDecl* d2 = dyn_cast<TagDecl>(d)) {
       kind = d2->isThisDeclarationADefinition() ? "def" : "decl";
       prettyKind = "type";
+
+      if (d2->isThisDeclarationADefinition()) {
+        peekRange = GetTagPeekRange(d2);
+      } else {
+        peekRange = SourceRange();
+      }
     } else if (isa<TypedefNameDecl>(d)) {
       kind = "def";
       prettyKind = "type";
+      peekRange = SourceRange(loc, loc);
     } else if (VarDecl* d2 = dyn_cast<VarDecl>(d)) {
       if (d2->isLocalVarDeclOrParm()) {
         flags = NO_CROSSREF;
@@ -1121,6 +1264,7 @@ public:
     } else if (isa<NamespaceDecl>(d) || isa<NamespaceAliasDecl>(d)) {
       kind = "def";
       prettyKind = "namespace";
+      peekRange = SourceRange(loc, loc);
     } else if (isa<FieldDecl>(d)) {
       kind = "def";
       prettyKind = "field";
@@ -1130,6 +1274,9 @@ public:
     } else {
       return true;
     }
+
+    SourceRange commentRange = GetCommentRange(d);
+    peekRange = CombineRanges(peekRange, commentRange);
 
     std::vector<std::string> symbols = { GetMangledName(mMangleContext, d) };
     if (CXXMethodDecl::classof(d)) {
@@ -1155,7 +1302,8 @@ public:
       prettyKind = "destructor";
     }
 
-    VisitToken(kind, prettyKind, GetQualifiedName(d), loc, symbols, GetContext(d), flags);
+    VisitToken(kind, prettyKind, GetQualifiedName(d), loc, symbols,
+               GetContext(d), flags, peekRange);
 
     return true;
   }
