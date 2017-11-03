@@ -12,4 +12,4 @@ def log(msg, *args):
     print '%s/pid=%d - %s' % (str(now), pid, msg % args)
     sys.stdout.flush()
     lock.release()
-    
+

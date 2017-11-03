@@ -2,6 +2,7 @@ import json
 import sys
 import mmap
 import os.path
+from logger import log
 
 repo_data = {}
 
@@ -9,7 +10,7 @@ def load(config):
     global repo_data
 
     for repo_name in config['trees']:
-        print 'Loading identifiers for', repo_name
+        log('Loading identifiers for %s', repo_name)
         index_path = config['trees'][repo_name]['index_path']
 
         f = open(os.path.join(index_path, 'identifiers'))

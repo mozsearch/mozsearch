@@ -32,7 +32,7 @@ class CodeSearch:
 
     def search(self, pattern, fold_case, file, repo):
         query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
-        print 'QUERY', query
+        log('QUERY %s', repr(query))
         log('codesearch query %s', json.dumps(query))
         self.query = json.dumps(query)
         self.state = 'search'
@@ -102,10 +102,11 @@ def daemonize(args):
     os.dup2(so.fileno(), sys.stdout.fileno())
     os.dup2(se.fileno(), sys.stderr.fileno())
 
-    log('Running codesearch')
     os.execvp(args[0], args)
 
 def startup_codesearch(data):
+    log('Starting codesearch')
+
     args = ['codesearch', '-listen', 'tcp://localhost:' + str(data['codesearch_port']),
             '-load_index', data['codesearch_path'],
             '-max_matches', '1000', '-timeout', '10000']
@@ -124,6 +125,7 @@ def search(pattern, fold_case, path, tree_name):
         try:
             codesearch = CodeSearch('localhost', data['codesearch_port'])
         except socket.error, e:
+            log('Unable to start codesearch')
             return []
 
     try:

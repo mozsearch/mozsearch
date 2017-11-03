@@ -197,7 +197,7 @@ class SearchResults(object):
             work = 0
             for (qual, results, line_modifier) in self.qualified_results:
                 if work > self.max_work and work_limit:
-                    print 'WORK LIMIT HIT'
+                    log('WORK LIMIT HIT')
                     break
                 for pathr in results.get(kind, []):
                     self.compile_result(kind, qual, pathr, line_modifier)
