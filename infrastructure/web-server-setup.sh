@@ -18,17 +18,17 @@ CONFIG_FILE=$WORKING/config.json
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 
 sudo mkdir -p /etc/nginx/sites-enabled
-sudo rm /etc/nginx/sites-enabled/default
+sudo rm -f /etc/nginx/sites-enabled/default
 
 for TREE_NAME in $($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees)
 do
     mkdir -p docroot/file/$TREE_NAME
     mkdir -p docroot/dir/$TREE_NAME
-    ln -s $HOME/index/$TREE_NAME/file docroot/file/$TREE_NAME/source
-    ln -s $HOME/index/$TREE_NAME/dir docroot/dir/$TREE_NAME/source
+    ln -s $WORKING/$TREE_NAME/file docroot/file/$TREE_NAME/source
+    ln -s $WORKING/$TREE_NAME/dir docroot/dir/$TREE_NAME/source
 
     rm -f docroot/help.html
-    ln -s $HOME/index/$TREE_NAME/help.html docroot
+    ln -s $WORKING/$TREE_NAME/help.html docroot
 done
 
 DOCROOT=$(realpath docroot)

@@ -38,12 +38,12 @@ sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-4.0
 curl -sSf https://static.rust-lang.org/rustup.sh | sh
 
 # Install codesearch.
-git clone https://github.com/livegrep/livegrep
+rm -rf livegrep
+git clone https://github.com/bill-mccloskey/livegrep
 pushd livegrep
-git reset --hard 48a06ed14127f37e2537a14be86713ae538cebb5
 # The last two options turn off the bazel sandbox, which doesn't work
 # inside an LDX container.
-bazel build //src/tools:codesearch --spawn_strategy=standalone --genrule_strategy=standalone
+bazel build //src/tools:codesearch --incompatible_disallow_set_constructor=false --spawn_strategy=standalone --genrule_strategy=standalone
 sudo install bazel-bin/src/tools/codesearch /usr/local/bin
 popd
 
@@ -51,8 +51,10 @@ popd
 sudo pip install boto3
 
 # Install pygit2.
+rm -rf libgit2-0.26.0
 wget -q https://github.com/libgit2/libgit2/archive/v0.26.0.tar.gz
 tar xf v0.26.0.tar.gz
+rm -rf v0.26.0.tar.gz
 pushd libgit2-0.26.0
 cmake .
 make

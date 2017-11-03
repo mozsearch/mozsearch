@@ -3,6 +3,7 @@
 fastcgi/obj
 ./temp-index
 *.o
+*.dwo
 *.so
 *.pyc
 clang-plugin/testfiles

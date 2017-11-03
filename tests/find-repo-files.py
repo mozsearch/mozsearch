@@ -5,6 +5,7 @@ import os.path
 import sys
 import subprocess
 import json
+import collections
 
 from lib import run
 
