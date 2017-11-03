@@ -130,6 +130,17 @@ lazy_static! {
         "default", "union",
     ];
 
+    static ref RESERVED_WORDS_JAVA : Vec<&'static str> = vec![
+        "abstract", "continue", "for", "new", "switch", "assert", "default",
+        "goto", "package", "synchronized", "boolean", "do", "if", "private",
+        "this", "break", "double", "implements", "protected", "throw", "byte",
+        "else", "import", "public", "throws", "case", "enum", "instanceof",
+        "return", "transient", "catch", "extends", "int", "short", "try",
+        "char", "final", "interface", "static", "void", "class", "finally",
+        "long", "strictfp", "volatile", "const", "float", "native", "super",
+        "while", "null", "true", "false",
+    ];
+
     static ref JS_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_JS),
         hash_comment: false,
@@ -206,6 +217,17 @@ lazy_static! {
         c_preprocessor: false,
         rust_tweaks: true,
     };
+
+    static ref JAVA_SPEC : LanguageSpec = LanguageSpec {
+        reserved_words: make_reserved(&*RESERVED_WORDS_JAVA),
+        hash_comment: false,
+        c_style_comments: true,
+        backtick_strings: false,
+        regexp_literals: false,
+        triple_quote_literals: false,
+        c_preprocessor: false,
+        rust_tweaks: false,
+    };
 }
 
 #[derive(Debug)]
@@ -236,6 +258,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "js" | "jsm" | "json" | "sjs" => FormatAs::FormatCLike(&*JS_SPEC),
         "py" | "build" | "configure" => FormatAs::FormatCLike(&*PYTHON_SPEC),
         "rs" => FormatAs::FormatCLike(&*RUST_SPEC),
+        "java" => FormatAs::FormatCLike(&*JAVA_SPEC),
 
         "html" | "htm" | "xhtml" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
 
