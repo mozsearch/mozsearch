@@ -1,5 +1,7 @@
 Vagrant.configure("2") do |config|
-  config.vm.box = "bento/ubuntu-16.04"
+  # We use this image to get a large (160GB) disk rather than the normal 40GB.
+  config.vm.box = "cbednarski/ubuntu-1604-large"
+  config.vm.box_version = "0.1.0"
 
   config.vm.provision :shell, path: "infrastructure/indexer-provision.sh"
   config.vm.provision :shell, path: "infrastructure/vagrant/indexer-provision.sh"
