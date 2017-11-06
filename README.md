@@ -13,6 +13,7 @@ provision a Vagrant instance:
 ```
 git clone https://github.com/bill-mccloskey/mozsearch
 cd mozsearch
+git submodule update --init
 vagrant up
 ```
 
