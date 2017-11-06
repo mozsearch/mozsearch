@@ -64,7 +64,7 @@ It's fairly easy to trigger an indexing job manually from your local
 computer. To do so, run the following from within the Vagrant VM:
 
 ```
-python /vagrant/infrastructure/aws/trigger_indexer.py
+python /vagrant/infrastructure/aws/trigger_indexer.py \
   https://github.com/bill-mccloskey/mozsearch-mozilla \
   some-development-branch \
   dev
