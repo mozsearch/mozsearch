@@ -2,6 +2,7 @@
 
 import sys
 import boto3
+import os
 
 client = boto3.client('ses')
 
@@ -9,7 +10,7 @@ response = client.send_email(
     Source='daemon@searchfox.org',
     Destination={
         'ToAddresses': [
-            'wmccloskey@mozilla.com',
+            'searchfox-aws@mozilla.com',
         ]
     },
     Message={
@@ -23,3 +24,5 @@ response = client.send_email(
         }
     }
 )
+
+os.system("sudo /sbin/shutdown -h +5")

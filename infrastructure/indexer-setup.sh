@@ -14,8 +14,7 @@ MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 export CONFIG_REPO=$(readlink -f $1)
 WORKING=$(readlink -f $2)
 
-rm -rf $WORKING
-mkdir -p $WORKING
+rm -rf $WORKING/*
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 
