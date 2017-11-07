@@ -1,0 +1,4 @@
+#!/bin/bash
+
+rm -f $INDEX_ROOT/searchfox
+ln -s $CONFIG_REPO/.. $INDEX_ROOT/files

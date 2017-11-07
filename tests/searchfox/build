@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -e # Errors are fatal
+set -x # Show commands
+

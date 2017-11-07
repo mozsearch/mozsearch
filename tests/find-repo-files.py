@@ -14,15 +14,15 @@ tree_name = sys.argv[2]
 
 repo_path = config['trees'][tree_name]['files_path']
 
-files = run("find . -not -name '*~' -and -not -name '.'", shell=True, cwd=repo_path)
-lines = files.split('\n')
+stdout = run('git ls-files', shell=True, cwd=repo_path)
+lines = stdout.split('\n')
 
 files = []
 js = []
 idl = []
 ipdl = []
-dirs = []
-dirDict = {}
+
+dirs = collections.OrderedDict()
 ipdl_dirs = collections.OrderedDict()
 
 for line in lines:
@@ -35,9 +35,8 @@ for line in lines:
     elts = path.split('/')
     for i in range(len(elts)):
         sub = '/'.join(elts[:i])
-        if sub and sub not in dirDict:
-            dirDict[sub] = True
-            dirs.append(sub + '\n')
+        if sub and sub not in dirs:
+            dirs[sub] = True
 
     files.append(path + '\n')
 
@@ -66,8 +65,10 @@ for line in lines:
 
 index_path = config['trees'][tree_name]['index_path']
 open(os.path.join(index_path, 'repo-files'), 'w').writelines(files)
-open(os.path.join(index_path, 'repo-dirs'), 'w').writelines(dirs)
+open(os.path.join(index_path, 'repo-dirs'), 'w').writelines([ d + '\n' for d in dirs ])
 open(os.path.join(index_path, 'js-files'), 'w').writelines(js)
 open(os.path.join(index_path, 'idl-files'), 'w').writelines(idl)
 open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
+
 open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join([ '-I ' + d for d in ipdl_dirs ]))
+

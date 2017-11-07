@@ -8,6 +8,13 @@
       "objdir_path": "$WORKING/tests/objdir",
       "codesearch_path": "$WORKING/tests/livegrep.idx",
       "codesearch_port": 8081
+    },
+    "searchfox": {
+      "index_path": "$WORKING/searchfox",
+      "files_path": "$WORKING/searchfox/files",
+      "objdir_path": "$WORKING/searchfox/objdir",
+      "codesearch_path": "$WORKING/searchfox/livegrep.idx",
+      "codesearch_port": 8081
     }
   }
 }
