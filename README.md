@@ -110,7 +110,7 @@ Although it can take a long time, it's sometimes necessary to index
 the Mozilla codebase. Here's how to do that:
 
 ```
-# Clone the Mozilla configuration into ~/config.
+# Clone the Mozilla configuration into ~/mozilla-config.
 git clone https://github.com/bill-mccloskey/mozsearch-mozilla ~/mozilla-config
 
 # Manually edit the ~/mozilla-config/config.json to remove trees you don't
