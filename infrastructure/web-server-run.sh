@@ -1,19 +1,26 @@
 #!/bin/bash
 
-set -e
-set -x
-
-if [ $# != 1 ]
+if [ $# != 3 ]
 then
-    echo "usage: $0 <working-path>"
+    echo "usage: $0 <config-repo-path> <index-path> <server-root>"
     exit 1
 fi
 
+set -e
+set -x
+
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
-WORKING=$(readlink -f $1)
+WORKING=$(readlink -f $2)
 CONFIG_FILE=$WORKING/config.json
+SERVER_ROOT=$(readlink -f $3)
 
-nohup python $MOZSEARCH_PATH/router/router.py $CONFIG_FILE > router.log 2> router.err < /dev/null &
+pkill codesearch || true
+pkill -f router/router.py || true
+pkill -f tools/target/release/web-server || true
 
-nohup $MOZSEARCH_PATH/tools/target/release/web-server $CONFIG_FILE > rust-server.log 2> rust-server.err < /dev/null &
+sleep 1
+
+nohup python $MOZSEARCH_PATH/router/router.py $CONFIG_FILE > $SERVER_ROOT/router.log 2> $SERVER_ROOT/router.err < /dev/null &
+
+nohup $MOZSEARCH_PATH/tools/target/release/web-server $CONFIG_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &

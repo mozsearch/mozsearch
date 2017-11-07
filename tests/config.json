@@ -7,7 +7,7 @@
       "files_path": "$WORKING/tests/files",
       "objdir_path": "$WORKING/tests/objdir",
       "codesearch_path": "$WORKING/tests/livegrep.idx",
-      "codesearch_port": 8081
+      "codesearch_port": 8080
     },
     "searchfox": {
       "index_path": "$WORKING/searchfox",

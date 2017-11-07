@@ -6,7 +6,8 @@ Searchfox locally using Vagrant.
 
 ## Vagrant setup for local development
 
-First, [install Vagrant](https://www.vagrantup.com/downloads.html) by
+First, [install Vagrant](https://www.vagrantup.com/downloads.html) and
+[VirtualBox](https://www.virtualbox.org/wiki/Downloads) by
 following the instructions for your OS. Then clone Mozsearch and
 provision a Vagrant instance:
 
@@ -90,11 +91,12 @@ look at all the index files that were generated. To begin serving web
 requests, we can start the server as follows:
 
 ```
-# Creates a configuration file for nginx.
-/vagrant/infrastructure/web-server-setup.sh /vagrant/tests ~/index
+# Creates a configuration file for nginx. The last path gives the location
+# where log files are stored.
+/vagrant/infrastructure/web-server-setup.sh /vagrant/tests ~/index ~
 
 # Starts the Python and Rust servers needed for Mozsearch.
-/vagrant/infrastructure/web-server-run.sh ~/index
+/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~
 ```
 
 At this point, you should be able to visit the server, which is

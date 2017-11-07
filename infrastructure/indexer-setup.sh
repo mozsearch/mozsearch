@@ -1,18 +1,21 @@
 #!/bin/bash
 
-set -e
-set -x
-
 if [ $# != 2 ]
 then
-    echo "usage: $0 <config-repo-path> <working-path>"
+    echo "usage: $0 <config-repo-path> <index-path>"
     exit 1
 fi
+
+set -e
+set -x
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 export CONFIG_REPO=$(readlink -f $1)
 WORKING=$(readlink -f $2)
+
+rm -rf $WORKING
+mkdir -p $WORKING
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 
