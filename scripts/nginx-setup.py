@@ -15,6 +15,11 @@ fmt = {'doc_root': doc_root, 'mozsearch_path': mozsearch_path}
 
 print '''server {
   listen 80 default_server;
+
+  if ($http_x_forwarded_proto = "http") {
+    return 301 https://$host$request_uri;
+  }
+
   sendfile off;
 
   location /static {
