@@ -114,8 +114,9 @@ the Mozilla codebase. Here's how to do that:
 git clone https://github.com/bill-mccloskey/mozsearch-mozilla ~/mozilla-config
 
 # Manually edit the ~/mozilla-config/config.json to remove trees you don't
-# care about (probably NSS and comm-central).
-vi ~/mozilla-config/config.json
+# care about (probably NSS and comm-central). Make sure to remove any trailing
+# commas if they're not valid JSON!
+nano ~/mozilla-config/config.json
 
 # Make a new index directory.
 mkdir ~/mozilla-index
