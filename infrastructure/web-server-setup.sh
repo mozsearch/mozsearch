@@ -21,6 +21,7 @@ $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 sudo mkdir -p /etc/nginx/sites-enabled
 sudo rm -f /etc/nginx/sites-enabled/default
 
+rm -rf $SERVER_ROOT/docroot
 mkdir -p $SERVER_ROOT/docroot
 DOCROOT=$(realpath $SERVER_ROOT/docroot)
 
