@@ -21,8 +21,9 @@ import time
 
 branch = sys.argv[1]
 channel = sys.argv[2]
-config_repo = sys.argv[3]
-volumeId = sys.argv[4]
+mozsearch_repo = sys.argv[3]
+config_repo = sys.argv[4]
+volumeId = sys.argv[5]
 
 TARGET_GROUPS = {
     'release': 'release-target',
@@ -39,9 +40,9 @@ userData = '''#!/bin/bash
 
 cd ~ubuntu
 touch web_server_started
-HOME=/home/ubuntu ./update.sh "{branch}" "{config_repo}"
+HOME=/home/ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config
-'''.format(branch=branch, channel=channel, config_repo=config_repo)
+'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo)
 
 volumes = ec2.describe_volumes(VolumeIds=[volumeId])
 availability_zone = volumes['Volumes'][0]['AvailabilityZone']
@@ -64,7 +65,7 @@ r = ec2.run_instances(
     MinCount=1,
     MaxCount=1,
     KeyName='Main Key Pair',
-    SecurityGroups=['web-server'],
+    SecurityGroups=['web-server-secure'],
     UserData=userData,
     InstanceType='t2.large',
     Placement={'AvailabilityZone': availability_zone},

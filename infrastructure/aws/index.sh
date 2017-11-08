@@ -5,9 +5,9 @@ exec &> /home/ubuntu/index-log
 set -e
 set -x
 
-if [ $# != 4 ]
+if [ $# != 5 ]
 then
-    echo "usage: $0 <branch> <channel> <config-url> <config-repo-path>"
+    echo "usage: $0 <branch> <channel> <mozsearch-repo-url> <config-repo-url> <config-repo-path>"
     exit 1
 fi
 
@@ -16,8 +16,9 @@ MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/../..
 
 BRANCH=$1
 CHANNEL=$2
-CONFIG_URL=$3
-CONFIG_REPO_PATH=$(readlink -f $4)
+MOZSEARCH_REPO_URL=$3
+CONFIG_REPO_URL=$4
+CONFIG_REPO_PATH=$(readlink -f $5)
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
@@ -66,7 +67,7 @@ echo "Indexing complete"
 sudo umount /index
 
 python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $CONFIG_URL $VOLUME_ID
+python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $VOLUME_ID
 
 gzip -k ~ubuntu/index-log
 python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`

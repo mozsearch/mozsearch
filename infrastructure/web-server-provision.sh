@@ -62,16 +62,18 @@ exec &> update-log
 
 date
 
-if [ $# != 2 ]
+if [ $# != 3 ]
 then
-    echo "usage: $0 <branch> <config-repo>"
+    echo "usage: $0 <branch> <mozsearch-repo> <config-repo>"
     exit 1
 fi
 
 BRANCH=$1
-CONFIG_REPO=$2
+MOZSEARCH_REPO=$2
+CONFIG_REPO=$3
 
 echo Branch is $BRANCH
+echo Mozsearch repository is $MOZSEARCH_REPO
 echo Config repository is $CONFIG_REPO
 
 # Re-install Rust (make sure we have the latest version).
@@ -79,7 +81,7 @@ curl -sSf https://static.rust-lang.org/rustup.sh | sh
 
 # Install mozsearch.
 rm -rf mozsearch
-git clone -b $BRANCH https://github.com/bill-mccloskey/mozsearch
+git clone -b $BRANCH $MOZSEARCH_REPO
 pushd mozsearch
 git submodule init
 git submodule update
@@ -90,7 +92,10 @@ cargo build --release --verbose
 popd
 
 # Install files from the config repo.
-git clone -b $BRANCH $CONFIG_REPO config
+git clone $CONFIG_REPO config
+pushd config
+git checkout $BRANCH || true
+popd
 
 date
 THEEND

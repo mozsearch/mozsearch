@@ -47,8 +47,6 @@ Web server instances use the t2.large instance type while indexers use
 the c3.2xlarge type. When selecting an instance, the most important
 data is the "Launch time" and "IPv4 Public IP".
 
-## SSHing into AWS machines
-
 ## Setting up AWS locally
 
 Mozsearch uses a lot of scripts that use the AWS API to start and stop
@@ -100,6 +98,33 @@ pip install boto3
 
 All later AWS commands should be run within the virtual environment.
 
+## SSHing into AWS machines
+
+To SSH into an EC2 instance, you will need to obtain the private key
+file for Searchfox. Once you have the key, ensure that the permissions
+are set so that it is not world-readable. Then add it to your SSH
+configuration (substituting the path below):
+
+```
+cat >> .ssh/config <<"THEEND"
+IdentityFile /path/to/private/key.pem
+THEEND
+```
+
+Now you can connect to an instance as follows:
+
+```
+python infrastructure/aws/ssh.py
+```
+
+This command will print a list of instances that you can connect to as
+well as details about them. Select an instance ID (starting with `i-`)
+and connect to it:
+
+```
+python infrastructure/aws/ssh.py i-955af89
+```
+
 ## Lambda
 
 The AWS Lambda task uses a cron-style scheduler to run once a day. The
@@ -107,13 +132,14 @@ task that runs is generated as follows.
 
 ```
 ./infrastructure/aws/build-lambda-indexer-start.sh \
+  https://github.com/bill-mccloskey/mozsearch \
   https://github.com/bill-mccloskey/mozsearch-mozilla \
   master \
   release
 ```
 
-The first argument is a link to the repository containing the
-Mozsearch configuration to use. The second argument is a branch
+The first two arguments are links to the repositories containing
+Mozsearch and the configuratio to use. The third argument is a branch
 name. When scripts check out Mozsearch or the configuration
 repository, they will check out this branch. The last argument is used
 to determine which ELB target group will be updated. The `release`
@@ -132,7 +158,8 @@ computer. To do so, run the following from within the Vagrant VM:
 
 ```
 python infrastructure/aws/trigger_indexer.py \
-  https://github.com/bill-mccloskey/mozsearch-mozilla \
+  https://github.com/some-user/mozsearch \
+  https://github.com/some-user/mozsearch-mozilla \
   some-development-branch \
   dev
 ```

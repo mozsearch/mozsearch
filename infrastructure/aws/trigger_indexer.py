@@ -3,18 +3,18 @@ from datetime import datetime, timedelta
 import sys
 import os.path
 
-# Usage: trigger_indexer.py <config-repo> <branch> [release|dev]
+# Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <branch> [release|dev]
 
-def trigger(config_repo, branch, channel, spot=False):
+def trigger(mozsearch_repo, config_repo, branch, channel, spot=False):
     ec2 = boto3.resource('ec2')
     client = boto3.client('ec2')
 
     user_data = '''#!/bin/bash
 
 cd ~ubuntu
-HOME=/home/ubuntu ./update.sh "{branch}" "{config_repo}"
-sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{branch}" "{channel}" "{config_repo}" config
-'''.format(branch=branch, channel=channel, config_repo=config_repo)
+HOME=/home/ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
+sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{branch}" "{channel}" "{mozsearch_repo}" "{config_repo}" config
+'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo)
 
     block_devices = []
 
@@ -24,7 +24,7 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{branch}" "{channel}" "
     launch_spec = {
         'ImageId': image_id,
         'KeyName': 'Main Key Pair',
-        'SecurityGroups': ['indexer'],
+        'SecurityGroups': ['indexer-secure'],
         'UserData': user_data,
         'InstanceType': 'c3.2xlarge',
         'BlockDeviceMappings': block_devices,
@@ -52,10 +52,11 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/index.sh "{branch}" "{channel}" "
 
 
 if __name__ == '__main__':
-    config_repo = sys.argv[1]
-    branch = sys.argv[2]
+    mozsearch_repo = sys.argv[1]
+    config_repo = sys.argv[2]
+    branch = sys.argv[3]
 
     # 'release' or 'dev'
-    channel = sys.argv[3]
+    channel = sys.argv[4]
 
-    trigger(config_repo, branch, channel, spot=False)
+    trigger(mozsearch_repo, config_repo, branch, channel, spot=False)

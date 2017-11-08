@@ -1,19 +1,20 @@
 #!/bin/bash
 
-# Usage: build-lambda-indexer-start.sh <config-repo> <branch> [release|dev]
+# Usage: build-lambda-indexer-start.sh <mozsearch-repo> <config-repo> <branch> [release|dev]
 
 set -e # Errors are fatal
 set -x # Show commands
 
-if [ $# != 3 ]
+if [ $# != 4 ]
 then
-    echo "usage: $0 <config-repo> <branch> <channel>"
+    echo "usage: $0 <mozsearch-repo> <config-repo> <branch> <channel (dev or release)>"
     exit 1
 fi
 
-CONFIG_REPO=$1
-BRANCH=$2
-CHANNEL=$3
+MOZSEARCH_REPO=$1
+CONFIG_REPO=$2
+BRANCH=$3
+CHANNEL=$4
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
@@ -27,7 +28,7 @@ import boto3
 import trigger_indexer
 
 def start(event, context):
-    trigger_indexer.trigger("$CONFIG_REPO", "$BRANCH", "$CHANNEL", False)
+    trigger_indexer.trigger("$MOZSEARCH_REPO", "$CONFIG_REPO", "$BRANCH", "$CHANNEL", False)
 EOF
 
 pushd /tmp/lambda
