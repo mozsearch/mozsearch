@@ -33,13 +33,80 @@ target group to point to the new web server instead of the old
 one. Finally, it shuts down and destroys any old web server instances
 and index volumes. Finally, the indexer instance terminates itself.
 
+## Logging into the AWS console
+
+The AWS console allows you to manually control AWS resources. To log
+in, you need to request an IAM identity for the Searchfox
+account. After you've logged in, you need to [change the AWS region in
+the top right
+corner](http://docs.aws.amazon.com/awsconsolehelpdocs/latest/gsg/getting-started.html#select-region). The
+region for Searchfox is "US West (Oregon)". Now you should be able to
+select EC2 from Services and see the list of EC2 machines running.
+
+Web server instances use the t2.large instance type while indexers use
+the c3.2xlarge type. When selecting an instance, the most important
+data is the "Launch time" and "IPv4 Public IP".
+
+## SSHing into AWS machines
+
+## Setting up AWS locally
+
+Mozsearch uses a lot of scripts that use the AWS API to start and stop
+indexing, provision servers, etc. It's better to run these scripts
+**outside** the VM so that you don't need to store credentials in the
+VM (where they might get deleted easily).
+
+To start, you'll need to create some AWS configuration files in your
+home directory.
+
+```
+# RUN THESE COMMANDS OUTSIDE THE VM!
+
+mkdir ~/.aws
+
+cat > ~/.aws/config <<"THEEND"
+[default]
+region = us-west-2
+THEEND
+
+cat > ~/.aws/credentials <<"THEEND"
+[default]
+aws_access_key_id =
+aws_secret_access_key =
+THEEND
+```
+
+Now we need to fill in the keys for the latter file. To create an
+access key, [follow the instructions for creating an access key from
+the AWS
+console](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey)
+(you'll need to scroll down to the section labeled "To create, modify,
+or delete a user's access keys"). Rather than downloading the
+credentials for the new key, it's easier to copy the key ID and secret
+key and paste them into the `~/.aws/credentials` file.
+
+Once the credentials are set up, the AWS Python API must be
+installed. First, create a virtual environment in the mozsearch git
+repository. Then install the `boto3` package, which is the AWS Python
+library.
+
+```
+# Run these commands from within a mozsearch checkout.
+
+virtualenv env
+source env/bin/activate
+pip install boto3
+```
+
+All later AWS commands should be run within the virtual environment.
+
 ## Lambda
 
 The AWS Lambda task uses a cron-style scheduler to run once a day. The
-task that runs is generated as follows:
+task that runs is generated as follows.
 
 ```
-/vagrant/infrastructure/aws/build-lambda-indexer-start.sh \
+./infrastructure/aws/build-lambda-indexer-start.sh \
   https://github.com/bill-mccloskey/mozsearch-mozilla \
   master \
   release
@@ -64,7 +131,7 @@ It's fairly easy to trigger an indexing job manually from your local
 computer. To do so, run the following from within the Vagrant VM:
 
 ```
-python /vagrant/infrastructure/aws/trigger_indexer.py \
+python infrastructure/aws/trigger_indexer.py \
   https://github.com/bill-mccloskey/mozsearch-mozilla \
   some-development-branch \
   dev
@@ -102,26 +169,26 @@ the provisioning scripts to change dependencies:
 
 ```
 # Update dependencies for indexing...
-vi /vagrant/infrastructure/indexer-provision.sh
+nano infrastructure/indexer-provision.sh
 
 # Update dependencies for web serving...
-vi /vagrant/infrastructure/web-server-provision.sh
+nano infrastructure/web-server-provision.sh
 ```
 
 Generating a new AMI is still a somewhat manual process. To provision
 the AMI for indexing, run the following from a Vagrant VM:
 
 ```
-python /vagrant/infrastructure/aws/trigger-provision.py \
-  /vagrant/infrastructure/indexer-provision.sh \
-  /vagrant/infrastructure/aws/indexer-provision.sh
+python infrastructure/aws/trigger-provision.py \
+  infrastructure/indexer-provision.sh \
+  infrastructure/aws/indexer-provision.sh
 ```
 
 For web serving, use this command:
 
 ```
-python /vagrant/infrastructure/aws/trigger-provision.py \
-  /vagrant/infrastructure/web-server-provision.sh
+python infrastructure/aws/trigger-provision.py \
+  infrastructure/web-server-provision.sh
 ```
 
 The `trigger-provision.py` script starts a new EC2 instance and uses
@@ -156,4 +223,7 @@ When the indexer instance is created, a crontab file is installed that
 runs an error handling script after 6 hours. The presumption is that
 any indexing job taking more than 6 hours must have failed. The error
 handling script uses Amazon Simple Email Service to send an email
-notifying the administrator that indexing failed.
+notifying the Searchfox email list that indexing failed. Then it shuts
+down (but does not destroy) the EC2 indexer instance. The instance can
+be debugged by starting it up again from the AWS console and logging
+into it via ssh.
