@@ -71,6 +71,8 @@ fn main() {
 
     let filenames_file = &args[3];
 
+    let file_paths: Vec<String> = BufReader::new(File::open(filenames_file).unwrap())
+        .lines().map(|x| x.unwrap()).collect();
     let output_file = format!("{}/crossref", tree_config.paths.index_path);
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
@@ -81,7 +83,7 @@ fn main() {
     let mut jumps = Vec::new();
 
     {
-        let mut process_file = |path: &str| {
+        for path in &file_paths {
             print!("File {}\n", path);
 
             let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
@@ -92,7 +94,7 @@ fn main() {
                 Ok(f) => f,
                 Err(_) => {
                     println!("Unable to open source file");
-                    return;
+                    continue;
                 },
             };
             let reader = BufReader::new(&source_file);
@@ -108,11 +110,12 @@ fn main() {
                 for piece in datum.data {
                     let t1 = table.entry(piece.sym.to_owned()).or_insert(BTreeMap::new());
                     let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
-                    let t3 = t2.entry(path.to_owned()).or_insert(Vec::new());
+                    let p: &str = &path;
+                    let t3 = t2.entry(p).or_insert(Vec::new());
                     let lineno = (datum.loc.lineno - 1) as usize;
                     if lineno >= lines.len() {
                         print!("Bad line number in file {} (line {})\n", path, lineno);
-                        return;
+                        continue;
                     }
                     let line = lines[lineno].clone();
                     let line_cut = line.trim_right();
@@ -145,12 +148,6 @@ fn main() {
                     }
                 }
             }
-        };
-
-        let f = File::open(filenames_file).unwrap();
-        let file = BufReader::new(&f);
-        for line in file.lines() {
-            process_file(&line.unwrap());
         }
     }
 
