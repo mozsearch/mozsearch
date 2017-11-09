@@ -264,8 +264,11 @@ def index_existing():
 
     return blame_map
 
-print 'Indexing mercurial...'
-git_to_hg_map = index_mercurial(hg_map_file)
+if hg_map_file:
+    print 'Indexing mercurial...'
+    git_to_hg_map = index_mercurial(hg_map_file)
+else:
+    git_to_hg_map = {}
 
 print 'Computing existing blame map...'
 blame_map = index_existing()
