@@ -1188,12 +1188,7 @@ public:
 
     const NamedDecl *namedCallee = dyn_cast<NamedDecl>(callee);
 
-    SourceLocation startLoc = callee->getLocStart();
-    SourceLocation loc = startLoc;
-    NormalizeLocation(&loc);
-    if (!IsInterestingLocation(loc)) {
-      return true;
-    }
+    SourceLocation loc;
 
     const FunctionDecl *f = dyn_cast<FunctionDecl>(namedCallee);
     if (f->isTemplateInstantiation()) {
@@ -1208,20 +1203,20 @@ public:
       // Just take the first token.
       CXXOperatorCallExpr* op = dyn_cast<CXXOperatorCallExpr>(e);
       loc = op->getOperatorLoc();
-      NormalizeLocation(&loc);
     } else if (MemberExpr::classof(calleeExpr)) {
       MemberExpr* member = dyn_cast<MemberExpr>(calleeExpr);
       loc = member->getMemberLoc();
-      NormalizeLocation(&loc);
     } else if (DeclRefExpr::classof(calleeExpr)) {
       // We handle this in VisitDeclRefExpr.
       return true;
     } else {
-      if (callee->getLocEnd() != startLoc) {
-        // Skip this call. If we can't find a single token, we don't have a
-        // good UI for displaying the call.
-        return true;
-      }
+      return true;
+    }
+
+    NormalizeLocation(&loc);
+
+    if (!IsInterestingLocation(loc)) {
+      return true;
     }
 
     VisitToken("use", "function", GetQualifiedName(namedCallee), loc, mangled, GetContext(loc));
