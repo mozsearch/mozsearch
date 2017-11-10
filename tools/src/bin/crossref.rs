@@ -4,8 +4,11 @@ use std::io::BufReader;
 use std::io::BufRead;
 use std::io::Write;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry::Occupied;
+use std::collections::hash_map::Entry::Vacant;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 extern crate tools;
 use tools::find_source_file;
@@ -19,9 +22,9 @@ use rustc_serialize::json::{Json, ToJson};
 struct SearchResult {
     lineno: u32,
     bounds: (u32, u32),
-    line: String,
-    context: String,
-    contextsym: String,
+    line: Rc<String>,
+    context: Rc<String>,
+    contextsym: Rc<String>,
 }
 
 impl ToJson for SearchResult {
@@ -61,6 +64,28 @@ fn split_scopes(id: &str) -> Vec<String> {
     return result;
 }
 
+struct StringIntern {
+    set: HashMap<Rc<String>, ()>
+}
+
+impl StringIntern {
+    fn new() -> StringIntern {
+        StringIntern {set: HashMap::new()}
+    }
+
+    fn add(&mut self, s: String) -> Rc<String> {
+        let new_rc = Rc::new(s);
+        match self.set.entry(new_rc) {
+            Occupied(o) => Rc::clone(&o.key()),
+            Vacant(v) => {
+                let rval = Rc::clone(&v.key());
+                v.insert(());
+                rval
+            }
+        }
+    }
+}
+
 fn main() {
     let args: Vec<_> = env::args().collect();
 
@@ -76,6 +101,9 @@ fn main() {
     let output_file = format!("{}/crossref", tree_config.paths.index_path);
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
+
+    let mut strings = StringIntern::new();
+    let empty_string = strings.add("".to_string());
 
     let mut table = BTreeMap::new();
     let mut pretty_table = HashMap::new();
@@ -113,9 +141,9 @@ fn main() {
                             break;
                         }
                     };
-                    (buf, offset)
+                    (strings.add(buf), offset)
                 },
-                Err(_) => ("".to_string(), 0)
+                Err(_) => (Rc::clone(&empty_string), 0)
             }).collect();
 
 
@@ -135,8 +163,8 @@ fn main() {
                     lineno: datum.loc.lineno,
                     bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
                     line: line,
-                    context: piece.context,
-                    contextsym: piece.contextsym,
+                    context: strings.add(piece.context),
+                    contextsym: strings.add(piece.contextsym),
                 });
 
                 pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
