@@ -97,7 +97,7 @@ ec2.attach_volume(VolumeId=volumeId, InstanceId=webServerInstanceId, Device='xvd
 
 # - Wait until the web server is ready to serve requests
 
-ip = webServerInstance.public_ip_address
+ip = webServerInstance.private_ip_address
 
 while True:
     try:
