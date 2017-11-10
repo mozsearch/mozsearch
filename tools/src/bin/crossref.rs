@@ -15,7 +15,7 @@ use tools::config;
 extern crate rustc_serialize;
 use rustc_serialize::json::{Json, ToJson};
 
-#[derive(Debug, RustcEncodable, RustcDecodable)]
+#[derive(Debug)]
 struct SearchResult {
     lineno: u32,
     bounds: (u32, u32),
