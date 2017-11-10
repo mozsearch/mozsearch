@@ -97,13 +97,27 @@ fn main() {
             },
         };
         let reader = BufReader::new(&source_file);
-        let mut lines = Vec::new();
-        for line in reader.lines() {
-            match line {
-                Ok(l) => lines.push(l),
-                Err(_) => lines.push("".to_string()),
-            }
-        }
+        let lines: Vec<_> = reader.lines().map(
+            |l| match l {
+                Ok(line) => {
+                    let line_cut = line.trim_right();
+                    let len = line_cut.len();
+                    let line_cut = line_cut.trim_left();
+                    let offset = (len - line_cut.len()) as u32;
+                    let mut buf = String::new();
+                    let mut i = 0;
+                    for c in line_cut.chars() {
+                        buf.push(c);
+                        i += 1;
+                        if i > 100 {
+                            break;
+                        }
+                    };
+                    (buf, offset)
+                },
+                Err(_) => ("".to_string(), 0)
+            }).collect();
+
 
         for datum in analysis {
             for piece in datum.data {
@@ -116,24 +130,11 @@ fn main() {
                     print!("Bad line number in file {} (line {})\n", path, lineno);
                     continue;
                 }
-                let line = lines[lineno].clone();
-                let line_cut = line.trim_right();
-                let len = line_cut.len();
-                let line_cut = line_cut.trim_left();
-                let offset = (len - line_cut.len()) as u32;
-                let mut buf = String::new();
-                let mut i = 0;
-                for c in line_cut.chars() {
-                    buf.push(c);
-                    i += 1;
-                    if i > 100 {
-                        break;
-                    }
-                }
+                let (line, offset) = lines[lineno].clone();
                 t3.push(SearchResult {
                     lineno: datum.loc.lineno,
                     bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
-                    line: buf,
+                    line: line,
                     context: piece.context,
                     contextsym: piece.contextsym,
                 });
