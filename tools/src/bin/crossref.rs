@@ -82,70 +82,68 @@ fn main() {
     let mut id_table = BTreeMap::new();
     let mut jumps = Vec::new();
 
-    {
-        for path in &file_paths {
-            print!("File {}\n", path);
+    for path in &file_paths {
+        print!("File {}\n", path);
 
-            let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
-            let analysis = read_analysis(&analysis_fname, &read_target);
+        let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
+        let analysis = read_analysis(&analysis_fname, &read_target);
 
-            let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
-            let source_file = match File::open(source_fname) {
-                Ok(f) => f,
-                Err(_) => {
-                    println!("Unable to open source file");
-                    continue;
-                },
-            };
-            let reader = BufReader::new(&source_file);
-            let mut lines = Vec::new();
-            for line in reader.lines() {
-                match line {
-                    Ok(l) => lines.push(l),
-                    Err(_) => lines.push("".to_string()),
-                }
+        let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
+        let source_file = match File::open(source_fname) {
+            Ok(f) => f,
+            Err(_) => {
+                println!("Unable to open source file");
+                continue;
+            },
+        };
+        let reader = BufReader::new(&source_file);
+        let mut lines = Vec::new();
+        for line in reader.lines() {
+            match line {
+                Ok(l) => lines.push(l),
+                Err(_) => lines.push("".to_string()),
             }
+        }
 
-            for datum in analysis {
-                for piece in datum.data {
-                    let t1 = table.entry(piece.sym.to_owned()).or_insert(BTreeMap::new());
-                    let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
-                    let p: &str = &path;
-                    let t3 = t2.entry(p).or_insert(Vec::new());
-                    let lineno = (datum.loc.lineno - 1) as usize;
-                    if lineno >= lines.len() {
-                        print!("Bad line number in file {} (line {})\n", path, lineno);
-                        continue;
+        for datum in analysis {
+            for piece in datum.data {
+                let t1 = table.entry(piece.sym.to_owned()).or_insert(BTreeMap::new());
+                let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
+                let p: &str = &path;
+                let t3 = t2.entry(p).or_insert(Vec::new());
+                let lineno = (datum.loc.lineno - 1) as usize;
+                if lineno >= lines.len() {
+                    print!("Bad line number in file {} (line {})\n", path, lineno);
+                    continue;
+                }
+                let line = lines[lineno].clone();
+                let line_cut = line.trim_right();
+                let len = line_cut.len();
+                let line_cut = line_cut.trim_left();
+                let offset = (len - line_cut.len()) as u32;
+                let mut buf = String::new();
+                let mut i = 0;
+                for c in line_cut.chars() {
+                    buf.push(c);
+                    i += 1;
+                    if i > 100 {
+                        break;
                     }
-                    let line = lines[lineno].clone();
-                    let line_cut = line.trim_right();
-                    let len = line_cut.len();
-                    let line_cut = line_cut.trim_left();
-                    let offset = (len - line_cut.len()) as u32;
-                    let mut buf = String::new();
-                    let mut i = 0;
-                    for c in line_cut.chars() {
-                        buf.push(c);
-                        i += 1;
-                        if i > 100 {
-                            break;
-                        }
-                    }
-                    t3.push(SearchResult {
-                        lineno: datum.loc.lineno,
-                        bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
-                        line: buf,
-                        context: piece.context,
-                        contextsym: piece.contextsym,
-                    });
+                }
+                t3.push(SearchResult {
+                    lineno: datum.loc.lineno,
+                    bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
+                    line: buf,
+                    context: piece.context,
+                    contextsym: piece.contextsym,
+                });
 
-                    pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
+                pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
 
-                    let ch = piece.sym.chars().nth(0).unwrap();
-                    if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
-                        let t1 = id_table.entry(piece.pretty.to_owned()).or_insert(BTreeSet::new());
-                        t1.insert(piece.sym.to_owned());
-                    }
+                let ch = piece.sym.chars().nth(0).unwrap();
+                if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
+                    let t1 = id_table.entry(piece.pretty.to_owned()).or_insert(BTreeSet::new());
+                    t1.insert(piece.sym.to_owned());
                 }
             }
         }
