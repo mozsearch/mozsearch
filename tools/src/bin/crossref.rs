@@ -149,7 +149,8 @@ fn main() {
 
         for datum in analysis {
             for piece in datum.data {
-                let t1 = table.entry(piece.sym.to_owned()).or_insert(BTreeMap::new());
+                let sym = strings.add(piece.sym.to_owned());
+                let t1 = table.entry(Rc::clone(&sym)).or_insert(BTreeMap::new());
                 let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
                 let p: &str = &path;
                 let t3 = t2.entry(p).or_insert(Vec::new());
@@ -167,12 +168,12 @@ fn main() {
                     contextsym: strings.add(piece.contextsym),
                 });
 
-                pretty_table.insert(piece.sym.to_owned(), piece.pretty.to_owned());
+                pretty_table.insert(Rc::clone(&sym), piece.pretty.to_owned());
 
                 let ch = piece.sym.chars().nth(0).unwrap();
                 if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
                     let t1 = id_table.entry(piece.pretty.to_owned()).or_insert(BTreeSet::new());
-                    t1.insert(piece.sym.to_owned());
+                    t1.insert(sym);
                 }
             }
         }
