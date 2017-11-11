@@ -168,11 +168,12 @@ fn main() {
                     contextsym: strings.add(piece.contextsym),
                 });
 
-                pretty_table.insert(Rc::clone(&sym), piece.pretty.to_owned());
+                let pretty = strings.add(piece.pretty.to_owned());
+                pretty_table.insert(Rc::clone(&sym), Rc::clone(&pretty));
 
                 let ch = piece.sym.chars().nth(0).unwrap();
                 if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
-                    let t1 = id_table.entry(piece.pretty.to_owned()).or_insert(BTreeSet::new());
+                    let t1 = id_table.entry(pretty).or_insert(BTreeSet::new());
                     t1.insert(sym);
                 }
             }
