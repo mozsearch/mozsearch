@@ -75,9 +75,9 @@ fn main() {
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
-    let mut table = HashMap::new();
+    let mut table = BTreeMap::new();
     let mut pretty_table = HashMap::new();
-    let mut id_table = HashMap::new();
+    let mut id_table = BTreeMap::new();
     let mut jumps = Vec::new();
 
     {
