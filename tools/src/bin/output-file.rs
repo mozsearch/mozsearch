@@ -137,11 +137,11 @@ fn main() {
                     update_link_lineno: true,
                 }, PanelItem {
                     title: "Log".to_owned(),
-                    link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+                    link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
                     update_link_lineno: false,
                  }, PanelItem {
                     title: "Raw".to_owned(),
-                    link: format!("https://raw.githubusercontent.com/mozilla/gecko-dev/{}/{}", oid, path),
+                    link: format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path),
                     update_link_lineno: false,
                 }, PanelItem {
                     title: "Blame".to_owned(),
