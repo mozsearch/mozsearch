@@ -425,7 +425,7 @@ pub fn format_path(cfg: &config::Config,
             update_link_lineno: true,
         }, PanelItem {
             title: "Log".to_owned(),
-            link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+            link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
             update_link_lineno: false,
         }, PanelItem {
             title: "Blame".to_owned(),
@@ -601,7 +601,7 @@ pub fn format_diff(cfg: &config::Config,
             update_link_lineno: true,
         }, PanelItem {
             title: "Log".to_owned(),
-            link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+            link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
             update_link_lineno: false,
         }],
     }];
@@ -744,7 +744,7 @@ fn generate_commit_info(tree_name: &str,
     let git = try!(config::get_git(tree_config));
     let hg = match git.hg_map.get(&commit.id()) {
         Some(hg_id) => {
-            let hg_link = format!("<a href=\"https://hg.mozilla.org/mozilla-central/rev/{}\">{}</a>", hg_id, hg_id);
+            let hg_link = format!("<a href=\"{}/rev/{}\">{}</a>", config::get_hg_root(tree_config), hg_id, hg_id);
             vec![F::T(format!("<tr><td>hg</td><td>{}</td></tr>", hg_link))]
         },
 

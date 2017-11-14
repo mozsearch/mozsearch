@@ -141,11 +141,11 @@ fn main() {
                     update_link_lineno: true,
                 }, PanelItem {
                     title: "Log".to_owned(),
-                    link: format!("https://hg.mozilla.org/mozilla-central/log/tip/{}", path),
+                    link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
                     update_link_lineno: false,
                  }, PanelItem {
                     title: "Raw".to_owned(),
-                    link: format!("https://hg.mozilla.org/mozilla-central/raw-file/{}/{}", hg_rev, path),
+                    link: format!("{}/raw-file/{}/{}", config::get_hg_root(tree_config), hg_rev, path),
                     update_link_lineno: false,
                 }, PanelItem {
                     title: "Blame".to_owned(),

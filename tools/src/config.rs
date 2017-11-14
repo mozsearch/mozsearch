@@ -16,6 +16,7 @@ pub struct TreeConfigPaths {
     pub git_path: Option<String>,
     pub git_blame_path: Option<String>,
     pub objdir_path: String,
+    pub hg_root: Option<String>,
 }
 
 pub struct GitData {
@@ -47,6 +48,17 @@ pub fn get_git_path(tree_config: &TreeConfig) -> Result<&str, &'static str> {
     match &tree_config.paths.git_path {
         &Some(ref git_path) => Ok(git_path),
         &None => Err("History data unavailable"),
+    }
+}
+
+pub fn get_hg_root(tree_config: &TreeConfig) -> String {
+    // For temporary backwards compatibility, produce the m-c root if
+    // there isn't one specified. We can remove this once all relevant
+    // deployed config.json files have an explicit hg root, and make
+    // this return an Option<&str> instead.
+    match &tree_config.paths.hg_root {
+        &Some(ref hg_root) => hg_root.clone(),
+        &None => String::from("https://hg.mozilla.org/mozilla-central"),
     }
 }
 
