@@ -20,7 +20,7 @@ pub struct TreeConfigPaths {
 
 pub struct GitData {
     pub repo: Repository,
-    pub blame_repo: Repository,
+    pub blame_repo: Option<Repository>,
 
     pub blame_map: HashMap<Oid, Oid>, // Maps repo OID to blame_repo OID.
     pub hg_map: HashMap<Oid, String>, // Maps repo OID to Hg rev.
@@ -107,9 +107,17 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
 
                 Some(GitData {
                     repo: repo,
-                    blame_repo: blame_repo,
+                    blame_repo: Some(blame_repo),
                     blame_map: blame_map,
                     hg_map: hg_map,
+                })
+            },
+            (&Some(ref git_path), &None) => {
+                Some(GitData {
+                    repo: Repository::open(&git_path).unwrap(),
+                    blame_repo: None,
+                    blame_map: HashMap::new(),
+                    hg_map: HashMap::new(),
                 })
             },
             _ => None,

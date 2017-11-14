@@ -50,13 +50,16 @@ fn main() {
     let (blame_commit, head_oid) = match &tree_config.git {
         &Some(ref git) => {
             let head_oid = git.repo.refname_to_id("HEAD").unwrap();
-            let blame_oid = git.blame_repo.refname_to_id("HEAD").unwrap();
-            let blame_commit = Some(git.blame_repo.find_commit(blame_oid).unwrap());
+            let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
+                let blame_oid = blame_repo.refname_to_id("HEAD").unwrap();
+                Some(blame_repo.find_commit(blame_oid).unwrap())
+            } else {
+                None
+            };
             (blame_commit, Some(head_oid))
         },
         &None => (None, None),
     };
-    let blame_commit_ref = match blame_commit { Some(ref bc) => Some(bc), None => None };
 
     for path in fname_args {
         println!("File {}", path);
@@ -154,7 +157,7 @@ fn main() {
                          tree_name,
                          &panel,
                          None,
-                         blame_commit_ref,
+                         &blame_commit,
                          path,
                          input,
                          &jumps,
