@@ -9,6 +9,7 @@ use tokenize;
 use languages;
 use languages::FormatAs;
 
+use config::GitData;
 use file_format::analysis::{WithLocation, AnalysisSource, Jump};
 use output::{self, F, Options, PanelItem, PanelSection};
 
@@ -224,7 +225,7 @@ pub fn format_file_data(cfg: &config::Config,
                         tree_name: &str,
                         panel: &[PanelSection],
                         commit: Option<&git2::Commit>,
-                        blame_commit: Option<&git2::Commit>,
+                        blame_commit: &Option<git2::Commit>,
                         path: &str,
                         data: String,
                         jumps: &HashMap<String, Jump>,
@@ -245,12 +246,12 @@ pub fn format_file_data(cfg: &config::Config,
 
     let mut _blame = String::new();
     let blame_lines = match (&tree_config.git, blame_commit) {
-        (&Some(ref git_data), Some(blame_commit)) => {
+        (&Some(GitData {blame_repo: Some(ref blame_repo), ..}), &Some(ref blame_commit)) => {
             let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
 
             match blame_tree.get_path(Path::new(path)) {
                 Ok(blame_entry) => {
-                    _blame = read_blob_entry(&git_data.blame_repo, &blame_entry);
+                    _blame = read_blob_entry(blame_repo, &blame_entry);
                     Some(_blame.lines().collect::<Vec<_>>())
                 },
                 Err(_) => None,
@@ -395,8 +396,12 @@ pub fn format_path(cfg: &config::Config,
     let entry = try!(commit_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
 
     // Get blame.
-    let blame_oid = try!(git.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
-    let blame_commit = try!(git.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
+    let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
+        let blame_oid = try!(git.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
+        Some(try!(blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob")))
+    } else {
+        None
+    };
 
     match entry.kind() {
         Some(git2::ObjectType::Blob) => {},
@@ -433,7 +438,7 @@ pub fn format_path(cfg: &config::Config,
                           tree_name,
                           &panel,
                           Some(&commit),
-                          Some(&blame_commit),
+                          &blame_commit,
                           path,
                           data,
                           &jumps,
@@ -489,12 +494,16 @@ pub fn format_diff(cfg: &config::Config,
     let mut blames = Vec::new();
 
     for parent_oid in commit.parent_ids() {
+        if git.blame_repo.is_none() {
+            blames.push(None);
+            continue;
+        }
         let blame_oid = try!(git.blame_map.get(&parent_oid).ok_or("Unable to find blame"));
-        let blame_commit = try!(git.blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
+        let blame_commit = try!(git.blame_repo.as_ref().unwrap().find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
         let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
         match blame_tree.get_path(Path::new(path)) {
             Ok(blame_entry) => {
-                let blame = read_blob_entry(&git.blame_repo, &blame_entry);
+                let blame = read_blob_entry(git.blame_repo.as_ref().unwrap(), &blame_entry);
                 let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
                 blames.push(Some(blame_lines));
             },
