@@ -14,3 +14,13 @@ for f in *.cpp
 do
   $CXX -DTEST_MACRO1 -DTEST_MACRO2 $f -std=c++14 -c -o $OBJDIR/${f%%.cpp}.o -Wall
 done
+
+# Firefox generates files named something like Configure.cpp during
+# the build process, but their source files are not around by the time
+# we run the analysis. crossref.rs needs to be able to deal with this
+# case by ignoring the error and continuing with the other files,
+# rather than bailing out. This simulates that case.
+BUILD_TIME_FILE=BuildTimeFile.cpp
+echo "int main() { return 0; }" > $BUILD_TIME_FILE
+$CXX -DTEST_MACRO1 -DTEST_MACRO2 $BUILD_TIME_FILE -std=c++14 -c -o $OBJDIR/BuildTimeFile.o -Wall
+rm BuildTimeFile.cpp
