@@ -156,7 +156,7 @@ fn main() {
         format_file_data(&cfg,
                          tree_name,
                          &panel,
-                         None,
+                         &None,
                          &blame_commit,
                          path,
                          input,

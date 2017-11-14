@@ -224,7 +224,7 @@ fn read_blob_entry(repo: &git2::Repository, entry: &git2::TreeEntry) -> String {
 pub fn format_file_data(cfg: &config::Config,
                         tree_name: &str,
                         panel: &[PanelSection],
-                        commit: Option<&git2::Commit>,
+                        commit: &Option<git2::Commit>,
                         blame_commit: &Option<git2::Commit>,
                         path: &str,
                         data: String,
@@ -261,12 +261,12 @@ pub fn format_file_data(cfg: &config::Config,
     };
 
     let revision_owned = match commit {
-        Some(commit) => {
+        &Some(ref commit) => {
             let rev = commit.id().to_string();
             let (header, _) = try!(blame::commit_header(commit));
             Some((rev, header))
         },
-        None => None,
+        &None => None,
     };
     let revision = match revision_owned {
         Some((ref rev, ref header)) => Some((rev.as_str(), header.as_str())),
@@ -391,7 +391,7 @@ pub fn format_path(cfg: &config::Config,
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
     let git = try!(config::get_git(tree_config));
     let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
-    let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
+    let commit = try!(commit_obj.into_commit().map_err(|_| "Bad revision"));
     let commit_tree = try!(commit.tree().map_err(|_| "Bad revision"));
     let entry = try!(commit_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
 
@@ -437,7 +437,7 @@ pub fn format_path(cfg: &config::Config,
     try!(format_file_data(cfg,
                           tree_name,
                           &panel,
-                          Some(&commit),
+                          &Some(commit),
                           &blame_commit,
                           path,
                           data,
