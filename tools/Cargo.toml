@@ -15,6 +15,11 @@ ipdl_parser = { path = "./ipdl_parser" }
 getopts = "0.2.14"
 memmap = "0.5.0"
 linkify = "0.2.0"
+rls-analysis = "0.8"
+rls-data = "0.12"
+clap = "2"
+serde = "1"
+serde_json = "1"
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production
