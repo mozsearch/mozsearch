@@ -9,7 +9,7 @@ build: libclang-index-plugin.so
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-libclang-index-plugin.so: Indexer.o sha1.o
+libclang-index-plugin.so: FileOperations.o StringOperations.o JSONFormatter.o MozsearchIndexer.o
 	$(CXX) $(LDFLAGS) $^ -o $@ -lclangASTMatchers
 
 check: build
@@ -17,6 +17,6 @@ check: build
 	which clang++
 
 clean:
-	$(RM) *.o libclang-index-plugin.so
+	$(RM) *.o *.dwo libclang-index-plugin.so
 
 .PHONY: build clean
