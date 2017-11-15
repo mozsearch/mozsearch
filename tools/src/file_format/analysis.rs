@@ -13,6 +13,12 @@ pub struct Location {
     pub col_end: u32,
 }
 
+#[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
+pub struct LineRange {
+    pub start_lineno: u32,
+    pub end_lineno: u32,
+}
+
 #[derive(Debug)]
 pub struct WithLocation<T> {
     pub data: T,
@@ -35,6 +41,7 @@ pub struct AnalysisTarget {
     pub sym: String,
     pub context: String,
     pub contextsym: String,
+    pub peek_range: LineRange,
 }
 
 #[derive(Debug)]
@@ -59,6 +66,13 @@ fn parse_location(loc: &str) -> Location {
     Location { lineno: lineno, col_start: col_start, col_end: col_end }
 }
 
+fn parse_line_range(range: &str) -> LineRange {
+    let v : Vec<&str> = range.split("-").collect();
+    let start_lineno = v[0].parse::<u32>().unwrap();
+    let end_lineno = v[1].parse::<u32>().unwrap();
+    LineRange { start_lineno: start_lineno, end_lineno: end_lineno }
+}
+
 pub fn read_analysis<T>(filename: &str, filter: &Fn(&Object) -> Option<T>) -> Vec<WithLocation<Vec<T>>> {
     let file = match File::open(filename) {
         Ok(f) => f,
@@ -72,7 +86,7 @@ pub fn read_analysis<T>(filename: &str, filter: &Fn(&Object) -> Option<T>) -> Ve
         let data = Json::from_str(&line);
         let data = match data {
             Ok(data) => data,
-            Err(_) => panic!("error on line {}: {}", lineno, &line),
+            Err(e) => panic!("error {} on line {}: {}", e, lineno, &line),
         };
         lineno += 1;
         let obj = data.as_object().unwrap();
@@ -143,9 +157,14 @@ pub fn read_target(obj : &Object) -> Option<AnalysisTarget> {
         Some(json) => json.as_string().unwrap().to_string(),
         None => "".to_string()
     };
+    let peek_range = match obj.get("peekRange") {
+        Some(json) => parse_line_range(json.as_string().unwrap()),
+        None => LineRange { start_lineno: 0, end_lineno: 0 }
+    };
     let sym = obj.get("sym").unwrap().as_string().unwrap().to_string();
 
-    Some(AnalysisTarget { kind: kind, pretty: pretty, sym: sym, context: context, contextsym: contextsym })
+    Some(AnalysisTarget { kind: kind, pretty: pretty, sym: sym, context: context,
+                          contextsym: contextsym, peek_range: peek_range })
 }
 
 pub fn read_source(obj : &Object) -> Option<AnalysisSource> {
