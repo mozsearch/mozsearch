@@ -367,6 +367,12 @@ private:
     printf("--> %s %s\n", std::string(Filename).c_str(), S.c_str());
   }
 
+  void debugRange(SourceRange Range) {
+    printf("Range\n");
+    debugLocation(Range.getBegin());
+    debugLocation(Range.getEnd());
+  }
+
 public:
   IndexConsumer(CompilerInstance &CI)
       : CI(CI), SM(CI.getSourceManager()), CurMangleContext(nullptr),
@@ -955,7 +961,7 @@ public:
   }
 
   SourceRange getTagPeekRange(TagDecl* D) {
-    SourceLocation Start = D->getOuterLocStart();
+    SourceLocation Start = D->getLocStart();
 
     // By default, we end at the line containing the name.
     SourceLocation End = D->getLocation();
@@ -1016,6 +1022,22 @@ public:
     }
   }
 
+  SourceRange validateRange(SourceLocation Loc, SourceRange Range) {
+    std::pair<FileID, unsigned> Decomposed = SM.getDecomposedLoc(Loc);
+    std::pair<FileID, unsigned> Begin = SM.getDecomposedLoc(Range.getBegin());
+    std::pair<FileID, unsigned> End = SM.getDecomposedLoc(Range.getEnd());
+
+    if (Begin.first != Decomposed.first || End.first != Decomposed.first) {
+      return SourceRange();
+    }
+
+    if (Begin.second >= End.second) {
+      return SourceRange();
+    }
+
+    return Range;
+  }
+
   bool VisitNamedDecl(NamedDecl *D) {
     SourceLocation Loc = D->getLocation();
     normalizeLocation(&Loc);
@@ -1043,7 +1065,7 @@ public:
       Kind = D2->isThisDeclarationADefinition() ? "def" : "decl";
       PrettyKind = "type";
 
-      if (D2->isThisDeclarationADefinition()) {
+      if (D2->isThisDeclarationADefinition() && D2->getDefinition() == D2) {
         PeekRange = getTagPeekRange(D2);
       } else {
         PeekRange = SourceRange();
@@ -1077,6 +1099,7 @@ public:
 
     SourceRange CommentRange = getCommentRange(D);
     PeekRange = combineRanges(PeekRange, CommentRange);
+    PeekRange = ValidateRange(Loc, PeekRange);
 
     std::vector<std::string> Symbols = {getMangledName(CurMangleContext, D)};
     if (CXXMethodDecl::classof(D)) {
