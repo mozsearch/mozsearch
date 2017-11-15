@@ -26,7 +26,7 @@ sudo apt-get install -y nginx
 sudo apt-get install pkg-config
 
 # Install Rust.
-curl -sSf https://static.rust-lang.org/rustup.sh | sh
+curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
 
 # Install codesearch.
 rm -rf livegrep
@@ -78,7 +78,7 @@ echo Mozsearch repository is $MOZSEARCH_REPO
 echo Config repository is $CONFIG_REPO
 
 # Re-install Rust (make sure we have the latest version).
-curl -sSf https://static.rust-lang.org/rustup.sh | sh
+curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
 
 # Install mozsearch.
 rm -rf mozsearch
