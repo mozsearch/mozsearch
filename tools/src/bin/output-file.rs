@@ -129,6 +129,10 @@ fn main() {
         let panel = if path.contains("__GENERATED__") {
             vec![]
         } else if let Some(oid) = head_oid {
+            let hg_rev : &str = tree_config.git.as_ref()
+                .and_then(|git| git.hg_map.get(&oid))
+                .and_then(|rev| Some(rev.as_ref())) // &String to &str conversion
+                .unwrap_or(&"tip");
             vec![PanelSection {
                 name: "Revision control".to_owned(),
                 items: vec![PanelItem {
@@ -141,7 +145,7 @@ fn main() {
                     update_link_lineno: false,
                  }, PanelItem {
                     title: "Raw".to_owned(),
-                    link: format!("https://raw.githubusercontent.com/mozilla/gecko-dev/{}/{}", oid, path),
+                    link: format!("https://hg.mozilla.org/mozilla-central/raw-file/{}/{}", hg_rev, path),
                     update_link_lineno: false,
                 }, PanelItem {
                     title: "Blame".to_owned(),
