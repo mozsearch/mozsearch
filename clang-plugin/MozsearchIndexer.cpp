@@ -1099,7 +1099,7 @@ public:
 
     SourceRange CommentRange = getCommentRange(D);
     PeekRange = combineRanges(PeekRange, CommentRange);
-    PeekRange = ValidateRange(Loc, PeekRange);
+    PeekRange = validateRange(Loc, PeekRange);
 
     std::vector<std::string> Symbols = {getMangledName(CurMangleContext, D)};
     if (CXXMethodDecl::classof(D)) {
