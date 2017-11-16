@@ -30,7 +30,7 @@ curl -sSf https://static.rust-lang.org/rustup.sh | sh
 
 # Install codesearch.
 rm -rf livegrep
-git clone -b mozsearch-version https://github.com/bill-mccloskey/livegrep
+git clone -b mozsearch-version https://github.com/mozsearch/livegrep
 pushd livegrep
 bazel build //src/tools:codesearch --incompatible_disallow_set_constructor=false
 sudo install bazel-bin/src/tools/codesearch /usr/local/bin

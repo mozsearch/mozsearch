@@ -132,8 +132,8 @@ task that runs is generated as follows.
 
 ```
 ./infrastructure/aws/build-lambda-indexer-start.sh \
-  https://github.com/bill-mccloskey/mozsearch \
-  https://github.com/bill-mccloskey/mozsearch-mozilla \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
   master \
   release
 ```

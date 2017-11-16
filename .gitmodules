@@ -1,3 +1,3 @@
 [submodule "tools/ipdl_parser"]
 	path = tools/ipdl_parser
-	url = https://github.com/bill-mccloskey/ipdl_parser/
+	url = https://github.com/mozsearch/ipdl_parser/

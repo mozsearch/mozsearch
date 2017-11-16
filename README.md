@@ -12,7 +12,7 @@ following the instructions for your OS. Then clone Mozsearch and
 provision a Vagrant instance:
 
 ```
-git clone https://github.com/bill-mccloskey/mozsearch
+git clone https://github.com/mozsearch/mozsearch
 cd mozsearch
 git submodule update --init
 vagrant up
@@ -53,7 +53,7 @@ Mozsearch chooses what to index using a set of configuration
 files. There is a test configuration inside the Mozsearch `tests`
 directory. We'll use this configuration for testing. However, Mozilla
 code indexing is done using the
-[mozsearch-mozilla](https://github.com/bill-mccloskey/mozsearch-mozilla)
+[mozsearch-mozilla](https://github.com/mozsearch/mozsearch-mozilla)
 repository.
 
 The `config.json` file is the most important part of the
@@ -111,7 +111,7 @@ the Mozilla codebase. Here's how to do that:
 
 ```
 # Clone the Mozilla configuration into ~/mozilla-config.
-git clone https://github.com/bill-mccloskey/mozsearch-mozilla ~/mozilla-config
+git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 
 # Manually edit the ~/mozilla-config/config.json to remove trees you don't
 # care about (probably NSS and comm-central). Make sure to remove any trailing
