@@ -6,6 +6,9 @@ import os.path
 
 config_fname = sys.argv[1]
 doc_root = sys.argv[2]
+use_hsts = sys.argv[3] == 'hsts'
+
+print '# use_hsts =', sys.argv[3]
 
 mozsearch_path = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), '..'))
 
@@ -23,9 +26,8 @@ def location(route, directives):
     # won't match in dev builds.  This needs to be included in all
     # locations, instead of in the server block, since add_header
     # won't be inherited if a location sets any headers of its own.
-    print '''    if ($http_x_forwarded_proto = "https") {
-      add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-    }'''
+    if use_hsts:
+        print '    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;'
 
     for directive in directives:
         print '    ' + (directive % fmt)

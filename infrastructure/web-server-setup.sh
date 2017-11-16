@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $# != 3 ]
+if [ $# != 3 && $# != 4 ]
 then
-    echo "usage: $0 <config-repo-path> <index-path> <server-root>"
+    echo "usage: $0 <config-repo-path> <index-path> <server-root> [<use_hsts>]"
     exit 1
 fi
 
@@ -15,6 +15,7 @@ CONFIG_REPO=$(readlink -f $1)
 WORKING=$(readlink -f $2)
 CONFIG_FILE=$WORKING/config.json
 SERVER_ROOT=$(readlink -f $3)
+USE_HSTS=$4
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 
@@ -36,7 +37,7 @@ do
     ln -s $WORKING/$TREE_NAME/help.html $DOCROOT
 done
 
-python $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT > /tmp/nginx
+python $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" > /tmp/nginx
 sudo mv /tmp/nginx /etc/nginx/sites-enabled/mozsearch.conf
 sudo chmod 0644 /etc/nginx/sites-enabled/mozsearch.conf
 
