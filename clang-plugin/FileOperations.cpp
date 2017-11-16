@@ -111,6 +111,7 @@ AutoLockFile::~AutoLockFile() { close(FileDescriptor); }
 bool AutoLockFile::success() { return FileDescriptor != -1; }
 
 FILE *AutoLockFile::openFile(const char *Mode) {
+  lseek(FileDescriptor, 0, SEEK_SET);
   return fdopen(dup(FileDescriptor), Mode);
 }
 
