@@ -305,3 +305,23 @@ pub fn generate_panel(writer: &mut Write, sections: &[PanelSection]) -> Result<(
 
     Ok(())
 }
+
+pub fn generate_svg_preview(writer: &mut Write, url: &str) -> Result<(), &'static str> {
+    let f = F::Seq(vec![
+      F::S(r#"<div class="svg-preview">"#),
+      F::Indent(vec![
+        F::S("<h4>SVG Preview (Scaled)</h4>"),
+        F::S(r#"<input type="checkbox" id="svg-preview-checkerboard"/>"#),
+        F::S(r#"<label for="svg-preview-checkerboard">Checkerboard</label>"#),
+        F::T(format!(r#"<a href="{}">"#, url)),
+        F::Indent(vec![
+          F::T(format!(r#"<img src="{0}" alt="Preview of {0}"/>"#, url)),
+        ]),
+        F::S("</a>"),
+      ]),
+      F::S("</div>")
+    ]);
+
+    try!(generate_formatted(writer, &f, 0));
+    Ok(())
+}
