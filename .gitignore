@@ -8,7 +8,7 @@ fastcgi/obj
 *.pyc
 clang-plugin/testfiles
 clang-plugin/analysis
-js
+/js
 tools/target
 paths
 config.json

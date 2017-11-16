@@ -196,9 +196,9 @@ private:
     }
 
     if (Length) {
-      return stringFormat("%d:%d-%d", Line, Column - 1, Column - 1 + Length);
+      return stringFormat("%05d:%d-%d", Line, Column - 1, Column - 1 + Length);
     } else {
-      return stringFormat("%d:%d", Line, Column - 1);
+      return stringFormat("%05d:%d", Line, Column - 1);
     }
   }
 
