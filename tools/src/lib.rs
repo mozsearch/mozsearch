@@ -4,6 +4,7 @@ extern crate rustc_serialize;
 extern crate git2;
 extern crate regex;
 extern crate chrono;
+extern crate linkify;
 
 pub mod file_format;
 
