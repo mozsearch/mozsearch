@@ -1,9 +1,10 @@
 let treeRoot = scriptArgs[0];
 let indexRoot = scriptArgs[1];
-let mozSearchRoot = scriptArgs[2];
-let objdir = scriptArgs[3];
-let treeName = scriptArgs[4];
-let pathFiles = scriptArgs.slice(5);
+let hgRoot = scriptArgs[2];
+let mozSearchRoot = scriptArgs[3];
+let objdir = scriptArgs[4];
+let treeName = scriptArgs[5];
+let pathFiles = scriptArgs.slice(6);
 
 run(mozSearchRoot + "/lib.js");
 run(mozSearchRoot + "/output.js");
@@ -90,11 +91,18 @@ function generateDirectory(dir, path, opt)
       }
     }
 
-    let relative_url = fileURL(opt.tree, path == "/" ? filename : path + "/" + filename);
+    let filepath = path == "/" ? filename : path + "/" + filename;
+    let relative_url = fileURL(opt.tree, filepath);
+    let style = "";
+
+    if (isIconForImage(icon)) {
+      let hgPath = `${hgRoot}/raw-file/tip/${filepath}`;
+      style = `background-image: url('${hgPath}');`;
+    }
 
     entryContent += `
         <tr>
-          <td><a href="${relative_url}" class="icon ${icon}">${filename}</a></td>
+          <td><a href="${relative_url}" class="icon ${icon}" style="${style}">${filename}</a></td>
           <td><a href="${relative_url}">${size}</a></td>
         </tr>
 `;
