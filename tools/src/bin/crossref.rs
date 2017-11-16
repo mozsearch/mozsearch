@@ -162,8 +162,18 @@ fn main() {
                 let peek_end = piece.peek_range.end_lineno;
                 let mut peek_lines = String::new();
                 if peek_start != 0 {
+                    // The offset of the first non-whitespace
+                    // character of the first line of the peek
+                    // lines. We want all the lines in the peek lines
+                    // to be cut to this offset.
+                    let left_offset = lines[(peek_start - 1) as usize].1;
+
                     for peek_line_index in peek_start .. peek_end + 1 {
-                        let peek_line = &lines[(peek_line_index - 1) as usize].0;
+                        let &(ref peek_line, peek_offset) = &lines[(peek_line_index - 1) as usize];
+
+                        for _i in left_offset .. peek_offset {
+                            peek_lines.push(' ');
+                        }
                         peek_lines.push_str(&peek_line);
                         peek_lines.push('\n');
                     }
