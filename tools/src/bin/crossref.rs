@@ -170,9 +170,8 @@ fn main() {
                 let peek_end = piece.peek_range.end_lineno;
                 let mut peek_lines = String::new();
                 if peek_start != 0 {
-                    // NB: previous patch version also included peek_start-1 for some reason.
-                    for peek_line_index in peek_start .. peek_end {
-                        let peek_line = &lines[peek_line_index as usize].0;
+                    for peek_line_index in peek_start .. peek_end + 1 {
+                        let peek_line = &lines[(peek_line_index - 1) as usize].0;
                         peek_lines.push_str(&peek_line);
                         peek_lines.push('\n');
                     }
