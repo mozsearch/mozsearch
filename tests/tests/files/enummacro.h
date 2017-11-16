@@ -1,0 +1,3 @@
+PRES_ARENA_OBJECT(nsLineBox)
+PRES_ARENA_OBJECT(nsRuleNode)
+PRES_ARENA_OBJECT(DisplayItemData)
