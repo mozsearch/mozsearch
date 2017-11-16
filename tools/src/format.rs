@@ -18,8 +18,27 @@ use git2;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 use chrono::datetime::DateTime;
+use linkify::{LinkFinder, LinkKind};
 
 use config;
+
+fn linkify(s: String) -> String {
+    let mut finder = LinkFinder::new();
+    finder.kinds(&[LinkKind::Url]);
+    let mut last = 0;
+    let mut result = String::new();
+    for link in finder.links(&s) {
+        result.push_str(&s[last .. link.start()]);
+        result.push_str(&format!("<a href=\"{}\">{}</a>", link.as_str(), link.as_str()));
+        last = link.end();
+    }
+    if last == 0 {
+        s
+    } else {
+        result.push_str(&s[last ..]);
+        result
+    }
+}
 
 pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                    path: &str, input: &str,
@@ -175,15 +194,18 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 
         match token.kind {
             tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
-                output.push_str(&entity_replace(input[last .. token.start].to_string()));
-                output.push_str(&entity_replace(input[token.start .. token.end].to_string()));
+                output.push_str(&entity_replace(input[last .. token.end].to_string()));
                 last = token.end;
             },
             _ => {
                 if style != "" || data != "" {
                     output.push_str(&entity_replace(input[last .. token.start].to_string()));
                     output.push_str(&format!("<span {}{}>", style, data));
-                    output.push_str(&entity_replace(input[token.start .. token.end].to_string()));
+                    let mut sanitized = entity_replace(input[token.start .. token.end].to_string());
+                    if token.kind == tokenize::TokenKind::Comment {
+                        sanitized = linkify(sanitized);
+                    }
+                    output.push_str(&sanitized);
                     output.push_str("</span>");
                     last = token.end;
                 }
@@ -273,7 +295,10 @@ pub fn format_file_data(cfg: &config::Config,
         None => None,
     };
 
-    let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
+    let path_wrapper = Path::new(path);
+    let filename = path_wrapper.file_name().unwrap().to_str().unwrap();
+    let extension = path_wrapper.extension().unwrap().to_str().unwrap();
+
     let title = format!("{} - mozsearch", filename);
     let opt = Options {
         title: &title,
@@ -287,6 +312,16 @@ pub fn format_file_data(cfg: &config::Config,
     try!(output::generate_breadcrumbs(&opt, writer, path));
 
     try!(output::generate_panel(writer, panel));
+
+    try!(match extension {
+        "svg" => {
+            let url = format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path);
+            output::generate_svg_preview(writer, &url)
+        },
+        _ => {
+            Ok(())
+        }
+    });
 
     let f = F::Seq(vec![
         F::S("<table id=\"file\" class=\"file\">"),

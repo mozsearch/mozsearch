@@ -283,7 +283,6 @@ body.old-rev .content {
 }
 .breadcrumbs {
     display: inline-block;
-    float: left;
     margin: 0;
     padding: .5rem 0 1rem 0;
     text-align: left;
@@ -641,4 +640,37 @@ body.old-rev .search-box {
         left: 13px;
         text-align: left;
     }
+}
+
+.svg-preview > h4 {
+    margin-bottom: 0;
+}
+
+.svg-preview > a {
+    display: block;
+}
+
+.svg-preview > a > img {
+    float: left;
+    clear: both;
+    min-height: 50px;
+    max-height: 300px;
+    min-width: 50px;
+    max-width: 300px;
+    box-sizing: content-box;
+    border: 1px dashed #555;
+    margin-top: 1em;
+    margin-bottom: 1em;
+}
+
+#svg-preview-checkerboard {
+    margin-inline-start: 0;
+}
+
+#svg-preview-checkerboard:checked + label + a > img {
+    background-image:
+      linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%),
+      linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
 }
