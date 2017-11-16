@@ -25,7 +25,7 @@ $MOZSEARCH_PATH/scripts/mkdirs.sh
 
 date
 
-$CONFIG_REPO/$TREE_NAME/build || echo "Build failed: $TREE_NAME"
+$MOZSEARCH_PATH/scripts/build.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME
 
 date
 
