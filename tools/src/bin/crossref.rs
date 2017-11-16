@@ -136,15 +136,7 @@ fn main() {
                     let len = line_cut.len();
                     let line_cut = line_cut.trim_left();
                     let offset = (len - line_cut.len()) as u32;
-                    let mut buf = String::new();
-                    let mut i = 0;
-                    for c in line_cut.chars() {
-                        buf.push(c);
-                        i += 1;
-                        if i > 100 {
-                            break;
-                        }
-                    };
+                    let buf = line_cut.chars().take(100).collect();
                     (strings.add(buf), offset)
                 },
                 Err(_) => (Rc::clone(&empty_string), 0)

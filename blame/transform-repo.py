@@ -186,8 +186,13 @@ def build_blame_tree(builder, file_movement, commit, path):
                 blame = ''.join([ b + '\n' for b in blame ])
                 blob_oid = new_repo.create_blob(blame)
                 builder.insert(entry.name, blob_oid, entry.filemode)
+            elif entry.type == 'commit':
+                # This is a submodule, just treat it as an empty dir. We could
+                # probably also skip over it entirely.
+                entry_builder = new_repo.TreeBuilder()
+                builder.insert(entry.name, entry_builder.write(), entry.filemode)
             else:
-                assert entry.type == 'tree'
+                assert entry.type == 'tree', "Unexpected type %s" % entry.type
                 entry_builder = new_repo.TreeBuilder()
                 build_blame_tree(entry_builder, file_movement, commit, path + [entry.name])
                 builder.insert(entry.name, entry_builder.write(), entry.filemode)

@@ -153,10 +153,13 @@ fn main() {
             vec![]
         };
 
+        let head_commit = head_oid
+            .and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
+
         format_file_data(&cfg,
                          tree_name,
                          &panel,
-                         &None,
+                         &head_commit,
                          &blame_commit,
                          path,
                          input,
