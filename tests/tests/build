@@ -15,6 +15,10 @@ do
   $CXX -DTEST_MACRO1 -DTEST_MACRO2 $f -std=c++14 -c -o $OBJDIR/${f%%.cpp}.o -Wall
 done
 
+export CARGO_TARGET_DIR=$OBJDIR
+cargo clean
+cargo build
+
 # Firefox generates files named something like Configure.cpp during
 # the build process, but their source files are not around by the time
 # we run the analysis. crossref.rs needs to be able to deal with this

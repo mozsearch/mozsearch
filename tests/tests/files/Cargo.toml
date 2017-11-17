@@ -1,0 +1,11 @@
+[package]
+name = "files"
+version = "0.1.0"
+authors = ["Emilio Cobos Álvarez <emilio@crisal.io>"]
+
+[lib]
+name = "simple"
+path = "simple.rs"
+doctest = false
+
+[dependencies]
