@@ -53,17 +53,18 @@ fn mangle_nested_name(ns: &[String], protocol: &str, name: &str) -> String {
             mangle_simple(name))
 }
 
-fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> &'a AnalysisTarget
+fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a AnalysisTarget>
 {
     for datum in analysis {
         for piece in &datum.data {
             if piece.kind == AnalysisKind::Decl && piece.sym.contains(mangled) {
-                return &piece;
+                return Some(&piece);
             }
         }
     }
 
-    panic!("No analysis target found for {}", mangled);
+    println!("No analysis target found for {}", mangled);
+    return None
 }
 
 fn output_data(outputf: &mut File, locstr: &str, datum: &AnalysisTarget) {
@@ -91,14 +92,16 @@ fn output_send_recv(outputf: &mut File,
     let mangled = mangle_nested_name(&protocol.namespaces,
                                      &format!("{}{}", protocol.name.id, send_side),
                                      &format!("{}{}{}", send_prefix, message.name.id, ctor_suffix));
-    let send_datum = find_analysis(send_analysis, &mangled);
-    output_data(outputf, &locstr, &send_datum);
+    if let Some(send_datum) = find_analysis(send_analysis, &mangled) {
+        output_data(outputf, &locstr, &send_datum);
+    }
 
     let mangled = mangle_nested_name(&protocol.namespaces,
                                      &format!("{}{}", protocol.name.id, recv_side),
                                      &format!("{}{}{}", recv_prefix, message.name.id, ctor_suffix));
-    let recv_datum = find_analysis(recv_analysis, &mangled);
-    output_data(outputf, &locstr, &recv_datum);
+    if let Some(recv_datum) = find_analysis(recv_analysis, &mangled) {
+        output_data(outputf, &locstr, &recv_datum);
+    }
 }
 
 fn main() {
