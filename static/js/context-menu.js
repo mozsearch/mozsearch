@@ -82,6 +82,12 @@ $("#file").on("click", "span[data-i]", function(event) {
   var index = elt.attr("data-i");
 
   function fmt(s, data) {
+    data = data
+       .replace(/&/g, "&amp;")
+       .replace(/</g, "&lt;")
+       .replace(/>/g, "&gt;")
+       .replace(/"/g, "&quot;")
+       .replace(/'/g, "&#039;");
     return s.replace("_", data);
   }
 
