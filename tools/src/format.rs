@@ -297,7 +297,6 @@ pub fn format_file_data(cfg: &config::Config,
 
     let path_wrapper = Path::new(path);
     let filename = path_wrapper.file_name().unwrap().to_str().unwrap();
-    let extension = path_wrapper.extension().unwrap().to_str().unwrap();
 
     let title = format!("{} - mozsearch", filename);
     let opt = Options {
@@ -313,15 +312,12 @@ pub fn format_file_data(cfg: &config::Config,
 
     try!(output::generate_panel(writer, panel));
 
-    try!(match extension {
-        "svg" => {
+    if let Some(ext) = path_wrapper.extension() {
+        if ext.to_str().unwrap() == "svg" {
             let url = format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path);
-            output::generate_svg_preview(writer, &url)
-        },
-        _ => {
-            Ok(())
+            try!(output::generate_svg_preview(writer, &url))
         }
-    });
+    }
 
     let f = F::Seq(vec![
         F::S("<table id=\"file\" class=\"file\">"),
