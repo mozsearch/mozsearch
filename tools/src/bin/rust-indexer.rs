@@ -6,10 +6,69 @@ extern crate serde;
 #[macro_use]
 extern crate serde_json;
 
+use data::GlobalCrateId;
 use analysis::{AnalysisHost, AnalysisLoader};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
+
+/// A global definition id in a crate.
+///
+/// FIXME(emilio): This key is kind of slow, because GlobalCrateId contains a
+/// String. There's a "disambiguator" field which may be more than enough for
+/// our purposes.
+#[derive(Clone, Hash, Debug, Eq, PartialEq)]
+pub struct DefId(GlobalCrateId, u32);
+
+/// A map from global definition ids to the actual definition.
+pub struct Defs {
+    map: HashMap<DefId, data::Def>,
+}
+
+impl Defs {
+    fn new() -> Self {
+        Self { map: HashMap::new() }
+    }
+
+    fn insert(&mut self, analysis: &data::Analysis, def: &data::Def) {
+        let crate_id = analysis.prelude.as_ref().unwrap().crate_id.clone();
+        let previous = self.map.insert(DefId(crate_id, def.id.index), def.clone());
+        assert!(
+            previous.is_none(),
+            "Found a definition with the same ID twice? {:?}",
+            def,
+        );
+    }
+
+    /// Getter for a given local id, which takes care of converting to a global
+    /// ID and returning the definition if present.
+    fn get(&self, analysis: &data::Analysis, id: data::Id) -> Option<data::Def> {
+        let prelude = analysis.prelude.as_ref().unwrap();
+        let krate_id = if id.krate == 0 {
+            prelude.crate_id.clone()
+        } else {
+            // TODO(emilio): This escales with the number of crates in this
+            // particular crate, but it's probably not too bad, since it should
+            // be a pretty fast linear search.
+            let krate = prelude.external_crates.iter().find(|krate| {
+                krate.num == id.krate
+            });
+
+            let krate = match krate {
+                Some(k) => k,
+                None => {
+                    eprintln!("Crate not found: {:?}", id);
+                    return None;
+                }
+            };
+
+            krate.id.clone()
+        };
+
+        let id = DefId(krate_id, id.index);
+        self.map.get(&id).cloned()
+    }
+}
 
 #[derive(Clone)]
 pub struct Loader {
@@ -95,7 +154,7 @@ fn visit(
 
 fn analyze_file(
     file_name: &PathBuf,
-    defs: &HashMap<data::Id, data::Def>,
+    defs: &Defs,
     file_analysis: &data::Analysis,
     src_dir: &Path,
     output_dir: &Path,
@@ -134,28 +193,37 @@ fn analyze_file(
     for import in &file_analysis.imports {
         let id = match import.ref_id {
             Some(id) => id,
-            None => continue,
+            None => {
+                eprintln!("Dropping import {}: {}, no ref", import.name, import.value);
+                continue;
+            }
         };
 
-        let def = match defs.get(&id) {
+        let def = match defs.get(file_analysis, id) {
             Some(def) => def,
-            None => continue,
+            None => {
+                eprintln!("Dropping import {}: {}, no def for ref {:?}", import.name, import.value, id);
+                continue;
+            }
         };
 
-        visit(&mut file, "import", &import.span, &def.qualname, None)
+        visit(&mut file, "use", &import.span, &def.qualname, None)
     }
 
     for def in &file_analysis.defs {
         let parent = def.parent
-            .and_then(|parent_id| defs.get(&parent_id).map(|d| &*d.qualname));
+            .and_then(|parent_id| defs.get(file_analysis, parent_id).map(|d| d.qualname));
 
-        visit(&mut file, "def", &def.span, &def.qualname, parent)
+        visit(&mut file, "def", &def.span, &def.qualname, parent.as_ref().map(|p| &**p))
     }
 
     for ref_ in &file_analysis.refs {
-        let def = match defs.get(&ref_.ref_id) {
+        let def = match defs.get(file_analysis, ref_.ref_id) {
             Some(d) => d,
-            None => continue,
+            None => {
+                eprintln!("Dropping ref {:?}, kind {:?}, no def", ref_.ref_id, ref_.kind);
+                continue;
+            }
         };
         visit(
             &mut file,
@@ -169,12 +237,13 @@ fn analyze_file(
 
 fn analyze_crate(
     analysis: &data::Analysis,
-    defs: &HashMap<data::Id, data::Def>,
+    defs: &Defs,
     src_dir: &Path,
     output_dir: &Path,
 ) {
     let mut per_file = HashMap::new();
 
+    println!("Analyzing crate: {:?}", analysis.prelude);
 
     macro_rules! flat_map_per_file {
         ($field:ident) => {
@@ -182,7 +251,10 @@ fn analyze_crate(
                 let mut file_analysis =
                     per_file.entry(item.span.file_name.clone())
                         .or_insert_with(|| {
-                            data::Analysis::new(analysis.config.clone())
+                            let prelude = analysis.prelude.clone();
+                            let mut analysis = data::Analysis::new(analysis.config.clone());
+                            analysis.prelude = prelude;
+                            analysis
                         });
                 file_analysis.$field.push(item.clone());
             }
@@ -222,10 +294,11 @@ fn main() {
 
     let crates = analysis::read_analysis_from_files(&loader, Default::default(), &[]);
 
-    let mut defs = HashMap::new();
+    let mut defs = Defs::new();
     for krate in &crates {
         for def in &krate.analysis.defs {
-            defs.insert(def.id, def.clone());
+            println!("Indexing def: {:?}", def);
+            defs.insert(&krate.analysis, def);
         }
     }
 
