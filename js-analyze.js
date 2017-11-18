@@ -139,14 +139,18 @@ let Analyzer = {
     }
   },
 
-  source(loc, name, syntax, pretty, sym) {
+  source(loc, name, syntax, pretty, sym, no_crossref = false) {
     let locProp;
     if (typeof(loc) == "object" && "start" in loc) {
       locProp = locstr2(loc, name);
     } else {
       locProp = loc;
     }
-    print(JSON.stringify({loc: locProp, source: 1, syntax, pretty, sym}));
+    let obj = {loc: locProp, source: 1, syntax, pretty, sym};
+    if (no_crossref) {
+      obj.no_crossref = 1;
+    }
+    print(JSON.stringify(obj));
   },
 
   target(loc, name, kind, pretty, sym) {
@@ -207,8 +211,7 @@ let Analyzer = {
     let sym = new Symbol(name, loc);
     this.symbols.put(name, sym);
 
-    this.source(loc, name, "deflocal,variable", `variable ${name}`, sym.id);
-    this.target(loc, name, "def", name, sym.id);
+    this.source(loc, name, "deflocal,variable", `variable ${name}`, sym.id, true);
   },
 
   findSymbol(name) {
@@ -232,8 +235,7 @@ let Analyzer = {
     if (!sym) {
       this.useProp(name, loc);
     } else if (!sym.skip) {
-      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id);
-      this.target(loc, name, "use", name, sym.id);
+      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id, true);
     }
   },
 
@@ -245,8 +247,7 @@ let Analyzer = {
     if (!sym) {
       this.assignProp(name, loc);
     } else if (!sym.skip) {
-      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id);
-      this.target(loc, name, "assign", name, sym.id);
+      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id, true);
     }
   },
 
