@@ -22,7 +22,6 @@ then
 fi
 
 cat $INDEX_ROOT/js-files | grep "$FILTER" | \
-    parallel --halt 2 js -f $MOZSEARCH_PATH/setversion.js \
-    -f $MOZSEARCH_PATH/js-analyze.js -- {#} \
+    parallel --halt 2 js -f $MOZSEARCH_PATH/js-analyze.js -- {#} \
     $MOZSEARCH_PATH $FILES_ROOT/{} ">" $INDEX_ROOT/analysis/{}
 echo $?
