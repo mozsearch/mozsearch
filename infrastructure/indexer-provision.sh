@@ -36,8 +36,8 @@ sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llv
 sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-4.0 400
 sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-4.0 400
 
-# Install Rust.
-curl -sSf https://static.rust-lang.org/rustup.sh | sh
+# Install Rust. We need rust nightly to use the save-analysis
+curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
 
 # Install codesearch.
 rm -rf livegrep
@@ -94,8 +94,9 @@ echo Mozsearch repository is $MOZSEARCH_REPO
 echo Config repository is $CONFIG_REPO
 
 # Re-install Rust (make sure we have the latest version).
-# Building Firefox requires a recent version of Rust.
-curl -sSf https://static.rust-lang.org/rustup.sh | sh
+# We need rust nightly to use the save-analysis, and firefox requires recent
+# versions of Rust.
+curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
 
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js
