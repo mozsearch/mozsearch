@@ -32,7 +32,13 @@ impl Defs {
 
     fn insert(&mut self, analysis: &data::Analysis, def: &data::Def) {
         let crate_id = analysis.prelude.as_ref().unwrap().crate_id.clone();
-        let previous = self.map.insert(DefId(crate_id, def.id.index), def.clone());
+        let mut definition = def.clone();
+        let crate_independent_qualname =
+            format!("{}{}", crate_id.name, def.qualname);
+        definition.qualname = crate_independent_qualname;
+
+        let index = definition.id.index;
+        let previous = self.map.insert(DefId(crate_id, index), definition);
         assert!(
             previous.is_none(),
             "Found a definition with the same ID twice? {:?}",
@@ -214,7 +220,9 @@ fn analyze_file(
         let parent = def.parent
             .and_then(|parent_id| defs.get(file_analysis, parent_id).map(|d| d.qualname));
 
-        visit(&mut file, "def", &def.span, &def.qualname, parent.as_ref().map(|p| &**p))
+        let crate_name = &file_analysis.prelude.as_ref().unwrap().crate_id.name;
+        let qualname = format!("{}{}", crate_name, def.qualname);
+        visit(&mut file, "def", &def.span, &qualname, parent.as_ref().map(|p| &**p))
     }
 
     for ref_ in &file_analysis.refs {

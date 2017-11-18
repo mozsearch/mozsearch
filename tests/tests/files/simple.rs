@@ -2,6 +2,7 @@ extern crate test_rust_dependency;
 
 use std::path::{Path, PathBuf};
 use test_rust_dependency::MyType;
+use test_rust_dependency::my_mod::MyOtherType;
 
 #[derive(Clone)]
 pub struct Loader {
