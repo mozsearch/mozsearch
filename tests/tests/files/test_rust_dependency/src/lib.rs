@@ -12,6 +12,10 @@ impl MyType {
     }
 }
 
+pub mod my_mod {
+    pub struct MyOtherType;
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
