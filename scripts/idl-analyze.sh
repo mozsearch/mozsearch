@@ -21,17 +21,19 @@ then
     FILTER=".*"
 fi
 
-rm -rf /tmp/pymodules
-mkdir /tmp/pymodules
-pushd /tmp/pymodules
-wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/xpcom/idl-parser/xpidl/xpidl.py"
-mkdir ply
-pushd ply
-wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/other-licenses/ply/ply/__init__.py"
-wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/other-licenses/ply/ply/lex.py"
-wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/other-licenses/ply/ply/yacc.py"
-popd
-popd
+if [ ! -d /tmp/pymodules ]
+then
+    mkdir /tmp/pymodules
+    pushd /tmp/pymodules
+    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/xpcom/idl-parser/xpidl/xpidl.py"
+    mkdir ply
+    pushd ply
+    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/other-licenses/ply/ply/__init__.py"
+    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/other-licenses/ply/ply/lex.py"
+    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/other-licenses/ply/ply/yacc.py"
+    popd
+    popd
+fi
 
 export PYTHONPATH=/tmp/pymodules
 
