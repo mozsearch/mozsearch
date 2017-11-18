@@ -1,13 +1,21 @@
 extern crate test_rust_dependency;
 
 use std::path::{Path, PathBuf};
-use test_rust_dependency::MyType;
+use test_rust_dependency::{MyType, MyTrait};
 use test_rust_dependency::my_mod::MyOtherType;
 
 #[derive(Clone)]
 pub struct Loader {
     deps_dir: PathBuf,
     my_type: MyType,
+}
+
+impl MyTrait for Loader {
+    fn do_bar() -> i32 { 10000 }
+
+    fn do_foo() -> MyType {
+        MyType::new().do_foo()
+    }
 }
 
 impl Loader {

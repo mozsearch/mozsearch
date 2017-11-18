@@ -16,6 +16,18 @@ pub mod my_mod {
     pub struct MyOtherType;
 }
 
+pub trait MyTrait {
+    fn do_bar() -> i32;
+
+    fn do_foo() -> MyType {
+        MyType::new()
+    }
+}
+
+impl MyTrait for MyType {
+    fn do_bar() -> i32 { 100 }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
