@@ -1,4 +1,11 @@
 [[package]]
 name = "files"
 version = "0.1.0"
+dependencies = [
+ "test_rust_dependency 0.1.0",
+]
+
+[[package]]
+name = "test_rust_dependency"
+version = "0.1.0"
 

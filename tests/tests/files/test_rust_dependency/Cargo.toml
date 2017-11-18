@@ -1,0 +1,6 @@
+[package]
+name = "test_rust_dependency"
+version = "0.1.0"
+authors = ["vagrant"]
+
+[dependencies]

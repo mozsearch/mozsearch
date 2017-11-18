@@ -9,3 +9,4 @@ path = "simple.rs"
 doctest = false
 
 [dependencies]
+test_rust_dependency = { path = "./test_rust_dependency" }
