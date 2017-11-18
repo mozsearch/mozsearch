@@ -102,14 +102,9 @@ All later AWS commands should be run within the virtual environment.
 
 To SSH into an EC2 instance, you will need to obtain the private key
 file for Searchfox. Once you have the key, ensure that the permissions
-are set so that it is not world-readable. Then add it to your SSH
-configuration (substituting the path below):
-
-```
-cat >> .ssh/config <<"THEEND"
-IdentityFile /path/to/private/key.pem
-THEEND
-```
+are set so that it is not world-readable. Put it (or a symlink to it) at
+`~/.aws/private_key.pem`. The ssh script below will check this location
+and use this as the identity file if it exists.
 
 Now you can connect to an instance as follows:
 

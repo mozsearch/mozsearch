@@ -6,6 +6,7 @@
 #   With an instance ID as argument, connects to that instance.
 
 import boto3
+import os
 import sys
 import subprocess
 import time
@@ -49,8 +50,15 @@ def change_security(instance, make_secure):
 def log_into(instance):
     change_security(instance, False)
 
+    # If there is a private key at ~/.aws/private_key.pem, use it
+    identity_args = []
+    privkey_file = os.path.expanduser('~/.aws/private_key.pem')
+    if os.path.isfile(privkey_file):
+        print 'Using %s as identity keyfile' % privkey_file
+        identity_args = ['-i', privkey_file]
+
     print 'Connecting to', instance.public_ip_address
-    p = subprocess.Popen(['ssh', 'ubuntu@' + instance.public_ip_address])
+    p = subprocess.Popen(['ssh'] + identity_args + ['ubuntu@' + instance.public_ip_address])
     p.wait()
 
     change_security(instance, True)
