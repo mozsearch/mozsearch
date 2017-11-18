@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -87,10 +89,10 @@ fn main() {
             },
         };
 
-        let p = Path::new(&source_fname);
-        let metadata = fs::symlink_metadata(p).unwrap();
+        let path_wrapper = Path::new(&source_fname);
+        let metadata = fs::symlink_metadata(path_wrapper).unwrap();
         if metadata.file_type().is_symlink() {
-            let dest = fs::read_link(p).unwrap();
+            let dest = fs::read_link(path_wrapper).unwrap();
             write!(writer, "Symlink to {}", dest.to_str().unwrap()).unwrap();
             continue;
         }
@@ -126,7 +128,49 @@ fn main() {
             }
         }
 
-        let panel = if path.contains("__GENERATED__") {
+        let mut extension_mapping = HashMap::new();
+        extension_mapping.insert("cpp", ("header", vec!["h", "hh", "hpp", "hxx"]));
+        extension_mapping.insert("cc", ("header", vec!["h", "hh", "hpp", "hxx"]));
+        extension_mapping.insert("cxx", ("header", vec!["h", "hh", "hpp", "hxx"]));
+        extension_mapping.insert("h", ("source", vec!["cpp", "cc", "cxx"]));
+        extension_mapping.insert("hh", ("source", vec!["cpp", "cc", "cxx"]));
+        extension_mapping.insert("hpp", ("source", vec!["cpp", "cc", "cxx"]));
+        extension_mapping.insert("hxx", ("source", vec!["cpp", "cc", "cxx"]));
+
+        let extension = path_wrapper.extension().unwrap_or(&OsStr::new("")).to_str().unwrap();
+        let show_header = match extension_mapping.get(extension) {
+            Some(&(ref description, ref try_extensions)) => {
+                let mut result = None;
+                for try_ext in try_extensions {
+                    let try_buf = path_wrapper.with_extension(try_ext);
+                    let try_path = try_buf.as_path();
+                    if try_path.exists() {
+                        let (path_base, _) = path.split_at(path.len() - extension.len() - 1);
+                        result = Some((description.to_owned(), format!("/{}/source/{}.{}", tree_name, path_base, try_ext)));
+                        break;
+                    }
+                }
+                result
+            },
+            None => {
+                None
+            }
+        };
+
+        let mut panel = if let Some((other_desc, other_path)) = show_header {
+            vec![PanelSection {
+                name: "Source code".to_owned(),
+                items: vec![PanelItem {
+                    title: format!("Go to {} file", other_desc),
+                    link: other_path,
+                    update_link_lineno: false,
+                }],
+            }]
+        } else {
+            vec![]
+        };
+
+        let mut rev_panel = if path.contains("__GENERATED__") {
             vec![]
         } else if let Some(oid) = head_oid {
             vec![PanelSection {
@@ -152,6 +196,8 @@ fn main() {
         } else {
             vec![]
         };
+
+        panel.append(&mut rev_panel);
 
         let head_commit = head_oid
             .and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
