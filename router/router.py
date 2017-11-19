@@ -421,8 +421,9 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             tree_name = path_elts[0]
             query = urlparse.parse_qs(url.query)
             symbol = query['q'][0]
+            kind = query['kind'][0]
             results = crossrefs.lookup(tree_name, symbol)
-            definition = results['Definitions'][0]
+            definition = results[kind][0]
             filename = definition['path']
             lineno = definition['lines'][0]['lno']
             url = '/' + tree_name + '/source/' + filename + '#' + str(lineno)

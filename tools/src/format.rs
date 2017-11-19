@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
-use file_format::analysis;
 use blame;
 use tokenize;
 use languages;
@@ -40,7 +39,7 @@ fn linkify(s: String) -> String {
     }
 }
 
-pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
+pub fn format_code(jumps: &HashMap<String, Vec<Jump>>, format: FormatAs,
                    path: &str, input: &str,
                    analysis: &[WithLocation<Vec<AnalysisSource>>]) -> (Vec<String>, String)
 {
@@ -129,13 +128,16 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                     let syms = item.sym.split(',');
                     for sym in syms {
                         match jumps.get(sym) {
-                            Some(jump) => {
-                                if !(&jump.path == path && jump.lineno == cur_line) {
-                                    let key = format!("{}:{}", jump.path, jump.lineno);
-                                    let mut obj = json::Object::new();
-                                    obj.insert("sym".to_string(), Json::String(sym.to_string()));
-                                    obj.insert("pretty".to_string(), Json::String(jump.pretty.clone()));
-                                    menu_jumps.insert(key, Json::Object(obj));
+                            Some(jump_list) => {
+                                for jump in jump_list {
+                                    if !(&jump.path == path && jump.lineno == cur_line) {
+                                        let key = format!("{}:{}", jump.path, jump.lineno);
+                                        let mut obj = json::Object::new();
+                                        obj.insert("sym".to_string(), Json::String(sym.to_string()));
+                                        obj.insert("pretty".to_string(), Json::String(jump.pretty.clone()));
+                                        obj.insert("kind".to_string(), Json::String(jump.kind.clone()));
+                                        menu_jumps.insert(key, Json::Object(obj));
+                                    }
                                 }
                             },
                             None => {}
@@ -250,7 +252,7 @@ pub fn format_file_data(cfg: &config::Config,
                         blame_commit: &Option<git2::Commit>,
                         path: &str,
                         data: String,
-                        jumps: &HashMap<String, Jump>,
+                        jumps: &HashMap<String, Vec<Jump>>,
                         analysis: &[WithLocation<Vec<AnalysisSource>>],
                         writer: &mut Write) -> Result<(), &'static str>  {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
@@ -445,7 +447,7 @@ pub fn format_path(cfg: &config::Config,
 
     let data = read_blob_entry(&git.repo, &entry);
 
-    let jumps : HashMap<String, analysis::Jump> = HashMap::new();
+    let jumps : HashMap<String, Vec<Jump>> = HashMap::new();
     let analysis = Vec::new();
 
     let hg_rev : &str =
@@ -609,7 +611,7 @@ pub fn format_diff(cfg: &config::Config,
         },
         _ => {},
     };
-    let jumps : HashMap<String, analysis::Jump> = HashMap::new();
+    let jumps : HashMap<String, Vec<Jump>> = HashMap::new();
     let analysis = Vec::new();
     let (formatted_lines, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 

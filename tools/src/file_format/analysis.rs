@@ -197,9 +197,10 @@ pub struct Jump {
     pub path: String,
     pub lineno: u64,
     pub pretty: String,
+    pub kind: String,
 }
 
-pub fn read_jumps(filename: &str) -> HashMap<String, Jump> {
+pub fn read_jumps(filename: &str) -> HashMap<String, Vec<Jump>> {
     let file = File::open(filename).unwrap();
     let reader = BufReader::new(&file);
     let mut result = HashMap::new();
@@ -220,9 +221,10 @@ pub fn read_jumps(filename: &str) -> HashMap<String, Jump> {
             path: array[1].as_string().unwrap().to_string(),
             lineno: array[2].as_u64().unwrap(),
             pretty: array[3].as_string().unwrap().to_string(),
+            kind: array[4].as_string().unwrap().to_string(),
         };
 
-        result.insert(id, data);
+        result.entry(id).or_insert_with(|| vec![]).push(data);
     }
     result
 }

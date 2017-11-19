@@ -23,6 +23,7 @@ struct SearchResult {
     lineno: u32,
     bounds: (u32, u32),
     line: Rc<String>,
+    pretty: Rc<String>,
     context: Rc<String>,
     contextsym: Rc<String>,
     peek_lines: Rc<String>,
@@ -110,7 +111,6 @@ fn main() {
     let empty_string = strings.add("".to_string());
 
     let mut table = BTreeMap::new();
-    let mut pretty_table = HashMap::new();
     let mut id_table = BTreeMap::new();
     let mut jumps = Vec::new();
 
@@ -179,17 +179,17 @@ fn main() {
                     }
                 }
 
+                let pretty = strings.add(piece.pretty.to_owned());
+
                 t3.push(SearchResult {
                     lineno: datum.loc.lineno,
                     bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
                     line: line,
+                    pretty: strings.add(piece.pretty),
                     context: strings.add(piece.context),
                     contextsym: strings.add(piece.contextsym),
                     peek_lines: strings.add(peek_lines),
                 });
-
-                let pretty = strings.add(piece.pretty.to_owned());
-                pretty_table.insert(Rc::clone(&sym), Rc::clone(&pretty));
 
                 let ch = piece.sym.chars().nth(0).unwrap();
                 if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
@@ -225,21 +225,28 @@ fn main() {
 
         let _ = outputf.write_all(format!("{}\n{}\n", id, kindmap.to_string()).as_bytes());
 
-        if id_data.contains_key(&AnalysisKind::Def) {
-            let defs = id_data.get(&AnalysisKind::Def).unwrap();
-            if defs.len() == 1 {
-                for (path, results) in defs {
-                    if results.len() == 1 {
-                        let mut v = Vec::new();
-                        v.push(id.to_json());
-                        v.push(path.to_json());
-                        v.push(results[0].lineno.to_json());
-                        let pretty = pretty_table.get(&id).unwrap();
-                        v.push(pretty.to_json());
-                        jumps.push(Json::Array(v));
+        {
+            let mut add_jumps = |kind: &AnalysisKind, kindstr: &str| {
+                if id_data.contains_key(kind) {
+                    let defs = id_data.get(kind).unwrap();
+                    if defs.len() == 1 {
+                        for (path, results) in defs {
+                            if results.len() == 1 {
+                                let mut v = Vec::new();
+                                v.push(id.to_json());
+                                v.push(path.to_json());
+                                v.push(results[0].lineno.to_json());
+                                v.push(results[0].pretty.to_json());
+                                v.push(kindstr.to_json());
+                                jumps.push(Json::Array(v));
+                            }
+                        }
                     }
                 }
-            }
+            };
+
+            add_jumps(&AnalysisKind::Def, "Definitions");
+            add_jumps(&AnalysisKind::Idl, "IDL");
         }
     }
 
