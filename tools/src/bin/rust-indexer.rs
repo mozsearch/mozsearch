@@ -116,7 +116,7 @@ fn span_to_string(span: &data::SpanData) -> String {
     if span.column_start == span.column_end {
         return format!("{}:{}", span.line_start.0, span.column_start.0 - 1);
     }
-    let len = span.column_end.0 - span.column_end.0;
+    let len = span.column_end.0 - span.column_start.0;
     format!("{}:{}-{}", span.line_start.0, span.column_start.0 - 1, len)
 }
 
