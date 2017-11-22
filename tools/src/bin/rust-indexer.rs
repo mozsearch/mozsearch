@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate clap;
-extern crate rls_analysis as analysis;
+extern crate rls_analysis;
 extern crate rls_data as data;
 extern crate serde;
 #[macro_use]
 extern crate serde_json;
 
 use data::GlobalCrateId;
-use analysis::{AnalysisHost, AnalysisLoader};
+use rls_analysis::{AnalysisHost, AnalysisLoader};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
@@ -300,7 +300,7 @@ fn main() {
     let loader = Loader::new(PathBuf::from(input_dir));
 
 
-    let crates = analysis::read_analysis_from_files(&loader, Default::default(), &[]);
+    let crates = rls_analysis::read_analysis_from_files(&loader, Default::default(), &[]);
 
     let mut defs = Defs::new();
     for krate in &crates {
