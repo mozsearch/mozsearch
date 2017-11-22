@@ -34,11 +34,9 @@ $MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
 
-# TODO(emilio): Test with central and enable.
+$MOZSEARCH_PATH/scripts/rust-analyze.sh $CONFIG_FILE $TREE_NAME
 
-# $MOZSEARCH_PATH/scripts/rust-analyze.sh $CONFIG_FILE $TREE_NAME
-#
-# date
+date
 
 $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME
 
