@@ -288,7 +288,7 @@ fn main() {
         .args_from_usage(
             "<src>    'Points to the source root'
              <input>  'Points to the deps/save-analysis directory'
-             <output> 'Points to the directory where searchfox metadata should'",
+             <output> 'Points to the directory where searchfox metadata should go'",
         )
         .get_matches();
 
