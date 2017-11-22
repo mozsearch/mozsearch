@@ -8,6 +8,7 @@ use blame;
 use tokenize;
 use languages;
 use languages::FormatAs;
+use links;
 
 use config::GitData;
 use file_format::analysis::{WithLocation, AnalysisSource, Jump};
@@ -18,27 +19,8 @@ use git2;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 use chrono::datetime::DateTime;
-use linkify::{LinkFinder, LinkKind};
 
 use config;
-
-fn linkify(s: String) -> String {
-    let mut finder = LinkFinder::new();
-    finder.kinds(&[LinkKind::Url]);
-    let mut last = 0;
-    let mut result = String::new();
-    for link in finder.links(&s) {
-        result.push_str(&s[last .. link.start()]);
-        result.push_str(&format!("<a href=\"{}\">{}</a>", link.as_str(), link.as_str()));
-        last = link.end();
-    }
-    if last == 0 {
-        s
-    } else {
-        result.push_str(&s[last ..]);
-        result
-    }
-}
 
 pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                    path: &str, input: &str,
@@ -203,7 +185,7 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                     output.push_str(&format!("<span {}{}>", style, data));
                     let mut sanitized = entity_replace(input[token.start .. token.end].to_string());
                     if token.kind == tokenize::TokenKind::Comment {
-                        sanitized = linkify(sanitized);
+                        sanitized = links::linkify(sanitized);
                     }
                     output.push_str(&sanitized);
                     output.push_str("</span>");
