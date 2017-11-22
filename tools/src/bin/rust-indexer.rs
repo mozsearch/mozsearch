@@ -39,11 +39,16 @@ impl Defs {
 
         let index = definition.id.index;
         let previous = self.map.insert(DefId(crate_id, index), definition);
-        assert!(
-            previous.is_none(),
-            "Found a definition with the same ID twice? {:?}",
-            def,
-        );
+        if previous.is_none() {
+            // This shouldn't happen, but as of right now it can happen with
+            // some builtin definitions when highly generic types are involved.
+            // This is probably a rust bug, just ignore it for now.
+            eprintln!(
+                "Found a definition with the same ID twice? {:?}, {:?}",
+                previous,
+                def,
+            );
+        }
     }
 
     /// Getter for a given local id, which takes care of converting to a global
