@@ -17,9 +17,7 @@ MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 ANALYSIS_DIR=$(find $OBJDIR -type d -name save-analysis)
 
-pushd $FILES_ROOT
 $MOZSEARCH_PATH/tools/target/release/rust-indexer \
-  $INDEX_ROOT \
+  $FILES_ROOT \
   $ANALYSIS_DIR \
   $INDEX_ROOT/analysis
-popd
