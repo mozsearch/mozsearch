@@ -10,7 +10,7 @@ sudo apt-get install -y curl
 sudo apt-get install -y software-properties-common
 
 # Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
-sudo apt-get install -y openjdk-8-jdk libssl-dev
+sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
 # Install Bazel 0.7.0
 rm -rf bazel
 mkdir bazel
