@@ -7,11 +7,16 @@ sudo apt-get update
 sudo apt-get install -y git
 
 # Livegrep (Bazel is needed for Livegrep builds)
-sudo apt-get install -y openjdk-8-jdk
-echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-curl https://storage.googleapis.com/bazel-apt/doc/apt-key.pub.gpg | sudo apt-key add -
-sudo apt-get update
-sudo apt-get install -y bazel libssl-dev
+sudo apt-get install -y openjdk-8-jdk libssl-dev
+# Install Bazel 0.7.0
+rm -rf bazel
+mkdir bazel
+pushd bazel
+# Note that bazel unzips itself so we can't just pipe it to sudo bash.
+curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.7.0/bazel-0.7.0-without-jdk-installer-linux-x86_64.sh
+chmod +x bazel-0.7.0-without-jdk-installer-linux-x86_64.sh
+sudo ./bazel-0.7.0-without-jdk-installer-linux-x86_64.sh
+popd
 
 # pygit2
 sudo apt-get install -y python-virtualenv python-dev libffi-dev cmake
