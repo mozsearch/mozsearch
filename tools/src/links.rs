@@ -1,7 +1,7 @@
 use linkify::{LinkFinder, LinkKind};
 use regex::Regex;
 
-pub fn linkify(s: String) -> String {
+pub fn linkify_comment(s: String) -> String {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Url]);
     let mut last = 0;
@@ -12,11 +12,24 @@ pub fn linkify(s: String) -> String {
         last = link.end();
     }
     if last == 0 {
-        s
+        result = s;
     } else {
         result.push_str(&s[last ..]);
-        result
     }
+
+    linkify_bug_numbers(&result)
+}
+
+pub fn linkify_bug_numbers(s: &str) -> String {
+    // If modifying this regex note that it is used after linkifying other
+    // links in linkify_comment, so e.g. just matching a number might end up
+    // nesting a link inside a <a href> tag that was already generated.
+    lazy_static! {
+        static ref BUG_NUMBER_REGEX: Regex = {
+            Regex::new(r"\b(?i)bug\s*(?P<bugno>[1-9][0-9]{2,6})\b").unwrap()
+        };
+    }
+    BUG_NUMBER_REGEX.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$0</a>")
 }
 
 pub fn linkify_commit_header(s: &str) -> String {
@@ -40,4 +53,12 @@ fn test_linkify_servo_pr() {
     let linkified =
         linkify_commit_header("servo: Merge #1234 - stylo: Report a specific error for invalid CSS color values (from jdm:valueerr); r=heycam");
     assert!(linkified.contains("github.com"), "{:?}", linkified);
+}
+
+#[test]
+fn test_bug_number() {
+    let linkified =
+        linkify_bug_numbers("this is a link to bUg 12345");
+    assert!(linkified.contains("bugzilla.mozilla.org"), "{:?}", linkified);
+    assert!(linkified.contains(">bUg 12345</a>"), "{:?}", linkified);
 }
