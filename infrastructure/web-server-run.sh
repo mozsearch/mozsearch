@@ -23,4 +23,5 @@ sleep 1
 
 nohup python $MOZSEARCH_PATH/router/router.py $CONFIG_FILE > $SERVER_ROOT/router.log 2> $SERVER_ROOT/router.err < /dev/null &
 
+export RUST_BACKTRACE=1
 nohup $MOZSEARCH_PATH/tools/target/release/web-server $CONFIG_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &
