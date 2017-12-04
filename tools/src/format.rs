@@ -589,6 +589,9 @@ pub fn format_diff(cfg: &config::Config,
         FormatAs::Binary => {
             return Err("Cannot diff binary file");
         },
+        FormatAs::FormatDoc(_) => {
+            return Err("Cannot diff documentation file");
+        },
         _ => {},
     };
     let jumps : HashMap<String, analysis::Jump> = HashMap::new();
