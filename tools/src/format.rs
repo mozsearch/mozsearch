@@ -566,7 +566,7 @@ pub fn format_diff(cfg: &config::Config,
             {
                 cur_blame = match blames[i] {
                     Some(ref lines) => Some(&lines[old_lineno[i] - 1]),
-                    None => panic!("expected blame for '-' line, none found"),
+                    None => return Err("expected blame for '-' line, none found"),
                 };
                 old_lineno[i] += 1;
             }
