@@ -1,10 +1,7 @@
-extern crate futures;
 extern crate hyper;
-extern crate pretty_env_logger;
+extern crate env_logger;
 extern crate tools;
-extern crate mime;
 
-use std::str::FromStr;
 use std::sync::Mutex;
 use std::fs::File;
 use std::io::BufReader;
@@ -13,11 +10,12 @@ use std::path::Path;
 use std::env;
 use std::collections::HashMap;
 
-use futures::future::FutureResult;
-
-use hyper::{Get, StatusCode};
+use hyper::status::StatusCode;
+use hyper::method::Method;
+use hyper::server::{Request, Response};
 use hyper::header::ContentType;
-use hyper::server::{Http, Service, Request, Response};
+use hyper::mime::Mime;
+use hyper::uri;
 
 use tools::config;
 use tools::blame;
@@ -212,66 +210,43 @@ fn handle(cfg: &config::Config, ident_map: &HashMap<String, IdentMap>, req: WebR
     }
 }
 
-struct SearchServerData {
-    cfg: config::Config,
-    ident_map: HashMap<String, IdentMap>,
-}
-
-struct SearchServer<'a> {
-    internal_data: &'a Mutex<SearchServerData>,
-}
-
-impl<'a> SearchServer<'a> {
-    fn new(internal_data: &Mutex<SearchServerData>) -> SearchServer {
-        SearchServer { internal_data: internal_data }
-    }
-}
-
-impl<'a> Service for SearchServer<'a> {
-    type Request = Request;
-    type Response = Response;
-    type Error = hyper::Error;
-    type Future = FutureResult<Response, hyper::Error>;
-
-    fn call(&self, req: Request) -> Self::Future {
-        if *req.method() != Get {
-            return futures::future::ok(
-                Response::new().with_status(StatusCode::MethodNotAllowed)
-            );
-        }
-
-        let path = req.path().to_owned();
-
-        let guard = match self.internal_data.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        let (ref cfg, ref ident_map) = (&guard.cfg, &guard.ident_map);
-
-        let response = handle(&cfg, &ident_map, WebRequest { path: path });
-
-        let hyper_resp = Response::new()
-            .with_status(response.status)
-            .with_header(ContentType(mime::Mime::from_str(&response.content_type).unwrap()))
-            .with_body(response.output);
-        futures::future::ok(hyper_resp)
-    }
-}
-
 fn main() {
-    pretty_env_logger::init().unwrap();
+    env_logger::init().unwrap();
 
     let cfg = config::load(&env::args().nth(1).unwrap(), true);
     let ident_map = IdentMap::load(&cfg);
-    let data = SearchServerData {
-        cfg: cfg,
-        ident_map: ident_map,
+
+    let internal_data = Mutex::new((cfg, ident_map));
+
+    let handler = move |req: Request, mut res: Response| {
+        if req.method != Method::Get {
+            *res.status_mut() = StatusCode::MethodNotAllowed;
+            let resp = format!("Invalid method").into_bytes();
+            res.send(&resp).unwrap();
+            return;
+        }
+
+        let path = match req.uri {
+            uri::RequestUri::AbsolutePath(path) => path,
+            uri::RequestUri::AbsoluteUri(url) => url.path().to_owned(),
+            _ => panic!("Unexpected URI"),
+        };
+
+        let guard = match internal_data.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let (ref cfg, ref ident_map) = *guard;
+
+        let response = handle(&cfg, &ident_map, WebRequest { path: path });
+
+        *res.status_mut() = response.status;
+        let output = response.output.into_bytes();
+        let mime: Mime = response.content_type.parse().unwrap();
+        res.headers_mut().set(ContentType(mime));
+        res.send(&output).unwrap();
     };
-    let internal_data = Mutex::new(data);
 
-    let addr = "0.0.0.0:8001".parse().unwrap();
-
-    let server = Http::new().bind(&addr, move || Ok(SearchServer::new(&internal_data))).unwrap();
-    println!("Listening on http://{} with 1 thread.", server.local_addr().unwrap());
-    server.run().unwrap();
+    println!("On 8001");
+    let _listening = hyper::Server::http("0.0.0.0:8001").unwrap().handle(handler);
 }
