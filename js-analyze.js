@@ -318,9 +318,6 @@ let Analyzer = {
 
     case "TryStatement":
       this.statement(stmt.block);
-      for (let guarded of stmt.guardedHandlers) {
-        this.catchClause(guarded);
-      }
       if (stmt.handler) {
         this.catchClause(stmt.handler);
       }
