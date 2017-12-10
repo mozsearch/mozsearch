@@ -15,9 +15,11 @@ TREE_NAME=$2
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
-ANALYSIS_DIR=$(find $OBJDIR -type d -name save-analysis)
+ANALYSIS_DIR=$(find $OBJDIR -type d -name save-analysis || true)
 
-$MOZSEARCH_PATH/tools/target/release/rust-indexer \
-  $FILES_ROOT \
-  $ANALYSIS_DIR \
-  $INDEX_ROOT/analysis
+if [ -d "$ANALYSIS_DIR" ]; then
+  $MOZSEARCH_PATH/tools/target/release/rust-indexer \
+    $FILES_ROOT \
+    $ANALYSIS_DIR \
+    $INDEX_ROOT/analysis
+fi
