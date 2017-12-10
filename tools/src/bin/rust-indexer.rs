@@ -121,7 +121,7 @@ fn span_to_string(span: &data::SpanData) -> String {
     if span.column_start == span.column_end {
         return format!("{}:{}", span.line_start.0, span.column_start.0 - 1);
     }
-    format!("{}:{}-{}", span.line_start.0, span.column_start.0 - 1, span.column_end.0 - 1)
+    format!("{}:{}-{}", span.line_start.0, span.column_start.zero_indexed().0, span.column_end.zero_indexed().0)
 }
 
 fn visit(
