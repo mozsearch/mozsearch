@@ -149,7 +149,7 @@ can be uploaded to AWS Lambda using the AWS control panel.
 ## Triggering indexing manually
 
 It's fairly easy to trigger an indexing job manually from your local
-computer. To do so, run the following from within the Vagrant VM:
+computer. To do so, run the following from within the Python virtual environment:
 
 ```
 python infrastructure/aws/trigger_indexer.py \
