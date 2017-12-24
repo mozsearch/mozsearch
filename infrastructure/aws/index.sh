@@ -63,6 +63,14 @@ python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CON
 gzip -k ~ubuntu/index-log
 python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`
 
+if [ $CHANNEL != release ]
+then
+    # Don't send completion email notification for release channel. For other
+    # channels send it to the author of the HEAD commit in the repo
+    DEST_EMAIL=$(git --git-dir="$MOZSEARCH_PATH/.git" show --format="%aE" --no-patch HEAD)
+    $AWS_ROOT/send-done-email.py "$DEST_EMAIL"
+fi
+
 # Give logger time to catch up
 sleep 30
 python $AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
