@@ -5,7 +5,10 @@
 
 set -x
 
+# See index.sh for the arguments to this script
+
 SELF=$(readlink -f "$0")
+CHANNEL=$2
 AWS_ROOT=$(dirname "$SELF")
 
 mkdir -p ~/.aws
@@ -20,8 +23,16 @@ STOP
 $AWS_ROOT/make-crontab.py
 
 # Run indexer with arguments supplied to this script; if it fails then send
-# failure email and shut down
+# failure email and shut down. Release channel failures get sent to the default
+# email address, other channel failures get sent to the author of the head
+# commit.
 $AWS_ROOT/index.sh $*
 if [ $? -ne 0 ]; then
-    $AWS_ROOT/send-failure-email.py
+    if [ $CHANNEL == release ]
+    then
+        $AWS_ROOT/send-failure-email.py
+    else
+        DEST_EMAIL=$(git --git-dir="$AWS_ROOT/../../.git" show --format="%aE" --no-patch HEAD)
+        $AWS_ROOT/send-failure-email.py "$DEST_EMAIL"
+    fi
 fi
