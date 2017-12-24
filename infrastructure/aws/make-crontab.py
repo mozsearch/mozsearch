@@ -10,7 +10,7 @@ delta = datetime.timedelta(hours=6)
 when = datetime.datetime.now() + delta
 s = when.strftime('%M %H %d %m *')
 
-s += ' ' + os.path.join(dir_path, 'send-email.py') + '\n'
+s += ' ' + os.path.join(dir_path, 'send-failure-email.py') + '\n'
 
 print s
 
