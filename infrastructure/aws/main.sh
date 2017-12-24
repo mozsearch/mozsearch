@@ -23,5 +23,5 @@ $AWS_ROOT/make-crontab.py
 # failure email and shut down
 $AWS_ROOT/index.sh $*
 if [ $? -ne 0 ]; then
-    $AWS_ROOT/send-email.py
+    $AWS_ROOT/send-failure-email.py
 fi
