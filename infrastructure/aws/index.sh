@@ -22,15 +22,6 @@ CONFIG_REPO_PATH=$(readlink -f $5)
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
-mkdir -p ~/.aws
-cat > ~/.aws/config <<"STOP"
-[default]
-region = us-west-2
-STOP
-
-# Create a crontab entry to send email if indexing takes too long.
-$MOZSEARCH_PATH/infrastructure/aws/make-crontab.py
-
 echo "Branch is $BRANCH"
 echo "Channel is $CHANNEL"
 
