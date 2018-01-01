@@ -9,7 +9,7 @@ def trigger(mozsearch_repo, config_repo, branch, channel, spot=False):
     ec2 = boto3.resource('ec2')
     client = boto3.client('ec2')
 
-    user_data = '''#!/bin/bash
+    user_data = '''#!/usr/bin/env bash
 
 cd ~ubuntu
 HOME=/home/ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"

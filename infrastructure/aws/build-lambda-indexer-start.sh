@@ -1,9 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 # Usage: build-lambda-indexer-start.sh <mozsearch-repo> <config-repo> <branch> [release|dev]
-
-set -e # Errors are fatal
-set -x # Show commands
 
 if [ $# != 4 ]
 then

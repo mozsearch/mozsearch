@@ -1,9 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 exec &> /home/ubuntu/index-log
 
-set -e
-set -x
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 if [ $# != 5 ]
 then
@@ -28,6 +29,7 @@ echo "Channel is $CHANNEL"
 export AWS_ROOT=$(realpath $MOZSEARCH_PATH/infrastructure/aws)
 VOLUME_ID=$(python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
 
+set +o pipefail   # The grep command below can return nonzero, so temporarily allow pipefail
 while true
 do
     COUNT=$(lsblk | grep xvdf | wc -l)
@@ -36,6 +38,7 @@ do
     fi
     sleep 1
 done
+set -o pipefail
 
 echo "Index volume detected"
 

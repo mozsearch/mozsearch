@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
-set -x
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 sudo apt-get update
 sudo apt-get install -y git
@@ -59,10 +60,11 @@ sudo pip install pygit2
 
 # Create update script.
 cat > update.sh <<"THEEND"
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
-set -x
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 exec &> update-log
 
