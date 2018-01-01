@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
-set -x
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js

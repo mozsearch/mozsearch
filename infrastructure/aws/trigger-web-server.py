@@ -36,7 +36,7 @@ ec2_resource = boto3.resource('ec2')
 ec2 = boto3.client('ec2')
 elb = boto3.client('elbv2')
 
-userData = '''#!/bin/bash
+userData = '''#!/usr/bin/env bash
 
 cd ~ubuntu
 touch web_server_started

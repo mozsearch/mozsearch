@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 rm -f $INDEX_ROOT/searchfox
 ln -s $CONFIG_REPO/.. $INDEX_ROOT/files

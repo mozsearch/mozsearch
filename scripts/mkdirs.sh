@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e # Errors are fatal
-set +x # Don't show commands!
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 mkdir -p $INDEX_ROOT/analysis
 mkdir -p $INDEX_ROOT/file
@@ -16,6 +17,3 @@ do
   mkdir -p "$INDEX_ROOT/analysis/$dir"
 done
 mkdir -p $INDEX_ROOT/templates
-
-set -x
-

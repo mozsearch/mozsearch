@@ -14,7 +14,7 @@ script = ''
 for provisioner in provisioners:
     script += open(provisioner).read() + '\n'
 
-user_data = '''#!/bin/bash
+user_data = '''#!/usr/bin/env bash
 
 cat > ~ubuntu/provision.sh <<"FINAL"
 {script}

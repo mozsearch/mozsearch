@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 if [ $# != 3 && $# != 4 ]
 then
@@ -6,16 +10,13 @@ then
     exit 1
 fi
 
-set -e
-set -x
-
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 CONFIG_REPO=$(readlink -f $1)
 WORKING=$(readlink -f $2)
 CONFIG_FILE=$WORKING/config.json
 SERVER_ROOT=$(readlink -f $3)
-USE_HSTS=$4
+USE_HSTS=${4:-}
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 

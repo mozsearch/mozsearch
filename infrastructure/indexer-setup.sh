@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
 
 if [ $# != 2 ]
 then
@@ -6,14 +10,11 @@ then
     exit 1
 fi
 
-set -e
-set -x
-
 export MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 export CONFIG_REPO=$(readlink -f $1)
 export WORKING=$(readlink -f $2)
 
-if [ -z "$KEEP_WORKING" ]; then
+if [ -z "${KEEP_WORKING:-}" ]; then
     echo "Removing old contents of $WORKING/"
     rm -rf $WORKING/*
 else
