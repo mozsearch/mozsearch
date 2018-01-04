@@ -204,7 +204,7 @@ fn analyze_file(
         let id = match import.ref_id {
             Some(id) => id,
             None => {
-                eprintln!("Dropping import {}: {}, no ref", import.name, import.value);
+                eprintln!("Dropping import {} ({:?}): {}, no ref", import.name, import.kind, import.value);
                 continue;
             }
         };
@@ -212,7 +212,7 @@ fn analyze_file(
         let def = match defs.get(file_analysis, id) {
             Some(def) => def,
             None => {
-                eprintln!("Dropping import {}: {}, no def for ref {:?}", import.name, import.value, id);
+                eprintln!("Dropping import {} ({:?}): {}, no def for ref {:?}", import.name, import.kind, import.value, id);
                 continue;
             }
         };
