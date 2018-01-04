@@ -39,7 +39,7 @@ impl Defs {
 
         let index = definition.id.index;
         let previous = self.map.insert(DefId(crate_id, index), definition);
-        if previous.is_none() {
+        if let Some(previous) = previous {
             // This shouldn't happen, but as of right now it can happen with
             // some builtin definitions when highly generic types are involved.
             // This is probably a rust bug, just ignore it for now.
