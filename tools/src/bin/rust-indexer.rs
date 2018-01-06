@@ -7,6 +7,7 @@ extern crate serde;
 extern crate serde_json;
 
 use data::GlobalCrateId;
+use data::DefKind;
 use rls_analysis::{AnalysisHost, AnalysisLoader};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -39,7 +40,7 @@ impl Defs {
 
         let index = definition.id.index;
         let previous = self.map.insert(DefId(crate_id, index), definition);
-        if previous.is_none() {
+        if let Some(previous) = previous {
             // This shouldn't happen, but as of right now it can happen with
             // some builtin definitions when highly generic types are involved.
             // This is probably a rust bug, just ignore it for now.
@@ -204,7 +205,7 @@ fn analyze_file(
         let id = match import.ref_id {
             Some(id) => id,
             None => {
-                eprintln!("Dropping import {}: {}, no ref", import.name, import.value);
+                eprintln!("Dropping import {} ({:?}): {}, no ref", import.name, import.kind, import.value);
                 continue;
             }
         };
@@ -212,7 +213,7 @@ fn analyze_file(
         let def = match defs.get(file_analysis, id) {
             Some(def) => def,
             None => {
-                eprintln!("Dropping import {}: {}, no def for ref {:?}", import.name, import.value, id);
+                eprintln!("Dropping import {} ({:?}): {}, no def for ref {:?}", import.name, import.kind, import.value, id);
                 continue;
             }
         };
@@ -221,12 +222,26 @@ fn analyze_file(
     }
 
     for def in &file_analysis.defs {
-        let parent = def.parent
-            .and_then(|parent_id| defs.get(file_analysis, parent_id).map(|d| d.qualname));
+        let parent =
+            def.parent.and_then(|parent_id| defs.get(file_analysis, parent_id));
+
+        if let Some(ref parent) = parent {
+            if parent.kind == DefKind::Trait {
+                let trait_dependent_name =
+                    format!("{}::{}", parent.qualname, def.name);
+                visit(
+                    &mut file,
+                    "def",
+                    &def.span,
+                    &trait_dependent_name,
+                    Some(&parent.qualname),
+                )
+            }
+        }
 
         let crate_name = &file_analysis.prelude.as_ref().unwrap().crate_id.name;
         let qualname = format!("{}{}", crate_name, def.qualname);
-        visit(&mut file, "def", &def.span, &qualname, parent.as_ref().map(|p| &**p))
+        visit(&mut file, "def", &def.span, &qualname, parent.as_ref().map(|p| &*p.qualname))
     }
 
     for ref_ in &file_analysis.refs {
