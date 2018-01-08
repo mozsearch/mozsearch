@@ -18,6 +18,11 @@ impl MyTrait for Loader {
     }
 }
 
+extern "C" fn WithoutNoMangle() {}
+
+#[no_mangle]
+extern "C" fn WithNoMangle() {}
+
 impl Loader {
     pub fn new(deps_dir: PathBuf) -> Self {
         Self { deps_dir, my_type: MyType::new() }

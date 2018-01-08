@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+extern "C" void WithNoMangle();
+
 namespace NS {
 
 struct R;
@@ -148,6 +150,8 @@ int main()
     NS::Dummy::Hello();
 
     NS::StackObj<int> stackobj(10);
+
+    WithNoMangle();
 
     return 0;
 }

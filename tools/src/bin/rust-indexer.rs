@@ -32,6 +32,13 @@ fn crate_independent_qualname(
     def: &data::Def,
     crate_id: &data::GlobalCrateId,
 ) -> String {
+    // For functions with "no_mangle", we just use the name.
+    if def.kind == DefKind::Function &&
+        def.attributes.iter().any(|attr| attr.value == "no_mangle")
+    {
+        return def.name.clone();
+    }
+
     format!("{}{}", crate_id.name, def.qualname)
 }
 
