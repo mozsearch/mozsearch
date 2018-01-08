@@ -26,6 +26,22 @@ pub struct Defs {
     map: HashMap<DefId, data::Def>,
 }
 
+// Given a definition, and the global crate id where that definition is found,
+// return a qualified name that identifies the definition unambiguously.
+fn crate_independent_qualname(
+    def: &data::Def,
+    crate_id: &data::GlobalCrateId,
+) -> String {
+    // For functions with "no_mangle", we just use the name.
+    if def.kind == DefKind::Function &&
+        def.attributes.iter().any(|attr| attr.value == "no_mangle")
+    {
+        return def.name.clone();
+    }
+
+    format!("{}{}", crate_id.name, def.qualname)
+}
+
 impl Defs {
     fn new() -> Self {
         Self { map: HashMap::new() }
@@ -34,9 +50,7 @@ impl Defs {
     fn insert(&mut self, analysis: &data::Analysis, def: &data::Def) {
         let crate_id = analysis.prelude.as_ref().unwrap().crate_id.clone();
         let mut definition = def.clone();
-        let crate_independent_qualname =
-            format!("{}{}", crate_id.name, def.qualname);
-        definition.qualname = crate_independent_qualname;
+        definition.qualname = crate_independent_qualname(&def, &crate_id);
 
         let index = definition.id.index;
         let previous = self.map.insert(DefId(crate_id, index), definition);
@@ -239,8 +253,8 @@ fn analyze_file(
             }
         }
 
-        let crate_name = &file_analysis.prelude.as_ref().unwrap().crate_id.name;
-        let qualname = format!("{}{}", crate_name, def.qualname);
+        let crate_id = &file_analysis.prelude.as_ref().unwrap().crate_id;
+        let qualname = crate_independent_qualname(&def, crate_id);
         visit(&mut file, "def", &def.span, &qualname, parent.as_ref().map(|p| &*p.qualname))
     }
 
