@@ -139,11 +139,34 @@ fn span_to_string(span: &data::SpanData) -> String {
     format!("{}:{}-{}", span.line_start.0, span.column_start.zero_indexed().0, span.column_end.zero_indexed().0)
 }
 
+fn def_kind_to_human(kind: DefKind) -> &'static str {
+    match kind {
+        DefKind::Enum => "enum",
+        DefKind::Local => "local",
+        DefKind::ExternType => "extern type",
+        DefKind::Const => "constant",
+        DefKind::Field => "field",
+        DefKind::Function => "function",
+        DefKind::Macro => "macro",
+        DefKind::Method => "method",
+        DefKind::Mod => "module",
+        DefKind::Static => "static",
+        DefKind::Struct => "struct",
+        DefKind::Tuple => "tuple",
+        DefKind::TupleVariant => "tuple variant",
+        DefKind::Union => "union",
+        DefKind::Type => "type",
+        DefKind::Trait => "trait",
+        DefKind::StructVariant => "struct variant",
+    }
+}
+
 fn visit(
     file: &mut File,
     kind: &'static str,
     location: &data::SpanData,
     qualname: &str,
+    def: &data::Def,
     context: Option<&str>,
 ) {
     use serde_json::map::Map;
@@ -154,7 +177,14 @@ fn visit(
     out.insert("loc".into(), Value::String(span_to_string(location)));
     out.insert("target".into(), json!(1));
     out.insert("kind".into(), Value::String(kind.into()));
-    out.insert("pretty".into(), Value::String(qualname.into()));
+    let pretty = {
+        let mut pretty = def_kind_to_human(def.kind).to_owned();
+        pretty.push_str(" ");
+        pretty.push_str(qualname);
+
+        pretty
+    };
+    out.insert("pretty".into(), Value::String(pretty.clone()));
     out.insert("sym".into(), Value::String(qualname.into()));
     if let Some(context) = context {
         out.insert("context".into(), Value::String(context.into()));
@@ -169,7 +199,7 @@ fn visit(
     out.insert("loc".into(), Value::String(span_to_string(location)));
     out.insert("source".into(), json!(1));
     out.insert("kind".into(), Value::String(kind.into()));
-    out.insert("pretty".into(), Value::String(qualname.into()));
+    out.insert("pretty".into(), Value::String(pretty));
     out.insert("sym".into(), Value::String(qualname.into()));
 
     let object = serde_json::to_string(&Value::Object(out)).unwrap();
@@ -232,7 +262,7 @@ fn analyze_file(
             }
         };
 
-        visit(&mut file, "use", &import.span, &def.qualname, None)
+        visit(&mut file, "use", &import.span, &def.qualname, &def, None)
     }
 
     for def in &file_analysis.defs {
@@ -248,6 +278,7 @@ fn analyze_file(
                     "def",
                     &def.span,
                     &trait_dependent_name,
+                    &def,
                     Some(&parent.qualname),
                 )
             }
@@ -255,7 +286,7 @@ fn analyze_file(
 
         let crate_id = &file_analysis.prelude.as_ref().unwrap().crate_id;
         let qualname = crate_independent_qualname(&def, crate_id);
-        visit(&mut file, "def", &def.span, &qualname, parent.as_ref().map(|p| &*p.qualname))
+        visit(&mut file, "def", &def.span, &qualname, &def, parent.as_ref().map(|p| &*p.qualname))
     }
 
     for ref_ in &file_analysis.refs {
@@ -271,6 +302,7 @@ fn analyze_file(
             "use",
             &ref_.span,
             &def.qualname,
+            &def,
             /* context = */ None, // TODO
         )
     }
