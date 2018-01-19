@@ -84,11 +84,15 @@ def sanitize(s):
 
 def get_tree_data(repo, tree, path):
     for elt in path:
-        if elt in tree:
-            item = tree[elt]
-            tree = repo.get(item.id)
-        else:
+        # Tree should never be None, but Servo has a broken submodule entry in
+        # commit b2a5225831a8eee3ff596dce2be8dc08df4300a0 pointing to a wpt
+        # submodule, but without information about it in .gitmodules.
+        if not tree or elt not in tree:
             return None
+
+        item = tree[elt]
+        tree = repo.get(item.id)
+
     return tree
 
 def unmodified_lines(new_blob, old_blob):
