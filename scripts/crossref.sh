@@ -6,9 +6,6 @@ set -x # Show commands
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
-MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
-. $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
-
 echo Root is $INDEX_ROOT
 
 # Find the files to cross-reference.

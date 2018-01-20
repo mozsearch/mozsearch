@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $# -ne 2 -a $# -ne 3 ]
+if [ $# -ne 2 ]
 then
-    echo "Usage: idl-analyze.sh config-file.json tree_name [file_filter]"
+    echo "Usage: idl-analyze.sh config-file.json tree_name"
     exit 1
 fi
 
@@ -11,15 +11,6 @@ set -x # Show commands
 
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
-
-MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
-. $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
-
-FILTER=$3
-if [ "x${FILTER}" = "x" ]
-then
-    FILTER=".*"
-fi
 
 if [ ! -d /tmp/pymodules ]
 then
@@ -37,7 +28,7 @@ fi
 
 export PYTHONPATH=/tmp/pymodules
 
-cat $INDEX_ROOT/idl-files | grep "$FILTER" | \
+cat $INDEX_ROOT/idl-files | \
     parallel python $MOZSEARCH_PATH/idl-analyze.py \
     $INDEX_ROOT $FILES_ROOT/{} ">" $INDEX_ROOT/analysis/{}
 echo $?

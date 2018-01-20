@@ -13,9 +13,6 @@ CONFIG_REPO=$1
 CONFIG_FILE=$2
 TREE_NAME=$3
 
-MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
-. $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
-
 export PYTHONPATH=$MOZSEARCH_PATH/scripts
 
 date

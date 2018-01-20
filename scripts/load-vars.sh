@@ -1,6 +1,13 @@
-#!/bin/bash
+# This file is intentionally not executable, because it should always be sourced
+# into a pre-existing shell. MOZSEARCH_PATH should be defined prior to sourcing.
+# Arguments are the config.json in the index and the tree for which variables
+# are desired
 
-export MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+if [ -z $MOZSEARCH_PATH ]
+then
+    echo "Error: load-vars.sh is being sourced without MOZSEARCH_PATH defined"
+    return # leave load-vars.sh without aborting the calling script
+fi
 
 export CONFIG_FILE=$1
 export TREE_NAME=$2

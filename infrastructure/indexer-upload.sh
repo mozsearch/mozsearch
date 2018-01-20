@@ -20,10 +20,10 @@ export AWS_ROOT=$MOZSEARCH_PATH/infrastructure/aws
 
 for TREE_NAME in $($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees)
 do
-   .  $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+    . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
-   if [ -f $CONFIG_REPO/$TREE_NAME/upload ]
-   then
-       $CONFIG_REPO/$TREE_NAME/upload
-   fi
+    if [ -f $CONFIG_REPO/$TREE_NAME/upload ]
+    then
+        $CONFIG_REPO/$TREE_NAME/upload
+    fi
 done
