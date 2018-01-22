@@ -18,4 +18,4 @@ MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 FILTER=$3
 
-$CONFIG_REPO/$TREE_NAME/build $FILTER || echo "Build failed: $TREE_NAME"
+$CONFIG_REPO/$TREE_NAME/build $FILTER
