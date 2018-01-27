@@ -102,7 +102,17 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 
         let data = match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(None), Some(d)) => {
-                let ref id = d[0].sym;
+                // In case the token has multiple symbols associated with it,
+                // try to pick the "best" one for determining which other tokens
+                // this gets highlighted with. For now we just take the first
+                // symbol that contains the token, or the first one in the list
+                // if none contain the token.
+                let id = if d.len() == 1 {
+                    &d[0].sym
+                } else {
+                    let displayed = &input[token.start .. token.end];
+                    &d.iter().find(|item| item.sym.contains(displayed)).unwrap_or(&d[0]).sym
+                };
 
                 let d = d.iter().filter(|item| { !item.no_crossref }).collect::<Vec<_>>();
 
