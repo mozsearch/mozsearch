@@ -139,6 +139,7 @@ td pre code {
     margin: 0;
     padding: 0;
     display: block;
+    max-height: calc(12px * 1.3); /* don't let bolded code increase the line-height - see bug 1322740 comment 9 */
 }
 code a {
     cursor: pointer;
