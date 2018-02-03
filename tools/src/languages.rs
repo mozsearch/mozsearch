@@ -17,7 +17,7 @@ pub struct LanguageSpec {
 fn make_reserved(v: &[&str]) -> HashMap<String, String> {
     let mut reserved_words = HashMap::new();
     for word in v {
-        reserved_words.insert(word.to_string(), "style=\"color: blue;\" ".to_string());
+        reserved_words.insert(word.to_string(), "class=\"syn_reserved\" ".to_string());
     }
     reserved_words
 }

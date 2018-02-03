@@ -678,3 +678,28 @@ body.old-rev .search-box {
     background-size: 10px 10px;
     background-position: 0 0, 5px 5px;
 }
+
+.syn_type {
+    color: teal;
+}
+
+.syn_def {
+    font-weight: 600;
+}
+
+.syn_string {
+    color: green;
+}
+
+.syn_comment {
+    color: darkred;
+}
+
+.syn_tag,
+.syn_reserved {
+    color: blue;
+}
+
+.syn_regex {
+    color: #6d7b8d;
+}
