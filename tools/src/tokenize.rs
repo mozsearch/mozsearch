@@ -1065,15 +1065,15 @@ mod tests {
                      &vec![("'", TokenKind::Punctuation),
                            ("label", TokenKind::Identifier(None)),
                            (":", TokenKind::Punctuation),
-                           ("while", TokenKind::Identifier(Some(String::from("style=\"color: blue;\" "))))],
+                           ("while", TokenKind::Identifier(Some(String::from("class=\"syn_reserved\" "))))],
                      &rust_spec);
         check_tokens("'\\n' while",
                      &vec![("'\\n'", TokenKind::StringLiteral),
-                           ("while", TokenKind::Identifier(Some(String::from("style=\"color: blue;\" "))))],
+                           ("while", TokenKind::Identifier(Some(String::from("class=\"syn_reserved\" "))))],
                      &rust_spec);
         check_tokens("'b' while",
                      &vec![("'b'", TokenKind::StringLiteral),
-                           ("while", TokenKind::Identifier(Some(String::from("style=\"color: blue;\" "))))],
+                           ("while", TokenKind::Identifier(Some(String::from("class=\"syn_reserved\" "))))],
                      &rust_spec);
 
         // Rust raw strings

@@ -159,14 +159,14 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
             tokenize::TokenKind::Identifier(None) => {
                 match datum {
                     Some(d) => {
-                        let styles = d.iter().flat_map(|a| a.syntax.iter().flat_map(|s| match s.as_ref() {
-                            "type" => vec!["color: teal;"],
-                            "def" | "decl" | "idl" => vec!["font-weight: 600;"],
+                        let classes = d.iter().flat_map(|a| a.syntax.iter().flat_map(|s| match s.as_ref() {
+                            "type" => vec!["syn_type"],
+                            "def" | "decl" | "idl" => vec!["syn_def"],
                             _ => vec![],
                         }));
-                        let styles = styles.collect::<Vec<_>>();
-                        if styles.len() > 0 {
-                            format!("style=\"{}\" ", styles.join(" "))
+                        let classes = classes.collect::<Vec<_>>();
+                        if classes.len() > 0 {
+                            format!("class=\"{}\" ", classes.join(" "))
                         } else {
                             "".to_owned()
                         }
@@ -175,12 +175,12 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                 }
             },
             tokenize::TokenKind::Identifier(Some(ref style)) => style.clone(),
-            tokenize::TokenKind::StringLiteral => "style=\"color: green;\" ".to_owned(),
-            tokenize::TokenKind::Comment => "style=\"color: darkred;\" ".to_owned(),
-            tokenize::TokenKind::TagName => "style=\"color: blue;\" ".to_owned(),
-            tokenize::TokenKind::TagAttrName => "style=\"color: blue;\" ".to_owned(),
-            tokenize::TokenKind::EndTagName => "style=\"color: blue;\" ".to_owned(),
-            tokenize::TokenKind::RegularExpressionLiteral => "style=\"color: #6d7b8d;\" ".to_owned(),
+            tokenize::TokenKind::StringLiteral => "class=\"syn_string\" ".to_owned(),
+            tokenize::TokenKind::Comment => "class=\"syn_comment\" ".to_owned(),
+            tokenize::TokenKind::TagName => "class=\"syn_tag\" ".to_owned(),
+            tokenize::TokenKind::TagAttrName => "class=\"syn_tag\" ".to_owned(),
+            tokenize::TokenKind::EndTagName => "class=\"syn_tag\" ".to_owned(),
+            tokenize::TokenKind::RegularExpressionLiteral => "class=\"syn_regex\" ".to_owned(),
             _ => "".to_owned()
         };
 
