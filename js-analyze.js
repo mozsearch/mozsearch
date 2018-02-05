@@ -464,7 +464,9 @@ let Analyzer = {
   },
 
   catchClause(clause) {
-    this.pattern(clause.param);
+    if (clause.param) {
+      this.pattern(clause.param);
+    }
     if (clause.guard) {
       this.expression(clause.guard);
     }
