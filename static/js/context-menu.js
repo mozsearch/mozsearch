@@ -34,7 +34,11 @@ var stickyHover = false;
 
 // Remove the menu when a user clicks outside it.
 window.addEventListener('mousedown', function() {
-  stickyHover = false;
+  if (stickyHover) {
+    stickyHover = false;
+    hovered.removeClass("hovered");
+    hovered = $();
+  }
   $('#context-menu').remove();
 }, false);
 
