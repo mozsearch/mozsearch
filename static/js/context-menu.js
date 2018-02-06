@@ -91,7 +91,44 @@ function stickyHighlight(id)
   stickyHover = true;
 }
 
-$("#file").on("click", "span[data-id]", function(event) {
+function getTargetWord()
+{
+  var selection = window.getSelection();
+  if (!selection.isCollapsed) {
+    return null;
+  }
+
+  var offset = selection.focusOffset;
+  var node = selection.anchorNode;
+  var selectedTxtString = node.nodeValue;
+  var nonWordCharRE = /[^A-Z0-9_]/i;
+  var startIndex = selectedTxtString.regexLastIndexOf(nonWordCharRE, offset) + 1;
+  var endIndex = selectedTxtString.regexIndexOf(nonWordCharRE, offset);
+
+  // If the regex did not find a start index, start from index 0
+  if (startIndex === -1) {
+    startIndex = 0;
+  }
+
+  // If the regex did not find an end index, end at the position
+  // equal to the length of the string.
+  if (endIndex === -1) {
+    endIndex = selectedTxtString.length;
+  }
+
+  // If the offset is beyond the last word, no word was clicked on.
+  if (offset > endIndex) {
+    return null;
+  }
+
+  if (endIndex <= startIndex) {
+    return null;
+  }
+
+  return selectedTxtString.substr(startIndex, endIndex - startIndex);
+}
+
+$("#file").on("click", "code", function(event) {
   stickyHover = false;
 
   var tree = $("#data").data("tree");
@@ -131,11 +168,21 @@ $("#file").on("click", "span[data-id]", function(event) {
     }
   }
 
+  var word = getTargetWord();
+  if (word !== null) {
+    // A word was clicked on.
+    menuItems.push({html: fmt('Search for the substring <strong>_</strong>', word),
+                    href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
+                    icon: "search"});
+  }
+
   var id = elt.closest("[data-id]").attr("data-id");
   if (id) {
     menuItems.push({html: "Sticky highlight",
                     href: `javascript:stickyHighlight('${id}')`});
   }
 
-  setContextMenu({menuItems: menuItems}, event);
+  if (menuItems.length > 0) {
+    setContextMenu({menuItems: menuItems}, event);
+  }
 });
