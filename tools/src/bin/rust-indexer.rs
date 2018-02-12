@@ -370,7 +370,7 @@ fn main() {
     let mut defs = Defs::new();
     for krate in &crates {
         for def in &krate.analysis.defs {
-            println!("Indexing def: {:?}", def);
+            //println!("Indexing def: {:?}", def);
             defs.insert(&krate.analysis, def);
         }
     }
