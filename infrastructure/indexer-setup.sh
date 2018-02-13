@@ -14,7 +14,12 @@ MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 export CONFIG_REPO=$(readlink -f $1)
 WORKING=$(readlink -f $2)
 
-rm -rf $WORKING/*
+if [ -z "$KEEP_WORKING" ]; then
+    echo "Removing old contents of $WORKING/"
+    rm -rf $WORKING/*
+else
+    echo "Keeping old contents of $WORKING/"
+fi
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
 
