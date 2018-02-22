@@ -384,7 +384,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 } else if next == '\n' {
                     // Tokens shouldn't span across lines.
                     start = push_newline(start, &mut tokens, TokenKind::StringLiteral);
-                } else if next == '\\' {
+                } else if next == '\\' && peek_char() != '\n' {
                     get_char();
                 } else if next == '$' && peek_char() == '{' {
                     // A template! Note that we're in a template and start
