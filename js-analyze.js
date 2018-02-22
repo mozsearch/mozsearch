@@ -381,7 +381,7 @@ let Analyzer = {
       break;
 
     case "ClassStatement":
-      this.defVar(stmt.id.name, stmt.loc);
+      this.defVar(stmt.id.name, stmt.id.loc);
       this.scoped(stmt.id.name, () => {
         let oldClass = this.className;
         this.className = stmt.id.name;
