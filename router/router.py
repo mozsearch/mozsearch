@@ -48,6 +48,12 @@ def parse_path_filter(filter):
 
     return filter
 
+def escape_regex(searchString):
+    # a version of re.escape that doesn't escape every non-ASCII character,
+    # and therefore doesn't mangle utf-8 encoded characters.
+    # https://bugzilla.mozilla.org/show_bug.cgi?id=1446220
+    return re.sub(r"[(){}\[\].*?|^$\\+-]", r"\\\g<0>", searchString)
+
 def parse_search(searchString):
     pieces = searchString.split(' ')
     result = {}
@@ -62,12 +68,12 @@ def parse_search(searchString):
             result['re'] = (' '.join(pieces[i:]))[len('re:'):]
             break
         elif pieces[i].startswith('text:'):
-            result['re'] = re.escape((' '.join(pieces[i:]))[len('text:'):])
+            result['re'] = escape_regex((' '.join(pieces[i:]))[len('text:'):])
             break
         elif pieces[i].startswith('id:'):
             result['id'] = pieces[i][len('id:'):]
         else:
-            result['default'] = re.escape(' '.join(pieces[i:]))
+            result['default'] = escape_regex(' '.join(pieces[i:]))
             break
 
     return result
