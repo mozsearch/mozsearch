@@ -13,6 +13,7 @@ class CodeSearch:
         self.state = 'init'
         self.buffer = ''
         self.matches = []
+        self.timed_out = False
         self.wait_ready()
         self.query = None
 
@@ -41,7 +42,7 @@ class CodeSearch:
         matches = self.collateMatches(self.matches)
         log('codesearch result with %d matches', len(matches))
         self.matches = []
-        return matches
+        return (matches, self.timed_out)
 
     def wait_ready(self):
         while self.state != 'ready':
@@ -73,6 +74,7 @@ class CodeSearch:
         elif j['opcode'] == 'done':
             if j.get('body', {}).get('why') == 'timeout':
                 log('Codesearch timeout on query %s', self.query)
+                self.timed_out = True
         elif j['opcode'] == 'error':
             self.matches = []
         else:
