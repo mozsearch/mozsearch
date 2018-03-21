@@ -231,6 +231,8 @@ $(function() {
       delete data["*title*"];
       document.title = title + " - mozsearch";
     }
+    var timed_out = data["*timedout*"];
+    delete data["*timedout*"];
 
     window.scrollTo(0, 0);
 
@@ -370,16 +372,26 @@ $(function() {
       return;
     }
 
+    var timeoutWarning = null;
+    if (timed_out) {
+      timeoutWarning = $(`<div>Warning: results may be incomplete due to server-side search timeout!</div>`);
+    }
     // If no data is returned, inform the user.
     if (!fileCount) {
       var user_message = contentContainer.data('no-results');
       contentContainer.empty().append($("<span>" + user_message + "</span>"));
+      if (timeoutWarning) {
+        container.append(timeoutWarning);
+      }
     } else {
       var container = contentContainer.empty();
 
       if (count) {
         var numResults = $(`<div>Number of results: ${count} (maximum is 1000)</div>`);
         container.append(numResults);
+      }
+      if (timeoutWarning) {
+        container.append(timeoutWarning);
       }
 
       var table = document.createElement("table");

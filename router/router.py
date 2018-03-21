@@ -302,6 +302,7 @@ def get_json_search_results(tree_name, query):
     search = SearchResults()
 
     work_limit = False
+    hit_timeout = False
 
     if 'symbol' in parsed:
         search.set_path_filter(parsed.get('pathre'))
@@ -310,16 +311,18 @@ def get_json_search_results(tree_name, query):
         search.add_results(crossrefs.lookup(tree_name, symbols))
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
-        substr_results = codesearch.search(parsed['re'], fold_case, path, tree_name)
+        (substr_results, timed_out) = codesearch.search(parsed['re'], fold_case, path, tree_name)
         search.add_results({'Textual Occurrences': substr_results})
+        hit_timeout |= timed_out
     elif 'id' in parsed:
         search.set_path_filter(parsed.get('pathre'))
         identifier_search(search, tree_name, parsed['id'], complete=True, fold_case=fold_case)
     elif 'default' in parsed:
         work_limit = True
         path = parsed.get('pathre', '.*')
-        substr_results = codesearch.search(parsed['default'], fold_case, path, tree_name)
+        (substr_results, timed_out) = codesearch.search(parsed['default'], fold_case, path, tree_name)
         search.add_results({'Textual Occurrences': substr_results})
+        hit_timeout |= timed_out
         if 'pathre' not in parsed:
             file_results = search_files(tree_name, parsed['default'])
             search.add_results({'Files': file_results})
@@ -335,6 +338,7 @@ def get_json_search_results(tree_name, query):
     results = search.get(work_limit)
 
     results['*title*'] = title
+    results['*timedout*'] = hit_timeout
     return json.dumps(results)
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
