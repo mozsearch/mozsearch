@@ -365,13 +365,18 @@ fn analyze_crate(
 }
 
 fn main() {
+    use clap::Arg;
     env_logger::init().unwrap();
     let matches = app_from_crate!()
         .args_from_usage(
             "<src>      'Points to the source root'
              <output>   'Points to the directory where searchfox metadata should go'
-             <objdir>   'Points to the objdir generated files may come from'
-             <input>... 'Points to the save-analysis directories'",
+             <objdir>   'Points to the objdir generated files may come from'"
+        )
+        .arg(Arg::with_name("input")
+            .required(false)
+            .multiple(true)
+            .help("rustc analysis directories")
         )
         .get_matches();
 
@@ -381,7 +386,10 @@ fn main() {
 
     let tree_info = TreeInfo { src_dir, output_dir, objdir };
 
-    let input_dirs = matches.values_of("input").unwrap().map(PathBuf::from).collect();
+    let input_dirs = match matches.values_of("input") {
+        Some(inputs) => inputs.map(PathBuf::from).collect(),
+        None => vec![],
+    };
     let loader = Loader::new(input_dirs);
 
     let crates = rls_analysis::read_analysis_from_files(&loader, Default::default(), &[]);
