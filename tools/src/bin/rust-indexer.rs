@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate clap;
+extern crate env_logger;
 extern crate rls_analysis;
 extern crate rls_data as data;
 extern crate serde;
@@ -350,6 +351,7 @@ fn analyze_crate(
 }
 
 fn main() {
+    env_logger::init().unwrap();
     let matches = app_from_crate!()
         .args_from_usage(
             "<src>    'Points to the source root'
