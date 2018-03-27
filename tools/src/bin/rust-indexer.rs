@@ -27,6 +27,12 @@ pub struct Defs {
     map: HashMap<DefId, data::Def>,
 }
 
+struct TreeInfo<'a> {
+    src_dir: &'a Path,
+    output_dir: &'a Path,
+    objdir: &'a Path,
+}
+
 // Given a definition, and the global crate id where that definition is found,
 // return a qualified name that identifies the definition unambiguously.
 fn crate_independent_qualname(
@@ -99,12 +105,12 @@ impl Defs {
 
 #[derive(Clone)]
 pub struct Loader {
-    deps_dir: PathBuf,
+    deps_dirs: Vec<PathBuf>,
 }
 
 impl Loader {
-    pub fn new(deps_dir: PathBuf) -> Self {
-        Self { deps_dir }
+    pub fn new(deps_dirs: Vec<PathBuf>) -> Self {
+        Self { deps_dirs }
     }
 }
 
@@ -123,7 +129,7 @@ impl AnalysisLoader for Loader {
         None
     }
     fn search_directories(&self) -> Vec<PathBuf> {
-        vec![self.deps_dir.clone()]
+        self.deps_dirs.clone()
     }
 }
 
@@ -208,22 +214,31 @@ fn visit(
     write!(file, "\n").unwrap();
 }
 
+fn find_generated_or_src_file(
+    file_name: &Path,
+    tree_info: &TreeInfo,
+) -> Option<PathBuf> {
+    if let Ok(generated_path) = file_name.strip_prefix(tree_info.objdir) {
+        return Some(Path::new("__GENERATED__").join(generated_path))
+    }
+    file_name.strip_prefix(tree_info.src_dir).ok().map(From::from)
+}
+
 fn analyze_file(
     file_name: &PathBuf,
     defs: &Defs,
     file_analysis: &data::Analysis,
-    src_dir: &Path,
-    output_dir: &Path,
+    tree_info: &TreeInfo,
 ) {
-    let file = match file_name.strip_prefix(src_dir) {
-        Ok(f) => f,
-        Err(..) => {
-            eprintln!("File not in the source directory: {}", file_name.display());
+    let file = match find_generated_or_src_file(file_name, tree_info) {
+        Some(f) => f,
+        None => {
+            eprintln!("File not in the source directory or objdir: {}", file_name.display());
             return;
         }
     };
 
-    let output_file = output_dir.join(file);
+    let output_file = tree_info.output_dir.join(file);
     let mut output_dir = output_file.clone();
     output_dir.pop();
     if let Err(err) = fs::create_dir_all(output_dir) {
@@ -312,8 +327,7 @@ fn analyze_file(
 fn analyze_crate(
     analysis: &data::Analysis,
     defs: &Defs,
-    src_dir: &Path,
-    output_dir: &Path,
+    tree_info: &TreeInfo,
 ) {
     let mut per_file = HashMap::new();
 
@@ -344,9 +358,9 @@ fn analyze_crate(
 
     for (mut name, analysis) in per_file.drain() {
         if name.is_relative() {
-            name = src_dir.join(name);
+            name = tree_info.src_dir.join(name);
         }
-        analyze_file(&name, defs, &analysis, src_dir, output_dir);
+        analyze_file(&name, defs, &analysis, tree_info);
     }
 }
 
@@ -354,30 +368,36 @@ fn main() {
     env_logger::init().unwrap();
     let matches = app_from_crate!()
         .args_from_usage(
-            "<src>    'Points to the source root'
-             <input>  'Points to the deps/save-analysis directory'
-             <output> 'Points to the directory where searchfox metadata should go'",
+            "<src>      'Points to the source root'
+             <output>   'Points to the directory where searchfox metadata should go'
+             <objdir>   'Points to the objdir generated files may come from'
+             <input>... 'Points to the save-analysis directories'",
         )
         .get_matches();
 
     let src_dir = Path::new(matches.value_of("src").unwrap());
-    let input_dir = Path::new(matches.value_of("input").unwrap());
     let output_dir = Path::new(matches.value_of("output").unwrap());
+    let objdir = Path::new(matches.value_of("objdir").unwrap());
 
-    let loader = Loader::new(PathBuf::from(input_dir));
+    let tree_info = TreeInfo { src_dir, output_dir, objdir };
 
+    let input_dirs = matches.values_of("input").unwrap().map(PathBuf::from).collect();
+    println!("{:?}", input_dirs);
+    let loader = Loader::new(input_dirs);
 
     let crates = rls_analysis::read_analysis_from_files(&loader, Default::default(), &[]);
+
+    println!("{:?}", crates.iter().map(|k| &k.id).collect::<Vec<_>>());
 
     let mut defs = Defs::new();
     for krate in &crates {
         for def in &krate.analysis.defs {
-            //println!("Indexing def: {:?}", def);
+            // println!("Indexing def: {:?}", def);
             defs.insert(&krate.analysis, def);
         }
     }
 
     for krate in crates {
-        analyze_crate(&krate.analysis, &defs, &src_dir, &output_dir);
+        analyze_crate(&krate.analysis, &defs, &tree_info);
     }
 }
