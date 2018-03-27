@@ -4,8 +4,14 @@ use std::path::{Path, PathBuf};
 use test_rust_dependency::{MyType, MyTrait};
 use test_rust_dependency::my_mod::MyOtherType;
 
+mod build_time_generated {
+    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+}
+
 #[derive(Clone)]
 pub struct Loader {
+    #[allow(unused)]
+    whatever: build_time_generated::GeneratedType,
     deps_dir: PathBuf,
     my_type: MyType,
 }
@@ -25,7 +31,11 @@ extern "C" fn WithNoMangle() {}
 
 impl Loader {
     pub fn new(deps_dir: PathBuf) -> Self {
-        Self { deps_dir, my_type: MyType::new() }
+        Self {
+            whatever: build_time_generated::GeneratedType,
+            deps_dir,
+            my_type: MyType::new(),
+        }
     }
 
     fn needs_hard_reload(&self, _: &Path) -> bool { true }

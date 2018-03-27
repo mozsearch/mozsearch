@@ -26,12 +26,12 @@ $MOZSEARCH_PATH/scripts/build.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME
 
 date
 
-$MOZSEARCH_PATH/scripts/find-objdir-files.py
-$MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
+$MOZSEARCH_PATH/scripts/rust-analyze.sh $CONFIG_FILE $TREE_NAME
 
 date
 
-$MOZSEARCH_PATH/scripts/rust-analyze.sh $CONFIG_FILE $TREE_NAME
+$MOZSEARCH_PATH/scripts/find-objdir-files.py
+$MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
 
