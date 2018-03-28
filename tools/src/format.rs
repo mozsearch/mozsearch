@@ -194,7 +194,9 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                     output.push_str(&entity_replace(input[last .. token.start].to_string()));
                     output.push_str(&format!("<span {}{}>", style, data));
                     let mut sanitized = entity_replace(input[token.start .. token.end].to_string());
-                    if token.kind == tokenize::TokenKind::Comment {
+                    if token.kind == tokenize::TokenKind::Comment ||
+                        token.kind == tokenize::TokenKind::StringLiteral
+                    {
                         sanitized = links::linkify_comment(sanitized);
                     }
                     output.push_str(&sanitized);
