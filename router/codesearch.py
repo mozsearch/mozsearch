@@ -23,7 +23,14 @@ class CodeSearch:
     def collateMatches(self, matches):
         paths = {}
         for m in matches:
-            paths.setdefault(m['path'], []).append({
+            # For results in the "mozilla-subrepo" repo, which is the mozilla/
+            # subfolder of comm-central, we need to adjust the path to reflect
+            # the fact that it's in the subfolder.
+            path = m['path']
+            if m['tree'] == 'mozilla-subrepo':
+                path = 'mozilla/' + path
+
+            paths.setdefault(path, []).append({
                 'lno': m['lno'],
                 'bounds': m['bounds'],
                 'line': m['line']
@@ -118,6 +125,11 @@ def startup_codesearch(data):
 
 def search(pattern, fold_case, path, tree_name):
     repo = '%s|%s-__GENERATED__' % (tree_name, tree_name)
+    # For comm-central we also want to search the mozilla/ subfolder which is a
+    # separate repo that we indexed into livegrep under the name "mozilla-subrepo"
+    if tree_name == "comm-central":
+        repo = repo + "|mozilla-subrepo"
+
     data = tree_data[tree_name]
 
     try:
