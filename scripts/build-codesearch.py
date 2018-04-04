@@ -47,6 +47,15 @@ if 'git_path' in tree:
         'path': tree['git_path'],
         'revisions': ['HEAD']
     })
+
+    # comm-central has a mozilla subfolder which is another git repo, so
+    # add that to the livegrep config as well
+    if tree_name == 'comm-central':
+        livegrep_config['repositories'].append({
+            'name': 'mozilla-subrepo',
+            'path': tree['files_path'] + '/mozilla/',
+            'revisions': ['HEAD']
+        })
 else:
     run(['ln', '-s', tree['files_path'], '/tmp/dummy/%s' % tree_name])
 
