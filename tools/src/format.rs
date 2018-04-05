@@ -186,7 +186,11 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 
         match token.kind {
             tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
-                output.push_str(&entity_replace(input[last .. token.end].to_string()));
+                let mut sanitized = entity_replace(input[last .. token.end].to_string());
+                if token.kind == tokenize::TokenKind::PlainText {
+                    sanitized = links::linkify_comment(sanitized);
+                }
+                output.push_str(&sanitized);
                 last = token.end;
             },
             _ => {
