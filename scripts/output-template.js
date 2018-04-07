@@ -3,8 +3,8 @@ let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
 let treeName = scriptArgs[3];
 
-run(mozSearchRoot + "/lib.js");
-run(mozSearchRoot + "/output.js");
+run(mozSearchRoot + "/scripts/output-lib.js");
+run(mozSearchRoot + "/scripts/output.js");
 
 let opt = {tree: treeName,
            title: "{{TITLE}} - mozsearch"};
