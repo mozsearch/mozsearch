@@ -6,8 +6,8 @@ let objdir = scriptArgs[4];
 let treeName = scriptArgs[5];
 let pathFiles = scriptArgs.slice(6);
 
-run(mozSearchRoot + "/lib.js");
-run(mozSearchRoot + "/output.js");
+run(mozSearchRoot + "/scripts/output-lib.js");
+run(mozSearchRoot + "/scripts/output.js");
 
 function runCmd(cmd)
 {
