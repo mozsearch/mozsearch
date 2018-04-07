@@ -29,6 +29,6 @@ fi
 export PYTHONPATH=/tmp/pymodules
 
 cat $INDEX_ROOT/idl-files | \
-    parallel python $MOZSEARCH_PATH/idl-analyze.py \
+    parallel python $MOZSEARCH_PATH/scripts/idl-analyze.py \
     $INDEX_ROOT $FILES_ROOT/{} ">" $INDEX_ROOT/analysis/{}
 echo $?
