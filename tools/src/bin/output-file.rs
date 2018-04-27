@@ -10,7 +10,6 @@ use std::io::Read;
 use std::io::Write;
 use std::io::Seek;
 use std::path::Path;
-use std::process::Command;
 
 extern crate tools;
 use tools::find_source_file;
@@ -21,18 +20,6 @@ use tools::languages;
 use languages::FormatAs;
 
 use tools::output::{PanelItem, PanelSection};
-
-fn format_documentation(input_fname: &str, output_fname: &str) {
-    let _ = Command::new("pandoc")
-        .arg("--css")
-        .arg("/static/css/pandoc.css")
-        .arg("-o")
-        .arg(output_fname)
-        .arg("-w")
-        .arg("html")
-        .arg(input_fname)
-        .status();
-}
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -70,13 +57,6 @@ fn main() {
         let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
 
         let format = languages::select_formatting(path);
-        match format {
-            FormatAs::FormatDoc(_) => {
-                let _ = format_documentation(&source_fname, &output_fname);
-                continue;
-            },
-            _ => {},
-        };
 
         let output_file = File::create(output_fname).unwrap();
         let mut writer = BufWriter::new(output_file);
