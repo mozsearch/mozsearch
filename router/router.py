@@ -400,6 +400,11 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         # Strip any extra slashes.
         path_elts = [ elt for elt in path_elts if elt != '' ]
 
+        # Warning: many of the branches in this branch condition don't actually
+        # get executed, because nginx handles them directly. See scripts/nginx-setup.py
+        # for which paths are proxied or handled directly by nginx before you
+        # start mucking around in here.
+
         if not path_elts:
             filename = os.path.join(index_path('mozilla-central'), 'help.html')
             data = open(filename).read()
