@@ -263,7 +263,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "html" | "htm" | "xhtml" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
 
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" |
-        "gif" | "ogv" | "jpg" | "bmp" | "icns" | "ico" |
+        "gif" | "ogv" | "jpg" | "jpeg" | "bmp" | "icns" | "ico" |
         "mp4" | "sqlite" | "jar" | "webm" | "woff" |
         "class" | "m4s" | "mgif" | "wav" | "opus" |
         "mp3" | "otf" => FormatAs::Binary,
