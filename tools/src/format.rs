@@ -28,7 +28,6 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
-        FormatAs::FormatDoc(_) => panic!("Unexpected documentation file"),
         FormatAs::Plain => tokenize::tokenize_plain(&input),
         FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(&input, spec),
         FormatAs::FormatTagLike(script_spec) => tokenize::tokenize_tag_like(&input, script_spec),
@@ -604,9 +603,6 @@ pub fn format_diff(cfg: &config::Config,
     match format {
         FormatAs::Binary => {
             return Err("Cannot diff binary file");
-        },
-        FormatAs::FormatDoc(_) => {
-            return Err("Cannot diff documentation file");
         },
         _ => {},
     };
