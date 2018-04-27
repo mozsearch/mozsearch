@@ -6,10 +6,8 @@ import os
 import subprocess
 
 client = boto3.client('ses')
-if len(sys.argv) > 1:
-    dest_email = sys.argv[1]
-else:
-    dest_email = "searchfox-aws@mozilla.com"
+subj_prefix = sys.argv[1]
+dest_email = sys.argv[2]
 
 log_tail = subprocess.check_output(["tail", "-n", "30", "/home/ubuntu/index-log"])
 
@@ -22,7 +20,7 @@ response = client.send_email(
     },
     Message={
         'Subject': {
-            'Data': 'Searchfox indexing error',
+            'Data': subj_prefix + ' Searchfox indexing error',
         },
         'Body': {
             'Text': {

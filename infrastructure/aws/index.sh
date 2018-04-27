@@ -68,7 +68,7 @@ then
     # Don't send completion email notification for release channel. For other
     # channels send it to the author of the HEAD commit in the repo
     DEST_EMAIL=$(git --git-dir="$MOZSEARCH_PATH/.git" show --format="%aE" --no-patch HEAD)
-    $AWS_ROOT/send-done-email.py "$DEST_EMAIL"
+    $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 fi
 
 # Give logger time to catch up

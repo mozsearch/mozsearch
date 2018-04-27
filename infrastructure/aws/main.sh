@@ -8,6 +8,7 @@ set -x
 # See index.sh for the arguments to this script
 
 SELF=$(readlink -f "$0")
+BRANCH=$1
 CHANNEL=$2
 AWS_ROOT=$(dirname "$SELF")
 
@@ -30,9 +31,9 @@ $AWS_ROOT/index.sh $*
 if [ $? -ne 0 ]; then
     if [ $CHANNEL == release ]
     then
-        $AWS_ROOT/send-failure-email.py
+        $AWS_ROOT/send-failure-email.py "[$CHANNEL/$BRANCH]" "searchfox-aws@mozilla.com"
     else
         DEST_EMAIL=$(git --git-dir="$AWS_ROOT/../../.git" show --format="%aE" --no-patch HEAD)
-        $AWS_ROOT/send-failure-email.py "$DEST_EMAIL"
+        $AWS_ROOT/send-failure-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
     fi
 fi

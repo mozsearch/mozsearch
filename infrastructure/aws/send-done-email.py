@@ -6,7 +6,8 @@ import os
 import subprocess
 
 client = boto3.client('ses')
-dest_email = sys.argv[1]
+subj_prefix = sys.argv[1]
+dest_email = sys.argv[2]
 
 response = client.send_email(
     Source='daemon@searchfox.org',
@@ -17,7 +18,7 @@ response = client.send_email(
     },
     Message={
         'Subject': {
-            'Data': 'Searchfox indexing complete',
+            'Data': subj_prefix + ' Searchfox indexing complete',
         },
         'Body': {
             'Text': {
