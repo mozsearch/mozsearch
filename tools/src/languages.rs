@@ -259,7 +259,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "rs" => FormatAs::FormatCLike(&*RUST_SPEC),
         "java" => FormatAs::FormatCLike(&*JAVA_SPEC),
 
-        "html" | "htm" | "xhtml" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
+        "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
 
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" |
         "gif" | "ogv" | "jpg" | "jpeg" | "bmp" | "icns" | "ico" |
