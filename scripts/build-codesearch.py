@@ -77,7 +77,7 @@ livegrep_config['fs_paths'].append({
 
 json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
 
-run(['codesearch', '/tmp/livegrep.json', '-dump_index', tree['codesearch_path'],
+run(['codesearch', '/tmp/livegrep.json', '-dump_index', tree['codesearch_path'], '-index_only',
      '-max_matches', '1000', '-line_limit', '4096'], stdin=open('/dev/null'), cwd='/tmp/dummy')
 
 run(['rm', '-rf', '/tmp/dummy'])
