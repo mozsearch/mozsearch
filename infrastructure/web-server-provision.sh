@@ -42,6 +42,16 @@ bazel build //src/tools:codesearch --incompatible_disallow_set_constructor=false
 sudo install bazel-bin/src/tools/codesearch /usr/local/bin
 popd
 
+# Install gRPC python libs and generate the python modules to communicate with the codesearch server
+sudo pip install grpcio grpcio-tools
+rm -rf livegrep-grpc
+mkdir livegrep-grpc
+python -m grpc_tools.protoc --python_out=livegrep-grpc --grpc_python_out=livegrep-grpc -I livegrep/src/proto livegrep/src/proto/livegrep.proto
+# Add the generated modules to the python path
+SITEDIR=$(python -m site --user-site)
+mkdir -p "$SITEDIR"
+echo "$PWD/livegrep-grpc" > "$SITEDIR/livegrep.pth"
+
 # Install AWS scripts.
 sudo pip install boto3
 
