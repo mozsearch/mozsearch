@@ -3,9 +3,9 @@ Vagrant.configure("2") do |config|
   config.vm.box = "cbednarski/ubuntu-1604-large"
   config.vm.box_version = "0.1.0"
 
-  config.vm.provision :shell, path: "infrastructure/indexer-provision.sh"
-  config.vm.provision :shell, path: "infrastructure/vagrant/indexer-provision.sh"
-  config.vm.provision :shell, path: "infrastructure/web-server-provision.sh"
+  config.vm.provision :shell, privileged: false, path: "infrastructure/indexer-provision.sh"
+  config.vm.provision :shell, privileged: false, path: "infrastructure/vagrant/indexer-provision.sh"
+  config.vm.provision :shell, privileged: false, path: "infrastructure/web-server-provision.sh"
 
   config.vm.network :forwarded_port, guest: 80, host: 8000
 
