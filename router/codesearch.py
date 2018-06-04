@@ -1,4 +1,3 @@
-import json
 import sys
 import socket
 import os
@@ -6,87 +5,40 @@ import os.path
 import time
 from logger import log
 
-class CodeSearch:
-    def __init__(self, host, port):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
-        self.state = 'init'
-        self.buffer = ''
-        self.matches = []
-        self.timed_out = False
-        self.wait_ready()
-        self.query = None
+import grpc
+import livegrep_pb2
+import livegrep_pb2_grpc
 
-    def close(self):
-        self.sock.close()
+def collateMatches(matches):
+    paths = {}
+    for m in matches:
+        # For results in the "mozilla-subrepo" repo, which is the mozilla/
+        # subfolder of comm-central, we need to adjust the path to reflect
+        # the fact that it's in the subfolder.
+        path = m.path
+        if m.tree == 'mozilla-subrepo':
+            path = 'mozilla/' + path
 
-    def collateMatches(self, matches):
-        paths = {}
-        for m in matches:
-            # For results in the "mozilla-subrepo" repo, which is the mozilla/
-            # subfolder of comm-central, we need to adjust the path to reflect
-            # the fact that it's in the subfolder.
-            path = m['path']
-            if m['tree'] == 'mozilla-subrepo':
-                path = 'mozilla/' + path
+        paths.setdefault(path, []).append({
+            'lno': m.line_number,
+            'bounds': [m.bounds.left, m.bounds.right],
+            'line': m.line
+        })
+    results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
+    return results
 
-            paths.setdefault(path, []).append({
-                'lno': m['lno'],
-                'bounds': m['bounds'],
-                'line': m['line']
-            })
-        results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
-        return results
+def do_search(host, port, pattern, fold_case, file, repo):
+    query = livegrep_pb2.Query(line = pattern, file = file, repo = repo, fold_case = fold_case)
+    log('QUERY %s', repr(query).replace('\n', ', '))
 
-    def search(self, pattern, fold_case, file, repo):
-        query = {'body': {'fold_case': fold_case, 'line': pattern, 'file': file, 'repo': repo}}
-        log('QUERY %s', repr(query))
-        log('codesearch query %s', json.dumps(query))
-        self.query = json.dumps(query)
-        self.state = 'search'
-        self.sock.sendall(self.query + '\n')
-        self.wait_ready()
-        matches = self.collateMatches(self.matches)
-        log('codesearch result with %d matches', len(matches))
-        self.matches = []
-        return (matches, self.timed_out)
+    channel = grpc.insecure_channel('{0}:{1}'.format(host, port))
+    grpc_stub = livegrep_pb2_grpc.CodeSearchStub(channel)
+    result = grpc_stub.Search(query) # maybe add a timeout arg here?
+    channel.close()
 
-    def wait_ready(self):
-        while self.state != 'ready':
-            input = self.sock.recv(1024)
-            self.buffer += input
-            self.handle_input()
-
-    def handle_input(self):
-        try:
-            pos = self.buffer.index('\n')
-        except:
-            pos = -1
-
-        if pos >= 0:
-            line = self.buffer[:pos]
-            self.buffer = self.buffer[pos + 1:]
-            self.handle_line(line)
-            self.handle_input()
-
-    def handle_line(self, line):
-        try:
-            j = json.loads(line)
-        except:
-            j = json.loads(line, 'latin-1')
-        if j['opcode'] == 'match':
-            self.matches.append(j['body'])
-        elif j['opcode'] == 'ready':
-            self.state = 'ready'
-        elif j['opcode'] == 'done':
-            if j.get('body', {}).get('why') == 'timeout':
-                log('Codesearch timeout on query %s', self.query)
-                self.timed_out = True
-        elif j['opcode'] == 'error':
-            self.matches = []
-        else:
-            log('Codesearch unknown opcode %s', j['opcode'])
-            raise BaseException()
+    matches = collateMatches(result.results)
+    log('codesearch result with %d matches', len(matches))
+    return (matches, livegrep_pb2.SearchStats.ExitReason.Name(result.stats.exit_reason) == 'TIMEOUT')
 
 def daemonize(args):
     # Spawn a process to start the daemon
@@ -116,7 +68,7 @@ def daemonize(args):
 def startup_codesearch(data):
     log('Starting codesearch')
 
-    args = ['codesearch', '-listen', 'tcp://localhost:' + str(data['codesearch_port']),
+    args = ['codesearch', '-grpc', 'localhost:' + str(data['codesearch_port']),
             '-load_index', data['codesearch_path'],
             '-max_matches', '1000', '-timeout', '10000']
 
@@ -133,19 +85,16 @@ def search(pattern, fold_case, path, tree_name):
     data = tree_data[tree_name]
 
     try:
-        codesearch = CodeSearch('localhost', data['codesearch_port'])
-    except socket.error, e:
+        return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, repo)
+    except Exception as e:
+        log('Got exception: %s', type(e))
         startup_codesearch(data)
         try:
-            codesearch = CodeSearch('localhost', data['codesearch_port'])
-        except socket.error, e:
-            log('Unable to start codesearch')
-            return []
+            return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, repo)
+        except Exception as e:
+            log('Unable to start codesearch: %s', repr(e))
+            return ([], false)
 
-    try:
-        return codesearch.search(pattern, fold_case, path, repo)
-    finally:
-        codesearch.close()
 
 def load(config):
     global tree_data
