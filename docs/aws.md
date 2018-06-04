@@ -217,8 +217,8 @@ The `trigger-provision.py` script starts a new EC2 instance and uses
 cloud-init to run the given provisioner shell scripts in it. These
 scripts install all the required dependencies. When the scripts finish
 (which you need to check for manually by looking up the machine in the
-AWS console, sshing into it, and using `ps` to verify that nothing is
-running), you can use the AWS console to generate an AMI from the
+AWS console, sshing into it, and `tail`ing the provision.log file to
+check for completion), you can use the AWS console to generate an AMI from the
 instance. Select the instance in the console, then choose "Actions,
 Image, Create Image". The Image Name must be changed to
 `indexer-16.04` or `web-server-16.04`. The other values can remain as
