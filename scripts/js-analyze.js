@@ -727,7 +727,13 @@ let Analyzer = {
 
     case "ObjectPattern":
       for (let prop of pat.properties) {
-        this.pattern(prop.value);
+        if (prop.type == "Property") {
+          this.pattern(prop.value);
+        } else if (prop.type == "SpreadExpression") {
+          this.pattern(prop.expression);
+        } else {
+          throw `Unexpected prop ${JSON.stringify(prop)} in ObjectPattern`;
+        }
       }
       break;
 
