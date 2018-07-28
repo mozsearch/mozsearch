@@ -252,7 +252,8 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             tokens.push(Token {start: start, end: peek_pos(), kind: TokenKind::StringLiteral});
             next_token_maybe_regexp_literal = false;
         } else if is_ident(ch) {
-            while is_ident(peek_char()) {
+            let cxx14_number = spec.cxx14_digit_separators && ch.is_digit(10);
+            while is_ident(peek_char()) || (cxx14_number && peek_char() == '\'') {
                 get_char();
             }
 
