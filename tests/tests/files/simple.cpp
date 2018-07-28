@@ -65,6 +65,10 @@ struct StackObj {
 void f() {}
 void g();
 
+int cxx14DigitSeparators() {
+    return 0b1100'1111;
+}
+
 typedef R OtherR;
 
 template<typename T>

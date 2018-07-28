@@ -12,6 +12,7 @@ pub struct LanguageSpec {
     pub c_preprocessor: bool,
     // Rust is mostly C-like, with a couple of differences.
     pub rust_tweaks: bool,
+    pub cxx14_digit_separators: bool,
 }
 
 fn make_reserved(v: &[&str]) -> HashMap<String, String> {
@@ -153,6 +154,7 @@ lazy_static! {
         reserved_words: make_reserved(&*RESERVED_WORDS_CPP),
         c_style_comments: true,
         c_preprocessor: true,
+        cxx14_digit_separators: true,
         .. LanguageSpec::default()
     };
 
