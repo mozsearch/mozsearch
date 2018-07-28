@@ -1,3 +1,4 @@
+use std::env;
 use std::io::Write;
 use std::collections::HashMap;
 use std::path::Path;
@@ -299,7 +300,7 @@ pub fn format_file_data(cfg: &config::Config,
     let opt = Options {
         title: &title,
         tree_name: tree_name,
-        include_date: true,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
         revision: revision,
     };
 
