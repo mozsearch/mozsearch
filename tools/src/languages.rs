@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LanguageSpec {
     pub reserved_words: HashMap<String, String>,
     pub hash_comment: bool,
@@ -143,90 +143,56 @@ lazy_static! {
 
     static ref JS_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_JS),
-        hash_comment: false,
         c_style_comments: true,
         backtick_strings: true,
         regexp_literals: true,
-        triple_quote_literals: false,
-        c_preprocessor: false,
-        rust_tweaks: false,
+        .. LanguageSpec::default()
     };
 
     static ref CPP_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_CPP),
-        hash_comment: false,
         c_style_comments: true,
-        backtick_strings: false,
-        regexp_literals: false,
-        triple_quote_literals: false,
         c_preprocessor: true,
-        rust_tweaks: false,
+        .. LanguageSpec::default()
     };
 
     static ref IPDL_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_IPDL),
-        hash_comment: false,
         c_style_comments: true,
-        backtick_strings: false,
-        regexp_literals: false,
-        triple_quote_literals: false,
-        c_preprocessor: false,
-        rust_tweaks: false,
+        .. LanguageSpec::default()
     };
 
     static ref IDL_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_IDL),
-        hash_comment: false,
         c_style_comments: true,
-        backtick_strings: false,
-        regexp_literals: false,
-        triple_quote_literals: false,
-        c_preprocessor: false,
-        rust_tweaks: false,
+        .. LanguageSpec::default()
     };
 
     static ref WEBIDL_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_WEBIDL),
-        hash_comment: false,
         c_style_comments: true,
-        backtick_strings: false,
-        regexp_literals: false,
-        triple_quote_literals: false,
-        c_preprocessor: false,
-        rust_tweaks: false,
+        .. LanguageSpec::default()
     };
 
     static ref PYTHON_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_PYTHON),
         hash_comment: true,
-        c_style_comments: false,
-        backtick_strings: false,
-        regexp_literals: false,
         triple_quote_literals: true,
-        c_preprocessor: false,
-        rust_tweaks: false,
+        .. LanguageSpec::default()
     };
 
     static ref RUST_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_RUST),
         hash_comment: true, // for now, for attributes
         c_style_comments: true,
-        backtick_strings: false,
-        regexp_literals: false,
-        triple_quote_literals: false,
-        c_preprocessor: false,
         rust_tweaks: true,
+        .. LanguageSpec::default()
     };
 
     static ref JAVA_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_JAVA),
-        hash_comment: false,
         c_style_comments: true,
-        backtick_strings: false,
-        regexp_literals: false,
-        triple_quote_literals: false,
-        c_preprocessor: false,
-        rust_tweaks: false,
+        .. LanguageSpec::default()
     };
 }
 
