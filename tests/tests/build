@@ -33,3 +33,5 @@ rm BuildTimeFile.cpp
 GENERATED_FILE=$OBJDIR/GeneratedFile.cpp
 echo "int main() { return 0; }" > $GENERATED_FILE
 $CXX -DTEST_MACRO1 -DTEST_MACRO2 $GENERATED_FILE -std=c++14 -c -o $OBJDIR/GeneratedFile.o -Wall
+
+$MOZSEARCH_PATH/scripts/export-rust-source.sh $OBJDIR

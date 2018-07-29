@@ -27,10 +27,12 @@ pub struct Defs {
     map: HashMap<DefId, data::Def>,
 }
 
+#[derive(Debug)]
 struct TreeInfo<'a> {
     src_dir: &'a Path,
     output_dir: &'a Path,
     objdir: &'a Path,
+    libstd: &'a Path,
 }
 
 // Given a definition, and the global crate id where that definition is found,
@@ -221,6 +223,9 @@ fn find_generated_or_src_file(
     if let Ok(generated_path) = file_name.strip_prefix(tree_info.objdir) {
         return Some(Path::new("__GENERATED__").join(generated_path))
     }
+    if let Ok(std_path) = file_name.strip_prefix(tree_info.libstd) {
+         return Some(Path::new("__GENERATED__").join("__RUST__").join("src").join(std_path))
+    }
     file_name.strip_prefix(tree_info.src_dir).ok().map(From::from)
 }
 
@@ -356,9 +361,24 @@ fn analyze_crate(
     flat_map_per_file!(macro_refs);
     flat_map_per_file!(relations);
 
+    let crate_name = &*analysis.prelude.as_ref().unwrap().crate_id.name;
+
+    // TODO(emilio): This is good enough, for now, but I guess we may want
+    // something better...
+    let is_std = match crate_name {
+        "std" | "alloc" | "jemalloc" | "dlmalloc" | "compiler_builtins" |
+        "unwind" | "libc" | "panic_abort" | "panic_unwind" | "core" | "rustc" |
+        "backtrace" => true,
+        name => name.starts_with("rustc_") || name.starts_with("alloc_"),
+    };
+
     for (mut name, analysis) in per_file.drain() {
         if name.is_relative() {
-            name = tree_info.src_dir.join(name);
+            if is_std {
+                name = tree_info.libstd.join(name)
+            } else {
+                name = tree_info.src_dir.join(name);
+            }
         }
         analyze_file(&name, defs, &analysis, tree_info);
     }
@@ -371,7 +391,8 @@ fn main() {
         .args_from_usage(
             "<src>      'Points to the source root'
              <output>   'Points to the directory where searchfox metadata should go'
-             <objdir>   'Points to the objdir generated files may come from'"
+             <objdir>   'Points to the objdir generated files may come from'
+             <libstd>   'Points to the directory with the rust source'"
         )
         .arg(Arg::with_name("input")
             .required(false)
@@ -383,8 +404,11 @@ fn main() {
     let src_dir = Path::new(matches.value_of("src").unwrap());
     let output_dir = Path::new(matches.value_of("output").unwrap());
     let objdir = Path::new(matches.value_of("objdir").unwrap());
+    let libstd = Path::new(matches.value_of("libstd").unwrap());
 
-    let tree_info = TreeInfo { src_dir, output_dir, objdir };
+    let tree_info = TreeInfo { src_dir, output_dir, objdir, libstd };
+
+    println!("Tree info: {:?}", tree_info);
 
     let input_dirs = match matches.values_of("input") {
         Some(inputs) => inputs.map(PathBuf::from).collect(),
