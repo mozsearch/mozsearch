@@ -1,6 +1,13 @@
 #include <stdio.h>
 
 extern "C" void WithNoMangle();
+extern "C" {
+    void InExternBlock();
+}
+
+void InExternBlock()
+{
+}
 
 namespace NS {
 
@@ -156,6 +163,8 @@ int main()
     NS::StackObj<int> stackobj(10);
 
     WithNoMangle();
+
+    InExternBlock();
 
     return 0;
 }

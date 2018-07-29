@@ -26,6 +26,10 @@ impl MyTrait for Loader {
 
 extern "C" fn WithoutNoMangle() {}
 
+extern "C" {
+    fn InExternBlock();
+}
+
 #[no_mangle]
 extern "C" fn WithNoMangle() {}
 
@@ -41,6 +45,7 @@ impl Loader {
     fn needs_hard_reload(&self, _: &Path) -> bool { true }
 
     fn set_path_prefix(&mut self, _: &Path) {
+        unsafe { InExternBlock() };
         MyType::new().do_foo();
     }
 
