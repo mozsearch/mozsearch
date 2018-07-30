@@ -33,7 +33,14 @@ launch_spec = {
     'SecurityGroups': ['indexer'],
     'UserData': user_data,
     'InstanceType': 'c3.2xlarge',
-    'BlockDeviceMappings': []
+    'BlockDeviceMappings': [],
+    'TagSpecifications': [{
+        'ResourceType': 'instance',
+        'Tags': [{
+            'Key': 'provisioner',
+            'Value': sys.argv[1],
+         }],
+    }],
 }
 
 client.run_instances(MinCount=1, MaxCount=1, **launch_spec)
