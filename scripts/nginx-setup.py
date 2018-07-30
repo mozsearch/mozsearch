@@ -35,7 +35,13 @@ def location(route, directives):
     print '  }'
     print
 
-print '''server {
+print '''# we are in the "http" context here.
+map $status $expires {
+  default 1d;
+  "301" 10m;
+}
+
+server {
   listen 80 default_server;
 
   # Redirect HTTP to HTTPS in release
@@ -44,6 +50,8 @@ print '''server {
   }
 
   sendfile off;
+
+  expires $expires;
 ''' % fmt
 
 location('/static', ['root %(mozsearch_path)s;'])
@@ -56,7 +64,6 @@ for repo in config['trees']:
         'try_files /file/$uri /dir/$uri/index.html =404;',
         'types { image/png png; image/jpeg jpeg jpg; image/gif gif; }',
         'default_type text/html;',
-        'expires 1d;',
         'add_header Cache-Control "public";',
     ])
 
@@ -77,7 +84,6 @@ for repo in config['trees']:
 location('= /', [
     'root %(doc_root)s;',
     'try_files $uri/help.html =404;',
-    'expires 1d;',
     'add_header Cache-Control "public";',
 ])
 
