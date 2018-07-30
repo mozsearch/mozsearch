@@ -31,6 +31,22 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
         'IamInstanceProfile': {
             'Name': 'indexer-role',
         },
+        'TagSpecifications': [{
+            'ResourceType': 'instance',
+            'Tags': [{
+                'Key': 'channel',
+                'Value': channel,
+            }, {
+                'Key': 'branch',
+                'Value': branch,
+            }, {
+                'Key': 'mrepo',
+                'Value': mozsearch_repo,
+            }, {
+                'Key': 'crepo',
+                'Value': config_repo
+            }],
+        }],
     }
 
     validUntil = datetime.now() + timedelta(days=1)
