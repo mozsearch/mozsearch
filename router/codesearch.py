@@ -104,3 +104,9 @@ def load(config):
             'codesearch_path': config['trees'][tree_name]['codesearch_path'],
             'codesearch_port': config['trees'][tree_name]['codesearch_port'],
         }
+        # Start the daemon during loading. If it dies we will restart it lazily
+        # during the search function, but that should be rare. This avoids a
+        # race condition where search() can get invoked multiple times in quick
+        # succession by separate queries, resulting in the daemon getting started
+        # multiple times.
+        startup_codesearch(tree_data[tree_name])
