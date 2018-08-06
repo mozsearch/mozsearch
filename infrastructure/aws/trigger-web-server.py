@@ -104,7 +104,7 @@ while True:
         subprocess.check_call(["curl", "-f", "-m", "10.0",
                                "http://%s/mozilla-central/search?q=nsGlobalWindow" % ip])
     except:
-        time.sleep(1)
+        time.sleep(10)
         continue
     break
 
