@@ -93,7 +93,7 @@ def search(pattern, fold_case, path, tree_name):
             return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, repo)
         except Exception as e:
             log('Unable to start codesearch: %s', repr(e))
-            return ([], false)
+            return ([], False)
 
 
 def load(config):
