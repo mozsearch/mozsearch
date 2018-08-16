@@ -74,6 +74,10 @@ sudo pip install pygit2
 # Install pandoc
 sudo apt-get install -y pandoc
 
+# Install nodejs >= 8.11.3, needed for mozilla-central build
+curl -sSfL https://deb.nodesource.com/setup_8.x | sudo bash
+sudo apt-get install -y nodejs
+
 # Create update script.
 cat > update.sh <<"THEEND"
 #!/usr/bin/env bash
