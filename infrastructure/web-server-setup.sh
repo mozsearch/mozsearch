@@ -4,7 +4,7 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 3 && $# != 4 ]
+if [ $# != 3 -a $# != 4 ]
 then
     echo "usage: $0 <config-repo-path> <index-path> <server-root> [<use_hsts>]"
     exit 1
