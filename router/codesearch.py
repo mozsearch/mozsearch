@@ -87,12 +87,20 @@ def search(pattern, fold_case, path, tree_name):
     try:
         return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, repo)
     except Exception as e:
-        log('Got exception: %s', type(e))
+        log('Got exception: %s', repr(e))
+        if e.code() != grpc.StatusCode.UNAVAILABLE:
+            # TODO: better job of surfacing the error back to the user. This might be e.g.
+            # a grpc.StatusCode.INVALID_ARGUMENT if say the `pattern` is a malformed regex
+            return ([], False)
+
+        # If the exception indicated a connection failure, try to restart the server and search
+        # again.
         startup_codesearch(data)
         try:
             return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, repo)
         except Exception as e:
-            log('Unable to start codesearch: %s', repr(e))
+            log('Got exception after restarting codesearch: %s', repr(e))
+            # TODO: as above, do a better job of surfacing the error back to the user.
             return ([], False)
 
 
