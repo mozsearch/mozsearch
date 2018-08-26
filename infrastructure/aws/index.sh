@@ -58,6 +58,10 @@ $MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index
 date
 echo "Indexing complete"
 
+# Copy indexing log to index mount so it's easy to get to from the
+# web server instance
+cp ~ubuntu/index-log /index/index-log
+
 sudo umount /index
 
 python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
