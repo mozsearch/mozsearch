@@ -9,7 +9,7 @@ extern crate serde_json;
 
 use data::GlobalCrateId;
 use data::DefKind;
-use rls_analysis::{AnalysisHost, AnalysisLoader};
+use rls_analysis::{AnalysisHost, AnalysisLoader, SearchDirectory};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
@@ -128,8 +128,13 @@ impl AnalysisLoader for Loader {
     fn abs_path_prefix(&self) -> Option<PathBuf> {
         None
     }
-    fn search_directories(&self) -> Vec<PathBuf> {
-        self.deps_dirs.clone()
+    fn search_directories(&self) -> Vec<SearchDirectory> {
+        self.deps_dirs.iter().map(|pb| {
+            SearchDirectory {
+                path: pb.clone(),
+                prefix_rewrite: None,
+            }
+        }).collect()
     }
 }
 
@@ -153,11 +158,11 @@ fn def_kind_to_human(kind: DefKind) -> &'static str {
         DefKind::ExternType => "extern type",
         DefKind::Const => "constant",
         DefKind::Field => "field",
-        DefKind::Function => "function",
+        DefKind::Function | DefKind::ForeignFunction => "function",
         DefKind::Macro => "macro",
         DefKind::Method => "method",
         DefKind::Mod => "module",
-        DefKind::Static => "static",
+        DefKind::Static | DefKind::ForeignStatic => "static",
         DefKind::Struct => "struct",
         DefKind::Tuple => "tuple",
         DefKind::TupleVariant => "tuple variant",
