@@ -10,7 +10,7 @@ extern crate serde_json;
 use data::GlobalCrateId;
 use data::DefKind;
 use rls_analysis::{AnalysisHost, AnalysisLoader, SearchDirectory};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
@@ -174,7 +174,7 @@ fn def_kind_to_human(kind: DefKind) -> &'static str {
 }
 
 fn visit(
-    file: &mut File,
+    out_data: &mut BTreeSet<String>,
     kind: &'static str,
     location: &data::SpanData,
     qualname: &str,
@@ -183,7 +183,6 @@ fn visit(
 ) {
     use serde_json::map::Map;
     use serde_json::value::Value;
-    use std::io::Write;
 
     let mut out = Map::new();
     out.insert("loc".into(), Value::String(span_to_string(location)));
@@ -204,8 +203,7 @@ fn visit(
     }
 
     let object = serde_json::to_string(&Value::Object(out)).unwrap();
-    file.write_all(object.as_bytes()).unwrap();
-    write!(file, "\n").unwrap();
+    out_data.insert(object);
 
     let mut out = Map::new();
     out.insert("loc".into(), Value::String(span_to_string(location)));
@@ -215,8 +213,7 @@ fn visit(
     out.insert("sym".into(), Value::String(qualname.into()));
 
     let object = serde_json::to_string(&Value::Object(out)).unwrap();
-    file.write_all(object.as_bytes()).unwrap();
-    write!(file, "\n").unwrap();
+    out_data.insert(object);
 }
 
 fn find_generated_or_src_file(
@@ -235,6 +232,8 @@ fn analyze_file(
     file_analysis: &data::Analysis,
     tree_info: &TreeInfo,
 ) {
+    use std::io::Write;
+
     let file = match find_generated_or_src_file(file_name, tree_info) {
         Some(f) => f,
         None => {
@@ -244,6 +243,7 @@ fn analyze_file(
     };
 
     let output_file = tree_info.output_dir.join(file);
+    let mut dataset = BTreeSet::new();
     let mut output_dir = output_file.clone();
     output_dir.pop();
     if let Err(err) = fs::create_dir_all(output_dir) {
@@ -283,7 +283,7 @@ fn analyze_file(
             }
         };
 
-        visit(&mut file, "use", &import.span, &def.qualname, &def, None)
+        visit(&mut dataset, "use", &import.span, &def.qualname, &def, None)
     }
 
     for def in &file_analysis.defs {
@@ -295,7 +295,7 @@ fn analyze_file(
                 let trait_dependent_name =
                     format!("{}::{}", parent.qualname, def.name);
                 visit(
-                    &mut file,
+                    &mut dataset,
                     "def",
                     &def.span,
                     &trait_dependent_name,
@@ -307,7 +307,7 @@ fn analyze_file(
 
         let crate_id = &file_analysis.prelude.as_ref().unwrap().crate_id;
         let qualname = crate_independent_qualname(&def, crate_id);
-        visit(&mut file, "def", &def.span, &qualname, &def, parent.as_ref().map(|p| &*p.qualname))
+        visit(&mut dataset, "def", &def.span, &qualname, &def, parent.as_ref().map(|p| &*p.qualname))
     }
 
     for ref_ in &file_analysis.refs {
@@ -319,13 +319,18 @@ fn analyze_file(
             }
         };
         visit(
-            &mut file,
+            &mut dataset,
             "use",
             &ref_.span,
             &def.qualname,
             &def,
             /* context = */ None, // TODO
         )
+    }
+
+    for obj in &dataset {
+        file.write_all(obj.as_bytes()).unwrap();
+        write!(file, "\n").unwrap();
     }
 }
 
