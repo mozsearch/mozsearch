@@ -49,3 +49,16 @@ impl Loader {
         vec![self.deps_dir.clone()]
     }
 }
+
+enum AnEnum {
+    Variant1,
+    Variant2,
+}
+
+fn simple_fn() {
+    let my_enum = AnEnum::Variant1;
+    match my_enum {
+        AnEnum::Variant1 => println!("Yay"),
+        _ => println!("Boo"),
+    }
+}
