@@ -11,6 +11,7 @@ use data::GlobalCrateId;
 use data::DefKind;
 use rls_analysis::{AnalysisHost, AnalysisLoader, SearchDirectory};
 use std::collections::{BTreeSet, HashMap};
+use std::io::{BufRead, BufReader};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
@@ -226,6 +227,18 @@ fn find_generated_or_src_file(
     file_name.strip_prefix(tree_info.src_dir).ok().map(From::from)
 }
 
+fn read_existing_contents(
+    map: &mut BTreeSet<String>,
+    file: &Path,
+) {
+    if let Ok(f) = File::open(file) {
+        let mut reader = BufReader::new(f);
+        for line in reader.lines() {
+            map.insert(line.unwrap());
+        }
+    }
+}
+
 fn analyze_file(
     file_name: &PathBuf,
     defs: &Defs,
@@ -244,6 +257,7 @@ fn analyze_file(
 
     let output_file = tree_info.output_dir.join(file);
     let mut dataset = BTreeSet::new();
+    read_existing_contents(&mut dataset, &output_file);
     let mut output_dir = output_file.clone();
     output_dir.pop();
     if let Err(err) = fs::create_dir_all(output_dir) {
