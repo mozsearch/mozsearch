@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate clap;
 extern crate env_logger;
+#[macro_use]
+extern crate log;
 extern crate rls_analysis;
 extern crate rls_data as data;
 extern crate serde;
@@ -66,7 +68,7 @@ impl Defs {
             // This shouldn't happen, but as of right now it can happen with
             // some builtin definitions when highly generic types are involved.
             // This is probably a rust bug, just ignore it for now.
-            eprintln!(
+            debug!(
                 "Found a definition with the same ID twice? {:?}, {:?}",
                 previous,
                 def,
@@ -91,7 +93,7 @@ impl Defs {
             let krate = match krate {
                 Some(k) => k,
                 None => {
-                    eprintln!("Crate not found: {:?}", id);
+                    debug!("Crate not found: {:?}", id);
                     return None;
                 }
             };
@@ -250,7 +252,7 @@ fn analyze_file(
     let file = match find_generated_or_src_file(file_name, tree_info) {
         Some(f) => f,
         None => {
-            eprintln!("File not in the source directory or objdir: {}", file_name.display());
+            error!("File not in the source directory or objdir: {}", file_name.display());
             return;
         }
     };
@@ -261,7 +263,7 @@ fn analyze_file(
     let mut output_dir = output_file.clone();
     output_dir.pop();
     if let Err(err) = fs::create_dir_all(output_dir) {
-        eprintln!(
+        error!(
             "Couldn't create dir for: {}, {:?}",
             output_file.display(),
             err
@@ -271,7 +273,7 @@ fn analyze_file(
     let mut file = match File::create(&output_file) {
         Ok(f) => f,
         Err(err) => {
-            eprintln!(
+            error!(
                 "Couldn't open output file: {}, {:?}",
                 output_file.display(),
                 err
@@ -284,7 +286,7 @@ fn analyze_file(
         let id = match import.ref_id {
             Some(id) => id,
             None => {
-                eprintln!("Dropping import {} ({:?}): {}, no ref", import.name, import.kind, import.value);
+                debug!("Dropping import {} ({:?}): {}, no ref", import.name, import.kind, import.value);
                 continue;
             }
         };
@@ -292,7 +294,7 @@ fn analyze_file(
         let def = match defs.get(file_analysis, id) {
             Some(def) => def,
             None => {
-                eprintln!("Dropping import {} ({:?}): {}, no def for ref {:?}", import.name, import.kind, import.value, id);
+                debug!("Dropping import {} ({:?}): {}, no def for ref {:?}", import.name, import.kind, import.value, id);
                 continue;
             }
         };
@@ -328,7 +330,7 @@ fn analyze_file(
         let def = match defs.get(file_analysis, ref_.ref_id) {
             Some(d) => d,
             None => {
-                eprintln!("Dropping ref {:?}, kind {:?}, no def", ref_.ref_id, ref_.kind);
+                warn!("Dropping ref {:?}, kind {:?}, no def", ref_.ref_id, ref_.kind);
                 continue;
             }
         };
@@ -390,7 +392,7 @@ fn analyze_crate(
 
 fn main() {
     use clap::Arg;
-    env_logger::init().unwrap();
+    env_logger::init();
     let matches = app_from_crate!()
         .args_from_usage(
             "<src>      'Points to the source root'

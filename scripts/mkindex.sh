@@ -15,6 +15,8 @@ CONFIG_FILE=$2
 TREE_NAME=$3
 
 export PYTHONPATH=$MOZSEARCH_PATH/scripts
+export RUST_LOG=info
+export RUST_BACKTRACE=full
 
 date
 

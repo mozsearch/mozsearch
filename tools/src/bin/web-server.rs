@@ -211,7 +211,7 @@ fn handle(cfg: &config::Config, ident_map: &HashMap<String, IdentMap>, req: WebR
 }
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let cfg = config::load(&env::args().nth(1).unwrap(), true);
     let ident_map = IdentMap::load(&cfg);
