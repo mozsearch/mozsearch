@@ -9,14 +9,14 @@ sudo apt-get install -y git
 
 # Livegrep (Bazel is needed for Livegrep builds)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
-# Install Bazel 0.7.0
+# Install Bazel 0.16.1
 rm -rf bazel
 mkdir bazel
 pushd bazel
 # Note that bazel unzips itself so we can't just pipe it to sudo bash.
-curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.7.0/bazel-0.7.0-without-jdk-installer-linux-x86_64.sh
-chmod +x bazel-0.7.0-without-jdk-installer-linux-x86_64.sh
-sudo ./bazel-0.7.0-without-jdk-installer-linux-x86_64.sh
+curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.16.1/bazel-0.16.1-installer-linux-x86_64.sh
+chmod +x bazel-0.16.1-installer-linux-x86_64.sh
+sudo ./bazel-0.16.1-installer-linux-x86_64.sh
 popd
 
 # pygit2
@@ -36,11 +36,13 @@ curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
 
 # Install codesearch.
 rm -rf livegrep
-git clone -b mozsearch-version2 https://github.com/mozsearch/livegrep
+git clone -b mozsearch-version3 https://github.com/mozsearch/livegrep
 pushd livegrep
-bazel build //src/tools:codesearch --incompatible_disallow_set_constructor=false
+bazel build //src/tools:codesearch
 sudo install bazel-bin/src/tools/codesearch /usr/local/bin
 popd
+# Remove ~2G of build artifacts that we don't need anymore
+rm -rf .cache/bazel
 
 # Install gRPC python libs and generate the python modules to communicate with the codesearch server
 sudo pip install grpcio grpcio-tools
