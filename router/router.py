@@ -220,9 +220,10 @@ class SearchResults(object):
 
 def search_files(tree_name, path):
     pathFile = os.path.join(index_path(tree_name), 'repo-files')
+    objdirFile = os.path.join(index_path(tree_name), 'objdir-files')
     try:
         # We set the locale to make grep much faster.
-        results = subprocess.check_output(['grep', '-Ei', path, pathFile], env={'LC_CTYPE': 'C'})
+        results = subprocess.check_output(['grep', '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'})
     except:
         return []
     results = results.strip().split('\n')
