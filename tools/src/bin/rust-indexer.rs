@@ -330,7 +330,7 @@ fn analyze_file(
         let def = match defs.get(file_analysis, ref_.ref_id) {
             Some(d) => d,
             None => {
-                warn!("Dropping ref {:?}, kind {:?}, no def", ref_.ref_id, ref_.kind);
+                debug!("Dropping ref {:?}, kind {:?}, no def", ref_.ref_id, ref_.kind);
                 continue;
             }
         };
