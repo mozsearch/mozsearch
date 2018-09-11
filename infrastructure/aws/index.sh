@@ -67,14 +67,23 @@ sudo umount /index
 python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
 python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $VOLUME_ID
 
+if [ $CHANNEL == release ]
+then
+    DEST_EMAIL="searchfox-aws@mozilla.com"
+else
+    # For dev-channel runs, send emails to the author of the HEAD commit in the
+    # repo.
+    DEST_EMAIL=$(git --git-dir="$MOZSEARCH_PATH/.git" show --format="%aE" --no-patch HEAD)
+fi
+
+$AWS_ROOT/send-warning-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
+
 gzip -k ~ubuntu/index-log
 python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`
 
 if [ $CHANNEL != release ]
 then
-    # Don't send completion email notification for release channel. For other
-    # channels send it to the author of the HEAD commit in the repo
-    DEST_EMAIL=$(git --git-dir="$MOZSEARCH_PATH/.git" show --format="%aE" --no-patch HEAD)
+    # Don't send completion email notification for release channel.
     $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 fi
 
