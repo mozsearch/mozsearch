@@ -14,6 +14,11 @@ Analysis records are currently generated from:
 * `idl-analyze.py` for IDL files.
 * `clang-plugin/Indexer.cpp` for C++ files.
 
+Analysis records may be downloaded from Taskcluster for mozilla-central
+builds for multiple platforms, in which case the `scripts/merge-analyses.py`
+script is used to combine the different analyses from different platforms
+for a given source file.
+
 Analysis records are consumed from Rust code in
 `tools/src/analysis.rs`.
 
