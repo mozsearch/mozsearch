@@ -102,7 +102,9 @@ impl Defs {
         definition.qualname = crate_independent_qualname(&def, &crate_id);
 
         let index = definition.id.index;
-        let previous = self.map.insert(DefId(crate_id, index), definition);
+        let defid = DefId(crate_id, index);
+        debug!("Indexing def: {:?} -> {:?}", defid, definition);
+        let previous = self.map.insert(defid, definition);
         if let Some(previous) = previous {
             // This shouldn't happen, but as of right now it can happen with
             // some builtin definitions when highly generic types are involved.
@@ -141,7 +143,11 @@ impl Defs {
         };
 
         let id = DefId(krate_id, id.index);
-        self.map.get(&id).cloned()
+        let result = self.map.get(&id).cloned();
+        if result.is_none() {
+            debug!("Def not found: {:?}", id);
+        }
+        result
     }
 }
 
@@ -294,6 +300,8 @@ fn analyze_file(
 ) {
     use std::io::Write;
 
+    debug!("Running analyze_file for {}", file_name.display());
+
     let file = match find_generated_or_src_file(file_name, tree_info) {
         Some(f) => f,
         None => {
@@ -436,7 +444,7 @@ fn analyze_crate(
 ) {
     let mut per_file = HashMap::new();
 
-    println!("Analyzing crate: {:?}", analysis.prelude);
+    info!("Analyzing crate: {:?}", analysis.prelude);
 
     macro_rules! flat_map_per_file {
         ($field:ident) => {
@@ -508,7 +516,7 @@ fn main() {
 
     let tree_info = TreeInfo { src_dir, output_dir, objdir, libstd };
 
-    println!("Tree info: {:?}", tree_info);
+    info!("Tree info: {:?}", tree_info);
 
     let input_dirs = match matches.values_of("input") {
         Some(inputs) => inputs.map(PathBuf::from).collect(),
@@ -518,12 +526,11 @@ fn main() {
 
     let crates = rls_analysis::read_analysis_from_files(&loader, Default::default(), &[]);
 
-    println!("{:?}", crates.iter().map(|k| &k.id.name).collect::<Vec<_>>());
+    info!("Crates: {:?}", crates.iter().map(|k| &k.id.name).collect::<Vec<_>>());
 
     let mut defs = Defs::new();
     for krate in &crates {
         for def in &krate.analysis.defs {
-            // println!("Indexing def: {:?}", def);
             defs.insert(&krate.analysis, def);
         }
     }
