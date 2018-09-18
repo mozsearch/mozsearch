@@ -31,8 +31,12 @@ sudo apt-get install -y nginx
 # Install pkg-config (needed for Rust's OpenSSL wrappers)
 sudo apt-get install pkg-config
 
-# Install Rust.
-curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
+# Install Rust. We need rust nightly to build rls-data.
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+source $HOME/.cargo/env
+rustup install nightly
+rustup default nightly
+rustup uninstall stable
 
 # Install codesearch.
 rm -rf livegrep
@@ -96,8 +100,8 @@ echo Branch is $BRANCH
 echo Mozsearch repository is $MOZSEARCH_REPO
 echo Config repository is $CONFIG_REPO
 
-# Re-install Rust (make sure we have the latest version).
-curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
+# Update Rust (make sure we have the latest version).
+rustup update
 
 # Install mozsearch.
 rm -rf mozsearch
