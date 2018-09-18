@@ -12,7 +12,7 @@ def trigger(mozsearch_repo, config_repo, branch, channel, spot=False):
     user_data = '''#!/usr/bin/env bash
 
 cd ~ubuntu
-HOME=/home/ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
+sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{mozsearch_repo}" "{config_repo}" config
 '''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo)
 

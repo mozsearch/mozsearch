@@ -43,7 +43,11 @@ sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-4.0 400
 sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-4.0 400
 
 # Install Rust. We need rust nightly to use the save-analysis
-curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+source $HOME/.cargo/env
+rustup install nightly
+rustup default nightly
+rustup uninstall stable
 
 # Install codesearch.
 rm -rf livegrep
@@ -106,10 +110,10 @@ echo Branch is $BRANCH
 echo Mozsearch repository is $MOZSEARCH_REPO
 echo Config repository is $CONFIG_REPO
 
-# Re-install Rust (make sure we have the latest version).
+# Update Rust (make sure we have the latest version).
 # We need rust nightly to use the save-analysis, and firefox requires recent
 # versions of Rust.
-curl -sSf https://static.rust-lang.org/rustup.sh | sh -s -- --channel=nightly
+rustup update
 
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js
