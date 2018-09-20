@@ -191,14 +191,7 @@ fn visit(
     out.insert("loc".into(), Value::String(span_to_string(location)));
     out.insert("target".into(), json!(1));
     out.insert("kind".into(), Value::String(kind.into()));
-    let pretty = {
-        let mut pretty = def_kind_to_human(def.kind).to_owned();
-        pretty.push_str(" ");
-        pretty.push_str(qualname);
-
-        pretty
-    };
-    out.insert("pretty".into(), Value::String(pretty.clone()));
+    out.insert("pretty".into(), Value::String(qualname.into()));
     out.insert("sym".into(), Value::String(qualname.into()));
     if let Some(context) = context {
         out.insert("context".into(), Value::String(context.into()));
@@ -207,6 +200,14 @@ fn visit(
 
     let object = serde_json::to_string(&Value::Object(out)).unwrap();
     out_data.insert(object);
+
+    let pretty = {
+        let mut pretty = def_kind_to_human(def.kind).to_owned();
+        pretty.push_str(" ");
+        pretty.push_str(qualname);
+
+        pretty
+    };
 
     let mut out = Map::new();
     out.insert("loc".into(), Value::String(span_to_string(location)));
