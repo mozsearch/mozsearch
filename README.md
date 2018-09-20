@@ -80,8 +80,8 @@ mkdir ~/index
 ```
 
 Now it's time to index! To do that, run the `indexer-run.sh`
-script. It will compile and index all the C++ files and also do
-whatever indexing is needed on JS, IDL, and IPDL files.
+script. It will compile and index all the C++ and Rust files and
+also do whatever indexing is needed on JS, IDL, and IPDL files.
 
 ```
 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
@@ -136,7 +136,7 @@ The Mozsearch indexing process has three main steps, depicted here:
 
 Here are these steps in more detail:
 
-* A language-specific analysis step. This step processes C++,
+* A language-specific analysis step. This step processes C++, Rust,
   JavaScript, and IDL files. For each input file, it generates a
   line-delimited JSON file as output. Each line of the output file
   corresponds to an identifier in the input file. The line contains a

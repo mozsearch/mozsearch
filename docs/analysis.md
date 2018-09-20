@@ -10,14 +10,18 @@ contains a record. (Technically the file is not JSON itself, but a
 series of JSON objects delimited by line breaks.)
 
 Analysis records are currently generated from:
-* `js-analyze.js` for the JavaScript analysis.
-* `idl-analyze.py` for IDL files.
-* `clang-plugin/Indexer.cpp` for C++ files.
+* `scripts/js-analyze.js` for the JavaScript analysis.
+* `scripts/idl-analyze.py` for IDL files.
+* `clang-plugin/MozsearchIndexer.cpp` for C++ files.
+* `tools/src/bin/rust-indexer.rs` for Rust files.
 
-Analysis records may be downloaded from Taskcluster for mozilla-central
-builds for multiple platforms, in which case the `scripts/merge-analyses.py`
-script is used to combine the different analyses from different platforms
-for a given source file.
+Analysis records may also be downloaded from Taskcluster for
+mozilla-central builds (this can be viewed as an optimization to
+avoid rebuilding mozilla-central as part of indexing). In fact,
+records may be downloaded for multiple platforms, in which case
+the `scripts/merge-analyses.py` script is used to combine the
+different analyses from different platforms for a given source
+file.
 
 Analysis records are consumed from Rust code in
 `tools/src/analysis.rs`.
@@ -113,9 +117,23 @@ index of the field starting from 0.
 * For enumeration constants, the symbol is
 `F_<${enum_symbol}>_${constant_name}`.
 
+Note that in some cases, the symbol for a C++ identifier might vary from one
+platform to another. For example, a function signature that includes `uint64_t`
+produces a different mangled name on macOS and Linux. In such cases, if
+analysis records are generated for multiple platforms, the final source records will
+contain the symbols from all the platforms merged into a comma-separated list. The
+`scripts/merge-analyses.py` script is used to do this.
+
+Also, in many cases (notably for C++ and JS code), local variables have their
+target records omitted, and their source records have the `no_crossref`
+property. Since local variables are not referenced outside of a very narrow
+context, this optimization helps to avoid bloating the index files with a
+lot of unnecessary entries.
+
 ### Sources
 
-A source record additionally contains a `syntax` property and a `pretty` property.
+A source record additionally contains a `syntax` property, a `pretty` property,
+and optionally a `no_crossref` property.
 
 The `syntax` property describes how the identifier should be syntax highlighted.
 It is a comma-delimited list of strings. Currently the only strings that have any
@@ -129,19 +147,31 @@ the identifier. It should contain a human-readable description like
 `constructor nsDocShell::nsDocShell` or `property
 SessionStore.getTabState`.
 
+The `no_crossref` propeerty, if set, always has a value of `1`, and indicates
+that this identifier will have no target records and does not participate
+in cross-referencing.
+
 ### Targets
 
-Target records additionally contain a `kind` property and a `pretty` property.
+Target records additionally contain a `kind` property, a `pretty` property,
+and optionally `context`, `contextsym`, and `peekRange` properties.
 
 The `kind` property should be one of `use`, `def`, `decl`, `assign`,
 or `idl`. This property determines whether the identifier will appear
 under the "Uses", "Definitions", "Declarations", "Assignments", or
 "IDL" category of the search results page.
 
-The pretty property is also uses for the context menu. If a target
+The `pretty` property is also used for the context menu. If a target
 record is the only `def` target for a given symbol, then the context
 menu for any source records with that symbol will contain a `Go to
 ${pretty}` entry, where `${pretty}` is the target's `pretty` property.
+
+The `context` and `contextsym` properties capture an enclosing context
+for the identifier, such as the enclosing function. These are used to
+link to the context in search results that include the target record.
+
+The `peekRange` property is a range of lines that appears to be
+currently unused.
 
 ### C++ inheritance
 

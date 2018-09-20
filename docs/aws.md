@@ -249,3 +249,9 @@ notifying the Searchfox email list that indexing failed. Then it shuts
 down (but does not destroy) the EC2 indexer instance. The instance can
 be debugged by starting it up again from the AWS console and logging
 into it via ssh.
+
+Even on successful runs, the index log is grepped for warning lines,
+and an email is sent to the searchfox mailing list containing these
+warnings. Warnings are "recoverable errors" in that the indexing completed
+with a new deployment, but some part of the functionality may be missing
+due to an error that needs fixing.
