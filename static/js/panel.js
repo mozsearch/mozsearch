@@ -19,4 +19,60 @@ $(function() {
         panelContent.toggle();
         toggleAria(panelContent);
     });
+
+    var permalinkNode = $('.panel a[title="Permalink"]');
+    permalinkNode = permalinkNode.length == 0 ? null : permalinkNode[0];
+
+    function pushPermalink() {
+	if (history.state && history.state.permalink) {
+	    return;
+	}
+	if (permalinkNode) {
+	    history.pushState(
+		{ permalink: permalinkNode.href },
+		window.title,
+		permalinkNode.href
+	    );
+	}
+    }
+
+    if (permalinkNode) {
+        permalinkNode.addEventListener('click', (event) => {
+            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+                return;
+            }
+            event.preventDefault();
+            pushPermalink();
+        });
+    }
+
+    document.documentElement.addEventListener('keypress', (event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey) {
+            return;
+        }
+        var inputs = /input|select|textarea/i;
+        if (inputs.test(event.target.nodeName)) {
+            return;
+        }
+        switch (event.key) {
+            case 'y':
+            case 'Y':
+                pushPermalink();
+                break;
+            case 'l':
+            case 'L':
+                var linkNode = $('.panel a[title="Log"]');
+                if (linkNode.length) {
+                    linkNode[0].click();
+                }
+                break;
+            case 'r':
+            case 'R':
+                var linkNode = $('.panel a[title="Raw"]');
+                if (linkNode.length) {
+                    linkNode[0].click();
+                }
+                break;
+        }
+    }, {passive: true});
 });

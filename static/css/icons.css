@@ -68,6 +68,16 @@ a.type {
 }
 /* End of Context-menu only icons */
 
+.panel .accel {
+    /* simulate a keyboard key effect */
+    font-family: monospace;
+    font-size: 10px;
+    padding: 2px;
+    border: outset lightgray;
+    border-width: 7px 6px;
+    margin-left: 10px;
+}
+
 /* Panel only icons */
 
 /* Panel icons that are always shown - uncomment when ready! ->
