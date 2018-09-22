@@ -144,6 +144,7 @@ fn main() {
                     title: format!("Go to {} file", other_desc),
                     link: other_path,
                     update_link_lineno: false,
+                    accel_key: None,
                 }],
             }]
         } else {
@@ -159,18 +160,22 @@ fn main() {
                     title: "Permalink".to_owned(),
                     link: format!("/{}/rev/{}/{}", tree_name, oid, path),
                     update_link_lineno: true,
+                    accel_key: Some('Y'),
                 }, PanelItem {
                     title: "Log".to_owned(),
                     link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
                     update_link_lineno: false,
+                    accel_key: Some('L'),
                  }, PanelItem {
                     title: "Raw".to_owned(),
                     link: format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path),
                     update_link_lineno: false,
+                    accel_key: Some('R'),
                 }, PanelItem {
                     title: "Blame".to_owned(),
                     link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
                     update_link_lineno: false,
+                    accel_key: None,
                 }],
             }]
         } else {

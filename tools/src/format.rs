@@ -458,18 +458,22 @@ pub fn format_path(cfg: &config::Config,
             title: "Go to latest version".to_owned(),
             link: format!("/{}/source/{}", tree_name, path),
             update_link_lineno: true,
+            accel_key: None,
         }, PanelItem {
             title: "Log".to_owned(),
             link: format!("{}/log/{}/{}", config::get_hg_root(tree_config), hg_rev, path),
             update_link_lineno: false,
+            accel_key: Some('L'),
         }, PanelItem {
             title: "Raw".to_owned(),
             link: format!("{}/raw-file/{}/{}", config::get_hg_root(tree_config), hg_rev, path),
             update_link_lineno: false,
+            accel_key: Some('R'),
         }, PanelItem {
             title: "Blame".to_owned(),
             link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
             update_link_lineno: false,
+            accel_key: None,
         }],
     }];
 
@@ -630,18 +634,22 @@ pub fn format_diff(cfg: &config::Config,
             title: "Show changeset".to_owned(),
             link: format!("/{}/commit/{}", tree_name, rev),
             update_link_lineno: false,
+            accel_key: None,
         }, PanelItem {
             title: "Show file without diff".to_owned(),
             link: format!("/{}/rev/{}/{}", tree_name, rev, path),
             update_link_lineno: true,
+            accel_key: None,
         }, PanelItem {
             title: "Go to latest version".to_owned(),
             link: format!("/{}/source/{}", tree_name, path),
             update_link_lineno: true,
+            accel_key: None,
         }, PanelItem {
             title: "Log".to_owned(),
             link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
             update_link_lineno: false,
+            accel_key: Some('L'),
         }],
     }];
     try!(output::generate_panel(writer, &sections));

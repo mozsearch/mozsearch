@@ -254,6 +254,7 @@ pub struct PanelItem {
     pub title: String,
     pub link: String,
     pub update_link_lineno: bool,
+    pub accel_key: Option<char>,
 }
 
 pub struct PanelSection {
@@ -269,10 +270,15 @@ pub fn generate_panel(writer: &mut Write, sections: &[PanelSection]) -> Result<(
             } else {
                 "".to_owned()
             };
+            let accel = if let Some(key) = item.accel_key {
+                format!(r#" <span class="accel">{}</span>"#, key)
+            } else {
+                "".to_owned()
+            };
             F::Seq(vec![
                 F::S("<li>"),
-                F::T(format!(r#"<a href="{}" title="{}" class="icon"{}>{}</a>"#,
-                             item.link, item.title, update_attr, item.title)),
+                F::T(format!(r#"<a href="{}" title="{}" class="icon"{}>{}{}</a>"#,
+                             item.link, item.title, update_attr, item.title, accel)),
                 F::S("</li>"),
             ])
         }).collect::<Vec<_>>();
