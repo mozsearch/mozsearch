@@ -452,6 +452,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def generate(self, data, type):
         self.send_response(200)
+        self.send_header("Vary", "Accept")
         self.send_header("Content-type", type)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
@@ -464,6 +465,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             output = output.replace(k, v)
 
         self.send_response(200)
+        self.send_header("Vary", "Accept")
         self.send_header("Content-type", "text/html")
         self.send_header("Content-Length", str(len(output)))
         self.end_headers()
