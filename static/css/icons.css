@@ -68,6 +68,10 @@ a.type {
 }
 /* End of Context-menu only icons */
 
+.panel label.panel-accel {
+    padding: 0.5rem
+}
+
 .panel .accel {
     /* simulate a keyboard key effect */
     font-family: monospace;
