@@ -72,9 +72,11 @@ a.type {
     /* simulate a keyboard key effect */
     font-family: monospace;
     font-size: 10px;
-    padding: 2px;
-    border: outset lightgray;
-    border-width: 7px 6px;
+    padding: 1px 3px;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+    box-shadow: 0 1px #999;
+    background: #f5f5f5;
     margin-left: 10px;
 }
 
