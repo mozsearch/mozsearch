@@ -301,6 +301,7 @@ pub fn generate_panel(writer: &mut Write, sections: &[PanelSection]) -> Result<(
             ]),
             F::S("</button>"),
             F::S(r#"<section id="panel-content" aria-expanded="true" aria-hidden="false">"#),
+            F::S(r#"<label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>"#),
             F::Seq(sections),
             F::S("</section>"),
         ]),

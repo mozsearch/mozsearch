@@ -49,7 +49,7 @@ $(function() {
         });
     }
 
-    document.documentElement.addEventListener('keypress', (event) => {
+    function handleAccelerator(event) {
         if (event.altKey || event.ctrlKey || event.metaKey) {
             return;
         }
@@ -81,5 +81,50 @@ $(function() {
                 }
                 break;
         }
+    }
+
+    function acceleratorsEnabledInLocalStorage() {
+        return !('accel-enable' in localStorage) || localStorage.getItem('accel-enable') == '1';
+    }
+
+    var acceleratorsEnabled = acceleratorsEnabledInLocalStorage();
+
+    if (acceleratorsEnabled) {
+        // Keyboard accelerators are enabled, so register them.
+        document.documentElement.addEventListener('keypress', handleAccelerator);
+    } else {
+        // Keyboard accelerators disabled, so reflect that state in the checkbox and
+        // hide the accelerators. Also don't register the keyboard listeners.
+        $('#panel-accel-enable')[0].checked = false;
+        $('.panel span.accel').hide();
+    }
+
+    function updateAccelerators(newState) {
+        if (acceleratorsEnabled == newState) {
+            return;
+        }
+        acceleratorsEnabled = newState;
+        if (newState) {
+            document.documentElement.addEventListener('keypress', handleAccelerator);
+            $('.panel span.accel').show();
+            localStorage.setItem('accel-enable', '1');
+            $('#panel-accel-enable')[0].checked = true;
+        } else {
+            document.documentElement.removeEventListener('keypress', handleAccelerator);
+            $('.panel span.accel').hide();
+            localStorage.setItem('accel-enable', '0');
+            $('#panel-accel-enable')[0].checked = false;
+        }
+    }
+
+    // If the user toggles the checkbox let's update the state accordingly.
+    $('#panel-accel-enable')[0].addEventListener('change', () => {
+        var newState = ($('#panel-accel-enable')[0].checked);
+        updateAccelerators(newState);
+    });
+    // If the user toggles it in a different tab, update the checkbox/state here
+    window.addEventListener("storage", function() {
+        var newState = acceleratorsEnabledInLocalStorage();
+        updateAccelerators(newState);
     });
 });
