@@ -24,16 +24,18 @@ $(function() {
     permalinkNode = permalinkNode.length == 0 ? null : permalinkNode[0];
 
     function pushPermalink() {
-	if (history.state && history.state.permalink) {
-	    return;
-	}
-	if (permalinkNode) {
-	    history.pushState(
-		{ permalink: permalinkNode.href },
-		window.title,
-		permalinkNode.href
-	    );
-	}
+        if (history.state && history.state.permalink) {
+            return false;
+        }
+        if (permalinkNode) {
+            history.pushState(
+                { permalink: permalinkNode.href },
+                window.title,
+                permalinkNode.href
+            );
+            return true;
+        }
+        return false;
     }
 
     if (permalinkNode) {
@@ -41,8 +43,9 @@ $(function() {
             if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
                 return;
             }
-            event.preventDefault();
-            pushPermalink();
+            if (pushPermalink()) {
+                event.preventDefault();
+            }
         });
     }
 
@@ -57,13 +60,16 @@ $(function() {
         switch (event.key) {
             case 'y':
             case 'Y':
-                pushPermalink();
+                if (pushPermalink()) {
+                    event.preventDefault();
+                }
                 break;
             case 'l':
             case 'L':
                 var linkNode = $('.panel a[title="Log"]');
                 if (linkNode.length) {
                     linkNode[0].click();
+                    event.preventDefault();
                 }
                 break;
             case 'r':
@@ -71,8 +77,9 @@ $(function() {
                 var linkNode = $('.panel a[title="Raw"]');
                 if (linkNode.length) {
                     linkNode[0].click();
+                    event.preventDefault();
                 }
                 break;
         }
-    }, {passive: true});
+    });
 });
