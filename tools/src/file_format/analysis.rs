@@ -169,9 +169,11 @@ pub fn read_analysis<T>(filename: &str, filter: &Fn(&Object) -> Option<T>) -> Ve
         };
         lineno += 1;
         let obj = data.as_object().unwrap();
-        let loc = parse_location(obj.get("loc").unwrap().as_string().unwrap());
         match filter(obj) {
-            Some(v) => result.push(WithLocation { data: v, loc: loc }),
+            Some(v) => {
+                let loc = parse_location(obj.get("loc").unwrap().as_string().unwrap());
+                result.push(WithLocation { data: v, loc: loc })
+            }
             None => {}
         }
     }
