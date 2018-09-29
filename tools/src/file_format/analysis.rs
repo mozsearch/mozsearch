@@ -101,6 +101,22 @@ pub struct AnalysisSource {
     pub no_crossref: bool,
 }
 
+impl AnalysisSource {
+    /// Merges the `syntax` and `sym` fields from `other` into `self`.
+    /// Also asserts that the `pretty` and `no_crossref` fields are
+    /// the same because otherwise the merge doesn't really make sense.
+    pub fn merge(&mut self, mut other: AnalysisSource) {
+        assert_eq!(self.pretty, other.pretty);
+        assert_eq!(self.no_crossref, other.no_crossref);
+        self.syntax.append(&mut other.syntax);
+        self.syntax.sort();
+        self.syntax.dedup();
+        self.sym.append(&mut other.sym);
+        self.sym.sort();
+        self.sym.dedup();
+    }
+}
+
 impl fmt::Display for AnalysisSource {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter,
@@ -131,7 +147,7 @@ impl fmt::Display for WithLocation<Vec<AnalysisSource>> {
     }
 }
 
-fn parse_location(loc: &str) -> Location {
+pub fn parse_location(loc: &str) -> Location {
     let v : Vec<&str> = loc.split(":").collect();
     let lineno = v[0].parse::<u32>().unwrap();
     let (col_start, col_end) = if v[1].contains("-") {
