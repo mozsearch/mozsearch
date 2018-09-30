@@ -149,9 +149,9 @@ fn main() {
 
         if let Some((ns, protocol)) = tu.protocol {
             let parent_fname = header_file_name(&outheaders_dir, &ns, "Parent");
-            let parent_analysis = read_analysis(&parent_fname, &read_target);
+            let parent_analysis = read_analysis(&parent_fname, &mut read_target);
             let child_fname = header_file_name(&outheaders_dir, &ns, "Child");
-            let child_analysis = read_analysis(&child_fname, &read_target);
+            let child_analysis = read_analysis(&child_fname, &mut read_target);
 
             let is_toplevel = protocol.managers.len() == 0;
 

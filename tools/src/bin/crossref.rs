@@ -118,7 +118,7 @@ fn main() {
         print!("File {}\n", path);
 
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
-        let analysis = read_analysis(&analysis_fname, &read_target);
+        let analysis = read_analysis(&analysis_fname, &mut read_target);
 
         let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
         let source_file = match File::open(source_fname) {

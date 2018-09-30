@@ -88,7 +88,7 @@ fn main() {
         };
 
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
-        let analysis = read_analysis(&analysis_fname, &read_source);
+        let analysis = read_analysis(&analysis_fname, &mut read_source);
 
         let mut input = String::new();
         match reader.read_to_string(&mut input) {
