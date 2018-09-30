@@ -153,28 +153,34 @@ fn parse_line_range(range: &str) -> LineRange {
 }
 
 pub fn read_analysis<T>(filename: &str, filter: &Fn(&Object) -> Option<T>) -> Vec<WithLocation<Vec<T>>> {
-    let file = match File::open(filename) {
-        Ok(f) => f,
-        Err(_) => return vec![],
-    };
-    let reader = BufReader::new(&file);
+    read_analyses(&vec![filename], filter)
+}
+
+pub fn read_analyses<T>(filenames: &[&str], filter: &Fn(&Object) -> Option<T>) -> Vec<WithLocation<Vec<T>>> {
     let mut result = Vec::new();
-    let mut lineno = 1;
-    for line in reader.lines() {
-        let line = line.unwrap();
-        let data = Json::from_str(&line);
-        let data = match data {
-            Ok(data) => data,
-            Err(e) => panic!("error {} on line {}: {}", e, lineno, &line),
+    for filename in filenames {
+        let file = match File::open(filename) {
+            Ok(f) => f,
+            Err(_) => continue,
         };
-        lineno += 1;
-        let obj = data.as_object().unwrap();
-        match filter(obj) {
-            Some(v) => {
-                let loc = parse_location(obj.get("loc").unwrap().as_string().unwrap());
-                result.push(WithLocation { data: v, loc: loc })
+        let reader = BufReader::new(&file);
+        let mut lineno = 1;
+        for line in reader.lines() {
+            let line = line.unwrap();
+            let data = Json::from_str(&line);
+            let data = match data {
+                Ok(data) => data,
+                Err(e) => panic!("error {} on file {} line {}: {}", e, filename, lineno, &line),
+            };
+            lineno += 1;
+            let obj = data.as_object().unwrap();
+            match filter(obj) {
+                Some(v) => {
+                    let loc = parse_location(obj.get("loc").unwrap().as_string().unwrap());
+                    result.push(WithLocation { data: v, loc: loc })
+                }
+                None => {}
             }
-            None => {}
         }
     }
 
