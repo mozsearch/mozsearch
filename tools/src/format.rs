@@ -107,19 +107,15 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                 // this gets highlighted with. For now we just take the first
                 // symbol that contains the token, or the first one in the list
                 // if none contain the token.
-                let id = if d.len() == 1 {
-                    &d[0].sym
-                } else {
-                    let displayed = &input[token.start .. token.end];
-                    &d.iter().find(|item| item.sym.contains(displayed)).unwrap_or(&d[0]).sym
-                };
+                let displayed = &input[token.start .. token.end];
+                let mut syms = d.iter().flat_map(|item| item.sym.iter());
+                let id = syms.find(|sym| sym.contains(displayed)).unwrap_or(&d[0].sym[0]);
 
                 let d = d.iter().filter(|item| { !item.no_crossref }).collect::<Vec<_>>();
 
                 let mut menu_jumps : HashMap<String, Json> = HashMap::new();
                 for item in d.iter() {
-                    let syms = item.sym.split(',');
-                    for sym in syms {
+                    for sym in &item.sym {
                         match jumps.get(sym) {
                             Some(jump) => {
                                 if !(&jump.path == path && jump.lineno == cur_line) {
@@ -138,7 +134,7 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                 let items = d.iter().map(|item| {
                     let mut obj = json::Object::new();
                     obj.insert("pretty".to_string(), Json::String(item.pretty.clone()));
-                    obj.insert("sym".to_string(), Json::String(item.sym.clone()));
+                    obj.insert("sym".to_string(), Json::String(item.sym.join(",")));
                     Json::Object(obj)
                 }).collect::<Vec<_>>();
 

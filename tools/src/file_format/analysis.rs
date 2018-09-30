@@ -46,9 +46,9 @@ pub struct AnalysisTarget {
 
 #[derive(Debug)]
 pub struct AnalysisSource {
-    pub pretty: String,
-    pub sym: String,
     pub syntax: Vec<String>,
+    pub pretty: String,
+    pub sym: Vec<String>,
     pub no_crossref: bool,
 }
 
@@ -176,13 +176,17 @@ pub fn read_source(obj : &Object) -> Option<AnalysisSource> {
         Some(json) => json.as_string().unwrap().to_string(),
         None => "".to_string()
     };
-    let syntax = syntax.split(',').map(|x| x.to_string()).collect::<Vec<_>>();
+    let mut syntax : Vec<String> = syntax.split(',').map(str::to_string).collect();
+    syntax.sort();
+    syntax.dedup();
 
     let pretty = match obj.get("pretty") {
         Some(json) => json.as_string().unwrap().to_string(),
         None => "".to_string()
     };
-    let sym = obj.get("sym").unwrap().as_string().unwrap().to_string();
+    let mut sym : Vec<String> = obj.get("sym").unwrap().as_string().unwrap().to_string().split(',').map(str::to_string).collect();
+    sym.sort();
+    sym.dedup();
 
     let no_crossref = match obj.get("no_crossref") {
         Some(_) => true,
