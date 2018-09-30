@@ -1,16 +1,23 @@
+use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::BufRead;
 use std::collections::HashMap;
 
 extern crate rustc_serialize;
-use self::rustc_serialize::json::{Json, Object};
+use self::rustc_serialize::json::{as_json, Json, Object};
 
 #[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
     pub lineno: u32,
     pub col_start: u32,
     pub col_end: u32,
+}
+
+impl fmt::Display for Location {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, r#""loc":"{:05}:{}-{}""#, self.lineno, self.col_start, self.col_end)
+    }
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
@@ -34,6 +41,19 @@ pub enum AnalysisKind {
     Idl,
 }
 
+impl fmt::Display for AnalysisKind {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        let str = match self {
+            AnalysisKind::Use => "use",
+            AnalysisKind::Def => "def",
+            AnalysisKind::Assign => "assign",
+            AnalysisKind::Decl => "decl",
+            AnalysisKind::Idl => "idl",
+        };
+        formatter.write_str(str)
+    }
+}
+
 #[derive(Debug)]
 pub struct AnalysisTarget {
     pub kind: AnalysisKind,
@@ -44,12 +64,71 @@ pub struct AnalysisTarget {
     pub peek_range: LineRange,
 }
 
+impl fmt::Display for AnalysisTarget {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter,
+               r#""target":1,"kind":"{}","pretty":{},"sym":{}"#,
+               self.kind,
+               as_json(&self.pretty),
+               as_json(&self.sym))?;
+        if !self.context.is_empty() {
+            write!(formatter, r#","context":{}"#, as_json(&self.context))?;
+        }
+        if !self.contextsym.is_empty() {
+            write!(formatter, r#","contextsym":{}"#, as_json(&self.contextsym))?;
+        }
+        if self.peek_range.start_lineno != 0 || self.peek_range.end_lineno != 0 {
+            write!(formatter,
+                   r#","peekRange":"{}-{}""#,
+                   self.peek_range.start_lineno,
+                   self.peek_range.end_lineno)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for WithLocation<AnalysisTarget> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "{{{},{}}}", self.loc, self.data)
+    }
+}
+
 #[derive(Debug)]
 pub struct AnalysisSource {
     pub syntax: Vec<String>,
     pub pretty: String,
     pub sym: Vec<String>,
     pub no_crossref: bool,
+}
+
+impl fmt::Display for AnalysisSource {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter,
+               r#""source":1,"syntax":{},"pretty":{},"sym":{}"#,
+               as_json(&self.syntax.join(",")),
+               as_json(&self.pretty),
+               as_json(&self.sym.join(",")))?;
+        if self.no_crossref {
+            write!(formatter, r#","no_crossref":1"#)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for WithLocation<AnalysisSource> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "{{{},{}}}", self.loc, self.data)
+    }
+}
+
+impl fmt::Display for WithLocation<Vec<AnalysisSource>> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        let locstr = format!("{}", self.loc);
+        for src in &self.data {
+            writeln!(formatter, "{{{},{}}}", locstr, src)?;
+        }
+        Ok(())
+    }
 }
 
 fn parse_location(loc: &str) -> Location {
