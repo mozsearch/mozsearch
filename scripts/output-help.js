@@ -1,11 +1,12 @@
 let helpFile = scriptArgs[0];
 let indexRoot = scriptArgs[1];
 let mozSearchRoot = scriptArgs[2];
+let treeName = scriptArgs[3];
 
 run(mozSearchRoot + "/scripts/output-lib.js");
 run(mozSearchRoot + "/scripts/output.js");
 
-let opt = {tree: "mozilla-central",
+let opt = {tree: treeName,
            title: "Searchfox",
            autofocusSearch: true};
 
