@@ -53,7 +53,8 @@ function locstr2(loc, str)
 
 function nameValid(name)
 {
-  return name.indexOf(" ") == -1 &&
+  return name &&
+         name.indexOf(" ") == -1 &&
          name.indexOf("\n") == -1 &&
          name.indexOf("\r") == -1 &&
          name.indexOf("\0") == -1 &&
