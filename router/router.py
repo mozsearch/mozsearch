@@ -23,6 +23,11 @@ from logger import log
 def index_path(tree_name):
     return config['trees'][tree_name]['index_path']
 
+def get_main_tree():
+    if 'mozilla-central' in config['trees']:
+        return 'mozilla-central'
+    return config['trees'].keys()[0]
+
 # Simple globbing implementation, except ^ and $ are also allowed.
 def parse_path_filter(filter):
     filter = filter.replace('(', '\\(')
@@ -408,7 +413,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         # start mucking around in here.
 
         if not path_elts:
-            filename = os.path.join(index_path('mozilla-central'), 'help.html')
+            filename = os.path.join(index_path(get_main_tree()), 'help.html')
             data = open(filename).read()
             self.generate(data, 'text/html')
         elif len(path_elts) >= 2 and path_elts[1] == 'source':
