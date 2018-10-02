@@ -439,7 +439,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 j = j.replace("</", "<\\/").replace("<script", "<\\script").replace("<!", "<\\!")
                 template = os.path.join(index_path(tree_name), 'templates/search.html')
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
-        elif path_elts[1] == 'define':
+        elif len(path_elts) >= 2 and path_elts[1] == 'define':
             tree_name = path_elts[0]
             query = urlparse.parse_qs(url.query)
             symbol = query['q'][0]
