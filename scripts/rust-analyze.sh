@@ -15,9 +15,11 @@ TREE_NAME=$2
 
 if [ -d "$OBJDIR" ]; then
   ANALYSIS_DIRS="$(find $OBJDIR -type d -name save-analysis)"
-  $MOZSEARCH_PATH/tools/target/release/rust-indexer \
-    "$FILES_ROOT" \
-    "$INDEX_ROOT/analysis" \
-    "$OBJDIR" \
-    $ANALYSIS_DIRS
+  if [ "x$ANALYSIS_DIRS" != "x" ]; then
+    $MOZSEARCH_PATH/tools/target/release/rust-indexer \
+      "$FILES_ROOT" \
+      "$INDEX_ROOT/analysis" \
+      "$OBJDIR" \
+      $ANALYSIS_DIRS
+  fi
 fi
