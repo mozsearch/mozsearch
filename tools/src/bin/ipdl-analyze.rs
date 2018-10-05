@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::fs::File;
 use std::io::Write;
 
+extern crate env_logger;
 extern crate tools;
 extern crate ipdl_parser;
 extern crate getopts;
@@ -105,6 +106,8 @@ fn output_send_recv(outputf: &mut File,
 }
 
 fn main() {
+    env_logger::init();
+
     let args : Vec<String> = env::args().collect();
 
     let opts = get_options_parser();

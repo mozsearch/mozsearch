@@ -15,6 +15,8 @@
 use std::env;
 use std::collections::HashSet;
 
+extern crate env_logger;
+
 extern crate rustc_serialize;
 use self::rustc_serialize::json::Object;
 
@@ -22,6 +24,8 @@ extern crate tools;
 use tools::file_format::analysis::{AnalysisSource, parse_location, read_analyses, read_source, read_target, WithLocation};
 
 fn main() {
+    env_logger::init();
+
     let args: Vec<_> = env::args().skip(1).collect();
 
     if args.len() == 0 {

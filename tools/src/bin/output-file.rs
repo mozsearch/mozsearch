@@ -11,6 +11,7 @@ use std::io::Write;
 use std::io::Seek;
 use std::path::Path;
 
+extern crate env_logger;
 extern crate tools;
 use tools::find_source_file;
 use tools::file_format::analysis::{read_analysis, read_source, read_jumps};
@@ -22,6 +23,8 @@ use languages::FormatAs;
 use tools::output::{PanelItem, PanelSection};
 
 fn main() {
+    env_logger::init();
+
     let args: Vec<_> = env::args().collect();
     let (base_args, fname_args) = args.split_at(3);
 
