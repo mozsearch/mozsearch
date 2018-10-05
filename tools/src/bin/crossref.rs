@@ -10,6 +10,8 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
+extern crate env_logger;
+
 extern crate tools;
 use tools::find_source_file;
 use tools::file_format::analysis::{read_analysis, read_target, AnalysisKind};
@@ -91,6 +93,7 @@ impl StringIntern {
 }
 
 fn main() {
+    env_logger::init();
     let args: Vec<_> = env::args().collect();
 
     let cfg = config::load(&args[1], false);
