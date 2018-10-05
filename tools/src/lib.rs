@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate log;
 extern crate rustc_serialize;
 extern crate git2;
 extern crate regex;

@@ -180,15 +180,18 @@ pub fn read_analyses<T>(filenames: &[&str], filter: &mut FnMut(&Object) -> Optio
             Err(_) => continue,
         };
         let reader = BufReader::new(&file);
-        let mut lineno = 1;
+        let mut lineno = 0;
         for line in reader.lines() {
             let line = line.unwrap();
+            lineno += 1;
             let data = Json::from_str(&line);
             let data = match data {
                 Ok(data) => data,
-                Err(e) => panic!("error {} on file {} line {}: {}", e, filename, lineno, &line),
+                Err(e) => {
+                    warn!("Error [{}] trying to read analysis from file [{}] line [{}]: [{}]", e, filename, lineno, &line);
+                    continue;
+                }
             };
-            lineno += 1;
             let obj = data.as_object().unwrap();
             match filter(obj) {
                 Some(v) => {
