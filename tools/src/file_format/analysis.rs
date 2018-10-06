@@ -7,7 +7,7 @@ use std::collections::HashMap;
 extern crate rustc_serialize;
 use self::rustc_serialize::json::{as_json, Json, Object};
 
-#[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
     pub lineno: u32,
     pub col_start: u32,
@@ -16,7 +16,11 @@ pub struct Location {
 
 impl fmt::Display for Location {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, r#""loc":"{:05}:{}-{}""#, self.lineno, self.col_start, self.col_end)
+        if self.col_start == self.col_end {
+            write!(formatter, r#""loc":"{:05}:{}""#, self.lineno, self.col_start)
+        } else {
+            write!(formatter, r#""loc":"{:05}:{}-{}""#, self.lineno, self.col_start, self.col_end)
+        }
     }
 }
 

@@ -5,9 +5,7 @@ extern crate env_logger;
 extern crate log;
 extern crate rls_analysis;
 extern crate rls_data as data;
-extern crate serde;
-#[macro_use]
-extern crate serde_json;
+extern crate tools;
 
 use data::GlobalCrateId;
 use data::DefKind;
@@ -16,6 +14,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::io::{BufRead, BufReader};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
+use tools::file_format::analysis::{AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, WithLocation};
 
 /// A global definition id in a crate.
 ///
@@ -141,19 +140,6 @@ impl AnalysisLoader for Loader {
     }
 }
 
-// Searchfox uses 1-indexed lines, 0-indexed columns.
-fn span_to_string(span: &data::SpanData) -> String {
-    // Rust spans are multi-line... So we just set the start column if it spans
-    // multiple rows, searchfox has fallback code to handle this.
-    if span.line_start != span.line_end {
-        return format!("{}:{}", span.line_start.0, span.column_start.0 - 1);
-    }
-    if span.column_start == span.column_end {
-        return format!("{}:{}", span.line_start.0, span.column_start.0 - 1);
-    }
-    format!("{}:{}-{}", span.line_start.0, span.column_start.zero_indexed().0, span.column_end.zero_indexed().0)
-}
-
 fn def_kind_to_human(kind: DefKind) -> &'static str {
     match kind {
         DefKind::Enum => "enum",
@@ -178,28 +164,39 @@ fn def_kind_to_human(kind: DefKind) -> &'static str {
 
 fn visit(
     out_data: &mut BTreeSet<String>,
-    kind: &'static str,
+    kind: AnalysisKind,
     location: &data::SpanData,
     qualname: &str,
     def: &data::Def,
     context: Option<&str>,
 ) {
-    use serde_json::map::Map;
-    use serde_json::value::Value;
+    // Searchfox uses 1-indexed lines, 0-indexed columns.
+    let col_end = if location.line_start != location.line_end {
+        // Rust spans are multi-line... So we just use the start column as
+        // the end column if it spans multiple rows, searchfox has fallback
+        // code to handle this.
+        location.column_start.zero_indexed().0
+    } else {
+        location.column_end.zero_indexed().0
+    };
+    let loc = Location {
+        lineno: location.line_start.0,
+        col_start: location.column_start.zero_indexed().0,
+        col_end,
+    };
 
-    let mut out = Map::new();
-    out.insert("loc".into(), Value::String(span_to_string(location)));
-    out.insert("target".into(), json!(1));
-    out.insert("kind".into(), Value::String(kind.into()));
-    out.insert("pretty".into(), Value::String(qualname.into()));
-    out.insert("sym".into(), Value::String(qualname.into()));
-    if let Some(context) = context {
-        out.insert("context".into(), Value::String(context.into()));
-        out.insert("contextsym".into(), Value::String(context.into()));
-    }
-
-    let object = serde_json::to_string(&Value::Object(out)).unwrap();
-    out_data.insert(object);
+    let target_data = WithLocation {
+        data: AnalysisTarget {
+            kind,
+            pretty: String::from(qualname),
+            sym: String::from(qualname),
+            context: String::from(context.unwrap_or("")),
+            contextsym: String::from(context.unwrap_or("")),
+            peek_range: LineRange { start_lineno: 0, end_lineno: 0 },
+        },
+        loc: loc.clone(),
+    };
+    out_data.insert(format!("{}", target_data));
 
     let pretty = {
         let mut pretty = def_kind_to_human(def.kind).to_owned();
@@ -209,15 +206,16 @@ fn visit(
         pretty
     };
 
-    let mut out = Map::new();
-    out.insert("loc".into(), Value::String(span_to_string(location)));
-    out.insert("source".into(), json!(1));
-    out.insert("kind".into(), Value::String(kind.into()));
-    out.insert("pretty".into(), Value::String(pretty));
-    out.insert("sym".into(), Value::String(qualname.into()));
-
-    let object = serde_json::to_string(&Value::Object(out)).unwrap();
-    out_data.insert(object);
+    let source_data = WithLocation {
+        data: AnalysisSource {
+            syntax: vec![],
+            pretty,
+            sym: vec![ String::from(qualname) ],
+            no_crossref: false,
+        },
+        loc,
+    };
+    out_data.insert(format!("{}", source_data));
 }
 
 fn find_generated_or_src_file(
@@ -300,7 +298,7 @@ fn analyze_file(
             }
         };
 
-        visit(&mut dataset, "use", &import.span, &def.qualname, &def, None)
+        visit(&mut dataset, AnalysisKind::Use, &import.span, &def.qualname, &def, None)
     }
 
     for def in &file_analysis.defs {
@@ -313,7 +311,7 @@ fn analyze_file(
                     format!("{}::{}", parent.qualname, def.name);
                 visit(
                     &mut dataset,
-                    "def",
+                    AnalysisKind::Def,
                     &def.span,
                     &trait_dependent_name,
                     &def,
@@ -324,7 +322,7 @@ fn analyze_file(
 
         let crate_id = &file_analysis.prelude.as_ref().unwrap().crate_id;
         let qualname = crate_independent_qualname(&def, crate_id);
-        visit(&mut dataset, "def", &def.span, &qualname, &def, parent.as_ref().map(|p| &*p.qualname))
+        visit(&mut dataset, AnalysisKind::Def, &def.span, &qualname, &def, parent.as_ref().map(|p| &*p.qualname))
     }
 
     for ref_ in &file_analysis.refs {
@@ -337,7 +335,7 @@ fn analyze_file(
         };
         visit(
             &mut dataset,
-            "use",
+            AnalysisKind::Use,
             &ref_.span,
             &def.qualname,
             &def,
