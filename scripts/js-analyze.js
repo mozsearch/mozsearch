@@ -53,13 +53,43 @@ function locstr2(loc, str)
 
 function nameValid(name)
 {
-  return name &&
-         name.indexOf(" ") == -1 &&
-         name.indexOf("\n") == -1 &&
-         name.indexOf("\r") == -1 &&
-         name.indexOf("\0") == -1 &&
-         name.indexOf("\\") == -1 &&
-         name.indexOf('"') == -1;
+  if (!name) {
+    return false;
+  }
+  for (var i = 0; i < name.length; i++) {
+    var c = name.charCodeAt(i);
+    switch (c) {
+      case 0:  // '\0'
+      case 10: // '\n'
+      case 13: // '\r'
+      case 32: // ' '
+      case 34: // '"'
+      case 92: // '\\'
+        return false;
+    }
+
+    // If we have a Unicode surrogate character, make sure
+    // it is a part of a valid surrogate pair, otherwise return false.
+
+    if (c < 0xD800) {
+      // Optimize common case
+      continue;
+    }
+    if (c <= 0xDBFF && i + 1 < name.length) {
+      // c is a high surrogate, check to make sure next char is a low surrogate
+      var d = name.charCodeAt(i + 1);
+      if (d >= 0xDC00 && d <= 0xDFFF) {
+        // valid; skip over the pair and continue
+        i++;
+        continue;
+      }
+    }
+    // fail on any surrogate characters that weren't part of a pair
+    if (c <= 0xDFFF) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function memberPropLoc(expr)
