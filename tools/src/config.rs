@@ -17,6 +17,7 @@ pub struct TreeConfigPaths {
     pub git_blame_path: Option<String>,
     pub objdir_path: String,
     pub hg_root: Option<String>,
+    pub github_repo: Option<String>,
 }
 
 pub struct GitData {
@@ -56,10 +57,22 @@ pub fn get_hg_root(tree_config: &TreeConfig) -> String {
     // there isn't one specified. We can remove this once all relevant
     // deployed config.json files have an explicit hg root, and make
     // this return an Option<&str> instead.
-    match &tree_config.paths.hg_root {
-        &Some(ref hg_root) => hg_root.clone(),
-        &None => String::from("https://hg.mozilla.org/mozilla-central"),
+    match tree_config.paths.hg_root {
+        Some(ref hg_root) => hg_root.clone(),
+        None => String::from("https://hg.mozilla.org/mozilla-central"),
     }
+}
+
+pub fn get_git_commit_link(tree_config: &TreeConfig, commit_id: &str) -> String {
+    // For backwards compatibility, produce the gecko-dev link if there isn't
+    // one specified. We can remove this if we want as described above for
+    // get_hg_root and such.
+    let repo = match tree_config.paths.github_repo {
+        Some(ref repo) => &**repo,
+        None => "https://github.com/mozilla/gecko-dev",
+    };
+
+    format!("{}/commit/{}", repo, commit_id)
 }
 
 fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
