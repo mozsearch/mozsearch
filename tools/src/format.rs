@@ -794,8 +794,12 @@ fn generate_commit_info(tree_name: &str,
         None => vec![]
     };
 
-    let git = format!("<a href=\"https://github.com/mozilla/gecko-dev/commit/{}\">{}</a>",
-                      commit.id(), commit.id());
+    let id_string = format!("{}", commit.id());
+    let git = format!(
+        "<a href=\"{}\">{}</a>",
+        config::get_git_commit_link(tree_config, &id_string),
+        id_string,
+    );
 
     let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
     let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
@@ -827,7 +831,7 @@ fn generate_commit_info(tree_name: &str,
                       .arg("--cc")
                       .arg("--pretty=format:")
                       .arg("--raw")
-                      .arg(format!("{}", commit.id()))
+                      .arg(id_string)
                       .current_dir(&git_path)
                       .output()
                       .map_err(|_| "Diff failed 1"));
