@@ -106,12 +106,16 @@ pub struct AnalysisSource {
 }
 
 impl AnalysisSource {
-    /// Merges the `syntax` and `sym` fields from `other` into `self`.
-    /// Also asserts that the `pretty` and `no_crossref` fields are
-    /// the same because otherwise the merge doesn't really make sense.
+    /// Merges the `syntax`, `sym`, and `no_crossref` fields from `other`
+    /// into `self`. The `no_crossref` field can be different sometimes
+    /// with different versions of clang being used across different
+    /// platforms; in this case we only set `no_crossref` if all the versions
+    /// being merged have the `no_crossref` field set.
+    /// Also asserts that the `pretty` field is the same because otherwise
+    /// the merge doesn't really make sense.
     pub fn merge(&mut self, mut other: AnalysisSource) {
         assert_eq!(self.pretty, other.pretty);
-        assert_eq!(self.no_crossref, other.no_crossref);
+        self.no_crossref &= other.no_crossref;
         self.syntax.append(&mut other.syntax);
         self.syntax.sort();
         self.syntax.dedup();
