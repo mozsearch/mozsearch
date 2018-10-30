@@ -59,7 +59,11 @@ def read_cpp_analysis(fname):
         return None
     decls = {}
     for line in lines:
-        j = json.loads(line.strip())
+        try:
+            j = json.loads(line.strip())
+        except ValueError, e:
+            print >>sys.stderr, 'Syntax error in JSON file', p, line.strip()
+            raise e
         if 'target' in j and j['kind'] == 'decl' and j['sym'].startswith('_Z'):
             idents = parse_mangled(j['sym'])
             if idents and len(idents) == 2:
