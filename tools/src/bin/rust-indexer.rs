@@ -349,6 +349,41 @@ fn analyze_file(
     }
 }
 
+/// Uses heuristics to determine if the path is a Windows path,
+/// and if so, returns a Linux "equivalent". Not really equivalent,
+/// because there is no such thing, but equivalent enough for our
+/// purposes - that is, is_relative() returns a correct thing, and
+/// strip_prefix will work on relative paths.
+/// Note that this is a "linuxzed" path and not a "unixed" path
+/// this code should ever only really run inside the linux vagrant
+/// machine.
+/// There are real-life cases in which this code is too simple, see
+/// https://github.com/nrc/rls-data/issues/20 for an example.
+fn linuxized_path(path: &PathBuf) -> PathBuf {
+    // Windows paths have backslashes and so on a Linux host will
+    // just have a single long component
+    if path.components().count() == 1 {
+        if let Some(pathstr) = path.to_str() {
+            if pathstr.find('\\').is_some() {
+                // Has a backslash, so probably a Windows path. Let's lean
+                // those slashes forward
+                let converted = pathstr.replace('\\', "/");
+                if converted.find(":/") == Some(1) {
+                    // Starts with a drive letter, so let's turn this into
+                    // an absolute path
+                    let abs = "/".to_string() + &converted;
+                    return PathBuf::from(abs);
+                }
+                // Turn it into a relative path
+                return PathBuf::from(converted);
+            }
+        }
+    }
+    // Probably a Linux path, or a Windows path that's some sort of
+    // weird edge case. In that case just return it as-is
+    path.clone()
+}
+
 fn analyze_crate(
     analysis: &data::Analysis,
     defs: &Defs,
@@ -362,7 +397,7 @@ fn analyze_crate(
         ($field:ident) => {
             for item in &analysis.$field {
                 let mut file_analysis =
-                    per_file.entry(item.span.file_name.clone())
+                    per_file.entry(linuxized_path(&item.span.file_name))
                         .or_insert_with(|| {
                             let prelude = analysis.prelude.clone();
                             let mut analysis = data::Analysis::new(analysis.config.clone());
