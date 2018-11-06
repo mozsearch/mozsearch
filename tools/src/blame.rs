@@ -35,8 +35,9 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Resu
     let t = t.to_rfc2822();
 
     let sig = commit.author();
+    let (name, email) = git.mailmap.lookup(sig.name().unwrap(), sig.email().unwrap());
 
-    let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, sig.name().unwrap(), sig.email().unwrap(), t);
+    let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, name, email, t);
 
     let mut obj = BTreeMap::new();
 
