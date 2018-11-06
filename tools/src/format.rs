@@ -776,8 +776,9 @@ fn generate_commit_info(tree_name: &str,
         format!("<a href=\"/{}/commit/{}\">{}</a>", tree_name, oid, oid)
     }
 
-    fn format_sig(sig: git2::Signature) -> String {
-        format!("{} &lt;{}>", sig.name().unwrap(), sig.email().unwrap())
+    fn format_sig(sig: git2::Signature, git: &GitData) -> String {
+        let (name, email) = git.mailmap.lookup(sig.name().unwrap(), sig.email().unwrap());
+        format!("{} &lt;{}>", name, email)
     }
 
     let parents = commit.parent_ids().map(|p| {
@@ -795,7 +796,7 @@ fn generate_commit_info(tree_name: &str,
     };
 
     let id_string = format!("{}", commit.id());
-    let git = format!(
+    let gitstr = format!(
         "<a href=\"{}\">{}</a>",
         config::get_git_commit_link(tree_config, &id_string),
         id_string,
@@ -815,9 +816,9 @@ fn generate_commit_info(tree_name: &str,
             F::T(format!("<tr><td>commit</td><td>{}</td></tr>", format_rev(tree_name, commit.id()))),
             F::Seq(parents),
             F::Seq(hg),
-            F::T(format!("<tr><td>git</td><td>{}</td></tr>", git)),
-            F::T(format!("<tr><td>author</td><td>{}</td></tr>", format_sig(commit.author()))),
-            F::T(format!("<tr><td>committer</td><td>{}</td></tr>", format_sig(commit.committer()))),
+            F::T(format!("<tr><td>git</td><td>{}</td></tr>", gitstr)),
+            F::T(format!("<tr><td>author</td><td>{}</td></tr>", format_sig(commit.author(), git))),
+            F::T(format!("<tr><td>committer</td><td>{}</td></tr>", format_sig(commit.committer(), git))),
             F::T(format!("<tr><td>commit time</td><td>{}</td></tr>", t)),
         ]),
         F::S("</table>"),
