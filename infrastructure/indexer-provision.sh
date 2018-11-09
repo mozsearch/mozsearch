@@ -10,6 +10,9 @@ sudo apt-get install -y git
 sudo apt-get install -y curl
 sudo apt-get install -y software-properties-common
 
+# dos2unix is used to normalize generated files from windows
+sudo apt-get install -y dos2unix
+
 # Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
 # Install Bazel 0.16.1

@@ -198,7 +198,8 @@ nano infrastructure/web-server-provision.sh
 ```
 
 Generating a new AMI is still a somewhat manual process. To provision
-the AMI for indexing, run the following from a Vagrant VM:
+the AMI for indexing, run the following from within the Python virtual
+environment:
 
 ```
 python infrastructure/aws/trigger-provision.py \
