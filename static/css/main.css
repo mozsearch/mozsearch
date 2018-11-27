@@ -4,18 +4,8 @@ body {
     margin: 0;
 }
 
-span[data-id]:hover {
+span[data-symbols]:hover {
   cursor: pointer;
-}
-
-span[data-id][data-kind="def"].hovered {
-  background-color: cyan;
-}
-span[data-id][data-kind="use"].hovered {
-  background-color: yellow;
-}
-span[data-id][data-kind="assign"].hovered {
-  background-color: greenyellow;
 }
 
 .context-menu a:hover {

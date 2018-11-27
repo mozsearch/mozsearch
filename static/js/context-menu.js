@@ -48,6 +48,23 @@ window.addEventListener("pageshow", function() {
 
 var hovered = $();
 
+function symbolsFromString(symbols) {
+  if (!symbols || symbols == "?") // XXX why the `?` special-case?
+    return [];
+  return symbols.split(",");
+}
+
+function findReferences(symbols) {
+  symbols = symbolsFromString(symbols);
+  if (!symbols.length)
+    return $();
+  symbols = new Set(symbols);
+  return $([...document.querySelectorAll("span[data-symbols]")].filter(span => {
+    return symbolsFromString(span.getAttribute("data-symbols"))
+      .some(symbol => symbols.has(symbol))
+  }));
+}
+
 $("#file").on("mousemove", function(event) {
   if ($('#context-menu').length || stickyHover) {
     return;
@@ -57,7 +74,7 @@ $("#file").on("mousemove", function(event) {
   var x = event.clientX;
 
   var elt = document.elementFromPoint(x, y);
-  while (!elt.hasAttribute("data-id")) {
+  while (!elt.hasAttribute("data-symbols")) {
     elt = elt.parentNode;
     if (!elt || !(elt instanceof Element)) {
       hovered.removeClass("hovered");
@@ -66,26 +83,17 @@ $("#file").on("mousemove", function(event) {
     }
   }
 
-  elt = $(elt);
-  var id = elt.attr("data-id");
-
-  if (id == "?") {
-    hovered.removeClass("hovered");
-    hovered = $();
-    return;
-  }
-
   hovered.removeClass("hovered");
-  hovered = $(`span[data-id="${id}"]`);
+  hovered = findReferences(elt.getAttribute("data-symbols"));
   hovered.addClass("hovered");
 });
 
-function stickyHighlight(id)
+function stickyHighlight(symbols)
 {
   $('#context-menu').remove();
 
   hovered.removeClass("hovered");
-  hovered = $(`span[data-id="${id}"]`);
+  hovered = findReferences(symbols);
   hovered.addClass("hovered");
 
   stickyHover = true;
@@ -176,10 +184,10 @@ $("#file").on("click", "code", function(event) {
                     icon: "search"});
   }
 
-  var id = elt.closest("[data-id]").attr("data-id");
-  if (id) {
+  var symbols = elt.closest("[data-symbols]").attr("data-symbols");
+  if (symbols) {
     menuItems.push({html: "Sticky highlight",
-                    href: `javascript:stickyHighlight('${id}')`});
+                    href: `javascript:stickyHighlight('${symbols}')`});
   }
 
   if (menuItems.length > 0) {

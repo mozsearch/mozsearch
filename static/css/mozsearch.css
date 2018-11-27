@@ -402,10 +402,10 @@ body.old-rev .content {
 }
 
 /* Hovering over symbol names */
-span[data-id]:hover {
+span[data-symbols]:hover {
   cursor: pointer;
 }
-span[data-id].hovered {
+span[data-symbols].hovered {
   background-color: yellow;
 }
 

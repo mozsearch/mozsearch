@@ -102,16 +102,19 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 
         let data = match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(None), Some(d)) => {
-                // In case the token has multiple symbols associated with it,
-                // try to pick the "best" one for determining which other tokens
-                // this gets highlighted with. For now we just take the first
-                // symbol that contains the token, or the first one in the list
-                // if none contain the token.
-                let displayed = &input[token.start .. token.end];
-                let mut syms = d.iter().flat_map(|item| item.sym.iter());
-                let id = syms.find(|sym| sym.contains(displayed)).unwrap_or(&d[0].sym[0]);
+                // Build the list of symbols for the highlighter.
+                let syms = {
+                    let mut syms = String::new();
+                    for (i, sym) in d.iter().flat_map(|item| item.sym.iter()).enumerate() {
+                        if i != 0 {
+                            syms.push_str(",");
+                        }
+                        syms.push_str(sym)
+                    }
+                    syms
+                };
 
-                let d = d.iter().filter(|item| { !item.no_crossref }).collect::<Vec<_>>();
+                let d = d.iter().filter(|item| !item.no_crossref).collect::<Vec<_>>();
 
                 let mut menu_jumps : HashMap<String, Json> = HashMap::new();
                 for item in d.iter() {
@@ -143,12 +146,12 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                 let index = generated_json.len();
                 if items.len() > 0 {
                     generated_json.push(Json::Array(vec![Json::Array(menu_jumps), Json::Array(items)]));
-                    format!("data-id=\"{}\" data-i=\"{}\" ", id, index)
+                    format!("data-symbols=\"{}\" data-i=\"{}\" ", syms, index)
                 } else {
-                    format!("data-id=\"{}\" ", id)
+                    format!("data-symbols=\"{}\" ", syms)
                 }
             },
-            _ => "".to_string()
+            _ => String::new(),
         };
 
         let style = match token.kind {
