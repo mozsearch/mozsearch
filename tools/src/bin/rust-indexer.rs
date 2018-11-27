@@ -41,10 +41,25 @@ fn crate_independent_qualname(
     def: &data::Def,
     crate_id: &data::GlobalCrateId,
 ) -> String {
-    // For functions with "no_mangle", we just use the name.
-    if def.kind == DefKind::Function &&
-        def.attributes.iter().any(|attr| attr.value == "no_mangle")
-    {
+    // For stuff with "no_mangle" functions or statics, or extern declarations,
+    // we just use the name.
+    //
+    // TODO(emilio): Maybe there's a way to get the #[link_name] attribute from
+    // here and make C++ agree with that? Though we don't use it so it may not
+    // be worth the churn.
+    fn use_unmangled_name(def: &data::Def) -> bool {
+        match def.kind {
+            DefKind::ForeignStatic |
+            DefKind::ForeignFunction => true,
+            DefKind::Static |
+            DefKind::Function => {
+                def.attributes.iter().any(|attr| attr.value == "no_mangle")
+            },
+            _ => false,
+        }
+    }
+
+    if use_unmangled_name(def) {
         return def.name.clone();
     }
 
