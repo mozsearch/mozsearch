@@ -648,14 +648,14 @@ dependencies = [
  "itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "json 0.11.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "rls-data 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rls-data 0.18.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rls-span 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "rls-data"
-version = "0.18.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "rls-span 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -791,7 +791,7 @@ dependencies = [
  "memmap 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.80 (registry+https://github.com/rust-lang/crates.io-index)",
  "rls-analysis 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rls-data 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rls-data 0.18.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1000,7 +1000,7 @@ dependencies = [
 "checksum regex-syntax 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ad890a5eef7953f55427c50575c680c42841653abd2b028b68cd223d157f62db"
 "checksum regex-syntax 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "747ba3b235651f6e2f67dfa8bcdcd073ddb7c243cb21c442fc12395dfcac212d"
 "checksum rls-analysis 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c18011f4654e9f1c41717c5ac1323768af34de0f41e421bbe913d7e9b93581fd"
-"checksum rls-data 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4f81e838ecff6830ed33c2907fd236f38d441c206e983a2aa29fbce99295fab9"
+"checksum rls-data 0.18.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3a209ce46bb52813cbe0786a7baadc0c1a3f5543ef93f179eda3b841ed72cf2e"
 "checksum rls-span 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5d7c7046dc6a92f2ae02ed302746db4382e75131b9ce20ce967259f6b5867a6a"
 "checksum rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)" = "dcf128d1287d2ea9d80910b5f1120d0b8eede3fbf1abe91c40d39ea7d51e6fda"
 "checksum safemem 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e27a8b19b835f7aea908818e871f5cc3a5a186550c30773be987e155e8163d8f"

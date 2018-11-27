@@ -38,7 +38,12 @@ impl Loader {
         }
     }
 
-    fn needs_hard_reload(&self, _: &Path) -> bool { true }
+    fn needs_hard_reload(&self, _: &Path) -> bool {
+        unsafe {
+            test_rust_dependency::ExternFunctionImplementedInCpp();
+        }
+        true
+    }
 
     fn set_path_prefix(&mut self, _: &Path) {
         MyType::new().do_foo();

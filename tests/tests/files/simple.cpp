@@ -2,6 +2,8 @@
 
 extern "C" void WithNoMangle();
 
+extern "C" void ExternFunctionImplementedInCpp() { }
+
 namespace NS {
 
 struct R;

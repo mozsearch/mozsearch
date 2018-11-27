@@ -24,6 +24,10 @@ pub trait MyTrait {
     }
 }
 
+extern "C" {
+    pub fn ExternFunctionImplementedInCpp();
+}
+
 impl MyTrait for MyType {
     fn do_bar() -> i32 { 100 }
 }
