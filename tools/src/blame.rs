@@ -22,35 +22,39 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
     Ok((header, entity_replace(&remainder)))
 }
 
-pub fn get_commit_info(cfg: &config::Config, tree_name: &str, rev: &str) -> Result<String, &'static str> {
+pub fn get_commit_info(cfg: &config::Config, tree_name: &str, revs: &str) -> Result<String, &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
     let git = try!(config::get_git(tree_config));
-    let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
-    let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
-    let (msg, _) = try!(commit_header(&commit));
+    let mut infos = vec![];
+    for rev in revs.split(',') {
+        let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+        let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
+        let (msg, _) = try!(commit_header(&commit));
 
-    let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
-    let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
-    let t : DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
-    let t = t.to_rfc2822();
+        let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
+        let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
+        let t : DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
+        let t = t.to_rfc2822();
 
-    let sig = commit.author();
-    let (name, email) = git.mailmap.lookup(sig.name().unwrap(), sig.email().unwrap());
+        let sig = commit.author();
+        let (name, email) = git.mailmap.lookup(sig.name().unwrap(), sig.email().unwrap());
 
-    let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, name, email, t);
+        let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, name, email, t);
 
-    let mut obj = BTreeMap::new();
+        let mut obj = BTreeMap::new();
 
-    obj.insert("header".to_owned(), Json::String(msg));
+        obj.insert("header".to_owned(), Json::String(msg));
 
-    let parents = commit.parent_ids().collect::<Vec<_>>();
-    if parents.len() == 1 {
-        obj.insert("parent".to_owned(), Json::String(parents[0].to_string()));
+        let parents = commit.parent_ids().collect::<Vec<_>>();
+        if parents.len() == 1 {
+            obj.insert("parent".to_owned(), Json::String(parents[0].to_string()));
+        }
+
+        obj.insert("date".to_owned(), Json::String(t));
+        infos.push(Json::Object(obj));
     }
 
-    obj.insert("date".to_owned(), Json::String(t));
-
-    let json = Json::Object(obj);
+    let json = Json::Array(infos);
 
     Ok(json.to_string())
 }
