@@ -338,7 +338,7 @@ pub fn format_file_data(cfg: &config::Config,
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    let mut last_rev = None;
+    let mut last_revs = None;
     let mut last_color = false;
     for i in 0 .. output_lines.len() {
         let lineno = i + 1;
@@ -346,16 +346,19 @@ pub fn format_file_data(cfg: &config::Config,
         let blame_data = if let Some(ref lines) = blame_lines {
             let blame_line = lines[i as usize];
             let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
-            let rev = pieces[0];
-            let filespec = pieces[1];
-            let blame_lineno = pieces[2];
+            let revs = pieces[0];
+            let filespecs = pieces[1];
+            let blame_linenos = pieces[2];
 
-            let color = if last_rev == Some(rev) { last_color } else { !last_color };
-            last_rev = Some(rev);
+            // TODO: append with comma-separation to revs, filespecs, and blame_linenos
+            // if we want to have multiple blame entries
+
+            let color = if last_revs == Some(revs) { last_color } else { !last_color };
+            last_revs = Some(revs);
             last_color = color;
             let class = if color { 1 } else { 2 };
             let data = format!(" class=\"blame-strip c{}\" data-blame=\"{}#{}#{}\"",
-                               class, rev, filespec, blame_lineno);
+                               class, revs, filespecs, blame_linenos);
             data
         } else {
             "".to_owned()
