@@ -54,14 +54,15 @@ function symbolsFromString(symbols) {
   return symbols.split(",");
 }
 
-function findReferences(symbols) {
+function findReferences(symbols, visibleToken) {
   symbols = symbolsFromString(symbols);
   if (!symbols.length)
     return $();
   symbols = new Set(symbols);
   return $([...document.querySelectorAll("span[data-symbols]")].filter(span => {
-    return symbolsFromString(span.getAttribute("data-symbols"))
-      .some(symbol => symbols.has(symbol))
+    return span.textContent == visibleToken &&
+           symbolsFromString(span.getAttribute("data-symbols"))
+                .some(symbol => symbols.has(symbol));
   }));
 }
 
@@ -84,16 +85,16 @@ $("#file").on("mousemove", function(event) {
   }
 
   hovered.removeClass("hovered");
-  hovered = findReferences(elt.getAttribute("data-symbols"));
+  hovered = findReferences(elt.getAttribute("data-symbols"), elt.textContent);
   hovered.addClass("hovered");
 });
 
-function stickyHighlight(symbols)
+function stickyHighlight(symbols, visibleToken)
 {
   $('#context-menu').remove();
 
   hovered.removeClass("hovered");
-  hovered = findReferences(symbols);
+  hovered = findReferences(symbols, visibleToken);
   hovered.addClass("hovered");
 
   stickyHover = true;
@@ -184,10 +185,12 @@ $("#file").on("click", "code", function(event) {
                     icon: "search"});
   }
 
-  var symbols = elt.closest("[data-symbols]").attr("data-symbols");
+  var token = elt.closest("[data-symbols]");
+  var symbols = token.attr("data-symbols");
   if (symbols) {
+    var visibleToken = token[0].textContent;
     menuItems.push({html: "Sticky highlight",
-                    href: `javascript:stickyHighlight('${symbols}')`});
+                    href: `javascript:stickyHighlight('${symbols}', '${visibleToken}')`});
   }
 
   if (menuItems.length > 0) {
