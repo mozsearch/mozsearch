@@ -117,21 +117,21 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                 let d = d.iter().filter(|item| !item.no_crossref).collect::<Vec<_>>();
 
                 let mut menu_jumps : HashMap<String, Json> = HashMap::new();
-                for item in d.iter() {
-                    for sym in &item.sym {
-                        match jumps.get(sym) {
-                            Some(jump) => {
-                                if !(&jump.path == path && jump.lineno == cur_line) {
-                                    let key = format!("{}:{}", jump.path, jump.lineno);
-                                    let mut obj = json::Object::new();
-                                    obj.insert("sym".to_string(), Json::String(sym.to_string()));
-                                    obj.insert("pretty".to_string(), Json::String(jump.pretty.clone()));
-                                    menu_jumps.insert(key, Json::Object(obj));
-                                }
-                            },
-                            None => {}
-                        }
+                for sym in d.iter().flat_map(|item| item.sym.iter()) {
+                    let jump = match jumps.get(sym) {
+                        Some(jump) => jump,
+                        None => continue,
+                    };
+
+                    if jump.path == *path && jump.lineno == cur_line {
+                        continue;
                     }
+
+                    let key = format!("{}:{}", jump.path, jump.lineno);
+                    let mut obj = json::Object::new();
+                    obj.insert("sym".to_string(), Json::String(sym.to_string()));
+                    obj.insert("pretty".to_string(), Json::String(jump.pretty.clone()));
+                    menu_jumps.insert(key, Json::Object(obj));
                 }
 
                 let items = d.iter().map(|item| {
