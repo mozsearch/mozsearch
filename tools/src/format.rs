@@ -1,7 +1,7 @@
 use std::env;
 use std::io::Write;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use file_format::analysis;
@@ -310,17 +310,77 @@ pub fn format_file_data(cfg: &config::Config,
         let lineno = i + 1;
 
         let blame_data = if let Some(ref lines) = blame_lines {
-            let blame_line = lines[i as usize];
+            let blame_line = &lines[i as usize];
             let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
-            let revs = pieces[0];
-            let filespecs = pieces[1];
-            let blame_linenos = pieces[2];
 
-            // TODO: append with comma-separation to revs, filespecs, and blame_linenos
-            // if we want to have multiple blame entries
+            // These store the final data we ship to the front-end.
+            // Each of these is a comma-separated list with one element
+            // for each blame entry.
+            let mut revs = String::from(pieces[0]);
+            let mut filespecs = String::from(pieces[1]);
+            let mut blame_linenos = String::from(pieces[2]);
 
-            let color = if last_revs == Some(revs) { last_color } else { !last_color };
-            last_revs = Some(revs);
+            if let Some(ref git) = tree_config.git {
+                // These are the inputs to the find_prev_blame operation,
+                // updated per iteration of the loop.
+                let mut cur_rev = pieces[0].to_string();
+                let mut cur_path = PathBuf::from(if pieces[1] == "%" { path } else { pieces[1] });
+                let mut cur_lineno = pieces[2].parse::<u32>().unwrap();
+
+                let mut max_ignored_allowed = 5;  // chosen arbitrarily
+                while git.should_ignore_for_blame(&cur_rev) {
+                    if max_ignored_allowed == 0 {
+                        // Push an empty entry on the end to indicate we hit the
+                        // limit, but the last entry was still ignored
+                        revs.push_str(",");
+                        filespecs.push_str(",");
+                        blame_linenos.push_str(",");
+                        break;
+                    }
+                    max_ignored_allowed -= 1;
+
+                    let (prev_blame_line, prev_path) = match git_ops::find_prev_blame(
+                        git,
+                        &cur_rev,
+                        &cur_path,
+                        cur_lineno,
+                    ) {
+                        Ok(prev) => prev,
+                        Err(e) => {
+                            // This can happen for many legitimate reasons, so
+                            // handle it gracefully
+                            info!("Unable to find prev blame: {:?}", e);
+                            break;
+                        }
+                    };
+
+                    let pieces = prev_blame_line.splitn(4, ':').collect::<Vec<_>>();
+
+                    revs.push_str(",");
+                    revs.push_str(pieces[0]);
+                    filespecs.push_str(",");
+                    filespecs.push_str(match (pieces[1], &prev_path, &cur_path) {
+                        // file didn't move
+                        ("%", prev, cur) if prev == cur => "%",
+                        // file moved
+                        ("%", prev, _) => prev.to_str().unwrap(),
+                        // file moved, then moved back
+                        (prevprev, _, cur) if Path::new(prevprev) == *cur => "%",
+                        // file moved and moved again
+                        (prevprev, _, _) => prevprev,
+                    });
+                    blame_linenos.push_str(",");
+                    blame_linenos.push_str(pieces[2]);
+
+                    // Update inputs to find_prev_blame for the next iteration
+                    cur_rev = pieces[0].to_string();
+                    cur_path = if pieces[1] == "%" { prev_path } else { PathBuf::from(pieces[1]) };
+                    cur_lineno = pieces[2].parse::<u32>().unwrap();
+                }
+            }
+
+            let color = if last_revs.map_or(false, |last| last == revs) { last_color } else { !last_color };
+            last_revs = Some(revs.clone());
             last_color = color;
             let class = if color { 1 } else { 2 };
             let data = format!(" class=\"blame-strip c{}\" data-blame=\"{}#{}#{}\"",
