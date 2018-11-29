@@ -10,6 +10,7 @@ use tokenize;
 use languages;
 use languages::FormatAs;
 use links;
+use git_ops;
 
 use config::GitData;
 use file_format::analysis::{WithLocation, AnalysisSource, Jump};
@@ -219,27 +220,6 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
     (output_lines, json::encode(&Json::Array(generated_json)).unwrap())
 }
 
-fn latin1_to_string(bytes: Vec<u8>) -> String {
-    bytes.iter().map(|&c| c as char).collect()
-}
-
-fn decode_bytes(bytes: Vec<u8>) -> String {
-    match String::from_utf8(bytes.clone()) {
-        Ok(s) => s,
-        Err(_) => {
-            latin1_to_string(bytes)
-        }
-    }
-}
-
-fn read_blob_entry(repo: &git2::Repository, entry: &git2::TreeEntry) -> String {
-    let blob_obj = entry.to_object(repo).unwrap();
-    let blob = blob_obj.as_blob().unwrap();
-    let mut content = Vec::new();
-    content.extend(blob.content());
-    decode_bytes(content)
-}
-
 pub fn format_file_data(cfg: &config::Config,
                         tree_name: &str,
                         panel: &[PanelSection],
@@ -263,21 +243,7 @@ pub fn format_file_data(cfg: &config::Config,
 
     let (output_lines, analysis_json) = format_code(jumps, format, path, &data, &analysis);
 
-    let mut _blame = String::new();
-    let blame_lines = match (&tree_config.git, blame_commit) {
-        (&Some(GitData {blame_repo: Some(ref blame_repo), ..}), &Some(ref blame_commit)) => {
-            let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
-
-            match blame_tree.get_path(Path::new(path)) {
-                Ok(blame_entry) => {
-                    _blame = read_blob_entry(blame_repo, &blame_entry);
-                    Some(_blame.lines().collect::<Vec<_>>())
-                },
-                Err(_) => None,
-            }
-        },
-        _ => None,
-    };
+    let blame_lines = git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path);
 
     let revision_owned = match commit {
         &Some(ref commit) => {
@@ -443,7 +409,7 @@ pub fn format_path(cfg: &config::Config,
         return Err("Path is to a symlink");
     }
 
-    let data = read_blob_entry(&git.repo, &entry);
+    let data = git_ops::read_blob_entry(&git.repo, &entry);
 
     let jumps : HashMap<String, analysis::Jump> = HashMap::new();
     let analysis = Vec::new();
@@ -523,10 +489,10 @@ pub fn format_diff(cfg: &config::Config,
                       .current_dir(&git_path)
                       .output().map_err(|_| "Diff failed 1"));
     if !output.status.success() {
-        println!("ERR\n{}", decode_bytes(output.stderr));
+        println!("ERR\n{}", git_ops::decode_bytes(output.stderr));
         return Err("Diff failed 2");
     }
-    let difftxt = decode_bytes(output.stdout);
+    let difftxt = git_ops::decode_bytes(output.stdout);
 
     if difftxt.len() == 0 {
         return format_path(cfg, tree_name, rev, path, writer);
@@ -548,7 +514,7 @@ pub fn format_diff(cfg: &config::Config,
         let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
         match blame_tree.get_path(Path::new(path)) {
             Ok(blame_entry) => {
-                let blame = read_blob_entry(git.blame_repo.as_ref().unwrap(), &blame_entry);
+                let blame = git_ops::read_blob_entry(git.blame_repo.as_ref().unwrap(), &blame_entry);
                 let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
                 blames.push(Some(blame_lines));
             },
@@ -843,10 +809,10 @@ fn generate_commit_info(tree_name: &str,
                       .output()
                       .map_err(|_| "Diff failed 1"));
     if !output.status.success() {
-        println!("ERR\n{}", decode_bytes(output.stderr));
+        println!("ERR\n{}", git_ops::decode_bytes(output.stderr));
         return Err("Diff failed 2");
     }
-    let difftxt = decode_bytes(output.stdout);
+    let difftxt = git_ops::decode_bytes(output.stdout);
 
     let lines = split_lines(&difftxt);
     let mut changes = Vec::new();
