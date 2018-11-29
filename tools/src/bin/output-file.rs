@@ -28,7 +28,7 @@ fn main() {
     let args: Vec<_> = env::args().collect();
     let (base_args, fname_args) = args.split_at(3);
 
-    let cfg = config::load(&base_args[1], false);
+    let cfg = config::load(&base_args[1], true);
     println!("Config file read");
 
     let tree_name = &base_args[2];
