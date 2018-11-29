@@ -1,8 +1,7 @@
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str;
 
 use rustc_serialize::json::{self, Json};
@@ -29,6 +28,8 @@ pub struct GitData {
     pub hg_map: HashMap<Oid, String>, // Maps repo OID to Hg rev.
 
     pub mailmap: Mailmap,
+    /// Revs that we want to skip over during blame computation
+    pub blame_ignore: BlameIgnoreList,
 }
 
 pub struct TreeConfig {
@@ -126,6 +127,7 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
             (&Some(ref git_path), &Some(ref git_blame_path)) => {
                 let repo = Repository::open(&git_path).unwrap();
                 let mailmap = Mailmap::load(&repo);
+                let blame_ignore = BlameIgnoreList::load(&repo);
 
                 let blame_repo = Repository::open(&git_blame_path).unwrap();
                 let (blame_map, hg_map) = if need_indexes {
@@ -140,11 +142,13 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
                     blame_map: blame_map,
                     hg_map: hg_map,
                     mailmap: mailmap,
+                    blame_ignore: blame_ignore,
                 })
             },
             (&Some(ref git_path), &None) => {
                 let repo = Repository::open(&git_path).unwrap();
                 let mailmap = Mailmap::load(&repo);
+                let blame_ignore = BlameIgnoreList::load(&repo);
 
                 Some(GitData {
                     repo: repo,
@@ -152,6 +156,7 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
                     blame_map: HashMap::new(),
                     hg_map: HashMap::new(),
                     mailmap: mailmap,
+                    blame_ignore: blame_ignore,
                 })
             },
             _ => None,
@@ -279,5 +284,48 @@ impl Mailmap {
         }
 
         Some(Mailmap { entries })
+    }
+}
+
+#[derive(Default)]
+pub struct BlameIgnoreList {
+    entries: HashSet<String>,
+}
+
+impl BlameIgnoreList {
+    pub fn load(repo: &Repository) -> Self {
+        // Produce an empty list if we fail to load anything
+        BlameIgnoreList::try_load(repo).unwrap_or_default()
+    }
+
+    fn try_load(repo: &Repository) -> Option<Self> {
+        let obj = repo.revparse_single("HEAD:.git-blame-ignore-revs").ok()?;
+        let blob = obj.peel_to_blob().ok()?;
+        let data = str::from_utf8(blob.content()).ok()?;
+
+        let mut entries = HashSet::new();
+        for line in data.lines() {
+            let trimmed = line.split('#').next().unwrap().trim();
+            // I guess we could also verify these are actually revisions but
+            // that will eat CPU cycles for not much real benefit
+            if !trimmed.is_empty() {
+                entries.insert(trimmed.to_owned());
+            }
+        }
+
+        Some(BlameIgnoreList { entries })
+    }
+
+    pub fn should_ignore(&self, rev: &str) -> bool {
+        self.entries.contains(rev)
+    }
+}
+
+impl GitData {
+    pub fn should_ignore_for_blame(&self, rev: &str) -> bool {
+        // TODO: we might want to pull the commit message and check for
+        // special annotations like "#skip-blame" or backouts as well.
+        // For now just check the list.
+        self.blame_ignore.should_ignore(rev)
     }
 }
