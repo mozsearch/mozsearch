@@ -79,7 +79,7 @@ pub fn get_git_commit_link(tree_config: &TreeConfig, commit_id: &str) -> String 
     format!("{}/commit/{}", repo, commit_id)
 }
 
-fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
+pub fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
     let mut walk = blame_repo.revwalk().unwrap();
     walk.push_head().unwrap();
 
