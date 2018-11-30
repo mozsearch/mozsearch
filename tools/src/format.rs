@@ -304,6 +304,13 @@ pub fn format_file_data(cfg: &config::Config,
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
+    // Keep a cache of the "previous blame" computation across all
+    // lines in the file. If we do encounter a changeset that we
+    // want to ignore, chances are many lines will have that same
+    // changeset as the more recent blame, and so they will all do
+    // the same computation needlessly without this cache.
+    let mut prev_blame_cache = git_ops::PrevBlameCache::new();
+
     let mut last_revs = None;
     let mut last_color = false;
     for i in 0 .. output_lines.len() {
@@ -344,6 +351,7 @@ pub fn format_file_data(cfg: &config::Config,
                         &cur_rev,
                         &cur_path,
                         cur_lineno,
+                        &mut prev_blame_cache,
                     ) {
                         Ok(prev) => prev,
                         Err(e) => {

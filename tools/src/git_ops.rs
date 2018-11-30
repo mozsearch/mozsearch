@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
 
 use git2::{Commit, DiffFindOptions, DiffOptions, Error, Oid, Patch, Repository, TreeEntry};
@@ -122,6 +124,31 @@ fn compute_line_map(repo: &Repository, new_oid: Oid, old_oid: Oid) -> Result<Lin
     Ok(LineMap { adjustments })
 }
 
+/// Represents the inputs to a map_to_previous_version call, which maps a file
+/// in a given revision to its ancestor version.
+#[derive(Hash, PartialEq, Eq)]
+pub struct PrevBlameInput {
+    /// The revision in which the file was modified.
+    rev: String,
+    /// The path to the file we are interested in mapping to its older version.
+    path: PathBuf,
+}
+
+/// Represents the result of a map_to_previous_version call, which maps a file
+/// in a given revision to its ancestor version.
+pub struct PreviousVersionMap {
+    /// The parent revision.
+    parent_rev: Oid,
+    /// The path of the file in the parent revision.
+    old_path: PathBuf,
+    /// An object that allows mapping lines from the new version of the file to
+    /// to lines in the old version fo the file.
+    line_map: LineMap,
+}
+
+/// Caches the previous blame information.
+pub type PrevBlameCache = HashMap<PrevBlameInput, PreviousVersionMap>;
+
 /// Given a GitData, commit revision, and target file, this function returns information
 /// to track lines in that file backwards by one commit. Specifically, it returns
 /// the parent commit, the corresponding path of the equivalent source file in that commit
@@ -134,10 +161,7 @@ fn map_to_previous_version(
     git_data: &GitData,
     rev: &str,
     target_file: &Path
-) -> Result<(Oid, PathBuf, LineMap), Error> {
-    // TODO: cache the result of this function as it will likely get called many times
-    // with the exact same arguments repeatedly
-
+) -> Result<PreviousVersionMap, Error> {
     let commit_obj = git_data.repo.revparse_single(rev)?;
     let commit = commit_obj.as_commit().ok_or_else(|| Error::from_str("Commit_obj error"))?;
     if commit.parent_ids().len() != 1 {
@@ -173,9 +197,11 @@ fn map_to_previous_version(
                                             target_file, rev)));
     }
 
-    Ok((parent_commit.id(),
-        delta.old_file().path().ok_or_else(|| Error::from_str("Couldn't get old path"))?.to_path_buf(),
-        compute_line_map(&git_data.repo, delta.new_file().id(), delta.old_file().id())?))
+    Ok(PreviousVersionMap {
+        parent_rev: parent_commit.id(),
+        old_path: delta.old_file().path().ok_or_else(|| Error::from_str("Couldn't get old path"))?.to_path_buf(),
+        line_map: compute_line_map(&git_data.repo, delta.new_file().id(), delta.old_file().id())?,
+    })
 }
 
 /// Given a GitData, commit revision, target file, and line number in that file, this
@@ -187,9 +213,18 @@ pub fn find_prev_blame(
     git_data: &GitData,
     rev: &str,
     target_file: &Path,
-    lineno: u32
+    lineno: u32,
+    cache: &mut PrevBlameCache,
 ) -> Result<(String, PathBuf), Error> {
-    let (parent_commit, old_path, line_map) = map_to_previous_version(git_data, rev, target_file)?;
+    let entry = cache.entry(PrevBlameInput {
+        rev: String::from(rev),
+        path: PathBuf::from(target_file),
+    });
+    // Can't use or_insert_with because of the try-wrapper around map_to_previous_version
+    let PreviousVersionMap { parent_rev: parent_commit, old_path, line_map } = match entry {
+        Entry::Occupied(hit) => hit.into_mut(),
+        Entry::Vacant(miss) => miss.insert(map_to_previous_version(git_data, rev, target_file)?),
+    };
 
     let old_lineno = line_map.map_line(lineno);
     let parent_blame_oid = git_data.blame_map
@@ -201,7 +236,7 @@ pub fn find_prev_blame(
     match get_blame_lines(Some(git_data), &Some(parent_blame), target_file.to_str().unwrap()) {
         Some(blame_lines) => {
             let old_lineno_ix = old_lineno - 1; // line numbers are 1-based, array indexing is 0-based
-            Ok((blame_lines[old_lineno_ix as usize].clone(), old_path))
+            Ok((blame_lines[old_lineno_ix as usize].clone(), old_path.to_path_buf()))
         }
         None => Err(Error::from_str("Unable to get blame lines for parent commit"))
     }
@@ -212,7 +247,6 @@ mod tests {
     use super::*;
 
     use std::env;
-    use std::collections::HashMap;
     use config::{BlameIgnoreList, Mailmap, index_blame};
 
     fn build_git_data() -> Option<GitData> {
@@ -243,7 +277,7 @@ mod tests {
             Some(x) => x,
             None => return, // prevent cargo test from panicking if run without the env args
         };
-        let (parent, old_path, line_map) = map_to_previous_version(
+        let PreviousVersionMap { parent_rev: parent, old_path, line_map } = map_to_previous_version(
             &git_data,
             &env::var("GIT_REV").unwrap_or("HEAD".to_string()),
             Path::new(&env::var("TEST_PATH").unwrap())
@@ -262,11 +296,13 @@ mod tests {
             Some(x) => x,
             None => return, // prevent cargo test from panicking if run without the env args
         };
+        let mut cache = PrevBlameCache::new();
         let (blame_data, old_path) = find_prev_blame(
             &git_data,
             &env::var("GIT_REV").unwrap_or("HEAD".to_string()),
             Path::new(&env::var("TEST_PATH").unwrap()),
-            env::var("TEST_LINE").unwrap().parse().unwrap()
+            env::var("TEST_LINE").unwrap().parse().unwrap(),
+            &mut cache,
         ).unwrap();
         println!("prev blame data: {:?}", blame_data);
         println!("path in parent commit: {:?}", old_path);
