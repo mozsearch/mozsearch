@@ -206,3 +206,69 @@ pub fn find_prev_blame(
         None => Err(Error::from_str("Unable to get blame lines for parent commit"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::env;
+    use std::collections::HashMap;
+    use config::{BlameIgnoreList, Mailmap, index_blame};
+
+    fn build_git_data() -> Option<GitData> {
+        let repo = Repository::open(env::var("GIT_ROOT").ok()?).unwrap();
+        let blame_repo = env::var("BLAME_ROOT").ok().map(|s| Repository::open(s).unwrap());
+        let (blame_map, hg_map) = match &blame_repo {
+            Some(ref blame_repo) => index_blame(&repo, &blame_repo),
+            None => (HashMap::new(), HashMap::new()),
+        };
+        let mailmap = Mailmap::load(&repo);
+        let blame_ignore = BlameIgnoreList::load(&repo);
+        Some(GitData {
+            repo,
+            blame_repo,
+            blame_map,
+            hg_map,
+            mailmap,
+            blame_ignore,
+        })
+    }
+
+    // This not really a test but a debugging tool to run some part of the
+    // code above in relative isolation. Run with e.g.
+    //  GIT_ROOT=$HOME/webrender GIT_REV=d477ecc5978bb353c1d6e93a3387e9a4eb197572 TEST_PATH=.taskcluster.yml cargo test --release print_prev_data -- --nocapture
+    #[test]
+    fn print_prev_data() {
+        let git_data = match build_git_data() {
+            Some(x) => x,
+            None => return, // prevent cargo test from panicking if run without the env args
+        };
+        let (parent, old_path, line_map) = map_to_previous_version(
+            &git_data,
+            &env::var("GIT_REV").unwrap_or("HEAD".to_string()),
+            Path::new(&env::var("TEST_PATH").unwrap())
+        ).unwrap();
+        println!("parent commit: {:?}", parent);
+        println!("path in parent commit: {:?}", old_path);
+        println!("line mapping: {:?}", line_map);
+    }
+
+    // This not really a test but a debugging tool to run some part of the
+    // code above in relative isolation. Run with e.g.
+    //  GIT_ROOT=$HOME/webrender BLAME_ROOT=$HOME/wr-blame GIT_REV=d477ecc5978bb353c1d6e93a3387e9a4eb197572 TEST_PATH=.taskcluster.yml TEST_LINE=160 cargo test --release print_prev_blame -- --nocapture
+    #[test]
+    fn print_prev_blame() {
+        let git_data = match build_git_data() {
+            Some(x) => x,
+            None => return, // prevent cargo test from panicking if run without the env args
+        };
+        let (blame_data, old_path) = find_prev_blame(
+            &git_data,
+            &env::var("GIT_REV").unwrap_or("HEAD".to_string()),
+            Path::new(&env::var("TEST_PATH").unwrap()),
+            env::var("TEST_LINE").unwrap().parse().unwrap()
+        ).unwrap();
+        println!("prev blame data: {:?}", blame_data);
+        println!("path in parent commit: {:?}", old_path);
+    }
+}
