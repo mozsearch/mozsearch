@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
 
-use git2::{Commit, DiffFindOptions, DiffOptions, Error, Oid, Patch, Repository, TreeEntry};
+use git2::{Commit, Diff, DiffFindOptions, DiffDelta, DiffOptions, Error, Oid, Patch, Repository, TreeEntry};
 
 use config::GitData;
 
@@ -149,6 +149,46 @@ pub struct PreviousVersionMap {
 /// Caches the previous blame information.
 pub type PrevBlameCache = HashMap<PrevBlameInput, PreviousVersionMap>;
 
+#[derive(Clone, Debug)]
+pub struct FileDiffEntry {
+    pub old_path: Option<PathBuf>,
+    pub old_id: Oid,
+    pub new_id: Oid,
+}
+
+impl FileDiffEntry {
+    fn from(delta: &DiffDelta) -> Self {
+        FileDiffEntry {
+            old_path: delta.old_file().path().map(|p| p.to_path_buf()),
+            old_id: delta.old_file().id(),
+            new_id: delta.new_file().id(),
+        }
+    }
+}
+
+/// Caches the results of a tree diff. When we do a tree diff, we compare a
+/// revision to its parent revision, and get a list of all the files that changed.
+/// The output-file binary processes one file at a time, so if we repeat this
+/// whole tree diff for each affected file that's a lot of wasted work. Instead,
+/// the first time we do a tree diff on a particular revision, we store all the
+/// resulting data here, keyed by (revision, path). The value in the cache gives
+/// the blob ids for the old and new versions of the file, as well as the old
+/// pathname if there was one.
+pub type TreeDiffCache = HashMap<(String, PathBuf), FileDiffEntry>;
+
+fn diff_trees<'a>(
+    git_data: &'a GitData,
+    commit: &Commit,
+    parent_commit: &Commit,
+) -> Result<Diff<'a>, Error> {
+    let older_tree = parent_commit.tree()?;
+    let newer_tree = commit.tree()?;
+
+    let mut diff = git_data.repo.diff_tree_to_tree(Some(&older_tree), Some(&newer_tree), None)?;
+    diff.find_similar(Some(DiffFindOptions::new().renames(true)))?;
+    Ok(diff)
+}
+
 /// Given a GitData, commit revision, and target file, this function returns information
 /// to track lines in that file backwards by one commit. Specifically, it returns
 /// the parent commit, the corresponding path of the equivalent source file in that commit
@@ -160,7 +200,8 @@ pub type PrevBlameCache = HashMap<PrevBlameInput, PreviousVersionMap>;
 fn map_to_previous_version(
     git_data: &GitData,
     rev: &str,
-    target_file: &Path
+    target_file: &Path,
+    cache: Option<&mut TreeDiffCache>,
 ) -> Result<PreviousVersionMap, Error> {
     let commit_obj = git_data.repo.revparse_single(rev)?;
     let commit = commit_obj.as_commit().ok_or_else(|| Error::from_str("Commit_obj error"))?;
@@ -170,37 +211,37 @@ fn map_to_previous_version(
     }
 
     let parent_commit = commit.parent(0)?;
-    let older_tree = parent_commit.tree()?;
-    let newer_tree = commit.tree()?;
 
-    let mut diff = git_data.repo.diff_tree_to_tree(Some(&older_tree), Some(&newer_tree), None)?;
-    diff.find_similar(Some(DiffFindOptions::new().renames(true)))?;
-
-    // There should be exactly one delta with the target_file as the "new file"
-    let mut deltas = diff.deltas().filter(|delta| delta.new_file().path() == Some(target_file));
-    let delta = match deltas.next() {
-        Some(d) => {
-            if deltas.next().is_some() {
-                warn!("Found extra delta entries with target {:?} in rev {}", target_file, rev);
-                return Err(Error::from_str("Too many deltas"));
+    let delta = {
+        if let Some(cache) = cache {
+            let key = (String::from(rev), PathBuf::from(target_file));
+            if !cache.contains_key(&key) {
+                let diff = diff_trees(git_data, &commit, &parent_commit)?;
+                for delta in diff.deltas() {
+                    if let Some(file) = delta.new_file().path() {
+                        cache.insert((String::from(rev), PathBuf::from(file)), FileDiffEntry::from(&delta));
+                    }
+                }
             }
-            d
-        }
-        None => {
-            warn!("Found zero delta entries with target {:?} in rev{}", target_file, rev);
-            return Err(Error::from_str("Zero deltas"));
+
+            cache.get(&key).ok_or_else(|| Error::from_str(&format!("No delta for target {:?} in rev {}", target_file, rev)))?.clone()
+        } else {
+            let diff = diff_trees(git_data, &commit, &parent_commit)?;
+            let delta = diff.deltas().find(|delta| delta.new_file().path() == Some(target_file))
+                                     .ok_or_else(|| Error::from_str(&format!("No delta for target {:?} in rev {}", target_file, rev)))?;
+            FileDiffEntry::from(&delta)
         }
     };
 
-    if delta.old_file().id().is_zero() {
+    if delta.old_id.is_zero() {
         return Err(Error::from_str(&format!("Target {:?} added in rev {} with no ancestor",
                                             target_file, rev)));
     }
 
     Ok(PreviousVersionMap {
         parent_rev: parent_commit.id(),
-        old_path: delta.old_file().path().ok_or_else(|| Error::from_str("Couldn't get old path"))?.to_path_buf(),
-        line_map: compute_line_map(&git_data.repo, delta.new_file().id(), delta.old_file().id())?,
+        old_path: delta.old_path.ok_or_else(|| Error::from_str("Couldn't get old path"))?,
+        line_map: compute_line_map(&git_data.repo, delta.new_id, delta.old_id)?
     })
 }
 
@@ -215,6 +256,7 @@ pub fn find_prev_blame(
     target_file: &Path,
     lineno: u32,
     cache: &mut PrevBlameCache,
+    diff_cache: Option<&mut TreeDiffCache>,
 ) -> Result<(String, PathBuf), Error> {
     let entry = cache.entry(PrevBlameInput {
         rev: String::from(rev),
@@ -223,7 +265,7 @@ pub fn find_prev_blame(
     // Can't use or_insert_with because of the try-wrapper around map_to_previous_version
     let PreviousVersionMap { parent_rev: parent_commit, old_path, line_map } = match entry {
         Entry::Occupied(hit) => hit.into_mut(),
-        Entry::Vacant(miss) => miss.insert(map_to_previous_version(git_data, rev, target_file)?),
+        Entry::Vacant(miss) => miss.insert(map_to_previous_version(git_data, rev, target_file, diff_cache)?),
     };
 
     let old_lineno = line_map.map_line(lineno);
@@ -280,7 +322,8 @@ mod tests {
         let PreviousVersionMap { parent_rev: parent, old_path, line_map } = map_to_previous_version(
             &git_data,
             &env::var("GIT_REV").unwrap_or("HEAD".to_string()),
-            Path::new(&env::var("TEST_PATH").unwrap())
+            Path::new(&env::var("TEST_PATH").unwrap()),
+            None,
         ).unwrap();
         println!("parent commit: {:?}", parent);
         println!("path in parent commit: {:?}", old_path);
@@ -303,6 +346,7 @@ mod tests {
             Path::new(&env::var("TEST_PATH").unwrap()),
             env::var("TEST_LINE").unwrap().parse().unwrap(),
             &mut cache,
+            None,
         ).unwrap();
         println!("prev blame data: {:?}", blame_data);
         println!("path in parent commit: {:?}", old_path);
