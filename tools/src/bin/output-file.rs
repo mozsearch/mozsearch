@@ -16,6 +16,7 @@ extern crate tools;
 use tools::find_source_file;
 use tools::file_format::analysis::{read_analysis, read_source, read_jumps};
 use tools::format::format_file_data;
+use tools::git_ops;
 use tools::config;
 use tools::languages;
 use languages::FormatAs;
@@ -53,6 +54,7 @@ fn main() {
         &None => (None, None),
     };
 
+    let mut diff_cache = git_ops::TreeDiffCache::new();
     for path in fname_args {
         println!("File {}", path);
 
@@ -199,6 +201,7 @@ fn main() {
                          input,
                          &jumps,
                          &analysis,
-                         &mut writer).unwrap();
+                         &mut writer,
+                         Some(&mut diff_cache)).unwrap();
     }
 }

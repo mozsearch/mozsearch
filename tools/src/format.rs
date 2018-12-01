@@ -229,7 +229,8 @@ pub fn format_file_data(cfg: &config::Config,
                         data: String,
                         jumps: &HashMap<String, Jump>,
                         analysis: &[WithLocation<Vec<AnalysisSource>>],
-                        writer: &mut Write) -> Result<(), &'static str>  {
+                        writer: &mut Write,
+                        mut diff_cache: Option<&mut git_ops::TreeDiffCache>) -> Result<(), &'static str>  {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
     let format = languages::select_formatting(path);
@@ -352,6 +353,7 @@ pub fn format_file_data(cfg: &config::Config,
                         &cur_path,
                         cur_lineno,
                         &mut prev_blame_cache,
+                        diff_cache.as_mut().map(|c| &mut **c),
                     ) {
                         Ok(prev) => prev,
                         Err(e) => {
@@ -522,7 +524,8 @@ pub fn format_path(cfg: &config::Config,
                           data,
                           &jumps,
                           &analysis,
-                          writer));
+                          writer,
+                          None));
 
     Ok(())
 }
