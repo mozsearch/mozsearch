@@ -95,7 +95,10 @@ $(function() {
     } else {
         // Keyboard accelerators disabled, so reflect that state in the checkbox and
         // hide the accelerators. Also don't register the keyboard listeners.
-        $('#panel-accel-enable')[0].checked = false;
+        let panelAccelEnable = $('#panel-accel-enable')[0];
+        if (panelAccelEnable) {
+            panelAccelEnable.checked = false;
+        }
         $('.panel span.accel').hide();
     }
 
@@ -104,24 +107,32 @@ $(function() {
             return;
         }
         acceleratorsEnabled = newState;
+        let panelAccelEnable = $('#panel-accel-enable')[0];
         if (newState) {
             document.documentElement.addEventListener('keypress', handleAccelerator);
             $('.panel span.accel').show();
             localStorage.setItem('accel-enable', '1');
-            $('#panel-accel-enable')[0].checked = true;
+            if (panelAccelEnable) {
+                panelAccelEnable.checked = true;
+            }
         } else {
             document.documentElement.removeEventListener('keypress', handleAccelerator);
             $('.panel span.accel').hide();
             localStorage.setItem('accel-enable', '0');
-            $('#panel-accel-enable')[0].checked = false;
+            if (panelAccelEnable) {
+                panelAccelEnable.checked = false;
+            }
         }
     }
 
     // If the user toggles the checkbox let's update the state accordingly.
-    $('#panel-accel-enable')[0].addEventListener('change', () => {
-        var newState = ($('#panel-accel-enable')[0].checked);
-        updateAccelerators(newState);
-    });
+    let panelAccelEnable = document.getElementById('panel-accel-enable');
+    if (panelAccelEnable) {
+        panelAccelEnable.addEventListener('change', () => {
+            var newState = (panelAccelEnable.checked);
+            updateAccelerators(newState);
+        });
+    }
     // If the user toggles it in a different tab, update the checkbox/state here
     window.addEventListener("storage", function() {
         var newState = acceleratorsEnabledInLocalStorage();
