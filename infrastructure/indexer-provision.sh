@@ -27,9 +27,9 @@ popd
 
 # Clang
 wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-4.0 main"
+sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main"
 sudo apt-get update
-sudo apt-get install -y clang-4.0 clang-4.0-dev
+sudo apt-get install -y clang-6.0 clang-6.0-dev
 
 # Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
 sudo apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev libgtk-3-dev libglib2.0-dev libdbus-1-dev libdbus-glib-1-dev libasound2-dev libcurl4-openssl-dev libiw-dev libxt-dev mesa-common-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libpulse-dev m4 flex libx11-xcb-dev ccache libgconf2-dev
@@ -41,9 +41,9 @@ sudo apt-get install -y parallel realpath python-virtualenv python-pip
 sudo apt-get install -y python-dev libffi-dev cmake
 
 # Setup direct links to clang
-sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-4.0 400
-sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-4.0 400
-sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-4.0 400
+sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-6.0 400
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-6.0 400
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-6.0 400
 
 # Install Rust. We need rust nightly to use the save-analysis
 curl https://sh.rustup.rs -sSf | sh -s -- -y
