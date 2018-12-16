@@ -54,6 +54,18 @@ fn main() {
         &None => (None, None),
     };
 
+    let head_commit = head_oid
+        .and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
+
+    let mut extension_mapping = HashMap::new();
+    extension_mapping.insert("cpp", ("header", vec!["h", "hh", "hpp", "hxx"]));
+    extension_mapping.insert("cc", ("header", vec!["h", "hh", "hpp", "hxx"]));
+    extension_mapping.insert("cxx", ("header", vec!["h", "hh", "hpp", "hxx"]));
+    extension_mapping.insert("h", ("source", vec!["cpp", "cc", "cxx"]));
+    extension_mapping.insert("hh", ("source", vec!["cpp", "cc", "cxx"]));
+    extension_mapping.insert("hpp", ("source", vec!["cpp", "cc", "cxx"]));
+    extension_mapping.insert("hxx", ("source", vec!["cpp", "cc", "cxx"]));
+
     let mut diff_cache = git_ops::TreeDiffCache::new();
     for path in fname_args {
         println!("File {}", path);
@@ -113,14 +125,6 @@ fn main() {
             }
         }
 
-        let mut extension_mapping = HashMap::new();
-        extension_mapping.insert("cpp", ("header", vec!["h", "hh", "hpp", "hxx"]));
-        extension_mapping.insert("cc", ("header", vec!["h", "hh", "hpp", "hxx"]));
-        extension_mapping.insert("cxx", ("header", vec!["h", "hh", "hpp", "hxx"]));
-        extension_mapping.insert("h", ("source", vec!["cpp", "cc", "cxx"]));
-        extension_mapping.insert("hh", ("source", vec!["cpp", "cc", "cxx"]));
-        extension_mapping.insert("hpp", ("source", vec!["cpp", "cc", "cxx"]));
-        extension_mapping.insert("hxx", ("source", vec!["cpp", "cc", "cxx"]));
 
         let extension = path_wrapper.extension().unwrap_or(&OsStr::new("")).to_str().unwrap();
         let show_header = match extension_mapping.get(extension) {
@@ -188,9 +192,6 @@ fn main() {
         };
 
         panel.append(&mut rev_panel);
-
-        let head_commit = head_oid
-            .and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
 
         format_file_data(&cfg,
                          tree_name,
