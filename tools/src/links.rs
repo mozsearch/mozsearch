@@ -29,7 +29,7 @@ pub fn linkify_bug_numbers(s: &str) -> String {
             Regex::new(r"\b(?i)bug\s*(?P<bugno>[1-9][0-9]{2,6})\b").unwrap()
         };
     }
-    BUG_NUMBER_REGEX.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$0</a>")
+    BUG_NUMBER_REGEX.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$0</a>").into_owned()
 }
 
 pub fn linkify_commit_header(s: &str) -> String {
@@ -42,9 +42,9 @@ pub fn linkify_commit_header(s: &str) -> String {
         };
     }
     if s.starts_with("servo: ") {
-        SERVO_PR_REGEX.replace_all(s, "#<a href=\"https://github.com/servo/servo/pull/$prno\">$prno</a>")
+        SERVO_PR_REGEX.replace_all(s, "#<a href=\"https://github.com/servo/servo/pull/$prno\">$prno</a>").into_owned()
     } else {
-        BUG_NUMBER_REGEX.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$bugno</a>")
+        BUG_NUMBER_REGEX.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$bugno</a>").into_owned()
     }
 }
 
