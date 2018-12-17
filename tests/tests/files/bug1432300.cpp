@@ -1,3 +1,6 @@
+/** This simulates the code from JS::ProfilingFrameIterator::getPhysicalFrameAndEntry
+  * which was highlighting incorrectly in bug 1432300 */
+
 namespace mozilla {
 
 template<class T> class Maybe {

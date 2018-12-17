@@ -1,3 +1,5 @@
+/* Searchfox should analyze uses of operator== */
+
 struct Foo {
     Foo(int aX) : mX(aX) {}
     bool operator==(const Foo& aOther) {

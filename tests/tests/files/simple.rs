@@ -4,6 +4,10 @@ use std::path::{Path, PathBuf};
 use test_rust_dependency::{MyType, MyTrait};
 use test_rust_dependency::my_mod::MyOtherType;
 
+/* A grab-bug of rust code to exercise the searchfox indexer.
+   Note how this comment ends up in the file description, too!
+*/
+
 mod build_time_generated {
     include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 }
