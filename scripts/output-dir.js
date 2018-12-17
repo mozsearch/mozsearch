@@ -43,6 +43,12 @@ function FileInfo(path)
 {
   this.path = path;
   this.size = 0;
+  try {
+    this.description = snarf(descriptionPath(path));
+  } catch (e) {
+    // No description file
+    this.description = "";
+  }
 }
 
 // neg if 1 is before 2
@@ -70,6 +76,14 @@ function compareFunc([filename1, entry1], [filename2, entry2])
   return cmp;
 }
 
+function escapeHtml(unsafe) {
+    return unsafe.replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+}
+
 function generateDirectory(dir, path, opt)
 {
   let entries = Array.from(dir);
@@ -80,17 +94,29 @@ function generateDirectory(dir, path, opt)
     let icon = "";
 
     let size = "";
+    let description = "";
     if (entry instanceof FileInfo) {
       icon = chooseIcon(filename);
       size = entry.size;
+      description = entry.description;
     } else {
       icon = "folder";
       size = 0;
-      for (let x of entry) {
+      for (let [subfile, subnode] of entry) {
         size++;
+        // For folders, use the description from any
+        // READMEs inside the folder
+        switch (subfile) {
+            case "README":
+            case "README.txt":
+            case "README.md":
+                description = subnode.description;
+                break;
+        }
       }
     }
 
+    description = escapeHtml(description);
     let filepath = path == "/" ? filename : path + "/" + filename;
     let relative_url = fileURL(opt.tree, filepath);
     let style = "";
@@ -103,6 +129,7 @@ function generateDirectory(dir, path, opt)
     entryContent += `
         <tr>
           <td><a href="${relative_url}" class="icon ${icon}" style="${style}">${filename}</a></td>
+          <td class="description"><a href="${relative_url}" title="${description}">${description}</td>
           <td><a href="${relative_url}">${size}</a></td>
         </tr>
 `;
@@ -115,6 +142,7 @@ function generateDirectory(dir, path, opt)
     <thead>
       <tr>
         <th scope="col">Name</th>
+        <th scope="col">Description</th>
         <th scope="col">Size</th>
       </tr>
     </thead>
