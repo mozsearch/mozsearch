@@ -104,6 +104,15 @@ table.folder-content a {
 table td {
     padding: .5em;
 }
+table.folder-content td.description {
+    max-width: 60vw;
+    padding-right: 2em;
+}
+table.folder-content td.description a {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 td.code {
     padding: 0 0 0 .5em;
 }

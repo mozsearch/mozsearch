@@ -6,6 +6,11 @@ function sourcePath(path)
   return treeRoot + "/" + path;
 }
 
+function descriptionPath(path)
+{
+  return indexRoot + "/description/" + path;
+}
+
 function fileURL(tree, path)
 {
   return `/${tree}/source/${path}`;
