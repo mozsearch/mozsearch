@@ -168,6 +168,38 @@ Note that the .zip file created for AWS Lambda in the previous section
 merely includes a copy of the `trigger_indexer.py` script, which it
 invokes when the task runs.
 
+## Creating additional channels
+
+If many developers are working on features concurrently, it might be
+useful to set up additional channels so they can test on AWS without
+stepping on each others' toes. In order to create a channel, the
+following steps need to be done in the AWS console:
+
+1. Decide on a name for the new channel. These instructions will use
+   `foo` as the name.
+2. In the EC2 console, go to the Load Balancers section and create
+   a new Load Balancer (of type Application Load Balancer). Give it
+   a name like `foo-lb`.  The non-default settings needed are:
+- Listeners: add listeners for both HTTP and HTTPS
+- Availability Zones: select all three availability zones
+- Certificate: use the wildcard certificate for `*.searchfox.org`
+  from ACM.
+- Security group: Select the load-balancer security group
+- Target group: Create a new target group with name `foo-target`
+3. After creating the new Load Balancer, copy the DNS name from
+   the description tab (something like `foo-lb-123456789.us-west-2.elb.amazonaws.com`)
+4. Go to the Route 53 console, and under the `searchfox.org` Hosted
+   Zone, add a new Record Set with the following properties:
+- Name: `foo` (it will append `.searchfox.org` automatically)
+- Type: A - IPv4 address
+- Alias: Yes
+- Alias Target: the DNS name copied from the Load Balancer. Note that
+  it will automatically prepend `dualstack.` to the name.
+
+That's it! After this is set up, you can trigger an indexer run
+using the `foo` channel (instead of `dev` or `release`) and it
+will show up at https://foo.searchfox.org once it is complete.
+
 ## Provisioning and cloud init
 
 The EC2 instances for indexing and web serving are started using a
