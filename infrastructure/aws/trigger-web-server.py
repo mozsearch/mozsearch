@@ -25,12 +25,7 @@ mozsearch_repo = sys.argv[3]
 config_repo = sys.argv[4]
 volumeId = sys.argv[5]
 
-TARGET_GROUPS = {
-    'release': 'release-target',
-    'dev': 'dev-target',
-}
-
-targetGroup = TARGET_GROUPS[channel]
+targetGroup = "%s-target" % channel
 
 ec2_resource = boto3.resource('ec2')
 ec2 = boto3.client('ec2')
