@@ -19,6 +19,7 @@ use tools::format::format_file_data;
 use tools::git_ops;
 use tools::config;
 use tools::languages;
+use tools::describe;
 use languages::FormatAs;
 
 use tools::output::{PanelItem, PanelSection};
@@ -125,6 +126,12 @@ fn main() {
             }
         }
 
+        if let Some(file_description) = describe::describe_file(&input, &path_wrapper, &format) {
+            let description_fname = format!("{}/description/{}", tree_config.paths.index_path, path);
+            let description_file = File::create(description_fname).unwrap();
+            let mut desc_writer = BufWriter::new(description_file);
+            write!(desc_writer, "{}", file_description).unwrap();
+        }
 
         let extension = path_wrapper.extension().unwrap_or(&OsStr::new("")).to_str().unwrap();
         let show_header = match extension_mapping.get(extension) {

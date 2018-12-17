@@ -8,4 +8,5 @@ cat $INDEX_ROOT/objdir-dirs | while IFS= read dir
 do
   mkdir -p "$INDEX_ROOT/file/$dir"
   mkdir -p "$INDEX_ROOT/dir/$dir"
+  mkdir -p "$INDEX_ROOT/description/$dir"
 done

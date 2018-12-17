@@ -18,6 +18,7 @@ pub mod format;
 pub mod tokenize;
 pub mod links;
 pub mod git_ops;
+pub mod describe;
 
 pub fn find_source_file(path: &str, files_root: &str, objdir: &str) -> String {
     if path.starts_with("__GENERATED__") {
