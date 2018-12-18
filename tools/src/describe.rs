@@ -16,9 +16,19 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
     // I'm omitting that here. We can add it if needed.
     match format {
         FormatAs::FormatTagLike(_) => describe_html(substr),
-        FormatAs::FormatCLike(ref spec) if spec.c_style_comments => describe_from_c_comment(substr),
-        FormatAs::FormatCLike(ref spec) if spec.triple_quote_literals => describe_py(substr),
-        FormatAs::FormatCLike(_) | FormatAs::Binary => None,
+        FormatAs::FormatCLike(ref spec) => {
+            if spec.rust_tweaks {
+                describe_from_rust_comment(substr)
+                    .or_else(|| describe_from_c_comment(substr))
+            } else if spec.c_style_comments {
+                describe_from_c_comment(substr)
+            } else if spec.triple_quote_literals {
+                describe_py(substr)
+            } else {
+                None
+            }
+        },
+        FormatAs::Binary => None,
         FormatAs::Plain => {
             let stem = path.file_stem()?.to_str()?;
             if stem.eq_ignore_ascii_case("README") {
@@ -64,6 +74,26 @@ fn describe_readme(contents: &str) -> Option<String> {
         .filter(|s| !s.trim().is_empty())
         .next()
         .map(str::to_string)
+}
+
+/// Returns the first Rust-style module doc-comment (`//!`).
+fn describe_from_rust_comment(contents: &str) -> Option<String> {
+    let mut description = String::new();
+    let mut in_comment = false;
+    for line in contents.lines() {
+        if !line.starts_with("//!") {
+            if !in_comment {
+                continue;
+            }
+            return Some(description);
+        }
+        in_comment = true;
+        if !description.is_empty() {
+            description.push_str("\n");
+        }
+        description.push_str(line.trim_left_matches("//!"));
+    }
+    None
 }
 
 /// Returns the first C-style comment that's not vim/modeline/license boilerplate

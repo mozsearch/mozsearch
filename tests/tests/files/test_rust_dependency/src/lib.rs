@@ -1,4 +1,8 @@
 
+//! A description of this very interesting module.
+//!
+//! This is an overview of yada yada yada...
+
 #[derive(Copy, Clone)]
 pub struct MyType(());
 
