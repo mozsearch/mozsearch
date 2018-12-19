@@ -153,52 +153,53 @@ fn main() {
             }
         };
 
-        let mut panel = if let Some((other_desc, other_path)) = show_header {
-            vec![PanelSection {
+        let mut panel = vec![];
+
+        let mut source_panel_items = vec![];
+        if let Some((other_desc, other_path)) = show_header {
+            source_panel_items.push(PanelItem {
+                title: format!("Go to {} file", other_desc),
+                link: other_path,
+                update_link_lineno: false,
+                accel_key: None,
+            });
+        };
+
+        if !source_panel_items.is_empty() {
+            panel.push(PanelSection {
                 name: "Source code".to_owned(),
-                items: vec![PanelItem {
-                    title: format!("Go to {} file", other_desc),
-                    link: other_path,
-                    update_link_lineno: false,
-                    accel_key: None,
-                }],
-            }]
-        } else {
-            vec![]
+                items: source_panel_items,
+            });
         };
 
-        let mut rev_panel = if path.contains("__GENERATED__") {
-            vec![]
-        } else if let Some(oid) = head_oid {
-            vec![PanelSection {
-                name: "Revision control".to_owned(),
-                items: vec![PanelItem {
-                    title: "Permalink".to_owned(),
-                    link: format!("/{}/rev/{}/{}", tree_name, oid, path),
-                    update_link_lineno: true,
-                    accel_key: Some('Y'),
-                }, PanelItem {
-                    title: "Log".to_owned(),
-                    link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
-                    update_link_lineno: false,
-                    accel_key: Some('L'),
-                 }, PanelItem {
-                    title: "Raw".to_owned(),
-                    link: format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path),
-                    update_link_lineno: false,
-                    accel_key: Some('R'),
-                }, PanelItem {
-                    title: "Blame".to_owned(),
-                    link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
-                    update_link_lineno: false,
-                    accel_key: None,
-                }],
-            }]
-        } else {
-            vec![]
-        };
-
-        panel.append(&mut rev_panel);
+        if let Some(oid) = head_oid {
+            if !path.contains("__GENERATED__") {
+                panel.push(PanelSection {
+                    name: "Revision control".to_owned(),
+                    items: vec![PanelItem {
+                        title: "Permalink".to_owned(),
+                        link: format!("/{}/rev/{}/{}", tree_name, oid, path),
+                        update_link_lineno: true,
+                        accel_key: Some('Y'),
+                    }, PanelItem {
+                        title: "Log".to_owned(),
+                        link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
+                        update_link_lineno: false,
+                        accel_key: Some('L'),
+                     }, PanelItem {
+                        title: "Raw".to_owned(),
+                        link: format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path),
+                        update_link_lineno: false,
+                        accel_key: Some('R'),
+                    }, PanelItem {
+                        title: "Blame".to_owned(),
+                        link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+                        update_link_lineno: false,
+                        accel_key: None,
+                    }],
+                });
+            }
+        }
 
         format_file_data(&cfg,
                          tree_name,
