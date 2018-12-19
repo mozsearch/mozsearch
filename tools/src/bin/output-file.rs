@@ -24,6 +24,31 @@ use languages::FormatAs;
 
 use tools::output::{PanelItem, PanelSection};
 
+extern crate rustc_serialize;
+use rustc_serialize::json;
+
+fn read_json_from_file(path: &str) -> Option<json::Object> {
+    let components_file = File::open(path).ok()?;
+    let mut reader = BufReader::new(&components_file);
+    json::Json::from_reader(&mut reader).ok()?.into_object()
+}
+
+/// For a given path, looks up the bugzilla product and component and
+/// returns it in a tuple if it could be found. The JSON data format
+/// comes from https://searchfox.org/mozilla-central/rev/47edbd91c43db6229cf32d1fc4bae9b325b9e2d0/python/mozbuild/mozbuild/frontend/mach_commands.py#209-223,243
+/// and is fairly straightforward.
+fn get_bugzilla_component<'a>(bugzilla_data: &'a json::Object, path: &str) -> Option<(&'a str, &'a str)> {
+    let mut path_obj = bugzilla_data.get("paths")?;
+    for path_component in path.split('/') {
+        path_obj = path_obj.as_object()?.get(path_component)?;
+    }
+    let component_id = path_obj.as_i64()?.to_string();
+    let mut result_iter = bugzilla_data.get("components")?.as_object()?.get(&component_id)?.as_array()?.iter();
+    let product = result_iter.next()?.as_string()?;
+    let component = result_iter.next()?.as_string()?;
+    Some((product, component))
+}
+
 fn main() {
     env_logger::init();
 
@@ -40,6 +65,14 @@ fn main() {
     //let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
     let jumps = read_jumps(&jumps_fname);
     println!("Jumps read");
+
+    let bugzilla_fname = format!("{}/bugzilla-components.json", tree_config.paths.index_path);
+    let bugzilla_data = read_json_from_file(&bugzilla_fname);
+    if bugzilla_data.is_some() {
+        println!("Bugzilla components read");
+    } else {
+        println!("No bugzilla-components.json file found");
+    }
 
     let (blame_commit, head_oid) = match &tree_config.git {
         &Some(ref git) => {
@@ -164,6 +197,18 @@ fn main() {
                 accel_key: None,
             });
         };
+        if let Some(ref bugzilla) = bugzilla_data {
+            if !path.contains("__GENERATED__") {
+                if let Some((product, component)) = get_bugzilla_component(bugzilla, &path) {
+                    source_panel_items.push(PanelItem {
+                        title: "File a bug for this file".to_owned(),
+                        link: format!("https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}", product, component),
+                        update_link_lineno: false,
+                        accel_key: None,
+                    });
+                }
+            }
+        }
 
         if !source_panel_items.is_empty() {
             panel.push(PanelSection {
