@@ -201,7 +201,7 @@ fn main() {
             if !path.contains("__GENERATED__") {
                 if let Some((product, component)) = get_bugzilla_component(bugzilla, &path) {
                     source_panel_items.push(PanelItem {
-                        title: "File a bug for this file".to_owned(),
+                        title: format!("File a bug in {} :: {}", product, component),
                         link: format!("https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
                             product.replace("&", "%26"),
                             component.replace("&", "%26")),
