@@ -202,7 +202,9 @@ fn main() {
                 if let Some((product, component)) = get_bugzilla_component(bugzilla, &path) {
                     source_panel_items.push(PanelItem {
                         title: "File a bug for this file".to_owned(),
-                        link: format!("https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}", product, component),
+                        link: format!("https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
+                            product.replace("&", "%26"),
+                            component.replace("&", "%26")),
                         update_link_lineno: false,
                         accel_key: None,
                     });
