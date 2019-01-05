@@ -5,7 +5,7 @@ help:
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools build-test-repo
+.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo
 
 check-in-vagrant:
 	@[ -d /vagrant ] || (echo "This command must be run inside the vagrant instance" > /dev/stderr; exit 1)
@@ -15,7 +15,10 @@ build-clang-plugin: check-in-vagrant
 
 # This can be built outside the vagrant instance too
 build-rust-tools:
-	cd tools && cargo build --release
+	cd tools && rustup run nightly cargo build --release
+
+test-rust-tools:
+	cd tools && rustup run nightly cargo test --release --verbose
 
 build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/index
