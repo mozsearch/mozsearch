@@ -1,6 +1,4 @@
 use std::cell::Cell;
-use std;
-use std::io::Write;
 
 use languages::LanguageSpec;
 
@@ -169,7 +167,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             let mut start = start;
             'rust_raw_string: loop {
                 if peek_pos() == string.len() {
-                    writeln!(&mut std::io::stderr(), "Unterminated raw string").unwrap();
+                    debug!("Unterminated raw string");
                     return tokens;
                 }
 
@@ -208,7 +206,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 }
 
                 if peek_pos() == string.len() {
-                    writeln!(&mut std::io::stderr(), "Expecting '(' after raw string literal").unwrap();
+                    debug!("Expecting '(' after raw string literal");
                     return tokens;
                 }
             }
@@ -218,7 +216,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             let mut start = start;
             'raw_string: loop {
                 if peek_pos() == string.len() {
-                    writeln!(&mut std::io::stderr(), "Unterminated raw string").unwrap();
+                    debug!("Unterminated raw string");
                     return tokens;
                 }
 
@@ -312,7 +310,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 get_char();
                 loop {
                     if peek_pos() == string.len() {
-                        writeln!(&mut std::io::stderr(), "Unterminated /* comment").unwrap();
+                        debug!("Unterminated /* comment");
                         return tokens;
                     }
 
@@ -361,7 +359,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                     } else if next == '\\' && peek_char() != '\n' {
                         get_char();
                     } else if next == '\n' {
-                        writeln!(&mut std::io::stderr(), "Invalid regexp literal").unwrap();
+                        debug!("Invalid regexp literal");
                         return tokenize_plain(string);
                     }
                 }
@@ -375,7 +373,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             let mut start = start;
             loop {
                 if peek_pos() == string.len() {
-                    writeln!(&mut std::io::stderr(), "Unterminated backtick string").unwrap();
+                    debug!("Unterminated backtick string");
                     return tokens;
                 }
 
@@ -435,7 +433,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             let mut start = start;
             loop {
                 if peek_pos() == string.len() {
-                    writeln!(&mut std::io::stderr(), "Unterminated quote").unwrap();
+                    debug!("Unterminated quote");
                     return tokens;
                 }
 
@@ -589,7 +587,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     tokens.push(Token {start: open, end: peek_pos(), kind: TokenKind::Punctuation});
                     tag_state = TagState::EndTagId(peek_pos());
                 } else {
-                    writeln!(&mut std::io::stderr(), "Error type 1 (line {})", cur_line).unwrap();
+                    debug!("Error type 1 (line {})", cur_line);
                     return tokenize_plain(string);
                 }
             },
@@ -609,7 +607,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         } else if is_whitespace(ch) {
                             tag_state = TagState::TagAfterId;
                         } else {
-                            writeln!(&mut std::io::stderr(), "Error type 2 (line {})", cur_line).unwrap();
+                            debug!("Error type 2 (line {})", cur_line);
                             return tokenize_plain(string);
                         }
                     }
@@ -641,7 +639,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         } else if is_whitespace(ch) {
                             tag_state = TagState::TagBeforeEq;
                         } else {
-                            writeln!(&mut std::io::stderr(), "Error type 3 (line {})", cur_line).unwrap();
+                            debug!("Error type 3 (line {})", cur_line);
                             return tokenize_plain(string);
                         }
                     }
@@ -705,7 +703,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     } else if is_whitespace(ch) {
                         tag_state = TagState::EndTagDone;
                     } else {
-                        writeln!(&mut std::io::stderr(), "Error type 4 (line {})", cur_line).unwrap();
+                        debug!("Error type 4 (line {})", cur_line);
                         return tokenize_plain(string);
                     }
                 }
@@ -714,7 +712,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                 if ch == '>' {
                     tag_state = TagState::TagNone(peek_pos());
                 } else if !is_whitespace(ch) {
-                    writeln!(&mut std::io::stderr(), "Error type 5 (line {})", cur_line).unwrap();
+                    debug!("Error type 5 (line {})", cur_line);
                     return tokenize_plain(string);
                 }
                 tokens.push(Token {start: start, end: peek_pos(), kind: punctuation_kind(ch)});
