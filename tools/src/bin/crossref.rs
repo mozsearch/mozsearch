@@ -135,9 +135,9 @@ fn main() {
         let lines: Vec<_> = reader.lines().map(
             |l| match l {
                 Ok(line) => {
-                    let line_cut = line.trim_right();
+                    let line_cut = line.trim_end();
                     let len = line_cut.len();
-                    let line_cut = line_cut.trim_left();
+                    let line_cut = line_cut.trim_start();
                     let offset = (len - line_cut.len()) as u32;
                     let buf = line_cut.chars().take(100).collect();
                     (strings.add(buf), offset)

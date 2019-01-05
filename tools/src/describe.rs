@@ -91,7 +91,7 @@ fn describe_from_rust_comment(contents: &str) -> Option<String> {
         if !description.is_empty() {
             description.push_str("\n");
         }
-        description.push_str(line.trim_left_matches("//!"));
+        description.push_str(line.trim_start_matches("//!"));
     }
     None
 }
