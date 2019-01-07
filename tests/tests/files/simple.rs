@@ -71,3 +71,13 @@ fn simple_fn() {
         _ => println!("Boo"),
     }
 }
+
+struct MultiParams<'a, T> {
+    myvar: T,
+    another_var: &'a u32,
+}
+
+impl<'a, T> MultiParams<'a, T> {
+    fn fn_with_params_in_signature(&self) {
+    }
+}
