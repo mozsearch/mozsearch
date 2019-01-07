@@ -63,7 +63,23 @@ fn crate_independent_qualname(
         return def.name.clone();
     }
 
-    format!("{}{}", crate_id.name, def.qualname)
+    fn normalize(qualname: &str) -> String {
+        // Downstream processing of the symbol doesn't deal well with
+        // these characters, so replace them with underscores
+        let mut normalized = qualname.replace(",", "_").replace(" ", "_");
+
+        // Some of the qualified names don't start with ::, for example:
+        //   __self_0_0$282
+        //   <Loader>::new
+        // Since we're mashing it with the crate_id.name later it's nice to
+        // insert the :: to make it more readable
+        if !normalized.starts_with("::") {
+            normalized.insert_str(0, "::");
+        }
+        normalized
+    }
+
+    format!("{}{}", crate_id.name, normalize(&def.qualname))
 }
 
 impl Defs {
