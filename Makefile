@@ -5,7 +5,7 @@ help:
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo
+.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison
 
 check-in-vagrant:
 	@[ -d /vagrant ] || (echo "This command must be run inside the vagrant instance" > /dev/stderr; exit 1)
@@ -34,3 +34,27 @@ build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
+
+# To test changes to indexing, run this first to generate the baseline. Then
+# make your changes, and run `make comparison`. Note that we generate
+# the index into ~/diffable and move it to ~/baseline so that when we
+# generate the index with modifications we can also generate it into the same
+# ~/diffable folder. This eliminates spurious diff results that might
+# come from different absolute paths during the index generation step
+baseline: check-in-vagrant build-clang-plugin build-rust-tools
+	rm -rf ~/diffable ~/baseline
+	mkdir -p ~/diffable
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests ~/diffable
+	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
+	mv ~/diffable ~/baseline
+
+comparison: check-in-vagrant build-clang-plugin build-rust-tools
+	rm -rf ~/diffable ~/modified
+	mkdir -p ~/diffable
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests ~/diffable
+	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
+	mv ~/diffable ~/modified
+	@echo "------------------- Below is the diff between baseline and modified. ---------------------"
+	diff -u -r -x objdir ~/baseline/tests ~/modified/tests || true
+	@echo "------------------- Above is the diff between baseline and modified. ---------------------"
+	@echo "--- Run 'diff -u -r -x objdir ~/{baseline,modified}/tests | less' to see it in a pager ---"
