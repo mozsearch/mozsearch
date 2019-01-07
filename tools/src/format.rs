@@ -217,7 +217,12 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
         output_lines.push(fixup(output));
     }
 
-    (output_lines, json::encode(&Json::Array(generated_json)).unwrap())
+    let analysis_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
+        json::encode(&Json::Array(generated_json)).unwrap()
+    } else {
+        format!("{}", json::as_pretty_json(&Json::Array(generated_json)))
+    };
+    (output_lines, analysis_json)
 }
 
 pub fn format_file_data(cfg: &config::Config,

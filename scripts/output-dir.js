@@ -218,7 +218,7 @@ function readPathFile(pathFile, structure)
 
 function recursiveGenerate(dir, path)
 {
-  generateDirectory(dir, path == "" ? "/" : path, {tree: treeName, includeDate: true});
+  generateDirectory(dir, path == "" ? "/" : path, {tree: treeName, includeDate: os.getenv("MOZSEARCH_DIFFABLE") === undefined});
 
   for (let [filename, node] of dir) {
     if (node instanceof FileInfo) {
