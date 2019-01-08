@@ -35,6 +35,29 @@ struct TreeInfo<'a> {
     objdir: &'a Path,
 }
 
+fn construct_qualname(
+    scope: &str,
+    name: &str,
+) -> String {
+    // Some of the names don't start with ::, for example:
+    //   __self_0_0$282
+    //   <Loader>::new
+    // Since we're gluing it to the "scope" (which might be a crate name)
+    // we'll insert the :: to make it more readable
+    let glue = if name.starts_with("::") {
+        ""
+    } else {
+        "::"
+    };
+    format!("{}{}{}", scope, glue, name)
+}
+
+fn sanitize_symbol(sym: &str) -> String {
+    // Downstream processing of the symbol doesn't deal well with
+    // these characters, so replace them with underscores
+    sym.replace(",", "_").replace(" ", "_")
+}
+
 // Given a definition, and the global crate id where that definition is found,
 // return a qualified name that identifies the definition unambiguously.
 fn crate_independent_qualname(
@@ -63,23 +86,7 @@ fn crate_independent_qualname(
         return def.name.clone();
     }
 
-    fn normalize(qualname: &str) -> String {
-        // Downstream processing of the symbol doesn't deal well with
-        // these characters, so replace them with underscores
-        let mut normalized = qualname.replace(",", "_").replace(" ", "_");
-
-        // Some of the qualified names don't start with ::, for example:
-        //   __self_0_0$282
-        //   <Loader>::new
-        // Since we're mashing it with the crate_id.name later it's nice to
-        // insert the :: to make it more readable
-        if !normalized.starts_with("::") {
-            normalized.insert_str(0, "::");
-        }
-        normalized
-    }
-
-    format!("{}{}", crate_id.name, normalize(&def.qualname))
+    construct_qualname(&crate_id.name, &def.qualname)
 }
 
 impl Defs {
@@ -216,11 +223,12 @@ fn visit(
         col_end,
     };
 
+    let sanitized = sanitize_symbol(qualname);
     let target_data = WithLocation {
         data: AnalysisTarget {
             kind,
-            pretty: String::from(qualname),
-            sym: String::from(qualname),
+            pretty: sanitized.clone(),
+            sym: sanitized.clone(),
             context: String::from(context.unwrap_or("")),
             contextsym: String::from(context.unwrap_or("")),
             peek_range: LineRange { start_lineno: 0, end_lineno: 0 },
@@ -232,6 +240,8 @@ fn visit(
     let pretty = {
         let mut pretty = def_kind_to_human(def.kind).to_owned();
         pretty.push_str(" ");
+        // We use the unsanitized qualname here because it's more human-readable
+        // and the source-analysis pretty name is allowed to have commas and such
         pretty.push_str(qualname);
 
         pretty
@@ -241,7 +251,7 @@ fn visit(
         data: AnalysisSource {
             syntax: vec![],
             pretty,
-            sym: vec![ String::from(qualname) ],
+            sym: vec![ sanitized ],
             no_crossref: false,
         },
         loc,
@@ -338,8 +348,7 @@ fn analyze_file(
 
         if let Some(ref parent) = parent {
             if parent.kind == DefKind::Trait {
-                let trait_dependent_name =
-                    format!("{}::{}", parent.qualname, def.name);
+                let trait_dependent_name = construct_qualname(&parent.qualname, &def.name);
                 visit(
                     &mut dataset,
                     AnalysisKind::Def,
