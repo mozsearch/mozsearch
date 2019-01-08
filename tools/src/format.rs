@@ -81,10 +81,18 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 
         let column = (token.start - line_start) as u32;
 
-        // This should never happen, but sometimes the analysis
-        // has bugs in it. This works around them.
+        // Advance cur_datum as long as analysis[cur_datum] is pointing
+        // to tokens we've already gone past. This effectively advances
+        // cur_datum such that `analysis[cur_datum]` is the analysis data
+        // for our current token (if there is any).
         while cur_datum < analysis.len() &&
             cur_line as u32 > analysis[cur_datum].loc.lineno
+        {
+            cur_datum += 1
+        }
+        while cur_datum < analysis.len() &&
+            cur_line as u32 == analysis[cur_datum].loc.lineno &&
+            column > analysis[cur_datum].loc.col_start
         {
             cur_datum += 1
         }
