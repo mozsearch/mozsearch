@@ -20,10 +20,20 @@ cat > ~/.aws/config <<"STOP"
 region = us-west-2
 STOP
 
+EMAIL_PREFIX="${CHANNEL}/${BRANCH}"
+case "${CHANNEL}" in
+    release | mozilla-releases )
+        DEST_EMAIL="searchfox-aws@mozilla.com"
+        ;;
+    * )
+        DEST_EMAIL=$(git --git-dir="${AWS_ROOT}/../../.git" show --format="%aE" --no-patch HEAD)
+        ;;
+esac
+
 # Create a crontab entry to send failure email if indexing takes too long. This
 # is basically a failsafe for if this indexer instance doesn't shut down within
 # 6 hours.
-$AWS_ROOT/make-crontab.py
+$AWS_ROOT/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}"
 
 # Run indexer with arguments supplied to this script; if it fails then send
 # failure email and shut down. Release channel failures get sent to the default
@@ -31,13 +41,5 @@ $AWS_ROOT/make-crontab.py
 # commit.
 $AWS_ROOT/index.sh $*
 if [ $? -ne 0 ]; then
-    case "$CHANNEL" in
-    release | mozilla-releases )
-        $AWS_ROOT/send-failure-email.py "[$CHANNEL/$BRANCH]" "searchfox-aws@mozilla.com"
-        ;;
-    * )
-        DEST_EMAIL=$(git --git-dir="$AWS_ROOT/../../.git" show --format="%aE" --no-patch HEAD)
-        $AWS_ROOT/send-failure-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
-        ;;
-    esac
+    $AWS_ROOT/send-failure-email.py "[${EMAIL_PREFIX}]" "${DEST_EMAIL}"
 fi
