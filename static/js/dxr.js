@@ -424,7 +424,7 @@ $(function() {
             html += "<div class='expando open' data-klass='" + classOfResult(pathkind, qkind) + "'>&#8722;</div>";
             html += "</td>";
 
-            html += "<td><div class='result-kind'>" + qkind + "</div></td></tr>";
+            html += "<td><h2 class='result-kind'>" + qkind + "</h2></td></tr>";
           }
 
           for (var i = 0; i < data[pathkind][qkind].length; i++) {
