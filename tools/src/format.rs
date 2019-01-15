@@ -406,7 +406,7 @@ pub fn format_file_data(cfg: &config::Config,
             last_revs = Some(revs.clone());
             last_color = color;
             let class = if color { 1 } else { 2 };
-            let data = format!(" class=\"blame-strip c{}\" data-blame=\"{}#{}#{}\"",
+            let data = format!(r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
                                class, revs, filespecs, blame_linenos);
             data
         } else {
@@ -742,7 +742,7 @@ pub fn format_diff(cfg: &config::Config,
                 last_rev = Some(rev);
                 last_color = color;
                 let class = if color { 1 } else { 2 };
-                format!(" class=\"blame-strip c{}\" data-blame=\"{}#{}#{}\"",
+                format!(r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
                         class, rev, filespec, blame_lineno)
             },
             None => "".to_owned(),

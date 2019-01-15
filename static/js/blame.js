@@ -108,17 +108,31 @@ function updateBlamePopup() {
   }
 }
 
+function setBlameElt(elt) {
+  if (blameElt == elt) {
+    return;
+  }
+  if (blameElt) {
+    blameElt.setAttribute("aria-expanded", false);
+  }
+  blameElt = elt;
+  if (blameElt) {
+    blameElt.setAttribute("aria-expanded", true);
+  }
+}
+
 function blameHoverHandler(event) {
   if ($('#context-menu').length) {
     return;
   }
 
-  if (event.type == "mouseleave") {
+  if (event.type == "mouseleave" ||
+      (event.type == "click" && blameElt != null)) {
     mouseElt = null;
 
     setTimeout(function() {
       if (!mouseElt) {
-        blameElt = null;
+        setBlameElt(null);
         updateBlamePopup();
       }
     }, 100);
@@ -139,11 +153,12 @@ function blameHoverHandler(event) {
       return;
     }
 
-    blameElt = mouseElt;
+    setBlameElt(mouseElt);
     updateBlamePopup();
   }
 }
 
 $(".blame-strip").on("mouseenter", blameHoverHandler);
 $(".blame-strip").on("mouseleave", blameHoverHandler);
+$(".blame-strip").on("click", blameHoverHandler);
 
