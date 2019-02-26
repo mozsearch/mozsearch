@@ -27,8 +27,8 @@ def collateMatches(matches):
     results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
     return results
 
-def do_search(host, port, pattern, fold_case, file, repo):
-    query = livegrep_pb2.Query(line = pattern, file = file, repo = repo, fold_case = fold_case)
+def do_search(host, port, pattern, fold_case, file):
+    query = livegrep_pb2.Query(line = pattern, file = file, fold_case = fold_case)
     log('QUERY %s', repr(query).replace('\n', ', '))
 
     channel = grpc.insecure_channel('{0}:{1}'.format(host, port))
@@ -76,16 +76,10 @@ def startup_codesearch(data):
     time.sleep(5)
 
 def search(pattern, fold_case, path, tree_name):
-    repo = '%s|%s-__GENERATED__' % (tree_name, tree_name)
-    # For comm-central we also want to search the mozilla/ subfolder which is a
-    # separate repo that we indexed into livegrep under the name "mozilla-subrepo"
-    if tree_name == "comm-central":
-        repo = repo + "|mozilla-subrepo"
-
     data = tree_data[tree_name]
 
     try:
-        return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, repo)
+        return do_search('localhost', data['codesearch_port'], pattern, fold_case, path)
     except Exception as e:
         log('Got exception: %s', repr(e))
         if e.code() != grpc.StatusCode.UNAVAILABLE:
@@ -97,7 +91,7 @@ def search(pattern, fold_case, path, tree_name):
         # again.
         startup_codesearch(data)
         try:
-            return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, repo)
+            return do_search('localhost', data['codesearch_port'], pattern, fold_case, path)
         except Exception as e:
             log('Got exception after restarting codesearch: %s', repr(e))
             # TODO: as above, do a better job of surfacing the error back to the user.
