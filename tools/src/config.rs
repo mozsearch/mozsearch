@@ -56,17 +56,6 @@ pub fn get_git_path(tree_config: &TreeConfig) -> Result<&str, &'static str> {
     }
 }
 
-pub fn get_hg_root(tree_config: &TreeConfig) -> String {
-    // For temporary backwards compatibility, produce the m-c root if
-    // there isn't one specified. We can remove this once all relevant
-    // deployed config.json files have an explicit hg root, and make
-    // this return an Option<&str> instead.
-    match tree_config.paths.hg_root {
-        Some(ref hg_root) => hg_root.clone(),
-        None => String::from("https://hg.mozilla.org/mozilla-central"),
-    }
-}
-
 pub fn get_git_commit_link(tree_config: &TreeConfig, commit_id: &str) -> String {
     // For backwards compatibility, produce the gecko-dev link if there isn't
     // one specified. We can remove this if we want as described above for

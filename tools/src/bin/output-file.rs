@@ -221,29 +221,38 @@ fn main() {
 
         if let Some(oid) = head_oid {
             if !path.contains("__GENERATED__") {
-                panel.push(PanelSection {
-                    name: "Revision control".to_owned(),
-                    items: vec![PanelItem {
-                        title: "Permalink".to_owned(),
-                        link: format!("/{}/rev/{}/{}", tree_name, oid, path),
-                        update_link_lineno: true,
-                        accel_key: Some('Y'),
-                    }, PanelItem {
+                let mut vcs_panel_items = vec![];
+                vcs_panel_items.push(PanelItem {
+                    title: "Permalink".to_owned(),
+                    link: format!("/{}/rev/{}/{}", tree_name, oid, path),
+                    update_link_lineno: true,
+                    accel_key: Some('Y'),
+                });
+                if let Some(ref hg_root) = tree_config.paths.hg_root {
+                    vcs_panel_items.push(PanelItem {
                         title: "Log".to_owned(),
-                        link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
+                        link: format!("{}/log/tip/{}", hg_root, path),
                         update_link_lineno: false,
                         accel_key: Some('L'),
-                     }, PanelItem {
+                    });
+                    vcs_panel_items.push(PanelItem {
                         title: "Raw".to_owned(),
-                        link: format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path),
+                        link: format!("{}/raw-file/tip/{}", hg_root, path),
                         update_link_lineno: false,
                         accel_key: Some('R'),
-                    }, PanelItem {
+                    });
+                }
+                if tree_config.paths.git_blame_path.is_some() {
+                    vcs_panel_items.push(PanelItem {
                         title: "Blame".to_owned(),
                         link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
                         update_link_lineno: false,
                         accel_key: None,
-                    }],
+                    });
+                }
+                panel.push(PanelSection {
+                    name: "Revision control".to_owned(),
+                    items: vcs_panel_items,
                 });
             }
         }

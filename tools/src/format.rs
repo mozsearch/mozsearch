@@ -291,8 +291,10 @@ pub fn format_file_data(cfg: &config::Config,
 
     if let Some(ext) = path_wrapper.extension() {
         if ext.to_str().unwrap() == "svg" {
-            let url = format!("{}/raw-file/tip/{}", config::get_hg_root(tree_config), path);
-            try!(output::generate_svg_preview(writer, &url))
+            if let Some(ref hg_root) = tree_config.paths.hg_root {
+                let url = format!("{}/raw-file/tip/{}", hg_root, path);
+                output::generate_svg_preview(writer, &url)?
+            }
         }
     }
 
@@ -503,29 +505,38 @@ pub fn format_path(cfg: &config::Config,
         .and_then(|rev| Some(rev.as_ref())) // &String to &str conversion
         .unwrap_or(&"tip");
 
-    let panel = vec![PanelSection {
-        name: "Revision control".to_owned(),
-        items: vec![PanelItem {
-            title: "Go to latest version".to_owned(),
-            link: format!("/{}/source/{}", tree_name, path),
-            update_link_lineno: true,
-            accel_key: None,
-        }, PanelItem {
+    let mut vcs_panel_items = vec![];
+    vcs_panel_items.push(PanelItem {
+        title: "Go to latest version".to_owned(),
+        link: format!("/{}/source/{}", tree_name, path),
+        update_link_lineno: true,
+        accel_key: None,
+    });
+    if let Some(ref hg_root) = tree_config.paths.hg_root {
+        vcs_panel_items.push(PanelItem {
             title: "Log".to_owned(),
-            link: format!("{}/log/{}/{}", config::get_hg_root(tree_config), hg_rev, path),
+            link: format!("{}/log/{}/{}", hg_root, hg_rev, path),
             update_link_lineno: false,
             accel_key: Some('L'),
-        }, PanelItem {
+        });
+        vcs_panel_items.push(PanelItem {
             title: "Raw".to_owned(),
-            link: format!("{}/raw-file/{}/{}", config::get_hg_root(tree_config), hg_rev, path),
+            link: format!("{}/raw-file/{}/{}", hg_root, hg_rev, path),
             update_link_lineno: false,
             accel_key: Some('R'),
-        }, PanelItem {
+        });
+    }
+    if tree_config.paths.git_blame_path.is_some() {
+        vcs_panel_items.push(PanelItem {
             title: "Blame".to_owned(),
             link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
             update_link_lineno: false,
             accel_key: None,
-        }],
+        });
+    }
+    let panel = vec![PanelSection {
+        name: "Revision control".to_owned(),
+        items: vcs_panel_items,
     }];
 
     try!(format_file_data(cfg,
@@ -680,29 +691,37 @@ pub fn format_diff(cfg: &config::Config,
 
     try!(output::generate_header(&opt, writer));
 
-    let sections = vec![PanelSection {
-        name: "Revision control".to_owned(),
-        items: vec![PanelItem {
+    let mut vcs_panel_items = vec![
+        PanelItem {
             title: "Show changeset".to_owned(),
             link: format!("/{}/commit/{}", tree_name, rev),
             update_link_lineno: false,
             accel_key: None,
-        }, PanelItem {
+        },
+        PanelItem {
             title: "Show file without diff".to_owned(),
             link: format!("/{}/rev/{}/{}", tree_name, rev, path),
             update_link_lineno: true,
             accel_key: None,
-        }, PanelItem {
+        },
+        PanelItem {
             title: "Go to latest version".to_owned(),
             link: format!("/{}/source/{}", tree_name, path),
             update_link_lineno: true,
             accel_key: None,
-        }, PanelItem {
+        }
+    ];
+    if let Some(ref hg_root) = tree_config.paths.hg_root {
+        vcs_panel_items.push(PanelItem {
             title: "Log".to_owned(),
-            link: format!("{}/log/tip/{}", config::get_hg_root(tree_config), path),
+            link: format!("{}/log/tip/{}", hg_root, path),
             update_link_lineno: false,
             accel_key: Some('L'),
-        }],
+        });
+    }
+    let sections = vec![PanelSection {
+        name: "Revision control".to_owned(),
+        items: vcs_panel_items,
     }];
     try!(output::generate_panel(writer, &sections));
 
@@ -844,7 +863,7 @@ fn generate_commit_info(tree_name: &str,
     let git = try!(config::get_git(tree_config));
     let hg = match git.hg_map.get(&commit.id()) {
         Some(hg_id) => {
-            let hg_link = format!("<a href=\"{}/rev/{}\">{}</a>", config::get_hg_root(tree_config), hg_id, hg_id);
+            let hg_link = format!("<a href=\"{}/rev/{}\">{}</a>", tree_config.paths.hg_root.as_ref().unwrap(), hg_id, hg_id);
             vec![F::T(format!("<tr><td>hg</td><td>{}</td></tr>", hg_link))]
         },
 
