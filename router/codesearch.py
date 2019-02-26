@@ -12,12 +12,14 @@ import livegrep_pb2_grpc
 def collateMatches(matches):
     paths = {}
     for m in matches:
-        # For results in the "mozilla-subrepo" repo, which is the mozilla/
-        # subfolder of comm-central, we need to adjust the path to reflect
-        # the fact that it's in the subfolder.
+        # If the tree name ends in "-subrepo", then we need to adjust the
+        # path to account for the fact that the subrepo root is in a subfolder
+        # of the main repo.
         path = m.path
-        if m.tree == 'mozilla-subrepo':
-            path = 'mozilla/' + path
+        subrepo_suffix = '-subrepo'
+        if m.tree.endswith(subrepo_suffix):
+            subrepo_name = m.tree[0:(len(m.tree)-len(subrepo_suffix))]
+            path = subrepo_name + '/' + path
 
         paths.setdefault(path, []).append({
             'lno': m.line_number,
