@@ -56,18 +56,6 @@ pub fn get_git_path(tree_config: &TreeConfig) -> Result<&str, &'static str> {
     }
 }
 
-pub fn get_git_commit_link(tree_config: &TreeConfig, commit_id: &str) -> String {
-    // For backwards compatibility, produce the gecko-dev link if there isn't
-    // one specified. We can remove this if we want as described above for
-    // get_hg_root and such.
-    let repo = match tree_config.paths.github_repo {
-        Some(ref repo) => &**repo,
-        None => "https://github.com/mozilla/gecko-dev",
-    };
-
-    format!("{}/commit/{}", repo, commit_id)
-}
-
 pub fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
     let mut walk = blame_repo.revwalk().unwrap();
     walk.push_head().unwrap();
