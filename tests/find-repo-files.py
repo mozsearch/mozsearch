@@ -14,7 +14,7 @@ tree_name = sys.argv[2]
 
 repo_path = config['trees'][tree_name]['files_path']
 
-stdout = run('git ls-files', shell=True, cwd=repo_path)
+stdout = run('git ls-files --recurse-submodules', shell=True, cwd=repo_path)
 lines = stdout.split('\n')
 
 files = []
