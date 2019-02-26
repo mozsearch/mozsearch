@@ -15,8 +15,7 @@
       "objdir_path": "$WORKING/searchfox/objdir",
       "git_path": "$MOZSEARCH_PATH",
       "codesearch_path": "$WORKING/searchfox/livegrep.idx",
-      "codesearch_port": 8081,
-      "hg_root": "https://hg.mozilla.org/nonexistent-searchfox-hg-mirror"
+      "codesearch_port": 8081
     }
   }
 }
