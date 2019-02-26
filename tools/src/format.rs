@@ -871,11 +871,9 @@ fn generate_commit_info(tree_name: &str,
     };
 
     let id_string = format!("{}", commit.id());
-    let gitstr = format!(
-        "<a href=\"{}\">{}</a>",
-        config::get_git_commit_link(tree_config, &id_string),
-        id_string,
-    );
+    let gitstr = tree_config.paths.github_repo.as_ref().map(|ref ghurl| {
+        format!("<a href=\"{}/commit/{}\">{}</a>", ghurl, id_string, id_string)
+    });
 
     let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
     let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
@@ -891,7 +889,7 @@ fn generate_commit_info(tree_name: &str,
             F::T(format!("<tr><td>commit</td><td>{}</td></tr>", format_rev(tree_name, commit.id()))),
             F::Seq(parents),
             F::Seq(hg),
-            F::T(format!("<tr><td>git</td><td>{}</td></tr>", gitstr)),
+            F::T(gitstr.map_or(String::new(), |g| format!("<tr><td>git</td><td>{}</td></tr>", g))),
             F::T(format!("<tr><td>author</td><td>{}</td></tr>", format_sig(commit.author(), git))),
             F::T(format!("<tr><td>committer</td><td>{}</td></tr>", format_sig(commit.committer(), git))),
             F::T(format!("<tr><td>commit time</td><td>{}</td></tr>", t)),
