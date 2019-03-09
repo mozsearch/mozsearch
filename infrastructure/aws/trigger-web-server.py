@@ -96,8 +96,12 @@ ip = webServerInstance.private_ip_address
 
 while True:
     try:
-        subprocess.check_call(["curl", "-f", "-m", "10.0",
-                               "http://%s/mozilla-central/search?q=nsGlobalWindow" % ip])
+        status = subprocess.check_output(
+            ["curl", "-f", "-s", "-m", "10.0", "http://%s/status.txt" % ip])
+        print 'Got status.txt: [%s]' % status
+        if len(status.splitlines()) < 2:
+            time.sleep(10)
+            continue
     except:
         time.sleep(10)
         continue

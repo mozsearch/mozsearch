@@ -27,8 +27,9 @@ serving, passing it the name of the indexer instance as an
 argument. The web server instance attaches and mounts the index volume
 and starts serving web pages.
 
-The indexer instance verifies that the web server instance is
-functioning normally using some smoke tests. Then it updates the ELB
+The indexer instance waits for the web server to report that it is
+up and running (by polling the /status.txt URL, which is updated by
+the web server processes). Then it updates the ELB
 target group to point to the new web server instead of the old
 one. Finally, it shuts down and destroys any old web server instances
 and index volumes. Finally, the indexer instance terminates itself.
