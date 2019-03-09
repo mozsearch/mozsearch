@@ -76,7 +76,7 @@ the index directory at `~/index`.
 
 ```
 mkdir ~/index
-/vagrant/infrastructure/indexer-setup.sh /vagrant/tests ~/index
+/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
 ```
 
 Now it's time to index! To do that, run the `indexer-run.sh`
@@ -94,7 +94,7 @@ requests, we can start the server as follows:
 ```
 # Creates a configuration file for nginx. The last path gives the location
 # where log files are stored.
-/vagrant/infrastructure/web-server-setup.sh /vagrant/tests ~/index ~
+/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 
 # Starts the Python and Rust servers needed for Mozsearch.
 /vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~
@@ -122,7 +122,7 @@ nano ~/mozilla-config/config.json
 mkdir ~/mozilla-index
 
 # This step will download copies of the Mozilla code and blame information, so it may be slow.
-/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config ~/mozilla-index
+/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config.json ~/mozilla-index
 
 # This step involves compiling Gecko and indexing a lot of code, so it will be slow!
 /vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index

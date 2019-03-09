@@ -5,7 +5,7 @@ import os.path
 
 # Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <branch> [release|dev]
 
-def trigger(mozsearch_repo, config_repo, branch, channel, spot=False):
+def trigger(mozsearch_repo, config_repo, config_input, branch, channel, spot=False):
     ec2 = boto3.resource('ec2')
     client = boto3.client('ec2')
 
@@ -13,8 +13,8 @@ def trigger(mozsearch_repo, config_repo, branch, channel, spot=False):
 
 cd ~ubuntu
 sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
-sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{mozsearch_repo}" "{config_repo}" config
-'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo)
+sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{mozsearch_repo}" "{config_repo}" config "{config_input}"
+'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input)
 
     block_devices = []
 
@@ -45,6 +45,9 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
             }, {
                 'Key': 'crepo',
                 'Value': config_repo
+            }, {
+                'Key': 'cfile',
+                'Value': config_input
             }],
         }],
     }
@@ -70,9 +73,10 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
 if __name__ == '__main__':
     mozsearch_repo = sys.argv[1]
     config_repo = sys.argv[2]
-    branch = sys.argv[3]
+    config_input = sys.argv[3]
+    branch = sys.argv[4]
 
     # 'release' or 'dev'
-    channel = sys.argv[4]
+    channel = sys.argv[5]
 
-    trigger(mozsearch_repo, config_repo, branch, channel, spot=False)
+    trigger(mozsearch_repo, config_repo, config_input, branch, channel, spot=False)

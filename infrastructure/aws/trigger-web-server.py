@@ -23,7 +23,8 @@ branch = sys.argv[1]
 channel = sys.argv[2]
 mozsearch_repo = sys.argv[3]
 config_repo = sys.argv[4]
-volumeId = sys.argv[5]
+config_input = sys.argv[5]
+volumeId = sys.argv[6]
 
 targetGroup = "%s-target" % channel
 
@@ -36,8 +37,8 @@ userData = '''#!/usr/bin/env bash
 cd ~ubuntu
 touch web_server_started
 sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
-sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config
-'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo)
+sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_input}"
+'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input)
 
 volumes = ec2.describe_volumes(VolumeIds=[volumeId])
 availability_zone = volumes['Volumes'][0]['AvailabilityZone']
@@ -83,6 +84,9 @@ ec2.create_tags(Resources=[webServerInstanceId], Tags=[{
 }, {
     'Key': 'channel',
     'Value': channel,
+}, {
+    'Key': 'cfile',
+    'Value': config_input,
 }])
 
 print 'Attaching index volume to web server instance...'

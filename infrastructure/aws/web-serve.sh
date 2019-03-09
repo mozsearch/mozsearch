@@ -6,9 +6,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 1 ]
+if [ $# != 2 ]
 then
-    echo "usage: $0 <config-repo-path>"
+    echo "usage: $0 <config-repo-path> <config-file-name>"
     exit 1
 fi
 
@@ -16,6 +16,7 @@ SCRIPT_PATH=$(readlink -f "$0")
 MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/..
 
 CONFIG_REPO=$(readlink -f $1)
+CONFIG_INPUT="$2"
 
 set +o pipefail   # The grep command below can return nonzero, so temporarily allow pipefail
 while true
@@ -33,5 +34,5 @@ echo "Index volume detected"
 mkdir ~ubuntu/index
 sudo mount /dev/xvdf ~ubuntu/index
 
-$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO index ~ hsts
+$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT index ~ hsts
 $MOZSEARCH_PATH/web-server-run.sh $CONFIG_REPO index ~

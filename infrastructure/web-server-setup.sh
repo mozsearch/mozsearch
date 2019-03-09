@@ -4,21 +4,22 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 3 -a $# != 4 ]
+if [ $# != 4 -a $# != 5 ]
 then
-    echo "usage: $0 <config-repo-path> <index-path> <server-root> [<use_hsts>]"
+    echo "usage: $0 <config-repo-path> <config-file-name> <index-path> <server-root> [<use_hsts>]"
     exit 1
 fi
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
 CONFIG_REPO=$(readlink -f $1)
-WORKING=$(readlink -f $2)
+CONFIG_INPUT="$2"
+WORKING=$(readlink -f $3)
 CONFIG_FILE=$WORKING/config.json
-SERVER_ROOT=$(readlink -f $3)
-USE_HSTS=${4:-}
+SERVER_ROOT=$(readlink -f $4)
+USE_HSTS=${5:-}
 
-$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $WORKING
+$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING
 
 sudo mkdir -p /etc/nginx/sites-enabled
 sudo rm -f /etc/nginx/sites-enabled/default

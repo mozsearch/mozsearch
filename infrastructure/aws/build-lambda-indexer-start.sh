@@ -4,18 +4,19 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Usage: build-lambda-indexer-start.sh <mozsearch-repo> <config-repo> <branch> [release|dev]
+# Usage: build-lambda-indexer-start.sh <mozsearch-repo> <config-repo> <config-file> <branch> [release|dev]
 
-if [ $# != 4 ]
+if [ $# != 5 ]
 then
-    echo "usage: $0 <mozsearch-repo> <config-repo> <branch> <channel (dev or release)>"
+    echo "usage: $0 <mozsearch-repo> <config-repo> <config-file> <branch> <channel (dev or release)>"
     exit 1
 fi
 
 MOZSEARCH_REPO=$1
 CONFIG_REPO=$2
-BRANCH=$3
-CHANNEL=$4
+CONFIG_INPUT=$3
+BRANCH=$4
+CHANNEL=$5
 
 MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
 
@@ -29,7 +30,7 @@ import boto3
 import trigger_indexer
 
 def start(event, context):
-    trigger_indexer.trigger("$MOZSEARCH_REPO", "$CONFIG_REPO", "$BRANCH", "$CHANNEL", False)
+    trigger_indexer.trigger("$MOZSEARCH_REPO", "$CONFIG_REPO", "$CONFIG_INPUT", "$BRANCH", "$CHANNEL", False)
 EOF
 
 pushd /tmp/lambda

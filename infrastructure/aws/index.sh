@@ -6,9 +6,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 5 ]
+if [ $# != 6 ]
 then
-    echo "usage: $0 <branch> <channel> <mozsearch-repo-url> <config-repo-url> <config-repo-path>"
+    echo "usage: $0 <branch> <channel> <mozsearch-repo-url> <config-repo-url> <config-repo-path> <config-file-name>"
     exit 1
 fi
 
@@ -20,6 +20,7 @@ CHANNEL=$2
 MOZSEARCH_REPO_URL=$3
 CONFIG_REPO_URL=$4
 CONFIG_REPO_PATH=$(readlink -f $5)
+CONFIG_INPUT="$6"
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
@@ -47,7 +48,7 @@ sudo mkdir /index
 sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
-$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH /index
+$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_INPUT /index
 if [ $CHANNEL == release ]
 then
     # Only upload files on release channel.
@@ -65,7 +66,7 @@ cp ~ubuntu/index-log /index/index-log
 sudo umount /index
 
 python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $VOLUME_ID
+python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID
 
 if [ $CHANNEL == release ]
 then

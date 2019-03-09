@@ -22,17 +22,17 @@ test-rust-tools:
 
 build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests ~/index
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests ~/index ~
+	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~
 
 build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 	mkdir -p ~/mozilla-index
-	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config ~/mozilla-index
+	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config.json ~/mozilla-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config ~/mozilla-index ~
+	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config config.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
 # To test changes to indexing, run this first to generate the baseline. Then
@@ -44,14 +44,14 @@ build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 baseline: check-in-vagrant build-clang-plugin build-rust-tools
 	rm -rf ~/diffable ~/baseline
 	mkdir -p ~/diffable
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests ~/diffable
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/diffable
 	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
 	mv ~/diffable ~/baseline
 
 comparison: check-in-vagrant build-clang-plugin build-rust-tools
 	rm -rf ~/diffable ~/modified
 	mkdir -p ~/diffable
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests ~/diffable
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/diffable
 	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
 	mv ~/diffable ~/modified
 	@echo "------------------- Below is the diff between baseline and modified. ---------------------"
