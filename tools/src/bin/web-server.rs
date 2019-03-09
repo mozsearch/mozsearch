@@ -3,9 +3,9 @@ extern crate env_logger;
 extern crate tools;
 
 use std::sync::Mutex;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::BufReader;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::env;
 use std::collections::HashMap;
@@ -246,6 +246,18 @@ fn main() {
         res.headers_mut().set(ContentType(mime));
         res.send(&output).unwrap();
     };
+
+    {
+        // We *append* to the status file because other server components
+        // also write to this file when they are done starting up, and we
+        // don't want to clobber those messages.
+        let mut status_out = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&env::args().nth(2).unwrap())
+            .unwrap();
+        writeln!(status_out, "web-server.rs loaded").unwrap();
+    }
 
     println!("On 8001");
     let _listening = hyper::Server::http("0.0.0.0:8001").unwrap().handle(handler);

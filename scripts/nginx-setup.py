@@ -87,4 +87,10 @@ location('= /', [
     'add_header Cache-Control "public";',
 ])
 
+location('= /status.txt', [
+    'root %(doc_root)s;',
+    'try_files $uri =404;',
+    'add_header Cache-Control "public";',
+])
+
 print '}'

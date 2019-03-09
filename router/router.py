@@ -477,10 +477,8 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         self.wfile.write(output)
 
-if len(sys.argv) > 1:
-    config_fname = sys.argv[1]
-else:
-    config_fname = 'config.json'
+config_fname = sys.argv[1]
+status_fname = sys.argv[2]
 
 config = json.load(open(config_fname))
 
@@ -489,6 +487,12 @@ os.chdir(config['mozsearch_path'])
 crossrefs.load(config)
 codesearch.load(config)
 identifiers.load(config)
+
+# We *append* to the status file because other server components
+# also write to this file when they are done starting up, and we
+# don't want to clobber those messages.
+with open(status_fname, "a") as status_out:
+    status_out.write("router.py loaded\n")
 
 class ForkingServer(ForkingMixIn, HTTPServer):
     pass
