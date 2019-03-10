@@ -35,6 +35,14 @@ build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config config.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
+build-releases-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
+	mkdir -p ~/releases-index
+	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config mozilla-releases.json ~/releases-index
+	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/releases-index
+	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config mozilla-releases.json ~/releases-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/releases-index ~
+
 # To test changes to indexing, run this first to generate the baseline. Then
 # make your changes, and run `make comparison`. Note that we generate
 # the index into ~/diffable and move it to ~/baseline so that when we
