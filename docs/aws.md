@@ -4,13 +4,26 @@ Mozsearch supports being deployed to AWS. Incoming requests are
 handled by an Elastic Load Balancer instance. Using ELB means that the
 web server machines don't need to know anything about the TLS
 certificate being used. ELB takes care of that. The load balancer
-directs requests to a "target group", which consists of a single EC2
-machine that handles web serving.
+directs each incoming request to a "target group", which consists
+of a single EC2 machine that handles web serving. The target group
+is chosen based on the code repository that the request is directed
+to. As of this writing, for example, the mozilla-central repository
+is handled by the "release-target" target group, while the mozilla-beta
+repository is handled by the "mozilla-releases-target" target group.
+The mapping from repository to target group is set manually by path
+routing rules in the load balancer configuration.
 
 An AWS Lambda task runs each day to start indexing of all the
-trees. This job starts up an EC2 instance to perform the indexing. The
-indexing instance has an extra Elastic Block Store volume attached
-where the index will be stored.
+trees. This job starts up EC2 instances to perform the indexing. Each
+indexing instance takes care of the repos from a single config file.
+So there will be one indexer instance processing the repos in
+[config.json](https://github.com/mozsearch/mozsearch-mozilla/config.json)
+and another instance processing the repos in
+[mozilla-releases.json](https://github.com/mozsearch/mozsearch-mozilla/blob/master/mozilla-releases.json).
+The indexing instances have an extra Elastic Block Store volume attached
+where the index will be stored. The following paragraps explain the
+lifecycle of a single indexer and its web server; the lifecycle applies
+to each indexer instance.
 
 The indexing instance downloads all the Git repositories from an
 Amazon S3 bucket. It updates these repositories to the latest version

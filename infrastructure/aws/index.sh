@@ -49,11 +49,14 @@ sudo mount /dev/xvdf /index
 sudo chown ubuntu.ubuntu /index
 
 $MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_INPUT /index
-if [ $CHANNEL == release ]
-then
-    # Only upload files on release channel.
+case "$CHANNEL" in
+release | mozilla-releases )
+    # Only upload files on release channels.
     $MOZSEARCH_PATH/infrastructure/indexer-upload.sh $CONFIG_REPO_PATH /index
-fi
+    ;;
+* )
+    ;;
+esac
 $MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index
 
 date
@@ -68,25 +71,30 @@ sudo umount /index
 python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
 python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID
 
-if [ $CHANNEL == release ]
-then
+case "$CHANNEL" in
+release | mozilla-releases )
     DEST_EMAIL="searchfox-aws@mozilla.com"
-else
+    ;;
+* )
     # For dev-channel runs, send emails to the author of the HEAD commit in the
     # repo.
     DEST_EMAIL=$(git --git-dir="$MOZSEARCH_PATH/.git" show --format="%aE" --no-patch HEAD)
-fi
+    ;;
+esac
 
 $AWS_ROOT/send-warning-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 
 gzip -k ~ubuntu/index-log
 python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`
 
-if [ $CHANNEL != release ]
-then
+case "$CHANNEL" in
+release | mozilla-releases )
     # Don't send completion email notification for release channel.
+    ;;
+* )
     $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
-fi
+    ;;
+esac
 
 # Give logger time to catch up
 sleep 30
