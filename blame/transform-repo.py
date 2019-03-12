@@ -24,6 +24,24 @@ else:
 old_repo = pygit2.Repository(pygit2.discover_repository(old_path))
 new_repo = pygit2.Repository(pygit2.discover_repository(new_path))
 
+# Set BLAME_REF to something like 'refs/heads/beta' to transform
+# commits from the 'beta' branch in the source repo to the 'beta'
+# branch in the destination repo. Obviously the source repo must
+# have a beta branch already defined; if the destination repo doesn't
+# have one, one will be created. But be careful! If the destination
+# repo doesn't have the branch, none of the existing commits in the
+# repo will be read, so commits that already exist there (because they
+# are common ancestors of the new branch and some other pre-existing
+# branch, for example) will be "converted" again which can lead to
+# duplicated commits at worst or wasted work at best. It is therefore
+# advisable to ensure the destination repo also has the branch already
+# defined, and points to a commit that is a descendant of all the
+# common ancestors, so that those ancestors get read before any new
+# commits are created. The only case where it makes sense to not have
+# the branch in the destination repo, is if the destination repo is
+# brand new and has nothing in it.
+blame_ref = os.environ.get('BLAME_REF') or 'HEAD'
+
 timers = {}
 
 class Timer:
@@ -227,10 +245,12 @@ def transform_revision(commit):
     tree = builder.write()
 
     reference = None
+    ref = None
     try:
-        new_repo.head
+        ref = new_repo.lookup_reference(blame_ref).resolve()
     except:
-        reference = 'refs/heads/master'
+        # ref doesn't exist yet, so let's create it
+        reference = blame_ref
 
     hg_id = git_to_hg_map.get(commit.id)
     if hg_id:
@@ -246,7 +266,8 @@ def transform_revision(commit):
                                      tree,
                                      new_parents)
 
-        new_repo.head.set_target(oid)
+        if ref is not None:
+            ref.set_target(oid)
 
         blame_map[commit.id] = new_repo.get(oid)
         print '  ->', oid
@@ -261,13 +282,15 @@ def index_mercurial(map_file):
     return m
 
 def index_existing():
+    ref = None
     try:
-        new_repo.head.target
+        ref = new_repo.lookup_reference(blame_ref).resolve()
     except:
+        # ref doesn't exist yet, so nothing to index
         return {}
 
     blame_map = {}
-    for commit in new_repo.walk(new_repo.head.target):
+    for commit in new_repo.walk(ref.target):
         orig = pygit2.Oid(hex=commit.message.split()[1])
         blame_map[orig] = commit
 
@@ -285,7 +308,9 @@ blame_map = index_existing()
 def transform():
     index = 0
     count = 0
-    for commit in old_repo.walk(old_repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL | pygit2.GIT_SORT_REVERSE):
+    ref = old_repo.lookup_reference(blame_ref).resolve()
+    print 'Starting from ref ', blame_ref, ' = ', ref.target
+    for commit in old_repo.walk(ref.target, pygit2.GIT_SORT_TOPOLOGICAL | pygit2.GIT_SORT_REVERSE):
         index += 1
 
         if commit.id not in blame_map:
