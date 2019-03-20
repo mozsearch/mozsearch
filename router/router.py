@@ -125,11 +125,13 @@ class SearchResults(object):
 
     def categorize_path(self, path):
         def is_test(p):
+            # Except /unit/, all other paths contain the substring 'test', so we can exit early
+            # in case it is not present.
             if '/unit/' in p:
                 return True
             if 'test' not in p:
                 return False
-            return ('/test/' in p or '/tests/' in p or '/mochitest/' in p or '/unit/' in p or 'testing/' in p or
+            return ('/test/' in p or '/tests/' in p or '/mochitest/' in p or 'testing/' in p or
                     '/jsapi-tests/' in p or '/reftests/' in p or '/reftest/' in p or
                     '/crashtests/' in p or '/crashtest/' in p or
                     '/googletest/' in p or '/gtest/' in p or '/gtests/' in p)
