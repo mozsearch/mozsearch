@@ -142,6 +142,26 @@ lazy_static! {
         "while", "null", "true", "false",
     ];
 
+    // http://kotlinlang.org/docs/reference/keyword-reference.html
+    static ref RESERVED_WORDS_KOTLIN : Vec<&'static str> = vec![
+        "as", "as?", "break", "class", "continue", "do", "else", "false",
+        "for", "fun", "if", "in", "!in", "interface", "is", "!is", "null",
+        "object", "package", "return", "super", "this", "throw", "true",
+        "try", "typealias", "val", "var", "when", "while",
+
+        "by", "catch", "constructor", "delegate", "dynamic", "field", "file",
+        "finally", "get", "import", "init", "param", "property", "receiver",
+        "set", "setparam", "where",
+
+        "actual", "abstract", "annotation", "companion", "const",
+        "crossinline", "data", "enum", "expect", "external", "final", "infix",
+        "inline", "inner", "internal", "lateinit", "noinline", "open",
+        "operator", "out", "override", "private", "protected", "public",
+        "reified", "sealed", "suspend", "tailrec", "vararg",
+
+        "field", "it",
+    ];
+
     static ref JS_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_JS),
         c_style_comments: true,
@@ -196,6 +216,12 @@ lazy_static! {
         c_style_comments: true,
         .. LanguageSpec::default()
     };
+
+    static ref KOTLIN_SPEC : LanguageSpec = LanguageSpec {
+        reserved_words: make_reserved(&*RESERVED_WORDS_KOTLIN),
+        c_style_comments: true,
+        .. LanguageSpec::default()
+    };
 }
 
 #[derive(Debug)]
@@ -226,6 +252,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "py" | "build" | "configure" => FormatAs::FormatCLike(&*PYTHON_SPEC),
         "rs" => FormatAs::FormatCLike(&*RUST_SPEC),
         "java" => FormatAs::FormatCLike(&*JAVA_SPEC),
+        "kt" => FormatAs::FormatCLike(&*KOTLIN_SPEC),
 
         "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
 
