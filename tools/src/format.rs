@@ -464,6 +464,19 @@ pub fn format_file_data(cfg: &config::Config,
     Ok(())
 }
 
+fn entry_to_blob(repo: &git2::Repository, entry: &git2::TreeEntry) -> Result<String, &'static str> {
+    match entry.kind() {
+        Some(git2::ObjectType::Blob) => {},
+        _ => return Err("Invalid path; expected file"),
+    }
+
+    if entry.filemode() == 120000 {
+        return Err("Path is to a symlink");
+    }
+
+    Ok(git_ops::read_blob_entry(repo, entry))
+}
+
 pub fn format_path(cfg: &config::Config,
                    tree_name: &str,
                    rev: &str,
@@ -475,7 +488,41 @@ pub fn format_path(cfg: &config::Config,
     let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
     let commit = try!(commit_obj.into_commit().map_err(|_| "Bad revision"));
     let commit_tree = try!(commit.tree().map_err(|_| "Bad revision"));
-    let entry = try!(commit_tree.get_path(Path::new(path)).map_err(|_| "File not found"));
+    let path_obj = Path::new(path);
+    let data = match commit_tree.get_path(path_obj) {
+        Ok(entry) => entry_to_blob(&git.repo, &entry)?,
+        Err(_) => {
+            // Check to see if this path is inside a submodule
+            let mut test_path = path_obj.parent();
+            loop {
+                let subrepo_path = match test_path {
+                    Some(path) => path,
+                    None => return Err("File not found"),
+                };
+                let entry = match commit_tree.get_path(subrepo_path) {
+                    Ok(e) => e,
+                    Err(_) => {
+                        test_path = subrepo_path.parent();
+                        continue;
+                    }
+                };
+                if entry.kind() != Some(git2::ObjectType::Commit) {
+                    return Err("File not found");
+                }
+
+                // If we get here, the path is inside a submodule
+                let subrepo_path = subrepo_path.to_str().ok_or("UTF-8 error")?;
+                let subrepo = git.repo.find_submodule(subrepo_path).map_err(|_| "Can't find submodule")?;
+                let subrepo = subrepo.open().map_err(|_| "Can't open submodule")?;
+                let path_in_subrepo = path_obj.strip_prefix(subrepo_path).map_err(|_| "Submodule path error")?;
+                let subentry = subrepo.find_commit(entry.id())
+                    .and_then(|commit| commit.tree())
+                    .and_then(|tree| tree.get_path(path_in_subrepo))
+                    .map_err(|_| "File not found in submodule")?;
+                break entry_to_blob(&subrepo, &subentry)?;
+            }
+        }
+    };
 
     // Get blame.
     let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
@@ -484,17 +531,6 @@ pub fn format_path(cfg: &config::Config,
     } else {
         None
     };
-
-    match entry.kind() {
-        Some(git2::ObjectType::Blob) => {},
-        _ => return Err("Invalid path; expected file"),
-    }
-
-    if entry.filemode() == 120000 {
-        return Err("Path is to a symlink");
-    }
-
-    let data = git_ops::read_blob_entry(&git.repo, &entry);
 
     let jumps : HashMap<String, analysis::Jump> = HashMap::new();
     let analysis = Vec::new();
