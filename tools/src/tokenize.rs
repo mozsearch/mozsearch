@@ -110,7 +110,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
         nl + 1
     };
 
-    while cur_pos.get() < chars.len() {
+    'token_loop: while cur_pos.get() < chars.len() {
         let (start, mut ch) = get_char();
         let mut continue_backtick = false;
         if let Some(braces) = backtick_nesting.last_mut() {
@@ -160,6 +160,13 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 let (_, ch) = get_char();
                 if ch == '"' {
                     break;
+                } else if ch != '#' {
+                    // Not actually a Rust raw string literal. We can
+                    // run into this in macro inputs and such. Just
+                    // treat it as plain text and move on, which is
+                    // better than crashing
+                    tokens.push(Token {start, end: peek_pos(), kind: TokenKind::PlainText});
+                    continue 'token_loop;
                 }
                 nhashes += 1;
             }
