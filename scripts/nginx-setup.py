@@ -14,9 +14,26 @@ mozsearch_path = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(
 
 config = json.load(open(config_fname))
 
+# Keep this list in sync with the FormatAs::Binary list in languages.rs
+binary_types = {
+  'ogg opus': 'audio/ogg',
+  'wav': 'audio/wav',
+  'mp3': 'audio/mpeg',
+  'png': 'image/png',
+  'gif': 'image/gif',
+  'jpg jpeg': 'image/jpeg',
+  'bmp': 'image/bmp',
+  'ico': 'image/vnd.microsoft.icon',
+  'ogv': 'video/ogg',
+  'mp4': 'video/mpeg',
+  'webm': 'video/webm',
+  'ttf xpi bcmap icns sqlite jar woff class m4s mgif otf': 'application/x-unknown',
+}
+
 fmt = {
   'doc_root': doc_root,
   'mozsearch_path': mozsearch_path,
+  'binary_types': " ".join((mime + " " + exts + ";") for (exts, mime) in binary_types.iteritems()),
 }
 
 def location(route, directives):
@@ -62,7 +79,7 @@ for repo in config['trees']:
     location('/%(repo)s/source', [
         'root %(doc_root)s;',
         'try_files /file/$uri /dir/$uri/index.html =404;',
-        'types { image/png png; image/jpeg jpeg jpg; image/gif gif; }',
+        'types { %(binary_types)s }',
         'default_type text/html;',
         'add_header Cache-Control "public";',
     ])
