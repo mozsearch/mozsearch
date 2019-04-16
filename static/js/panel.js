@@ -24,15 +24,14 @@ $(function() {
     permalinkNode = permalinkNode.length == 0 ? null : permalinkNode[0];
 
     function pushPermalink() {
-        if (history.state && history.state.permalink) {
-            return false;
-        }
         if (permalinkNode) {
-            history.pushState(
-                { permalink: permalinkNode.href },
-                window.title,
-                permalinkNode.href
-            );
+            if (window.location.href != permalinkNode.href) {
+                history.pushState(
+                    { permalink: permalinkNode.href },
+                    window.title,
+                    permalinkNode.href
+                );
+            }
             return true;
         }
         return false;
