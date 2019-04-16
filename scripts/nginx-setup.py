@@ -3,6 +3,7 @@
 import sys
 import json
 import os.path
+import subprocess
 
 config_fname = sys.argv[1]
 doc_root = sys.argv[2]
@@ -74,7 +75,16 @@ server {
 location('/static', ['root %(mozsearch_path)s;'])
 
 for repo in config['trees']:
+    head_rev = None
+    if 'git_path' in config['trees'][repo]:
+        try:
+            head_rev = subprocess.check_output(['git', '--git-dir', config['trees'][repo]['git_path'] + '/.git', 'rev-parse', 'HEAD']).strip()
+        except subprocess.CalledProcessError:
+            # If this fails just leave head_rev as None and skip the optimization
+            pass
+
     fmt['repo'] = repo
+    fmt['head'] = head_rev
 
     location('/%(repo)s/source', [
         'root %(doc_root)s;',
@@ -83,6 +93,18 @@ for repo in config['trees']:
         'default_type text/html;',
         'add_header Cache-Control "public";',
     ])
+
+    # Optimization to handle the head revision by serving the file directly instead of going through
+    # the rust web-server. This is worth it because when HEAD-rev permalinks are generated they are
+    # often hit multiple times while they are still the HEAD revision.
+    if head_rev is not None:
+        location('~^/%(repo)s/rev/%(head)s/(?<head_path>.+)$', [
+            'root %(doc_root)s/file/%(repo)s/source;',
+            'try_files /$head_path =404;',
+            'types { %(binary_types)s }',
+            'default_type text/html;',
+            'add_header Cache-Control "public";',
+        ])
 
     # Handled by router/router.py
     location('/%(repo)s/search', ['proxy_pass http://localhost:8000;'])
@@ -96,6 +118,7 @@ for repo in config['trees']:
     location('/%(repo)s/commit-info', ['proxy_pass http://localhost:8001;'])
 
     del fmt['repo']
+    del fmt['head']
 
 
 location('= /', [
