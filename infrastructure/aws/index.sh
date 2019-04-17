@@ -85,7 +85,7 @@ esac
 $AWS_ROOT/send-warning-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 
 gzip -k ~ubuntu/index-log
-python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs `date -Iminutes`
+python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}"
 
 case "$CHANNEL" in
 release | mozilla-releases )
