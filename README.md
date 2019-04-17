@@ -107,10 +107,49 @@ running on port 80 inside the VM and port 8000 outside the VM. Visit
 ## Indexing Mozilla code locally
 
 Although it can take a long time, it's sometimes necessary to index
-the Mozilla codebase. Here's how to do that:
+the Mozilla codebase. How to do that depends on what you want to test.
+If you are making changes to the clang-plugin, you need to do these steps first.
+If not, you can skip to the next set of steps in this section.
 
+### Testing clang-plugin changes
+
+For testing changes to the clang-plugin, run these steps, followed by the
+steps in the next section.
+
+* Make your changes to the build/clang-plugin/mozsearch-plugin/ folder
+  in mozilla-central, and push them to try. Ensure that your try push has
+  all the searchfox jobs as well as the bugzilla-components job. The following
+  try syntax will accomplish this:
+```
+./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"
+```
+* You will also need to find the gecko-dev equivalent of the m-c base changeset
+  that you did your try push on. You can obtain this by running this command,
+  with `MOZILLA_MERCURIAL_HASH` filled in with the hg base revision of the try push.
+```
+curl -X GET --header 'Accept: application/json' 'https://mapper.mozilla-releng.net/gecko-dev/rev/hg/MOZILLA_MERCURIAL_HASH'
+```
+* In the vagrant instance, clone the Mozilla configuration into `~/mozilla-config`.
 ```
 # Clone the Mozilla configuration into ~/mozilla-config.
+git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
+```
+* Modify the variables at the top of `mozilla-central/setup` file like so:
+  * Set `REVISION_TREE` to `try`.
+  * Set `REVISION_ID` to `revision.<hash>` where `<hash>` is the hg hash of
+    your try push tip
+  * Set `TRY_GIT_REV` to the gecko-dev equivalent of your try push's base
+    m-c revision (which you should have gotten in the previous step).
+
+* Continue with the steps in the next section.
+
+### Testing basic changes
+
+```
+# Clone the Mozilla configuration into ~/mozilla-config, if you haven't
+# already done so. (If you are testing clang-plugin changes, you will
+# already have done this and made modifications to mozilla-central/setup,
+# so no need to clone again).
 git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 
 # Manually edit the ~/mozilla-config/config.json to remove trees you don't
@@ -121,10 +160,12 @@ nano ~/mozilla-config/config.json
 # Make a new index directory.
 mkdir ~/mozilla-index
 
-# This step will download copies of the Mozilla code and blame information, so it may be slow.
+# This step will download copies of the Mozilla code and blame information,
+# along with the latest taskcluster artifacts, so it may be slow.
 /vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config.json ~/mozilla-index
 
-# This step involves compiling Gecko and indexing a lot of code, so it will be slow!
+# This step involves unpacking the taskcluster artifacts, and indexing a lot of
+# code, so it will be slow!
 /vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
 ```
 

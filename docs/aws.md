@@ -304,4 +304,44 @@ Even on successful runs, the index log is grepped for warning lines,
 and an email is sent to the searchfox mailing list containing these
 warnings. Warnings are "recoverable errors" in that the indexing completed
 with a new deployment, but some part of the functionality may be missing
-due to an error that needs fixing.
+due to an error that needs fixing. The complete log is uploaded to
+the `indexer-logs` S3 bucket, so if additional context is needed for the
+warnings, you can download the complete log from there and inspect it.
+The name of the log is the timestamp at completion, suffixed with the
+channel (e.g. `release`) and the file stem of the config file used.
+
+## Debugging errors
+
+If an error occurs, the email sent to the searchfox mailing list will
+contain some of the log output. The log in the email may make it obvious
+what the root cause was. If not, you may have to start up the indexer
+instance using the EC2 web console, and then SSH in to it to examine
+the log in more detail and/or inspect other state to debug the problem.
+After SSH'ing to the indexer, you should run the command:
+```
+sudo mount /dev/xvdf /index
+```
+to re-mount the data volume. This will allow you to inspect the state
+on the data volume as well as run additional commands for debugging
+purposes, or to test a fix. The shell scripts that run during indexing
+generally require some environment variables to be set; you can set
+up the main ones by sourcing the load-vars.sh script like so:
+```
+export MOZSEARCH_PATH=$HOME/mozsearch
+# Replace the last two arguments with the appropriate config file
+# and repo that errored out
+source $MOZSEARCH_PATH/scripts/load-vars.sh $HOME/config/config.json mozilla-central
+```
+
+After the debugging is complete, or even if no SSHing is required,
+it is important to terminate the indexer and delete the incomplete
+index volume, otherwise they will sit around forever and eat up money.
+You can terminate the indexer either through the EC2 web console, or
+by running
+```
+python infrastructure/aws/terminate-indexer.py <instance-id>
+python infrastructure/aws/delete-volume.py <volume-id>
+```
+from within your local searchfox virtualenv (see the above section
+on setting up AWS locally). The terminate-indexer.py script or the
+web console will let you know the volume ID of the volume to delete.
