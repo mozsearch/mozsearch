@@ -257,6 +257,30 @@ fn main() {
             }
         }
 
+        let mut tools_items = vec![];
+        if let Some(ref hg_root) = tree_config.paths.hg_root {
+            tools_items.push(PanelItem {
+                title: "HG Web".to_owned(),
+                link: format!("{}/file/tip/{}", hg_root, path),
+                update_link_lineno: true,
+                accel_key: None,
+            });
+        }
+        if let Some(ref dxr_root) = tree_config.paths.dxr_root {
+            tools_items.push(PanelItem {
+                title: "DXR".to_owned(),
+                link: format!("{}/source/{}", dxr_root, path),
+                update_link_lineno: true,
+                accel_key: None,
+            });
+        }
+        if !tools_items.is_empty() {
+            panel.push(PanelSection {
+                name: "Other Tools".to_owned(),
+                items: tools_items,
+            });
+        }
+
         format_file_data(&cfg,
                          tree_name,
                          &panel,
