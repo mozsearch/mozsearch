@@ -17,6 +17,7 @@ pub struct TreeConfigPaths {
     pub git_blame_path: Option<String>,
     pub objdir_path: String,
     pub hg_root: Option<String>,
+    pub dxr_root: Option<String>,
     pub github_repo: Option<String>,
 }
 
