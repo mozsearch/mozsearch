@@ -15,9 +15,9 @@ rm -rf bazel
 mkdir bazel
 pushd bazel
 # Note that bazel unzips itself so we can't just pipe it to sudo bash.
-curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.16.1/bazel-0.16.1-installer-linux-x86_64.sh
-chmod +x bazel-0.16.1-installer-linux-x86_64.sh
-sudo ./bazel-0.16.1-installer-linux-x86_64.sh
+curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh
+chmod +x bazel-0.22.0-installer-linux-x86_64.sh
+sudo ./bazel-0.22.0-installer-linux-x86_64.sh
 popd
 
 # pygit2
@@ -41,7 +41,7 @@ rustup uninstall stable
 
 # Install codesearch.
 rm -rf livegrep
-git clone -b mozsearch-version3 https://github.com/mozsearch/livegrep
+git clone -b mozsearch-version4 https://github.com/mozsearch/livegrep
 pushd livegrep
 bazel build //src/tools:codesearch
 sudo install bazel-bin/src/tools/codesearch /usr/local/bin
@@ -53,7 +53,10 @@ rm -rf .cache/bazel
 sudo pip install grpcio grpcio-tools
 rm -rf livegrep-grpc
 mkdir livegrep-grpc
-python -m grpc_tools.protoc --python_out=livegrep-grpc --grpc_python_out=livegrep-grpc -I livegrep/src/proto livegrep/src/proto/livegrep.proto
+python -m grpc_tools.protoc --python_out=livegrep-grpc --grpc_python_out=livegrep-grpc -I livegrep/ livegrep/src/proto/config.proto
+python -m grpc_tools.protoc --python_out=livegrep-grpc --grpc_python_out=livegrep-grpc -I livegrep/ livegrep/src/proto/livegrep.proto
+touch livegrep-grpc/src/__init__.py
+touch livegrep-grpc/src/proto/__init__.py
 # Add the generated modules to the python path
 SITEDIR=$(python -m site --user-site)
 mkdir -p "$SITEDIR"
