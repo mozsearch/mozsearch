@@ -45,16 +45,9 @@ if 'git_path' in tree:
     livegrep_config['repositories'].append({
         'name': tree_name,
         'path': tree['git_path'],
-        'revisions': ['HEAD']
+        'revisions': ['HEAD'],
+        'walk_submodules': True
     })
-
-    submodules = run(['git', 'submodule', 'foreach', '--recursive', '-q', 'echo $sm_path'], cwd=tree['git_path'])
-    for submod in submodules.splitlines():
-        livegrep_config['repositories'].append({
-            'name': submod + '-subrepo',
-            'path': tree['git_path'] + '/' + submod + '/',
-            'revisions': ['HEAD']
-        })
 
     # comm-central has a mozilla subfolder which is another git repo, so
     # add that to the livegrep config as well
