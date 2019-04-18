@@ -21,9 +21,9 @@ rm -rf bazel
 mkdir bazel
 pushd bazel
 # Note that bazel unzips itself so we can't just pipe it to sudo bash.
-curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.16.1/bazel-0.16.1-installer-linux-x86_64.sh
-chmod +x bazel-0.16.1-installer-linux-x86_64.sh
-sudo ./bazel-0.16.1-installer-linux-x86_64.sh
+curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh
+chmod +x bazel-0.22.0-installer-linux-x86_64.sh
+sudo ./bazel-0.22.0-installer-linux-x86_64.sh
 popd
 
 # Clang
@@ -55,11 +55,9 @@ rustup uninstall stable
 
 # Install codesearch.
 rm -rf livegrep
-git clone -b mozsearch-version3 https://github.com/mozsearch/livegrep
+git clone -b mozsearch-version4 https://github.com/mozsearch/livegrep
 pushd livegrep
-# The last two options turn off the bazel sandbox, which doesn't work
-# inside an LDX container.
-bazel build //src/tools:codesearch --spawn_strategy=standalone --genrule_strategy=standalone
+bazel build //src/tools:codesearch
 sudo install bazel-bin/src/tools/codesearch /usr/local/bin
 popd
 # Remove ~2G of build artifacts that we don't need anymore
