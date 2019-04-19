@@ -73,6 +73,11 @@ server {
 ''' % fmt
 
 location('/static', ['root %(mozsearch_path)s;'])
+location('= /robots.txt', [
+    'root %(mozsearch_path)s/static;',
+    'try_files $uri =404;',
+    'add_header Cache-Control "public";',
+])
 
 for repo in config['trees']:
     head_rev = None
