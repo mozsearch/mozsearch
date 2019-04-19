@@ -1,0 +1,16 @@
+# Disallow everything
+User-Agent: *
+Disallow: /
+
+# ... except the nginx-served pregenerated content for the repos
+# that Mozilla is the canonical owner for. For things like whatwg-html
+# we don't want random Google searches sending random people to
+# searchfox because it is unlikely to be the best destination for them.
+# Also we don't allow crawls on mozilla-beta and other release repos
+# because it's better if people get directed to mozilla-central instead.
+Allow: /mozilla-central/source/
+Allow: /comm-central/source/
+Allow: /mozilla-mobile/source/
+# There's a copy of mozilla-central inside comm-central, let's skip that
+# since we have a top-level mozilla-central instead.
+Disallow: /comm-central/source/mozilla/
