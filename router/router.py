@@ -134,7 +134,8 @@ class SearchResults(object):
             return ('/test/' in p or '/tests/' in p or '/mochitest/' in p or 'testing/' in p or
                     '/jsapi-tests/' in p or '/reftests/' in p or '/reftest/' in p or
                     '/crashtests/' in p or '/crashtest/' in p or
-                    '/googletest/' in p or '/gtest/' in p or '/gtests/' in p)
+                    '/googletest/' in p or '/gtest/' in p or '/gtests/' in p or
+                    '/imptests/' in p)
 
         if '__GENERATED__' in path:
             return 'generated'
