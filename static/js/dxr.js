@@ -205,11 +205,11 @@ $(function() {
     if (open) {
       $("." + target.data("klass")).hide();
       target.removeClass("open");
-      target.html("+");
+      target.html("&#9654;");
     } else {
       $("." + target.data("klass")).show();
       target.addClass("open");
-      target.html("&#8722;");
+      target.html("&#9660;");
     }
   }
 
@@ -421,7 +421,7 @@ $(function() {
             html += "<tr><td>&nbsp;</td></tr>";
 
             html += "<tr><td class='left-column'>";
-            html += "<div class='expando open' data-klass='" + classOfResult(pathkind, qkind) + "'>&#8722;</div>";
+            html += "<div class='expando open' data-klass='" + classOfResult(pathkind, qkind) + "'>&#9660;</div>";
             html += "</td>";
 
             html += "<td><h2 class='result-kind'>" + qkind + "</h2></td></tr>";
