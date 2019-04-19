@@ -56,7 +56,10 @@ function updateBlamePopup() {
       rendered += json[i].header;
 
       var diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
-      rendered += `<br><a href="${diffLink}">Show annotated diff</a>`;
+      rendered += `<br>Show <a href="${diffLink}">annotated diff</a>`;
+      if (json[i].fulldiff) {
+        rendered += ` or <a href="${json[i].fulldiff}">full diff</a>`;
+      }
 
       if (json[i].parent) {
         var parentLink = `/${tree}/rev/${json[i].parent}/${revPath}#${linenoList[i]}`;

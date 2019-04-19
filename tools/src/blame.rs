@@ -51,6 +51,14 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, revs: &str) -> Res
         }
 
         obj.insert("date".to_owned(), Json::String(t));
+
+        match (&tree_config.paths.hg_root, git.hg_map.get(&commit_obj.id())) {
+            (Some(hg_path), Some(hg_id)) => {
+                obj.insert("fulldiff".to_owned(), Json::String(format!("{}/rev/{}", hg_path, hg_id)));
+            }
+            _ => ()
+        };
+
         infos.push(Json::Object(obj));
     }
 
