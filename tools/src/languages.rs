@@ -225,12 +225,6 @@ lazy_static! {
 }
 
 #[derive(Debug)]
-pub enum DocType {
-    Markdown,
-    ReStructuredText,
-}
-
-#[derive(Debug)]
 pub enum FormatAs {
     FormatCLike(&'static LanguageSpec),
     FormatTagLike(&'static LanguageSpec),
