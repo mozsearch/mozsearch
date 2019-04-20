@@ -274,6 +274,19 @@ fn main() {
                 accel_key: None,
             });
         }
+        if let Some(ref github) = tree_config.paths.github_repo {
+            match Path::new(path).extension().and_then(OsStr::to_str) {
+                Some("md") | Some("rst") => {
+                    tools_items.push(PanelItem {
+                        title: "Rendered view".to_owned(),
+                        link: format!("{}/blob/{}/{}", github, head_oid.map_or("master".to_string(), |x| x.to_string()), path),
+                        update_link_lineno: false,
+                        accel_key: None,
+                    });
+                }
+                _ => ()
+            };
+        }
         if !tools_items.is_empty() {
             panel.push(PanelSection {
                 name: "Other Tools".to_owned(),
