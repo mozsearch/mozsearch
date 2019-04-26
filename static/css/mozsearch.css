@@ -167,6 +167,82 @@ mark {
     background-color: transparent;
 }
 
+/**
+ * Nesting!
+ *
+ * Because the search bar thing is position: fixed we need to add an offset to
+ * all of our position:sticky "top" directives.  This needs to be the height of
+ * the search box.  CSS variables provide us a way to adjust this based on other
+ * factors.  Currently the main influencing factor is whether there is a
+ * "Showing REVHASH: Commit message" line or if it's empty.  The presence of the
+ * line matches up with the "old-rev" class being set on the body, so we use
+ * this to decide which hard-coded value to use below.  JS could also update
+ * the variable, but we currently don't need to do that.
+ */
+body {
+  --search-bar-height: 72px;
+}
+body.old-rev {
+  --search-bar-height: 84px;
+}
+
+.nesting-container {
+  position: relative;
+}
+.nesting-depth-1,
+.nesting-depth-2,
+.nesting-depth-3,
+.nesting-depth-4,
+.nesting-depth-5,
+.nesting-depth-6,
+.nesting-depth-7,
+.nesting-depth-8,
+.nesting-depth-9,
+.nesting-depth-10 {
+  position: sticky;
+  background-color: #f8f8f8;
+}
+.nesting-depth-1 {
+  top: var(--search-bar-height);
+  z-index: 900;
+}
+.nesting-depth-2 {
+  top: calc(var(--search-bar-height) + 1 * 12px * 1.3);
+  z-index: 899;
+}
+.nesting-depth-3 {
+  top: calc(var(--search-bar-height) + 2 * 12px * 1.3);
+  z-index: 898;
+}
+.nesting-depth-4 {
+  top: calc(var(--search-bar-height) + 3 * 12px * 1.3);
+  z-index: 897;
+}
+.nesting-depth-5 {
+  top: calc(var(--search-bar-height) + 4 * 12px * 1.3);
+  z-index: 896;
+}
+.nesting-depth-6 {
+  top: calc(var(--search-bar-height) + 5 * 12px * 1.3);
+  z-index: 895;
+}
+.nesting-depth-7 {
+  top: calc(var(--search-bar-height) + 6 * 12px * 1.3);
+  z-index: 894;
+}
+.nesting-depth-8 {
+  top: calc(var(--search-bar-height) + 7 * 12px * 1.3);
+  z-index: 893;
+}
+.nesting-depth-9 {
+  top: calc(var(--search-bar-height) + 8 * 12px * 1.3);
+  z-index: 892;
+}
+.nesting-depth-10 {
+  top: calc(var(--search-bar-height) + 9 * 12px * 1.3);
+  z-index: 891;
+}
+
 /* Search results */
 
 .results tr:hover,

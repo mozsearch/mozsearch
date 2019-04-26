@@ -51,6 +51,40 @@ function locstr2(loc, str)
   return `${loc.start.line}:${loc.start.column}-${loc.start.column + str.length}`;
 }
 
+// adjustEnd is used to substract 1 off the end column so that it points at a
+// closing brace rather than just beyond the closing brace.  This is desired for
+// the nestingRange where the goal is to reference the opening and closing
+// brace tokens directly.
+function locstrFull(loc, adjustEnd)
+{
+  return `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column - (adjustEnd ? 1 : 0) }`;
+}
+
+/**
+ * Given an ESTree node, return true if it's potentially something that should
+ * generate a nestingRange.  For our purposes, this means something that has
+ * curly braces and is likely to span more than a single line of text.
+ *
+ * In the future this method might need to return the appropriate Location to
+ * use rather than a boolean.  Right now the caller is expected to use the `loc`
+ * of the provided node if we return true.
+ */
+function isNestingNode(node) {
+  if (!node || !node.type) {
+    return false
+  }
+
+  switch (node.type) {
+    case "BlockStatement":
+    case "FunctionExpression":
+    case "ObjectExpression":
+    case "ObjectPattern":
+      return true;
+    default:
+      return false;
+  }
+}
+
 function nameValid(name)
 {
   if (!name) {
@@ -100,13 +134,96 @@ function memberPropLoc(expr)
   return idLoc;
 }
 
+/**
+ * Stateful singleton that assumes this script is run once per file.  General
+ * structure is a imperative, recursive traversal of the
+ * available-in-its-entirety JS AST.  There isn't really any streaming
+ * processing and everything is kept on the stack.
+ *
+ * XBL is a special-case via `XBLParser`.  It is dealing with single atomic
+ * chunks of JS that exist in namespace
+ */
 let Analyzer = {
+  /**
+   * The symbol table for the current scope.  When `enter` is invoked, the
+   * current `symbols` table is pushed onto `symbolTableStack` and a new
+   * SymbolTable is created and assigned to `symbols`.  When `exit` is invoked,
+   * the current `symbols` table is discarded and replaced by popping
+   * `symbolTableStack`.
+   */
   symbols: new SymbolTable(),
+  /**
+   * Stack of `SymbolTable` instances corresponding to scopes that are reachable
+   * from the current scope.  Does not include the immediate scope which is
+   * found in `symbols`.
+   */
   symbolTableStack: [],
 
+  /**
+   * Tracks the name of the current variable declaration so that qualified names
+   * can be inferred.  When nesting occurs, the previous value is saved off on
+   * the stack while call to recursive AST traversal occurs, and is restored on
+   * the way out.  No attempt is currently made to infer deeply nested names,
+   * just a single level, so this works as long as that assumption is okay.
+   * (Note however that `contextStack` does track this nesting.)
+   *
+   * Specialization occurs for cases like "prototype".
+   */
   nameForThis: null,
+  /**
+   * Tracks explicit ES "class" names.  As with `nameForThis`, nesting happens
+   * on the stack so that context isn't lost, but those names are ignored for
+   * symbol naming purposes.  (Note however that `contextStack` does track this
+   * nesting.)
+   */
   className: null,
+  /**
+   * Used to derive the "context" property for target records.  Whenever
+   * `symbolTableStack`, `nameForThis`, or `className` are modified, the name
+   * (possibly falsey) that is being used for the the thing is pushed.  When
+   * traversing an ObjectExpression or ObjectPattern, the key is also pushed.
+   */
   contextStack: [],
+
+  // Program lines.  Initialized by parse.  Used for getting back to program
+  // source given a SourceLocation/Position.
+  _lines: [],
+
+  /**
+   * Given a position, find the first instance of the given string starting
+   * after the position.
+   */
+  findStrAfterPosition(str, pos) {
+    // (lines are 1-based)
+    let lineText = this._lines[pos.line - 1];
+    let idx = lineText.indexOf(str, pos.column);
+    if (idx === -1) {
+      return null;
+    }
+    return {
+      line: pos.line,
+      column: idx
+    };
+  },
+
+  /**
+   * If you've got some kind of outerNode like a ClassStatement where the left
+   * brace comes after a node like its "id" node, use this.  The outerNode's
+   * position gives the end Location and the first { found after the idNode
+   * gives the start.  (Note that the end location is still chosen to be after
+   * the right brace for consistency with BlockStatements.)
+   */
+  deriveLocationFromOuterNodeAndIdNode(outerNode, idNode) {
+    let start = this.findStrAfterPosition('{', idNode.loc.end);
+    if (!start) {
+      return null;
+    }
+
+    return {
+      start,
+      end: outerNode.loc.end
+    };
+  },
 
   enter(name) {
     this.symbolTableStack.push(this.symbols);
@@ -157,6 +274,7 @@ let Analyzer = {
     let ast;
     try {
       ast = Reflect.parse(text, {loc: true, source: filename, line});
+      this._lines = text.split('\n');
     } catch (e) {
       logError(`Unable to parse JS file ${filename}:${line}.`);
       return null;
@@ -170,7 +288,11 @@ let Analyzer = {
     }
   },
 
-  source(loc, name, syntax, pretty, sym, no_crossref = false) {
+  // maybeNesting allows passing a SourceLocation directly or a Node.  The node
+  // is tested via a call to `isNestingNode` to determine whether it's an
+  // appropriate type for its `loc` to be used.  This allows callers to pass
+  // nodes without first checking their type.
+  source(loc, name, syntax, pretty, sym, no_crossref, maybeNesting) {
     let locProp;
     if (typeof(loc) == "object" && "start" in loc) {
       locProp = locstr2(loc, name);
@@ -180,6 +302,17 @@ let Analyzer = {
     let obj = {loc: locProp, source: 1, syntax, pretty, sym};
     if (no_crossref) {
       obj.no_crossref = 1;
+    }
+    if (maybeNesting) {
+      let nestLoc;
+      if (maybeNesting.start) {
+        nestLoc = maybeNesting;
+      } else if (isNestingNode(maybeNesting)) {
+        nestLoc = maybeNesting.loc;
+      }
+      if (nestLoc) {
+        obj.nestingRange = locstrFull(nestLoc, true);
+      }
     }
     print(JSON.stringify(obj));
   },
@@ -195,14 +328,16 @@ let Analyzer = {
                           context: this.context}));
   },
 
-  defProp(name, loc, extra, extraPretty) {
+  defProp(name, loc, extra, extraPretty, maybeNesting) {
     if (!nameValid(name)) {
       return;
     }
-    this.source(loc, name, "def,prop", `property ${name}`, `#${name}`);
+    this.source(loc, name, "def,prop", `property ${name}`, `#${name}`, false,
+                maybeNesting);
     this.target(loc, name, "def", name, `#${name}`);
     if (extra) {
-      this.source(loc, name, "def,prop", `property ${extraPretty}`, extra);
+      this.source(loc, name, "def,prop", `property ${extraPretty}`, extra,
+                  false, maybeNesting);
       this.target(loc, name, "def", extraPretty, extra);
     }
   },
@@ -211,38 +346,42 @@ let Analyzer = {
     if (!nameValid(name)) {
       return;
     }
-    this.source(loc, name, "use,prop", `property ${name}`, `#${name}`);
+    this.source(loc, name, "use,prop", `property ${name}`, `#${name}`, false);
     this.target(loc, name, "use", name, `#${name}`);
     if (extra) {
-      this.source(loc, name, "use,prop", `property ${extraPretty}`, extra);
+      this.source(loc, name, "use,prop", `property ${extraPretty}`, extra,
+                  false);
       this.target(loc, name, "use", extraPretty, extra);
     }
   },
 
-  assignProp(name, loc, extra, extraPretty) {
+  assignProp(name, loc, extra, extraPretty, maybeNesting) {
     if (!nameValid(name)) {
       return;
     }
-    this.source(loc, name, "use,prop", `property ${name}`, `#${name}`);
+    this.source(loc, name, "use,prop", `property ${name}`, `#${name}`, false,
+                maybeNesting);
     this.target(loc, name, "assign", name, `#${name}`);
     if (extra) {
-      this.source(loc, name, "use,prop", `property ${extraPretty}`, extra);
+      this.source(loc, name, "use,prop", `property ${extraPretty}`, extra,
+                  false, maybeNesting);
       this.target(loc, name, "assign", extraPretty, extra);
     }
   },
 
-  defVar(name, loc) {
+  defVar(name, loc, maybeNesting) {
     if (!nameValid(name)) {
       return;
     }
     if (this.isToplevel()) {
-      this.defProp(name, loc);
+      this.defProp(name, loc, undefined, undefined, maybeNesting);
       return;
     }
     let sym = new Symbol(name, loc);
     this.symbols.put(name, sym);
 
-    this.source(loc, name, "deflocal,variable", `variable ${name}`, sym.id, true);
+    this.source(loc, name, "deflocal,variable", `variable ${name}`, sym.id, true,
+                maybeNesting);
   },
 
   findSymbol(name) {
@@ -401,7 +540,7 @@ let Analyzer = {
       break;
 
     case "FunctionDeclaration":
-      this.defVar(stmt.id.name, stmt.loc);
+      this.defVar(stmt.id.name, stmt.loc, stmt.body);
       this.scoped(stmt.id.name, () => {
         this.functionDecl(stmt);
       });
@@ -411,8 +550,10 @@ let Analyzer = {
       this.variableDeclaration(stmt);
       break;
 
+    //
     case "ClassStatement":
-      this.defVar(stmt.id.name, stmt.id.loc);
+      this.defVar(stmt.id.name, stmt.id.loc,
+                  this.deriveLocationFromOuterNodeAndIdNode(stmt, stmt.id));
       this.scoped(stmt.id.name, () => {
         let oldClass = this.className;
         this.className = stmt.id.name;
@@ -429,7 +570,7 @@ let Analyzer = {
     case "ClassMethod": {
       let name = null;
       if (stmt.name.type == "Identifier") {
-        this.defProp(stmt.name.name, stmt.name.loc);
+        this.defProp(stmt.name.name, stmt.name.loc, undefined, undefined, stmt.body);
         name = stmt.name.name;
       }
 
@@ -561,7 +702,7 @@ let Analyzer = {
             extraPretty = `${this.nameForThis}.${name}`;
           }
           if (name) {
-            this.defProp(name, prop.key.loc, extra, extraPretty);
+            this.defProp(name, prop.key.loc, extra, extraPretty, prop.value);
           }
         }
 
@@ -623,7 +764,8 @@ let Analyzer = {
           extra = `${expr.left.object.name}#${expr.left.property.name}`;
           extraPretty = `${expr.left.object.name}.${expr.left.property.name}`;
         }
-        this.assignProp(expr.left.property.name, memberPropLoc(expr.left), extra, extraPretty);
+        this.assignProp(expr.left.property.name, memberPropLoc(expr.left), extra, extraPretty,
+                        expr.right.loc);
       } else {
         this.expression(expr.left);
       }
@@ -984,7 +1126,8 @@ class XBLParser extends XMLParser {
     [line, column] = this.backup(line, column, name + "\"");
 
     let locStr = `${line + 1}:${column}-${column + name.length}`;
-    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`);
+    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
+                    false);
     Analyzer.target(locStr, name, "def", name, `#${name}`);
 
     let spaces = Array(tag.column).join(" ");
@@ -1005,7 +1148,8 @@ class XBLParser extends XMLParser {
       [line, column] = this.backup(line, column, name + "\"");
 
       let locStr = `${line + 1}:${column}-${column + name.length}`;
-      Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`);
+      Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
+                      false);
       Analyzer.target(locStr, name, "def", name, `#${name}`);
     }
 
@@ -1120,7 +1264,8 @@ class XBLParser extends XMLParser {
     [line, column] = this.backup(line, column, name + "\"");
 
     let locStr = `${line + 1}:${column}-${column + name.length}`;
-    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`);
+    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
+                    false);
     Analyzer.target(locStr, name, "def", name, `#${name}`);
 
     Analyzer.enter(name);

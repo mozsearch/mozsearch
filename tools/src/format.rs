@@ -24,13 +24,22 @@ use rustc_serialize::json::{self, Json};
 
 use config;
 
+#[derive(Debug)]
+pub struct FormattedLine {
+    pub line: String,
+    // True if this line should open a new <div> and its <code> line should be position: sticky.
+    pub starts_nest: bool,
+    // This line should close this many <div>'s.
+    pub pop_nest_count: u32,
+}
+
 pub fn format_code(
     jumps: &HashMap<String, Jump>,
     format: FormatAs,
     path: &str,
     input: &str,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-) -> (Vec<String>, String) {
+) -> (Vec<FormattedLine>, String) {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
         FormatAs::Plain => tokenize::tokenize_plain(&input),
@@ -41,6 +50,13 @@ pub fn format_code(
     let mut output_lines = Vec::new();
     let mut output = String::new();
     let mut last = 0;
+
+    // The stack of AnalysisSource records that had a valid, non-redundant nesting_range.
+    // (It's possible for a single source line to start multiple nesting ranges, but since our
+    // use case is making the entire line position:sticky, it only makes sense to create a single
+    // range in that case.)
+    let mut nesting_stack: Vec<&AnalysisSource> = Vec::new();
+    let mut starts_nest = false;
 
     fn fixup(s: String) -> String {
         s.replace("\r", "\u{21A9}") // U+21A9 = LEFTWARDS ARROW WITH HOOK.
@@ -70,12 +86,35 @@ pub fn format_code(
         match token.kind {
             tokenize::TokenKind::Newline => {
                 output.push_str(&input[last..token.start]);
-                output_lines.push(fixup(output));
+
+                // Pop nesting symbols whose end is on the NEXT line.  That is, it doesn't make
+                // sense for the position:sticky overlay to cover up the line that contains the
+                // token that closes the nesting range.
+                //
+                // The check below accomplishes this by scanning until we find an (endline - 1)
+                // that is beyond the current line.
+                let truncate_to = match nesting_stack
+                    .iter()
+                    .rposition(|a| a.nesting_range.end_lineno - 1 > cur_line)
+                {
+                    Some(first_keep) => first_keep + 1,
+                    None => 0,
+                };
+                let pop_count = nesting_stack.len() - truncate_to;
+                nesting_stack.truncate(truncate_to);
+
+                output_lines.push(FormattedLine {
+                    line: fixup(output),
+                    starts_nest: starts_nest,
+                    pop_nest_count: pop_count as u32,
+                });
                 output = String::new();
 
                 cur_line += 1;
                 line_start = token.end;
                 last = token.end;
+
+                starts_nest = false;
 
                 continue;
             }
@@ -111,6 +150,26 @@ pub fn format_code(
 
         let data = match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(None), Some(d)) => {
+                // If this symbol starts a relevant nesting range and we haven't already pushed a
+                // symbol for this line, push it onto our stack.  A range is "relevant" if it
+                // its end line is not on the current line or the next line and therefore will
+                // actually trigger the "position:sticky" display scenario.
+                for a in d.iter() {
+                    let nests = match (a.nesting_range.start_lineno, nesting_stack.last()) {
+                        (0, _) => false,
+                        (_, None) => true,
+                        (a_start, Some(top)) => {
+                            a_start == cur_line
+                                && a_start != top.nesting_range.start_lineno
+                                && a.nesting_range.end_lineno > cur_line + 1
+                        }
+                    };
+                    if nests {
+                        starts_nest = true;
+                        nesting_stack.push(a);
+                    }
+                }
+
                 // Build the list of symbols for the highlighter.
                 let syms = {
                     let mut syms = String::new();
@@ -135,7 +194,7 @@ pub fn format_code(
                         None => continue,
                     };
 
-                    if jump.path == *path && jump.lineno == cur_line {
+                    if jump.path == *path && jump.lineno == cur_line.into() {
                         continue;
                     }
 
@@ -231,7 +290,11 @@ pub fn format_code(
     output.push_str(&entity_replace(input[last..].to_string()));
 
     if output.len() > 0 {
-        output_lines.push(fixup(output));
+        output_lines.push(FormattedLine {
+            line: fixup(output),
+            starts_nest: starts_nest,
+            pop_nest_count: nesting_stack.len() as u32,
+        });
     }
 
     let analysis_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
@@ -449,16 +512,28 @@ pub fn format_file_data(
     ])])])]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
+    let mut nest_depth = 0;
     write!(writer, "<pre>").unwrap();
     for (i, line) in output_lines.iter().enumerate() {
+        let mut maybe_style = String::new();
+        if line.starts_nest {
+            write!(writer, "<div class=\"nesting-container\">").unwrap();
+            nest_depth += 1;
+            maybe_style = format!(" class=\"nesting-depth-{}\"", nest_depth);
+        }
         write!(
             writer,
-            "<code id=\"line-{}\" aria-labelledby=\"{}\">{}\n</code>",
+            "<code id=\"line-{}\" aria-labelledby=\"{}\"{}>{}\n</code>",
             i + 1,
             i + 1,
-            line
+            maybe_style,
+            line.line
         )
         .unwrap();
+        for _ in 0..line.pop_nest_count {
+            nest_depth -= 1;
+            write!(writer, "</div>").unwrap();
+        }
     }
     write!(writer, "</pre>").unwrap();
 
@@ -876,7 +951,7 @@ pub fn format_diff(
     for &(lineno, _blame, ref origin, content) in &output {
         let content = entity_replace(content.to_owned());
         let content = if lineno > 0 && (lineno as usize) < formatted_lines.len() + 1 {
-            &formatted_lines[(lineno as usize) - 1]
+            &formatted_lines[(lineno as usize) - 1].line
         } else {
             &content
         };

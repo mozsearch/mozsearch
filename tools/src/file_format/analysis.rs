@@ -38,6 +38,48 @@ pub struct LineRange {
     pub end_lineno: u32,
 }
 
+#[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
+pub struct SourceRange {
+    pub start_lineno: u32,
+    pub start_col: u32,
+    pub end_lineno: u32,
+    pub end_col: u32,
+}
+
+impl SourceRange {
+    /// Union the other SourceRange into this SourceRange.
+    pub fn union(&mut self, other: SourceRange) {
+        // A start_lineno of 0 represents an empty/omitted range.  The range is best effort and
+        // so one range might be empty and the other not.
+        if other.start_lineno == 0 {
+            // Nothing to do if the other range is empty.
+            return;
+        }
+        if self.start_lineno == 0 {
+            // Clobber this range with the other range if we were empty.
+            self.start_lineno = other.start_lineno;
+            self.start_col = other.start_col;
+            self.end_lineno = other.end_lineno;
+            self.end_col = other.end_col;
+            return;
+        }
+
+        if other.start_lineno < self.start_lineno {
+            self.start_lineno = other.start_lineno;
+            self.start_col = other.start_col;
+        } else if other.start_lineno == self.start_lineno && other.start_col < self.start_col {
+            self.start_col = other.start_col;
+        }
+
+        if other.end_lineno > self.end_lineno {
+            self.end_lineno = other.end_lineno;
+            self.end_col = other.end_col;
+        } else if other.end_lineno == self.end_lineno && other.end_col > self.end_col {
+            self.end_col = other.end_col;
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct WithLocation<T> {
     pub data: T,
@@ -114,14 +156,20 @@ pub struct AnalysisSource {
     pub pretty: String,
     pub sym: Vec<String>,
     pub no_crossref: bool,
+    pub nesting_range: SourceRange,
 }
 
 impl AnalysisSource {
-    /// Merges the `syntax`, `sym`, and `no_crossref` fields from `other`
+    /// Merges the `syntax`, `sym`, `no_crossref`, and `nesting_range` fields from `other`
     /// into `self`. The `no_crossref` field can be different sometimes
     /// with different versions of clang being used across different
     /// platforms; in this case we only set `no_crossref` if all the versions
-    /// being merged have the `no_crossref` field set.
+    /// being merged have the `no_crossref` field set.  The `nesting_range` can
+    /// vary due to use of the pre-processor, including an extreme case where the
+    /// ranges are non-overlapping.  We choose to union these ranges because
+    /// `merge-analyses.rs` only merges adjacent source entries so the space
+    /// between the ranges should simply be preprocessor directives.
+    ///
     /// Also asserts that the `pretty` field is the same because otherwise
     /// the merge doesn't really make sense.
     pub fn merge(&mut self, mut other: AnalysisSource) {
@@ -133,6 +181,7 @@ impl AnalysisSource {
         self.sym.append(&mut other.sym);
         self.sym.sort();
         self.sym.dedup();
+        self.nesting_range.union(other.nesting_range);
     }
 }
 
@@ -147,6 +196,16 @@ impl fmt::Display for AnalysisSource {
         )?;
         if self.no_crossref {
             write!(formatter, r#","no_crossref":1"#)?;
+        }
+        if self.nesting_range.start_lineno != 0 {
+            write!(
+                formatter,
+                r#","nestingRange":"{}:{}-{}:{}""#,
+                self.nesting_range.start_lineno,
+                self.nesting_range.start_col,
+                self.nesting_range.end_lineno,
+                self.nesting_range.end_col
+            )?;
         }
         Ok(())
     }
@@ -193,6 +252,20 @@ fn parse_line_range(range: &str) -> LineRange {
     LineRange {
         start_lineno: start_lineno,
         end_lineno: end_lineno,
+    }
+}
+
+fn parse_source_range(range: &str) -> SourceRange {
+    let v: Vec<&str> = range.split(&['-', ':'][..]).collect();
+    let start_lineno = v[0].parse::<u32>().unwrap();
+    let start_col = v[1].parse::<u32>().unwrap();
+    let end_lineno = v[2].parse::<u32>().unwrap();
+    let end_col = v[3].parse::<u32>().unwrap();
+    SourceRange {
+        start_lineno,
+        start_col,
+        end_lineno,
+        end_col,
     }
 }
 
@@ -357,11 +430,22 @@ pub fn read_source(obj: &Object) -> Option<AnalysisSource> {
         None => false,
     };
 
+    let nesting_range = match obj.get("nestingRange") {
+        Some(json) => parse_source_range(json.as_string().unwrap()),
+        None => SourceRange {
+            start_lineno: 0,
+            start_col: 0,
+            end_lineno: 0,
+            end_col: 0,
+        },
+    };
+
     Some(AnalysisSource {
-        pretty: pretty,
-        sym: sym,
-        syntax: syntax,
-        no_crossref: no_crossref,
+        pretty,
+        sym,
+        syntax,
+        no_crossref,
+        nesting_range,
     })
 }
 
