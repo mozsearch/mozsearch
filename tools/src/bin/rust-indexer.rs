@@ -7,15 +7,16 @@ extern crate rls_analysis;
 extern crate rls_data as data;
 extern crate tools;
 
-use data::DefKind;
 use data::GlobalCrateId;
+use data::{DefKind, ImplKind};
 use rls_analysis::{AnalysisHost, AnalysisLoader, SearchDirectory};
 use std::collections::{BTreeSet, HashMap};
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::io;
+use std::io::{BufRead, BufReader, Read, Seek};
 use std::path::{Path, PathBuf};
 use tools::file_format::analysis::{
-    AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, WithLocation,
+    AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, SourceRange, WithLocation,
 };
 
 /// A global definition id in a crate.
@@ -201,13 +202,146 @@ fn def_kind_to_human(kind: DefKind) -> &'static str {
     }
 }
 
-fn visit(
+/// Potentially non-helpful mapping of impl kind.
+fn impl_kind_to_human(kind: &ImplKind) -> &'static str {
+    match kind {
+        ImplKind::Inherent => "impl",
+        ImplKind::Direct => "impl for",
+        ImplKind::Indirect => "impl for ref",
+        ImplKind::Blanket => "impl for where",
+        _ => "impl for where deref",
+    }
+}
+
+/// Given two spans, create a new super-span that encloses them both if the files match.  If the
+/// files don't match, just return the first span as-is.
+fn union_spans(a: &data::SpanData, b: &data::SpanData) -> data::SpanData {
+    if a.file_name != b.file_name {
+        return a.clone();
+    }
+
+    let (byte_start, line_start, column_start) = if a.byte_start < b.byte_start {
+        (a.byte_start, a.line_start, a.column_start)
+    } else {
+        (b.byte_start, b.line_start, b.column_start)
+    };
+
+    let (byte_end, line_end, column_end) = if a.byte_end > b.byte_end {
+        (a.byte_end, a.line_end, a.column_end)
+    } else {
+        (b.byte_end, b.line_end, b.column_end)
+    };
+
+    data::SpanData {
+        file_name: a.file_name.clone(),
+        byte_start,
+        byte_end,
+        line_start,
+        line_end,
+        column_start,
+        column_end,
+    }
+}
+
+/// For the purposes of trying to figure out the actual effective nesting range of some type of
+/// definition, union its span (which just really covers the symbol name) plus the spans of all of
+/// its descendants.  This should end up with a sufficiently reasonable line value.  This is a hack.
+fn recursive_union_spans_of_def(
+    def: &data::Def,
+    file_analysis: &data::Analysis,
+    defs: &Defs,
+) -> data::SpanData {
+    let mut span = def.span.clone();
+    for id in &def.children {
+        // It should already be the case that the children are in the same krate, but better safe
+        // than sorry.
+        if id.krate != def.id.krate {
+            continue;
+        }
+        let kid = defs.get(file_analysis, *id);
+
+        if let Some(ref kid) = kid {
+            let rec_span = recursive_union_spans_of_def(kid, file_analysis, defs);
+            span = union_spans(&span, &rec_span);
+        }
+    }
+
+    span
+}
+
+/// Given a list of ids of defs, run recursive_union_spans_of_def on all of them and union up the
+/// result.  Necessary for when dealing with impls.
+fn union_spans_of_defs(
+    initial_span: &data::SpanData,
+    ids: &[data::Id],
+    file_analysis: &data::Analysis,
+    defs: &Defs,
+) -> data::SpanData {
+    let mut span = initial_span.clone();
+    for id in ids {
+        let kid = defs.get(file_analysis, *id);
+
+        if let Some(ref kid) = kid {
+            let rec_span = recursive_union_spans_of_def(kid, file_analysis, defs);
+            span = union_spans(&span, &rec_span);
+        }
+    }
+
+    span
+}
+
+/// If we unioned together a span that only covers 1 or 2 lines, normalize it to None because
+/// nothing interesting will happen from a presentation perspective.  (If we had proper AST info
+/// about the span, it would be appropriate to keep it and expose it, but this is all derived from
+/// shoddy inference.)
+fn ignore_boring_spans(span: &data::SpanData) -> Option<&data::SpanData> {
+    match span {
+        span if span.line_end.0 > span.line_start.0 + 1 => Some(span),
+        _ => None,
+    }
+}
+
+fn pretty_for_impl(imp: &data::Impl, qualname: &str) -> String {
+    let mut pretty = impl_kind_to_human(&imp.kind).to_owned();
+    pretty.push_str(" ");
+    pretty.push_str(qualname);
+
+    pretty
+}
+
+fn pretty_for_def(def: &data::Def, qualname: &str) -> String {
+    let mut pretty = def_kind_to_human(def.kind).to_owned();
+    pretty.push_str(" ");
+    // We use the unsanitized qualname here because it's more human-readable
+    // and the source-analysis pretty name is allowed to have commas and such
+    pretty.push_str(qualname);
+
+    pretty
+}
+
+fn visit_def(
     out_data: &mut BTreeSet<String>,
     kind: AnalysisKind,
     location: &data::SpanData,
     qualname: &str,
     def: &data::Def,
     context: Option<&str>,
+    nesting: Option<&data::SpanData>,
+) {
+    let pretty = pretty_for_def(&def, &qualname);
+    visit_common(
+        out_data, kind, location, qualname, &pretty, context, nesting,
+    );
+}
+
+fn visit_common(
+    out_data: &mut BTreeSet<String>,
+    kind: AnalysisKind,
+    location: &data::SpanData,
+    qualname: &str,
+    pretty: &str,
+    context: Option<&str>,
+    nesting: Option<&data::SpanData>,
 ) {
     // Searchfox uses 1-indexed lines, 0-indexed columns.
     let col_end = if location.line_start != location.line_end {
@@ -241,28 +375,38 @@ fn visit(
     };
     out_data.insert(format!("{}", target_data));
 
-    let pretty = {
-        let mut pretty = def_kind_to_human(def.kind).to_owned();
-        pretty.push_str(" ");
-        // We use the unsanitized qualname here because it's more human-readable
-        // and the source-analysis pretty name is allowed to have commas and such
-        pretty.push_str(qualname);
-
-        pretty
+    let nesting_range = match nesting {
+        Some(span) => SourceRange {
+            // Hack note: These positions would ideally be those of braces.  But they're not, so
+            // while the position:sticky UI stuff should work-ish, other things will not.
+            start_lineno: span.line_start.0,
+            start_col: span.column_start.zero_indexed().0,
+            end_lineno: span.line_end.0,
+            end_col: span.column_end.zero_indexed().0,
+        },
+        None => SourceRange {
+            start_lineno: 0,
+            start_col: 0,
+            end_lineno: 0,
+            end_col: 0,
+        },
     };
 
     let source_data = WithLocation {
         data: AnalysisSource {
             syntax: vec![],
-            pretty,
+            pretty: pretty.to_string(),
             sym: vec![sanitized],
             no_crossref: false,
+            nesting_range,
         },
         loc,
     };
     out_data.insert(format!("{}", source_data));
 }
 
+/// Normalizes an absolute file path to be either a src_dir-relative path or an obj_dir relative
+/// path with __GENERATED__ prefixed onto it.
 fn find_generated_or_src_file(file_name: &Path, tree_info: &TreeInfo) -> Option<PathBuf> {
     if let Ok(generated_path) = file_name.strip_prefix(tree_info.objdir) {
         return Some(Path::new("__GENERATED__").join(generated_path));
@@ -278,9 +422,43 @@ fn find_generated_or_src_file(file_name: &Path, tree_info: &TreeInfo) -> Option<
 
 fn read_existing_contents(map: &mut BTreeSet<String>, file: &Path) {
     if let Ok(f) = File::open(file) {
-        let mut reader = BufReader::new(f);
+        let reader = BufReader::new(f);
         for line in reader.lines() {
             map.insert(line.unwrap());
+        }
+    }
+}
+
+fn extract_span_from_source_as_buffer(
+    reader: &mut File,
+    span: &data::SpanData,
+) -> io::Result<Box<[u8]>> {
+    reader.seek(std::io::SeekFrom::Start(span.byte_start.into()))?;
+    let len = (span.byte_end - span.byte_start) as usize;
+    let mut buffer: Box<[u8]> = vec![0; len].into_boxed_slice();
+    reader.read_exact(&mut buffer)?;
+    Ok(buffer)
+}
+
+/// Given a reader and a span from that file, extract the text contained by the span.  If the span
+/// covers multiple lines, then whatever newline delimiters the file has will be included.
+///
+/// In the event of a file read error or the contents not being valid UTF-8, None is returned.
+/// We will log to log::Error in the event of a file read problem because this can be indicative
+/// of lower level problems (ex: in vagrant), but not for utf-8 errors which are more expected
+/// from sketchy source-files.
+fn extract_span_from_source_as_string(
+    mut reader: &mut File,
+    span: &data::SpanData,
+) -> Option<String> {
+    match extract_span_from_source_as_buffer(&mut reader, &span) {
+        Ok(buffer) => match String::from_utf8(buffer.into_vec()) {
+            Ok(s) => Some(s),
+            Err(_) => None,
+        },
+        Err(e) => {
+            error!("ERROR: Unable to read file: {:?}", e);
+            None
         }
     }
 }
@@ -304,6 +482,13 @@ fn analyze_file(
             );
             return;
         }
+    };
+
+    // Attempt to open the source file to extract information not currently available from the
+    // analysis data.  Some analysis information may not be emitted if we are unable to access the
+    let maybe_source_file = match File::open(&file_name) {
+        Ok(f) => Some(f),
+        Err(_) => None,
     };
 
     let output_file = tree_info.output_dir.join(file);
@@ -354,12 +539,13 @@ fn analyze_file(
             }
         };
 
-        visit(
+        visit_def(
             &mut dataset,
             AnalysisKind::Use,
             &import.span,
             &def.qualname,
             &def,
+            None,
             None,
         )
     }
@@ -372,27 +558,66 @@ fn analyze_file(
         if let Some(ref parent) = parent {
             if parent.kind == DefKind::Trait {
                 let trait_dependent_name = construct_qualname(&parent.qualname, &def.name);
-                visit(
+                visit_def(
                     &mut dataset,
                     AnalysisKind::Def,
                     &def.span,
                     &trait_dependent_name,
                     &def,
                     Some(&parent.qualname),
+                    None,
                 )
             }
         }
 
         let crate_id = &file_analysis.prelude.as_ref().unwrap().crate_id;
         let qualname = crate_independent_qualname(&def, crate_id);
-        visit(
+        let nested_span = recursive_union_spans_of_def(def, &file_analysis, &defs);
+        let maybe_nested = ignore_boring_spans(&nested_span);
+        visit_def(
             &mut dataset,
             AnalysisKind::Def,
             &def.span,
             &qualname,
             &def,
             parent.as_ref().map(|p| &*p.qualname),
+            maybe_nested,
         )
+    }
+
+    // We want to expose impls as "def,namespace" with an inferred nesting_range for their
+    // contents.  I don't know if it's a bug or just a dubious design decision, but the impls all
+    // have empty values and no names, so to get a useful string out of them, we need to extract
+    // the contents of their span directly.
+    //
+    // Because the name needs to be extracted from the source file, we omit this step if we were
+    // unable to open the file.
+    if let Some(mut source_file) = maybe_source_file {
+        for imp in &file_analysis.impls {
+            // (for simple.rs at least, there is never a parent)
+
+            let name = match extract_span_from_source_as_string(&mut source_file, &imp.span) {
+                Some(s) => s,
+                None => continue,
+            };
+
+            let crate_id = &file_analysis.prelude.as_ref().unwrap().crate_id;
+            let qualname = construct_qualname(&crate_id.name, &name);
+            let pretty = pretty_for_impl(&imp, &qualname);
+            let nested_span = union_spans_of_defs(&imp.span, &imp.children, &file_analysis, &defs);
+            let maybe_nested = ignore_boring_spans(&nested_span);
+            // XXX visit_common currently never emits any syntax types; we want to pretend this is
+            // a namespace once it does.
+            visit_common(
+                &mut dataset,
+                AnalysisKind::Def,
+                &imp.span,
+                &qualname,
+                &pretty,
+                None,
+                maybe_nested,
+            )
+        }
     }
 
     for ref_ in &file_analysis.refs {
@@ -406,13 +631,14 @@ fn analyze_file(
                 continue;
             }
         };
-        visit(
+        visit_def(
             &mut dataset,
             AnalysisKind::Use,
             &ref_.span,
             &def.qualname,
             &def,
             /* context = */ None, // TODO
+            /* nesting = */ None,
         )
     }
 
@@ -458,6 +684,7 @@ fn linuxized_path(path: &PathBuf) -> PathBuf {
 }
 
 fn analyze_crate(analysis: &data::Analysis, defs: &Defs, tree_info: &TreeInfo) {
+    // Create and populate per-file Analysis instances from the provided per-crate Analysis file.
     let mut per_file = HashMap::new();
 
     info!("Analyzing crate: {:?}", analysis.prelude);
@@ -465,7 +692,7 @@ fn analyze_crate(analysis: &data::Analysis, defs: &Defs, tree_info: &TreeInfo) {
     macro_rules! flat_map_per_file {
         ($field:ident) => {
             for item in &analysis.$field {
-                let mut file_analysis = per_file
+                let file_analysis = per_file
                     .entry(linuxized_path(&item.span.file_name))
                     .or_insert_with(|| {
                         let prelude = analysis.prelude.clone();
@@ -552,6 +779,8 @@ fn main() {
         crates.iter().map(|k| &k.id.name).collect::<Vec<_>>()
     );
 
+    // Create and populate Defs, a map from Id to Def, across all crates before beginning analysis.
+    // This is necessary because Def and Ref instances name Defs via Id.
     let mut defs = Defs::new();
     for krate in &crates {
         for def in &krate.analysis.defs {

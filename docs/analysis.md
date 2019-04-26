@@ -133,7 +133,7 @@ lot of unnecessary entries.
 ### Sources
 
 A source record additionally contains a `syntax` property, a `pretty` property,
-and optionally a `no_crossref` property.
+an optional `no_crossref` property, and an optional `nestingRange` property.
 
 The `syntax` property describes how the identifier should be syntax highlighted.
 It is a comma-delimited list of strings. Currently the only strings that have any
@@ -147,9 +147,26 @@ the identifier. It should contain a human-readable description like
 `constructor nsDocShell::nsDocShell` or `property
 SessionStore.getTabState`.
 
-The `no_crossref` propeerty, if set, always has a value of `1`, and indicates
+The `no_crossref` property, if set, always has a value of `1`, and indicates
 that this identifier will have no target records and does not participate
 in cross-referencing.
+
+The `nestingRange` property, if present, contains a value analogous to a
+Clang SourceRange, with a string representation of "line1:col1-line2:col2" where
+lines are 1-based and columns are 0-based.  This currently powers
+"position:sticky" source code display so that when you are inside hierarchically
+nested definitions you can immediately understand where you are and what the
+scope is without needing to manually scroll up.
+
+Ideally, the nesting range's two points are the start of the token creating a
+nested block and the start of the token ending a nesting block.  ("{" and "}"
+in C++ and the 'b' in "begin" for Pascal.  This is consistent with how Clang's
+AST representations.)  However, when an analyzer doesn't have an exact AST to
+work with (ex: rust as of writing this), we may do our best to simply specify a
+conservative range of lines covering the children of a definition.
+
+In cases where we have accurate nestingRange information, we may be able to do
+neat tricks like highlight the area between braces or implement code folding.
 
 ### Targets
 
