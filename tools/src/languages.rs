@@ -63,24 +63,27 @@ lazy_static! {
         "#include", "#error", "defined",
     ];
 
+    // From 'reserved' in ipc/ipdl/ipdl/parser.py
     static ref RESERVED_WORDS_IPDL : Vec<&'static str> = vec![
-        "answer", "as", "async", "both", "bridges", "call", "child", "class",
-        "compress", "compressall", "__delete__", "delete", "from", "goto", "high",
-        "include", "intr", "manager", "manages", "namespace", "normal", "nullable",
-        "opens", "or", "parent", "prio", "protocol", "recv", "returns", "send",
-        "spawns", "start", "state", "struct", "sync", "union", "upto", "urgent",
-        "using",
+        "async", "both", "child", "class", "compress", "compressall", "from",
+        "include", "intr", "manager", "manages", "namespace", "nested",
+        "nullable", "or", "parent", "prio", "protocol", "refcounted",
+        "moveonly", "returns", "struct", "sync", "union", "UniquePtr", "upto",
+        "using", "verify",
     ];
 
     static ref RESERVED_WORDS_IDL : Vec<&'static str> = vec![
-        "const", "interface", "in", "inout", "out", "attribute", "raises",
-        "readonly", "native", "typedef",
+        "cenum", "const", "interface", "in", "inout", "out", "attribute", "raises",
+        "readonly", "native", "typedef", "webidl",
         "array", "shared", "iid_is", "size_is", "retval",
-        "boolean", "void", "octet", "short", "long", "long",
+        "boolean", "void", "octet", "short", "long",
         "unsigned", "float", "double", "char", "string", "wchar", "wstring",
-        "nsid", "domstring", "utf8string", "cstring", "astring", "jsval",
+        "nsid", "AUTF8String", "ACString", "AString", "jsval", "Promise",
+        "ptr", "ref",
         "uuid", "scriptable", "builtinclass", "function", "noscript", "deprecated",
         "object", "main_process_scriptable_only",
+        "binaryname", "notxpcom", "symbol", "implicit_jscontext", "nostdcall",
+        "must_use", "infallible", "can_run_script",
     ];
 
     static ref RESERVED_WORDS_WEBIDL : Vec<&'static str> = vec![
