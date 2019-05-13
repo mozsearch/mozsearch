@@ -1,6 +1,8 @@
+CC = clang
+CXX = clang++
 LLVM_CONFIG ?= llvm-config
 LLVM_LDFLAGS := $(shell ${LLVM_CONFIG} --ldflags)
-CXXFLAGS := $(shell ${LLVM_CONFIG} --cxxflags) -Wall -Wno-strict-aliasing \
+CXXFLAGS := $(shell ${LLVM_CONFIG} --cxxflags) -fPIC -Wall -Wno-strict-aliasing \
 	$(if $(DEBUG),-O0 -g)
 LDFLAGS := -fPIC -g -Wl,-R -Wl,'$$ORIGIN' $(LLVM_LDFLAGS) -shared
 

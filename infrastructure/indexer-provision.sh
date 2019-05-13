@@ -4,11 +4,17 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+# We currently try to keep the version of clang we use matching the one that
+# will be used by the Firefox build process.  If you have a "mach bootstrap"ped
+# system then you can see the current version locally via
+# "~/.mozbuild/clang/bin/clang --version"
+CLANG_VERSION=8
+
 sudo apt-get update
 # necessary for apt-add-repository to exist
 sudo apt-get install -y software-properties-common
 
-sudo add-apt-repository ppa:git-core/ppa    # For latest git
+sudo add-apt-repository -y ppa:git-core/ppa    # For latest git
 sudo apt-get update
 
 sudo apt-get install -y git
@@ -31,9 +37,9 @@ popd
 
 # Clang
 wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main"
+sudo apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-${CLANG_VERSION} main"
 sudo apt-get update
-sudo apt-get install -y clang-6.0 clang-6.0-dev
+sudo apt-get install -y clang-${CLANG_VERSION} libclang-${CLANG_VERSION}-dev
 
 # Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
 sudo apt-get install -y zip unzip mercurial g++ make autoconf2.13 yasm libgtk2.0-dev libgtk-3-dev libglib2.0-dev libdbus-1-dev libdbus-glib-1-dev libasound2-dev libcurl4-openssl-dev libiw-dev libxt-dev mesa-common-dev libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libpulse-dev m4 flex libx11-xcb-dev ccache libgconf2-dev
@@ -45,9 +51,9 @@ sudo apt-get install -y parallel realpath python-virtualenv python-pip
 sudo apt-get install -y python-dev libffi-dev cmake
 
 # Setup direct links to clang
-sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-6.0 400
-sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-6.0 400
-sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-6.0 400
+sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} 410
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} 410
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} 410
 
 # Install Rust. We need rust nightly to use the save-analysis
 curl https://sh.rustup.rs -sSf | sh -s -- -y
