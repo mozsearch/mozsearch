@@ -6,6 +6,7 @@
 #   With an instance ID as argument, connects to that instance.
 
 import boto3
+from datetime import datetime
 import os
 import sys
 import subprocess
@@ -14,6 +15,8 @@ import time
 ec2 = boto3.resource('ec2')
 
 def print_instances():
+    now = None
+
     for instance in ec2.instances.all():
         if len(instance.security_groups) != 1:
             continue
@@ -25,7 +28,17 @@ def print_instances():
             for tag in instance.tags:
                 tags[tag['Key']] = tag['Value']
 
-        print(instance.id, group, tags)
+        # datetime.now() is timezone-naive which means if we try and subtract
+        # to get a timedelta without a tz, we'll get an error.  Since under
+        # Python2 it's a little annoying to get the UTC timezone, we steal it.
+        if now is None:
+            now = datetime.now(instance.launch_time.tzinfo)
+        age = now - instance.launch_time
+        age_str = str(age)
+        # strip off sub-seconds
+        age_str = age_str[:age_str.find('.')]
+
+        print(instance.id, group, age_str, tags)
 
 def change_security(instance, make_secure):
     secure_suffix = '-secure'
@@ -75,4 +88,3 @@ if len(sys.argv) == 1:
 id = sys.argv[1]
 instance = ec2.Instance(id)
 log_into(instance)
-
