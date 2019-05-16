@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
-use std::io::BufReader;
 use std::io::BufRead;
-use std::collections::HashMap;
+use std::io::BufReader;
 
 extern crate rustc_serialize;
 use self::rustc_serialize::json::{as_json, Json, Object};
@@ -17,9 +17,17 @@ pub struct Location {
 impl fmt::Display for Location {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         if self.col_start == self.col_end {
-            write!(formatter, r#""loc":"{:05}:{}""#, self.lineno, self.col_start)
+            write!(
+                formatter,
+                r#""loc":"{:05}:{}""#,
+                self.lineno, self.col_start
+            )
         } else {
-            write!(formatter, r#""loc":"{:05}:{}-{}""#, self.lineno, self.col_start, self.col_end)
+            write!(
+                formatter,
+                r#""loc":"{:05}:{}-{}""#,
+                self.lineno, self.col_start, self.col_end
+            )
         }
     }
 }
@@ -70,11 +78,13 @@ pub struct AnalysisTarget {
 
 impl fmt::Display for AnalysisTarget {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter,
-               r#""target":1,"kind":"{}","pretty":{},"sym":{}"#,
-               self.kind,
-               as_json(&self.pretty),
-               as_json(&self.sym))?;
+        write!(
+            formatter,
+            r#""target":1,"kind":"{}","pretty":{},"sym":{}"#,
+            self.kind,
+            as_json(&self.pretty),
+            as_json(&self.sym)
+        )?;
         if !self.context.is_empty() {
             write!(formatter, r#","context":{}"#, as_json(&self.context))?;
         }
@@ -82,10 +92,11 @@ impl fmt::Display for AnalysisTarget {
             write!(formatter, r#","contextsym":{}"#, as_json(&self.contextsym))?;
         }
         if self.peek_range.start_lineno != 0 || self.peek_range.end_lineno != 0 {
-            write!(formatter,
-                   r#","peekRange":"{}-{}""#,
-                   self.peek_range.start_lineno,
-                   self.peek_range.end_lineno)?;
+            write!(
+                formatter,
+                r#","peekRange":"{}-{}""#,
+                self.peek_range.start_lineno, self.peek_range.end_lineno
+            )?;
         }
         Ok(())
     }
@@ -127,11 +138,13 @@ impl AnalysisSource {
 
 impl fmt::Display for AnalysisSource {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter,
-               r#""source":1,"syntax":{},"pretty":{},"sym":{}"#,
-               as_json(&self.syntax.join(",")),
-               as_json(&self.pretty),
-               as_json(&self.sym.join(",")))?;
+        write!(
+            formatter,
+            r#""source":1,"syntax":{},"pretty":{},"sym":{}"#,
+            as_json(&self.syntax.join(",")),
+            as_json(&self.pretty),
+            as_json(&self.sym.join(","))
+        )?;
         if self.no_crossref {
             write!(formatter, r#","no_crossref":1"#)?;
         }
@@ -156,31 +169,44 @@ impl fmt::Display for WithLocation<Vec<AnalysisSource>> {
 }
 
 pub fn parse_location(loc: &str) -> Location {
-    let v : Vec<&str> = loc.split(":").collect();
+    let v: Vec<&str> = loc.split(":").collect();
     let lineno = v[0].parse::<u32>().unwrap();
     let (col_start, col_end) = if v[1].contains("-") {
-        let v : Vec<&str> = v[1].split("-").collect();
+        let v: Vec<&str> = v[1].split("-").collect();
         (v[0], v[1])
     } else {
         (v[1], v[1])
     };
     let col_start = col_start.parse::<u32>().unwrap();
     let col_end = col_end.parse::<u32>().unwrap();
-    Location { lineno: lineno, col_start: col_start, col_end: col_end }
+    Location {
+        lineno: lineno,
+        col_start: col_start,
+        col_end: col_end,
+    }
 }
 
 fn parse_line_range(range: &str) -> LineRange {
-    let v : Vec<&str> = range.split("-").collect();
+    let v: Vec<&str> = range.split("-").collect();
     let start_lineno = v[0].parse::<u32>().unwrap();
     let end_lineno = v[1].parse::<u32>().unwrap();
-    LineRange { start_lineno: start_lineno, end_lineno: end_lineno }
+    LineRange {
+        start_lineno: start_lineno,
+        end_lineno: end_lineno,
+    }
 }
 
-pub fn read_analysis<T>(filename: &str, filter: &mut FnMut(&Object) -> Option<T>) -> Vec<WithLocation<Vec<T>>> {
+pub fn read_analysis<T>(
+    filename: &str,
+    filter: &mut FnMut(&Object) -> Option<T>,
+) -> Vec<WithLocation<Vec<T>>> {
     read_analyses(&vec![filename], filter)
 }
 
-pub fn read_analyses<T>(filenames: &[&str], filter: &mut FnMut(&Object) -> Option<T>) -> Vec<WithLocation<Vec<T>>> {
+pub fn read_analyses<T>(
+    filenames: &[&str],
+    filter: &mut FnMut(&Object) -> Option<T>,
+) -> Vec<WithLocation<Vec<T>>> {
     let mut result = Vec::new();
     for filename in filenames {
         let file = match File::open(filename) {
@@ -196,7 +222,10 @@ pub fn read_analyses<T>(filenames: &[&str], filter: &mut FnMut(&Object) -> Optio
             let data = match data {
                 Ok(data) => data,
                 Err(e) => {
-                    warn!("Error [{}] trying to read analysis from file [{}] line [{}]: [{}]", e, filename, lineno, &line);
+                    warn!(
+                        "Error [{}] trying to read analysis from file [{}] line [{}]: [{}]",
+                        e, filename, lineno, &line
+                    );
                     continue;
                 }
             };
@@ -211,9 +240,7 @@ pub fn read_analyses<T>(filenames: &[&str], filter: &mut FnMut(&Object) -> Optio
         }
     }
 
-    result.sort_by(|x1, x2| {
-        x1.loc.cmp(&x2.loc)
-    });
+    result.sort_by(|x1, x2| x1.loc.cmp(&x2.loc));
 
     let mut result2 = Vec::new();
     let mut last_loc = None;
@@ -224,11 +251,14 @@ pub fn read_analyses<T>(filenames: &[&str], filter: &mut FnMut(&Object) -> Optio
                 if ll == r.loc {
                     last_loc = Some(ll);
                 } else {
-                    result2.push(WithLocation { loc: ll, data: last_vec });
+                    result2.push(WithLocation {
+                        loc: ll,
+                        data: last_vec,
+                    });
                     last_vec = Vec::new();
                     last_loc = Some(r.loc);
                 }
-            },
+            }
             None => {
                 last_loc = Some(r.loc);
             }
@@ -237,14 +267,17 @@ pub fn read_analyses<T>(filenames: &[&str], filter: &mut FnMut(&Object) -> Optio
     }
 
     match last_loc {
-        Some(ll) => result2.push(WithLocation { loc: ll, data: last_vec }),
-        None => {},
+        Some(ll) => result2.push(WithLocation {
+            loc: ll,
+            data: last_vec,
+        }),
+        None => {}
     }
 
     result2
 }
 
-pub fn read_target(obj : &Object) -> Option<AnalysisTarget> {
+pub fn read_target(obj: &Object) -> Option<AnalysisTarget> {
     if !obj.contains_key("target") {
         return None;
     }
@@ -256,49 +289,66 @@ pub fn read_target(obj : &Object) -> Option<AnalysisTarget> {
         "assign" => AnalysisKind::Assign,
         "decl" => AnalysisKind::Decl,
         "idl" => AnalysisKind::Idl,
-        _ => panic!("bad target kind")
+        _ => panic!("bad target kind"),
     };
 
     let pretty = match obj.get("pretty") {
         Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string()
+        None => "".to_string(),
     };
     let context = match obj.get("context") {
         Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string()
+        None => "".to_string(),
     };
     let contextsym = match obj.get("contextsym") {
         Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string()
+        None => "".to_string(),
     };
     let peek_range = match obj.get("peekRange") {
         Some(json) => parse_line_range(json.as_string().unwrap()),
-        None => LineRange { start_lineno: 0, end_lineno: 0 }
+        None => LineRange {
+            start_lineno: 0,
+            end_lineno: 0,
+        },
     };
     let sym = obj.get("sym").unwrap().as_string().unwrap().to_string();
 
-    Some(AnalysisTarget { kind: kind, pretty: pretty, sym: sym, context: context,
-                          contextsym: contextsym, peek_range: peek_range })
+    Some(AnalysisTarget {
+        kind: kind,
+        pretty: pretty,
+        sym: sym,
+        context: context,
+        contextsym: contextsym,
+        peek_range: peek_range,
+    })
 }
 
-pub fn read_source(obj : &Object) -> Option<AnalysisSource> {
+pub fn read_source(obj: &Object) -> Option<AnalysisSource> {
     if !obj.contains_key("source") {
         return None;
     }
 
     let syntax = match obj.get("syntax") {
         Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string()
+        None => "".to_string(),
     };
-    let mut syntax : Vec<String> = syntax.split(',').map(str::to_string).collect();
+    let mut syntax: Vec<String> = syntax.split(',').map(str::to_string).collect();
     syntax.sort();
     syntax.dedup();
 
     let pretty = match obj.get("pretty") {
         Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string()
+        None => "".to_string(),
     };
-    let mut sym : Vec<String> = obj.get("sym").unwrap().as_string().unwrap().to_string().split(',').map(str::to_string).collect();
+    let mut sym: Vec<String> = obj
+        .get("sym")
+        .unwrap()
+        .as_string()
+        .unwrap()
+        .to_string()
+        .split(',')
+        .map(str::to_string)
+        .collect();
     sym.sort();
     sym.dedup();
 
@@ -307,7 +357,12 @@ pub fn read_source(obj : &Object) -> Option<AnalysisSource> {
         None => false,
     };
 
-    Some(AnalysisSource { pretty: pretty, sym: sym, syntax: syntax, no_crossref: no_crossref })
+    Some(AnalysisSource {
+        pretty: pretty,
+        sym: sym,
+        syntax: syntax,
+        no_crossref: no_crossref,
+    })
 }
 
 pub struct Jump {
