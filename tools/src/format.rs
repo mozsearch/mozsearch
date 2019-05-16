@@ -1,33 +1,36 @@
+use std::collections::HashMap;
 use std::env;
 use std::io::Write;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use file_format::analysis;
 use blame;
-use tokenize;
+use file_format::analysis;
+use git_ops;
 use languages;
 use languages::FormatAs;
 use links;
-use git_ops;
+use tokenize;
 
 use config::GitData;
-use file_format::analysis::{WithLocation, AnalysisSource, Jump};
-use output::{self, F, Options, PanelItem, PanelSection};
+use file_format::analysis::{AnalysisSource, Jump, WithLocation};
+use output::{self, Options, PanelItem, PanelSection, F};
 
-use rustc_serialize::json::{self, Json};
-use git2;
+use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
-use chrono::datetime::DateTime;
+use git2;
+use rustc_serialize::json::{self, Json};
 
 use config;
 
-pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
-                   path: &str, input: &str,
-                   analysis: &[WithLocation<Vec<AnalysisSource>>]) -> (Vec<String>, String)
-{
+pub fn format_code(
+    jumps: &HashMap<String, Jump>,
+    format: FormatAs,
+    path: &str,
+    input: &str,
+    analysis: &[WithLocation<Vec<AnalysisSource>>],
+) -> (Vec<String>, String) {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
         FormatAs::Plain => tokenize::tokenize_plain(&input),
@@ -66,7 +69,7 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
 
         match token.kind {
             tokenize::TokenKind::Newline => {
-                output.push_str(&input[last .. token.start]);
+                output.push_str(&input[last..token.start]);
                 output_lines.push(fixup(output));
                 output = String::new();
 
@@ -75,7 +78,7 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                 last = token.end;
 
                 continue;
-            },
+            }
             _ => {}
         }
 
@@ -85,22 +88,19 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
         // to tokens we've already gone past. This effectively advances
         // cur_datum such that `analysis[cur_datum]` is the analysis data
         // for our current token (if there is any).
-        while cur_datum < analysis.len() &&
-            cur_line as u32 > analysis[cur_datum].loc.lineno
-        {
+        while cur_datum < analysis.len() && cur_line as u32 > analysis[cur_datum].loc.lineno {
             cur_datum += 1
         }
-        while cur_datum < analysis.len() &&
-            cur_line as u32 == analysis[cur_datum].loc.lineno &&
-            column > analysis[cur_datum].loc.col_start
+        while cur_datum < analysis.len()
+            && cur_line as u32 == analysis[cur_datum].loc.lineno
+            && column > analysis[cur_datum].loc.col_start
         {
             cur_datum += 1
         }
 
-        let datum =
-            if cur_datum < analysis.len() &&
-            cur_line as u32 == analysis[cur_datum].loc.lineno &&
-            column == analysis[cur_datum].loc.col_start
+        let datum = if cur_datum < analysis.len()
+            && cur_line as u32 == analysis[cur_datum].loc.lineno
+            && column == analysis[cur_datum].loc.col_start
         {
             let r = &analysis[cur_datum].data;
             cur_datum += 1;
@@ -123,9 +123,12 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                     syms
                 };
 
-                let d = d.iter().filter(|item| !item.no_crossref).collect::<Vec<_>>();
+                let d = d
+                    .iter()
+                    .filter(|item| !item.no_crossref)
+                    .collect::<Vec<_>>();
 
-                let mut menu_jumps : HashMap<String, Json> = HashMap::new();
+                let mut menu_jumps: HashMap<String, Json> = HashMap::new();
                 for sym in d.iter().flat_map(|item| item.sym.iter()) {
                     let jump = match jumps.get(sym) {
                         Some(jump) => jump,
@@ -143,44 +146,50 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
                     menu_jumps.insert(key, Json::Object(obj));
                 }
 
-                let items = d.iter().map(|item| {
-                    let mut obj = json::Object::new();
-                    obj.insert("pretty".to_string(), Json::String(item.pretty.clone()));
-                    obj.insert("sym".to_string(), Json::String(item.sym.join(",")));
-                    Json::Object(obj)
-                }).collect::<Vec<_>>();
+                let items = d
+                    .iter()
+                    .map(|item| {
+                        let mut obj = json::Object::new();
+                        obj.insert("pretty".to_string(), Json::String(item.pretty.clone()));
+                        obj.insert("sym".to_string(), Json::String(item.sym.join(",")));
+                        Json::Object(obj)
+                    })
+                    .collect::<Vec<_>>();
 
                 let menu_jumps = menu_jumps.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
 
                 let index = generated_json.len();
                 if items.len() > 0 {
-                    generated_json.push(Json::Array(vec![Json::Array(menu_jumps), Json::Array(items)]));
+                    generated_json.push(Json::Array(vec![
+                        Json::Array(menu_jumps),
+                        Json::Array(items),
+                    ]));
                     format!("data-symbols=\"{}\" data-i=\"{}\" ", syms, index)
                 } else {
                     format!("data-symbols=\"{}\" ", syms)
                 }
-            },
+            }
             _ => String::new(),
         };
 
         let style = match token.kind {
-            tokenize::TokenKind::Identifier(None) => {
-                match datum {
-                    Some(d) => {
-                        let classes = d.iter().flat_map(|a| a.syntax.iter().flat_map(|s| match s.as_ref() {
+            tokenize::TokenKind::Identifier(None) => match datum {
+                Some(d) => {
+                    let classes = d.iter().flat_map(|a| {
+                        a.syntax.iter().flat_map(|s| match s.as_ref() {
                             "type" => vec!["syn_type"],
                             "def" | "decl" | "idl" => vec!["syn_def"],
                             _ => vec![],
-                        }));
-                        let classes = classes.collect::<Vec<_>>();
-                        if classes.len() > 0 {
-                            format!("class=\"{}\" ", classes.join(" "))
-                        } else {
-                            "".to_owned()
-                        }
-                    },
-                    None => "".to_owned()
+                        })
+                    });
+                    let classes = classes.collect::<Vec<_>>();
+                    if classes.len() > 0 {
+                        format!("class=\"{}\" ", classes.join(" "))
+                    } else {
+                        "".to_owned()
+                    }
                 }
+                None => "".to_owned(),
             },
             tokenize::TokenKind::Identifier(Some(ref style)) => style.clone(),
             tokenize::TokenKind::StringLiteral => "class=\"syn_string\" ".to_owned(),
@@ -189,25 +198,25 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
             tokenize::TokenKind::TagAttrName => "class=\"syn_tag\" ".to_owned(),
             tokenize::TokenKind::EndTagName => "class=\"syn_tag\" ".to_owned(),
             tokenize::TokenKind::RegularExpressionLiteral => "class=\"syn_regex\" ".to_owned(),
-            _ => "".to_owned()
+            _ => "".to_owned(),
         };
 
         match token.kind {
             tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
-                let mut sanitized = entity_replace(input[last .. token.end].to_string());
+                let mut sanitized = entity_replace(input[last..token.end].to_string());
                 if token.kind == tokenize::TokenKind::PlainText {
                     sanitized = links::linkify_comment(sanitized);
                 }
                 output.push_str(&sanitized);
                 last = token.end;
-            },
+            }
             _ => {
                 if style != "" || data != "" {
-                    output.push_str(&entity_replace(input[last .. token.start].to_string()));
+                    output.push_str(&entity_replace(input[last..token.start].to_string()));
                     output.push_str(&format!("<span {}{}>", style, data));
-                    let mut sanitized = entity_replace(input[token.start .. token.end].to_string());
-                    if token.kind == tokenize::TokenKind::Comment ||
-                        token.kind == tokenize::TokenKind::StringLiteral
+                    let mut sanitized = entity_replace(input[token.start..token.end].to_string());
+                    if token.kind == tokenize::TokenKind::Comment
+                        || token.kind == tokenize::TokenKind::StringLiteral
                     {
                         sanitized = links::linkify_comment(sanitized);
                     }
@@ -219,7 +228,7 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
         }
     }
 
-    output.push_str(&entity_replace(input[last ..].to_string()));
+    output.push_str(&entity_replace(input[last..].to_string()));
 
     if output.len() > 0 {
         output_lines.push(fixup(output));
@@ -233,17 +242,19 @@ pub fn format_code(jumps: &HashMap<String, Jump>, format: FormatAs,
     (output_lines, analysis_json)
 }
 
-pub fn format_file_data(cfg: &config::Config,
-                        tree_name: &str,
-                        panel: &[PanelSection],
-                        commit: &Option<git2::Commit>,
-                        blame_commit: &Option<git2::Commit>,
-                        path: &str,
-                        data: String,
-                        jumps: &HashMap<String, Jump>,
-                        analysis: &[WithLocation<Vec<AnalysisSource>>],
-                        writer: &mut Write,
-                        mut diff_cache: Option<&mut git_ops::TreeDiffCache>) -> Result<(), &'static str>  {
+pub fn format_file_data(
+    cfg: &config::Config,
+    tree_name: &str,
+    panel: &[PanelSection],
+    commit: &Option<git2::Commit>,
+    blame_commit: &Option<git2::Commit>,
+    path: &str,
+    data: String,
+    jumps: &HashMap<String, Jump>,
+    analysis: &[WithLocation<Vec<AnalysisSource>>],
+    writer: &mut Write,
+    mut diff_cache: Option<&mut git_ops::TreeDiffCache>,
+) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
     let format = languages::select_formatting(path);
@@ -251,8 +262,8 @@ pub fn format_file_data(cfg: &config::Config,
         FormatAs::Binary => {
             write!(writer, "Binary file").unwrap();
             return Ok(());
-        },
-        _ => {},
+        }
+        _ => {}
     };
 
     let (output_lines, analysis_json) = format_code(jumps, format, path, &data, &analysis);
@@ -264,7 +275,7 @@ pub fn format_file_data(cfg: &config::Config,
             let rev = commit.id().to_string();
             let (header, _) = try!(blame::commit_header(commit));
             Some((rev, header))
-        },
+        }
         &None => None,
     };
     let revision = match revision_owned {
@@ -307,13 +318,10 @@ pub fn format_file_data(cfg: &config::Config,
                 F::S("<th scope=\"col\">Code</th>"),
             ]),
             F::S("</thead>"),
-
             F::S("<tbody>"),
             F::Indent(vec![
                 F::S("<tr>"),
-                F::Indent(vec![
-                    F::S("<td id=\"line-numbers\">"),
-                ]),
+                F::Indent(vec![F::S("<td id=\"line-numbers\">")]),
             ]),
         ]),
     ]);
@@ -329,7 +337,7 @@ pub fn format_file_data(cfg: &config::Config,
 
     let mut last_revs = None;
     let mut last_color = false;
-    for i in 0 .. output_lines.len() {
+    for i in 0..output_lines.len() {
         let lineno = i + 1;
 
         let blame_data = if let Some(ref lines) = blame_lines {
@@ -350,7 +358,7 @@ pub fn format_file_data(cfg: &config::Config,
                 let mut cur_path = PathBuf::from(if pieces[1] == "%" { path } else { pieces[1] });
                 let mut cur_lineno = pieces[2].parse::<u32>().unwrap();
 
-                let mut max_ignored_allowed = 5;  // chosen arbitrarily
+                let mut max_ignored_allowed = 5; // chosen arbitrarily
                 while git.should_ignore_for_blame(&cur_rev) {
                     if max_ignored_allowed == 0 {
                         // Push an empty entry on the end to indicate we hit the
@@ -399,12 +407,20 @@ pub fn format_file_data(cfg: &config::Config,
 
                     // Update inputs to find_prev_blame for the next iteration
                     cur_rev = pieces[0].to_string();
-                    cur_path = if pieces[1] == "%" { prev_path } else { PathBuf::from(pieces[1]) };
+                    cur_path = if pieces[1] == "%" {
+                        prev_path
+                    } else {
+                        PathBuf::from(pieces[1])
+                    };
                     cur_lineno = pieces[2].parse::<u32>().unwrap();
                 }
             }
 
-            let color = if last_revs.map_or(false, |last| last == revs) { last_color } else { !last_color };
+            let color = if last_revs.map_or(false, |last| last == revs) {
+                last_color
+            } else {
+                !last_color
+            };
             last_revs = Some(revs.clone());
             last_color = color;
             let class = if color { 1 } else { 2 };
@@ -416,48 +432,51 @@ pub fn format_file_data(cfg: &config::Config,
         };
 
         let f = F::Seq(vec![
-            F::T(format!("<span id=\"l{}\" class=\"line-number\">{}", lineno, lineno)),
+            F::T(format!(
+                "<span id=\"l{}\" class=\"line-number\">{}",
+                lineno, lineno
+            )),
             F::T(format!("<div{}></div>", blame_data)),
-            F::S("</span>")
+            F::S("</span>"),
         ]);
 
         output::generate_formatted(writer, &f, 0).unwrap();
     }
 
-    let f = F::Seq(vec![
-        F::Indent(vec![
-            F::Indent(vec![
-                F::Indent(vec![
-                    F::S("</td>"),
-                    F::S("<td class=\"code\">"),
-                ]),
-            ]),
-        ]),
-    ]);
+    let f = F::Seq(vec![F::Indent(vec![F::Indent(vec![F::Indent(vec![
+        F::S("</td>"),
+        F::S("<td class=\"code\">"),
+    ])])])]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
     write!(writer, "<pre>").unwrap();
     for (i, line) in output_lines.iter().enumerate() {
-        write!(writer, "<code id=\"line-{}\" aria-labelledby=\"{}\">{}\n</code>",
-               i + 1, i + 1, line).unwrap();
+        write!(
+            writer,
+            "<code id=\"line-{}\" aria-labelledby=\"{}\">{}\n</code>",
+            i + 1,
+            i + 1,
+            line
+        )
+        .unwrap();
     }
     write!(writer, "</pre>").unwrap();
 
     let f = F::Seq(vec![
         F::Indent(vec![
-            F::Indent(vec![
-                F::Indent(vec![
-                    F::S("</td>"),
-                ]),
-                F::S("</tr>"),
-            ]),
+            F::Indent(vec![F::Indent(vec![F::S("</td>")]), F::S("</tr>")]),
             F::S("</tbody>"),
         ]),
         F::S("</table>"),
     ]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    write!(writer, "<script>var ANALYSIS_DATA = {};</script>\n", analysis_json).unwrap();
+    write!(
+        writer,
+        "<script>var ANALYSIS_DATA = {};</script>\n",
+        analysis_json
+    )
+    .unwrap();
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
@@ -466,7 +485,7 @@ pub fn format_file_data(cfg: &config::Config,
 
 fn entry_to_blob(repo: &git2::Repository, entry: &git2::TreeEntry) -> Result<String, &'static str> {
     match entry.kind() {
-        Some(git2::ObjectType::Blob) => {},
+        Some(git2::ObjectType::Blob) => {}
         _ => return Err("Invalid path; expected file"),
     }
 
@@ -477,11 +496,13 @@ fn entry_to_blob(repo: &git2::Repository, entry: &git2::TreeEntry) -> Result<Str
     Ok(git_ops::read_blob_entry(repo, entry))
 }
 
-pub fn format_path(cfg: &config::Config,
-                   tree_name: &str,
-                   rev: &str,
-                   path: &str,
-                   writer: &mut Write) -> Result<(), &'static str> {
+pub fn format_path(
+    cfg: &config::Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    writer: &mut Write,
+) -> Result<(), &'static str> {
     // Get the file data.
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
     let git = try!(config::get_git(tree_config));
@@ -512,10 +533,16 @@ pub fn format_path(cfg: &config::Config,
 
                 // If we get here, the path is inside a submodule
                 let subrepo_path = subrepo_path.to_str().ok_or("UTF-8 error")?;
-                let subrepo = git.repo.find_submodule(subrepo_path).map_err(|_| "Can't find submodule")?;
+                let subrepo = git
+                    .repo
+                    .find_submodule(subrepo_path)
+                    .map_err(|_| "Can't find submodule")?;
                 let subrepo = subrepo.open().map_err(|_| "Can't open submodule")?;
-                let path_in_subrepo = path_obj.strip_prefix(subrepo_path).map_err(|_| "Submodule path error")?;
-                let subentry = subrepo.find_commit(entry.id())
+                let path_in_subrepo = path_obj
+                    .strip_prefix(subrepo_path)
+                    .map_err(|_| "Submodule path error")?;
+                let subentry = subrepo
+                    .find_commit(entry.id())
                     .and_then(|commit| commit.tree())
                     .and_then(|tree| tree.get_path(path_in_subrepo))
                     .map_err(|_| "File not found in submodule")?;
@@ -526,17 +553,23 @@ pub fn format_path(cfg: &config::Config,
 
     // Get blame.
     let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
-        let blame_oid = try!(git.blame_map.get(&commit.id()).ok_or("Unable to find blame for revision"));
-        Some(try!(blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob")))
+        let blame_oid = try!(git
+            .blame_map
+            .get(&commit.id())
+            .ok_or("Unable to find blame for revision"));
+        Some(try!(blame_repo
+            .find_commit(*blame_oid)
+            .map_err(|_| "Blame is not a blob")))
     } else {
         None
     };
 
-    let jumps : HashMap<String, analysis::Jump> = HashMap::new();
+    let jumps: HashMap<String, analysis::Jump> = HashMap::new();
     let analysis = Vec::new();
 
-    let hg_rev : &str =
-        tree_config.git.as_ref()
+    let hg_rev: &str = tree_config
+        .git
+        .as_ref()
         .and_then(|git| git.hg_map.get(&commit.id()))
         .and_then(|rev| Some(rev.as_ref())) // &String to &str conversion
         .unwrap_or(&"tip");
@@ -565,7 +598,9 @@ pub fn format_path(cfg: &config::Config,
     if tree_config.paths.git_blame_path.is_some() {
         vcs_panel_items.push(PanelItem {
             title: "Blame".to_owned(),
-            link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
+            link:
+                "javascript:alert('Hover over the gray bar on the left to see blame information.')"
+                    .to_owned(),
             update_link_lineno: false,
             accel_key: None,
         });
@@ -575,17 +610,19 @@ pub fn format_path(cfg: &config::Config,
         items: vcs_panel_items,
     }];
 
-    try!(format_file_data(cfg,
-                          tree_name,
-                          &panel,
-                          &Some(commit),
-                          &blame_commit,
-                          path,
-                          data,
-                          &jumps,
-                          &analysis,
-                          writer,
-                          None));
+    try!(format_file_data(
+        cfg,
+        tree_name,
+        &panel,
+        &Some(commit),
+        &blame_commit,
+        path,
+        data,
+        &jumps,
+        &analysis,
+        writer,
+        None
+    ));
 
     Ok(())
 }
@@ -598,27 +635,30 @@ fn split_lines(s: &str) -> Vec<&str> {
     split
 }
 
-pub fn format_diff(cfg: &config::Config,
-                   tree_name: &str,
-                   rev: &str,
-                   path: &str,
-                   writer: &mut Write) -> Result<(), &'static str> {
+pub fn format_diff(
+    cfg: &config::Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    writer: &mut Write,
+) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
     let git_path = try!(config::get_git_path(tree_config));
     let output = try!(Command::new("/usr/bin/git")
-                      .arg("diff-tree")
-                      .arg("-p")
-                      .arg("--cc")
-                      .arg("--patience")
-                      .arg("--full-index")
-                      .arg("--no-prefix")
-                      .arg("-U100000")
-                      .arg(rev)
-                      .arg("--")
-                      .arg(path)
-                      .current_dir(&git_path)
-                      .output().map_err(|_| "Diff failed 1"));
+        .arg("diff-tree")
+        .arg("-p")
+        .arg("--cc")
+        .arg("--patience")
+        .arg("--full-index")
+        .arg("--no-prefix")
+        .arg("-U100000")
+        .arg(rev)
+        .arg("--")
+        .arg(path)
+        .current_dir(&git_path)
+        .output()
+        .map_err(|_| "Diff failed 1"));
     if !output.status.success() {
         println!("ERR\n{}", git_ops::decode_bytes(output.stderr));
         return Err("Diff failed 2");
@@ -641,14 +681,20 @@ pub fn format_diff(cfg: &config::Config,
             continue;
         }
         let blame_oid = try!(git.blame_map.get(&parent_oid).ok_or("Unable to find blame"));
-        let blame_commit = try!(git.blame_repo.as_ref().unwrap().find_commit(*blame_oid).map_err(|_| "Blame is not a blob"));
+        let blame_commit = try!(git
+            .blame_repo
+            .as_ref()
+            .unwrap()
+            .find_commit(*blame_oid)
+            .map_err(|_| "Blame is not a blob"));
         let blame_tree = try!(blame_commit.tree().map_err(|_| "Bad revision"));
         match blame_tree.get_path(Path::new(path)) {
             Ok(blame_entry) => {
-                let blame = git_ops::read_blob_entry(git.blame_repo.as_ref().unwrap(), &blame_entry);
+                let blame =
+                    git_ops::read_blob_entry(git.blame_repo.as_ref().unwrap(), &blame_entry);
                 let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
                 blames.push(Some(blame_lines));
-            },
+            }
             Err(_) => {
                 blames.push(None);
             }
@@ -680,9 +726,7 @@ pub fn format_diff(cfg: &config::Config,
         let mut cur_blame = None;
         for i in 0..num_parents {
             let has_minus = origin.contains(&'-');
-            if (has_minus && origin[i] == '-') ||
-                (!has_minus && origin[i] != '+')
-            {
+            if (has_minus && origin[i] == '-') || (!has_minus && origin[i] != '+') {
                 cur_blame = match blames[i] {
                     Some(ref lines) => Some(&lines[old_lineno[i] - 1]),
                     None => return Err("expected blame for '-' line, none found"),
@@ -707,10 +751,10 @@ pub fn format_diff(cfg: &config::Config,
     match format {
         FormatAs::Binary => {
             return Err("Cannot diff binary file");
-        },
-        _ => {},
+        }
+        _ => {}
     };
-    let jumps : HashMap<String, analysis::Jump> = HashMap::new();
+    let jumps: HashMap<String, analysis::Jump> = HashMap::new();
     let analysis = Vec::new();
     let (formatted_lines, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 
@@ -745,7 +789,7 @@ pub fn format_diff(cfg: &config::Config,
             link: format!("/{}/source/{}", tree_name, path),
             update_link_lineno: true,
             accel_key: None,
-        }
+        },
     ];
     if let Some(ref hg_root) = tree_config.paths.hg_root {
         vcs_panel_items.push(PanelItem {
@@ -770,13 +814,10 @@ pub fn format_diff(cfg: &config::Config,
                 F::S("<th scope=\"col\">Code</th>"),
             ]),
             F::S("</thead>"),
-
             F::S("<tbody>"),
             F::Indent(vec![
                 F::S("<tr>"),
-                F::Indent(vec![
-                    F::S("<td id=\"line-numbers\">"),
-                ]),
+                F::Indent(vec![F::S("<td id=\"line-numbers\">")]),
             ]),
         ]),
     ]);
@@ -793,13 +834,17 @@ pub fn format_diff(cfg: &config::Config,
                 let filespec = pieces[1];
                 let blame_lineno = pieces[2];
 
-                let color = if last_rev == Some(rev) { last_color } else { !last_color };
+                let color = if last_rev == Some(rev) {
+                    last_color
+                } else {
+                    !last_color
+                };
                 last_rev = Some(rev);
                 last_color = color;
                 let class = if color { 1 } else { 2 };
                 format!(r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
                         class, rev, filespec, blame_lineno)
-            },
+            }
             None => "".to_owned(),
         };
 
@@ -811,22 +856,16 @@ pub fn format_diff(cfg: &config::Config,
         let f = F::Seq(vec![
             F::T(line_str),
             F::T(format!("<div{}></div>", blame_data)),
-            F::S("</span>")
+            F::S("</span>"),
         ]);
 
         output::generate_formatted(writer, &f, 0).unwrap();
     }
 
-    let f = F::Seq(vec![
-        F::Indent(vec![
-            F::Indent(vec![
-                F::Indent(vec![
-                    F::S("</td>"),
-                    F::S("<td class=\"code\">"),
-                ]),
-            ]),
-        ]),
-    ]);
+    let f = F::Seq(vec![F::Indent(vec![F::Indent(vec![F::Indent(vec![
+        F::S("</td>"),
+        F::S("<td class=\"code\">"),
+    ])])])]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
     fn entity_replace(s: String) -> String {
@@ -852,7 +891,12 @@ pub fn format_diff(cfg: &config::Config,
             ""
         };
 
-        write!(writer, "<code id=\"line-{}\" aria-labelledby=\"{}\"{}>", lineno, lineno, class).unwrap();
+        write!(
+            writer,
+            "<code id=\"line-{}\" aria-labelledby=\"{}\"{}>",
+            lineno, lineno, class
+        )
+        .unwrap();
         write!(writer, "{} {}", origin, content).unwrap();
         write!(writer, "\n</code>").unwrap();
     }
@@ -860,12 +904,7 @@ pub fn format_diff(cfg: &config::Config,
 
     let f = F::Seq(vec![
         F::Indent(vec![
-            F::Indent(vec![
-                F::Indent(vec![
-                    F::S("</td>"),
-                ]),
-                F::S("</tr>"),
-            ]),
+            F::Indent(vec![F::Indent(vec![F::S("</td>")]), F::S("</tr>")]),
             F::S("</tbody>"),
         ]),
         F::S("</table>"),
@@ -877,10 +916,12 @@ pub fn format_diff(cfg: &config::Config,
     Ok(())
 }
 
-fn generate_commit_info(tree_name: &str,
-                        tree_config: &config::TreeConfig,
-                        writer: &mut Write,
-                        commit: &git2::Commit)  -> Result<(), &'static str> {
+fn generate_commit_info(
+    tree_name: &str,
+    tree_config: &config::TreeConfig,
+    writer: &mut Write,
+    commit: &git2::Commit,
+) -> Result<(), &'static str> {
     let (header, remainder) = try!(blame::commit_header(&commit));
 
     fn format_rev(tree_name: &str, oid: git2::Oid) -> String {
@@ -888,46 +929,72 @@ fn generate_commit_info(tree_name: &str,
     }
 
     fn format_sig(sig: git2::Signature, git: &GitData) -> String {
-        let (name, email) = git.mailmap.lookup(sig.name().unwrap(), sig.email().unwrap());
+        let (name, email) = git
+            .mailmap
+            .lookup(sig.name().unwrap(), sig.email().unwrap());
         format!("{} &lt;{}>", name, email)
     }
 
-    let parents = commit.parent_ids().map(|p| {
-        F::T(format!("<tr><td>parent</td><td>{}</td></tr>", format_rev(tree_name, p)))
-    }).collect::<Vec<_>>();
+    let parents = commit
+        .parent_ids()
+        .map(|p| {
+            F::T(format!(
+                "<tr><td>parent</td><td>{}</td></tr>",
+                format_rev(tree_name, p)
+            ))
+        })
+        .collect::<Vec<_>>();
 
     let git = try!(config::get_git(tree_config));
     let hg = match git.hg_map.get(&commit.id()) {
         Some(hg_id) => {
-            let hg_link = format!("<a href=\"{}/rev/{}\">{}</a>", tree_config.paths.hg_root.as_ref().unwrap(), hg_id, hg_id);
+            let hg_link = format!(
+                "<a href=\"{}/rev/{}\">{}</a>",
+                tree_config.paths.hg_root.as_ref().unwrap(),
+                hg_id,
+                hg_id
+            );
             vec![F::T(format!("<tr><td>hg</td><td>{}</td></tr>", hg_link))]
-        },
+        }
 
-        None => vec![]
+        None => vec![],
     };
 
     let id_string = format!("{}", commit.id());
     let gitstr = tree_config.paths.github_repo.as_ref().map(|ref ghurl| {
-        format!("<a href=\"{}/commit/{}\">{}</a>", ghurl, id_string, id_string)
+        format!(
+            "<a href=\"{}/commit/{}\">{}</a>",
+            ghurl, id_string, id_string
+        )
     });
 
     let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
     let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
-    let t : DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
+    let t: DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
     let t = t.to_rfc2822();
 
     let f = F::Seq(vec![
         F::T(format!("<h3>{}</h3>", header)),
         F::T(format!("<pre><code>{}</code></pre>", remainder)),
-
         F::S("<table>"),
         F::Indent(vec![
-            F::T(format!("<tr><td>commit</td><td>{}</td></tr>", format_rev(tree_name, commit.id()))),
+            F::T(format!(
+                "<tr><td>commit</td><td>{}</td></tr>",
+                format_rev(tree_name, commit.id())
+            )),
             F::Seq(parents),
             F::Seq(hg),
-            F::T(gitstr.map_or(String::new(), |g| format!("<tr><td>git</td><td>{}</td></tr>", g))),
-            F::T(format!("<tr><td>author</td><td>{}</td></tr>", format_sig(commit.author(), git))),
-            F::T(format!("<tr><td>committer</td><td>{}</td></tr>", format_sig(commit.committer(), git))),
+            F::T(gitstr.map_or(String::new(), |g| {
+                format!("<tr><td>git</td><td>{}</td></tr>", g)
+            })),
+            F::T(format!(
+                "<tr><td>author</td><td>{}</td></tr>",
+                format_sig(commit.author(), git)
+            )),
+            F::T(format!(
+                "<tr><td>committer</td><td>{}</td></tr>",
+                format_sig(commit.committer(), git)
+            )),
             F::T(format!("<tr><td>commit time</td><td>{}</td></tr>", t)),
         ]),
         F::S("</table>"),
@@ -937,14 +1004,14 @@ fn generate_commit_info(tree_name: &str,
 
     let git_path = try!(config::get_git_path(tree_config));
     let output = try!(Command::new("/usr/bin/git")
-                      .arg("show")
-                      .arg("--cc")
-                      .arg("--pretty=format:")
-                      .arg("--raw")
-                      .arg(id_string)
-                      .current_dir(&git_path)
-                      .output()
-                      .map_err(|_| "Diff failed 1"));
+        .arg("show")
+        .arg("--cc")
+        .arg("--pretty=format:")
+        .arg("--raw")
+        .arg(id_string)
+        .current_dir(&git_path)
+        .output()
+        .map_err(|_| "Diff failed 1"));
     if !output.status.success() {
         println!("ERR\n{}", git_ops::decode_bytes(output.stderr));
         return Err("Diff failed 2");
@@ -958,31 +1025,35 @@ fn generate_commit_info(tree_name: &str,
             continue;
         }
 
-        let suffix = &line[commit.parents().count() ..];
+        let suffix = &line[commit.parents().count()..];
         let prefix_size = 2 * (commit.parents().count() + 1);
         let mut data = suffix.splitn(prefix_size + 1, ' ');
         let data = try!(data.nth(prefix_size).ok_or("Invalid diff output 3"));
         let file_info = data.split('\t').take(2).collect::<Vec<_>>();
 
-        let f = F::T(format!("<li>{} <a href=\"/{}/diff/{}/{}\">{}</a>",
-                             file_info[0], tree_name, commit.id(), file_info[1], file_info[1]));
+        let f = F::T(format!(
+            "<li>{} <a href=\"/{}/diff/{}/{}\">{}</a>",
+            file_info[0],
+            tree_name,
+            commit.id(),
+            file_info[1],
+            file_info[1]
+        ));
         changes.push(f);
     }
 
-    let f = F::Seq(vec![
-        F::S("<ul>"),
-        F::Indent(changes),
-        F::S("</ul>"),
-    ]);
+    let f = F::Seq(vec![F::S("<ul>"), F::Indent(changes), F::S("</ul>")]);
     try!(output::generate_formatted(writer, &f, 0));
 
     Ok(())
 }
 
-pub fn format_commit(cfg: &config::Config,
-                     tree_name: &str,
-                     rev: &str,
-                     writer: &mut Write) -> Result<(), &'static str> {
+pub fn format_commit(
+    cfg: &config::Config,
+    tree_name: &str,
+    rev: &str,
+    writer: &mut Write,
+) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
     let git = try!(config::get_git(tree_config));
@@ -999,7 +1070,12 @@ pub fn format_commit(cfg: &config::Config,
 
     try!(output::generate_header(&opt, writer));
 
-    try!(generate_commit_info(tree_name, &tree_config, writer, commit));
+    try!(generate_commit_info(
+        tree_name,
+        &tree_config,
+        writer,
+        commit
+    ));
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 
