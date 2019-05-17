@@ -139,7 +139,7 @@ popd
 
 # Install mozsearch.
 rm -rf mozsearch
-git clone -b $BRANCH $MOZSEARCH_REPO
+git clone -b $BRANCH $MOZSEARCH_REPO mozsearch
 pushd mozsearch
 git submodule init
 git submodule update
