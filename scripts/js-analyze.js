@@ -186,7 +186,10 @@ let Analyzer = {
   contextStack: [],
 
   // Program lines.  Initialized by parse.  Used for getting back to program
-  // source given a SourceLocation/Position.
+  // source given a SourceLocation/Position.  For JS files, this should be
+  // populated once.  For XUL/XBL files that invoke parse() multiple times with
+  // a new, non-consecutive `line` each time, the missing lines are padded out
+  // with empty strings.
   _lines: [],
 
   /**
@@ -196,6 +199,9 @@ let Analyzer = {
   findStrAfterPosition(str, pos) {
     // (lines are 1-based)
     let lineText = this._lines[pos.line - 1];
+    if (!lineText) {
+      return null;
+    }
     let idx = lineText.indexOf(str, pos.column);
     if (idx === -1) {
       return null;
@@ -274,7 +280,25 @@ let Analyzer = {
     let ast;
     try {
       ast = Reflect.parse(text, {loc: true, source: filename, line});
-      this._lines = text.split('\n');
+
+      let parsedLines = text.split('\n');
+
+      if (line === 1) {
+        this._lines = parsedLines;
+      } else {
+        // In the case of XUL/XBL, we are given random (processed) excerpts of
+        // JS code with `line` representing the first line in the XML file where
+        // the JS was sourced from.
+        //
+        // As such, we need to grow the array and insert the parsed lines so
+        // that when we lookup the source JS from the AST the lines line up.
+        let linesToInsert = line - this._lines.length - 1;
+        while (linesToInsert-- > 0) {
+          this._lines.push('');
+        }
+        this._lines.push(...parsedLines);
+      }
+
     } catch (e) {
       logError(`Unable to parse JS file ${filename}:${line}.`);
       return null;
