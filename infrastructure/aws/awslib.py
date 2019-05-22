@@ -10,7 +10,7 @@ def await_volume(client, volumeId, waitingState, finishedState):
         time.sleep(1)
 
     if state != finishedState:
-        print 'Unexpected volume state (expected {}): {}'.format(finishedState, volumes)
+        print('Unexpected volume state (expected {}): {}'.format(finishedState, volumes))
         sys.exit(1)
 
 def await_instance(client, instanceId, waitingState, finishedState):
@@ -24,5 +24,5 @@ def await_instance(client, instanceId, waitingState, finishedState):
         time.sleep(1)
 
     if state != finishedState:
-        print 'Unexpected instance state (expected {}): {}'.format(finishedState, instances)
+        print('Unexpected instance state (expected {}): {}'.format(finishedState, instances))
         sys.exit(1)
