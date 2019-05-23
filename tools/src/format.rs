@@ -151,15 +151,22 @@ pub fn format_code(
         let data = match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(None), Some(d)) => {
                 // If this symbol starts a relevant nesting range and we haven't already pushed a
-                // symbol for this line, push it onto our stack.  A range is "relevant" if it
-                // its end line is not on the current line or the next line and therefore will
-                // actually trigger the "position:sticky" display scenario.
+                // symbol for this line, push it onto our stack.  Note that the nesting_range
+                // identifies the start/end brace which may not be on the same line as the symbol,
+                // but since we want the symbol to be the thing that's sticky, we start the range
+                // on the symbol.
+                //
+                // A range is "relevant" if:
+                // - It has a valid nesting_range.  (Empty ranges have 0 lineno's for start/end.)
+                // - The range start is on this line or after this line.
+                // - Its end line is not on the current line or the next line and therefore will
+                //   actually trigger the "position:sticky" display scenario.
                 for a in d.iter() {
                     let nests = match (a.nesting_range.start_lineno, nesting_stack.last()) {
                         (0, _) => false,
                         (_, None) => true,
                         (a_start, Some(top)) => {
-                            a_start == cur_line
+                            a_start >= cur_line
                                 && a_start != top.nesting_range.start_lineno
                                 && a.nesting_range.end_lineno > cur_line + 1
                         }
