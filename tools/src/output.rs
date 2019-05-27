@@ -189,11 +189,14 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
         F::S(""),
         F::T(format!(r#"<body class="{}">"#, body_class)),
         F::Indent(vec![
+            F::S(r#"<div id="fixed-header">"#),
             F::T(format!(r#"<form method="get" action="/{}/search" id="basic_search" class="search-box">"#,
                          opt.tree_name)),
             F::Indent(form),
             F::S("</form>"),
+            F::S("</div>"),
 
+            F::S(r#"<div id="scrolling">"#),
             F::S(r#"<div id="content" class="content" data-no-results="No results for current query.">"#),
         ]),
     ]);
@@ -240,6 +243,7 @@ pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut 
             F::T(format!(r#"<span id="data" data-root="/" data-search="/{}/search" data-tree="{}" data-path="{}"></span>"#,
                          tree_name, tree_name, path)),
             F::Seq(script_tags),
+            F::S("</div>"), // close out #scrolling
             F::S("</body>"),
         ]),
         F::S("</html>")
