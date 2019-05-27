@@ -168,6 +168,42 @@ mark {
 }
 
 /**
+ * New fixed header mechanism!
+ *
+ * Previously, the search box stayed stuck at the top of the screen via
+ * use of "position: fixed".  This was problematic with browser default
+ * anchor positioning, but became untenable when we wanted to start using
+ * "position: sticky" to show nesting scopes because we needed to specify "top"
+ * positions for each nested sticky level, and it was hard to know for sure how
+ * big the search box would actually be without involving JS.
+ *
+ * So our solition is to use flexbox to create a non-scrolling fixed-header,
+ * alotting the remaining space to a scrolling region.
+ */
+
+html {
+  height: 100%;
+}
+body {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#fixed-header {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+#scrolling {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+
+
+/**
  * Nesting!
  *
  * Because the search bar thing is position: fixed we need to add an offset to
@@ -179,12 +215,6 @@ mark {
  * this to decide which hard-coded value to use below.  JS could also update
  * the variable, but we currently don't need to do that.
  */
-body {
-  --search-bar-height: 72px;
-}
-body.old-rev {
-  --search-bar-height: 84px;
-}
 
 .nesting-container {
   position: relative;
@@ -203,43 +233,43 @@ body.old-rev {
   background-color: #f8f8f8;
 }
 .nesting-depth-1 {
-  top: var(--search-bar-height);
+  top: calc(0 * 12px * 1.3);
   z-index: 900;
 }
 .nesting-depth-2 {
-  top: calc(var(--search-bar-height) + 1 * 12px * 1.3);
+  top: calc(1 * 12px * 1.3);
   z-index: 899;
 }
 .nesting-depth-3 {
-  top: calc(var(--search-bar-height) + 2 * 12px * 1.3);
+  top: calc(2 * 12px * 1.3);
   z-index: 898;
 }
 .nesting-depth-4 {
-  top: calc(var(--search-bar-height) + 3 * 12px * 1.3);
+  top: calc(3 * 12px * 1.3);
   z-index: 897;
 }
 .nesting-depth-5 {
-  top: calc(var(--search-bar-height) + 4 * 12px * 1.3);
+  top: calc(4 * 12px * 1.3);
   z-index: 896;
 }
 .nesting-depth-6 {
-  top: calc(var(--search-bar-height) + 5 * 12px * 1.3);
+  top: calc(5 * 12px * 1.3);
   z-index: 895;
 }
 .nesting-depth-7 {
-  top: calc(var(--search-bar-height) + 6 * 12px * 1.3);
+  top: calc(6 * 12px * 1.3);
   z-index: 894;
 }
 .nesting-depth-8 {
-  top: calc(var(--search-bar-height) + 7 * 12px * 1.3);
+  top: calc(7 * 12px * 1.3);
   z-index: 893;
 }
 .nesting-depth-9 {
-  top: calc(var(--search-bar-height) + 8 * 12px * 1.3);
+  top: calc(8 * 12px * 1.3);
   z-index: 892;
 }
 .nesting-depth-10 {
-  top: calc(var(--search-bar-height) + 9 * 12px * 1.3);
+  top: calc(9 * 12px * 1.3);
   z-index: 891;
 }
 
@@ -358,12 +388,6 @@ body.old-rev {
 }
 
 .content {
-    margin-top: 70px;
-    padding: 1rem 2rem;
-}
-
-body.old-rev .content {
-    margin-top: 90px;
     padding: 1rem 2rem;
 }
 
@@ -593,8 +617,6 @@ input[type="checkbox"] {
     text-decoration: underline;
 }
 .search-box {
-    position: fixed;
-    top: 0;
     background-color: #f5f5f5;
     background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
     border-bottom: 1px solid #6d6d6d;
@@ -602,9 +624,8 @@ input[type="checkbox"] {
     color: #333;
     padding: .8rem;
     width: 100%;
-    z-index: 100;
 }
-body.old-rev .search-box {
+body.old-rev #fixed-header .search-box {
     padding-bottom: .4rem;
 }
 #revision {
