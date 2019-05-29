@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "big_header.h"
+
 class GlobalContext {
   public:
 
@@ -431,3 +433,10 @@ class NondebugAnonCat {
 } // end namespace innerNS
 
 } // end namespace outerNS
+
+
+void i_was_declared_in_the_header() {
+  // Perhaps there was a bug where the declaration might have been treated as a
+  // definition and then, adding insult to injury, the range from this file was
+  // exposed in the header.
+}
