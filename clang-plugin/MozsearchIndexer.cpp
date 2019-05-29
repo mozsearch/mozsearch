@@ -1118,6 +1118,8 @@ public:
     return RC->getSourceRange();
   }
 
+  // Sanity checks that all ranges are in the same file, returning the first if
+  // they're in different files.  Unions the ranges based on which is first.
   SourceRange combineRanges(SourceRange Range1, SourceRange Range2) {
     if (Range1.isInvalid()) {
       return Range2;
@@ -1145,6 +1147,10 @@ public:
     }
   }
 
+  // Given a location and a range, returns the range if:
+  // - The location and the range live in the same file.
+  // - The range is well ordered (end is not before begin).
+  // Returns an empty range otherwise.
   SourceRange validateRange(SourceLocation Loc, SourceRange Range) {
     std::pair<FileID, unsigned> Decomposed = SM.getDecomposedLoc(Loc);
     std::pair<FileID, unsigned> Begin = SM.getDecomposedLoc(Range.getBegin());
@@ -1195,8 +1201,11 @@ public:
       Kind = D2->isThisDeclarationADefinition() ? "def" : "decl";
       PrettyKind = "function";
       PeekRange = getFunctionPeekRange(D2);
-      // The CompoundStmt range is the brace range.
-      NestingRange = getCompoundStmtRange(D2->getBody());
+
+      if (D2->isThisDeclarationADefinition()) {
+        // The CompoundStmt range is the brace range.
+        NestingRange = getCompoundStmtRange(D2->getBody());
+      }
     } else if (TagDecl *D2 = dyn_cast<TagDecl>(D)) {
       Kind = D2->isThisDeclarationADefinition() ? "def" : "decl";
       PrettyKind = "type";
@@ -1244,6 +1253,7 @@ public:
     SourceRange CommentRange = getCommentRange(D);
     PeekRange = combineRanges(PeekRange, CommentRange);
     PeekRange = validateRange(Loc, PeekRange);
+    NestingRange = validateRange(Loc, NestingRange);
 
     std::vector<std::string> Symbols = {getMangledName(CurMangleContext, D)};
     if (CXXMethodDecl::classof(D)) {
