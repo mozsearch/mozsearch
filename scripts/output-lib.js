@@ -1,3 +1,8 @@
+/**
+ * Output-specific helper functions that could just as easily live in output.js
+ * since it's always evaluated after this file anyways.
+ **/
+
 function getSuffix(filename)
 {
   let pos = filename.lastIndexOf(".");

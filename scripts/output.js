@@ -1,3 +1,8 @@
+/**
+ * Common output logic that's always evaluated after evaluating `output-lib.js`
+ * so its methods are available here.
+ **/
+
 function sourcePath(path)
 {
   if (path.startsWith("__GENERATED__")) {
@@ -90,6 +95,7 @@ function generate(content, opt)
 </head>
 
 <body>
+<div id="fixed-header">
   <form method="get" action="/${tree}/search" id="basic_search" class="search-box">
     <fieldset>
         <div id="search-box" class="h-flex-container" role="group">
@@ -122,7 +128,9 @@ function generate(content, opt)
     </fieldset>
     <input type="submit" value="Search" class="visually-hidden" />
   </form>
+</div>
 
+<div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
     ${content}
   </div>
@@ -141,6 +149,7 @@ function generate(content, opt)
   <script src="/static/js/filter.js"></script>
   <script src="/static/js/panel.js"></script>
   <script src="/static/js/code-highlighter.js"></script>
+</div>
 </body>
 </html>
 `;

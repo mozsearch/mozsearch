@@ -1,9 +1,27 @@
 # HTML output
 
-The final stage of indexing is to output an HTML file for every source
-file. This code lives in `tools/src/bin/output.rs`. The main
-formatting loop is in `tools/src/format.rs`. The inputs to this
-process are:
+The final stage of indexing is to output a static HTML file for:
+- Every source file via `tools/src/bin/output-file.rs`
+- Every directory, linking to subdirectories and source files via
+  `scripts/output-dir.js`
+- The search file template used by `router/router.py` via
+  `scripts/output-template.js`.  (The template is little more than the HTML UI
+  boilerplate, a place to inline the JSON-style results object, and a "load"
+  listener to trigger the JS logic to render the results.)
+- The `help.html` file at the root of the output tree.
+  `scripts/output-help.html` wraps the contents of the config tree's `help.html`
+  in the HTML boilerplate of the UI so that the standard search bar is at the
+  top of the page.
+
+Because output logic is currently split between rust and JS code, any structural
+changes will require changes to both `scripts/output.js` and
+`tools/src/output.rs`.
+
+### Indexed Source Files
+
+This code lives in `tools/src/bin/output-file.rs` and `tools/src/output.rs`. The
+main formatting loop is in `tools/src/format.rs`. The inputs to this process
+are:
 
 * The original source code, either from the file system (for the
   current version) or from version control (for historical versions).
