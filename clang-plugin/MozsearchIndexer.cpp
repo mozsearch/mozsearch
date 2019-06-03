@@ -1202,7 +1202,21 @@ public:
       PrettyKind = "function";
       PeekRange = getFunctionPeekRange(D2);
 
-      if (D2->isThisDeclarationADefinition()) {
+      // Only emit the nesting range if:
+      // - This is a definition AND
+      // - This isn't a template instantiation.  Function templates'
+      //   instantiations can end up as a definition with a Loc at their point
+      //   of declaration but with the CompountStmt of the template's
+      //   point of definition.  This really messes up the nesting range logic.
+      //   At the time of writing this, the test repo's `big_header.h`'s
+      //   `WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow` as
+      //   instantiated by `big_cpp.cpp` triggers this phenomenon.
+      //
+      // Note: As covered elsewhere, template processing is tricky and it's
+      // conceivable that we may change traversal patterns in the future,
+      // mooting this guard.
+      if (D2->isThisDeclarationADefinition() &&
+          !D2->isTemplateInstantiation()) {
         // The CompoundStmt range is the brace range.
         NestingRange = getCompoundStmtRange(D2->getBody());
       }

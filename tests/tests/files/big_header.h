@@ -31,6 +31,74 @@ namey {
   }
 }
 
+class CoolAlloc {
+public:
+  static void ChewGumAndAllocateMemory() {
+    // nom nom nom
+  }
+};
+
+template <class T>
+class JokeBase {
+  int walkIntoBar() {
+    int i = 0;
+    return i--;
+  }
+};
+
+template <class T, class Alloc>
+class WhatsYourVector_impl
+  : public JokeBase<T> {
+public:
+  typedef T* elem_type;
+
+  elem_type mStorage;
+
+  WhatsYourVector_impl(elem_type thing)
+  : mStorage(thing) {
+  }
+
+  int forwardDeclaredThingInlinedBelow();
+
+  template <class Item, typename ActualAlloc = Alloc>
+  elem_type forwardDeclaredTemplateThingInlinedBelow(
+    const Item* aThing);
+
+};
+
+template <class T, class Alloc>
+int WhatsYourVector_impl<T, Alloc>::forwardDeclaredThingInlinedBelow() {
+  int i = 0;
+  i++;
+  i--;
+  return i;
+}
+
+
+template <typename T, class Alloc>
+template <class Item, typename ActualAlloc>
+auto WhatsYourVector_impl<T, Alloc>::forwardDeclaredTemplateThingInlinedBelow(
+  const Item* aThing) -> elem_type {
+  int i = 0;
+  if (aThing)  {
+    i++;
+  }
+  i--;
+  ActualAlloc::ChewGumAndAllocateMemory();
+  return mStorage;
+}
+
+template <class T>
+class WhatsYourVector: public WhatsYourVector_impl<T, CoolAlloc> {
+public:
+  typedef T* elem_type;
+
+  WhatsYourVector(elem_type thing)
+  : WhatsYourVector_impl<T, CoolAlloc>(thing) {
+  }
+
+};
+
 /* pad out the end of the file so we can more easily ensure that the
  * position: sticky stuff works even on fancy big screen monitors without
  * resizing the window to be tiny.

@@ -205,6 +205,14 @@ class Couch : public Thing {
 
   Couch(int couchHP=20)
   : Thing (couchHP) {
+    Superhero superBob;
+    WhatsYourVector<Superhero> victor(&superBob);
+
+    Human bob;
+    WhatsYourVector<Human> goodReferenceRight(&bob);
+
+    victor.forwardDeclaredTemplateThingInlinedBelow(this);
+    goodReferenceRight.forwardDeclaredTemplateThingInlinedBelow(this);
   }
 };
 
