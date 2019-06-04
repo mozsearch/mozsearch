@@ -177,7 +177,7 @@ mark {
  * positions for each nested sticky level, and it was hard to know for sure how
  * big the search box would actually be without involving JS.
  *
- * So our solition is to use flexbox to create a non-scrolling fixed-header,
+ * So our solution is to use flexbox to create a non-scrolling fixed-header,
  * alotting the remaining space to a scrolling region.
  */
 

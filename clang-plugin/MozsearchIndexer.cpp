@@ -1206,7 +1206,7 @@ public:
       // - This is a definition AND
       // - This isn't a template instantiation.  Function templates'
       //   instantiations can end up as a definition with a Loc at their point
-      //   of declaration but with the CompountStmt of the template's
+      //   of declaration but with the CompoundStmt of the template's
       //   point of definition.  This really messes up the nesting range logic.
       //   At the time of writing this, the test repo's `big_header.h`'s
       //   `WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow` as
