@@ -519,7 +519,7 @@ pub fn format_file_data(
             )),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!("<div{}></div>", blame_data)),
+                F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
                 // The line number.
                 F::T(format!(
                     "<div id=\"l{}\" role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
@@ -950,7 +950,7 @@ pub fn format_diff(
             F::S("<div role=\"row\" class=\"source-line-with-number\">"),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!("<div{}></div>", blame_data)),
+                F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
                 // The line number and blame info.
                 F::T(line_str),
                 // The source line.
