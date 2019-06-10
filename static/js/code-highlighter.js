@@ -32,10 +32,15 @@ let previouslyStuckElements = [];
  *   lack of discontinuity as proof that things aren't stuck.  However, we can
  *   leverage math by making sure that a line beyond our maximum nesting level's
  *   line number lines up.
- *
- *
  */
 $("#scrolling").on('scroll', function() {
+  // Our logic can't work on our diff output because there will be line number
+  // discontinuities and line numbers that are simply missing.
+  const contentElem = document.getElementById('content');
+  if (contentElem.classList.contains('diff')) {
+    return;
+  }
+
   const scrolling = document.getElementById('scrolling');
   const firstSourceY = scrolling.offsetTop;
   // The goal is to make sure we're in the area the source line numbers live.
@@ -54,7 +59,12 @@ $("#scrolling").on('scroll', function() {
       return null;
     }
 
-    return parseInt(elem.dataset.lineNumber, 10);
+    let num = parseInt(elem.dataset.lineNumber, 10);
+    if (isNaN(num) || num < 0) {
+      return null;
+    }
+
+    return num;
   }
 
   /**
@@ -69,8 +79,6 @@ $("#scrolling").on('scroll', function() {
    * number.  If it's consecutive with the previous line, then it means the
    * previous line AND this line are both not stuck, and we should return
    * what we had exclusive of the previous line.
-   *
-   *
    */
   function walkLinesAndGetLines() {
     let offset = 6;
@@ -120,11 +128,13 @@ $("#scrolling").on('scroll', function() {
   let newlyStuckElements = walkLinesAndGetLines();
 
   let noLongerStuck = new Set(previouslyStuckElements);
-  let lastElem = null;
   for (let elem of newlyStuckElements) {
     elem.classList.add('stuck');
     noLongerStuck.delete(elem);
-    lastElem = elem;
+  }
+  let lastElem = null;
+  if (newlyStuckElements.length) {
+    lastElem = newlyStuckElements[newlyStuckElements.length - 1];
   }
   let prevLastElem = null;
   if (previouslyStuckElements.length) {
