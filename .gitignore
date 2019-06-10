@@ -11,8 +11,7 @@ clang-plugin/analysis
 /js
 tools/target
 paths
-config.json
 env
 repos
-index
+/index
 addons

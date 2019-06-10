@@ -33,6 +33,9 @@ pub struct FormattedLine {
     pub pop_nest_count: u32,
 }
 
+/// Renders source code into a Vec of HTML-formatted lines wrapped in `FormattedLine` objects that
+/// provide the metadata for the position:sticky post-processing step.  Caller is responsible
+/// for generating line numbers and any blame information.
 pub fn format_code(
     jumps: &HashMap<String, Jump>,
     format: FormatAs,
@@ -312,6 +315,10 @@ pub fn format_code(
     (output_lines, analysis_json)
 }
 
+/// Renders source code with blame annotations and semantic analysis data (if provided).
+/// The caller provides the panel sections.  Currently used by `output-file.rs` to statically
+/// generate the tip of whatever branch it's on with semantic analysis data, and `format_path` to
+/// dynamically generate the contents of a file without semantic analysis data.
 pub fn format_file_data(
     cfg: &config::Config,
     tree_name: &str,
@@ -380,20 +387,7 @@ pub fn format_file_data(
     }
 
     let f = F::Seq(vec![
-        F::S("<table id=\"file\" class=\"file\">"),
-        F::Indent(vec![
-            F::S("<thead class=\"visually-hidden\">"),
-            F::Indent(vec![
-                F::S("<th scope=\"col\">Line</th>"),
-                F::S("<th scope=\"col\">Code</th>"),
-            ]),
-            F::S("</thead>"),
-            F::S("<tbody>"),
-            F::Indent(vec![
-                F::S("<tr>"),
-                F::Indent(vec![F::S("<td id=\"line-numbers\">")]),
-            ]),
-        ]),
+        F::S("<div id=\"file\" class=\"file\" role=\"table\">"),
     ]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
@@ -405,11 +399,16 @@ pub fn format_file_data(
     // the same computation needlessly without this cache.
     let mut prev_blame_cache = git_ops::PrevBlameCache::new();
 
+    // Blame lines and source lines are now interleaved.  Since we already have fully rendered the
+    // source above, we output the blame info, line number, and rendered HTML source as we process
+    // each line for blame purposes.
     let mut last_revs = None;
     let mut last_color = false;
-    for i in 0..output_lines.len() {
+    let mut nest_depth = 0;
+    for (i, line) in output_lines.iter().enumerate() {
         let lineno = i + 1;
 
+        // Compute the blame data for this line (if any)
         let blame_data = if let Some(ref lines) = blame_lines {
             let blame_line = &lines[i as usize];
             let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
@@ -498,58 +497,55 @@ pub fn format_file_data(
                                class, revs, filespecs, blame_linenos);
             data
         } else {
-            "".to_owned()
+            // If we have no blame data, we want the div here taking up space, but we don't want it
+            // to both screen readers.
+            " class=\"blame-strip\" role=\"aria-hidden\"".to_owned()
         };
 
-        let f = F::Seq(vec![
-            F::T(format!(
-                "<span id=\"l{}\" class=\"line-number\">{}",
-                lineno, lineno
-            )),
-            F::T(format!("<div{}></div>", blame_data)),
-            F::S("</span>"),
-        ]);
-
-        output::generate_formatted(writer, &f, 0).unwrap();
-    }
-
-    let f = F::Seq(vec![F::Indent(vec![F::Indent(vec![F::Indent(vec![
-        F::S("</td>"),
-        F::S("<td class=\"code\">"),
-    ])])])]);
-    output::generate_formatted(writer, &f, 0).unwrap();
-
-    let mut nest_depth = 0;
-    write!(writer, "<pre>").unwrap();
-    for (i, line) in output_lines.iter().enumerate() {
-        let mut maybe_style = String::new();
+        // If this line starts nesting, we need to create a div that exists strictly to contain the
+        // position:sticky element.
+        let mut maybe_nesting_style = String::new();
         if line.starts_nest {
             write!(writer, "<div class=\"nesting-container\">").unwrap();
             nest_depth += 1;
-            maybe_style = format!(" class=\"nesting-depth-{}\"", nest_depth);
+            maybe_nesting_style = format!(" nesting-depth-{}", nest_depth);
         }
-        write!(
-            writer,
-            "<code id=\"line-{}\" aria-labelledby=\"{}\"{}>{}\n</code>",
-            i + 1,
-            i + 1,
-            maybe_style,
-            line.line
-        )
-        .unwrap();
+
+        // Emit the actual source line here.
+        let f = F::Seq(vec![
+            F::T(format!(
+                 "<div role=\"row\" class=\"source-line-with-number{}\">",
+                 maybe_nesting_style
+            )),
+            F::Indent(vec![
+                // Blame info.
+                F::T(format!("<div{}></div>", blame_data)),
+                // The line number.
+                F::T(format!(
+                    "<div id=\"l{}\" role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
+                    lineno, lineno
+                )),
+                // The source line.
+                F::T(format!(
+                    "<code role=\"cell\" class=\"source-line\" id=\"line-{}\">{}\n</code>",
+                    i + 1,
+                    line.line
+                )),
+            ]),
+            F::S("</div>"),
+        ]);
+        output::generate_formatted(writer, &f, 0).unwrap();
+
+        // And at the end of this line we need to pop off the appropriate number of position:sticky
+        // containing elements.
         for _ in 0..line.pop_nest_count {
             nest_depth -= 1;
             write!(writer, "</div>").unwrap();
         }
     }
-    write!(writer, "</pre>").unwrap();
 
     let f = F::Seq(vec![
-        F::Indent(vec![
-            F::Indent(vec![F::Indent(vec![F::S("</td>")]), F::S("</tr>")]),
-            F::S("</tbody>"),
-        ]),
-        F::S("</table>"),
+        F::S("</div>"),
     ]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
@@ -578,6 +574,9 @@ fn entry_to_blob(repo: &git2::Repository, entry: &git2::TreeEntry) -> Result<Str
     Ok(git_ops::read_blob_entry(repo, entry))
 }
 
+/// Dynamically renders the contents of a specific file with blame annotations but without any
+/// semantic analysis data available.  Used by the "rev" display and the "diff" mechanism when
+/// there aren't actually any changes in the diff.
 pub fn format_path(
     cfg: &config::Config,
     tree_name: &str,
@@ -717,6 +716,8 @@ fn split_lines(s: &str) -> Vec<&str> {
     split
 }
 
+/// Dynamically renders a specific diff with blame annotations but without any semantic analysis
+/// data available.
 pub fn format_diff(
     cfg: &config::Config,
     tree_name: &str,
@@ -888,27 +889,18 @@ pub fn format_diff(
     try!(output::generate_panel(writer, &sections));
 
     let f = F::Seq(vec![
-        F::S("<table id=\"file\" class=\"file\">"),
-        F::Indent(vec![
-            F::S("<thead class=\"visually-hidden\">"),
-            F::Indent(vec![
-                F::S("<th scope=\"col\">Line</th>"),
-                F::S("<th scope=\"col\">Code</th>"),
-            ]),
-            F::S("</thead>"),
-            F::S("<tbody>"),
-            F::Indent(vec![
-                F::S("<tr>"),
-                F::Indent(vec![F::S("<td id=\"line-numbers\">")]),
-            ]),
-        ]),
+        F::S("<div id=\"file\" class=\"file\" role=\"table\">"),
     ]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
+    fn entity_replace(s: String) -> String {
+        s.replace("&", "&amp;").replace("<", "&lt;")
+    }
+
     let mut last_rev = None;
     let mut last_color = false;
-    for &(lineno, blame, ref _origin, _content) in &output {
+    for &(lineno, blame, ref origin, content) in &output {
         let blame_data = match blame {
             Some(blame) => {
                 let pieces = blame.splitn(4, ':').collect::<Vec<_>>();
@@ -927,35 +919,16 @@ pub fn format_diff(
                 format!(r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
                         class, rev, filespec, blame_lineno)
             }
-            None => "".to_owned(),
+            None => " class=\"blame-strip\" role=\"aria-hidden\"".to_owned(),
         };
 
         let line_str = if lineno > 0 {
-            format!("<span id=\"l{}\" class=\"line-number\">{}", lineno, lineno)
+            format!("<div id=\"l{}\" role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
+                    lineno, lineno)
         } else {
-            "<span class=\"line-number\">&nbsp;".to_owned()
+            "<div role=\"cell\" class=\"line-number\" data-line-number=\"&nbsp;\"></div>".to_owned()
         };
-        let f = F::Seq(vec![
-            F::T(line_str),
-            F::T(format!("<div{}></div>", blame_data)),
-            F::S("</span>"),
-        ]);
 
-        output::generate_formatted(writer, &f, 0).unwrap();
-    }
-
-    let f = F::Seq(vec![F::Indent(vec![F::Indent(vec![F::Indent(vec![
-        F::S("</td>"),
-        F::S("<td class=\"code\">"),
-    ])])])]);
-    output::generate_formatted(writer, &f, 0).unwrap();
-
-    fn entity_replace(s: String) -> String {
-        s.replace("&", "&amp;").replace("<", "&lt;")
-    }
-
-    write!(writer, "<pre>").unwrap();
-    for &(lineno, _blame, ref origin, content) in &output {
         let content = entity_replace(content.to_owned());
         let content = if lineno > 0 && (lineno as usize) < formatted_lines.len() + 1 {
             &formatted_lines[(lineno as usize) - 1].line
@@ -966,30 +939,38 @@ pub fn format_diff(
         let origin = origin.iter().cloned().collect::<String>();
 
         let class = if origin.contains('-') {
-            " class=\"minus-line\""
+            " minus-line"
         } else if origin.contains('+') {
-            " class=\"plus-line\""
+            " plus-line"
         } else {
             ""
         };
 
-        write!(
-            writer,
-            "<code id=\"line-{}\" aria-labelledby=\"{}\"{}>",
-            lineno, lineno, class
-        )
-        .unwrap();
-        write!(writer, "{} {}", origin, content).unwrap();
-        write!(writer, "\n</code>").unwrap();
+        let f = F::Seq(vec![
+            F::S("<div role=\"row\" class=\"source-line-with-number\">"),
+            F::Indent(vec![
+                // Blame info.
+                F::T(format!("<div{}></div>", blame_data)),
+                // The line number and blame info.
+                F::T(line_str),
+                // The source line.
+                F::T(format!(
+                    "<code role=\"cell\" class=\"source-line{}\" id=\"line-{}\">{} {}\n</code>",
+                    class,
+                    // note: this can be -1 but that's the way it's always been.
+                    lineno,
+                    origin,
+                    content
+                )),
+            ]),
+            F::S("</div>"),
+        ]);
+
+        output::generate_formatted(writer, &f, 0).unwrap();
     }
-    write!(writer, "</pre>").unwrap();
 
     let f = F::Seq(vec![
-        F::Indent(vec![
-            F::Indent(vec![F::Indent(vec![F::S("</td>")]), F::S("</tr>")]),
-            F::S("</tbody>"),
-        ]),
-        F::S("</table>"),
+        F::S("</div>"),
     ]);
     output::generate_formatted(writer, &f, 0).unwrap();
 

@@ -1,12 +1,25 @@
 var popupBox = null;
 
+// The .blame-strip element for which blame is currently being displayed.
 var blameElt;
+// The .blame-strip element the mouse is hovering over.  Clicking on the element
+// will null this out as a means of letting the user get rid of the popup if
+// they didn't actually want to see the pop-up.
 var mouseElt;
 
+// A very simply MRU cache of size 1.  We don't issue an XHR if we already have
+// the data.  This is important for the case where the user is moving their
+// mouse along the same contiguous run of blame data.  In that case, the
+// blameElt changes, but the `revs` stays the same.
 var prevRevs;
 var prevJson;
 
+/**
+ * Asynchronously initiates lookup and display of the blame data for the current
+ * blameElt.  The popup is added as a child of the blameElt in the DOM.
+ */
 function updateBlamePopup() {
+  // If there's no blameElt, just remove the popup if it exists and bail.
   if (!blameElt) {
     if (popupBox) {
       popupBox.remove();
@@ -15,6 +28,8 @@ function updateBlamePopup() {
     return;
   }
 
+  // Latch the current blameElt in case by the time our XHR comes back it's no
+  // longer the current blameElt.
   var elt = blameElt;
   var blame = elt.dataset.blame;
 
@@ -23,6 +38,8 @@ function updateBlamePopup() {
   var tree = $("#data").data("tree");
 
   function showPopup(json) {
+    // If the XHR was too slow, we may no longer want to display blame for this
+    // element, bail.
     if (blameElt != elt) {
       return;
     }
@@ -80,14 +97,13 @@ function updateBlamePopup() {
       content += `<br><details><summary>${ignored.length} ignored changesets</summary>${ignored.join("")}</details>`;
     }
 
-    var parent = blameElt.parentNode;
     var height = blameElt.getBoundingClientRect().height;
 
     popupBox = document.createElement("div");
     popupBox.id = "blame-popup";
     popupBox.innerHTML = content;
     popupBox.className = "blame-popup";
-    parent.appendChild(popupBox);
+    blameElt.appendChild(popupBox);
 
     $(popupBox).on("mouseenter", blameHoverHandler);
     $(popupBox).on("mouseleave", blameHoverHandler);
@@ -111,6 +127,7 @@ function updateBlamePopup() {
   }
 }
 
+
 function setBlameElt(elt) {
   if (blameElt == elt) {
     return;
@@ -125,10 +142,15 @@ function setBlameElt(elt) {
 }
 
 function blameHoverHandler(event) {
+  // Suppress the blame hover popup if the context menu is visible.
   if ($('#context-menu').length) {
     return;
   }
 
+  // Debounced pop-up closer.  If the mouse leaves a blame-strip element and
+  // doesn't move onto another one within 100ms, close the popup.  Also, if the
+  // user clicks on the blame-strip element and doesn't move onto a new element,
+  // close the pop-up.
   if (event.type == "mouseleave" ||
       (event.type == "click" && blameElt != null)) {
     mouseElt = null;
@@ -140,6 +162,11 @@ function blameHoverHandler(event) {
       }
     }, 100);
   } else {
+    // This is a mouseenter event.  Because the popup is a child of the
+    // .blame-strip element, we may be deep inside popup content if the popup is
+    // visible.  So we walk upwards until we find either a .blame-strip element
+    // with data-blame set (which may be a new blameElt) or the existing popup,
+    // in which case we can reuse the blameElt.
     var elt = event.target;
     while (elt && elt instanceof Element) {
       if (elt.hasAttribute("data-blame")) {
@@ -164,4 +191,3 @@ function blameHoverHandler(event) {
 $(".blame-strip").on("mouseenter", blameHoverHandler);
 $(".blame-strip").on("mouseleave", blameHoverHandler);
 $(".blame-strip").on("click", blameHoverHandler);
-
