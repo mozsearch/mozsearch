@@ -7,6 +7,33 @@
     font-style: normal;
 }
 
+:root {
+  /* ### Highlighting ### */
+  /* Selected source line background color.  This is used when clicking on a
+     line-number (optionally holding ctrl or shift) to select it/a range. */
+  --highlighted-bgcolor: rgb(255, 255, 204);
+
+  /* ### Sticky Headers ### */
+  /* The background color applied to code lines that start a block and stick
+     around until the block is closed. (They have the "stuck" class applied.) */
+  --sticky-header-bgcolor: #ddf;
+  /* The color of the faux border line at the bottom of the last stuck line.
+     In order to avoid reflows, the line isn't actually a "border", but rather
+     a line faked via linear gradient. */
+  --sticky-header-bottom-border-color: blue;
+  /* The gradient transition points.  For a solid line with a hard break,set
+     both values the same, for some kind of smoother gradient, spread them out.
+     (And maybe rewrite the gradients :) */
+  --sticky-header-bottom-border-off1: 90%;
+  --sticky-header-bottom-border-off2: 90%;
+
+  /* ### Blame ### */
+  /* Static blame zebra stripe colors. This may change in the future to be
+     zebra-striping with logarithmic age coloring. */
+  --blame-c1: lightgray;
+  --blame-c2: darkgray;
+}
+
 /**
  * normalize - Remove the gray background color from active links in IE 10.
  */
@@ -154,10 +181,22 @@ td#line-numbers {
     flex-grow: 1;
 }
 .source-line-with-number.stuck {
-  background: #ddf;
+  background: var(--sticky-header-bgcolor);
 }
+/* As documented on the variables, we use linear gradients to create an apparent
+   bottom border line for the last stuck element.  We do this instead of using
+   `border-bottom: 1px solid blue` because adding a border impacts layout and
+   would cause a reflow.  Whereas the background does not and a cross-fade can
+   be animated if the immediate background-change is too abrupt.
+
+   Note that we also create gradient variants for highlighted lines (because
+   the highlighted line can end up "stuck") and for blame display colors. */
 .source-line-with-number.last-stuck {
-  background: linear-gradient(#ddf, #ddf 90%, blue);
+	background: linear-gradient(var(--sticky-header-bgcolor), var(--sticky-header-bgcolor) var(--sticky-header-bottom-border-off1), var(--sticky-header-bottom-border-color) var(--sticky-header-bottom-border-off2), var(--sticky-header-bottom-border-color));
+}
+.last-stuck .highlighted,
+.last-stuck .multihighlight {
+	background: linear-gradient(var(--highlighted-bgcolor), var(--highlighted-bgcolor) var(--sticky-header-bottom-border-off1), var(--sticky-header-bottom-border-color) var(--sticky-header-bottom-border-off2), var(--sticky-header-bottom-border-color)) !important;
 }
 
 .source-line a {
@@ -394,6 +433,9 @@ body {
 }
 
 .content {
+    padding: 1rem 2rem;
+}
+.content.source-listing {
     padding: 0.5rem 0rem;
 }
 
@@ -539,20 +581,34 @@ span[data-symbols].hovered {
     position: absolute;
 }
 
-/* Blame */
+/* ## Blame ## */
+/* the role=cell that holds the role=button `.blame-strip`.  We created a class
+   for this so we could make it `position: relative` so it could create a new
+   containing block for the `.blame-popup` which cannot live beneath the
+   role=button `.blame-strip`. */
+.blame-container {
+  position: relative;
+}
 .blame-strip {
     display: block;
-    position: relative;
     width: 20px;
     height: 16px;
     padding: 0;
     margin: 0;
 }
+/* blame zebra stripes: we alternate colors whenever the revision a line is from
+   changes between lines. */
 .c1 {
-    background: lightgray;
+    background: var(--blame-c1);
 }
 .c2 {
-    background: darkgray;
+    background: var(--blame-c2);
+}
+.last-stuck div .c1 {
+  	background: linear-gradient(var(--blame-c1), var(--blame-c1) var(--sticky-header-bottom-border-off1), var(--sticky-header-bottom-border-color) var(--sticky-header-bottom-border-off2), var(--sticky-header-bottom-border-color));
+}
+.last-stuck div .c2 {
+  	background: linear-gradient(var(--blame-c2), var(--blame-c2) var(--sticky-header-bottom-border-off1), var(--sticky-header-bottom-border-color) var(--sticky-header-bottom-border-off2), var(--sticky-header-bottom-border-color));
 }
 .blame-popup {
     display: inline !important;

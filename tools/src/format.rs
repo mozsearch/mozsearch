@@ -369,6 +369,7 @@ pub fn format_file_data(
         tree_name: tree_name,
         include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
         revision: revision,
+        extra_content_classes: "source-listing not-diff",
     };
 
     try!(output::generate_header(&opt, writer));
@@ -498,7 +499,7 @@ pub fn format_file_data(
             data
         } else {
             // If we have no blame data, we want the div here taking up space, but we don't want it
-            // to both screen readers.
+            // to bother screen readers.
             " class=\"blame-strip\" role=\"aria-hidden\"".to_owned()
         };
 
@@ -519,7 +520,7 @@ pub fn format_file_data(
             )),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
+                F::T(format!("<div role=\"cell\" class=\"blame-container\"><div{}></div></div>", blame_data)),
                 // The line number.
                 F::T(format!(
                     "<div id=\"l{}\" role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
@@ -850,6 +851,7 @@ pub fn format_diff(
         tree_name: tree_name,
         include_date: true,
         revision: Some((rev, &header)),
+        extra_content_classes: "source-listing diff",
     };
 
     try!(output::generate_header(&opt, writer));
@@ -950,7 +952,7 @@ pub fn format_diff(
             F::S("<div role=\"row\" class=\"source-line-with-number\">"),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
+                F::T(format!("<div role=\"cell\" class=\"blame-container\"><div{}></div></div>", blame_data)),
                 // The line number and blame info.
                 F::T(line_str),
                 // The source line.
@@ -1129,6 +1131,7 @@ pub fn format_commit(
         tree_name: tree_name,
         include_date: true,
         revision: None,
+        extra_content_classes: "commit",
     };
 
     try!(output::generate_header(&opt, writer));

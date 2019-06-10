@@ -15,6 +15,10 @@ pub struct Options<'a> {
     pub tree_name: &'a str,
     pub revision: Option<(&'a str, &'a str)>,
     pub include_date: bool,
+    /// Extra classes to include on the content element.  This allows less padding to be used on
+    /// source listings where we have particular styling needs for "position: sticky" but want
+    /// every other display to have normal padding.
+    pub extra_content_classes: &'a str,
 }
 
 pub fn choose_icon(path: &str) -> String {
@@ -203,7 +207,8 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
             F::S("</div>"),
 
             F::S(r#"<div id="scrolling">"#),
-            F::S(r#"<div id="content" class="content" data-no-results="No results for current query.">"#),
+            F::T(format!(r#"<div id="content" class="content {}" data-no-results="No results for current query.">"#,
+                         opt.extra_content_classes)),
         ]),
     ]);
 

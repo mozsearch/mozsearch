@@ -97,13 +97,14 @@ function updateBlamePopup() {
       content += `<br><details><summary>${ignored.length} ignored changesets</summary>${ignored.join("")}</details>`;
     }
 
+    var parent = blameElt.parentNode;
     var height = blameElt.getBoundingClientRect().height;
 
     popupBox = document.createElement("div");
     popupBox.id = "blame-popup";
     popupBox.innerHTML = content;
     popupBox.className = "blame-popup";
-    blameElt.appendChild(popupBox);
+    parent.appendChild(popupBox);
 
     $(popupBox).on("mouseenter", blameHoverHandler);
     $(popupBox).on("mouseleave", blameHoverHandler);
