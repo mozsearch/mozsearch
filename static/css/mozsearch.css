@@ -119,37 +119,48 @@ td.code {
 td#line-numbers {
     padding: 0;
 }
+
+.source-line-with-number {
+  padding: 0rem 1rem;
+  line-height: 1.3;
+  display: flex;
+}
+
+/* In order to display the line numbers and have them visible to screen readers
+   but not appear in any copy-and-pasted selection, we create a before
+   pseudo-element with generated content. */
+.line-number::before {
+    content: attr(data-line-number);
+}
 .line-number {
-    display: block;
+    display: inline-block;
     cursor: pointer;
-    -moz-user-select: none;
-    -o-user-select: none;
-    -khtml-user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
     user-select: none;
     text-align: right;
     padding: 0 0.5rem;
-    position: relative;
+    /* this was originally set on the ".file td:first-child" */
+    color: #aaa;
+    width: 8ex;
 }
 .highlighted,
 .multihighlight {
     background: none repeat scroll 0 0 rgb(255, 255, 204) !important;
 }
-td.code {
-    display: block;
+.source-line {
     margin: 0;
     padding: 0;
-    position: relative;
-    z-index: 1;
+    display: inline-block;
+    white-space: pre;
+    flex-grow: 1;
 }
-td pre code {
-    padding: 0 0 0 1em;
-    margin: 0;
-    padding: 0;
-    display: block;
+.source-line-with-number.stuck {
+  background: #ddf;
 }
-code a {
+.source-line-with-number.last-stuck {
+  background: linear-gradient(#ddf, #ddf 90%, blue);
+}
+
+.source-line a {
     cursor: pointer;
 }
 .code code {
@@ -205,18 +216,10 @@ body {
 
 /**
  * Nesting!
- *
- * Because the search bar thing is position: fixed we need to add an offset to
- * all of our position:sticky "top" directives.  This needs to be the height of
- * the search box.  CSS variables provide us a way to adjust this based on other
- * factors.  Currently the main influencing factor is whether there is a
- * "Showing REVHASH: Commit message" line or if it's empty.  The presence of the
- * line matches up with the "old-rev" class being set on the body, so we use
- * this to decide which hard-coded value to use below.  JS could also update
- * the variable, but we currently don't need to do that.
  */
 
 .nesting-container {
+  display: block;
   position: relative;
 }
 .nesting-depth-1,
@@ -230,47 +233,50 @@ body {
 .nesting-depth-9,
 .nesting-depth-10 {
   position: sticky;
-  background-color: #f8f8f8;
+  /* even with our "stuck" and "last-stuck" classes, it's important to have an
+     opaque background color for these because those classes don't take effect
+     immediately. */
+  background-color: white;
 }
 .nesting-depth-1 {
   top: calc(0 * 12px * 1.3);
-  z-index: 900;
+  z-index: 100;
 }
 .nesting-depth-2 {
   top: calc(1 * 12px * 1.3);
-  z-index: 899;
+  z-index: 99;
 }
 .nesting-depth-3 {
   top: calc(2 * 12px * 1.3);
-  z-index: 898;
+  z-index: 98;
 }
 .nesting-depth-4 {
   top: calc(3 * 12px * 1.3);
-  z-index: 897;
+  z-index: 97;
 }
 .nesting-depth-5 {
   top: calc(4 * 12px * 1.3);
-  z-index: 896;
+  z-index: 96;
 }
 .nesting-depth-6 {
   top: calc(5 * 12px * 1.3);
-  z-index: 895;
+  z-index: 95;
 }
 .nesting-depth-7 {
   top: calc(6 * 12px * 1.3);
-  z-index: 894;
+  z-index: 94;
 }
 .nesting-depth-8 {
   top: calc(7 * 12px * 1.3);
-  z-index: 893;
+  z-index: 93;
 }
 .nesting-depth-9 {
   top: calc(8 * 12px * 1.3);
-  z-index: 892;
+  z-index: 92;
 }
 .nesting-depth-10 {
   top: calc(9 * 12px * 1.3);
-  z-index: 891;
+  z-index: 91;
 }
 
 /* Search results */
@@ -373,7 +379,7 @@ body {
     border-top-left-radius: 0;
     width: auto;
     list-style: none;
-    z-index: 2;
+    z-index: 102;
 }
 .context-menu a {
     display: block;
@@ -388,7 +394,7 @@ body {
 }
 
 .content {
-    padding: 1rem 2rem;
+    padding: 0.5rem 0rem;
 }
 
 /* Breadcrumbs */
@@ -398,7 +404,7 @@ body {
 .breadcrumbs {
     display: inline-block;
     margin: 0;
-    padding: .5rem 0 1rem 0;
+    padding: 1rem;
     text-align: left;
 }
 
@@ -440,7 +446,7 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     max-height: calc(100% - 150px);
-    z-index: 2;
+    z-index: 102;
 }
 .panel button{
     display: inline-block;
@@ -535,11 +541,12 @@ span[data-symbols].hovered {
 
 /* Blame */
 .blame-strip {
-    top: 0px;
+    display: inline-block;
+    position: relative;
     width: 20px;
-    left: -20px;
     height: 16px;
-    position: absolute;
+    padding: 0;
+    margin: 0;
 }
 .c1 {
     background: lightgray;
@@ -551,7 +558,7 @@ span[data-symbols].hovered {
     display: inline !important;
     position: absolute;
     top: 0;
-    left: 0;
+    left: 20px;
     width: 600px;
     padding: 10px;
     background: #404040;
@@ -559,7 +566,7 @@ span[data-symbols].hovered {
     border-radius: 3px;
     color: white;
     text-align: left;
-    z-index: 100;
+    z-index: 200;
     cursor: auto;
     -moz-user-select: text;
     -o-user-select: text;

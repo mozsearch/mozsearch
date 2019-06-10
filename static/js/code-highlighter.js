@@ -9,9 +9,146 @@
  * 3) Highlight lines when page loads, if window.location.hash exists
  */
 
+let previouslyStuckElements = [];
+
+/**
+ * Hacky but workable sticky detection logic.
+ *
+ * document.elementsFromPoint can give us the stack of all of the boxes that
+ * occur at a given point in the viewport.  The naive assumption that we can
+ * look at the stack of returned elements and see if there are two
+ * "source-line-with-number" in the stack (one for the sticky bit, one for the
+ * actual source it's occluding) turns out to run into problems when sticky
+ * things start or stop stickying.  Also, you potentially have to probe twice
+ * with a second offset to compensate for exlusive box boundary issues.
+ *
+ * So instead we can leverage some important facts:
+ * - Our sticky lines line up perfectly.  They're always fully visible.
+ *   (That said, given that fractional pixel sizes can happen with scaling and
+ *   all that, it's likely smart to avoid doing exact math on that.)
+ * - We've annotated every line with line numbers.  So any discontinuity greater
+ *   than 1 is an indication of a stuck line.  Unfortunately, since we also
+ *   expect that sometimes there will be consecutive stuck lines, we can't treat
+ *   lack of discontinuity as proof that things aren't stuck.  However, we can
+ *   leverage math by making sure that a line beyond our maximum nesting level's
+ *   line number lines up.
+ *
+ *
+ */
+$("#scrolling").on('scroll', function() {
+  const scrolling = document.getElementById('scrolling');
+  const firstSourceY = scrolling.offsetTop;
+  // The goal is to make sure we're in the area the source line numbers live.
+  const lineForSizing = document.querySelector('.line-number');
+  const sourceLinesX = lineForSizing.offsetLeft + 6;
+  const lineHeight = lineForSizing.offsetHeight;
+
+  const MAX_NESTING = 10;
+
+  let firstStuck = null;
+  let lastStuck = null;
+  const jitter = 6;
+
+  function extractLineNumberFromElem(elem) {
+    if (!elem.classList.contains('line-number')) {
+      return null;
+    }
+
+    return parseInt(elem.dataset.lineNumber, 10);
+  }
+
+  /**
+   * Walk at a fixed offset into the middle of what should be stuck line
+   * numbers.
+   *
+   * If we don't find a line-number, then we expect that to be due to the
+   * transition from stuck elements to partially-scrolled source lines.  It
+   * means the current set of lines are all stuck.
+   *
+   * If we do find a line-number, then we have to look at the actual line
+   * number.  If it's consecutive with the previous line, then it means the
+   * previous line AND this line are both not stuck, and we should return
+   * what we had exclusive of the previous line.
+   *
+   *
+   */
+  function walkLinesAndGetLines() {
+    let offset = 6;
+    let sourceLines = [];
+
+    // Find a line number that can't possibly be stuck.
+    let sanityCheckLineNum =
+      extractLineNumberFromElem(document.elementFromPoint(
+        sourceLinesX, firstSourceY + offset + lineHeight * MAX_NESTING));
+    // if we didn't find a line, try again with a slight jitter because there
+    // might have been a box boundary edge-case.
+    if (!sanityCheckLineNum) {
+      sanityCheckLineNum =
+        extractLineNumberFromElem(document.elementFromPoint(
+          sourceLinesX, jitter + firstSourceY + offset + lineHeight * MAX_NESTING));
+    }
+
+    // If we couldn't find a sanity-checking line number, then either our logic
+    // is broken or the file doesn't have enough lines to necessitate the sticky
+    // logic.  Just bail.
+    if (!sanityCheckLineNum) {
+      return sourceLines;
+    }
+
+    for (let iLine=0; iLine <= MAX_NESTING; iLine++) {
+      let elem = document.elementFromPoint(sourceLinesX, firstSourceY + offset);
+      if (!elem || !elem.classList.contains('line-number')) {
+        break;
+      }
+
+      let lineNum = parseInt(elem.dataset.lineNumber, 10);
+
+      let expectedLineNum = sanityCheckLineNum - MAX_NESTING + iLine;
+      if (lineNum !== expectedLineNum) {
+        // the line-number's parent is the source-line-with-number
+        sourceLines.push(elem.parentElement);
+      } else {
+        break;
+      }
+
+      offset += lineHeight;
+    }
+
+    return sourceLines;
+  }
+
+  let newlyStuckElements = walkLinesAndGetLines();
+
+  let noLongerStuck = new Set(previouslyStuckElements);
+  let lastElem = null;
+  for (let elem of newlyStuckElements) {
+    elem.classList.add('stuck');
+    noLongerStuck.delete(elem);
+    lastElem = elem;
+  }
+  let prevLastElem = null;
+  if (previouslyStuckElements.length) {
+    prevLastElem = previouslyStuckElements[previouslyStuckElements.length - 1];
+  }
+  if (lastElem !== prevLastElem) {
+    if (prevLastElem) {
+      prevLastElem.classList.remove('last-stuck');
+    }
+    if (lastElem) {
+      lastElem.classList.add('last-stuck');
+    }
+  }
+
+  for (let elem of noLongerStuck) {
+    elem.classList.remove('stuck');
+  }
+
+  previouslyStuckElements = newlyStuckElements;
+});
+
 $(function () {
   'use strict';
-  var container = $('#line-numbers');
+  var container = $('#file');
   var lastModifierKey = null; // use this as a sort of canary/state indicator showing the last user action
   var singleLinesArray = []; //track single highlighted lines here
   var rangesArray = []; // track ranges of highlighted lines here
@@ -36,6 +173,11 @@ $(function () {
     }
     return id;
   }
+  /**
+   * Scours the current DOM and returns [array of all single-selected line
+   * Numbers, array of all multi-selected line Numbers] suitable for
+   * de-duplication and range-derivation.
+   */
   function generateSelectedArrays() {
     var line = null;
     var rangeMax = null;
@@ -83,7 +225,10 @@ $(function () {
     return [singleLinesArray.sort(sortAsc), rangesArray.sort(sortRangeAsc)];
   }
 
-  //generate the window.location.hash based on singleLinesArray and rangesArray
+  /**
+   * Reflects the current state of selected lines per the DOM into the location
+   * hash, updating the current history entry.
+   */
   function setWindowHash() {
     var windowHash = null;
     var s = null;
@@ -196,13 +341,41 @@ $(function () {
 
   //first bind to all .line-number click events only
   container.on('click', '.line-number', function (event) {
+    // hacky logic to jump if this is a stuck line number
+    if (!event.shiftKey && !event.ctrlKey) {
+      var containingLine = $(this).closest('.source-line-with-number')[0];
+      if (containingLine) {
+        if (containingLine.classList.contains('stuck')) {
+          document.getElementById('scrolling').scrollTop -= containingLine.offsetTop;
+          return;
+        }
+      }
+    }
+
     var clickedNum = parseInt(lineFromId($(this).attr('id')), 10); // get the clicked line number
     var line = $('#l' + clickedNum + ', #line-' + clickedNum); // get line-number and code
-    var lastSelectedLine = $('.line-number.last-selected, code.last-selected');
+    var lastSelectedLine = $('.line-number.last-selected, .source-line.last-selected');
     var lastSelectedNum = parseInt(lineFromId($('.line-number.last-selected').attr('id')), 10); // get last selected line number as integer
     var selectedLineNums = null; // used for selecting elements with class .line-number
     var selectedLineCode = null; // used for selecting code elements in .code class
     var self = this;
+
+    function pickLineNums(lowInclusive, highExclusive) {
+      let count = highExclusive - lowInclusive;
+      let ids = new Array(count);
+      for (let i = 0; i < count; i++) {
+        ids[i] = `#l${lowInclusive + i}`;
+      }
+      return $(ids.join(', '));
+    }
+    function pickLineCodes(lowInclusive, highExclusive) {
+      let count = highExclusive - lowInclusive;
+      let ids = new Array(count);
+      for (let i = 0; i < count; i++) {
+        ids[i] = `#line-${lowInclusive + i}`;
+      }
+      return $(ids.join(', '));
+    }
 
     //multiselect on shiftkey modifier combined with click
     if (event.shiftKey) {
@@ -216,15 +389,15 @@ $(function () {
       } else if (lastSelectedNum < clickedNum) {
         //shiftclick descending down the page
         line.addClass('clicked');
-        selectedLineNums = $('.line-number.last-selected').nextUntil($('.line-number.clicked'));
-        selectedLineCode = $('code.last-selected').nextUntil($('code.clicked'));
+        selectedLineNums = pickLineNums(lastSelectedNum, clickedNum);
+        selectedLineCode = pickLineCodes(lastSelectedNum, clickedNum);
         $('.last-selected').removeClass('clicked');
       } else if (lastSelectedNum > clickedNum) {
         //shiftclick ascending up the page
-        $('.line-number, code').removeClass('clicked');
+        $('.line-number, .source-line').removeClass('clicked');
         line.addClass('clicked');
-        selectedLineNums = $('.line-number.clicked').nextUntil($('.line-number.last-selected'));
-        selectedLineCode = $('code.clicked').nextUntil($('code.last-selected'));
+        selectedLineNums = pickLineNums(clickedNum, lastSelectedNum);
+        selectedLineCode = pickLineCodes(clickedNum, lastSelectedNum);
       }
       selectedLineNums.addClass(classToAdd);
       selectedLineCode.addClass(classToAdd);
@@ -240,12 +413,12 @@ $(function () {
 
     } else if (event.shiftKey && lastModifierKey === 'singleSelectKey') {
       //if ctrl/command was last pressed, add multihighlight class to new lines
-      $('.line-number, .code code').removeClass('clicked');
+      $('.line-number, .source-line').removeClass('clicked');
       line.addClass('clicked');
-      selectedLineNums = $('.line-number.last-selected').nextUntil($('.line-number.clicked'));
+      selectedLineNums = pickLineNums(lastSelectedNum, clickedNum);
       selectedLineNums.addClass('multihighlight')
         .removeClass('highlighted');
-      selectedLineCode = $('code.last-selected').nextUntil($('code.clicked'));
+      selectedLineCode = pickLineCodes(lastSelectedNum, clickedNum);
       selectedLineCode.addClass('multihighlight')
         .removeClass('highlighted');
       line.addClass('multihighlight');
@@ -254,7 +427,7 @@ $(function () {
       //a single click with ctrl/command highlights one line and preserves existing highlights
       lastModifierKey = 'singleSelectKey';
       $('.highlighted').addClass('multihighlight');
-      $('.line-number, .code code').removeClass('last-selected clicked highlighted');
+      $('.line-number, .source-line').removeClass('last-selected clicked highlighted');
       if (lastSelectedNum !== clickedNum) {
         line.toggleClass('clicked last-selected multihighlight');
       } else {
@@ -266,7 +439,7 @@ $(function () {
       //set lastModifierKey ranges and single lines to null, then clear all highlights
       lastModifierKey = null;
       //Remove existing highlights.
-      $('.line-number, .code code').removeClass('last-selected highlighted multihighlight clicked');
+      $('.line-number, .source-line').removeClass('last-selected highlighted multihighlight clicked');
       //empty out single lines and ranges arrays
       rangesArray = [];
       singleLinesArray = [];
