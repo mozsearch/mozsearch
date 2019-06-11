@@ -5,6 +5,8 @@
  * @param {string} id = The id of the highlighted table row
  */
 function scrollIntoView(id, navigate = true) {
+  // TEMPORARY HACK DISABLING THIS METHOD.  SEE BUG 1558616.
+  return;
   if (document.getElementById(id)) {
     return;
   }
