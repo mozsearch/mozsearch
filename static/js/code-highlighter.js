@@ -493,9 +493,9 @@ $(function () {
       //but only scrollTo if the offset is more than 150px in distance from the top of the page
       jumpPosition = parseInt(jumpPosition.top, 10) - 150;
       if (jumpPosition >= 0) {
-        window.scrollTo(0, jumpPosition);
+        document.getElementById('scrolling').scrollTo(0, jumpPosition);
       } else {
-        window.scrollTo(0, 0);
+        document.getElementById('scrolling').scrollTo(0, 0);
       }
       //tidy up an incoming url that might be typed in manually
       setWindowHash();
