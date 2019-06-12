@@ -168,6 +168,7 @@ td#line-numbers {
     /* this was originally set on the ".file td:first-child" */
     color: #aaa;
     width: 8ex;
+    flex-shrink: 0;
 }
 .highlighted,
 .multihighlight {
