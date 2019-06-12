@@ -153,15 +153,14 @@ td#line-numbers {
   display: flex;
 }
 
-/* In order to display the line numbers and have them visible to screen readers
-   but not appear in any copy-and-pasted selection, we create a before
-   pseudo-element with generated content. */
-.line-number::before {
-    content: attr(data-line-number);
-}
 .line-number {
     display: inline-block;
     cursor: pointer;
+    -moz-user-select: none;
+    -o-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
     user-select: none;
     text-align: right;
     padding: 0 0.5rem;
