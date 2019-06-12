@@ -523,7 +523,7 @@ pub fn format_file_data(
                 F::T(format!("<div role=\"cell\" class=\"blame-container\"><div{}></div></div>", blame_data)),
                 // The line number.
                 F::T(format!(
-                    "<div id=\"l{}\" role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
+                    "<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
                     lineno, lineno
                 )),
                 // The source line.
@@ -925,10 +925,10 @@ pub fn format_diff(
         };
 
         let line_str = if lineno > 0 {
-            format!("<div id=\"l{}\" role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
+            format!("<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
                     lineno, lineno)
         } else {
-            "<div role=\"cell\" class=\"line-number\" data-line-number=\"&nbsp;\"></div>".to_owned()
+            "<div role=\"cell\" class=\"line-number\">&nbsp;</div>".to_owned()
         };
 
         let content = entity_replace(content.to_owned());
