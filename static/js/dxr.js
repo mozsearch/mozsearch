@@ -1,12 +1,24 @@
 /**
- * Because we have a fixed header and often link to anchors inside pages, we can
- * run into the situation where the highled anchor is hidden behind the header.
- * This ensures that the highlighted anchor will always be in view.
- * @param {string} id = The id of the highlighted table row
+ * Creates a synthetic anchor for all hash configurations, even ones that
+ * highlight more than one line and therefore can't be understood by the
+ * browser's native anchor-seeking like "#200-205" and "#200,205".
+ *
+ * Even if it seemed like a good idea to attempt to manually trigger this
+ * scrolling on load and the "hashchange" event, Firefox notably will manually
+ * seek to an anchor if you press the enter key in the location bar and have not
+ * changed the hash.  This is a UX flow used by many developers, so it's
+ * essential the synthetic anchor is in place.  For this reason, any
+ * manipulation of history state via replaceState must call this method.
+ *
+ * This synthetic anchor also doubles as a means of creating sufficient padding
+ * so that "position:sticky" stuck lines don't obscure the line we're seeking
+ * to.  (That's what the "goto" class accomplishes.)  Please see mosearch.css
+ * for some additional details and context here.
+ *
+ * NOTE: This method should probably be renamed (in a future patch, not this
+ * patch, reviewers ;)
  */
 function scrollIntoView(id, navigate = true) {
-  // TEMPORARY HACK DISABLING THIS METHOD.  SEE BUG 1558616.
-  return;
   if (document.getElementById(id)) {
     return;
   }
