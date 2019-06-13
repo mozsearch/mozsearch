@@ -468,7 +468,6 @@ $(function () {
   $(document).ready(function () {
     if (window.location.hash.substring(1)) {
       var toHighlight = getSortedHashLines(),
-      jumpPosition = $('#l' + toHighlight.lineStart).offset(),
       highlights = toHighlight.highlights,
       ranges = toHighlight.ranges;
 
@@ -489,14 +488,6 @@ $(function () {
         }
       }
 
-      //for directly linked line(s), scroll to the offset minus 150px for fixed search bar height
-      //but only scrollTo if the offset is more than 150px in distance from the top of the page
-      jumpPosition = parseInt(jumpPosition.top, 10) - 150;
-      if (jumpPosition >= 0) {
-        document.getElementById('scrolling').scrollTo(0, jumpPosition);
-      } else {
-        document.getElementById('scrolling').scrollTo(0, 0);
-      }
       //tidy up an incoming url that might be typed in manually
       setWindowHash();
     }

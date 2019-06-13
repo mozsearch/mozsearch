@@ -14,6 +14,10 @@
   --highlighted-bgcolor: rgb(255, 255, 204);
 
   /* ### Sticky Headers ### */
+  /* Basically, what's the highest number we have a `.nesting-depth-N` selector
+     for. This is only used by the `.goto` scroll-padding as a constant.  */
+  --max-sticky-lines: 10;
+
   /* The background color applied to code lines that start a block and stick
      around until the block is closed. (They have the "stuck" class applied.) */
   --sticky-header-bgcolor: #ddf;
@@ -154,6 +158,10 @@ td#line-numbers {
 }
 
 .line-number {
+    /* this needs to create a containing block for the .goto synthetic anchor
+       elements which are created as children of .line-number elements, at least
+       as long as .goto is position: absolute. */
+    position: relative;
     display: inline-block;
     cursor: pointer;
     -moz-user-select: none;
@@ -259,6 +267,8 @@ body {
 
 .nesting-container {
   display: block;
+  /* create a containing block that bounds the position: sticky
+     .source-line-with-number div necessary for sticky operation. */
   position: relative;
 }
 .nesting-depth-1,
@@ -271,6 +281,7 @@ body {
 .nesting-depth-8,
 .nesting-depth-9,
 .nesting-depth-10 {
+  /* be sticky, contained within a .nesting-container */
   position: sticky;
   /* even with our "stuck" and "last-stuck" classes, it's important to have an
      opaque background color for these because those classes don't take effect
@@ -405,6 +416,8 @@ body {
 
 /* Context menu */
 .context-menu {
+    /* absolutely positioned within the containing block of the <body> relative
+       to the click event */
     position: absolute;
     background-color: #fff;
     margin: 0;
@@ -478,6 +491,9 @@ body {
 
 /* Navigation panel */
 .panel {
+    /* (position:fixed is always relative to the viewport's initial containing
+       block, so it doesn't matter where this node lives in the DOM, apart from
+       accessibility tree purposes.) */
     position: fixed;
     top: 105px;
     right: 22px;
@@ -575,9 +591,30 @@ span[data-symbols].hovered {
     margin-bottom: 10%;
 }
 
-/* Line number goto */
+/* ## Line number goto ##
+
+   `scrollIntoView` in dxr.js creates a synthetic anchor element for the current
+   hash string (which may be more than just "#200" and instead could be
+   "#200-220" or "#220,225,227" or something like that) and gives it this class.
+   The element is made a child of the .line-number element.
+
+   See the method's documentation for more context.
+*/
 .goto {
-    top: -200px;
+    /* The negative top allows us to control how much visible padding there
+       should be.  This needs to be large enough so that the "position: sticky"
+       stuck lines don't obscure the line we're trying to display.  Previously
+       this was necessary because the search header was position: fixed and we
+       needed to avoid being obscured by that.
+
+       The negative top could be eliminated and replaced with use of the CSS
+       scroll-padding mechanism introduced in Firefox 68 (currently beta).
+       However, we can't actually get rid of the synthetic anchor.  And since
+       scroll-padding isn't on release yet, we're sticking with this for now. */
+    top: calc(var(--max-sticky-lines) * 12px * -1.3);
+    /* and for the negative top to work, we need to be position: absolute and
+       .line-number needs to be position: relative to create a containing block
+       that we can offset against. */
     position: absolute;
 }
 
@@ -612,6 +649,8 @@ span[data-symbols].hovered {
 }
 .blame-popup {
     display: inline !important;
+    /* positioned inside the .blame-container's containing block created by it
+       being position: relative */
     position: absolute;
     top: 0;
     left: 20px;
