@@ -59,7 +59,7 @@ $("#scrolling").on('scroll', function() {
       return null;
     }
 
-    let num = parseInt(elem.id.slice(1), 10);
+    let num = parseInt(elem.textContent, 10);
     if (isNaN(num) || num < 0) {
       return null;
     }
@@ -109,7 +109,7 @@ $("#scrolling").on('scroll', function() {
         break;
       }
 
-      let lineNum = parseInt(elem.id.slice(1), 10);
+      let lineNum = parseInt(elem.textContent, 10);
 
       let expectedLineNum = sanityCheckLineNum - MAX_NESTING + iLine;
       if (lineNum !== expectedLineNum) {
