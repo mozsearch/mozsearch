@@ -53,7 +53,7 @@ fn construct_qualname(scope: &str, name: &str) -> String {
 fn sanitize_symbol(sym: &str) -> String {
     // Downstream processing of the symbol doesn't deal well with
     // these characters, so replace them with underscores
-    sym.replace(",", "_").replace(" ", "_")
+    sym.replace(",", "_").replace(" ", "_").replace("\n", "_")
 }
 
 // Given a definition, and the global crate id where that definition is found,
