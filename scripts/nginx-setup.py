@@ -55,8 +55,8 @@ def location(route, directives):
 
 print '''# we are in the "http" context here.
 map $status $expires {
-  default 1d;
-  "301" 10m;
+  default 2m;
+  "301" 1m;
 }
 
 server {
@@ -70,6 +70,7 @@ server {
   sendfile off;
 
   expires $expires;
+  etag on;
 ''' % fmt
 
 location('/static', ['root %(mozsearch_path)s;'])
@@ -77,6 +78,7 @@ location('= /robots.txt', [
     'root %(mozsearch_path)s/static;',
     'try_files $uri =404;',
     'add_header Cache-Control "public";',
+    'expires 1d;',
 ])
 
 for repo in config['trees']:
@@ -96,7 +98,7 @@ for repo in config['trees']:
         'try_files /file/$uri /dir/$uri/index.html =404;',
         'types { %(binary_types)s }',
         'default_type text/html;',
-        'add_header Cache-Control "public";',
+        'add_header Cache-Control "must-revalidate";',
     ])
 
     # Optimization to handle the head revision by serving the file directly instead of going through
@@ -108,7 +110,7 @@ for repo in config['trees']:
             'try_files /$head_path =404;',
             'types { %(binary_types)s }',
             'default_type text/html;',
-            'add_header Cache-Control "public";',
+            'add_header Cache-Control "must-revalidate";',
         ])
 
     # Handled by router/router.py
@@ -129,13 +131,13 @@ for repo in config['trees']:
 location('= /', [
     'root %(doc_root)s;',
     'try_files $uri/help.html =404;',
-    'add_header Cache-Control "public";',
+    'add_header Cache-Control "must-revalidate";',
 ])
 
 location('= /status.txt', [
     'root %(doc_root)s;',
     'try_files $uri =404;',
-    'add_header Cache-Control "public";',
+    'add_header Cache-Control "must-revalidate";',
 ])
 
 print '}'
