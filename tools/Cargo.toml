@@ -13,7 +13,7 @@ log = "0.4.0"
 env_logger = "0.5.13"
 regex = "1"
 ipdl_parser = { path = "./ipdl_parser" }
-getopts = "0.2.14"
+getopts = "0.2.19"
 memmap = "0.5.0"
 linkify = "0.2.0"
 rls-analysis = "0.16"
