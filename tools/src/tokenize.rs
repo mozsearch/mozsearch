@@ -291,7 +291,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             tokens.push(Token {start: start, end: nl, kind: TokenKind::Comment});
             tokens.push(Token {start: nl, end: peek_pos(), kind: TokenKind::Newline});
         } else if ch == '#' && spec.c_preprocessor {
-            while peek_char() == ' ' {
+            while peek_char() == ' ' || peek_char() == '\t' {
                 get_char();
             }
 
@@ -1119,5 +1119,21 @@ mod tests {
                            (".", TokenKind::Punctuation),
                            ("5", TokenKind::Identifier(None))],
                      &rust_spec);
+    }
+
+    #[test]
+    fn test_preproc_cpp() {
+        let cpp_spec = match select_formatting("test.cpp") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => panic!("wrong spec"),
+        };
+
+        check_tokens("#define",
+                     &vec![("#define", TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())))],
+                     &cpp_spec);
+
+        check_tokens("#  \t  \t  define",
+                     &vec![("#  \t  \t  define", TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())))],
+                     &cpp_spec);
     }
 }
