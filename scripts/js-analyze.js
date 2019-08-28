@@ -182,6 +182,8 @@ let Analyzer = {
    * `symbolTableStack`, `nameForThis`, or `className` are modified, the name
    * (possibly falsey) that is being used for the the thing is pushed.  When
    * traversing an ObjectExpression or ObjectPattern, the key is also pushed.
+   * (Object "dictionaries" like `{ a: { b: 1 } }` create a name hierarchy for
+   * "a.b" but do not create lexical scopes on their own.)
    */
   contextStack: [],
 
@@ -231,6 +233,11 @@ let Analyzer = {
     };
   },
 
+  /**
+   * Enter a new lexical scope, pushing both a new SymbolTable() to track
+   * symbols defined in this scope, as well as pushing onto the contextStack
+   * for "context" attribute generation purposes.
+   */
   enter(name) {
     this.symbolTableStack.push(this.symbols);
     this.symbols = new SymbolTable();
@@ -245,10 +252,16 @@ let Analyzer = {
     return old;
   },
 
+
   isToplevel() {
     return this.symbolTableStack.length == 0;
   },
 
+  /**
+   * Syntactic sugar helper to enter(name) the (potentially falsey) named
+   * lexical scope, invoke the provided helper, then exit() the scope off the
+   * scope/context stack.
+   */
   scoped(name, f) {
     this.enter(name);
     f();
@@ -301,6 +314,7 @@ let Analyzer = {
 
     } catch (e) {
       logError(`Unable to parse JS file ${filename}:${line}.`);
+      logError(`because ${e}: ${e.fileName}:${e.lineNumber}`);
       return null;
     }
     return ast;
@@ -594,8 +608,11 @@ let Analyzer = {
     case "ClassMethod": {
       let name = null;
       if (stmt.name.type == "Identifier") {
-        this.defProp(stmt.name.name, stmt.name.loc, undefined, undefined, stmt.body);
         name = stmt.name.name;
+        this.defProp(
+          stmt.name.name, stmt.name.loc,
+          `${this.className}#${name}`, `${this.className}.${name}`,
+          stmt.body);
       }
 
       this.scoped(name, () => {
@@ -606,6 +623,28 @@ let Analyzer = {
           this.expression(stmt.body);
         }
       });
+      break;
+    }
+
+    // Class fields: https://github.com/tc39/proposal-class-fields
+    // These are defined to have Object.defineProperty semantics.  The spec also
+    // introduces private fields and these are partially supported, but
+    // bug 1559269 disabled TokenStream support for them, so we don't support
+    // them for now.
+    case "ClassField": {
+      let name = null;
+      // name could be a computed name!
+      if (stmt.name.type == "Identifier") {
+        name = stmt.name.name;
+        this.defProp(
+          stmt.name.name, stmt.name.loc,
+          `${this.className}#${name}`, `${this.className}.${name}`);
+      }
+      this.contextStack.push(name);
+      if (stmt.init) {
+        this.expression(stmt.init);
+      }
+      this.contextStack.pop();
       break;
     }
 
