@@ -25,15 +25,15 @@ sudo -i -u ubuntu ~ubuntu/provision.sh > ~ubuntu/provision.log 2>&1
 echo "Provisioning complete." >> ~ubuntu/provision.log
 '''.format(script=script)
 
-# ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-20160815 (ami-f701cb97)
-image_id = 'ami-f701cb97'
+# ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-20190816 - ami-0135f076a31aebe66
+image_id = 'ami-0135f076a31aebe66'
 
 launch_spec = {
     'ImageId': image_id,
     'KeyName': 'Main Key Pair',
     'SecurityGroups': ['indexer'],
     'UserData': user_data,
-    'InstanceType': 'c3.2xlarge',
+    'InstanceType': 'c5d.2xlarge',
     'BlockDeviceMappings': [],
     'TagSpecifications': [{
         'ResourceType': 'instance',

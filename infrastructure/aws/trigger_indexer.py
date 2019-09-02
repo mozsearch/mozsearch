@@ -18,7 +18,7 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
 
     block_devices = []
 
-    images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['indexer-16.04']}])
+    images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['indexer-16.04-ena']}])
     image_id = images['Images'][0]['ImageId']
 
     launch_spec = {
@@ -26,7 +26,7 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
         'KeyName': 'Main Key Pair',
         'SecurityGroups': ['indexer-secure'],
         'UserData': user_data,
-        'InstanceType': 'c3.2xlarge',
+        'InstanceType': 'c5d.2xlarge',
         'BlockDeviceMappings': block_devices,
         'IamInstanceProfile': {
             'Name': 'indexer-role',

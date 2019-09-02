@@ -53,7 +53,7 @@ if volumes['Volumes'][0]['Attachments']:
 
 print 'Starting web server instance...'
 
-images = ec2.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-16.04']}])
+images = ec2.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-16.04-ena']}])
 image_id = images['Images'][0]['ImageId']
 
 r = ec2.run_instances(
@@ -63,7 +63,8 @@ r = ec2.run_instances(
     KeyName='Main Key Pair',
     SecurityGroups=['web-server-secure'],
     UserData=userData,
-    InstanceType='t2.large',
+    # t3 gets us "nitro" NVME EBS and is cheaper than t2.
+    InstanceType='t3.large',
     Placement={'AvailabilityZone': availability_zone},
 )
 
