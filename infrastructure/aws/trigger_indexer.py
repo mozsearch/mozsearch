@@ -26,7 +26,7 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
         'KeyName': 'Main Key Pair',
         'SecurityGroups': ['indexer-secure'],
         'UserData': user_data,
-        'InstanceType': 'c5d.2xlarge',
+        'InstanceType': 'm5d.2xlarge',
         'BlockDeviceMappings': block_devices,
         'IamInstanceProfile': {
             'Name': 'indexer-role',
