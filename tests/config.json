@@ -1,6 +1,8 @@
 {
   "mozsearch_path": "$MOZSEARCH_PATH",
 
+  "default_tree": "tests",
+
   "trees": {
     "tests": {
       "index_path": "$WORKING/tests",
