@@ -1,35 +1,34 @@
 use linkify::{LinkFinder, LinkKind};
 use regex::Regex;
+use std::borrow::Cow;
 
 pub fn linkify_comment(s: String) -> String {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Url]);
+
     let mut last = 0;
     let mut result = String::new();
     for link in finder.links(&s) {
-        result.push_str(&s[last .. link.start()]);
-        result.push_str(&format!("<a href=\"{}\">{}</a>", link.as_str(), link.as_str()));
+        result.push_str(&linkify_bug_numbers(&s[last .. link.start()]));
+        result.push_str(&format!("<a href=\"{}\">{}</a>", link.as_str(), linkify_bug_numbers(link.as_str())));
         last = link.end();
     }
+
     if last == 0 {
-        result = s;
-    } else {
-        result.push_str(&s[last ..]);
+        return linkify_bug_numbers(&s).into_owned();
     }
 
-    linkify_bug_numbers(&result)
+    result.push_str(&linkify_bug_numbers(&s[last ..]));
+    result
 }
 
-pub fn linkify_bug_numbers(s: &str) -> String {
-    // If modifying this regex note that it is used after linkifying other
-    // links in linkify_comment, so e.g. just matching a number might end up
-    // nesting a link inside a <a href> tag that was already generated.
+fn linkify_bug_numbers(s: &str) -> Cow<str> {
     lazy_static! {
         static ref BUG_NUMBER_REGEX: Regex = {
             Regex::new(r"\b(?i)bug\s*(?P<bugno>[1-9][0-9]{2,6})\b").unwrap()
         };
     }
-    BUG_NUMBER_REGEX.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$0</a>").into_owned()
+    BUG_NUMBER_REGEX.replace_all(s, "<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=$bugno\">$0</a>")
 }
 
 pub fn linkify_commit_header(s: &str) -> String {
@@ -61,4 +60,11 @@ fn test_bug_number() {
         linkify_bug_numbers("this is a link to bUg 12345");
     assert!(linkified.contains("bugzilla.mozilla.org"), "{:?}", linkified);
     assert!(linkified.contains(">bUg 12345</a>"), "{:?}", linkified);
+}
+
+#[test]
+fn test_bug_number_inside_link() {
+    let link = "http://example.org/browser/editor/libeditor/tests/bug629172.html";
+    let linkified = linkify_comment(link.into());
+    assert_eq!(linkified, "<a href=\"http://example.org/browser/editor/libeditor/tests/bug629172.html\">http://example.org/browser/editor/libeditor/tests/<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=629172\">bug629172</a>.html</a>");
 }
