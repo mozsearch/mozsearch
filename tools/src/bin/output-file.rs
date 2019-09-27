@@ -266,6 +266,14 @@ fn main() {
                 accel_key: None,
             });
         }
+        if let Some(ref ccov_root) = tree_config.paths.ccov_root {
+            tools_items.push(PanelItem {
+                title: "Code Coverage".to_owned(),
+                link: format!("{}#revision=latest&path={}", ccov_root, path),
+                update_link_lineno: true,
+                accel_key: None,
+            });
+        }
         if let Some(ref dxr_root) = tree_config.paths.dxr_root {
             tools_items.push(PanelItem {
                 title: "DXR".to_owned(),

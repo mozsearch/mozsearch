@@ -18,6 +18,7 @@ pub struct TreeConfigPaths {
     pub objdir_path: String,
     pub hg_root: Option<String>,
     pub dxr_root: Option<String>,
+    pub ccov_root: Option<String>,
     pub github_repo: Option<String>,
 }
 
