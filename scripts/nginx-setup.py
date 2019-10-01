@@ -28,6 +28,7 @@ binary_types = {
   'ogv': 'video/ogg',
   'mp4': 'video/mpeg',
   'webm': 'video/webm',
+  'webp': 'image/webp',
   'ttf xpi bcmap icns sqlite jar woff class m4s mgif otf': 'application/x-unknown',
 }
 
