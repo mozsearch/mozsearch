@@ -256,7 +256,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         // Keep this list in sync with the binary types list in nginx-setup.py
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" |
         "gif" | "ogv" | "jpg" | "jpeg" | "bmp" | "icns" | "ico" |
-        "mp4" | "sqlite" | "jar" | "webm" | "woff" |
+        "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" |
         "class" | "m4s" | "mgif" | "wav" | "opus" |
         "mp3" | "otf" => FormatAs::Binary,
 
