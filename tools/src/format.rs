@@ -729,7 +729,7 @@ pub fn format_diff(
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
     let git_path = config::get_git_path(tree_config)?;
-    let output = Command::new("/usr/bin/git"?
+    let output = Command::new("/usr/bin/git")
         .arg("diff-tree")
         .arg("-p")
         .arg("--cc")
@@ -742,7 +742,7 @@ pub fn format_diff(
         .arg(path)
         .current_dir(&git_path)
         .output()
-        .map_err(|_| "Diff failed 1"));
+        .map_err(|_| "Diff failed 1")?;
     if !output.status.success() {
         println!("ERR\n{}", git_ops::decode_bytes(output.stderr));
         return Err("Diff failed 2");
@@ -1068,7 +1068,7 @@ fn generate_commit_info(
     output::generate_formatted(writer, &f, 0)?;
 
     let git_path = config::get_git_path(tree_config)?;
-    let output = Command::new("/usr/bin/git"?
+    let output = Command::new("/usr/bin/git")
         .arg("show")
         .arg("--cc")
         .arg("--pretty=format:")
@@ -1076,7 +1076,7 @@ fn generate_commit_info(
         .arg(id_string)
         .current_dir(&git_path)
         .output()
-        .map_err(|_| "Diff failed 1"));
+        .map_err(|_| "Diff failed 1")?;
     if !output.status.success() {
         println!("ERR\n{}", git_ops::decode_bytes(output.stderr));
         return Err("Diff failed 2");
