@@ -24,7 +24,7 @@ popd
 sudo apt-get install -y python-virtualenv python-dev libffi-dev cmake
 
 # Other
-sudo apt-get install -y parallel realpath unzip python-pip
+sudo apt-get install -y parallel unzip python-pip
 
 # Nginx
 sudo apt-get install -y nginx
