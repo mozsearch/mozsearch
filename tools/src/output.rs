@@ -39,7 +39,7 @@ pub fn file_url(opt: &Options, path: &str) -> String {
     format!("/{}/source/{}", opt.tree_name, path)
 }
 
-pub fn generate_breadcrumbs(opt: &Options, writer: &mut Write, path: &str) -> Result<(), &'static str>
+pub fn generate_breadcrumbs(opt: &Options, writer: &mut dyn Write, path: &str) -> Result<(), &'static str>
 {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
@@ -63,7 +63,7 @@ pub enum F {
     S(&'static str),
 }
 
-pub fn generate_formatted(writer: &mut Write, formatted: &F, indent: u32) -> Result<(), &'static str>
+pub fn generate_formatted(writer: &mut dyn Write, formatted: &F, indent: u32) -> Result<(), &'static str>
 {
     match *formatted {
         F::Indent(ref seq) => {
@@ -95,7 +95,7 @@ pub fn generate_formatted(writer: &mut Write, formatted: &F, indent: u32) -> Res
     }
 }
 
-pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static str>
+pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'static str>
 {
     let css = [
         "mozsearch.css",
@@ -217,7 +217,7 @@ pub fn generate_header(opt: &Options, writer: &mut Write) -> Result<(), &'static
     Ok(())
 }
 
-pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut Write) -> Result<(), &'static str>
+pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut dyn Write) -> Result<(), &'static str>
 {
     let mut date = F::Seq(vec![]);
     if opt.include_date {
@@ -277,7 +277,7 @@ pub struct PanelSection {
     pub items: Vec<PanelItem>,
 }
 
-pub fn generate_panel(writer: &mut Write, sections: &[PanelSection]) -> Result<(), &'static str> {
+pub fn generate_panel(writer: &mut dyn Write, sections: &[PanelSection]) -> Result<(), &'static str> {
     let sections = sections.iter().map(|section| {
         let items = section.items.iter().map(|item| {
             let update_attr = if item.update_link_lineno {
@@ -328,7 +328,7 @@ pub fn generate_panel(writer: &mut Write, sections: &[PanelSection]) -> Result<(
     Ok(())
 }
 
-pub fn generate_svg_preview(writer: &mut Write, url: &str) -> Result<(), &'static str> {
+pub fn generate_svg_preview(writer: &mut dyn Write, url: &str) -> Result<(), &'static str> {
     let f = F::Seq(vec![
       F::S(r#"<div class="svg-preview">"#),
       F::Indent(vec![

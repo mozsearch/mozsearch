@@ -271,14 +271,14 @@ fn parse_source_range(range: &str) -> SourceRange {
 
 pub fn read_analysis<T>(
     filename: &str,
-    filter: &mut FnMut(&Object) -> Option<T>,
+    filter: &mut dyn FnMut(&Object) -> Option<T>,
 ) -> Vec<WithLocation<Vec<T>>> {
     read_analyses(&vec![filename], filter)
 }
 
 pub fn read_analyses<T>(
     filenames: &[&str],
-    filter: &mut FnMut(&Object) -> Option<T>,
+    filter: &mut dyn FnMut(&Object) -> Option<T>,
 ) -> Vec<WithLocation<Vec<T>>> {
     let mut result = Vec::new();
     for filename in filenames {

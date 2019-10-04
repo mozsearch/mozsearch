@@ -329,7 +329,7 @@ pub fn format_file_data(
     data: String,
     jumps: &HashMap<String, Jump>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-    writer: &mut Write,
+    writer: &mut dyn Write,
     mut diff_cache: Option<&mut git_ops::TreeDiffCache>,
 ) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
@@ -583,7 +583,7 @@ pub fn format_path(
     tree_name: &str,
     rev: &str,
     path: &str,
-    writer: &mut Write,
+    writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     // Get the file data.
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
@@ -724,7 +724,7 @@ pub fn format_diff(
     tree_name: &str,
     rev: &str,
     path: &str,
-    writer: &mut Write,
+    writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
@@ -984,7 +984,7 @@ pub fn format_diff(
 fn generate_commit_info(
     tree_name: &str,
     tree_config: &config::TreeConfig,
-    writer: &mut Write,
+    writer: &mut dyn Write,
     commit: &git2::Commit,
 ) -> Result<(), &'static str> {
     let (header, remainder) = try!(blame::commit_header(&commit));
@@ -1117,7 +1117,7 @@ pub fn format_commit(
     cfg: &config::Config,
     tree_name: &str,
     rev: &str,
-    writer: &mut Write,
+    writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
 
