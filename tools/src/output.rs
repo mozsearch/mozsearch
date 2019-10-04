@@ -3,7 +3,6 @@
  * to `scripts/output.js` which includes hard-coded HTML that needs to logically be equivalent to
  * what's in this file.
  **/
-
 use std::io::Write;
 use std::path::Path;
 
@@ -22,14 +21,17 @@ pub struct Options<'a> {
 }
 
 pub fn choose_icon(path: &str) -> String {
-    let ext : &str = match Path::new(path).extension() {
+    let ext: &str = match Path::new(path).extension() {
         Some(ext) => ext.to_str().unwrap(),
         None => "",
     };
     if ext == "jsm" {
         return "js".to_string();
     }
-    if ["cpp", "h", "c", "js", "py"].iter().any(|x: &&str| *x == ext) {
+    if ["cpp", "h", "c", "js", "py"]
+        .iter()
+        .any(|x: &&str| *x == ext)
+    {
         return ext.to_string();
     }
     "".to_string()
@@ -39,19 +41,31 @@ pub fn file_url(opt: &Options, path: &str) -> String {
     format!("/{}/source/{}", opt.tree_name, path)
 }
 
-pub fn generate_breadcrumbs(opt: &Options, writer: &mut dyn Write, path: &str) -> Result<(), &'static str>
-{
+pub fn generate_breadcrumbs(
+    opt: &Options,
+    writer: &mut dyn Write,
+    path: &str,
+) -> Result<(), &'static str> {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
     let mut path_so_far = "".to_string();
     for name in path.split('/') {
         breadcrumbs.push_str("<span class=\"path-separator\">/</span>");
         path_so_far.push_str(name);
-        breadcrumbs.push_str(&format!("<a href=\"{}\">{}</a>", file_url(opt, &path_so_far), name));
+        breadcrumbs.push_str(&format!(
+            "<a href=\"{}\">{}</a>",
+            file_url(opt, &path_so_far),
+            name
+        ));
         path_so_far.push('/');
     }
 
-    write!(*writer, "<div class=\"breadcrumbs\">{}</div>\n", breadcrumbs).map_err(|_| "Write err")?;
+    write!(
+        *writer,
+        "<div class=\"breadcrumbs\">{}</div>\n",
+        breadcrumbs
+    )
+    .map_err(|_| "Write err")?;
 
     Ok(())
 }
@@ -63,40 +77,42 @@ pub enum F {
     S(&'static str),
 }
 
-pub fn generate_formatted(writer: &mut dyn Write, formatted: &F, indent: u32) -> Result<(), &'static str>
-{
+pub fn generate_formatted(
+    writer: &mut dyn Write,
+    formatted: &F,
+    indent: u32,
+) -> Result<(), &'static str> {
     match *formatted {
         F::Indent(ref seq) => {
             for f in seq {
                 generate_formatted(writer, &f, indent + 1)?;
             }
             Ok(())
-        },
+        }
         F::Seq(ref seq) => {
             for f in seq {
                 generate_formatted(writer, &f, indent)?;
             }
             Ok(())
-        },
+        }
         F::T(ref text) => {
-            for _ in 0 .. indent {
+            for _ in 0..indent {
                 write!(writer, "  ").map_err(|_| "Write err")?;
             }
             write!(writer, "{}\n", text).map_err(|_| "Write err")?;
             Ok(())
-        },
+        }
         F::S(text) => {
-            for _ in 0 .. indent {
+            for _ in 0..indent {
                 write!(writer, "  ").map_err(|_| "Write err")?;
             }
             write!(writer, "{}\n", text).map_err(|_| "Write err")?;
             Ok(())
-        },
+        }
     }
 }
 
-pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'static str>
-{
+pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'static str> {
     let css = [
         "mozsearch.css",
         "icons.css",
@@ -104,10 +120,12 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         "filter.css",
         "xcode.css",
     ];
-    let css_tags =
-        css.iter().map(|c| {
-            F::T(format!(r#"<link href="/static/css/{}" rel="stylesheet" type="text/css" media="screen"/>"#, c))
-        });
+    let css_tags = css.iter().map(|c| {
+        F::T(format!(
+            r#"<link href="/static/css/{}" rel="stylesheet" type="text/css" media="screen"/>"#,
+            c
+        ))
+    });
 
     let mut head_seq = vec![
         F::S(r#"<meta charset="utf-8" />"#),
@@ -168,8 +186,12 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
 
     let revision = match opt.revision {
         Some((rev_id, rev_desc)) => vec![
-            F::T(format!(r#"<span id="rev-id">Showing <a href="/{}/commit/{}">{}</a>:</span>"#,
-                         opt.tree_name, rev_id, &rev_id[..8])),
+            F::T(format!(
+                r#"<span id="rev-id">Showing <a href="/{}/commit/{}">{}</a>:</span>"#,
+                opt.tree_name,
+                rev_id,
+                &rev_id[..8]
+            )),
             F::T(format!(r#"<span id="rev-desc">{}</span>"#, rev_desc)),
         ],
         None => vec![],
@@ -217,8 +239,12 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     Ok(())
 }
 
-pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut dyn Write) -> Result<(), &'static str>
-{
+pub fn generate_footer(
+    opt: &Options,
+    tree_name: &str,
+    path: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
     let mut date = F::Seq(vec![]);
     if opt.include_date {
         let local: DateTime<Local> = Local::now();
@@ -244,8 +270,10 @@ pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut 
         "code-highlighter.js",
         "blame.js",
     ];
-    let script_tags: Vec<_> =
-        scripts.iter().map(|s| F::T(format!(r#"<script src="/static/js/{}"></script>"#, s))).collect();
+    let script_tags: Vec<_> = scripts
+        .iter()
+        .map(|s| F::T(format!(r#"<script src="/static/js/{}"></script>"#, s)))
+        .collect();
 
     let f = F::Seq(vec![
         F::Indent(vec![
@@ -277,34 +305,46 @@ pub struct PanelSection {
     pub items: Vec<PanelItem>,
 }
 
-pub fn generate_panel(writer: &mut dyn Write, sections: &[PanelSection]) -> Result<(), &'static str> {
-    let sections = sections.iter().map(|section| {
-        let items = section.items.iter().map(|item| {
-            let update_attr = if item.update_link_lineno {
-                format!(r#" data-update-link="true" data-link="{}""#, item.link)
-            } else {
-                "".to_owned()
-            };
-            let accel = if let Some(key) = item.accel_key {
-                format!(r#" <span class="accel">{}</span>"#, key)
-            } else {
-                "".to_owned()
-            };
-            F::Seq(vec![
-                F::S("<li>"),
-                F::T(format!(r#"<a href="{}" title="{}" class="icon"{}>{}{}</a>"#,
-                             item.link, item.title, update_attr, item.title, accel)),
-                F::S("</li>"),
-            ])
-        }).collect::<Vec<_>>();
+pub fn generate_panel(
+    writer: &mut dyn Write,
+    sections: &[PanelSection],
+) -> Result<(), &'static str> {
+    let sections = sections
+        .iter()
+        .map(|section| {
+            let items = section
+                .items
+                .iter()
+                .map(|item| {
+                    let update_attr = if item.update_link_lineno {
+                        format!(r#" data-update-link="true" data-link="{}""#, item.link)
+                    } else {
+                        "".to_owned()
+                    };
+                    let accel = if let Some(key) = item.accel_key {
+                        format!(r#" <span class="accel">{}</span>"#, key)
+                    } else {
+                        "".to_owned()
+                    };
+                    F::Seq(vec![
+                        F::S("<li>"),
+                        F::T(format!(
+                            r#"<a href="{}" title="{}" class="icon"{}>{}{}</a>"#,
+                            item.link, item.title, update_attr, item.title, accel
+                        )),
+                        F::S("</li>"),
+                    ])
+                })
+                .collect::<Vec<_>>();
 
-        F::Seq(vec![
-            F::T(format!("<h4>{}</h4>", section.name)),
-            F::S("<ul>"),
-            F::Seq(items),
-            F::S("</ul>"),
-        ])
-    }).collect::<Vec<_>>();
+            F::Seq(vec![
+                F::T(format!("<h4>{}</h4>", section.name)),
+                F::S("<ul>"),
+                F::Seq(items),
+                F::S("</ul>"),
+            ])
+        })
+        .collect::<Vec<_>>();
 
     let f = F::Seq(vec![
         F::S(r#"<div class="panel">"#),
@@ -330,18 +370,19 @@ pub fn generate_panel(writer: &mut dyn Write, sections: &[PanelSection]) -> Resu
 
 pub fn generate_svg_preview(writer: &mut dyn Write, url: &str) -> Result<(), &'static str> {
     let f = F::Seq(vec![
-      F::S(r#"<div class="svg-preview">"#),
-      F::Indent(vec![
-        F::S("<h4>SVG Preview (Scaled)</h4>"),
-        F::S(r#"<input type="checkbox" id="svg-preview-checkerboard"/>"#),
-        F::S(r#"<label for="svg-preview-checkerboard">Checkerboard</label>"#),
-        F::T(format!(r#"<a href="{}">"#, url)),
+        F::S(r#"<div class="svg-preview">"#),
         F::Indent(vec![
-          F::T(format!(r#"<img src="{0}" alt="Preview of {0}"/>"#, url)),
+            F::S("<h4>SVG Preview (Scaled)</h4>"),
+            F::S(r#"<input type="checkbox" id="svg-preview-checkerboard"/>"#),
+            F::S(r#"<label for="svg-preview-checkerboard">Checkerboard</label>"#),
+            F::T(format!(r#"<a href="{}">"#, url)),
+            F::Indent(vec![F::T(format!(
+                r#"<img src="{0}" alt="Preview of {0}"/>"#,
+                url
+            ))]),
+            F::S("</a>"),
         ]),
-        F::S("</a>"),
-      ]),
-      F::S("</div>")
+        F::S("</div>"),
     ]);
 
     generate_formatted(writer, &f, 0)?;

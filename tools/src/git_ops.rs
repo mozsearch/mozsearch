@@ -1,8 +1,10 @@
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use git2::{Commit, Diff, DiffFindOptions, DiffDelta, DiffOptions, Error, Oid, Patch, Repository, TreeEntry};
+use git2::{
+    Commit, Diff, DiffDelta, DiffFindOptions, DiffOptions, Error, Oid, Patch, Repository, TreeEntry,
+};
 
 use crate::config::GitData;
 
@@ -15,9 +17,7 @@ fn latin1_to_string(bytes: Vec<u8>) -> String {
 pub fn decode_bytes(bytes: Vec<u8>) -> String {
     match String::from_utf8(bytes.clone()) {
         Ok(s) => s,
-        Err(_) => {
-            latin1_to_string(bytes)
-        }
+        Err(_) => latin1_to_string(bytes),
     }
 }
 
@@ -29,19 +29,29 @@ pub fn read_blob_entry(repo: &Repository, entry: &TreeEntry) -> String {
     decode_bytes(content)
 }
 
-pub fn get_blame_lines(git_data: Option<&GitData>, blame_commit: &Option<Commit>, path: &str) -> Option<Vec<String>> {
+pub fn get_blame_lines(
+    git_data: Option<&GitData>,
+    blame_commit: &Option<Commit>,
+    path: &str,
+) -> Option<Vec<String>> {
     match (git_data, blame_commit) {
-        (Some(&GitData {blame_repo: Some(ref blame_repo), ..}), &Some(ref blame_commit)) => {
+        (
+            Some(&GitData {
+                blame_repo: Some(ref blame_repo),
+                ..
+            }),
+            &Some(ref blame_commit),
+        ) => {
             let blame_tree = blame_commit.tree().ok()?;
 
             match blame_tree.get_path(Path::new(path)) {
                 Ok(blame_entry) => {
                     let blame_data = read_blob_entry(blame_repo, &blame_entry);
                     Some(blame_data.lines().map(str::to_string).collect::<Vec<_>>())
-                },
+                }
                 Err(_) => None,
             }
-        },
+        }
         _ => None,
     }
 }
@@ -89,14 +99,16 @@ fn compute_line_map(repo: &Repository, new_oid: Oid, old_oid: Oid) -> Result<Lin
         return Err(Error::from_str("Can't generate a linemap to an empty file"));
     }
 
-    let patch = Patch::from_blobs(&old_blob,
-                                  None,
-                                  &new_blob,
-                                  None,
-                                  Some(DiffOptions::new().context_lines(0)))?;
+    let patch = Patch::from_blobs(
+        &old_blob,
+        None,
+        &new_blob,
+        None,
+        Some(DiffOptions::new().context_lines(0)),
+    )?;
 
     let mut adjustments = Vec::new();
-    let mut shift : i32 = 0;
+    let mut shift: i32 = 0;
     for hunk_index in 0..patch.num_hunks() {
         let (hunk, _) = patch.hunk(hunk_index)?;
         if hunk.new_lines() == hunk.old_lines() {
@@ -184,7 +196,9 @@ fn diff_trees<'a>(
     let older_tree = parent_commit.tree()?;
     let newer_tree = commit.tree()?;
 
-    let mut diff = git_data.repo.diff_tree_to_tree(Some(&older_tree), Some(&newer_tree), None)?;
+    let mut diff = git_data
+        .repo
+        .diff_tree_to_tree(Some(&older_tree), Some(&newer_tree), None)?;
     diff.find_similar(Some(DiffFindOptions::new().renames(true)))?;
     Ok(diff)
 }
@@ -204,10 +218,14 @@ fn map_to_previous_version(
     cache: Option<&mut TreeDiffCache>,
 ) -> Result<PreviousVersionMap, Error> {
     let commit_obj = git_data.repo.revparse_single(rev)?;
-    let commit = commit_obj.as_commit().ok_or_else(|| Error::from_str("Commit_obj error"))?;
+    let commit = commit_obj
+        .as_commit()
+        .ok_or_else(|| Error::from_str("Commit_obj error"))?;
     if commit.parent_ids().len() != 1 {
         // If the commit didn't have a unique parent, let's abort
-        return Err(Error::from_str("No unique parent, don't know where to look for prev blame"));
+        return Err(Error::from_str(
+            "No unique parent, don't know where to look for prev blame",
+        ));
     }
 
     let parent_commit = commit.parent(0)?;
@@ -219,29 +237,51 @@ fn map_to_previous_version(
                 let diff = diff_trees(git_data, &commit, &parent_commit)?;
                 for delta in diff.deltas() {
                     if let Some(file) = delta.new_file().path() {
-                        cache.insert((String::from(rev), PathBuf::from(file)), FileDiffEntry::from(&delta));
+                        cache.insert(
+                            (String::from(rev), PathBuf::from(file)),
+                            FileDiffEntry::from(&delta),
+                        );
                     }
                 }
             }
 
-            cache.get(&key).ok_or_else(|| Error::from_str(&format!("No delta for target {:?} in rev {}", target_file, rev)))?.clone()
+            cache
+                .get(&key)
+                .ok_or_else(|| {
+                    Error::from_str(&format!(
+                        "No delta for target {:?} in rev {}",
+                        target_file, rev
+                    ))
+                })?
+                .clone()
         } else {
             let diff = diff_trees(git_data, &commit, &parent_commit)?;
-            let delta = diff.deltas().find(|delta| delta.new_file().path() == Some(target_file))
-                                     .ok_or_else(|| Error::from_str(&format!("No delta for target {:?} in rev {}", target_file, rev)))?;
+            let delta = diff
+                .deltas()
+                .find(|delta| delta.new_file().path() == Some(target_file))
+                .ok_or_else(|| {
+                    Error::from_str(&format!(
+                        "No delta for target {:?} in rev {}",
+                        target_file, rev
+                    ))
+                })?;
             FileDiffEntry::from(&delta)
         }
     };
 
     if delta.old_id.is_zero() {
-        return Err(Error::from_str(&format!("Target {:?} added in rev {} with no ancestor",
-                                            target_file, rev)));
+        return Err(Error::from_str(&format!(
+            "Target {:?} added in rev {} with no ancestor",
+            target_file, rev
+        )));
     }
 
     Ok(PreviousVersionMap {
         parent_rev: parent_commit.id(),
-        old_path: delta.old_path.ok_or_else(|| Error::from_str("Couldn't get old path"))?,
-        line_map: compute_line_map(&git_data.repo, delta.new_id, delta.old_id)?
+        old_path: delta
+            .old_path
+            .ok_or_else(|| Error::from_str("Couldn't get old path"))?,
+        line_map: compute_line_map(&git_data.repo, delta.new_id, delta.old_id)?,
     })
 }
 
@@ -263,24 +303,45 @@ pub fn find_prev_blame(
         path: PathBuf::from(target_file),
     });
     // Can't use or_insert_with because of the try-wrapper around map_to_previous_version
-    let PreviousVersionMap { parent_rev: parent_commit, old_path, line_map } = match entry {
+    let PreviousVersionMap {
+        parent_rev: parent_commit,
+        old_path,
+        line_map,
+    } = match entry {
         Entry::Occupied(hit) => hit.into_mut(),
-        Entry::Vacant(miss) => miss.insert(map_to_previous_version(git_data, rev, target_file, diff_cache)?),
+        Entry::Vacant(miss) => miss.insert(map_to_previous_version(
+            git_data,
+            rev,
+            target_file,
+            diff_cache,
+        )?),
     };
 
     let old_lineno = line_map.map_line(lineno);
-    let parent_blame_oid = git_data.blame_map
-                                   .get(&parent_commit)
-                                   .ok_or_else(|| Error::from_str(&format!("Couldn't get blame rev for {:?}",
-                                                                           parent_commit)))?;
-    let parent_blame = git_data.blame_repo.as_ref().unwrap().find_commit(*parent_blame_oid)?;
+    let parent_blame_oid = git_data.blame_map.get(&parent_commit).ok_or_else(|| {
+        Error::from_str(&format!("Couldn't get blame rev for {:?}", parent_commit))
+    })?;
+    let parent_blame = git_data
+        .blame_repo
+        .as_ref()
+        .unwrap()
+        .find_commit(*parent_blame_oid)?;
 
-    match get_blame_lines(Some(git_data), &Some(parent_blame), target_file.to_str().unwrap()) {
+    match get_blame_lines(
+        Some(git_data),
+        &Some(parent_blame),
+        target_file.to_str().unwrap(),
+    ) {
         Some(blame_lines) => {
             let old_lineno_ix = old_lineno - 1; // line numbers are 1-based, array indexing is 0-based
-            Ok((blame_lines[old_lineno_ix as usize].clone(), old_path.to_path_buf()))
+            Ok((
+                blame_lines[old_lineno_ix as usize].clone(),
+                old_path.to_path_buf(),
+            ))
         }
-        None => Err(Error::from_str("Unable to get blame lines for parent commit"))
+        None => Err(Error::from_str(
+            "Unable to get blame lines for parent commit",
+        )),
     }
 }
 
@@ -288,12 +349,14 @@ pub fn find_prev_blame(
 mod tests {
     use super::*;
 
+    use crate::config::{index_blame, BlameIgnoreList, Mailmap};
     use std::env;
-    use crate::config::{BlameIgnoreList, Mailmap, index_blame};
 
     fn build_git_data() -> Option<GitData> {
         let repo = Repository::open(env::var("GIT_ROOT").ok()?).unwrap();
-        let blame_repo = env::var("BLAME_ROOT").ok().map(|s| Repository::open(s).unwrap());
+        let blame_repo = env::var("BLAME_ROOT")
+            .ok()
+            .map(|s| Repository::open(s).unwrap());
         let (blame_map, hg_map) = match &blame_repo {
             Some(ref blame_repo) => index_blame(&repo, &blame_repo),
             None => (HashMap::new(), HashMap::new()),
@@ -319,12 +382,17 @@ mod tests {
             Some(x) => x,
             None => return, // prevent cargo test from panicking if run without the env args
         };
-        let PreviousVersionMap { parent_rev: parent, old_path, line_map } = map_to_previous_version(
+        let PreviousVersionMap {
+            parent_rev: parent,
+            old_path,
+            line_map,
+        } = map_to_previous_version(
             &git_data,
             &env::var("GIT_REV").unwrap_or("HEAD".to_string()),
             Path::new(&env::var("TEST_PATH").unwrap()),
             None,
-        ).unwrap();
+        )
+        .unwrap();
         println!("parent commit: {:?}", parent);
         println!("path in parent commit: {:?}", old_path);
         println!("line mapping: {:?}", line_map);
@@ -347,7 +415,8 @@ mod tests {
             env::var("TEST_LINE").unwrap().parse().unwrap(),
             &mut cache,
             None,
-        ).unwrap();
+        )
+        .unwrap();
         println!("prev blame data: {:?}", blame_data);
         println!("path in parent commit: {:?}", old_path);
     }

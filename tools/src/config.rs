@@ -1,7 +1,7 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
-use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str;
 
 use rustc_serialize::json::{self, Json};
@@ -58,7 +58,10 @@ pub fn get_git_path(tree_config: &TreeConfig) -> Result<&str, &'static str> {
     }
 }
 
-pub fn index_blame(_repo: &Repository, blame_repo: &Repository) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
+pub fn index_blame(
+    _repo: &Repository,
+    blame_repo: &Repository,
+) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
     let mut walk = blame_repo.revwalk().unwrap();
     walk.push_head().unwrap();
 
@@ -123,7 +126,7 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
                     mailmap: mailmap,
                     blame_ignore: blame_ignore,
                 })
-            },
+            }
             (&Some(ref git_path), &None) => {
                 let repo = Repository::open(&git_path).unwrap();
                 let mailmap = Mailmap::load(&repo);
@@ -137,17 +140,23 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
                     mailmap: mailmap,
                     blame_ignore: blame_ignore,
                 })
-            },
+            }
             _ => None,
         };
 
-        trees.insert(tree_name, TreeConfig {
-            paths: paths,
-            git: git,
-        });
+        trees.insert(
+            tree_name,
+            TreeConfig {
+                paths: paths,
+                git: git,
+            },
+        );
     }
 
-    Config { trees: trees, mozsearch_path: mozsearch.to_owned() }
+    Config {
+        trees: trees,
+        mozsearch_path: mozsearch.to_owned(),
+    }
 }
 
 #[derive(Hash, Eq, PartialEq, Debug)]
@@ -173,7 +182,7 @@ impl Mailmap {
             return (
                 new_name.as_ref().map(String::as_str).unwrap_or(name),
                 new_email.as_ref().map(String::as_str).unwrap_or(email),
-            )
+            );
         }
 
         // Try looking up only by email.
@@ -182,7 +191,7 @@ impl Mailmap {
             return (
                 new_name.as_ref().map(String::as_str).unwrap_or(name),
                 new_email.as_ref().map(String::as_str).unwrap_or(email),
-            )
+            );
         }
 
         // Not in the mailmap, return it as-is.
@@ -193,12 +202,18 @@ impl Mailmap {
     pub fn load(repo: &Repository) -> Self {
         // Repo may not have a mailmap file, in which case we can just generate
         // an empty one.
-        Mailmap::try_load(repo).unwrap_or_else(|| Mailmap { entries: HashMap::new() })
+        Mailmap::try_load(repo).unwrap_or_else(|| Mailmap {
+            entries: HashMap::new(),
+        })
     }
 
     fn parse_line(mut line: &str) -> Option<(MailmapKey, MailmapKey)> {
         fn nonempty(s: &str) -> Option<String> {
-            if s.is_empty() { None } else { Some(s.to_owned()) }
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.to_owned())
+            }
         }
 
         // Remove text after a '#' comment from the line.
