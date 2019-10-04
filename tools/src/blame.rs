@@ -1,13 +1,13 @@
 use crate::config;
 use crate::links;
 
-use std::collections::BTreeMap;
-use rustc_serialize::json::Json;
 use git2;
+use rustc_serialize::json::Json;
+use std::collections::BTreeMap;
 
+use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
-use chrono::datetime::DateTime;
 
 pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static str> {
     fn entity_replace(s: &str) -> String {
@@ -22,7 +22,11 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
     Ok((header, entity_replace(&remainder)))
 }
 
-pub fn get_commit_info(cfg: &config::Config, tree_name: &str, revs: &str) -> Result<String, &'static str> {
+pub fn get_commit_info(
+    cfg: &config::Config,
+    tree_name: &str,
+    revs: &str,
+) -> Result<String, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = config::get_git(tree_config)?;
     let mut infos = vec![];
@@ -33,11 +37,13 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, revs: &str) -> Res
 
         let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
         let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
-        let t : DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
+        let t: DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
         let t = t.to_rfc2822();
 
         let sig = commit.author();
-        let (name, email) = git.mailmap.lookup(sig.name().unwrap(), sig.email().unwrap());
+        let (name, email) = git
+            .mailmap
+            .lookup(sig.name().unwrap(), sig.email().unwrap());
 
         let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, name, email, t);
 
@@ -54,9 +60,12 @@ pub fn get_commit_info(cfg: &config::Config, tree_name: &str, revs: &str) -> Res
 
         match (&tree_config.paths.hg_root, git.hg_map.get(&commit_obj.id())) {
             (Some(hg_path), Some(hg_id)) => {
-                obj.insert("fulldiff".to_owned(), Json::String(format!("{}/rev/{}", hg_path, hg_id)));
+                obj.insert(
+                    "fulldiff".to_owned(),
+                    Json::String(format!("{}/rev/{}", hg_path, hg_id)),
+                );
             }
-            _ => ()
+            _ => (),
         };
 
         infos.push(Json::Object(obj));

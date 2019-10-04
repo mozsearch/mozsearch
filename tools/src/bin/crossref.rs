@@ -1,21 +1,21 @@
-use std::fs::File;
-use std::env;
-use std::io::BufReader;
-use std::io::BufRead;
-use std::io::Write;
-use std::collections::HashMap;
 use std::collections::hash_map::Entry::Occupied;
 use std::collections::hash_map::Entry::Vacant;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::collections::HashMap;
+use std::env;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::Write;
 use std::rc::Rc;
 
 extern crate env_logger;
 
 extern crate tools;
-use tools::find_source_file;
-use tools::file_format::analysis::{read_analysis, read_target, AnalysisKind};
 use tools::config;
+use tools::file_format::analysis::{read_analysis, read_target, AnalysisKind};
+use tools::find_source_file;
 
 extern crate rustc_serialize;
 use rustc_serialize::json::{Json, ToJson};
@@ -55,7 +55,7 @@ fn split_scopes(id: &str) -> Vec<String> {
     for (index, m) in id.match_indices(|c| c == ':' || c == '<' || c == '>') {
         if m == ":" && argument_nesting == 0 {
             if start != index {
-                result.push(id[start .. index].to_owned());
+                result.push(id[start..index].to_owned());
                 start = index + 1;
             } else {
                 start = index + 1;
@@ -66,17 +66,19 @@ fn split_scopes(id: &str) -> Vec<String> {
             argument_nesting -= 1;
         }
     }
-    result.push(id[start ..].to_owned());
+    result.push(id[start..].to_owned());
     return result;
 }
 
 struct StringIntern {
-    set: HashMap<Rc<String>, ()>
+    set: HashMap<Rc<String>, ()>,
 }
 
 impl StringIntern {
     fn new() -> StringIntern {
-        StringIntern {set: HashMap::new()}
+        StringIntern {
+            set: HashMap::new(),
+        }
     }
 
     fn add(&mut self, s: String) -> Rc<String> {
@@ -104,7 +106,9 @@ fn main() {
     let filenames_file = &args[3];
 
     let file_paths: Vec<String> = BufReader::new(File::open(filenames_file).unwrap())
-        .lines().map(|x| x.unwrap()).collect();
+        .lines()
+        .map(|x| x.unwrap())
+        .collect();
     let output_file = format!("{}/crossref", tree_config.paths.index_path);
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
@@ -123,17 +127,22 @@ fn main() {
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &mut read_target);
 
-        let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
+        let source_fname = find_source_file(
+            path,
+            &tree_config.paths.files_path,
+            &tree_config.paths.objdir_path,
+        );
         let source_file = match File::open(source_fname) {
             Ok(f) => f,
             Err(_) => {
                 println!("Unable to open source file");
                 continue;
-            },
+            }
         };
         let reader = BufReader::new(&source_file);
-        let lines: Vec<_> = reader.lines().map(
-            |l| match l {
+        let lines: Vec<_> = reader
+            .lines()
+            .map(|l| match l {
                 Ok(line) => {
                     let line_cut = line.trim_end();
                     let len = line_cut.len();
@@ -141,10 +150,10 @@ fn main() {
                     let offset = (len - line_cut.len()) as u32;
                     let buf = line_cut.chars().take(100).collect();
                     (strings.add(buf), offset)
-                },
-                Err(_) => (Rc::clone(&empty_string), 0)
-            }).collect();
-
+                }
+                Err(_) => (Rc::clone(&empty_string), 0),
+            })
+            .collect();
 
         for datum in analysis {
             for piece in datum.data {
@@ -171,10 +180,10 @@ fn main() {
                     // to be cut to this offset.
                     let left_offset = lines[(peek_start - 1) as usize].1;
 
-                    for peek_line_index in peek_start .. peek_end + 1 {
+                    for peek_line_index in peek_start..peek_end + 1 {
                         let &(ref peek_line, peek_offset) = &lines[(peek_line_index - 1) as usize];
 
-                        for _i in left_offset .. peek_offset {
+                        for _i in left_offset..peek_offset {
                             peek_lines.push(' ');
                         }
                         peek_lines.push_str(&peek_line);

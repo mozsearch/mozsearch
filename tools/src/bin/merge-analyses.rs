@@ -12,8 +12,8 @@
 //! Note that as this code uses the analysis.rs code for parsing and printing,
 //! the emitted output should always be in a consistent/normalized format.
 
-use std::env;
 use std::collections::HashSet;
+use std::env;
 
 extern crate env_logger;
 
@@ -21,7 +21,9 @@ extern crate rustc_serialize;
 use self::rustc_serialize::json::Object;
 
 extern crate tools;
-use tools::file_format::analysis::{AnalysisSource, parse_location, read_analyses, read_source, read_target, WithLocation};
+use tools::file_format::analysis::{
+    parse_location, read_analyses, read_source, read_target, AnalysisSource, WithLocation,
+};
 
 fn main() {
     env_logger::init();
@@ -56,7 +58,8 @@ fn main() {
                 }
             }
             None
-        });
+        },
+    );
 
     // For each bucket of source data at a given location, sort the source data by
     // the `pretty` field. This allows us to walk through the bucket and operate
@@ -64,10 +67,8 @@ fn main() {
     // adjacent. If we do run into such entries we merge them to union the tokens
     // in the `syntax` and `sym` fields.
     for mut loc_data in src_data {
-        loc_data.data.sort_by(|s1, s2| {
-            s1.pretty.cmp(&s2.pretty)
-        });
-        let mut last_entry : Option<AnalysisSource> = None;
+        loc_data.data.sort_by(|s1, s2| s1.pretty.cmp(&s2.pretty));
+        let mut last_entry: Option<AnalysisSource> = None;
         for analysis_entry in std::mem::replace(&mut loc_data.data, Vec::new()) {
             match last_entry {
                 Some(mut e) => {

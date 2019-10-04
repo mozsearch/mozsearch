@@ -1,10 +1,10 @@
 extern crate memmap;
 
 use self::memmap::{Mmap, Protection};
-use std::str;
-use std::io::BufRead;
 use std::collections::HashMap;
+use std::io::BufRead;
 use std::process::Command;
+use std::str;
 
 use rustc_serialize::json;
 
@@ -12,8 +12,12 @@ use crate::config;
 
 fn uppercase(s: &[u8]) -> Vec<u8> {
     let mut result = vec![];
-    for i in 0 .. s.len() {
-        result.push(if s[i] >= 'a' as u8 && s[i] <= 'z' as u8 { s[i] - ('a' as u8) + ('A' as u8) } else { s[i] });
+    for i in 0..s.len() {
+        result.push(if s[i] >= 'a' as u8 && s[i] <= 'z' as u8 {
+            s[i] - ('a' as u8) + ('A' as u8)
+        } else {
+            s[i]
+        });
     }
     result
 }
@@ -29,14 +33,20 @@ pub struct IdentResult {
 }
 
 fn demangle_name(name: &str) -> String {
-    let output = Command::new("c++filt").arg("--no-params").arg(name).output();
+    let output = Command::new("c++filt")
+        .arg("--no-params")
+        .arg(name)
+        .output();
     match output {
         Err(_) => name.to_string(),
         Ok(output) => {
             if !output.status.success() {
                 return name.to_string();
             }
-            String::from_utf8(output.stdout).unwrap_or(name.to_string()).trim().to_string()
+            String::from_utf8(output.stdout)
+                .unwrap_or(name.to_string())
+                .trim()
+                .to_string()
         }
     }
 }
@@ -77,7 +87,7 @@ impl IdentMap {
             end += 1;
         }
 
-        &bytes[start .. end]
+        &bytes[start..end]
     }
 
     fn bisect(&self, needle: &[u8], upper_bound: bool) -> usize {
@@ -108,13 +118,19 @@ impl IdentMap {
 
     // NEED A WAY TO LIMIT NUMBER OF RESULTS RETURNED TO 6
     // Also need to apply c++filt to the ident as a better human-readable name
-    pub fn lookup(&self, needle: &str, complete: bool, fold_case: bool, max_results: usize) -> Vec<IdentResult> {
+    pub fn lookup(
+        &self,
+        needle: &str,
+        complete: bool,
+        fold_case: bool,
+        max_results: usize,
+    ) -> Vec<IdentResult> {
         let start = self.bisect(needle.as_bytes(), false);
         let end = self.bisect(needle.as_bytes(), true);
 
         let mut result = vec![];
         let bytes: &[u8] = unsafe { self.mmap.as_slice() };
-        let slice = &bytes[start .. end];
+        let slice = &bytes[start..end];
 
         for line in slice.lines() {
             let line = line.unwrap();
@@ -123,7 +139,7 @@ impl IdentMap {
             let symbol = pieces.next().unwrap();
 
             {
-                let suffix = &id[needle.len() ..];
+                let suffix = &id[needle.len()..];
                 if suffix.contains(':') || suffix.contains('.') || (complete && suffix.len() > 0) {
                     continue;
                 }
@@ -137,7 +153,10 @@ impl IdentMap {
                 id = demangled;
             }
 
-            result.push(IdentResult { id: id, symbol: symbol.to_string() });
+            result.push(IdentResult {
+                id: id,
+                symbol: symbol.to_string(),
+            });
             if result.len() == max_results {
                 break;
             }
@@ -146,7 +165,13 @@ impl IdentMap {
         result
     }
 
-    pub fn lookup_json(&self, needle: &str, complete: bool, fold_case: bool, max_results: usize) -> String {
+    pub fn lookup_json(
+        &self,
+        needle: &str,
+        complete: bool,
+        fold_case: bool,
+        max_results: usize,
+    ) -> String {
         let results = self.lookup(needle, complete, fold_case, max_results);
         json::encode(&results).unwrap()
     }

@@ -1,46 +1,62 @@
 use std::env;
-use std::path::Path;
-use std::path::PathBuf;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
+use std::path::PathBuf;
 
 extern crate env_logger;
-extern crate tools;
-extern crate ipdl_parser;
 extern crate getopts;
+extern crate ipdl_parser;
+extern crate tools;
 
 use getopts::Options;
 
-use tools::file_format::analysis::{read_analysis, read_target, WithLocation, AnalysisTarget, AnalysisKind};
+use tools::file_format::analysis::{
+    read_analysis, read_target, AnalysisKind, AnalysisTarget, WithLocation,
+};
 
-use ipdl_parser::parser;
 use ipdl_parser::ast;
+use ipdl_parser::parser;
 
 type TargetAnalysis = Vec<WithLocation<Vec<AnalysisTarget>>>;
 
 fn get_options_parser() -> Options {
     let mut opts = Options::new();
-    opts.optmulti("I", "include",
-                  "Additional directory to search for included protocol specifications",
-                  "DIR");
-    opts.reqopt("d", "outheaders-dir",
-                "Directory into which C++ headers analysis data is location.",
-                "HDR_DIR");
-    opts.reqopt("b", "base-input-prefix",
-                "Base directory where IPDL input files are found.",
-                "BASE_DIR");
-    opts.reqopt("a", "analysis-prefix",
-                "Base directory where analysis output files are found.",
-                "ANALYSIS_DIR");
+    opts.optmulti(
+        "I",
+        "include",
+        "Additional directory to search for included protocol specifications",
+        "DIR",
+    );
+    opts.reqopt(
+        "d",
+        "outheaders-dir",
+        "Directory into which C++ headers analysis data is location.",
+        "HDR_DIR",
+    );
+    opts.reqopt(
+        "b",
+        "base-input-prefix",
+        "Base directory where IPDL input files are found.",
+        "BASE_DIR",
+    );
+    opts.reqopt(
+        "a",
+        "analysis-prefix",
+        "Base directory where analysis output files are found.",
+        "ANALYSIS_DIR",
+    );
     opts
 }
 
 fn header_file_name(outheaders_dir: &str, ns: &ast::Namespace, parent_or_child: &str) -> String {
-    format!("{}/{}/{}{}.h",
-            outheaders_dir,
-            ns.namespaces.clone().join("/"),
-            ns.name.id,
-            parent_or_child)
+    format!(
+        "{}/{}/{}{}.h",
+        outheaders_dir,
+        ns.namespaces.clone().join("/"),
+        ns.name.id,
+        parent_or_child
+    )
 }
 
 fn mangle_simple(s: &str) -> String {
@@ -48,14 +64,18 @@ fn mangle_simple(s: &str) -> String {
 }
 
 fn mangle_nested_name(ns: &[String], protocol: &str, name: &str) -> String {
-    format!("_ZN{}{}{}E",
-            ns.iter().map(|id| mangle_simple(&id)).collect::<Vec<_>>().join(""),
-            mangle_simple(protocol),
-            mangle_simple(name))
+    format!(
+        "_ZN{}{}{}E",
+        ns.iter()
+            .map(|id| mangle_simple(&id))
+            .collect::<Vec<_>>()
+            .join(""),
+        mangle_simple(protocol),
+        mangle_simple(name)
+    )
 }
 
-fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a AnalysisTarget>
-{
+fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a AnalysisTarget> {
     for datum in analysis {
         for piece in &datum.data {
             if piece.kind == AnalysisKind::Decl && piece.sym.contains(mangled) {
@@ -65,41 +85,64 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
     }
 
     println!("No analysis target found for {}", mangled);
-    return None
+    return None;
 }
 
 fn output_data(outputf: &mut File, locstr: &str, datum: &AnalysisTarget) {
-    write!(outputf, r#"{{"loc": "{}", "target": 1, "kind": "idl", "pretty": "{}", "sym": "{}"}}"#,
-           locstr, datum.pretty, datum.sym).unwrap();
+    write!(
+        outputf,
+        r#"{{"loc": "{}", "target": 1, "kind": "idl", "pretty": "{}", "sym": "{}"}}"#,
+        locstr, datum.pretty, datum.sym
+    )
+    .unwrap();
     write!(outputf, "\n").unwrap();
-    write!(outputf, r#"{{"loc": "{}", "source": 1, "pretty": "{}", "sym": "{}"}}"#,
-           locstr, datum.pretty, datum.sym).unwrap();
+    write!(
+        outputf,
+        r#"{{"loc": "{}", "source": 1, "pretty": "{}", "sym": "{}"}}"#,
+        locstr, datum.pretty, datum.sym
+    )
+    .unwrap();
     write!(outputf, "\n").unwrap();
 }
 
-fn output_send_recv(outputf: &mut File,
-                    locstr: &str,
-                    protocol: &ast::Namespace,
-                    message: &ast::MessageDecl,
-                    is_ctor: bool,
-                    send_side: &str, send_analysis: &TargetAnalysis,
-                    recv_side: &str, recv_analysis: &TargetAnalysis)
-{
-    let send_prefix = if message.send_semantics == ast::SendSemantics::Intr { "Call" } else { "Send" };
-    let recv_prefix = if message.send_semantics == ast::SendSemantics::Intr { "Answer" } else { "Recv" };
+fn output_send_recv(
+    outputf: &mut File,
+    locstr: &str,
+    protocol: &ast::Namespace,
+    message: &ast::MessageDecl,
+    is_ctor: bool,
+    send_side: &str,
+    send_analysis: &TargetAnalysis,
+    recv_side: &str,
+    recv_analysis: &TargetAnalysis,
+) {
+    let send_prefix = if message.send_semantics == ast::SendSemantics::Intr {
+        "Call"
+    } else {
+        "Send"
+    };
+    let recv_prefix = if message.send_semantics == ast::SendSemantics::Intr {
+        "Answer"
+    } else {
+        "Recv"
+    };
 
     let ctor_suffix = if is_ctor { "Constructor" } else { "" };
 
-    let mangled = mangle_nested_name(&protocol.namespaces,
-                                     &format!("{}{}", protocol.name.id, send_side),
-                                     &format!("{}{}{}", send_prefix, message.name.id, ctor_suffix));
+    let mangled = mangle_nested_name(
+        &protocol.namespaces,
+        &format!("{}{}", protocol.name.id, send_side),
+        &format!("{}{}{}", send_prefix, message.name.id, ctor_suffix),
+    );
     if let Some(send_datum) = find_analysis(send_analysis, &mangled) {
         output_data(outputf, &locstr, &send_datum);
     }
 
-    let mangled = mangle_nested_name(&protocol.namespaces,
-                                     &format!("{}{}", protocol.name.id, recv_side),
-                                     &format!("{}{}{}", recv_prefix, message.name.id, ctor_suffix));
+    let mangled = mangle_nested_name(
+        &protocol.namespaces,
+        &format!("{}{}", protocol.name.id, recv_side),
+        &format!("{}{}{}", recv_prefix, message.name.id, ctor_suffix),
+    );
     if let Some(recv_datum) = find_analysis(recv_analysis, &mangled) {
         output_data(outputf, &locstr, &recv_datum);
     }
@@ -108,13 +151,13 @@ fn output_send_recv(outputf: &mut File,
 fn main() {
     env_logger::init();
 
-    let args : Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
 
     let opts = get_options_parser();
 
     let matches = match opts.parse(&args[1..]) {
-        Ok(m) => { m },
-        Err(f) => { panic!(f.to_string()) },
+        Ok(m) => m,
+        Err(f) => panic!(f.to_string()),
     };
 
     let mut include_dirs = Vec::new();
@@ -160,7 +203,12 @@ fn main() {
 
             for message in protocol.messages {
                 let loc = &message.name.loc;
-                let locstr = format!("{}:{}-{}", loc.lineno, loc.colno, loc.colno + message.name.id.len());
+                let locstr = format!(
+                    "{}:{}-{}",
+                    loc.lineno,
+                    loc.colno,
+                    loc.colno + message.name.id.len()
+                );
 
                 if is_toplevel && message.name.id == "__delete__" {
                     continue;
@@ -168,14 +216,36 @@ fn main() {
 
                 let is_ctor = protocol.manages.iter().any(|e| e.id == message.name.id);
 
-                if message.direction == ast::Direction::ToChild || message.direction == ast::Direction::ToParentOrChild {
-                    output_send_recv(&mut outputf, &locstr, &ns, &message, is_ctor,
-                                     "Parent", &parent_analysis, "Child", &child_analysis);
+                if message.direction == ast::Direction::ToChild
+                    || message.direction == ast::Direction::ToParentOrChild
+                {
+                    output_send_recv(
+                        &mut outputf,
+                        &locstr,
+                        &ns,
+                        &message,
+                        is_ctor,
+                        "Parent",
+                        &parent_analysis,
+                        "Child",
+                        &child_analysis,
+                    );
                 }
 
-                if message.direction == ast::Direction::ToParent || message.direction == ast::Direction::ToParentOrChild {
-                    output_send_recv(&mut outputf, &locstr, &ns, &message, is_ctor,
-                                     "Child", &child_analysis, "Parent", &parent_analysis);
+                if message.direction == ast::Direction::ToParent
+                    || message.direction == ast::Direction::ToParentOrChild
+                {
+                    output_send_recv(
+                        &mut outputf,
+                        &locstr,
+                        &ns,
+                        &message,
+                        is_ctor,
+                        "Child",
+                        &child_analysis,
+                        "Parent",
+                        &parent_analysis,
+                    );
                 }
             }
         }

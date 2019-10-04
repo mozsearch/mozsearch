@@ -387,9 +387,9 @@ pub fn format_file_data(
         }
     }
 
-    let f = F::Seq(vec![
-        F::S("<div id=\"file\" class=\"file\" role=\"table\">"),
-    ]);
+    let f = F::Seq(vec![F::S(
+        "<div id=\"file\" class=\"file\" role=\"table\">",
+    )]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
@@ -515,12 +515,15 @@ pub fn format_file_data(
         // Emit the actual source line here.
         let f = F::Seq(vec![
             F::T(format!(
-                 "<div role=\"row\" class=\"source-line-with-number{}\">",
-                 maybe_nesting_style
+                "<div role=\"row\" class=\"source-line-with-number{}\">",
+                maybe_nesting_style
             )),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!("<div role=\"cell\" class=\"blame-container\"><div{}></div></div>", blame_data)),
+                F::T(format!(
+                    "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
+                    blame_data
+                )),
                 // The line number.
                 F::T(format!(
                     "<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
@@ -545,9 +548,7 @@ pub fn format_file_data(
         }
     }
 
-    let f = F::Seq(vec![
-        F::S("</div>"),
-    ]);
+    let f = F::Seq(vec![F::S("</div>")]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
     write!(
@@ -639,7 +640,11 @@ pub fn format_path(
             .blame_map
             .get(&commit.id())
             .ok_or("Unable to find blame for revision")?;
-        Some(blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob")?)
+        Some(
+            blame_repo
+                .find_commit(*blame_oid)
+                .map_err(|_| "Blame is not a blob")?,
+        )
     } else {
         None
     };
@@ -701,7 +706,7 @@ pub fn format_path(
         &jumps,
         &analysis,
         writer,
-        None
+        None,
     )
 }
 
@@ -764,13 +769,17 @@ pub fn format_diff(
             }
         };
 
-        let blame_oid = git.blame_map.get(&parent_oid).ok_or("Unable to find blame")?;
-        let blame_commit = blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob")?;
+        let blame_oid = git
+            .blame_map
+            .get(&parent_oid)
+            .ok_or("Unable to find blame")?;
+        let blame_commit = blame_repo
+            .find_commit(*blame_oid)
+            .map_err(|_| "Blame is not a blob")?;
         let blame_tree = blame_commit.tree().map_err(|_| "Bad revision")?;
         match blame_tree.get_path(Path::new(path)) {
             Ok(blame_entry) => {
-                let blame =
-                    git_ops::read_blob_entry(blame_repo, &blame_entry);
+                let blame = git_ops::read_blob_entry(blame_repo, &blame_entry);
                 let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
                 blames.push(Some(blame_lines));
             }
@@ -885,9 +894,9 @@ pub fn format_diff(
     }];
     output::generate_panel(writer, &sections)?;
 
-    let f = F::Seq(vec![
-        F::S("<div id=\"file\" class=\"file\" role=\"table\">"),
-    ]);
+    let f = F::Seq(vec![F::S(
+        "<div id=\"file\" class=\"file\" role=\"table\">",
+    )]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
@@ -920,8 +929,10 @@ pub fn format_diff(
         };
 
         let line_str = if lineno > 0 {
-            format!("<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
-                    lineno, lineno)
+            format!(
+                "<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
+                lineno, lineno
+            )
         } else {
             "<div role=\"cell\" class=\"line-number\">&nbsp;</div>".to_owned()
         };
@@ -947,7 +958,10 @@ pub fn format_diff(
             F::S("<div role=\"row\" class=\"source-line-with-number\">"),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!("<div role=\"cell\" class=\"blame-container\"><div{}></div></div>", blame_data)),
+                F::T(format!(
+                    "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
+                    blame_data
+                )),
                 // The line number and blame info.
                 F::T(line_str),
                 // The source line.
@@ -966,9 +980,7 @@ pub fn format_diff(
         output::generate_formatted(writer, &f, 0).unwrap();
     }
 
-    let f = F::Seq(vec![
-        F::S("</div>"),
-    ]);
+    let f = F::Seq(vec![F::S("</div>")]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
@@ -1131,12 +1143,7 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
-    generate_commit_info(
-        tree_name,
-        &tree_config,
-        writer,
-        commit
-    )?;
+    generate_commit_info(tree_name, &tree_config, writer, commit)?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 

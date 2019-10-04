@@ -7,20 +7,20 @@ use std::io;
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Read;
-use std::io::Write;
 use std::io::Seek;
+use std::io::Write;
 use std::path::Path;
 
 extern crate env_logger;
 extern crate tools;
+use crate::languages::FormatAs;
+use tools::config;
+use tools::describe;
+use tools::file_format::analysis::{read_analysis, read_jumps, read_source};
 use tools::find_source_file;
-use tools::file_format::analysis::{read_analysis, read_source, read_jumps};
 use tools::format::format_file_data;
 use tools::git_ops;
-use tools::config;
 use tools::languages;
-use tools::describe;
-use crate::languages::FormatAs;
 
 use tools::output::{PanelItem, PanelSection};
 
@@ -37,13 +37,21 @@ fn read_json_from_file(path: &str) -> Option<json::Object> {
 /// returns it in a tuple if it could be found. The JSON data format
 /// comes from https://searchfox.org/mozilla-central/rev/47edbd91c43db6229cf32d1fc4bae9b325b9e2d0/python/mozbuild/mozbuild/frontend/mach_commands.py#209-223,243
 /// and is fairly straightforward.
-fn get_bugzilla_component<'a>(bugzilla_data: &'a json::Object, path: &str) -> Option<(&'a str, &'a str)> {
+fn get_bugzilla_component<'a>(
+    bugzilla_data: &'a json::Object,
+    path: &str,
+) -> Option<(&'a str, &'a str)> {
     let mut path_obj = bugzilla_data.get("paths")?;
     for path_component in path.split('/') {
         path_obj = path_obj.as_object()?.get(path_component)?;
     }
     let component_id = path_obj.as_i64()?.to_string();
-    let mut result_iter = bugzilla_data.get("components")?.as_object()?.get(&component_id)?.as_array()?.iter();
+    let mut result_iter = bugzilla_data
+        .get("components")?
+        .as_object()?
+        .get(&component_id)?
+        .as_array()?
+        .iter();
     let product = result_iter.next()?.as_string()?;
     let component = result_iter.next()?.as_string()?;
     Some((product, component))
@@ -84,12 +92,12 @@ fn main() {
                 None
             };
             (blame_commit, Some(head_oid))
-        },
+        }
         &None => (None, None),
     };
 
-    let head_commit = head_oid
-        .and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
+    let head_commit =
+        head_oid.and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
 
     let mut extension_mapping = HashMap::new();
     extension_mapping.insert("cpp", ("header", vec!["h", "hh", "hpp", "hxx"]));
@@ -105,7 +113,11 @@ fn main() {
         println!("File {}", path);
 
         let output_fname = format!("{}/file/{}", tree_config.paths.index_path, path);
-        let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
+        let source_fname = find_source_file(
+            path,
+            &tree_config.paths.files_path,
+            &tree_config.paths.objdir_path,
+        );
 
         let format = languages::select_formatting(path);
 
@@ -117,7 +129,7 @@ fn main() {
             Err(_) => {
                 println!("Unable to open file");
                 continue;
-            },
+            }
         };
 
         let path_wrapper = Path::new(&source_fname);
@@ -134,8 +146,8 @@ fn main() {
             FormatAs::Binary => {
                 let _ = io::copy(&mut reader, &mut writer);
                 continue;
-            },
-            _ => {},
+            }
+            _ => {}
         };
 
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
@@ -143,14 +155,14 @@ fn main() {
 
         let mut input = String::new();
         match reader.read_to_string(&mut input) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(_) => {
                 let mut bytes = Vec::new();
                 reader.seek(std::io::SeekFrom::Start(0)).unwrap();
                 match reader.read_to_end(&mut bytes) {
                     Ok(_) => {
                         input.push_str(&bytes.iter().map(|c| *c as char).collect::<String>());
-                    },
+                    }
                     Err(e) => {
                         println!("Unable to read file: {:?}", e);
                         continue;
@@ -160,13 +172,18 @@ fn main() {
         }
 
         if let Some(file_description) = describe::describe_file(&input, &path_wrapper, &format) {
-            let description_fname = format!("{}/description/{}", tree_config.paths.index_path, path);
+            let description_fname =
+                format!("{}/description/{}", tree_config.paths.index_path, path);
             let description_file = File::create(description_fname).unwrap();
             let mut desc_writer = BufWriter::new(description_file);
             write!(desc_writer, "{}", file_description).unwrap();
         }
 
-        let extension = path_wrapper.extension().unwrap_or(&OsStr::new("")).to_str().unwrap();
+        let extension = path_wrapper
+            .extension()
+            .unwrap_or(&OsStr::new(""))
+            .to_str()
+            .unwrap();
         let show_header = match extension_mapping.get(extension) {
             Some(&(ref description, ref try_extensions)) => {
                 let mut result = None;
@@ -175,15 +192,16 @@ fn main() {
                     let try_path = try_buf.as_path();
                     if try_path.exists() {
                         let (path_base, _) = path.split_at(path.len() - extension.len() - 1);
-                        result = Some((description.to_owned(), format!("/{}/source/{}.{}", tree_name, path_base, try_ext)));
+                        result = Some((
+                            description.to_owned(),
+                            format!("/{}/source/{}.{}", tree_name, path_base, try_ext),
+                        ));
                         break;
                     }
                 }
                 result
-            },
-            None => {
-                None
             }
+            None => None,
         };
 
         let mut panel = vec![];
@@ -202,9 +220,11 @@ fn main() {
                 if let Some((product, component)) = get_bugzilla_component(bugzilla, &path) {
                     source_panel_items.push(PanelItem {
                         title: format!("File a bug in {} :: {}", product, component),
-                        link: format!("https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
+                        link: format!(
+                            "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
                             product.replace("&", "%26"),
-                            component.replace("&", "%26")),
+                            component.replace("&", "%26")
+                        ),
                         update_link_lineno: false,
                         accel_key: None,
                     });
@@ -287,12 +307,17 @@ fn main() {
                 Some("md") | Some("rst") => {
                     tools_items.push(PanelItem {
                         title: "Rendered view".to_owned(),
-                        link: format!("{}/blob/{}/{}", github, head_oid.map_or("master".to_string(), |x| x.to_string()), path),
+                        link: format!(
+                            "{}/blob/{}/{}",
+                            github,
+                            head_oid.map_or("master".to_string(), |x| x.to_string()),
+                            path
+                        ),
                         update_link_lineno: false,
                         accel_key: None,
                     });
                 }
-                _ => ()
+                _ => (),
             };
         }
         if !tools_items.is_empty() {
@@ -302,16 +327,19 @@ fn main() {
             });
         }
 
-        format_file_data(&cfg,
-                         tree_name,
-                         &panel,
-                         &head_commit,
-                         &blame_commit,
-                         path,
-                         input,
-                         &jumps,
-                         &analysis,
-                         &mut writer,
-                         Some(&mut diff_cache)).unwrap();
+        format_file_data(
+            &cfg,
+            tree_name,
+            &panel,
+            &head_commit,
+            &blame_commit,
+            path,
+            input,
+            &jumps,
+            &analysis,
+            &mut writer,
+            Some(&mut diff_cache),
+        )
+        .unwrap();
     }
 }
