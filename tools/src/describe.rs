@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use languages::FormatAs;
+use crate::languages::FormatAs;
 
 use regex::Regex;
 

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use git2::{Commit, Diff, DiffFindOptions, DiffDelta, DiffOptions, Error, Oid, Patch, Repository, TreeEntry};
 
-use config::GitData;
+use crate::config::GitData;
 
 // Helpers to do things with git2
 
@@ -289,7 +289,7 @@ mod tests {
     use super::*;
 
     use std::env;
-    use config::{BlameIgnoreList, Mailmap, index_blame};
+    use crate::config::{BlameIgnoreList, Mailmap, index_blame};
 
     fn build_git_data() -> Option<GitData> {
         let repo = Repository::open(env::var("GIT_ROOT").ok()?).unwrap();

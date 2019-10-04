@@ -7,8 +7,8 @@ extern crate rls_analysis;
 extern crate rls_data as data;
 extern crate tools;
 
-use data::GlobalCrateId;
-use data::{DefKind, ImplKind};
+use crate::data::GlobalCrateId;
+use crate::data::{DefKind, ImplKind};
 use rls_analysis::{AnalysisHost, AnalysisLoader, SearchDirectory};
 use std::collections::{BTreeSet, HashMap};
 use std::fs::{self, File};

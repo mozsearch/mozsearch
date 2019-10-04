@@ -8,7 +8,7 @@ use std::process::Command;
 
 use rustc_serialize::json;
 
-use config;
+use crate::config;
 
 fn uppercase(s: &[u8]) -> Vec<u8> {
     let mut result = vec![];

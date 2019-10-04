@@ -20,7 +20,7 @@ use tools::git_ops;
 use tools::config;
 use tools::languages;
 use tools::describe;
-use languages::FormatAs;
+use crate::languages::FormatAs;
 
 use tools::output::{PanelItem, PanelSection};
 
