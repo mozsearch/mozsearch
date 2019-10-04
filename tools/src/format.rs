@@ -332,7 +332,7 @@ pub fn format_file_data(
     writer: &mut dyn Write,
     mut diff_cache: Option<&mut git_ops::TreeDiffCache>,
 ) -> Result<(), &'static str> {
-    let tree_config = r#try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
     let format = languages::select_formatting(path);
     match format {
@@ -350,7 +350,7 @@ pub fn format_file_data(
     let revision_owned = match commit {
         &Some(ref commit) => {
             let rev = commit.id().to_string();
-            let (header, _) = r#try!(blame::commit_header(commit));
+            let (header, _) = blame::commit_header(commit)?;
             Some((rev, header))
         }
         &None => None,
@@ -372,11 +372,11 @@ pub fn format_file_data(
         extra_content_classes: "source-listing not-diff",
     };
 
-    r#try!(output::generate_header(&opt, writer));
+    output::generate_header(&opt, writer)?;
 
-    r#try!(output::generate_breadcrumbs(&opt, writer, path));
+    output::generate_breadcrumbs(&opt, writer, path)?;
 
-    r#try!(output::generate_panel(writer, panel));
+    output::generate_panel(writer, panel)?;
 
     if let Some(ext) = path_wrapper.extension() {
         if ext.to_str().unwrap() == "svg" {
@@ -586,11 +586,11 @@ pub fn format_path(
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     // Get the file data.
-    let tree_config = r#try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
-    let git = r#try!(config::get_git(tree_config));
-    let commit_obj = r#try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
-    let commit = r#try!(commit_obj.into_commit().map_err(|_| "Bad revision"));
-    let commit_tree = r#try!(commit.tree().map_err(|_| "Bad revision"));
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = config::get_git(tree_config)?;
+    let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
+    let commit = commit_obj.into_commit().map_err(|_| "Bad revision")?;
+    let commit_tree = commit.tree().map_err(|_| "Bad revision")?;
     let path_obj = Path::new(path);
     let data = match commit_tree.get_path(path_obj) {
         Ok(entry) => entry_to_blob(&git.repo, &entry)?,
@@ -726,10 +726,10 @@ pub fn format_diff(
     path: &str,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
-    let tree_config = r#try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
-    let git_path = r#try!(config::get_git_path(tree_config));
-    let output = r#try!(Command::new("/usr/bin/git")
+    let git_path = config::get_git_path(tree_config)?;
+    let output = Command::new("/usr/bin/git"?
         .arg("diff-tree")
         .arg("-p")
         .arg("--cc")
@@ -753,9 +753,9 @@ pub fn format_diff(
         return format_path(cfg, tree_name, rev, path, writer);
     }
 
-    let git = r#try!(config::get_git(tree_config));
-    let commit_obj = r#try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
-    let commit = r#try!(commit_obj.as_commit().ok_or("Bad revision"));
+    let git = config::get_git(tree_config)?;
+    let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
+    let commit = commit_obj.as_commit().ok_or("Bad revision")?;
 
     let mut blames = Vec::new();
 
@@ -764,14 +764,14 @@ pub fn format_diff(
             blames.push(None);
             continue;
         }
-        let blame_oid = r#try!(git.blame_map.get(&parent_oid).ok_or("Unable to find blame"));
+        let blame_oid = git.blame_map.get(&parent_oid).ok_or("Unable to find blame")?;
         let blame_commit = r#try!(git
             .blame_repo
             .as_ref()
             .unwrap()
             .find_commit(*blame_oid)
             .map_err(|_| "Blame is not a blob"));
-        let blame_tree = r#try!(blame_commit.tree().map_err(|_| "Bad revision"));
+        let blame_tree = blame_commit.tree().map_err(|_| "Bad revision")?;
         match blame_tree.get_path(Path::new(path)) {
             Ok(blame_entry) => {
                 let blame =
@@ -842,7 +842,7 @@ pub fn format_diff(
     let analysis = Vec::new();
     let (formatted_lines, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 
-    let (header, _) = r#try!(blame::commit_header(&commit));
+    let (header, _) = blame::commit_header(&commit)?;
 
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
@@ -854,7 +854,7 @@ pub fn format_diff(
         extra_content_classes: "source-listing diff",
     };
 
-    r#try!(output::generate_header(&opt, writer));
+    output::generate_header(&opt, writer)?;
 
     let mut vcs_panel_items = vec![
         PanelItem {
@@ -888,7 +888,7 @@ pub fn format_diff(
         name: "Revision control".to_owned(),
         items: vcs_panel_items,
     }];
-    r#try!(output::generate_panel(writer, &sections));
+    output::generate_panel(writer, &sections)?;
 
     let f = F::Seq(vec![
         F::S("<div id=\"file\" class=\"file\" role=\"table\">"),
@@ -987,7 +987,7 @@ fn generate_commit_info(
     writer: &mut dyn Write,
     commit: &git2::Commit,
 ) -> Result<(), &'static str> {
-    let (header, remainder) = r#try!(blame::commit_header(&commit));
+    let (header, remainder) = blame::commit_header(&commit)?;
 
     fn format_rev(tree_name: &str, oid: git2::Oid) -> String {
         format!("<a href=\"/{}/commit/{}\">{}</a>", tree_name, oid, oid)
@@ -1010,7 +1010,7 @@ fn generate_commit_info(
         })
         .collect::<Vec<_>>();
 
-    let git = r#try!(config::get_git(tree_config));
+    let git = config::get_git(tree_config)?;
     let hg = match git.hg_map.get(&commit.id()) {
         Some(hg_id) => {
             let hg_link = format!(
@@ -1065,10 +1065,10 @@ fn generate_commit_info(
         F::S("</table>"),
     ]);
 
-    r#try!(output::generate_formatted(writer, &f, 0));
+    output::generate_formatted(writer, &f, 0)?;
 
-    let git_path = r#try!(config::get_git_path(tree_config));
-    let output = r#try!(Command::new("/usr/bin/git")
+    let git_path = config::get_git_path(tree_config)?;
+    let output = Command::new("/usr/bin/git"?
         .arg("show")
         .arg("--cc")
         .arg("--pretty=format:")
@@ -1093,7 +1093,7 @@ fn generate_commit_info(
         let suffix = &line[commit.parents().count()..];
         let prefix_size = 2 * (commit.parents().count() + 1);
         let mut data = suffix.splitn(prefix_size + 1, ' ');
-        let data = r#try!(data.nth(prefix_size).ok_or("Invalid diff output 3"));
+        let data = data.nth(prefix_size).ok_or("Invalid diff output 3")?;
         let file_info = data.split('\t').take(2).collect::<Vec<_>>();
 
         let f = F::T(format!(
@@ -1108,7 +1108,7 @@ fn generate_commit_info(
     }
 
     let f = F::Seq(vec![F::S("<ul>"), F::Indent(changes), F::S("</ul>")]);
-    r#try!(output::generate_formatted(writer, &f, 0));
+    output::generate_formatted(writer, &f, 0)?;
 
     Ok(())
 }
@@ -1119,11 +1119,11 @@ pub fn format_commit(
     rev: &str,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
-    let tree_config = r#try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
-    let git = r#try!(config::get_git(tree_config));
-    let commit_obj = r#try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
-    let commit = r#try!(commit_obj.as_commit().ok_or("Bad revision"));
+    let git = config::get_git(tree_config)?;
+    let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
+    let commit = commit_obj.as_commit().ok_or("Bad revision")?;
 
     let title = format!("{} - mozsearch", rev);
     let opt = Options {
@@ -1134,7 +1134,7 @@ pub fn format_commit(
         extra_content_classes: "commit",
     };
 
-    r#try!(output::generate_header(&opt, writer));
+    output::generate_header(&opt, writer)?;
 
     r#try!(generate_commit_info(
         tree_name,
