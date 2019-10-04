@@ -51,7 +51,7 @@ pub fn generate_breadcrumbs(opt: &Options, writer: &mut dyn Write, path: &str) -
         path_so_far.push('/');
     }
 
-    try!(write!(*writer, "<div class=\"breadcrumbs\">{}</div>\n", breadcrumbs).map_err(|_| "Write err"));
+    r#try!(write!(*writer, "<div class=\"breadcrumbs\">{}</div>\n", breadcrumbs).map_err(|_| "Write err"));
 
     Ok(())
 }
@@ -68,28 +68,28 @@ pub fn generate_formatted(writer: &mut dyn Write, formatted: &F, indent: u32) ->
     match *formatted {
         F::Indent(ref seq) => {
             for f in seq {
-                try!(generate_formatted(writer, &f, indent + 1));
+                r#try!(generate_formatted(writer, &f, indent + 1));
             }
             Ok(())
         },
         F::Seq(ref seq) => {
             for f in seq {
-                try!(generate_formatted(writer, &f, indent));
+                r#try!(generate_formatted(writer, &f, indent));
             }
             Ok(())
         },
         F::T(ref text) => {
             for _ in 0 .. indent {
-                try!(write!(writer, "  ").map_err(|_| "Write err"));
+                r#try!(write!(writer, "  ").map_err(|_| "Write err"));
             }
-            try!(write!(writer, "{}\n", text).map_err(|_| "Write err"));
+            r#try!(write!(writer, "{}\n", text).map_err(|_| "Write err"));
             Ok(())
         },
         F::S(text) => {
             for _ in 0 .. indent {
-                try!(write!(writer, "  ").map_err(|_| "Write err"));
+                r#try!(write!(writer, "  ").map_err(|_| "Write err"));
             }
-            try!(write!(writer, "{}\n", text).map_err(|_| "Write err"));
+            r#try!(write!(writer, "{}\n", text).map_err(|_| "Write err"));
             Ok(())
         },
     }
@@ -212,7 +212,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         ]),
     ]);
 
-    try!(generate_formatted(writer, &f, 0));
+    r#try!(generate_formatted(writer, &f, 0));
 
     Ok(())
 }
@@ -260,7 +260,7 @@ pub fn generate_footer(opt: &Options, tree_name: &str, path: &str, writer: &mut 
         F::S("</html>")
     ]);
 
-    try!(generate_formatted(writer, &f, 0));
+    r#try!(generate_formatted(writer, &f, 0));
 
     Ok(())
 }
@@ -323,7 +323,7 @@ pub fn generate_panel(writer: &mut dyn Write, sections: &[PanelSection]) -> Resu
         F::S("</div>"),
     ]);
 
-    try!(generate_formatted(writer, &f, 0));
+    r#try!(generate_formatted(writer, &f, 0));
 
     Ok(())
 }
@@ -344,6 +344,6 @@ pub fn generate_svg_preview(writer: &mut dyn Write, url: &str) -> Result<(), &'s
       F::S("</div>")
     ]);
 
-    try!(generate_formatted(writer, &f, 0));
+    r#try!(generate_formatted(writer, &f, 0));
     Ok(())
 }

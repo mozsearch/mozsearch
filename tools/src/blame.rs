@@ -1,5 +1,5 @@
-use config;
-use links;
+use crate::config;
+use crate::links;
 
 use std::collections::BTreeMap;
 use rustc_serialize::json::Json;
@@ -14,7 +14,7 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
 
-    let msg = try!(commit.message().ok_or("Invalid message"));
+    let msg = r#try!(commit.message().ok_or("Invalid message"));
     let mut iter = msg.split('\n');
     let header = iter.next().unwrap();
     let remainder = iter.collect::<Vec<_>>().join("\n");
@@ -23,13 +23,13 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
 }
 
 pub fn get_commit_info(cfg: &config::Config, tree_name: &str, revs: &str) -> Result<String, &'static str> {
-    let tree_config = try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
-    let git = try!(config::get_git(tree_config));
+    let tree_config = r#try!(cfg.trees.get(tree_name).ok_or("Invalid tree"));
+    let git = r#try!(config::get_git(tree_config));
     let mut infos = vec![];
     for rev in revs.split(',') {
-        let commit_obj = try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
-        let commit = try!(commit_obj.as_commit().ok_or("Bad revision"));
-        let (msg, _) = try!(commit_header(&commit));
+        let commit_obj = r#try!(git.repo.revparse_single(rev).map_err(|_| "Bad revision"));
+        let commit = r#try!(commit_obj.as_commit().ok_or("Bad revision"));
+        let (msg, _) = r#try!(commit_header(&commit));
 
         let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
         let tz = FixedOffset::east(commit.time().offset_minutes() * 60);

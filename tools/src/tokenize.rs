@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use languages::LanguageSpec;
+use crate::languages::LanguageSpec;
 
 #[derive(Debug,PartialEq)]
 pub enum TokenKind {
@@ -921,7 +921,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use languages::*;
+    use crate::languages::*;
 
     fn token_matches(start: usize, end: usize, kind: TokenKind, rhs: &Token) {
         assert_eq!(start, rhs.start, "start matches");
