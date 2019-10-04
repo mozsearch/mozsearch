@@ -635,13 +635,11 @@ pub fn format_path(
 
     // Get blame.
     let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
-        let blame_oid = r#try!(git
+        let blame_oid = git
             .blame_map
             .get(&commit.id())
-            .ok_or("Unable to find blame for revision"));
-        Some(r#try!(blame_repo
-            .find_commit(*blame_oid)
-            .map_err(|_| "Blame is not a blob")))
+            .ok_or("Unable to find blame for revision")?;
+        Some(blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob")?)
     } else {
         None
     };
@@ -692,7 +690,7 @@ pub fn format_path(
         items: vcs_panel_items,
     }];
 
-    r#try!(format_file_data(
+    format_file_data(
         cfg,
         tree_name,
         &panel,
@@ -704,9 +702,7 @@ pub fn format_path(
         &analysis,
         writer,
         None
-    ));
-
-    Ok(())
+    )
 }
 
 fn split_lines(s: &str) -> Vec<&str> {
@@ -760,22 +756,21 @@ pub fn format_diff(
     let mut blames = Vec::new();
 
     for parent_oid in commit.parent_ids() {
-        if git.blame_repo.is_none() {
-            blames.push(None);
-            continue;
-        }
+        let blame_repo = match git.blame_repo {
+            Some(ref r) => r,
+            None => {
+                blames.push(None);
+                continue;
+            }
+        };
+
         let blame_oid = git.blame_map.get(&parent_oid).ok_or("Unable to find blame")?;
-        let blame_commit = r#try!(git
-            .blame_repo
-            .as_ref()
-            .unwrap()
-            .find_commit(*blame_oid)
-            .map_err(|_| "Blame is not a blob"));
+        let blame_commit = blame_repo.find_commit(*blame_oid).map_err(|_| "Blame is not a blob")?;
         let blame_tree = blame_commit.tree().map_err(|_| "Bad revision")?;
         match blame_tree.get_path(Path::new(path)) {
             Ok(blame_entry) => {
                 let blame =
-                    git_ops::read_blob_entry(git.blame_repo.as_ref().unwrap(), &blame_entry);
+                    git_ops::read_blob_entry(blame_repo, &blame_entry);
                 let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
                 blames.push(Some(blame_lines));
             }
@@ -1136,12 +1131,12 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
-    r#try!(generate_commit_info(
+    generate_commit_info(
         tree_name,
         &tree_config,
         writer,
         commit
-    ));
+    )?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 
