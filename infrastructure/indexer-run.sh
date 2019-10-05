@@ -10,7 +10,7 @@ then
     exit 1
 fi
 
-export MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+export MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/..)
 export CONFIG_REPO=$(readlink -f $1)
 export WORKING=$(readlink -f $2)
 export PERMANENT=${3:+$(readlink -f $3)}
