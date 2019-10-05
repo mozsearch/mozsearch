@@ -18,7 +18,7 @@ CONFIG_INPUT=$3
 BRANCH=$4
 CHANNEL=$5
 
-MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/../..)
 
 mkdir /tmp/lambda
 cp $MOZSEARCH_PATH/infrastructure/aws/trigger_indexer.py /tmp/lambda

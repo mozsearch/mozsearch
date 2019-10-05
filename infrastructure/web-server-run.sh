@@ -10,7 +10,7 @@ then
     exit 1
 fi
 
-MOZSEARCH_PATH=$(cd $(dirname "$0") && git rev-parse --show-toplevel)
+MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/..)
 
 WORKING=$(readlink -f $2)
 CONFIG_FILE=$WORKING/config.json
