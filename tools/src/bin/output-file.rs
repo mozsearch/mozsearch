@@ -289,7 +289,7 @@ fn main() {
         if let Some(ref ccov_root) = tree_config.paths.ccov_root {
             tools_items.push(PanelItem {
                 title: "Code Coverage".to_owned(),
-                link: format!("{}#revision=latest&path={}", ccov_root, path),
+                link: format!("{}#revision=latest&path={}&view=file", ccov_root, path),
                 update_link_lineno: true,
                 accel_key: None,
             });
