@@ -39,5 +39,13 @@ echo "Index volume detected"
 mkdir ~ubuntu/index
 sudo mount /dev/$EBS_NVME_DEV ~ubuntu/index
 
-$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT index ~ hsts
+# Create a writable directory for nginx caching purposes on the indexer's EBS
+# store.  We choose this spot because:
+# - It has more free space than our instance's root FS (~3.2G of 7.7G avail.)
+# - It's bigger and hence also gets more EBS IO ops.
+NGINX_CACHE_DIR=/home/ubuntu/index/nginx-cache
+mkdir $NGINX_CACHE_DIR
+sudo chown www-data:www-data $NGINX_CACHE_DIR
+
+$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT index ~ hsts $NGINX_CACHE_DIR
 $MOZSEARCH_PATH/web-server-run.sh $CONFIG_REPO index ~
