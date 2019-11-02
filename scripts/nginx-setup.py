@@ -7,7 +7,10 @@ import subprocess
 
 config_fname = sys.argv[1]
 doc_root = sys.argv[2]
+# although these arguments are optional, web-server-setup.sh explicitly passes
+# empty values when omitted by wrapping them in quotes.
 use_hsts = sys.argv[3] == 'hsts'
+nginx_cache_dir = sys.argv[4] # empty string if not specified, which is falsey.
 
 print '# use_hsts =', sys.argv[3]
 
@@ -50,11 +53,53 @@ def location(route, directives):
 
     for directive in directives:
         print '    ' + (directive % fmt)
-
+        if nginx_cache_dir and 'proxy_pass' in directive:
+            print '    proxy_cache sfox;'
+            print '    add_header X-Cache-Status $upstream_cache_status;'
     print '  }'
     print
 
+if nginx_cache_dir:
+    # Proxy Cache Settings.
+    #
+    # These are enabled on a per-location basis
+    #
+    # - levels=1:2 - 2 levels of directories is a ward against file system
+    #   slowness with tons of files in a directory.  May not actually be
+    #   necessary.
+    # - keys_zone=sfox:10m - 10 megs of keys at 8,000 keys per meg is 80,000
+    #   keys or 80,000 cache things.  This was a default recommendation that's
+    #   expected to be sufficient.  The "sfox" is the name of the cache to be
+    #   used with `proxy_cache`.
+    # - max_size=20g - 20 gigs of cached data, max.  This is a somewhat
+    #   arbitrary decision based on the mozilla-releases.json using 223G of 296G
+    #   right now, leaving 59G free.
+    # - use_temp_path=off - Disables the file being written to disk in one
+    #   location and then moved/copied to its final destination.  Recommended.
+    # - inactive=7d - Keep the data basically forever until LRU evicted because
+    #   the cache has filled up.  The machine should be reaped after 2 days in
+    #   normal successful operation, so anything above that is really just a
+    #   convenience for analysis purposes.
+    print 'proxy_cache_path', nginx_cache_dir, 'levels=1:2 keys_zone=sfox:10m max_size=20g use_temp_path=off inactive=7d;'
+    # If a 2nd identical request comes in while we're still asking the server
+    # for an answer, block the 2nd and serve it the result of the 1st.  This is
+    # massively desired for cases where anxious users hit the refresh button on
+    # a slow-to-load page.
+    print 'proxy_cache_lock on;'
+    # And those worst-cases can be very bad, so choose much longer lock timeouts
+    # than 5s.  Note that proxy_read_timeout is still 60s so if the server
+    # buffers the whole time, things will still break.
+    print 'proxy_cache_lock_age 3m;'
+    print 'proxy_cache_lock_timeout 3m;'
+    print 'proxy_read_timeout 3m;'
+    print 'proxy_cache_valid 200 120d;'
+    # XXX cache despite the server saying otherwise
+    print 'proxy_ignore_headers X-Accel-Expires Expires Cache-Control Set-Cookie;'
+    print ''
+
 print '''# we are in the "http" context here.
+log_format custom_cache_log '[$time_local] [Cache:$upstream_cache_status] [$host] [Remote_Addr: $remote_addr] - $remote_user - $server_name to: $upstream_addr: "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' ;
+
 map $status $expires {
   default 2m;
   "301" 1m;
@@ -62,6 +107,8 @@ map $status $expires {
 
 server {
   listen 80 default_server;
+
+  access_log /var/log/nginx/searchfox.log custom_cache_log ;
 
   # Redirect HTTP to HTTPS in release
   if ($http_x_forwarded_proto = "http") {

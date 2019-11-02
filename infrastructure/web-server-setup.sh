@@ -4,9 +4,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 4 -a $# != 5 ]
+if [ $# != 4 -a $# != 5 -a $# != 6 ]
 then
-    echo "usage: $0 <config-repo-path> <config-file-name> <index-path> <server-root> [<use_hsts>]"
+    echo "usage: $0 <config-repo-path> <config-file-name> <index-path> <server-root> [<use_hsts>] [nginx-cache-dir]"
     exit 1
 fi
 
@@ -18,6 +18,7 @@ WORKING=$(readlink -f $3)
 CONFIG_FILE=$WORKING/config.json
 SERVER_ROOT=$(readlink -f $4)
 USE_HSTS=${5:-}
+NGINX_CACHE_DIR=${6:-}
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING
 
@@ -46,7 +47,7 @@ do
     fi
 done
 
-python $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" > /tmp/nginx
+python $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > /tmp/nginx
 sudo mv /tmp/nginx /etc/nginx/sites-enabled/mozsearch.conf
 sudo chmod 0644 /etc/nginx/sites-enabled/mozsearch.conf
 
