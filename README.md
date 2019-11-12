@@ -126,6 +126,7 @@ steps in the next section.
 * You will also need to find the gecko-dev equivalent of the m-c base changeset
   that you did your try push on. You can obtain this by running this command,
   with `MOZILLA_MERCURIAL_HASH` filled in with the hg base revision of the try push.
+  **THE BELOW WILL NO LONGER WORK FOR NOW, APOLOGIES**.
 ```
 curl -X GET --header 'Accept: application/json' 'https://mapper.mozilla-releng.net/gecko-dev/rev/hg/MOZILLA_MERCURIAL_HASH'
 ```
