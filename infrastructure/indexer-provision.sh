@@ -128,7 +128,7 @@ rustup update
 
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js
-wget -nv https://index.taskcluster.net/v1/task/gecko.v2.mozilla-central.nightly.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
+wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
 mkdir js
 pushd js
 unzip ../target.jsshell.zip
