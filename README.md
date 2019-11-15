@@ -126,9 +126,9 @@ steps in the next section.
 * You will also need to find the gecko-dev equivalent of the m-c base changeset
   that you did your try push on. You can obtain this by running this command,
   with `MOZILLA_MERCURIAL_HASH` filled in with the hg base revision of the try push.
-  **THE BELOW WILL NO LONGER WORK FOR NOW, APOLOGIES**.
+  The result line will have the form `MOZILLA_GIT_HASH MOZILLA_MERCURIAL_HASH`.
 ```
-curl -X GET --header 'Accept: application/json' 'https://mapper.mozilla-releng.net/gecko-dev/rev/hg/MOZILLA_MERCURIAL_HASH'
+curl -SsfL https://moz-vcssync.s3-us-west-2.amazonaws.com/mapping/gecko-dev/git-mapfile.tar.bz2 | tar -xOj | grep MOZILLA_MERCURIAL_HASH
 ```
 * In the vagrant instance, clone the Mozilla configuration into `~/mozilla-config`.
 ```
