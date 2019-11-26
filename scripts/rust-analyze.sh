@@ -22,6 +22,16 @@ TREE_NAME=$2
 #   `analysis`.
 PLATFORM=${3:-}
 
+# It's possible the rust code was built on a path structure that doesn't match
+# the one we're using locally on this machine.  In that case, rust-indexer needs
+# to be told what that path prefix is so it can be stripped off.  We still tell
+# it FILES_ROOT as the first argument as the `src_dir` in all cases because it
+# also needs to be able to map from relative paths to actual paths on disk.
+#
+# If the BUILT_DIR is not provided, we fall back to using the FILES_ROOT as the
+# built directory.
+USE_AS_BUILT_DIR=${BUILT_DIR:-$FILES_ROOT}
+
 # Figure out the name of the platform specific dir used for the rust stuff.
 declare -A RUST_PLAT_DIRS
 RUST_PLAT_DIRS["linux64"]="x86_64-unknown-linux-gnu"
@@ -54,5 +64,6 @@ if [ -d "$OBJDIR" ]; then
     "$INDEX_ROOT/analysis${PLATFORM_SUFFIX}" \
     "$OBJDIR" \
     "$INDEX_ROOT/rustlib/src/rust/src" \
+    "$USE_AS_BUILT_DIR" \
     $ANALYSIS_DIRS
 fi

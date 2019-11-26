@@ -38,6 +38,7 @@ struct TreeInfo<'a> {
     output_dir: &'a Path,
     objdir: &'a Path,
     libstd: &'a Path,
+    built_dir: &'a Path,
 }
 
 fn construct_qualname(scope: &str, name: &str) -> String {
@@ -414,6 +415,13 @@ fn find_generated_or_src_file(file_name: &Path, tree_info: &TreeInfo) -> Option<
     if let Ok(std_path) = file_name.strip_prefix(tree_info.libstd) {
         return Some(Path::new("__GENERATED__").join("__RUST__").join(std_path));
     }
+    // Note that rust-analyze-sh may end up passing us a built_dir that's the same as the src_dir,
+    // so this logic branch is the same as the one below.  However, in production situations,
+    // these will usually be different (and we want to maintain the ability to map from real
+    // on-disk src_dir paths back to relative paths).
+    if let Ok(built_path) = file_name.strip_prefix(tree_info.built_dir) {
+        return Some(built_path.to_path_buf());
+    }
     file_name
         .strip_prefix(tree_info.src_dir)
         .ok()
@@ -742,7 +750,8 @@ fn main() {
             "<src>      'Points to the source root'
              <output>   'Points to the directory where searchfox metadata should go'
              <objdir>   'Points to the objdir generated files may come from'
-             <libstd>   'Points to the directory with the rust source'",
+             <libstd>   'Points to the directory with the rust source'
+             <built>    'Path prefix of the original build directory on another machine'",
         )
         .arg(
             Arg::with_name("input")
@@ -756,12 +765,14 @@ fn main() {
     let output_dir = Path::new(matches.value_of("output").unwrap());
     let objdir = Path::new(matches.value_of("objdir").unwrap());
     let libstd = Path::new(matches.value_of("libstd").unwrap());
+    let built_dir = Path::new(matches.value_of("built").unwrap());
 
     let tree_info = TreeInfo {
         src_dir,
         output_dir,
         objdir,
         libstd,
+        built_dir,
     };
 
     info!("Tree info: {:?}", tree_info);
