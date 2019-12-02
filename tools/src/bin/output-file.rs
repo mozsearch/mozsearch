@@ -290,7 +290,7 @@ fn main() {
             tools_items.push(PanelItem {
                 title: "Code Coverage".to_owned(),
                 link: format!("{}#revision=latest&path={}&view=file", ccov_root, path),
-                update_link_lineno: "#{}",
+                update_link_lineno: "&line={}",
                 accel_key: None,
             });
         }
