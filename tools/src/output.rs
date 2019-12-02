@@ -296,7 +296,9 @@ pub fn generate_footer(
 pub struct PanelItem {
     pub title: String,
     pub link: String,
-    pub update_link_lineno: bool,
+    /// This is a pattern which will be appended to the URL, where `{}` is
+    /// replaced by the line number.
+    pub update_link_lineno: &'static str,
     pub accel_key: Option<char>,
 }
 
@@ -316,15 +318,15 @@ pub fn generate_panel(
                 .items
                 .iter()
                 .map(|item| {
-                    let update_attr = if item.update_link_lineno {
-                        format!(r#" data-update-link="true" data-link="{}""#, item.link)
+                    let update_attr = if !item.update_link_lineno.is_empty() {
+                        format!(r#" data-update-link="{}" data-link="{}""#, item.update_link_lineno, item.link)
                     } else {
-                        "".to_owned()
+                        String::new()
                     };
                     let accel = if let Some(key) = item.accel_key {
                         format!(r#" <span class="accel">{}</span>"#, key)
                     } else {
-                        "".to_owned()
+                        String::new()
                     };
                     F::Seq(vec![
                         F::S("<li>"),
