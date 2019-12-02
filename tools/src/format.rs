@@ -663,20 +663,20 @@ pub fn format_path(
     vcs_panel_items.push(PanelItem {
         title: "Go to latest version".to_owned(),
         link: format!("/{}/source/{}", tree_name, path),
-        update_link_lineno: true,
+        update_link_lineno: "#{}",
         accel_key: None,
     });
     if let Some(ref hg_root) = tree_config.paths.hg_root {
         vcs_panel_items.push(PanelItem {
             title: "Log".to_owned(),
             link: format!("{}/log/{}/{}", hg_root, hg_rev, path),
-            update_link_lineno: false,
+            update_link_lineno: "",
             accel_key: Some('L'),
         });
         vcs_panel_items.push(PanelItem {
             title: "Raw".to_owned(),
             link: format!("{}/raw-file/{}/{}", hg_root, hg_rev, path),
-            update_link_lineno: false,
+            update_link_lineno: "",
             accel_key: Some('R'),
         });
     }
@@ -686,7 +686,7 @@ pub fn format_path(
             link:
                 "javascript:alert('Hover over the gray bar on the left to see blame information.')"
                     .to_owned(),
-            update_link_lineno: false,
+            update_link_lineno: "",
             accel_key: None,
         });
     }
@@ -864,19 +864,19 @@ pub fn format_diff(
         PanelItem {
             title: "Show changeset".to_owned(),
             link: format!("/{}/commit/{}", tree_name, rev),
-            update_link_lineno: false,
+            update_link_lineno: "",
             accel_key: None,
         },
         PanelItem {
             title: "Show file without diff".to_owned(),
             link: format!("/{}/rev/{}/{}", tree_name, rev, path),
-            update_link_lineno: true,
+            update_link_lineno: "#{}",
             accel_key: None,
         },
         PanelItem {
             title: "Go to latest version".to_owned(),
             link: format!("/{}/source/{}", tree_name, path),
-            update_link_lineno: true,
+            update_link_lineno: "#{}",
             accel_key: None,
         },
     ];
@@ -884,7 +884,7 @@ pub fn format_diff(
         vcs_panel_items.push(PanelItem {
             title: "Log".to_owned(),
             link: format!("{}/log/tip/{}", hg_root, path),
-            update_link_lineno: false,
+            update_link_lineno: "",
             accel_key: Some('L'),
         });
     }

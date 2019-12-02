@@ -211,7 +211,7 @@ fn main() {
             source_panel_items.push(PanelItem {
                 title: format!("Go to {} file", other_desc),
                 link: other_path,
-                update_link_lineno: false,
+                update_link_lineno: "",
                 accel_key: None,
             });
         };
@@ -225,7 +225,7 @@ fn main() {
                             product.replace("&", "%26"),
                             component.replace("&", "%26")
                         ),
-                        update_link_lineno: false,
+                        update_link_lineno: "",
                         accel_key: None,
                     });
                 }
@@ -245,20 +245,20 @@ fn main() {
                 vcs_panel_items.push(PanelItem {
                     title: "Permalink".to_owned(),
                     link: format!("/{}/rev/{}/{}", tree_name, oid, path),
-                    update_link_lineno: true,
+                    update_link_lineno: "#{}",
                     accel_key: Some('Y'),
                 });
                 if let Some(ref hg_root) = tree_config.paths.hg_root {
                     vcs_panel_items.push(PanelItem {
                         title: "Log".to_owned(),
                         link: format!("{}/log/tip/{}", hg_root, path),
-                        update_link_lineno: false,
+                        update_link_lineno: "",
                         accel_key: Some('L'),
                     });
                     vcs_panel_items.push(PanelItem {
                         title: "Raw".to_owned(),
                         link: format!("{}/raw-file/tip/{}", hg_root, path),
-                        update_link_lineno: false,
+                        update_link_lineno: "",
                         accel_key: Some('R'),
                     });
                 }
@@ -266,7 +266,7 @@ fn main() {
                     vcs_panel_items.push(PanelItem {
                         title: "Blame".to_owned(),
                         link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
-                        update_link_lineno: false,
+                        update_link_lineno: "",
                         accel_key: None,
                     });
                 }
@@ -282,7 +282,7 @@ fn main() {
             tools_items.push(PanelItem {
                 title: "HG Web".to_owned(),
                 link: format!("{}/file/tip/{}", hg_root, path),
-                update_link_lineno: true,
+                update_link_lineno: "#{}",
                 accel_key: None,
             });
         }
@@ -290,7 +290,7 @@ fn main() {
             tools_items.push(PanelItem {
                 title: "Code Coverage".to_owned(),
                 link: format!("{}#revision=latest&path={}&view=file", ccov_root, path),
-                update_link_lineno: true,
+                update_link_lineno: "#{}",
                 accel_key: None,
             });
         }
@@ -298,7 +298,7 @@ fn main() {
             tools_items.push(PanelItem {
                 title: "DXR".to_owned(),
                 link: format!("{}/source/{}", dxr_root, path),
-                update_link_lineno: true,
+                update_link_lineno: "#{}",
                 accel_key: None,
             });
         }
@@ -313,7 +313,7 @@ fn main() {
                             head_oid.map_or("master".to_string(), |x| x.to_string()),
                             path
                         ),
-                        update_link_lineno: false,
+                        update_link_lineno: "",
                         accel_key: None,
                     });
                 }

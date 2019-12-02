@@ -273,10 +273,12 @@ $(function () {
     if (windowHash) {
       windowHash = windowHash.replace(reCleanup, '');
       history.replaceState(null, '', windowHash);
-      scrollIntoView(windowHash.slice(1), false);
+      let lineno = windowHash.slice(1);
+      scrollIntoView(lineno, false);
 
-      $("a[data-update-link=true]").each(function(i, elt) {
-        $(elt).attr("href", $(elt).attr("data-link") + windowHash);
+      $("a[data-update-link]").each(function(i, elt) {
+        let extra = $(elt).attr("data-update-link").replace("{}", lineno);
+        $(elt).attr("href", $(elt).attr("data-link") + extra);
       });
     }
   }
