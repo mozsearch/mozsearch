@@ -37,8 +37,8 @@ userData = '''#!/usr/bin/env bash
 cd ~ubuntu
 touch web_server_started
 sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
-sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_input}"
-'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input)
+sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_input}" "{volume_id}"
+'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input, volume_id=volumeId)
 
 volumes = ec2.describe_volumes(VolumeIds=[volumeId])
 availability_zone = volumes['Volumes'][0]['AvailabilityZone']
@@ -53,7 +53,7 @@ if volumes['Volumes'][0]['Attachments']:
 
 print 'Starting web server instance...'
 
-images = ec2.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-16.04-ena']}])
+images = ec2.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-18.04']}])
 image_id = images['Images'][0]['ImageId']
 
 r = ec2.run_instances(

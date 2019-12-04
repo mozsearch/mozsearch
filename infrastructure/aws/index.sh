@@ -28,13 +28,45 @@ EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id
 echo "Creating index-scratch on local instance SSD"
 
 # Create the "index-scratch" directory where each specific tree's indexing
-# byproducts live while the indexing is ongoing.
+# byproducts live while the indexing is ongoing.  To do this, we need to figure
+# out what the device's partition is.
 #
-# Under the old c2d image /dev/xvdb was the instance-locale storage and was
-# somehow already mounted as /mnt.  Under c5d it's /dev/nvme1n1 and wasn't
-# already mounted.  We just dynamically initialize it here.
-sudo mkfs -t ext4 /dev/nvme1n1
-sudo mount /dev/nvme1n1 /mnt
+# If we run `nvme list -o json` we get output like the following:
+#
+# {
+#   "Devices" : [
+#     {
+#       "DevicePath" : "/dev/nvme0n1",
+#       "Firmware" : "0",
+#       "Index" : 0,
+#       "ModelNumber" : "Amazon EC2 NVMe Instance Storage",
+#       "ProductName" : "Unknown Device",
+#       "SerialNumber" : "AWS143416FC5A55CA413",
+#       "UsedBytes" : 300000000000,
+#       "MaximiumLBA" : 585937500,
+#       "PhysicalSize" : 300000000000,
+#       "SectorSize" : 512
+#     },
+#     {
+#       "DevicePath" : "/dev/nvme1n1",
+#       "Firmware" : "1.0",
+#       "Index" : 1,
+#       "ModelNumber" : "Amazon Elastic Block Store",
+#       "ProductName" : "Unknown Device",
+#       "SerialNumber" : "vol0222cf21e3b3dfbc4",
+#       "UsedBytes" : 0,
+#       "MaximiumLBA" : 16777216,
+#       "PhysicalSize" : 8589934592,
+#       "SectorSize" : 512
+#     }
+#   ]
+# }
+#
+# We are interested in the "Instance Storage" device, and so we can use jq to
+# filter this.
+INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output '.Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath')
+sudo mkfs -t ext4 $INSTANCE_STORAGE_DEV
+sudo mount $INSTANCE_STORAGE_DEV /mnt
 sudo mkdir /mnt/index-scratch
 sudo chown ubuntu.ubuntu /mnt/index-scratch
 
@@ -45,16 +77,16 @@ echo "Channel is $CHANNEL"
 export AWS_ROOT=$(realpath $MOZSEARCH_PATH/infrastructure/aws)
 VOLUME_ID=$(python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
 
-# The EBS volume will no longer be mounted at /dev/xvdf but instead at an
-# arbitrarily assigned nvme id.  However, since we only have a single EBS volume
-# and we dynamically attach it, we're pretty certain what the ID will be:
-EBS_NVME_DEV=nvme2n1
+# Since we know the volume id and it's exposed as the `SerialNumber` in the JSON
+# structure (see above), we can look that up here too.  Note that we need to
+# remove the/any dash from the volume id.
+JQ_QUERY=".Devices[] | select(.SerialNumber == \"${VOLUME_ID/-/}\") | .DevicePath"
 
 set +o pipefail   # The grep command below can return nonzero, so temporarily allow pipefail
 for (( i = 0; i < 3600; i++ ))
 do
-    COUNT=$(lsblk | grep $EBS_NVME_DEV | wc -l)
-    if [ $COUNT -eq 1 ]
+    EBS_NVME_DEV=$(sudo nvme list -o json | jq --raw-output "$JQ_QUERY")
+    if [[ $EBS_NVME_DEV ]]
     then break
     fi
     sleep 1
@@ -65,9 +97,9 @@ echo "Index volume detected"
 
 # Create the "index" directory where the byproducts of indexing will permanently
 # live.
-sudo mkfs -t ext4 /dev/$EBS_NVME_DEV
+sudo mkfs -t ext4 $EBS_NVME_DEV
 sudo mkdir /index
-sudo mount /dev/$EBS_NVME_DEV /index
+sudo mount $EBS_NVME_DEV /index
 sudo chown ubuntu.ubuntu /index
 
 # Do indexer setup locally on disk.
