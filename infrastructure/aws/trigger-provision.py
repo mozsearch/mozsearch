@@ -25,8 +25,9 @@ sudo -i -u ubuntu ~ubuntu/provision.sh > ~ubuntu/provision.log 2>&1
 echo "Provisioning complete." >> ~ubuntu/provision.log
 '''.format(script=script)
 
-# ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-20190816 - ami-0135f076a31aebe66
-image_id = 'ami-0135f076a31aebe66'
+# us-west-2	bionic	18.04 LTS	amd64	hvm:ebs-ssd	20191113	ami-0a7d051a1c4b54f65	hvm
+# ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-20191113 - ami-0a7d051a1c4b54f65
+image_id = 'ami-0a7d051a1c4b54f65'
 
 launch_spec = {
     'ImageId': image_id,

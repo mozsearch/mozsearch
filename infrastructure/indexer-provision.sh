@@ -17,6 +17,25 @@ sudo apt-get install -y software-properties-common
 sudo add-apt-repository -y ppa:git-core/ppa    # For latest git
 sudo apt-get update
 
+# the base image we're building against is inherently not up-to-date (new base
+# images are released only monthly), so let's be consistently up-to-date.
+sudo DEBIAN_FRONTEND=noninteractive \
+  apt-get \
+  -o Dpkg::Options::=--force-confold \
+  -o Dpkg::Options::=--force-confdef \
+  -y --allow-downgrades --allow-remove-essential --allow-change-held-packages \
+  dist-upgrade
+
+# unattended upgrades pose a problem for debugging running processes because we
+# end up running version N but have debug symbols for N+1 and that doesn't work.
+sudo apt-get remove -y unattended-upgrades
+# and we want to be able to debug python
+sudo apt-get install -y gdb
+sudo apt-get install -y python-dbg
+
+# we want to be able to extract stuff from json
+sudo apt-get install -y jq
+
 sudo apt-get install -y git
 sudo apt-get install -y curl
 

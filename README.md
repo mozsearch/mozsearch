@@ -6,16 +6,31 @@ Searchfox locally using Vagrant.
 
 ## Vagrant setup for local development
 
-First, [install Vagrant](https://www.vagrantup.com/downloads.html) and
-[VirtualBox](https://www.virtualbox.org/wiki/Downloads) by
-following the instructions for your OS. Then clone Mozsearch and
-provision a Vagrant instance:
+First, [install Vagrant](https://www.vagrantup.com/downloads.html).  This is a
+virtualization automation tool.  It depends on a virtualization backend.
 
+Pick a virtualization backend and install it.  Your options are:
+- libvirt via [vagrant-libvirt](https://github.com/vagrant-libvirt/vagrant-libvirt).
+  If you are on linux and aren't already using VirtualBox, it's the recommended
+  path.
+  - Follow the [installation instructions](https://github.com/vagrant-libvirt/vagrant-libvirt#installation).
+  - Note that if you didn't already have libvirt installed, then a new `libvirt`
+    group may just have been created and your existing logins won't have the
+    permissions necessary to talk to the management socket.  If you do
+    `exec su -l $USER` you can get access to your newly assigned group.
+- VirtualBox.  For platforms that aren't linux.  Visit the
+  [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
+  following the instructions for your OS.
+
+Then clone Mozsearch and provision a Vagrant instance:
 ```
 git clone https://github.com/mozsearch/mozsearch
 cd mozsearch
 git submodule update --init
-vagrant up
+# if using libvirt
+vagrant up --provider libvirt
+# if using virtualbox
+vagrant up --provider virtualbox
 ```
 
 The last step will take some time (10 or 15 minutes on a fast laptop)
@@ -101,8 +116,8 @@ requests, we can start the server as follows:
 ```
 
 At this point, you should be able to visit the server, which is
-running on port 80 inside the VM and port 8000 outside the VM. Visit
-`http://localhost:8000/` to do so.
+running on port 80 inside the VM and port 8001 outside the VM. Visit
+`http://localhost:8001/` to do so.
 
 ## Indexing Mozilla code locally
 
