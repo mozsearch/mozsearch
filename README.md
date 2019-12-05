@@ -18,9 +18,20 @@ Pick a virtualization backend and install it.  Your options are:
     group may just have been created and your existing logins won't have the
     permissions necessary to talk to the management socket.  If you do
     `exec su -l $USER` you can get access to your newly assigned group.
-- VirtualBox.  For platforms that aren't linux.  Visit the
-  [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
-  following the instructions for your OS.
+  - See troubleshooting below if you have problems.
+- VirtualBox.  For platforms that aren't linux.
+  - Visit the
+    [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
+    follow the instructions for your OS.
+  - Run `vagrant plugin install vagrant-vbguest` to install a plugin that makes
+    sure the guest extensions that live inside the VM match the version of
+    virtualbox that you're using.  If you don't install this, you may see
+    errors about needing to setup a host network for NFS.  You don't.  You need
+    this plugin.
+    - You may need to `vagrant reload` and run `vagrant up` after the plugin
+      has been updated in the VM.  (That is, you might see the update happen and
+      then see the error.  The problem is the updated guest extension wasn't
+      immediately used, hence the need to reboot the VM.)
 
 Then clone Mozsearch and provision a Vagrant instance:
 ```
@@ -60,6 +71,22 @@ make
 # look in tools/target/release to find binaries.
 cd /vagrant/tools
 cargo build --release
+```
+
+### Troubleshooting
+
+#### libvirt
+
+If vagrant up times out in the "Mounting NFS shared folders..." step, chances
+are that you cannot access nfs from the virtual machine.
+
+Under stock Fedora 31, you probably need to allow libvirt to access nfs:
+
+```
+firewall-cmd --permanent --add-service=nfs --zone=libvirt
+firewall-cmd --permanent --add-service=rpc-bind --zone=libvirt
+firewall-cmd --permanent --add-service=mountd --zone=libvirt
+firewall-cmd --reload
 ```
 
 ## Testing locally using the test repository
