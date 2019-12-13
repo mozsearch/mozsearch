@@ -95,17 +95,22 @@ rm -rf .cache/bazel
 sudo pip install boto3
 
 # Install pygit2.
-rm -rf libgit2-0.27.1
-wget -nv https://github.com/libgit2/libgit2/archive/v0.27.1.tar.gz
-tar xf v0.27.1.tar.gz
-rm -rf v0.27.1.tar.gz
-pushd libgit2-0.27.1
+# The 1.0 version has moved to python3, so we're currently holding ourselves
+# back to the 0.28.2 version.
+LIBGIT2_VERSION=0.28.4
+LIBGIT2_TARBALL=v$LIBGIT2_VERSION.tar.gz
+PYGIT2_VERSION=0.28.2
+rm -rf libgit2-*
+wget -nv https://github.com/libgit2/libgit2/archive/$LIBGIT2_TARBALL
+tar xf $LIBGIT2_TARBALL
+rm -rf $LIBGIT2_TARBALL
+pushd libgit2-$LIBGIT2_VERSION
 cmake .
 make
 sudo make install
 popd
 sudo ldconfig
-sudo pip install pygit2
+sudo pip install pygit2==$PYGIT2_VERSION
 
 # Install pandoc
 sudo apt-get install -y pandoc
