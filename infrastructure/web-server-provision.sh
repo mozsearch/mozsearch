@@ -124,9 +124,6 @@ echo Branch is $BRANCH
 echo Mozsearch repository is $MOZSEARCH_REPO
 echo Config repository is $CONFIG_REPO
 
-# Update Rust (make sure we have the latest version).
-rustup update
-
 # Install mozsearch.
 rm -rf mozsearch
 git clone -b $BRANCH $MOZSEARCH_REPO mozsearch
@@ -135,15 +132,17 @@ git submodule init
 git submodule update
 popd
 
-pushd mozsearch/tools
-cargo build --release --verbose
-popd
-
 # Install files from the config repo.
 git clone $CONFIG_REPO config
 pushd config
 git checkout $BRANCH || true
 popd
+
+date
+
+# Let mozsearch tell us what commonly changing dependencies to install plus
+# perform any build steps.
+mozsearch/infrastructure/web-server-update.sh
 
 date
 THEEND

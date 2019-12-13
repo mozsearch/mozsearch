@@ -140,22 +140,6 @@ echo Branch is $BRANCH
 echo Mozsearch repository is $MOZSEARCH_REPO
 echo Config repository is $CONFIG_REPO
 
-# Update Rust (make sure we have the latest version).
-# We need rust nightly to use the save-analysis, and firefox requires recent
-# versions of Rust.
-rustup update
-
-# Install SpiderMonkey.
-rm -rf jsshell-linux-x86_64.zip js
-wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
-mkdir js
-pushd js
-unzip ../target.jsshell.zip
-sudo install js /usr/local/bin
-sudo install *.so /usr/local/lib
-sudo ldconfig
-popd
-
 # Install mozsearch.
 rm -rf mozsearch
 git clone -b $BRANCH $MOZSEARCH_REPO mozsearch
@@ -164,19 +148,17 @@ git submodule init
 git submodule update
 popd
 
-pushd mozsearch/clang-plugin
-make
-popd
-
-pushd mozsearch/tools
-cargo build --release --verbose
-popd
-
 # Install files from the config repo.
 git clone $CONFIG_REPO config
 pushd config
 git checkout $BRANCH || true
 popd
+
+date
+
+# Let mozsearch tell us what commonly changing dependencies to install plus
+# perform any build steps.
+mozsearch/infrastructure/indexer-update.sh
 
 date
 THEEND
