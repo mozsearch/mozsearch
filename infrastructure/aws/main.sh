@@ -41,5 +41,13 @@ $AWS_ROOT/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}"
 # commit.
 $AWS_ROOT/index.sh $*
 if [ $? -ne 0 ]; then
+    # In the event of failure, we will have byproducts leftover on the local
+    # drive that will be lost if we don't first move them to the persistent EBS
+    # store.  We create an "interrupted" parent directory for these contents in
+    # order to avoid any ambiguities about what the state of the scratch drive
+    # was.
+    mkdir /index/interrupted
+    mv -f /mnt/index-scratch/* /index/interrupted
+
     $AWS_ROOT/send-failure-email.py "[${EMAIL_PREFIX}]" "${DEST_EMAIL}"
 fi
