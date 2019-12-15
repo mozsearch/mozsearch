@@ -1,11 +1,28 @@
 #!/usr/bin/env python
 
+# Create our nginx configuration.
+#
+# The general scheme is `TREE/SERVICE/...` where SERVICE is "source" or
+# "raw-analysis" for files available on disk and various dynamic requests that
+# get proxied to per-tree local servers running on localhost.
+#
+# We have a docroot at /home/ubuntu/docroot that provides a place to decide what
+# gets exposed in the root of the origin.  It also is used for the "source"
+# mapping with symlinks helping map into /home/ubuntu/index/TREE/file (for
+# rendered source files) and /home/ubuntu/index/TREE/dir (for rendered directory
+# listings), but that could just as easily be accomplished with slightly fancier
+# location directives.
+
 import sys
 import json
 import os.path
 import subprocess
 
 config_fname = sys.argv[1]
+# doc_root will usually be /home/unbutu/docroot and will hold files like:
+# - status.txt: A file written by the web-servers that the web-server triggering
+#   process polls in order to know when the web-server is up and the load
+#   balancers can be redirected at.
 doc_root = sys.argv[2]
 # although these arguments are optional, web-server-setup.sh explicitly passes
 # empty values when omitted by wrapping them in quotes.
@@ -146,6 +163,26 @@ for repo in config['trees']:
         'try_files /file/$uri /dir/$uri/index.html =404;',
         'types { %(binary_types)s }',
         'default_type text/html;',
+        'add_header Cache-Control "must-revalidate";',
+    ])
+
+    location('/%(repo)s/raw-analysis', [
+        'root %(doc_root)s;',
+        'try_files /raw-analysis/$uri =404;',
+        'types { }',
+        # I tried serving this as application/x-ndjson but then something weird
+        # happened content-encoding-wise.  The received response was content
+        # encoded but the response headers didn't express it, so Firefox didn't
+        # decode the result.
+        'default_type text/plain;',
+        'add_header Cache-Control "must-revalidate";',
+    ])
+
+    location('/%(repo)s/file-lists', [
+        'root %(doc_root)s;',
+        'try_files /file-lists/$uri =404;',
+        'types { }',
+        'default_type text/plain;',
         'add_header Cache-Control "must-revalidate";',
     ])
 
