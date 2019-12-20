@@ -282,7 +282,7 @@ fn main() {
             tools_items.push(PanelItem {
                 title: "HG Web".to_owned(),
                 link: format!("{}/file/tip/{}", hg_root, path),
-                update_link_lineno: "#{}",
+                update_link_lineno: "#l{}",
                 accel_key: None,
             });
         }
