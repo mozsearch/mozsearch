@@ -119,6 +119,23 @@ sudo apt-get install -y pandoc
 curl -sSfL https://deb.nodesource.com/setup_8.x | sudo bash
 sudo apt-get install -y nodejs
 
+# Install git-cinnabar
+
+CINNABAR_REVISION=cb546ebfa6e2e4fbfa2b96f17f82e3883ae28ea2
+rm -rf git-cinnabar
+git clone https://github.com/glandium/git-cinnabar
+git checkout $CINNABAR_REVISION
+pushd git-cinnabar
+./git-cinnabar download
+
+# These need to be symlinks rather than `install`d binaries because cinnabar
+# uses other python code from the repo.
+for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
+  sudo ln -s $(pwd)/$file /usr/local/bin/$file
+done
+
+popd
+
 # Create update script.
 cat > update.sh <<"THEEND"
 #!/usr/bin/env bash
