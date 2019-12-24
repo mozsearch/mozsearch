@@ -23,7 +23,7 @@ fn uppercase(s: &[u8]) -> Vec<u8> {
 }
 
 pub struct IdentMap {
-    mmap: Mmap,
+    mmap: Option<Mmap>,
 }
 
 #[derive(RustcDecodable, RustcEncodable)]
@@ -53,8 +53,14 @@ fn demangle_name(name: &str) -> String {
 
 impl IdentMap {
     fn new(filename: &str) -> IdentMap {
-        let file_mmap = Mmap::open_path(filename, Protection::Read).unwrap();
-        IdentMap { mmap: file_mmap }
+        let mmap = match Mmap::open_path(filename, Protection::Read) {
+            Ok(mmap) => Some(mmap),
+            Err(e) => {
+                warn!("Failed to mmap {}: {:?}", filename, e);
+                None
+            },
+        };
+        IdentMap { mmap }
     }
 
     pub fn load(config: &config::Config) -> HashMap<String, IdentMap> {
@@ -70,7 +76,11 @@ impl IdentMap {
 
     fn get_line(&self, pos: usize) -> &[u8] {
         let mut pos = pos;
-        let bytes: &[u8] = unsafe { self.mmap.as_slice() };
+        let mmap = match self.mmap {
+            Some(ref m) => m,
+            None => return &[],
+        };
+        let bytes: &[u8] = unsafe { mmap.as_slice() };
         if bytes[pos] == '\n' as u8 {
             pos -= 1;
         }
@@ -82,7 +92,7 @@ impl IdentMap {
             start -= 1;
         }
 
-        let size = self.mmap.len();
+        let size = mmap.len();
         while end < size && bytes[end] != '\n' as u8 {
             end += 1;
         }
@@ -97,7 +107,10 @@ impl IdentMap {
         }
 
         let mut first = 0;
-        let mut count = self.mmap.len();
+        let mut count = match self.mmap {
+            Some(ref m) => m.len(),
+            None => return 0,
+        };
 
         while count > 0 {
             let step = count / 2;
@@ -125,11 +138,16 @@ impl IdentMap {
         fold_case: bool,
         max_results: usize,
     ) -> Vec<IdentResult> {
+        let mmap = match self.mmap {
+            Some(ref m) => m,
+            None => return vec![],
+        };
+
         let start = self.bisect(needle.as_bytes(), false);
         let end = self.bisect(needle.as_bytes(), true);
 
         let mut result = vec![];
-        let bytes: &[u8] = unsafe { self.mmap.as_slice() };
+        let bytes: &[u8] = unsafe { mmap.as_slice() };
         let slice = &bytes[start..end];
 
         for line in slice.lines() {
