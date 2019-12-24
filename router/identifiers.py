@@ -13,9 +13,13 @@ def load(config):
         log('Loading identifiers for %s', repo_name)
         index_path = config['trees'][repo_name]['index_path']
 
-        f = open(os.path.join(index_path, 'identifiers'))
-        mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
-        f.close()
+        mm = None
+        with open(os.path.join(index_path, 'identifiers')) as f:
+            try:
+                mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
+            except ValueError as e:
+                log('Failed to mmap identifiers file for %s: %s', repo_name, str(e))
+                pass
 
         repo_data[repo_name] = mm
 
@@ -55,6 +59,9 @@ def bisect(mm, needle, upper_bound):
 
 def lookup(tree_name, needle, complete, fold_case):
     mm = repo_data[tree_name]
+
+    if not mm:
+        return []
 
     first = bisect(mm, needle, False)
     last = bisect(mm, needle + '~', True)

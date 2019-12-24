@@ -13,28 +13,32 @@ def load(config):
         log('Loading %s', repo_name)
         index_path = config['trees'][repo_name]['index_path']
 
-        f = open(os.path.join(index_path, 'crossref'))
-        mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
-        f.close()
-
-        key = None
-        pos = 0
+        mm = None
+        with open(os.path.join(index_path, 'crossref')) as f:
+            try:
+                mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
+            except ValueError as e:
+                log('Failed to mmap crossref file for %s: %s', repo_name, str(e))
+                pass
 
         crossrefs = {}
-        while True:
-            line = mm.readline()
-            if line == '':
-                break
+        if mm:
+            key = None
+            pos = 0
+            while True:
+                line = mm.readline()
+                if line == '':
+                    break
 
-            if key == None:
-                pos += len(line)
-                key = line.strip()
-            else:
-                value = line.strip()
-                s = "{},{}".format(pos, pos + len(value))
-                crossrefs[key] = s
-                key = None
-                pos += len(line)
+                if key == None:
+                    pos += len(line)
+                    key = line.strip()
+                else:
+                    value = line.strip()
+                    s = "{},{}".format(pos, pos + len(value))
+                    crossrefs[key] = s
+                    key = None
+                    pos += len(line)
 
         repo_data[repo_name] = (mm, crossrefs)
 
