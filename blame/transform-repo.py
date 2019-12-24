@@ -21,6 +21,34 @@ if len(sys.argv) == 4:
 else:
     hg_map_file = None
 
+_git_to_hg_map = None
+use_cinnabar = bool(os.environ.get("CINNABAR"))
+
+def to_hg(git_oid):
+    global _git_to_hg_map
+
+    if _git_to_hg_map is None and hg_map_file:
+        _git_to_hg_map = {}
+        print('Indexing mercurial map file...')
+        with open(hg_map_file) as f:
+            for line in f.readlines():
+                (git_rev, hg_rev) = line.strip().split()
+                _git_to_hg_map[pygit2.Oid(hex=git_rev)] = hg_rev
+
+    if _git_to_hg_map is not None:
+        ref = _git_to_hg_map.get(git_oid)
+        if ref:
+            return ref
+
+    if use_cinnabar:
+        # TODO: Maybe there's a way to not spawn processes here hooking into cinnabar's python code?
+        # But it's not clear this is necessarily a perf issue...
+        ref = subprocess.check_output(["git", "cinnabar", "git2hg", str(git_oid)], cwd=old_path).strip()
+        if len(ref) != 0 and ref != ("0" * len(ref)):
+            return ref
+
+    return None
+
 old_repo = pygit2.Repository(pygit2.discover_repository(old_path))
 new_repo = pygit2.Repository(pygit2.discover_repository(new_path))
 
@@ -81,7 +109,6 @@ def find_email(s):
 def run_cmd(*args, **kwargs):
     p = subprocess.Popen(*args, **kwargs)
     (stdout, stderr) = p.communicate()
-
     return stdout
 
 def splitlines(s):
@@ -252,7 +279,7 @@ def transform_revision(commit):
         # ref doesn't exist yet, so let's create it
         reference = blame_ref
 
-    hg_id = git_to_hg_map.get(commit.id)
+    hg_id = to_hg(commit.id)
     if hg_id:
         msg = 'git %s\nhg %s\n' % (commit.id, hg_id)
     else:
@@ -272,14 +299,6 @@ def transform_revision(commit):
         blame_map[commit.id] = new_repo.get(oid)
         print '  ->', oid
 
-def index_mercurial(map_file):
-    f = open(map_file)
-    m = {}
-    for line in f.readlines():
-        (git_rev, hg_rev) = line.strip().split()
-        m[pygit2.Oid(hex=git_rev)] = hg_rev
-
-    return m
 
 def index_existing():
     ref = None
@@ -296,12 +315,6 @@ def index_existing():
 
     return blame_map
 
-if hg_map_file:
-    print 'Indexing mercurial...'
-    git_to_hg_map = index_mercurial(hg_map_file)
-else:
-    git_to_hg_map = {}
-
 print 'Computing existing blame map...'
 blame_map = index_existing()
 
@@ -314,7 +327,7 @@ def transform():
         index += 1
 
         if commit.id not in blame_map:
-            print 'Transforming', commit.id, '(' + str(index) + ')', 'hg', git_to_hg_map.get(commit.id)
+            print 'Transforming', commit.id, '(' + str(index) + ')', 'hg', to_hg(commit.id)
 
             transform_revision(commit)
             count += 1
