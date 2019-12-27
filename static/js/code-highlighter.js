@@ -274,7 +274,7 @@ $(function () {
       windowHash = windowHash.replace(reCleanup, '');
       history.replaceState(null, '', windowHash);
       let lineno = windowHash.slice(1);
-      scrollIntoView(lineno, false);
+      createSyntheticAnchor(lineno, false);
 
       $("a[data-update-link]").each(function(i, elt) {
         let extra = $(elt).attr("data-update-link").replace("{}", lineno);
@@ -490,7 +490,7 @@ $(function () {
         }
       }
 
-      //tidy up an incoming url that might be typed in manually
+      // tidy up an incoming url that might be typed in manually
       setWindowHash();
     }
   });
