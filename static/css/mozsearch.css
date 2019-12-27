@@ -573,9 +573,11 @@ span[data-symbols].hovered {
 
 /* ## Line number goto ##
 
-   `scrollIntoView` in dxr.js creates a synthetic anchor element for the current
-   hash string (which may be more than just "#200" and instead could be
-   "#200-220" or "#220,225,227" or something like that) and gives it this class.
+   `createSyntheticAnchor` in dxr.js creates a synthetic anchor element for the
+   current hash string (which may be more than just "#200" and instead could be
+   "#200-220" or "#220,225,227" or something like that) and gives it this
+   class.
+
    The element is made a child of the .line-number element.
 
    See the method's documentation for more context.

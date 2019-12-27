@@ -14,11 +14,8 @@
  * so that "position:sticky" stuck lines don't obscure the line we're seeking
  * to.  (That's what the "goto" class accomplishes.)  Please see mosearch.css
  * for some additional details and context here.
- *
- * NOTE: This method should probably be renamed (in a future patch, not this
- * patch, reviewers ;)
  */
-function scrollIntoView(id, navigate = true) {
+function createSyntheticAnchor(id, navigate = true) {
   if (document.getElementById(id)) {
     return;
   }
@@ -70,12 +67,12 @@ $(function() {
 
   // Check if the currently loaded page has a hash in the URL
   if (window.location.hash) {
-    scrollIntoView(window.location.hash.substr(1));
+    createSyntheticAnchor(window.location.hash.substr(1));
   }
 
   // We also need to cater for the above scenario when a user clicks on in page links.
   window.onhashchange = function() {
-    scrollIntoView(window.location.hash.substr(1));
+    createSyntheticAnchor(window.location.hash.substr(1));
   };
 
   /**
