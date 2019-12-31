@@ -241,7 +241,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         None => "",
     };
     match ext {
-        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "mm" => FormatAs::FormatCLike(&*CPP_SPEC),
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" | "mm" => FormatAs::FormatCLike(&*CPP_SPEC),
         "ipdl" | "ipdlh" => FormatAs::FormatCLike(&*IPDL_SPEC),
         "idl" => FormatAs::FormatCLike(&*IDL_SPEC),
         "webidl" => FormatAs::FormatCLike(&*WEBIDL_SPEC),
