@@ -560,7 +560,9 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 || s == "|"
                 || s == "!"
                 || s == ","
-                || s == "?";
+                || s == "?"
+                || s == ">"
+                || s == "<";
         }
     }
 
