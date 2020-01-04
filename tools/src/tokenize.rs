@@ -417,6 +417,10 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 });
             } else if next_token_maybe_regexp_literal && spec.regexp_literals {
                 loop {
+                    if cur_pos.get() == chars.len() {
+                        debug!("Invalid regexp literal");
+                        return tokenize_plain(string);
+                    }
                     let (_, next) = get_char();
                     if next == '/' {
                         break;
