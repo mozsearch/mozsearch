@@ -324,7 +324,22 @@ sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index
 ```
 to re-mount the data volume. This will allow you to inspect the state
 on the data volume as well as run additional commands for debugging
-purposes, or to test a fix. The shell scripts that run during indexing
+purposes, or to test a fix.
+
+Because the AWS indexing jobs now use a scratch-disk and that's relevant
+for the indexing process, when the indexer aborts, it moves the contents
+of `/mnt/index-scratch` under an `interrupted` directory on the above
+mount point.  So the in-progress indexing data can be found at
+`/index/interrupted` after the above mount.  In order to make paths sane
+again, you can run the command:
+```
+sudo ln -s /index/interrupted /mnt/index-scratch
+```
+to provide the same effective path mapping.  Note that you wouldn't want
+to restart indexing under this regime as `/mnt/index-scratch` would
+be backed by IO-bound S3.
+
+The shell scripts that run during indexing
 generally require some environment variables to be set; you can set
 up the main ones by sourcing the load-vars.sh script like so:
 ```
