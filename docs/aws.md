@@ -320,7 +320,7 @@ instance using the EC2 web console, and then SSH in to it to examine
 the log in more detail and/or inspect other state to debug the problem.
 After SSH'ing to the indexer, you should run the command:
 ```
-sudo mount /dev/xvdf /index
+sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index
 ```
 to re-mount the data volume. This will allow you to inspect the state
 on the data volume as well as run additional commands for debugging
