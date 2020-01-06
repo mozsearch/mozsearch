@@ -8,7 +8,10 @@ set -o pipefail # Check all commands in a pipeline
 # will be used by the Firefox build process.  If you have a "mach bootstrap"ped
 # system then you can see the current version locally via
 # "~/.mozbuild/clang/bin/clang --version"
-CLANG_VERSION=8
+CLANG_VERSION=9
+# Bumping the priority with each version upgrade lets running the provisioning
+# script on an already provisioned machine do the right thing alternative-wise.
+CLANG_PRIORITY=411
 
 sudo apt-get update
 # necessary for apt-add-repository to exist
@@ -70,9 +73,9 @@ wget -O bootstrap.py https://hg.mozilla.org/mozilla-central/raw-file/default/pyt
 sudo apt-get install -y python-dev libffi-dev cmake
 
 # Setup direct links to clang
-sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} 410
-sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} 410
-sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} 410
+sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} ${CLANG_PRIORITY}
 
 # Install Rust. We need rust nightly to use the save-analysis
 curl https://sh.rustup.rs -sSf | sh -s -- -y
