@@ -98,7 +98,6 @@ function updateBlamePopup() {
     }
 
     var parent = blameElt.parentNode;
-    var height = blameElt.getBoundingClientRect().height;
 
     popupBox = document.createElement("div");
     popupBox.id = "blame-popup";
