@@ -134,7 +134,7 @@ git checkout $CINNABAR_REVISION
 # These need to be symlinks rather than `install`d binaries because cinnabar
 # uses other python code from the repo.
 for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
-  sudo ln -s $(pwd)/$file /usr/local/bin/$file
+  sudo ln -fs $(pwd)/$file /usr/local/bin/$file
 done
 
 popd
