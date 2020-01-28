@@ -127,8 +127,8 @@ sudo apt-get install -y nodejs
 CINNABAR_REVISION=cb546ebfa6e2e4fbfa2b96f17f82e3883ae28ea2
 rm -rf git-cinnabar
 git clone https://github.com/glandium/git-cinnabar
-git checkout $CINNABAR_REVISION
 pushd git-cinnabar
+git checkout $CINNABAR_REVISION
 ./git-cinnabar download
 
 # These need to be symlinks rather than `install`d binaries because cinnabar
