@@ -28,7 +28,7 @@ Pick a virtualization backend and install it.  Your options are:
     virtualbox that you're using.  If you don't install this, you may see
     errors about needing to setup a host network for NFS.  You don't.  You need
     this plugin.
-    - You may need to `vagrant reload` and run `vagrant up` after the plugin
+    - You may need to `vagrant reload` and run `vagrant up --provision` after the plugin
       has been updated in the VM.  (That is, you might see the update happen and
       then see the error.  The problem is the updated guest extension wasn't
       immediately used, hence the need to reboot the VM.)
