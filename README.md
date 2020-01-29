@@ -23,8 +23,10 @@ work.  You will need to move searchfox to a partition that's a normal block devi
 ##### Ubuntu 19.10
 
 ```shell
-# This will also install vagrant-libvirt which is the provider we use.
-sudo apt install vagrant
+# vagrant will also install vagrant-libvirt which is the vagrant provider we use.
+# virt-manager is a UI that helps inspect that your VM got created
+# The rest are related to enabling libvirt and KVM-based virtualization
+sudo apt install vagrant virt-manager qemu libvirt-daemon-system libvirt-clients
 
 git clone https://github.com/mozsearch/mozsearch
 cd mozsearch
