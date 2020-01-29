@@ -8,7 +8,9 @@ Vagrant.configure("2") do |config|
 
   config.vm.network :forwarded_port, guest: 80, host: 8001
 
-  config.vm.provider "virtualbox" do |v|
+  config.vm.provider "virtualbox" do |v, override|
+    override.vm.synced_folder './', '/vagrant'
+
     v.memory = 10000
     v.cpus = 4
   end
