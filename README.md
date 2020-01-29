@@ -85,8 +85,23 @@ vagrant up
 ### Once vagrant up has started...
 
 The last step will take some time (10 or 15 minutes on a fast laptop)
-to download a lot of dependencies and build some tools locally. After
-the command completes, ssh into the VM as follows. From this point
+to download a lot of dependencies and build some tools locally.  **Note
+that this step can fail!**  Say, if you're at a Mozilla All-Hands and the
+network isn't exceedingly reliable.  In particular, if you are seeing
+errors related to host resolution and you have access to a VPN, it may
+be advisable to connect to the VPN.
+
+A successful provisioning run will end with `default: + chmod +x update.sh`.
+
+In the event of failure you will want to run
+`vagrant up --provision` in order to re-trigger the provisioning steps
+which are idempotent (although could be further optimized).  In the worst
+case, you can run `vagrant destroy` to completely delete the VM and then
+run `vagrant up` again to re-create it.  The base image gets cached on
+your system, so you'll save ~1GB of download, but all the Ubuntu package
+installation will be re-done.
+
+After `vagrant up` completes, ssh into the VM as follows. From this point
 onward, all commands should be executed inside the VM.
 
 ```
