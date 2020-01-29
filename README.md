@@ -6,43 +6,83 @@ Searchfox locally using Vagrant.
 
 ## Vagrant setup for local development
 
-First, [install Vagrant](https://www.vagrantup.com/downloads.html).  This is a
-virtualization automation tool.  It depends on a virtualization backend.
+### Setting up the VM
 
-Pick a virtualization backend and install it.  Your options are:
-- libvirt via [vagrant-libvirt](https://github.com/vagrant-libvirt/vagrant-libvirt).
-  If you are on linux and aren't already using VirtualBox, it's the recommended
-  path.
-  - Follow the [installation instructions](https://github.com/vagrant-libvirt/vagrant-libvirt#installation).
+We use Vagrant to setup a virtual machine.  This may be the most frustrating part of
+working with Searchfox.  If you can help provide better/more explicit instructions
+for your platform, please do!
+
+#### Linux
+
+Important note: In order to expose the Searchfox source directory into the VM, we
+need to be able to export if via NFS.  If you are using a FUSE-style filesystem
+like `eCryptFS` which is a means of encrypting your home directory, things will not
+work.  You will need to move searchfox to a partition that's a normal block device
+(which includes LUKS-style encrypted partitions, etc.)
+
+##### Ubuntu 19.10
+
+```shell
+# This will also install vagrant-libvirt which is the provider we use.
+sudo apt install vagrant
+
+git clone https://github.com/mozsearch/mozsearch
+cd mozsearch
+git submodule update --init
+vagrant up
+```
+##### Other Linux
+Note: VirtualBox is an option on linux, but not recommended.
+
+1. [install Vagrant](https://www.vagrantup.com/downloads.html).
+2. Install libvirt via [vagrant-libvirt](https://github.com/vagrant-libvirt/vagrant-libvirt).
+   Follow the [installation instructions](https://github.com/vagrant-libvirt/vagrant-libvirt#installation).
   - Note that if you didn't already have libvirt installed, then a new `libvirt`
     group may just have been created and your existing logins won't have the
     permissions necessary to talk to the management socket.  If you do
     `exec su -l $USER` you can get access to your newly assigned group.
   - See troubleshooting below if you have problems.
-- VirtualBox.  For platforms that aren't linux.
-  - Visit the
-    [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
-    follow the instructions for your OS.
-  - Run `vagrant plugin install vagrant-vbguest` to install a plugin that makes
-    sure the guest extensions that live inside the VM match the version of
-    virtualbox that you're using.  If you don't install this, you may see
-    errors about needing to setup a host network for NFS.  You don't.  You need
-    this plugin.
-    - You may need to `vagrant reload` and run `vagrant up --provision` after the plugin
-      has been updated in the VM.  (That is, you might see the update happen and
-      then see the error.  The problem is the updated guest extension wasn't
-      immediately used, hence the need to reboot the VM.)
+  
+Once that's installed:
+```shell
+git clone https://github.com/mozsearch/mozsearch
+cd mozsearch
+git submodule update --init
+vagrant up
+```
 
+If vagrant up times out in the "Mounting NFS shared folders..." step, chances
+are that you cannot access nfs from the virtual machine.
+
+Under stock Fedora 31, you probably need to allow libvirt to access nfs:
+
+```
+firewall-cmd --permanent --add-service=nfs --zone=libvirt
+firewall-cmd --permanent --add-service=rpc-bind --zone=libvirt
+firewall-cmd --permanent --add-service=mountd --zone=libvirt
+firewall-cmd --reload
+```
+  
+#### OS X and Windows
+Note: The current Homebrew version of Vagrant is currently not able to use the most
+recent version of VirtualBox so it's recommended to install things directly via their
+installers.
+
+1. [install Vagrant](https://www.vagrantup.com/downloads.html).
+2. Visit the [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
+    follow the instructions for your OS.
+ 
 Then clone Mozsearch and provision a Vagrant instance:
 ```
 git clone https://github.com/mozsearch/mozsearch
 cd mozsearch
 git submodule update --init
-# if using libvirt
-vagrant up --provider libvirt
-# if using virtualbox
-vagrant up --provider virtualbox
+
+vagrant plugin install vagrant-vbguest
+vagrant up
 ```
+
+### Once vagrant up has started...
 
 The last step will take some time (10 or 15 minutes on a fast laptop)
 to download a lot of dependencies and build some tools locally. After
@@ -59,6 +99,29 @@ outside the VM will be mirrored to the other side. Generally I find it
 best to edit code outside the VM, but any commands to build or run
 scripts must run inside the VM.
 
+## Instant Fun with the Test Repo
+
+```
+cd /vagrant
+make build-test-repo
+```
+
+The above process will:
+- Build necessary tools.
+- Setup the indexer for the test repo.
+- Run the indexer for the test repo.
+- Setup the webserver for the test repo.
+- Run the webserver for the test repo.
+
+After that, you can connect to http://localhost:8001/ and see Searchfox at work!
+
+Once you've done that, you might want to read the next section to understand
+what was happening under the hood.
+
+## Manual Labor with the Test Repo
+
+### Build Necessary Tools
+
 The first step is to build all the statically compiled parts of
 Mozsearch:
 
@@ -73,23 +136,7 @@ cd /vagrant/tools
 cargo build --release
 ```
 
-### Troubleshooting
-
-#### libvirt
-
-If vagrant up times out in the "Mounting NFS shared folders..." step, chances
-are that you cannot access nfs from the virtual machine.
-
-Under stock Fedora 31, you probably need to allow libvirt to access nfs:
-
-```
-firewall-cmd --permanent --add-service=nfs --zone=libvirt
-firewall-cmd --permanent --add-service=rpc-bind --zone=libvirt
-firewall-cmd --permanent --add-service=mountd --zone=libvirt
-firewall-cmd --reload
-```
-
-## Testing locally using the test repository
+### Testing locally using the test repository
 
 Mozsearch chooses what to index using a set of configuration
 files. There is a test configuration inside the Mozsearch `tests`
@@ -187,6 +234,9 @@ git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 * Continue with the steps in the next section.
 
 ### Testing basic changes
+
+Note: You can also just do `make build-mozilla-repo` in `/vagrant` to have it
+idempotently do the following for you.
 
 ```
 # Clone the Mozilla configuration into ~/mozilla-config, if you haven't
