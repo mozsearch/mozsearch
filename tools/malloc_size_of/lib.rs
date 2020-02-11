@@ -46,27 +46,16 @@
 //!   Note: WebRender has a reduced fork of this crate, so that we can avoid
 //!   publishing this crate on crates.io.
 
-extern crate accountable_refcell;
 extern crate app_units;
-#[cfg(feature = "servo")]
-extern crate content_security_policy;
-#[cfg(feature = "servo")]
-extern crate crossbeam_channel;
-extern crate cssparser;
 extern crate euclid;
-extern crate hashglobe;
 #[cfg(feature = "servo")]
 extern crate hyper;
 #[cfg(feature = "servo")]
 extern crate hyper_serde;
 #[cfg(feature = "servo")]
-extern crate keyboard_types;
-extern crate selectors;
-#[cfg(feature = "servo")]
 extern crate serde;
 #[cfg(feature = "servo")]
 extern crate serde_bytes;
-extern crate servo_arc;
 extern crate smallbitvec;
 extern crate smallvec;
 #[cfg(feature = "servo")]
@@ -79,13 +68,7 @@ extern crate url;
 #[cfg(feature = "servo")]
 extern crate uuid;
 extern crate void;
-#[cfg(feature = "webrender_api")]
-extern crate webrender_api;
-#[cfg(feature = "servo")]
-extern crate xml5ever;
 
-#[cfg(feature = "servo")]
-use content_security_policy as csp;
 #[cfg(feature = "servo")]
 use serde_bytes::ByteBuf;
 use std::hash::{BuildHasher, Hash};
@@ -486,8 +469,6 @@ macro_rules! malloc_size_of_hash_set {
 }
 
 malloc_size_of_hash_set!(std::collections::HashSet<T, S>);
-malloc_size_of_hash_set!(hashglobe::hash_set::HashSet<T, S>);
-malloc_size_of_hash_set!(hashglobe::fake::HashSet<T, S>);
 
 macro_rules! malloc_size_of_hash_map {
     ($ty:ty) => {
@@ -527,8 +508,6 @@ macro_rules! malloc_size_of_hash_map {
 }
 
 malloc_size_of_hash_map!(std::collections::HashMap<K, V, S>);
-malloc_size_of_hash_map!(hashglobe::hash_map::HashMap<K, V, S>);
-malloc_size_of_hash_map!(hashglobe::fake::HashMap<K, V, S>);
 
 impl<K, V> MallocShallowSizeOf for std::collections::BTreeMap<K, V>
 where
@@ -573,38 +552,6 @@ impl<T> MallocSizeOf for std::marker::PhantomData<T> {
 // rc_arc_must_not_derive_malloc_size_of.rs)
 //impl<T> !MallocSizeOf for Arc<T> { }
 //impl<T> !MallocShallowSizeOf for Arc<T> { }
-
-impl<T> MallocUnconditionalShallowSizeOf for servo_arc::Arc<T> {
-    fn unconditional_shallow_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        unsafe { ops.malloc_size_of(self.heap_ptr()) }
-    }
-}
-
-impl<T: MallocSizeOf> MallocUnconditionalSizeOf for servo_arc::Arc<T> {
-    fn unconditional_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.unconditional_shallow_size_of(ops) + (**self).size_of(ops)
-    }
-}
-
-impl<T> MallocConditionalShallowSizeOf for servo_arc::Arc<T> {
-    fn conditional_shallow_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        if ops.have_seen_ptr(self.heap_ptr()) {
-            0
-        } else {
-            self.unconditional_shallow_size_of(ops)
-        }
-    }
-}
-
-impl<T: MallocSizeOf> MallocConditionalSizeOf for servo_arc::Arc<T> {
-    fn conditional_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        if ops.have_seen_ptr(self.heap_ptr()) {
-            0
-        } else {
-            self.unconditional_size_of(ops)
-        }
-    }
-}
 
 /// If a mutex is stored directly as a member of a data type that is being measured,
 /// it is the unique owner of its contents and deserves to be measured.
@@ -705,87 +652,6 @@ impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Vector2D<T, U> {
     }
 }
 
-impl MallocSizeOf for selectors::parser::AncestorHashes {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        let selectors::parser::AncestorHashes { ref packed_hashes } = *self;
-        packed_hashes.size_of(ops)
-    }
-}
-
-impl<Impl: selectors::parser::SelectorImpl> MallocSizeOf for selectors::parser::Selector<Impl>
-where
-    Impl::NonTSPseudoClass: MallocSizeOf,
-    Impl::PseudoElement: MallocSizeOf,
-{
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        let mut n = 0;
-
-        // It's OK to measure this ThinArc directly because it's the
-        // "primary" reference. (The secondary references are on the
-        // Stylist.)
-        n += unsafe { ops.malloc_size_of(self.thin_arc_heap_ptr()) };
-        for component in self.iter_raw_match_order() {
-            n += component.size_of(ops);
-        }
-
-        n
-    }
-}
-
-impl<Impl: selectors::parser::SelectorImpl> MallocSizeOf for selectors::parser::Component<Impl>
-where
-    Impl::NonTSPseudoClass: MallocSizeOf,
-    Impl::PseudoElement: MallocSizeOf,
-{
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        use selectors::parser::Component;
-
-        match self {
-            Component::AttributeOther(ref attr_selector) => attr_selector.size_of(ops),
-            Component::Negation(ref components) => components.size_of(ops),
-            Component::NonTSPseudoClass(ref pseudo) => (*pseudo).size_of(ops),
-            Component::Slotted(ref selector) | Component::Host(Some(ref selector)) => {
-                selector.size_of(ops)
-            },
-            Component::PseudoElement(ref pseudo) => (*pseudo).size_of(ops),
-            Component::Combinator(..) |
-            Component::ExplicitAnyNamespace |
-            Component::ExplicitNoNamespace |
-            Component::DefaultNamespace(..) |
-            Component::Namespace(..) |
-            Component::ExplicitUniversalType |
-            Component::LocalName(..) |
-            Component::ID(..) |
-            Component::Part(..) |
-            Component::Class(..) |
-            Component::AttributeInNoNamespaceExists { .. } |
-            Component::AttributeInNoNamespace { .. } |
-            Component::FirstChild |
-            Component::LastChild |
-            Component::OnlyChild |
-            Component::Root |
-            Component::Empty |
-            Component::Scope |
-            Component::NthChild(..) |
-            Component::NthLastChild(..) |
-            Component::NthOfType(..) |
-            Component::NthLastOfType(..) |
-            Component::FirstOfType |
-            Component::LastOfType |
-            Component::OnlyOfType |
-            Component::Host(None) => 0,
-        }
-    }
-}
-
-impl<Impl: selectors::parser::SelectorImpl> MallocSizeOf
-    for selectors::attr::AttrSelectorWithOptionalNamespace<Impl>
-{
-    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
-        0
-    }
-}
-
 impl MallocSizeOf for Void {
     #[inline]
     fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
@@ -840,11 +706,6 @@ malloc_size_of_is_0!(Range<f32>, Range<f64>);
 
 malloc_size_of_is_0!(app_units::Au);
 
-malloc_size_of_is_0!(cssparser::RGBA, cssparser::TokenSerializationType);
-
-#[cfg(feature = "servo")]
-malloc_size_of_is_0!(csp::Destination);
-
 #[cfg(feature = "servo")]
 malloc_size_of_is_0!(Uuid);
 
@@ -855,68 +716,6 @@ impl MallocSizeOf for url::Host {
             url::Host::Domain(ref s) => s.size_of(ops),
             _ => 0,
         }
-    }
-}
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::BorderRadius);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::BorderStyle);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::BoxShadowClipMode);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ColorF);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ComplexClipRegion);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ExtendMode);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::FilterOp);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ExternalScrollId);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::FontInstanceKey);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::GradientStop);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::GlyphInstance);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::NinePatchBorder);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ImageKey);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ImageRendering);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::LineStyle);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::MixBlendMode);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::NormalBorder);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::RepeatMode);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ScrollSensitivity);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::StickyOffsetBounds);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::TransformStyle);
-
-#[cfg(feature = "servo")]
-impl MallocSizeOf for keyboard_types::Key {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        match self {
-            keyboard_types::Key::Character(ref s) => s.size_of(ops),
-            _ => 0,
-        }
-    }
-}
-
-#[cfg(feature = "servo")]
-malloc_size_of_is_0!(keyboard_types::Modifiers);
-
-#[cfg(feature = "servo")]
-impl MallocSizeOf for xml5ever::QualName {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.prefix.size_of(ops) + self.ns.size_of(ops) + self.local.size_of(ops)
     }
 }
 
@@ -934,15 +733,6 @@ where
 {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.0.size_of(ops)
-    }
-}
-
-// Placeholder for unique case where internals of Sender cannot be measured.
-// malloc size of is 0 macro complains about type supplied!
-#[cfg(feature = "servo")]
-impl<T> MallocSizeOf for crossbeam_channel::Sender<T> {
-    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
-        0
     }
 }
 
@@ -969,12 +759,5 @@ impl<T: MallocSizeOf> Deref for Measurable<T> {
 impl<T: MallocSizeOf> DerefMut for Measurable<T> {
     fn deref_mut(&mut self) -> &mut T {
         &mut self.0
-    }
-}
-
-#[cfg(feature = "servo")]
-impl<T: MallocSizeOf> MallocSizeOf for accountable_refcell::RefCell<T> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.borrow().size_of(ops)
     }
 }
