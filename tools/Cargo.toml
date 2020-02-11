@@ -19,6 +19,10 @@ linkify = "0.2.0"
 rls-analysis = "0.17"
 rls-data = "0.19"
 clap = "2"
+malloc_size_of_derive = "0.1"
+malloc_size_of = { path = "./malloc_size_of" }
+jemalloc-sys = "0.3.2"
+jemallocator = "0.3.2"
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production

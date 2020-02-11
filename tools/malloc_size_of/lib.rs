@@ -761,3 +761,20 @@ impl<T: MallocSizeOf> DerefMut for Measurable<T> {
         &mut self.0
     }
 }
+
+// git2 specific hacks
+impl MallocSizeOf for git2::Repository {
+    #[inline]
+    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+        // git2::Repository is actually a C structure thing and we don't really care.
+        0
+    }
+}
+
+impl MallocSizeOf for git2::Oid {
+    #[inline]
+    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+        // We know this from libgit2_sys's GIT_OID_RAWSZ constant.
+        20
+    }
+}
