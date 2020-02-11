@@ -46,39 +46,12 @@
 //!   Note: WebRender has a reduced fork of this crate, so that we can avoid
 //!   publishing this crate on crates.io.
 
-extern crate app_units;
-extern crate euclid;
-#[cfg(feature = "servo")]
-extern crate hyper;
-#[cfg(feature = "servo")]
-extern crate hyper_serde;
-#[cfg(feature = "servo")]
-extern crate serde;
-#[cfg(feature = "servo")]
-extern crate serde_bytes;
-extern crate smallbitvec;
-extern crate smallvec;
-#[cfg(feature = "servo")]
-extern crate string_cache;
-extern crate thin_slice;
-#[cfg(feature = "servo")]
-extern crate time;
-#[cfg(feature = "url")]
-extern crate url;
-#[cfg(feature = "servo")]
-extern crate uuid;
-extern crate void;
 
-#[cfg(feature = "servo")]
-use serde_bytes::ByteBuf;
 use std::hash::{BuildHasher, Hash};
 use std::mem::size_of;
 use std::ops::Range;
 use std::ops::{Deref, DerefMut};
 use std::os::raw::c_void;
-#[cfg(feature = "servo")]
-use uuid::Uuid;
-use void::Void;
 
 /// A C function that takes a pointer to a heap allocation and returns its size.
 type VoidPtrToSizeFn = unsafe extern "C" fn(ptr: *const c_void) -> usize;
@@ -234,24 +207,6 @@ impl<T: MallocSizeOf + ?Sized> MallocSizeOf for Box<T> {
     }
 }
 
-impl<T> MallocShallowSizeOf for thin_slice::ThinBoxedSlice<T> {
-    fn shallow_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        let mut n = 0;
-        unsafe {
-            n += thin_slice::ThinBoxedSlice::spilled_storage(self)
-                .map_or(0, |ptr| ops.malloc_size_of(ptr));
-            n += ops.malloc_size_of(&**self);
-        }
-        n
-    }
-}
-
-impl<T: MallocSizeOf> MallocSizeOf for thin_slice::ThinBoxedSlice<T> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.shallow_size_of(ops) + (**self).size_of(ops)
-    }
-}
-
 impl MallocSizeOf for () {
     fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
         0
@@ -344,24 +299,6 @@ impl<T: MallocSizeOf> MallocSizeOf for [T] {
     }
 }
 
-#[cfg(feature = "servo")]
-impl MallocShallowSizeOf for ByteBuf {
-    fn shallow_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        unsafe { ops.malloc_size_of(self.as_ptr()) }
-    }
-}
-
-#[cfg(feature = "servo")]
-impl MallocSizeOf for ByteBuf {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        let mut n = self.shallow_size_of(ops);
-        for elem in self.iter() {
-            n += elem.size_of(ops);
-        }
-        n
-    }
-}
-
 impl<T> MallocShallowSizeOf for Vec<T> {
     fn shallow_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         unsafe { ops.malloc_size_of(self.as_ptr()) }
@@ -396,30 +333,6 @@ impl<T> MallocShallowSizeOf for std::collections::VecDeque<T> {
 }
 
 impl<T: MallocSizeOf> MallocSizeOf for std::collections::VecDeque<T> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        let mut n = self.shallow_size_of(ops);
-        for elem in self.iter() {
-            n += elem.size_of(ops);
-        }
-        n
-    }
-}
-
-impl<A: smallvec::Array> MallocShallowSizeOf for smallvec::SmallVec<A> {
-    fn shallow_size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        if self.spilled() {
-            unsafe { ops.malloc_size_of(self.as_ptr()) }
-        } else {
-            0
-        }
-    }
-}
-
-impl<A> MallocSizeOf for smallvec::SmallVec<A>
-where
-    A: smallvec::Array,
-    A::Item: MallocSizeOf,
-{
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         let mut n = self.shallow_size_of(ops);
         for elem in self.iter() {
@@ -565,107 +478,6 @@ impl<T: MallocSizeOf> MallocSizeOf for std::sync::Mutex<T> {
     }
 }
 
-impl MallocSizeOf for smallbitvec::SmallBitVec {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        if let Some(ptr) = self.heap_ptr() {
-            unsafe { ops.malloc_size_of(ptr) }
-        } else {
-            0
-        }
-    }
-}
-
-impl<T: MallocSizeOf, Unit> MallocSizeOf for euclid::Length<T, Unit> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.0.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::Scale<T, Src, Dst> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.0.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Point2D<T, U> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.x.size_of(ops) + self.y.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Rect<T, U> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.origin.size_of(ops) + self.size.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::SideOffsets2D<T, U> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.top.size_of(ops) +
-            self.right.size_of(ops) +
-            self.bottom.size_of(ops) +
-            self.left.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Size2D<T, U> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.width.size_of(ops) + self.height.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::Transform2D<T, Src, Dst> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.m11.size_of(ops) +
-            self.m12.size_of(ops) +
-            self.m21.size_of(ops) +
-            self.m22.size_of(ops) +
-            self.m31.size_of(ops) +
-            self.m32.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::Transform3D<T, Src, Dst> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.m11.size_of(ops) +
-            self.m12.size_of(ops) +
-            self.m13.size_of(ops) +
-            self.m14.size_of(ops) +
-            self.m21.size_of(ops) +
-            self.m22.size_of(ops) +
-            self.m23.size_of(ops) +
-            self.m24.size_of(ops) +
-            self.m31.size_of(ops) +
-            self.m32.size_of(ops) +
-            self.m33.size_of(ops) +
-            self.m34.size_of(ops) +
-            self.m41.size_of(ops) +
-            self.m42.size_of(ops) +
-            self.m43.size_of(ops) +
-            self.m44.size_of(ops)
-    }
-}
-
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Vector2D<T, U> {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.x.size_of(ops) + self.y.size_of(ops)
-    }
-}
-
-impl MallocSizeOf for Void {
-    #[inline]
-    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
-        void::unreachable(*self)
-    }
-}
-
-#[cfg(feature = "servo")]
-impl<Static: string_cache::StaticAtomSet> MallocSizeOf for string_cache::Atom<Static> {
-    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
-        0
-    }
-}
-
 /// For use on types where size_of() returns 0.
 #[macro_export]
 macro_rules! malloc_size_of_is_0(
@@ -703,45 +515,6 @@ malloc_size_of_is_0!(std::sync::atomic::AtomicUsize);
 malloc_size_of_is_0!(Range<u8>, Range<u16>, Range<u32>, Range<u64>, Range<usize>);
 malloc_size_of_is_0!(Range<i8>, Range<i16>, Range<i32>, Range<i64>, Range<isize>);
 malloc_size_of_is_0!(Range<f32>, Range<f64>);
-
-malloc_size_of_is_0!(app_units::Au);
-
-#[cfg(feature = "servo")]
-malloc_size_of_is_0!(Uuid);
-
-#[cfg(feature = "url")]
-impl MallocSizeOf for url::Host {
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        match *self {
-            url::Host::Domain(ref s) => s.size_of(ops),
-            _ => 0,
-        }
-    }
-}
-
-#[cfg(feature = "servo")]
-malloc_size_of_is_0!(time::Duration);
-#[cfg(feature = "servo")]
-malloc_size_of_is_0!(time::Tm);
-
-#[cfg(feature = "servo")]
-impl<T> MallocSizeOf for hyper_serde::Serde<T>
-where
-    for<'de> hyper_serde::De<T>: serde::Deserialize<'de>,
-    for<'a> hyper_serde::Ser<'a, T>: serde::Serialize,
-    T: MallocSizeOf,
-{
-    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
-        self.0.size_of(ops)
-    }
-}
-
-#[cfg(feature = "servo")]
-impl MallocSizeOf for hyper::StatusCode {
-    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
-        0
-    }
-}
 
 /// Measurable that defers to inner value and used to verify MallocSizeOf implementation in a
 /// struct.
