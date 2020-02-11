@@ -226,6 +226,10 @@ fn main() {
     env_logger::init();
 
     let cfg = config::load(&env::args().nth(1).unwrap(), true);
+
+    // Dump config memory usage
+    println!("{}", cfg.describe_mem_usage());
+
     let ident_map = IdentMap::load(&cfg);
 
     let internal_data = Mutex::new((cfg, ident_map));
