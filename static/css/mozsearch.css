@@ -148,6 +148,15 @@ td#line-numbers {
   display: flex;
 }
 
+/* Line numbers are text nodes before the actual source lines,
+   and styled with "user-select:none" to hide them from text selections.
+   This does not work in Chrome ( https://crbug.com/850685 ), so we work around
+   the issue by moving the content to an attribute and using generated content.
+ */
+.line-number[data-line-number]::before {
+    content: attr(data-line-number);
+}
+
 .line-number {
     /* this needs to create a containing block for the .goto synthetic anchor
        elements which are created as children of .line-number elements, at least
