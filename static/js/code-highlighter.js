@@ -496,3 +496,17 @@ $(function () {
   });
 
 });
+
+// We use user-select:none to hide line numbers from text selections. That
+// does however not work in Chrome (https://crbug.com/850685)
+// or Safari (https://bugzilla.mozilla.org/show_bug.cgi?id=1616104#c1).
+// As a work-around, move all line numbers into pseudo-elements when the user
+// selects something for the first time.
+if (navigator.userAgent.indexOf('Firefox') == -1) {
+  document.addEventListener('selectstart', function() {
+    for (let lineno of document.querySelectorAll('.line-number')) {
+      lineno.dataset.lineNumber = lineno.textContent;
+      lineno.textContent = '';
+    }
+  }, { once: true });
+}
