@@ -15,7 +15,7 @@ for your platform, please do!
 #### Linux
 
 Important note: In order to expose the Searchfox source directory into the VM, we
-need to be able to export if via NFS.  If you are using a FUSE-style filesystem
+need to be able to export it via NFS.  If you are using a FUSE-style filesystem
 like `eCryptFS` which is a means of encrypting your home directory, things will not
 work.  You will need to move searchfox to a partition that's a normal block device
 (which includes LUKS-style encrypted partitions, etc.)
