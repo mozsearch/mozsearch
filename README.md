@@ -279,6 +279,11 @@ mkdir ~/mozilla-index
 /vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
 ```
 
+Note: By default, `indexer-setup.sh` removes the contents of the working
+directory (in the example above, that's `~/mozilla-index`). In case you would
+like to keep the contents of the working directory, define KEEP_WORKING=1
+when calling `indexer-setup.sh`.
+
 ## Background on Mozsearch indexing
 
 The Mozsearch indexing process has three main steps, depicted here:
