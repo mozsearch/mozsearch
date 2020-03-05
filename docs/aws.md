@@ -25,6 +25,15 @@ where the index will be stored. The following paragraps explain the
 lifecycle of a single indexer and its web server; the lifecycle applies
 to each indexer instance.
 
+Note that there is a third config file,
+[mozilla-archived.json](https://github.com/mozsearch/mozsearch-mozilla/mozilla-archived.json),
+which specifies the configuration for "archived" repositories (ones
+which are not getting any more code updates). This one is not run
+via the daily Lambda task, and need to be triggered manually if an
+update is desired (generally not, since the code isn't changing).
+Updates for this config should only be needed if the generated HTML
+changes significantly.
+
 The indexing instance downloads all the Git repositories from an
 Amazon S3 bucket. It updates these repositories to the latest version
 of the code. It also downloads the most recent blame repository from
