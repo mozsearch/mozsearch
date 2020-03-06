@@ -200,7 +200,7 @@ def blame_for_path(file_movement, commit, path):
             parent_path = file_movement[parent.id][blob.id].split('/')
 
         parent_blob = get_tree_data(old_repo, parent.tree, parent_path)
-        if not parent_blob:
+        if not parent_blob or not isinstance(parent_blob, pygit2.Blob):
             continue
 
         parent_blame_commit = blame_map[parent.id]
