@@ -580,6 +580,22 @@ span[data-symbols].hovered {
     margin-bottom: 10%;
 }
 
+.intro td,
+.intro th {
+    text-align: center;
+    vertical-align: middle;
+}
+.intro td[yes] {
+    background-color: green;
+    color: white;
+}
+.intro td[yes]::before {
+    content: "\2713";
+}
+.intro td a {
+    text-decoration: underline;
+}
+
 /* ## Line number goto ##
 
    `createSyntheticAnchor` in dxr.js creates a synthetic anchor element for the
