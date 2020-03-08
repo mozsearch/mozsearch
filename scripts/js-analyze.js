@@ -36,9 +36,13 @@ SymbolTable.prototype = {
   },
 };
 
+function posBefore(pos1, pos2) {
+  return pos1.line < pos2.line ||
+         (pos1.line == pos2.line && pos1.column < pos2.column);
+}
+
 function locBefore(loc1, loc2) {
-  return loc1.start.line < loc2.start.line ||
-         (loc1.start.line == loc2.start.line && loc1.start.column < loc2.start.column);
+  return posBefore(loc1.start, loc2.start);
 }
 
 function locstr(loc)
@@ -51,13 +55,9 @@ function locstr2(loc, str)
   return `${loc.start.line}:${loc.start.column}-${loc.start.column + str.length}`;
 }
 
-// adjustEnd is used to substract 1 off the end column so that it points at a
-// closing brace rather than just beyond the closing brace.  This is desired for
-// the nestingRange where the goal is to reference the opening and closing
-// brace tokens directly.
-function locstrFull(loc, adjustEnd)
+function locstrFull(startPos, endPos)
 {
-  return `${loc.start.line}:${loc.start.column}-${loc.end.line}:${loc.end.column - (adjustEnd ? 1 : 0) }`;
+  return `${startPos.line}:${startPos.column}-${endPos.line}:${endPos.column}`;
 }
 
 /**
@@ -349,7 +349,19 @@ let Analyzer = {
         nestLoc = maybeNesting.loc;
       }
       if (nestLoc) {
-        obj.nestingRange = locstrFull(nestLoc, true);
+        // substract 1 off the end column so that it points at a
+        // closing brace rather than just beyond the closing brace.  This is desired for
+        // the nestingRange where the goal is to reference the opening and closing
+        // brace tokens directly.
+       let adjustedEnd = { line: nestLoc.end.line, column: nestLoc.end.column };
+        adjustedEnd.column--;
+        // Handle the case where we wrap to a previous line as well, ensuring we
+        // don't wrap backwards past the start position.
+        while (adjustedEnd.column < 0 && posBefore(nestLoc.start, adjustedEnd)) {
+          adjustedEnd.line--;
+          adjustedEnd.column = this._lines[adjustedEnd.line - 1].length - 1;
+        }
+        obj.nestingRange = locstrFull(nestLoc.start, adjustedEnd);
       }
     }
     print(JSON.stringify(obj));
