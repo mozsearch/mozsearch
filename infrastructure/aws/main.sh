@@ -3,6 +3,8 @@
 # Don't set -e here, because if index.sh returns non-zero we want to detect
 # that explicitly, which -e will not allow
 
+exec &> /home/ubuntu/index-log
+
 set -x # Show commands
 set -u # Undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
