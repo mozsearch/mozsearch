@@ -3,6 +3,7 @@
 import datetime
 import os
 import subprocess
+import sys
 
 subj_prefix = sys.argv[1]
 dest_email = sys.argv[2]
