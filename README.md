@@ -213,7 +213,8 @@ running on port 80 inside the VM and port 8001 outside the VM. Visit
 ## Indexing Mozilla code locally
 
 Although it can take a long time, it's sometimes necessary to index
-the Mozilla codebase. How to do that depends on what you want to test.
+the Mozilla codebase to test changes to Searchfox. How to do that
+depends on what you want to test.
 If you are making changes to the clang-plugin, you need to do these steps first.
 If not, you can skip to the next set of steps in this section.
 
@@ -229,26 +230,19 @@ steps in the next section.
 ```
 ./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"
 ```
-* You will also need to find the gecko-dev equivalent of the m-c base changeset
-  that you did your try push on. You can obtain this by running this command,
-  with `MOZILLA_MERCURIAL_HASH` filled in with the hg base revision of the try push.
-  The result line will have the form `MOZILLA_GIT_HASH MOZILLA_MERCURIAL_HASH`.
+* Record the full hg revision hash (40 characters) of the try push.
+* In the vagrant instance, run the following command in `/vagrant/`:
 ```
-curl -SsfL https://moz-vcssync.s3-us-west-2.amazonaws.com/mapping/gecko-dev/git-mapfile.tar.bz2 | tar -xOj | grep MOZILLA_MERCURIAL_HASH
+TRYPUSH_REV=<40-char-rev-hash> make trypush
 ```
-* In the vagrant instance, clone the Mozilla configuration into `~/mozilla-config`.
-```
-# Clone the Mozilla configuration into ~/mozilla-config.
-git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-```
-* Modify the variables at the top of `mozilla-central/setup` file like so:
-  * Set `REVISION_TREE` to `try`.
-  * Set `REVISION_ID` to `revision.<hash>` where `<hash>` is the hg hash of
-    your try push tip
-  * Set `TRY_GIT_REV` to the gecko-dev equivalent of your try push's base
-    m-c revision (which you should have gotten in the previous step).
-
-* Continue with the steps in the next section.
+This will clone the Mozilla configuration into ~/mozilla-config, and
+generate a reduced config that has just the mozilla-central tree, but
+use the code and artifacts from your try push when building the index.
+It will build the index into a `~/trypush-index` folder to keep it separate
+from any `~/mozilla-index` folders you might have lying around.
+It's very similar to the operations described in the next section
+which will build an index using the latest mozilla-central version with
+searchfox artifacts.
 
 ### Testing basic changes
 
@@ -283,6 +277,16 @@ Note: By default, `indexer-setup.sh` removes the contents of the working
 directory (in the example above, that's `~/mozilla-index`). In case you would
 like to keep the contents of the working directory, define KEEP_WORKING=1
 when calling `indexer-setup.sh`.
+
+### Locally indexing a try push
+
+If you are not hacking on Searchfox itself, but just want to build a local
+index of changes to mozilla-central (e.g. you are reviewing a complex
+patchset, and want to have a Searchfox instance with those patches applied)
+follow the same steps as described in the "Testing clang-plugin changes"
+section above, except obviously you don't need to make any changes to
+the clang-plugin, but just include the patches you care about in the try
+push.
 
 ## Background on Mozsearch indexing
 
