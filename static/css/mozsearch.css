@@ -585,10 +585,6 @@ span[data-symbols].hovered {
     text-align: center;
     vertical-align: middle;
 }
-.intro td[yes] {
-    background-color: green;
-    color: white;
-}
 .intro td[yes]::before {
     content: "\2713";
 }
