@@ -878,6 +878,7 @@ let Analyzer = {
 
     case "NewExpression":
     case "CallExpression":
+    case "OptionalCallExpression":
       this.expression(expr.callee);
       for (let arg of expr.arguments) {
         this.expression(arg);
@@ -885,6 +886,7 @@ let Analyzer = {
       break;
 
     case "MemberExpression":
+    case "OptionalMemberExpression":
       this.expression(expr.object);
       if (expr.computed) {
         this.expression(expr.property);
@@ -937,6 +939,12 @@ let Analyzer = {
           this.statement(stmt2);
         }
       });
+      break;
+
+    case "OptionalExpression":
+      // a?.b is an optional expression that is equivalent to a && a.b.
+      // expr.expression is an OptionalMemberExpression or OptionalCallExpression
+      this.expression(expr.expression);
       break;
 
     case "MetaProperty": // Not sure what this is!
