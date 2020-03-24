@@ -20,7 +20,10 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Update Rust (make sure we have the latest version).
+# See comments in indexer-update.sh
+rustup component remove clippy
+rustup component remove rustfmt
+rustup component remove rust-docs
 rustup update
 
 pushd mozsearch/tools
