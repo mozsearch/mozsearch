@@ -78,6 +78,11 @@ look at the existing folders for other repos for inspiration. Copy-pasting from 
 be a good start, although the `build` step may need to be modified depending on whether or not your repo is buildable and
 produces useful artifacts on the searchfox indexing instance.
 
+Try to ensure that the `setup` script avoids unnecessary re-work for subsequent invocations on a "dirty" tree.
+In other words, the default operation of the `indexer-setup.sh` script will not clean the working directory, so
+artifacts may left behind from a previous run of `indexer-setup.sh`, and the repo's `setup` script should try
+to reuse those artifacts where possible, rather than failing.
+
 Finally, update the top-level `help.html` file to include a link to your new repo as well.
 
 ## 5. Test and debug

@@ -273,9 +273,9 @@ mkdir ~/mozilla-index
 /vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
 ```
 
-Note: By default, `indexer-setup.sh` removes the contents of the working
-directory (in the example above, that's `~/mozilla-index`). In case you would
-like to keep the contents of the working directory, define KEEP_WORKING=1
+Note: By default, `indexer-setup.sh` keeps the contents of the working
+directory (in the example above, that's `~/mozilla-index`). In case you want
+to delete the contents of the working directory, define CLEAN_WORKING=1
 when calling `indexer-setup.sh`.
 
 ### Locally indexing a try push
