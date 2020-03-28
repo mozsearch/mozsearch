@@ -141,18 +141,20 @@ terminate = []
 for reservation in r['Reservations']:
     for instance in reservation['Instances']:
         instanceId = instance['InstanceId']
+        if instanceId == webServerInstanceId:
+            # Don't kill the one we just started
+            continue
         tags = instance['Tags']
         kill = False
         for tag in tags:
             if tag['Key'] == 'web-server':
                 t = dateutil.parser.parse(tag['Value'])
-                # Always leave one old server around so we can switch
+                # Leave one old release-channel server around so we can switch
                 # to it in an emergency.
-                if datetime.now() - t >= timedelta(1.5):
+                if channel != "release" or datetime.now() - t >= timedelta(1.5):
                     kill = True
 
         if kill:
-            assert instanceId != webServerInstanceId
             terminate.append(instanceId)
 
 print 'Terminating {}'.format(terminate)
