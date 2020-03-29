@@ -38,7 +38,7 @@ def print_instances():
         # strip off sub-seconds
         age_str = age_str[:age_str.find('.')]
 
-        print(instance.id, group, age_str, tags)
+        print(instance.id, group, age_str, ["%s: %s" % (k, tags[k]) for k in sorted(tags.keys())])
 
 def change_security(instance, make_secure):
     secure_suffix = '-secure'
