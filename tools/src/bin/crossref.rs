@@ -181,7 +181,11 @@ fn main() {
                     let left_offset = lines[(peek_start - 1) as usize].1;
 
                     for peek_line_index in peek_start..peek_end + 1 {
-                        let &(ref peek_line, peek_offset) = &lines[(peek_line_index - 1) as usize];
+                        let index = (peek_line_index - 1) as usize;
+                        if index == lines.len() {
+                            break;
+                        }
+                        let &(ref peek_line, peek_offset) = &lines[index];
 
                         for _i in left_offset..peek_offset {
                             peek_lines.push(' ');
