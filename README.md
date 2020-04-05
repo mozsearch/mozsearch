@@ -153,7 +153,7 @@ cd /vagrant/tools
 cargo build --release
 ```
 
-### Testing locally using the test repository
+### Testing locally using the "tests" repository
 
 Mozsearch chooses what to index using a set of configuration
 files. There is a test configuration inside the Mozsearch `tests`
@@ -209,6 +209,39 @@ requests, we can start the server as follows:
 At this point, you should be able to visit the server, which is
 running on port 80 inside the VM and port 16995 outside the VM. Visit
 `http://localhost:16995/` to do so.
+
+### Testing locally with blame using the "searchfox" test config
+
+The `tests` configuration defined at `tests/config.json` is very helpful, but it
+isn't configured to use a blame repository or generate blame UI output.  If
+you're making changes that affect the blame UI or might interact with it, it
+helps to test with it!
+
+The `searchfox` configuration defined at `tests/searchfox-config.json` exists
+for this purpose.  It indexes the entirety of the repository.  It can be built
+via the `Makefile` by invoking the following to build the index at
+`~/searchfox-index` (whereas `tests` is built at `~/index`).
+
+```
+make build-searchfox-repo
+```
+
+Note that you will need to do a couple things for this to work right:
+- You need to make sure any changes you've made to the searchfox repository are
+  committed to git.  `output-file.rs` depends on the blame repository having
+  lines that match up exactly with the state of the source files checked out
+  from git or it can panic because of accesing beyond the end of vectors.  (The
+  blame data will also be wrong.)
+- You need to make sure the blame repository has been updated.  The Makefile
+  will take care of this for you, but if you're running `indexer-run.sh`
+  manually without first running `indexer-setup.sh`, you may experience
+  problems.
+
+Also note that this will terminate any previously running `tests` web servers
+even though the indexes live at different directories (`~/index` versus
+`~/searchfox-index`). If you find that you want both the `tests` and `searchfox`
+configurations to be served at the same time, you can add a new configuration
+file and update these docs and submit a pull requests.  Thanks in advance!
 
 ## Indexing Mozilla code locally
 
