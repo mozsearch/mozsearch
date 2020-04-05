@@ -99,6 +99,6 @@ make build-mozilla-repo
 ```
 
 This will spew out a lot of output as it does stuff, and either end in an error (which you will need to debug), or deploy
-the web server in your vagrant VM which you will be able to access from http://localhost:8001/.
+the web server in your vagrant VM which you will be able to access from http://localhost:16995/.
 
 Once any issues are debugged, push a PR with your changes to the `mozsearch-mozilla` repo.
