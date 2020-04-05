@@ -1,0 +1,17 @@
+{
+  "mozsearch_path": "$MOZSEARCH_PATH",
+
+  "default_tree": "searchfox",
+
+  "trees": {
+    "searchfox": {
+      "index_path": "$WORKING/searchfox",
+      "files_path": "$MOZSEARCH_PATH",
+      "objdir_path": "$WORKING/searchfox/objdir",
+      "git_path": "$MOZSEARCH_PATH",
+      "git_blame_path": "$WORKING/searchfox/blame",
+      "codesearch_path": "$WORKING/searchfox/livegrep.idx",
+      "codesearch_port": 8081
+    }
+  }
+}
