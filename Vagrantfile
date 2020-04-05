@@ -6,7 +6,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision :shell, privileged: false, path: "infrastructure/vagrant/indexer-provision.sh"
   config.vm.provision :shell, privileged: false, path: "infrastructure/web-server-provision.sh"
 
-  config.vm.network :forwarded_port, guest: 80, host: 8001
+  config.vm.network :forwarded_port, guest: 80, host: 16995
 
   config.vm.provider "virtualbox" do |v, override|
     override.vm.synced_folder './', '/vagrant'

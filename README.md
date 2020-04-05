@@ -130,7 +130,7 @@ The above process will:
 - Setup the webserver for the test repo.
 - Run the webserver for the test repo.
 
-After that, you can connect to http://localhost:8001/ and see Searchfox at work!
+After that, you can connect to http://localhost:16995/ and see Searchfox at work!
 
 Once you've done that, you might want to read the next section to understand
 what was happening under the hood.
@@ -207,8 +207,8 @@ requests, we can start the server as follows:
 ```
 
 At this point, you should be able to visit the server, which is
-running on port 80 inside the VM and port 8001 outside the VM. Visit
-`http://localhost:8001/` to do so.
+running on port 80 inside the VM and port 16995 outside the VM. Visit
+`http://localhost:16995/` to do so.
 
 ## Indexing Mozilla code locally
 
