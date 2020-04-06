@@ -5,4 +5,4 @@ set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
 rm -f $INDEX_ROOT/tests
-ln -s $CONFIG_REPO/tests/files $INDEX_ROOT
+ln -s -f $CONFIG_REPO/tests/files $INDEX_ROOT
