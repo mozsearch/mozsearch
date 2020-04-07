@@ -284,7 +284,13 @@ pub fn read_analyses<T>(
     for filename in filenames {
         let file = match File::open(filename) {
             Ok(f) => f,
-            Err(_) => continue,
+            Err(_) => {
+                warn!(
+                    "Error trying to open analysis file [{}]",
+                    filename
+                );
+                continue;
+            }
         };
         let reader = BufReader::new(&file);
         let mut lineno = 0;

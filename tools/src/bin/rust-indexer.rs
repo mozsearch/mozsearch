@@ -32,12 +32,42 @@ pub struct Defs {
     map: HashMap<DefId, data::Def>,
 }
 
+/// Local filesystem path mappings and metadata which exist for the following
+/// purposes:
+/// 1. Know where to output the analysis files.
+///   - There is only ever one analysis output directory.
+/// 2. Know how to locate rust source files in order to hackily extract strings
+///    that should have been in the save-analysis files.
+///    - There are potentially 4 source directories: the real source directory
+///      (cross-platform), the per-platform objdir where generated source files
+///      live in practice, the synthetic unified objdir that the
+///      merge-analyses steps creates out of the per-platform objdirs, and the
+///      rust stdlib directory.
+///    - We ignore the concept of the unified objdir and hope that all files
+///      be identical at a source level so they merge cleanly.  If they don't,
+///      it's assumed merge-analyses will perform any necessary fix-ups.
 #[derive(Debug)]
 struct TreeInfo<'a> {
-    src_dir: &'a Path,
-    output_dir: &'a Path,
-    objdir: &'a Path,
+    /// Local filesystem path root for the analysis dir where rust-indexer.rs
+    /// should write its output.
+    out_analysis_dir: &'a Path,
+    /// Local filesystem path root for the source tree.  In the searchfox path
+    /// space presented to users, this means all paths not prefixed with
+    /// `__GENERATED__`.
+    srcdir: &'a Path,
+    /// Local filesystem path root for the per-platform generated source tree.
+    /// In the searchfox path space presented to users, this means paths
+    /// prefixed with `__GENERATED__`.
+    generated: &'a Path,
+    /// The searchfox path space prefix for generated.
+    generated_friendly: &'a Path,
+    /// Local filesystem path root for the rust stdlib source.  In the searchfox
+    /// path space presented to users, this means paths prefixed with
+    /// `__GENERATED__/__RUST__`.
     libstd: &'a Path,
+    /// The searchfox path space prefix for the rust stdlib, assumed to be a
+    /// suffix of objdir_friendly.
+    libstd_friendly: &'a Path,
 }
 
 fn construct_qualname(scope: &str, name: &str) -> String {
@@ -405,19 +435,17 @@ fn visit_common(
     out_data.insert(format!("{}", source_data));
 }
 
-/// Normalizes an absolute file path to be either a src_dir-relative path or an obj_dir relative
-/// path with __GENERATED__ prefixed onto it.
-fn find_generated_or_src_file(file_name: &Path, tree_info: &TreeInfo) -> Option<PathBuf> {
-    if let Ok(generated_path) = file_name.strip_prefix(tree_info.objdir) {
-        return Some(Path::new("__GENERATED__").join(generated_path));
+/// Normalizes a searchfox user-visible relative file path to be an absolute
+/// local filesystem path.  No attempt is made to validate the existence of the
+/// path.  That's up to the caller.
+fn searchfox_path_to_local_path(searchfox_path: &Path, tree_info: &TreeInfo) -> PathBuf {
+    if let Ok(std_path) = searchfox_path.strip_prefix(tree_info.libstd_friendly) {
+        return tree_info.libstd.join(std_path);
     }
-    if let Ok(std_path) = file_name.strip_prefix(tree_info.libstd) {
-        return Some(Path::new("__GENERATED__").join("__RUST__").join(std_path));
+    if let Ok(objdir_path) = searchfox_path.strip_prefix(tree_info.generated_friendly) {
+        return tree_info.generated.join(objdir_path);
     }
-    file_name
-        .strip_prefix(tree_info.src_dir)
-        .ok()
-        .map(From::from)
+    tree_info.srcdir.join(searchfox_path)
 }
 
 fn read_existing_contents(map: &mut BTreeSet<String>, file: &Path) {
@@ -456,42 +484,44 @@ fn extract_span_from_source_as_string(
             Ok(s) => Some(s),
             Err(_) => None,
         },
-        Err(e) => {
-            error!("ERROR: Unable to read file: {:?}", e);
-            None
-        }
+        // This used to error! but the error payload was always just
+        // `Unable to read file: Custom { kind: UnexpectedEof, error: "failed to fill whole buffer" }`
+        // which was not useful or informative and may be due to invalid spans
+        // being told to us by save-analysis.
+        Err(_) => None
     }
 }
 
 fn analyze_file(
-    file_name: &PathBuf,
+    searchfox_path: &PathBuf,
     defs: &Defs,
     file_analysis: &data::Analysis,
     tree_info: &TreeInfo,
 ) {
     use std::io::Write;
 
-    debug!("Running analyze_file for {}", file_name.display());
+    debug!("Running analyze_file for {}", searchfox_path.display());
 
-    let file = match find_generated_or_src_file(file_name, tree_info) {
-        Some(f) => f,
-        None => {
-            error!(
-                "File not in the source directory or objdir: {}",
-                file_name.display()
-            );
-            return;
-        }
+    let local_source_path = searchfox_path_to_local_path(searchfox_path, tree_info);
+
+    if !local_source_path.exists() {
+        warn!(
+            "Skipping nonexistent source file with searchfox path '{}' which mapped to local path '{}'",
+            searchfox_path.display(),
+            local_source_path.display()
+        );
+        return;
     };
 
     // Attempt to open the source file to extract information not currently available from the
     // analysis data.  Some analysis information may not be emitted if we are unable to access the
-    let maybe_source_file = match File::open(&file_name) {
+    // file.
+    let maybe_source_file = match File::open(&local_source_path) {
         Ok(f) => Some(f),
         Err(_) => None,
     };
 
-    let output_file = tree_info.output_dir.join(file);
+    let output_file = tree_info.out_analysis_dir.join(searchfox_path);
     let mut dataset = BTreeSet::new();
     read_existing_contents(&mut dataset, &output_file);
     let mut output_dir = output_file.clone();
@@ -515,6 +545,14 @@ fn analyze_file(
             return;
         }
     };
+
+    // Be chatty about the files we're outputting so that it's easier to follow
+    // the path of rust analysis generation.
+    info!(
+        "Writing analysis for '{}' to '{}'",
+        searchfox_path.display(),
+        output_file.display()
+    );
 
     for import in &file_analysis.imports {
         let id = match import.ref_id {
@@ -648,38 +686,28 @@ fn analyze_file(
     }
 }
 
-/// Uses heuristics to determine if the path is a Windows path,
-/// and if so, returns a Linux "equivalent". Not really equivalent,
-/// because there is no such thing, but equivalent enough for our
-/// purposes - that is, is_relative() returns a correct thing, and
-/// strip_prefix will work on relative paths.
-/// Note that this is a "linuxzed" path and not a "unixed" path
-/// this code should ever only really run inside the linux vagrant
-/// machine.
-/// There are real-life cases in which this code is too simple, see
-/// https://github.com/nrc/rls-data/issues/20 for an example.
+// Replace any backslashes in the path with forward slashes.  Paths can be a
+// combination of backslashes and forward slashes for windows platform builds
+// because the paths are normalized by a sed script that will match backslashes
+// and output front-slashes.  The sed script could be made smarter.
 fn linuxized_path(path: &PathBuf) -> PathBuf {
-    // Windows paths have backslashes and so on a Linux host will
-    // just have a single long component
-    if path.components().count() == 1 {
-        if let Some(pathstr) = path.to_str() {
-            if pathstr.find('\\').is_some() {
-                // Has a backslash, so probably a Windows path. Let's lean
-                // those slashes forward
-                let converted = pathstr.replace('\\', "/");
-                if converted.find(":/") == Some(1) {
-                    // Starts with a drive letter, so let's turn this into
-                    // an absolute path
-                    let abs = "/".to_string() + &converted;
-                    return PathBuf::from(abs);
-                }
-                // Turn it into a relative path
-                return PathBuf::from(converted);
+    if let Some(pathstr) = path.to_str() {
+        if pathstr.find('\\').is_some() {
+            // Pesky backslashes, get rid of them!
+            let converted = pathstr.replace('\\', "/");
+            // If we're seeing this, it means the paths weren't normalized and
+            // now it's a question of minimizing fallout.
+            if converted.find(":/") == Some(1) {
+                // Starts with a drive letter, so let's turn this into
+                // an absolute path
+                let abs = "/".to_string() + &converted;
+                return PathBuf::from(abs);
             }
+            // Turn it into a relative path
+            return PathBuf::from(converted);
         }
     }
-    // Probably a Linux path, or a Windows path that's some sort of
-    // weird edge case. In that case just return it as-is
+    // Already a valid path!
     path.clone()
 }
 
@@ -687,7 +715,9 @@ fn analyze_crate(analysis: &data::Analysis, defs: &Defs, tree_info: &TreeInfo) {
     // Create and populate per-file Analysis instances from the provided per-crate Analysis file.
     let mut per_file = HashMap::new();
 
-    info!("Analyzing crate: {:?}", analysis.prelude);
+    let crate_name = &*analysis.prelude.as_ref().unwrap().crate_id.name;
+    info!("Analyzing crate: '{}'", crate_name);
+    debug!("Crate prelude: {:?}", analysis.prelude);
 
     macro_rules! flat_map_per_file {
         ($field:ident) => {
@@ -712,25 +742,21 @@ fn analyze_crate(analysis: &data::Analysis, defs: &Defs, tree_info: &TreeInfo) {
     flat_map_per_file!(macro_refs);
     flat_map_per_file!(relations);
 
-    let crate_name = &*analysis.prelude.as_ref().unwrap().crate_id.name;
-
-    // TODO(emilio): This is good enough, for now, but I guess we may want
-    // something better...
-    let is_std = match crate_name {
-        "std" | "alloc" | "jemalloc" | "dlmalloc" | "compiler_builtins" | "unwind" | "libc"
-        | "panic_abort" | "panic_unwind" | "core" | "rustc" | "backtrace" => true,
-        name => name.starts_with("rustc_") || name.starts_with("alloc_"),
-    };
-
-    for (mut name, analysis) in per_file.drain() {
-        if name.is_relative() {
-            if is_std {
-                name = tree_info.libstd.join(name)
-            } else {
-                name = tree_info.src_dir.join(name);
-            }
+    for (searchfox_path, analysis) in per_file.drain() {
+        // Absolute paths mean that the save-analysis data wasn't normalized
+        // into the searchfox path convention, which means we can't generate
+        // analysis data, so just skip.
+        //
+        // This will be the case for libraries built with cargo that have paths
+        // that have prefixes that look like "/cargo/registry/src/github.com-".
+        if searchfox_path.is_absolute() {
+            warn!(
+                "Skipping absolute analysis path {}",
+                searchfox_path.display()
+            );
+            continue;
         }
-        analyze_file(&name, defs, &analysis, tree_info);
+        analyze_file(&searchfox_path, defs, &analysis, tree_info);
     }
 }
 
@@ -739,10 +765,10 @@ fn main() {
     env_logger::init();
     let matches = app_from_crate!()
         .args_from_usage(
-            "<src>      'Points to the source root'
-             <output>   'Points to the directory where searchfox metadata should go'
-             <objdir>   'Points to the objdir generated files may come from'
-             <libstd>   'Points to the directory with the rust source'",
+            "<src>       'Points to the source root (FILES_ROOT)'
+             <output>    'Points to the directory where searchfox metadata should go (ANALYSIS_ROOT)'
+             <generated> 'Points to the objdir generated files may come from (GENERATED)'
+             <libstd>    'Points to the directory with the rust source'",
         )
         .arg(
             Arg::with_name("input")
@@ -752,16 +778,18 @@ fn main() {
         )
         .get_matches();
 
-    let src_dir = Path::new(matches.value_of("src").unwrap());
-    let output_dir = Path::new(matches.value_of("output").unwrap());
-    let objdir = Path::new(matches.value_of("objdir").unwrap());
+    let srcdir = Path::new(matches.value_of("src").unwrap());
+    let out_analysis_dir = Path::new(matches.value_of("output").unwrap());
+    let generated = Path::new(matches.value_of("generated").unwrap());
     let libstd = Path::new(matches.value_of("libstd").unwrap());
 
     let tree_info = TreeInfo {
-        src_dir,
-        output_dir,
-        objdir,
+        srcdir,
+        out_analysis_dir,
+        generated,
+        generated_friendly: &PathBuf::from("__GENERATED__"),
         libstd,
+        libstd_friendly: &PathBuf::from("__GENERATED__/__RUST__"),
     };
 
     info!("Tree info: {:?}", tree_info);
