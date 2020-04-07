@@ -20,6 +20,10 @@ export CARGO_TARGET_DIR=$OBJDIR
 cargo clean
 cargo build
 
+# Normalize the save-analysis paths.
+NORMALIZE_EXPR='s#/vagrant/tests/tests/files/##g'
+find $OBJDIR -type f -name "*.json" | parallel --halt now,fail=1 sed --in-place -e "$NORMALIZE_EXPR" {}
+
 # Firefox generates files named something like Configure.cpp during
 # the build process, but their source files are not around by the time
 # we run the analysis. crossref.rs needs to be able to deal with this

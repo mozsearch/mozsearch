@@ -1,58 +1,64 @@
 #!/usr/bin/env bash
 
+# This script:
+# 1. Locates the rust save-analysis directories under the provided root.
+# 2. Invokes rust-indexer with those analysis directories and provides a number
+#    of path prefixes to help map file paths to searchfox's special
+#    __GENERATED__ and rust-specific __GENERATED__/__RUST__ prefixes.
+#   - Note that rust-indexer.rs also includes hardcoded crate name/prefix
+#     mappings to aid in this.
+
 set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# -lt 2 ]
+if [ $# -lt 6 ]
 then
-    echo "Usage: rust-analyze.sh config-file.json tree_name [platform-filter]"
+    echo "Usage: rust-analyze.sh config-file.json tree_name rust_analysis_in generated_src stdlib_src sf_analysis_out"
     exit 1
 fi
 
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
+# This is where we find the save-analysis files.  For mozilla-central builds where
+# we have multiple platform-specific objdirs that are processed in parallel,
+# we expect this to be objdir-$PLATFORM.  For self-built single-platform cases,
+# this will be the objdir.
+RUST_ANALYSIS_IN=$3
+# This is where we find the source code corresponding to __GENERATED__ files.
+# This is the objdir in self-built single-platform cases and generated-$PLATFORM
+# in multi-platform cases at the current time.
+GENERATED_SRC=$4
+# This is where we find the source code corresponding to __GENERATED__/__RUST__
+# files.  We expect this to be a subdirectory of objdir-$PLATFORM in
+# multi-platform cases and a subdirectory of objdir in single-platform cases
+# (although there probably won't be any stdlib source in that case).
+STDLIB_SRC=$5
+# This is where we write the resulting searchfox analysis files.  We expect
+# this to be a platform-specific directory like analysis-$PLATFORM in
+# multi-platform cases (which will be processed by merge-analyses) and analysis
+# in single-platform cases.
+SF_ANALYSIS_OUT=$6
 
-# Our current rust-indexer implementation can get confused if it's given the
-# same crate but for different platforms at the same time.  So we provide an
-# optional mechanism that takes a platform name per mozsearch-mozilla
-# convention and:
-# - filters the `find` invocations to only pick up output for that platform.
-# - puts the output in `analysis-linux64` for example instead of just
-#   `analysis`.
-PLATFORM=${3:-}
-
-# Figure out the name of the platform specific dir used for the rust stuff.
-declare -A RUST_PLAT_DIRS
-RUST_PLAT_DIRS["linux64"]="x86_64-unknown-linux-gnu"
-RUST_PLAT_DIRS["macosx64"]="x86_64-apple-darwin"
-RUST_PLAT_DIRS["win64"]="x86_64-pc-windows-msvc"
-RUST_PLAT_DIRS["android-armv7"]="thumbv7neon-linux-androideabi"
-
-# Hacky mechanism where we take a rust objdir value like x86_64-unknown-linux-gnu
-# to filter the rust analysis to just that.
-PLATFORM_SAVE_FILTER=${PLATFORM:+${RUST_PLAT_DIRS[$PLATFORM]}/debug/deps/}
-PLATFORM_FILTER=${PLATFORM:+${RUST_PLAT_DIRS[$PLATFORM]}/}
-PLATFORM_SUFFIX=${PLATFORM:+-$PLATFORM}
-
-if [ -d "$OBJDIR" ]; then
-  # Bail if the build step already performed rust analysis.
-  if [ -f "$OBJDIR/rust-analyzed" ]; then
-    exit 0
-  fi
-
-  ANALYSIS_DIRS="$(find $OBJDIR -type d -path \*/${PLATFORM_SAVE_FILTER}save-analysis)"
+if [ -d "$RUST_ANALYSIS_IN" ]; then
+  ANALYSIS_DIRS="$(find $RUST_ANALYSIS_IN -type d -name save-analysis)"
   if [ "x$ANALYSIS_DIRS" = "x" ]; then
     exit 0 # Nothing to analyze really.
   fi
-  # If we have rust stdlib sources and analysis data, pick that up too
-  if [ -d "$INDEX_ROOT/rustlib" ]; then
-    ANALYSIS_DIRS="$ANALYSIS_DIRS $(find $INDEX_ROOT/rustlib -type d -path \*/${PLATFORM_FILTER}analysis)"
+
+  # Rust stdlib files use `analysis` directories instead of `save-analysis`, so
+  # even though they live under the same root, it needs a separate find pass
+  # because the above will not have found them.
+  #
+  # Note that we also only expect a rustlib in gecko indexing jobs.
+  if [ -d "$RUST_ANALYSIS_IN/rustlib" ]; then
+    ANALYSIS_DIRS="$ANALYSIS_DIRS $(find $RUST_ANALYSIS_IN/rustlib -type d -name analysis)"
   fi
+
   $MOZSEARCH_PATH/tools/target/release/rust-indexer \
     "$FILES_ROOT" \
-    "$INDEX_ROOT/analysis${PLATFORM_SUFFIX}" \
-    "$OBJDIR" \
-    "$INDEX_ROOT/rustlib/src/rust/src" \
+    "$SF_ANALYSIS_OUT" \
+    "$GENERATED_SRC" \
+    "$STDLIB_SRC" \
     $ANALYSIS_DIRS
 fi

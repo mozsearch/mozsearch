@@ -386,3 +386,4 @@ blame repository is used to generate HTML for the blame strip.
 * [Web serving](docs/web-server.md)
 * [Deploying to AWS](docs/aws.md)
 * [Adding new repos](docs/newrepo.md)
+* [Bash scripting cheatsheet](docs/bash-scripting-cheatsheet.md)

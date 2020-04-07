@@ -30,7 +30,17 @@ date
 
 export RUST_LOG=info
 
-$MOZSEARCH_PATH/scripts/rust-analyze.sh $CONFIG_FILE $TREE_NAME
+# Do not run rust analysis if it was already analyzed by the build script, as
+# mozsearch-mozilla's `shared/process-tc-artifacts.sh` does.
+if [[ ! -f $OBJDIR/rust-analyzed ]]; then
+  $MOZSEARCH_PATH/scripts/rust-analyze.sh \
+    "$CONFIG_FILE" \
+    "$TREE_NAME" \
+    "$OBJDIR" \
+    "$OBJDIR" \
+    "$INDEX_ROOT/rustlib/src/rust/src" \
+    "$INDEX_ROOT/analysis"
+fi
 
 date
 
