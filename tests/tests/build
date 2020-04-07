@@ -7,7 +7,7 @@ set -o pipefail # Check all commands in a pipeline
 mkdir -p $OBJDIR
 
 # Add the special clang flags.
-$MOZSEARCH_PATH/scripts/indexer-setup.py >> $INDEX_ROOT/config
+$MOZSEARCH_PATH/scripts/indexer-setup.py > $INDEX_ROOT/config
 source $INDEX_ROOT/config
 
 cd $INDEX_ROOT/files
