@@ -4,6 +4,12 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+rm -rf $INDEX_ROOT/analysis
+rm -rf $INDEX_ROOT/file
+rm -rf $INDEX_ROOT/dir
+rm -rf $INDEX_ROOT/description
+rm -rf $INDEX_ROOT/templates
+
 mkdir -p $INDEX_ROOT/analysis
 mkdir -p $INDEX_ROOT/file
 mkdir -p $INDEX_ROOT/dir
