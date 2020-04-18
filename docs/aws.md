@@ -346,7 +346,13 @@ sudo ln -s /index/interrupted /mnt/index-scratch
 ```
 to provide the same effective path mapping.  Note that you wouldn't want
 to restart indexing under this regime as `/mnt/index-scratch` would
-be backed by IO-bound S3.
+be backed by IO-bound S3. If you *do* want to do I/O intensive work
+in this state, you can move the interrupted state back to a local
+disk by running:
+```
+$HOME/mozsearch/infrastructure/aws/mkscratch.sh
+mv /index/interrupted/* /mnt/index-scratch/ # may take a long time
+```
 
 The shell scripts that run during indexing
 generally require some environment variables to be set; you can set

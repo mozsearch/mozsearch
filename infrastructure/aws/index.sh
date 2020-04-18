@@ -22,57 +22,14 @@ CONFIG_INPUT="$6"
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
+export AWS_ROOT=$(realpath $MOZSEARCH_PATH/infrastructure/aws)
 
 echo "Creating index-scratch on local instance SSD"
-
-# Create the "index-scratch" directory where each specific tree's indexing
-# byproducts live while the indexing is ongoing.  To do this, we need to figure
-# out what the device's partition is.
-#
-# If we run `nvme list -o json` we get output like the following:
-#
-# {
-#   "Devices" : [
-#     {
-#       "DevicePath" : "/dev/nvme0n1",
-#       "Firmware" : "0",
-#       "Index" : 0,
-#       "ModelNumber" : "Amazon EC2 NVMe Instance Storage",
-#       "ProductName" : "Unknown Device",
-#       "SerialNumber" : "AWS143416FC5A55CA413",
-#       "UsedBytes" : 300000000000,
-#       "MaximiumLBA" : 585937500,
-#       "PhysicalSize" : 300000000000,
-#       "SectorSize" : 512
-#     },
-#     {
-#       "DevicePath" : "/dev/nvme1n1",
-#       "Firmware" : "1.0",
-#       "Index" : 1,
-#       "ModelNumber" : "Amazon Elastic Block Store",
-#       "ProductName" : "Unknown Device",
-#       "SerialNumber" : "vol0222cf21e3b3dfbc4",
-#       "UsedBytes" : 0,
-#       "MaximiumLBA" : 16777216,
-#       "PhysicalSize" : 8589934592,
-#       "SectorSize" : 512
-#     }
-#   ]
-# }
-#
-# We are interested in the "Instance Storage" device, and so we can use jq to
-# filter this.
-INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output '.Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath')
-sudo mkfs -t ext4 $INSTANCE_STORAGE_DEV
-sudo mount $INSTANCE_STORAGE_DEV /mnt
-sudo mkdir /mnt/index-scratch
-sudo chown ubuntu.ubuntu /mnt/index-scratch
-
+${AWS_ROOT}/mkscratch.sh
 
 echo "Branch is $BRANCH"
 echo "Channel is $CHANNEL"
 
-export AWS_ROOT=$(realpath $MOZSEARCH_PATH/infrastructure/aws)
 VOLUME_ID=$(python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
 
 # Since we know the volume id and it's exposed as the `SerialNumber` in the JSON
