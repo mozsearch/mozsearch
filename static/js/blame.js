@@ -161,7 +161,7 @@ var BlameStripHoverHandler = new class BlameStripHoverHandler {
 
   handleEvent(event) {
     // Suppress the blame hover popup if the context menu is visible.
-    if (document.getElementById("context-menu"))
+    if (ContextMenu.active)
       return;
     // Debounced pop-up closer..
     //

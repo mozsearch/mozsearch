@@ -1,107 +1,198 @@
-function setContextMenu(menu, event)
-{
-  var selObj = window.getSelection();
-  if (selObj.toString() != "") {
+var ContextMenu = new (class ContextMenu {
+  constructor() {
+    this.menu = document.createElement("ul");
+    this.menu.className = this.menu.id = "context-menu";
+    this.menu.tabIndex = 0;
+    this.menu.style.display = "none";
+    document.body.appendChild(this.menu);
+
+    this.menu.addEventListener("mousedown", function (event) {
+      // Prevent clicks on the menu to propagate
+      // to the window, so that the menu is not
+      // removed and links will be followed.
+      event.stopPropagation();
+    });
+
+    window.addEventListener("mousedown", () => this.hide());
+    window.addEventListener("pageshow", () => this.hide());
+    window.addEventListener("click", () => this.tryShowOnClick(event));
+  }
+
+  fmt(s, data) {
+    data = data
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+    return s.replace("_", data);
+  }
+
+  tryShowOnClick(event) {
     // Don't display the context menu if there's a selection.
     // User could be trying to select something and the context menu will undo it.
-    return;
-  }
-
-  var top = event.clientY + window.scrollY;
-  var left = event.clientX;
-
-  $('body').append(nunjucks.render('static/templates/context-menu.html', menu));
-  var currentContextMenu = $('#context-menu');
-
-  currentContextMenu.css({
-    top: top,
-    left: left
-  });
-
-  // Move focus to the context menu
-  currentContextMenu[0].focus();
-
-  currentContextMenu.on('mousedown', function(event) {
-    // Prevent clicks on the menu to propagate
-    // to the window, so that the menu is not
-    // removed and links will be followed.
-    event.stopPropagation();
-  });
-}
-
-// When this is set to true, moving the mouse doesn't change what is highlighted.
-var stickyHover = false;
-
-// Remove the menu when a user clicks outside it.
-window.addEventListener('mousedown', function() {
-  if (stickyHover) {
-    stickyHover = false;
-    hovered.removeClass("hovered");
-    hovered = $();
-  }
-  $('#context-menu').remove();
-}, false);
-
-window.addEventListener("pageshow", function() {
-  $('#context-menu').remove();
-}, false);
-
-var hovered = $();
-
-function symbolsFromString(symbols) {
-  if (!symbols || symbols == "?") // XXX why the `?` special-case?
-    return [];
-  return symbols.split(",");
-}
-
-function findReferences(symbols, visibleToken) {
-  symbols = symbolsFromString(symbols);
-  if (!symbols.length)
-    return $();
-  symbols = new Set(symbols);
-  return $([...document.querySelectorAll("span[data-symbols]")].filter(span => {
-    return span.textContent == visibleToken &&
-           symbolsFromString(span.getAttribute("data-symbols"))
-                .some(symbol => symbols.has(symbol));
-  }));
-}
-
-$("#file").on("mousemove", function(event) {
-  if ($('#context-menu').length || stickyHover) {
-    return;
-  }
-
-  var y = event.clientY;
-  var x = event.clientX;
-
-  var elt = document.elementFromPoint(x, y);
-  while (!elt.hasAttribute("data-symbols")) {
-    elt = elt.parentNode;
-    if (!elt || !(elt instanceof Element)) {
-      hovered.removeClass("hovered");
-      hovered = $();
+    if (!window.getSelection().isCollapsed) {
       return;
+    }
+
+    if (!event.target.closest("code")) {
+      return;
+    }
+
+    let tree = document.getElementById("data").getAttribute("data-tree");
+
+    let menuItems = [];
+
+    let index = event.target.closest("[data-i]");
+    if (index) {
+      index = index.getAttribute("data-i");
+      // Comes from the generated page.
+      let [jumps, searches] = ANALYSIS_DATA[index];
+
+      for (let { sym, pretty } of jumps) {
+        menuItems.push({
+          html: this.fmt("Go to definition of _", pretty),
+          href: `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`,
+          icon: "search",
+        });
+      }
+
+      for (let { sym, pretty } of searches) {
+        menuItems.push({
+          html: this.fmt("Search for _", pretty),
+          href: `/${tree}/search?q=symbol:${encodeURIComponent(
+            sym
+          )}&redirect=false`,
+          icon: "search",
+        });
+      }
+    }
+
+    let word = getTargetWord();
+    if (word) {
+      // A word was clicked on.
+      menuItems.push({
+        html: this.fmt("Search for the substring <strong>_</strong>", word),
+        href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
+        icon: "search",
+      });
+    }
+
+    let token = event.target.closest("[data-symbols]");
+    if (token) {
+      let symbols = token.getAttribute("data-symbols");
+      let visibleToken = token.textContent;
+      menuItems.push({
+        html: "Sticky highlight",
+        href: `javascript:Hover.stickyHighlight('${symbols}', '${visibleToken}')`,
+      });
+    }
+
+    if (!menuItems.length) {
+      return;
+    }
+
+    this.menu.innerHTML = nunjucks.render(
+      "static/templates/context-menu.html",
+      { menuItems }
+    );
+
+    let top = event.clientY + window.scrollY;
+    let left = event.clientX + window.scrollX;
+
+    this.menu.style.top = top + "px";
+    this.menu.style.left = left + "px";
+
+    this.menu.style.display = "";
+    this.menu.focus();
+  }
+
+  hide() {
+    this.menu.style.display = "none";
+  }
+
+  get active() {
+    return this.menu.style.display != "none";
+  }
+})();
+
+var Hover = new (class Hover {
+  constructor() {
+    this.items = [];
+    this.sticky = false;
+    window.addEventListener("mousedown", () => {
+      if (this.sticky) {
+        this.deactivate();
+      }
+    });
+
+    window.addEventListener("mousemove", event => this._handleMouseMove(event));
+  }
+
+  _handleMouseMove(event) {
+    if (ContextMenu.active || this.sticky) {
+      return;
+    }
+
+    let symbols = event.target.closest("[data-symbols]");
+    if (!symbols) {
+      return this.deactivate();
+    }
+
+    this.activate(symbols.getAttribute("data-symbols"), symbols.textContent);
+  }
+
+  deactivate() {
+    for (let item of this.items) {
+      item.classList.remove("hovered");
+    }
+    this.items = [];
+    this.sticky = false;
+  }
+
+  activate(symbols, visibleToken) {
+    this.deactivate();
+    this.items = this.findReferences(symbols, visibleToken);
+    for (let item of this.items) {
+      item.classList.add("hovered");
     }
   }
 
-  hovered.removeClass("hovered");
-  hovered = findReferences(elt.getAttribute("data-symbols"), elt.textContent);
-  hovered.addClass("hovered");
-});
+  findReferences(symbols, visibleToken) {
+    function symbolsFromString(symbols) {
+      if (!symbols || symbols == "?") {
+        // XXX why the `?` special-case?
+        return [];
+      }
+      return symbols.split(",");
+    }
 
-function stickyHighlight(symbols, visibleToken)
-{
-  $('#context-menu').remove();
+    symbols = symbolsFromString(symbols);
+    if (!symbols.length) {
+      return [];
+    }
 
-  hovered.removeClass("hovered");
-  hovered = findReferences(symbols, visibleToken);
-  hovered.addClass("hovered");
+    symbols = new Set(symbols);
 
-  stickyHover = true;
-}
+    return [...document.querySelectorAll("span[data-symbols]")].filter(span => {
+      // XXX The attribute check is cheaper, probably should be before.
+      return (
+        span.textContent == visibleToken &&
+        symbolsFromString(span.getAttribute("data-symbols")).some(symbol =>
+          symbols.has(symbol)
+        )
+      );
+    });
+  }
 
-function getTargetWord()
-{
+  stickyHighlight(symbols, visibleToken) {
+    ContextMenu.hide();
+    this.activate(symbols, visibleToken);
+    this.sticky = true;
+  }
+})();
+
+function getTargetWord() {
   var selection = window.getSelection();
   if (!selection.isCollapsed) {
     return null;
@@ -111,7 +202,8 @@ function getTargetWord()
   var node = selection.anchorNode;
   var selectedTxtString = node.nodeValue;
   var nonWordCharRE = /[^A-Z0-9_]/i;
-  var startIndex = selectedTxtString.regexLastIndexOf(nonWordCharRE, offset) + 1;
+  var startIndex =
+    selectedTxtString.regexLastIndexOf(nonWordCharRE, offset) + 1;
   var endIndex = selectedTxtString.regexIndexOf(nonWordCharRE, offset);
 
   // If the regex did not find a start index, start from index 0
@@ -136,64 +228,3 @@ function getTargetWord()
 
   return selectedTxtString.substr(startIndex, endIndex - startIndex);
 }
-
-$("#file").on("click", "code", function(event) {
-  stickyHover = false;
-
-  var tree = $("#data").data("tree");
-
-  function fmt(s, data) {
-    data = data
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-    return s.replace("_", data);
-  }
-
-  var menuItems = [];
-
-  var elt = $(event.target);
-  var index = elt.closest("[data-i]").attr("data-i");
-  if (index) {
-    // Comes from the generated page.
-    var [jumps, searches] = ANALYSIS_DATA[index];
-
-    for (var i = 0; i < jumps.length; i++) {
-      var sym = jumps[i].sym;
-      var pretty = jumps[i].pretty;
-      menuItems.push({html: fmt("Go to definition of _", pretty),
-                      href: `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`,
-                      icon: "search"});
-    }
-
-    for (var i = 0; i < searches.length; i++) {
-      var sym = searches[i].sym;
-      var pretty = searches[i].pretty;
-      menuItems.push({html: fmt("Search for _", pretty),
-                      href: `/${tree}/search?q=symbol:${encodeURIComponent(sym)}&redirect=false`,
-                      icon: "search"});
-    }
-  }
-
-  var word = getTargetWord();
-  if (word !== null) {
-    // A word was clicked on.
-    menuItems.push({html: fmt('Search for the substring <strong>_</strong>', word),
-                    href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
-                    icon: "search"});
-  }
-
-  var token = elt.closest("[data-symbols]");
-  var symbols = token.attr("data-symbols");
-  if (symbols) {
-    var visibleToken = token[0].textContent;
-    menuItems.push({html: "Sticky highlight",
-                    href: `javascript:stickyHighlight('${symbols}', '${visibleToken}')`});
-  }
-
-  if (menuItems.length > 0) {
-    setContextMenu({menuItems: menuItems}, event);
-  }
-});
