@@ -1,89 +1,104 @@
-var popupBox = null;
+var BlamePopup = new class BlamePopup {
+  constructor() {
+    this.popup = document.createElement("div");
+    this.popup.id = "blame-popup";
+    this.popup.className = "blame-popup";
+    this.popup.style.display = "none";
+    document.documentElement.appendChild(this.popup);
 
-// The .blame-strip element for which blame is currently being displayed.
-var blameElt;
-// The .blame-strip element the mouse is hovering over.  Clicking on the element
-// will null this out as a means of letting the user get rid of the popup if
-// they didn't actually want to see the pop-up.
-var mouseElt;
+    // The .blame-strip element for which blame is currently being displayed.
+    this._blameElement = null;
 
-// A very simply MRU cache of size 1.  We don't issue an XHR if we already have
-// the data.  This is important for the case where the user is moving their
-// mouse along the same contiguous run of blame data.  In that case, the
-// blameElt changes, but the `revs` stays the same.
-var prevRevs;
-var prevJson;
+    // The previous blame element for which we have already shown the popup.
+    //
+    // This is the current owner of the popup element.
+    this.popupOwner = null;
 
-/**
- * Asynchronously initiates lookup and display of the blame data for the current
- * blameElt.  The popup is added as a child of the blameElt in the DOM.
- */
-function updateBlamePopup() {
-  // If there's no blameElt, just remove the popup if it exists and bail.
-  if (!blameElt) {
-    if (popupBox) {
-      popupBox.remove();
-      popupBox = null;
-    }
-    return;
+    // A very simply MRU cache of size 1.  We don't issue an XHR if we already
+    // have the data.  This is important for the case where the user is moving
+    // their mouse along the same contiguous run of blame data.  In that case,
+    // the `blameElement` changes, but the `revs` stays the same.
+    this.prevRevs = null;
+    this.prevJson = null;
   }
 
-  // Latch the current blameElt in case by the time our XHR comes back it's no
-  // longer the current blameElt.
-  var elt = blameElt;
-  var blame = elt.dataset.blame;
-
-  var [revs, filespecs, linenos] = blame.split("#");
-  var path = $("#data").data("path");
-  var tree = $("#data").data("tree");
-
-  function showPopup(json) {
-    // If the XHR was too slow, we may no longer want to display blame for this
-    // element, bail.
-    if (blameElt != elt) {
+  detachFromCurrentOwner() {
+    if (!this.popupOwner)
       return;
+    this.popupOwner.removeAttribute("aria-owns");
+    this.popupOwner.setAttribute("aria-expanded", "false");
+    this.popupOwner = null;
+  }
+
+  // Hides the popup if open.
+  hide() {
+    this.detachFromCurrentOwner();
+    this.popup.style.display = "none";
+  }
+
+  // Asynchronously initiates lookup and display of the blame data for the current
+  // `blameElement`. The popup is added as a child of the blameElt in the DOM.
+  async update() {
+    // If there's no current element, just bail.
+    if (!this.blameElement)
+      return this.hide();
+
+    // Latch the current element in case by the time our fetch comes back it's
+    // no longer the current one.
+    const elt = this.blameElement;
+    const blame = elt.dataset.blame;
+    const [revs, filespecs, linenos] = blame.split("#");
+
+    const data = document.getElementById("data");
+    const path = data.getAttribute("data-path");
+    const tree = data.getAttribute("data-tree");
+
+    if (this.prevRevs != revs) {
+      let response = await fetch(`/${tree}/commit-info/${revs}`);
+      this.prevJson = await response.json();
+      this.prevRevs = revs;
     }
 
-    if (popupBox) {
-      popupBox.remove();
-      popupBox = null;
-    }
+    // If the request was too slow, we may no longer want to display blame for
+    // this element, bail.
+    if (this.blameElement != elt)
+      return;
 
-    var content = "";
+    let json = this.prevJson;
 
-    var revList = revs.split(',');
-    var filespecList = filespecs.split(',');
-    var linenoList = linenos.split(',');
+    let content = "";
+    let revList = revs.split(',');
+    let filespecList = filespecs.split(',');
+    let linenoList = linenos.split(',');
 
     // The last entry in the list (if it's not empty) is the real one we want
     // to show. The entries before that were "ignored", so we put them in a
     // hidden box that the user can expand.
-    var ignored = [];
-    for (var i = 0; i < revList.length; i++) {
-      if (revList[i] == '') {
-          // An empty final entry is used to indicate that all
-          // the entries we provided were "ignored" (but we didn't
-          // provide more because we hit the max limit)
-          break;
-      }
+    let ignored = [];
+    for (let i = 0; i < revList.length; i++) {
+      // An empty final entry is used to indicate that all the entries we
+      // provided were "ignored" (but we didn't provide more because we hit the
+      // max limit).
+      if (!revList[i])
+        break;
 
-      var rendered = '';
-      var revPath = filespecList[i] == "%" ? path : filespecList[i];
+      let rendered = '';
+      let revPath = filespecList[i] == "%" ? path : filespecList[i];
       rendered += `<div class="blame-entry">`;
       rendered += json[i].header;
 
-      var diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
+      let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
       rendered += `<br>Show <a href="${diffLink}">annotated diff</a>`;
-      if (json[i].fulldiff) {
+
+      if (json[i].fulldiff)
         rendered += ` or <a href="${json[i].fulldiff}">full diff</a>`;
-      }
 
       if (json[i].parent) {
-        var parentLink = `/${tree}/rev/${json[i].parent}/${revPath}#${linenoList[i]}`;
+        let parentLink = `/${tree}/rev/${json[i].parent}/${revPath}#${linenoList[i]}`;
         rendered += `<br><a href="${parentLink}" class="deemphasize">Show latest version without this line</a>`;
       }
 
-      var revLink = `/${tree}/rev/${revList[i]}/${revPath}#${linenoList[i]}`;
+      let revLink = `/${tree}/rev/${revList[i]}/${revPath}#${linenoList[i]}`;
       rendered += `<br><a href="${revLink}" class="deemphasize">Show earliest version with this line</a>`;
       rendered += '</div>';
 
@@ -93,101 +108,77 @@ function updateBlamePopup() {
         content += rendered;
       }
     }
-    if (ignored.length > 0) {
+
+    if (ignored.length)
       content += `<br><details><summary>${ignored.length} ignored changesets</summary>${ignored.join("")}</details>`;
-    }
 
-    var parent = blameElt.parentNode;
+    let rect = this.blameElement.getBoundingClientRect();
+    let top = rect.top + window.scrollY;
+    let left = rect.left + rect.width + window.scrollX;
 
-    popupBox = document.createElement("div");
-    popupBox.id = "blame-popup";
-    popupBox.innerHTML = content;
-    popupBox.className = "blame-popup";
-    parent.appendChild(popupBox);
-
-    $(popupBox).on("mouseenter", blameHoverHandler);
-    $(popupBox).on("mouseleave", blameHoverHandler);
+    this.detachFromCurrentOwner();
+    this.popup.style.display = "";
+    // This also works, but transform doesn't even require layout.
+    // this.popup.style.left = left + "px";
+    // this.popup.style.top = top + "px";
+    this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
+    this.popup.innerHTML = content;
+    this.popupOwner = this.blameElement;
+    this.popupOwner.setAttribute("aria-owns", "blame-popup");
+    this.popupOwner.setAttribute("aria-expanded", "true");
   }
 
-  function reqListener() {
-    var response = JSON.parse(this.responseText);
-    showPopup(response);
-
-    prevRevs = revs;
-    prevJson = response;
+  get blameElement() {
+    return this._blameElement;
   }
 
-  if (prevRevs == revs) {
-    showPopup(prevJson);
-  } else {
-    var req = new XMLHttpRequest();
-    req.addEventListener("load", reqListener);
-    req.open("GET", `/${tree}/commit-info/${revs}`);
-    req.send();
-  }
-}
-
-
-function setBlameElt(elt) {
-  if (blameElt == elt) {
-    return;
-  }
-  if (blameElt) {
-    blameElt.setAttribute("aria-expanded", false);
-  }
-  blameElt = elt;
-  if (blameElt) {
-    blameElt.setAttribute("aria-expanded", true);
-  }
-}
-
-function blameHoverHandler(event) {
-  // Suppress the blame hover popup if the context menu is visible.
-  if ($('#context-menu').length) {
-    return;
-  }
-
-  // Debounced pop-up closer.  If the mouse leaves a blame-strip element and
-  // doesn't move onto another one within 100ms, close the popup.  Also, if the
-  // user clicks on the blame-strip element and doesn't move onto a new element,
-  // close the pop-up.
-  if (event.type == "mouseleave" ||
-      (event.type == "click" && blameElt != null)) {
-    mouseElt = null;
-
-    setTimeout(function() {
-      if (!mouseElt) {
-        setBlameElt(null);
-        updateBlamePopup();
-      }
-    }, 100);
-  } else {
-    // This is a mouseenter event.  Because the popup is a child of the
-    // .blame-strip element, we may be deep inside popup content if the popup is
-    // visible.  So we walk upwards until we find either a .blame-strip element
-    // with data-blame set (which may be a new blameElt) or the existing popup,
-    // in which case we can reuse the blameElt.
-    var elt = event.target;
-    while (elt && elt instanceof Element) {
-      if (elt.hasAttribute("data-blame")) {
-        mouseElt = elt;
-        break;
-      }
-      if (elt.id == "blame-popup") {
-        mouseElt = blameElt;
-        return;
-      }
-      elt = elt.parentNode;
-    }
-    if (!elt || !(elt instanceof Element)) {
+  set blameElement(newElement) {
+    if (this.blameElement == newElement)
       return;
+    this._blameElement = newElement;
+    this.update();
+  }
+};
+
+
+var BlameStripHoverHandler = new class BlameStripHoverHandler {
+  constructor() {
+    // The .blame-strip element the mouse is hovering over.  Clicking on the
+    // element will null this out as a means of letting the user get rid of the
+    // popup if they didn't actually want to see the pop-up.
+    this.mouseElement = null;
+
+    for (let element of document.querySelectorAll(".blame-strip")) {
+      element.addEventListener("mouseenter", this);
+      element.addEventListener("mouseleave", this);
+      element.addEventListener("click", this);
     }
 
-    setBlameElt(mouseElt);
-    updateBlamePopup();
+     BlamePopup.popup.addEventListener("mouseenter", this);
+     BlamePopup.popup.addEventListener("mouseleave", this);
+  }
+
+  handleEvent(event) {
+    // Suppress the blame hover popup if the context menu is visible.
+    if (document.getElementById("context-menu"))
+      return;
+    // Debounced pop-up closer..
+    //
+    // If the mouse leaves a blame-strip element and doesn't move onto another
+    // one within 100ms, close the popup.  Also, if the user clicks on the
+    // blame-strip element and doesn't move onto a new element, close the
+    // pop-up.
+    if (event.type == "mouseleave" || (event.type == "click" && BlamePopup.blameElement)) {
+      this.mouseElement = null;
+      setTimeout(() => {
+        if (this.mouseElement)
+          return; // Mouse moved somewhere else inside the strip.
+        BlamePopup.blameElement = null;
+      }, 100);
+    } else {
+      this.mouseElement = event.target;
+      if (this.mouseElement != BlamePopup.popup)
+        BlamePopup.blameElement = this.mouseElement;
+    }
   }
 }
-
-$(".blame-strip").on("mouseenter", blameHoverHandler);
-$(".blame-strip").on("mouseleave", blameHoverHandler);
-$(".blame-strip").on("click", blameHoverHandler);

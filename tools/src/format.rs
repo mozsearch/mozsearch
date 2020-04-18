@@ -520,10 +520,7 @@ pub fn format_file_data(
             )),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!(
-                    "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
-                    blame_data
-                )),
+                F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
                 // The line number.
                 F::T(format!(
                     "<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
