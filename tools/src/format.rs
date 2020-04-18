@@ -498,9 +498,7 @@ pub fn format_file_data(
                                class, revs, filespecs, blame_linenos);
             data
         } else {
-            // If we have no blame data, we want the div here taking up space, but we don't want it
-            // to bother screen readers.
-            " class=\"blame-strip\" role=\"aria-hidden\"".to_owned()
+            " class=\"blame-strip\"".to_owned()
         };
 
         // If this line starts nesting, we need to create a div that exists strictly to contain the
@@ -922,7 +920,7 @@ pub fn format_diff(
                 format!(r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
                         class, rev, filespec, blame_lineno)
             }
-            None => " class=\"blame-strip\" role=\"aria-hidden\"".to_owned(),
+            None => " class=\"blame-strip\"".to_owned(),
         };
 
         let line_str = if lineno > 0 {
