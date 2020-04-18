@@ -87,6 +87,9 @@ def change_security(instance, make_secure):
     if make_secure:
         new_group_name += secure_suffix
 
+    if new_group_name == group:
+        return False
+
     vpc = list(ec2.vpcs.all())[0]
     new_group = vpc.security_groups.filter(GroupNames=[new_group_name])
     new_group = list(new_group)[0]
@@ -94,10 +97,11 @@ def change_security(instance, make_secure):
     print('Changing instance security group to', new_group.group_name, '--', new_group)
 
     instance.modify_attribute(Groups=[new_group.id])
+    return True
 
 def log_into(instance):
     old_state = ensure_started(instance)
-    change_security(instance, False)
+    sec_changed = change_security(instance, False)
 
     # If there is a private key at ~/.aws/private_key.pem, use it
     identity_args = []
@@ -110,7 +114,8 @@ def log_into(instance):
     p = subprocess.Popen(['ssh'] + identity_args + ['ubuntu@' + instance.public_ip_address])
     p.wait()
 
-    change_security(instance, True)
+    if sec_changed:
+        change_security(instance, True)
     if old_state is not False:
         if prompt("Instance was started before connection, attempt to restore original state '%s'?" % old_state):
             restore_state(instance, old_state)
