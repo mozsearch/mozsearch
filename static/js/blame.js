@@ -25,7 +25,7 @@ var BlamePopup = new class BlamePopup {
   detachFromCurrentOwner() {
     if (!this.popupOwner)
       return;
-    this.popupOwner.removeAttribute("aria-owns");
+    this.popupOwner.parentNode.removeAttribute("aria-owns");
     this.popupOwner.setAttribute("aria-expanded", "false");
     this.popupOwner = null;
   }
@@ -124,7 +124,8 @@ var BlamePopup = new class BlamePopup {
     this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     this.popup.innerHTML = content;
     this.popupOwner = this.blameElement;
-    this.popupOwner.setAttribute("aria-owns", "blame-popup");
+    // We set aria-owns on the parent role=cell instead of the button.
+    this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
     this.popupOwner.setAttribute("aria-expanded", "true");
   }
 
