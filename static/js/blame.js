@@ -1,4 +1,4 @@
-var BlamePopup = new class BlamePopup {
+var BlamePopup = new (class BlamePopup {
   constructor() {
     this.popup = document.createElement("div");
     this.popup.id = "blame-popup";
@@ -23,8 +23,9 @@ var BlamePopup = new class BlamePopup {
   }
 
   detachFromCurrentOwner() {
-    if (!this.popupOwner)
+    if (!this.popupOwner) {
       return;
+    }
     this.popupOwner.parentNode.removeAttribute("aria-owns");
     this.popupOwner.setAttribute("aria-expanded", "false");
     this.popupOwner = null;
@@ -40,8 +41,9 @@ var BlamePopup = new class BlamePopup {
   // `blameElement`. The popup is added as a child of the blameElt in the DOM.
   async update() {
     // If there's no current element, just bail.
-    if (!this.blameElement)
+    if (!this.blameElement) {
       return this.hide();
+    }
 
     // Latch the current element in case by the time our fetch comes back it's
     // no longer the current one.
@@ -61,15 +63,16 @@ var BlamePopup = new class BlamePopup {
 
     // If the request was too slow, we may no longer want to display blame for
     // this element, bail.
-    if (this.blameElement != elt)
+    if (this.blameElement != elt) {
       return;
+    }
 
     let json = this.prevJson;
 
     let content = "";
-    let revList = revs.split(',');
-    let filespecList = filespecs.split(',');
-    let linenoList = linenos.split(',');
+    let revList = revs.split(",");
+    let filespecList = filespecs.split(",");
+    let linenoList = linenos.split(",");
 
     // The last entry in the list (if it's not empty) is the real one we want
     // to show. The entries before that were "ignored", so we put them in a
@@ -79,10 +82,11 @@ var BlamePopup = new class BlamePopup {
       // An empty final entry is used to indicate that all the entries we
       // provided were "ignored" (but we didn't provide more because we hit the
       // max limit).
-      if (!revList[i])
+      if (!revList[i]) {
         break;
+      }
 
-      let rendered = '';
+      let rendered = "";
       let revPath = filespecList[i] == "%" ? path : filespecList[i];
       rendered += `<div class="blame-entry">`;
       rendered += json[i].header;
@@ -90,8 +94,9 @@ var BlamePopup = new class BlamePopup {
       let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
       rendered += `<br>Show <a href="${diffLink}">annotated diff</a>`;
 
-      if (json[i].fulldiff)
+      if (json[i].fulldiff) {
         rendered += ` or <a href="${json[i].fulldiff}">full diff</a>`;
+      }
 
       if (json[i].parent) {
         let parentLink = `/${tree}/rev/${json[i].parent}/${revPath}#${linenoList[i]}`;
@@ -100,7 +105,7 @@ var BlamePopup = new class BlamePopup {
 
       let revLink = `/${tree}/rev/${revList[i]}/${revPath}#${linenoList[i]}`;
       rendered += `<br><a href="${revLink}" class="deemphasize">Show earliest version with this line</a>`;
-      rendered += '</div>';
+      rendered += "</div>";
 
       if (i < revList.length - 1) {
         ignored.push(rendered);
@@ -109,8 +114,11 @@ var BlamePopup = new class BlamePopup {
       }
     }
 
-    if (ignored.length)
-      content += `<br><details><summary>${ignored.length} ignored changesets</summary>${ignored.join("")}</details>`;
+    if (ignored.length) {
+      content += `<br><details><summary>${
+        ignored.length
+      } ignored changesets</summary>${ignored.join("")}</details>`;
+    }
 
     let rect = this.blameElement.getBoundingClientRect();
     let top = rect.top + window.scrollY;
@@ -134,15 +142,15 @@ var BlamePopup = new class BlamePopup {
   }
 
   set blameElement(newElement) {
-    if (this.blameElement == newElement)
+    if (this.blameElement == newElement) {
       return;
+    }
     this._blameElement = newElement;
     this.update();
   }
-};
+})();
 
-
-var BlameStripHoverHandler = new class BlameStripHoverHandler {
+var BlameStripHoverHandler = new (class BlameStripHoverHandler {
   constructor() {
     // The .blame-strip element the mouse is hovering over.  Clicking on the
     // element will null this out as a means of letting the user get rid of the
@@ -155,31 +163,37 @@ var BlameStripHoverHandler = new class BlameStripHoverHandler {
       element.addEventListener("click", this);
     }
 
-     BlamePopup.popup.addEventListener("mouseenter", this);
-     BlamePopup.popup.addEventListener("mouseleave", this);
+    BlamePopup.popup.addEventListener("mouseenter", this);
+    BlamePopup.popup.addEventListener("mouseleave", this);
   }
 
   handleEvent(event) {
     // Suppress the blame hover popup if the context menu is visible.
-    if (ContextMenu.active)
+    if (ContextMenu.active) {
       return;
+    }
     // Debounced pop-up closer..
     //
     // If the mouse leaves a blame-strip element and doesn't move onto another
     // one within 100ms, close the popup.  Also, if the user clicks on the
     // blame-strip element and doesn't move onto a new element, close the
     // pop-up.
-    if (event.type == "mouseleave" || (event.type == "click" && BlamePopup.blameElement)) {
+    if (
+      event.type == "mouseleave" ||
+      (event.type == "click" && BlamePopup.blameElement)
+    ) {
       this.mouseElement = null;
       setTimeout(() => {
-        if (this.mouseElement)
-          return; // Mouse moved somewhere else inside the strip.
+        if (this.mouseElement) {
+          return;
+        } // Mouse moved somewhere else inside the strip.
         BlamePopup.blameElement = null;
       }, 100);
     } else {
       this.mouseElement = event.target;
-      if (this.mouseElement != BlamePopup.popup)
+      if (this.mouseElement != BlamePopup.popup) {
         BlamePopup.blameElement = this.mouseElement;
+      }
     }
   }
-}
+})();

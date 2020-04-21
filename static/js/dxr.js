@@ -34,30 +34,32 @@ function createSyntheticAnchor(id, navigate = true) {
   }
 }
 
-String.prototype.hashCode = function() {
+String.prototype.hashCode = function () {
   var hash = 0;
-  if (this.length == 0) return hash;
+  if (this.length == 0) {
+    return hash;
+  }
   for (i = 0; i < this.length; i++) {
     char = this.charCodeAt(i);
-    hash = ((hash<<5)-hash)+char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32bit integer
   }
   return hash;
-}
+};
 
-$(function() {
-  'use strict';
+$(function () {
+  "use strict";
 
-  var constants = $('#data');
+  var constants = $("#data");
   var dxr = {},
-  docElem = document.documentElement;
+    docElem = document.documentElement;
 
-  dxr.wwwRoot = constants.data('root');
-  dxr.baseUrl = location.protocol + '//' + location.host;
-  dxr.icons = dxr.wwwRoot + '/static/icons/';
-  dxr.views = dxr.wwwRoot + '/static/templates';
-  dxr.searchUrl = constants.data('search');
-  dxr.tree = constants.data('tree');
+  dxr.wwwRoot = constants.data("root");
+  dxr.baseUrl = location.protocol + "//" + location.host;
+  dxr.icons = dxr.wwwRoot + "/static/icons/";
+  dxr.views = dxr.wwwRoot + "/static/templates";
+  dxr.searchUrl = constants.data("search");
+  dxr.tree = constants.data("tree");
 
   var timeouts = {};
   timeouts.search = 300;
@@ -71,7 +73,7 @@ $(function() {
   }
 
   // We also need to cater for the above scenario when a user clicks on in page links.
-  window.onhashchange = function() {
+  window.onhashchange = function () {
     createSyntheticAnchor(window.location.hash.substr(1));
   };
 
@@ -94,7 +96,8 @@ $(function() {
 
     var other = which == "path" ? "query" : "path";
 
-    $(`#${which}-bubble`).html(html)
+    $(`#${which}-bubble`)
+      .html(html)
       .removeClass("error warning info")
       .addClass(level)
       .show();
@@ -113,50 +116,50 @@ $(function() {
   function caseFromUrl() {
     if (window.location.pathname.endsWith("/search")) {
       var match = /[?&]case=([^&]+)/.exec(location.search);
-      return match ? (match[1] === 'true') : false;
+      return match ? match[1] === "true" : false;
     } else {
       return null;
     }
   }
 
-  var searchForm = $('#basic_search'),
-  queryField = $('#query'),
-  pathField = $('#path'),
-  caseSensitiveBox = $('#case'),
-  regexpBox = $('#regexp'),
-  contentContainer = $('#content'),
-  waiter = null,
-  historyWaiter = null,
-  nextRequestNumber = 1, // A monotonically increasing int that keeps old AJAX requests in flight from overwriting the results of newer ones, in case more than one is in flight simultaneously and they arrive out of order.
-  requestsInFlight = 0,  // Number of search requests in flight, so we know whether to hide the activity indicator
-  displayedRequestNumber = 0,
-  resultCount = 0,
-  dataOffset = 0,
-  previousDataLimit = 0,
-  defaultDataLimit = 100;
+  var searchForm = $("#basic_search"),
+    queryField = $("#query"),
+    pathField = $("#path"),
+    caseSensitiveBox = $("#case"),
+    regexpBox = $("#regexp"),
+    contentContainer = $("#content"),
+    waiter = null,
+    historyWaiter = null,
+    nextRequestNumber = 1, // A monotonically increasing int that keeps old AJAX requests in flight from overwriting the results of newer ones, in case more than one is in flight simultaneously and they arrive out of order.
+    requestsInFlight = 0, // Number of search requests in flight, so we know whether to hide the activity indicator
+    displayedRequestNumber = 0,
+    resultCount = 0,
+    dataOffset = 0,
+    previousDataLimit = 0,
+    defaultDataLimit = 100;
 
-  window.addEventListener("pageshow", function() {
+  window.addEventListener("pageshow", function () {
     function getQuery(key) {
-      var val = new RegExp('[&?]' + key + '=([^&]*)').exec(location.search);
+      var val = new RegExp("[&?]" + key + "=([^&]*)").exec(location.search);
       if (val) {
         val = val[1];
-        val = val.replace(/\+/g, ' ');
+        val = val.replace(/\+/g, " ");
         val = decodeURIComponent(val);
         return val;
       }
     }
-    var initialSearch = getQuery('q');
+    var initialSearch = getQuery("q");
     if (initialSearch) {
       queryField.val(initialSearch);
     }
 
-    var initialPath = getQuery('path');
+    var initialPath = getQuery("path");
     if (initialPath) {
       pathField.val(initialPath);
     }
 
-    var regexp = getQuery('regexp') === 'true';
-    regexpBox.prop('checked', regexp);
+    var regexp = getQuery("regexp") === "true";
+    regexpBox.prop("checked", regexp);
   });
 
   /**
@@ -172,18 +175,18 @@ $(function() {
     var search = dxr.searchUrl;
     var params = {};
     params.q = query;
-    params['case'] = caseSensitiveBox.prop('checked');
-    params.regexp = regexpBox.prop('checked');
+    params["case"] = caseSensitiveBox.prop("checked");
+    params.regexp = regexpBox.prop("checked");
     params.path = $.trim(pathField.val());
 
-    return search + '?' + $.param(params);
+    return search + "?" + $.param(params);
   }
 
   /**
    * Add an entry into the history stack whenever we do a new search.
    */
   function pushHistoryState(searchUrl) {
-    history.pushState({}, '', searchUrl);
+    history.pushState({}, "", searchUrl);
   }
 
   /**
@@ -198,8 +201,8 @@ $(function() {
   /**
    * Saves checkbox checked property to localStorage and invokes queryNow function.
    */
-  function updateLocalStorageAndQueryNow(){
-    localStorage.setItem('caseSensitive', $('#case').prop('checked'));
+  function updateLocalStorageAndQueryNow() {
+    localStorage.setItem("caseSensitive", $("#case").prop("checked"));
     queryNow();
   }
 
@@ -257,29 +260,31 @@ $(function() {
         return "unknown";
       }
       suffix = path.slice(suffix + 1);
-      return {
-        'cpp': 'cpp',
-        'h': 'h',
-        'c': 'c',
-        'mm': 'mm',
-        'js': 'js',
-        'jsm': 'js',
-        'py': 'py',
-        'ini': 'conf',
-        'sh': 'sh',
-        'txt': 'txt',
-        'xml': 'xml',
-        'xul': 'ui',
-        'java': 'java',
-        'in': 'txt',
-        'html': 'html',
-        'png': 'image',
-        'gif': 'image',
-        'svg': 'svg',
-        'build': 'build',
-        'json': 'js',
-        'css': 'css',
-      }[suffix] || "unknown";
+      return (
+        {
+          cpp: "cpp",
+          h: "h",
+          c: "c",
+          mm: "mm",
+          js: "js",
+          jsm: "js",
+          py: "py",
+          ini: "conf",
+          sh: "sh",
+          txt: "txt",
+          xml: "xml",
+          xul: "ui",
+          java: "java",
+          in: "txt",
+          html: "html",
+          png: "image",
+          gif: "image",
+          svg: "svg",
+          build: "build",
+          json: "js",
+          css: "css",
+        }[suffix] || "unknown"
+      );
     }
 
     function renderPath(pathkind, qkind, fileResult) {
@@ -287,7 +292,10 @@ $(function() {
 
       var html = "";
       html += "<tr class='result-head " + klass + "'>";
-      html += "<td class='left-column'><div class='" + chooseIcon(fileResult.path) + " icon-container'></div></td>";
+      html +=
+        "<td class='left-column'><div class='" +
+        chooseIcon(fileResult.path) +
+        " icon-container'></div></td>";
 
       html += "<td>";
 
@@ -305,7 +313,7 @@ $(function() {
       }
 
       html += "</td>";
-      html += "</tr>"
+      html += "</tr>";
 
       return html;
     }
@@ -319,8 +327,14 @@ $(function() {
       var klass = classOfResult(pathkind, qkind);
       var html = "";
       html += "<tr class='" + klass + "'>";
-      html += "<td class='left-column'><a href='" + makeURL(file.path) + "#" + line.lno + "'>" +
-        line.lno + "</a></td>";
+      html +=
+        "<td class='left-column'><a href='" +
+        makeURL(file.path) +
+        "#" +
+        line.lno +
+        "'>" +
+        line.lno +
+        "</a></td>";
       html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
 
       function escape(s) {
@@ -338,10 +352,15 @@ $(function() {
       if (line.context) {
         var inside = line.context;
         if (line.contextsym) {
-          var url = `/${dxr.tree}/search?q=symbol:${encodeURIComponent(line.contextsym)}&redirect=false`;
+          var url = `/${dxr.tree}/search?q=symbol:${encodeURIComponent(
+            line.contextsym
+          )}&redirect=false`;
           inside = "<a href='" + url + "'>" + line.context + "</a>";
         }
-        html += " <span class='result-context'>// found in <code>" + inside + "</code></span>";
+        html +=
+          " <span class='result-context'>// found in <code>" +
+          inside +
+          "</code></span>";
       }
 
       html += "</td>";
@@ -385,11 +404,13 @@ $(function() {
 
     var timeoutWarning = null;
     if (timed_out) {
-      timeoutWarning = $(`<div>Warning: results may be incomplete due to server-side search timeout!</div>`);
+      timeoutWarning = $(
+        `<div>Warning: results may be incomplete due to server-side search timeout!</div>`
+      );
     }
     // If no data is returned, inform the user.
     if (!fileCount) {
-      var user_message = contentContainer.data('no-results');
+      var user_message = contentContainer.data("no-results");
       contentContainer.empty().append($("<span>" + user_message + "</span>"));
       if (timeoutWarning) {
         container.append(timeoutWarning);
@@ -398,7 +419,9 @@ $(function() {
       var container = contentContainer.empty();
 
       if (count) {
-        var numResults = $(`<div>Number of results: ${count} (maximum is 1000)</div>`);
+        var numResults = $(
+          `<div>Number of results: ${count} (maximum is 1000)</div>`
+        );
         container.append(numResults);
       }
       if (timeoutWarning) {
@@ -413,17 +436,20 @@ $(function() {
       var counter = 0;
 
       var pathkindNames = {
-        "normal": null,
-        "test": "Test files",
-        "generated": "Generated code",
+        normal: null,
+        test: "Test files",
+        generated: "Generated code",
       };
 
       var html = "";
       for (var pathkind in data) {
         var pathkindName = pathkindNames[pathkind];
         if (pathkindName) {
-          html += "<tr><td>&nbsp;</td></tr>"
-          html += "<tr><td class='section'>§</td><td><div class='result-pathkind'>" + pathkindName + "</div></td></tr>"
+          html += "<tr><td>&nbsp;</td></tr>";
+          html +=
+            "<tr><td class='section'>§</td><td><div class='result-pathkind'>" +
+            pathkindName +
+            "</div></td></tr>";
         }
 
         var qkinds = Object.keys(data[pathkind]);
@@ -432,7 +458,10 @@ $(function() {
             html += "<tr><td>&nbsp;</td></tr>";
 
             html += "<tr><td class='left-column'>";
-            html += "<div class='expando open' data-klass='" + classOfResult(pathkind, qkind) + "'>&#9660;</div>";
+            html +=
+              "<div class='expando open' data-klass='" +
+              classOfResult(pathkind, qkind) +
+              "'>&#9660;</div>";
             html += "</td>";
 
             html += "<td><h2 class='result-kind'>" + qkind + "</h2></td></tr>";
@@ -447,7 +476,7 @@ $(function() {
 
             html += renderPath(pathkind, qkind, file);
 
-            file.lines.map(function(line) {
+            file.lines.map(function (line) {
               counter++;
               if (counter > 100 && !full) {
                 return;
@@ -465,7 +494,7 @@ $(function() {
 
       if (counter > 100 && !full) {
         var epoch = populateEpoch;
-        setTimeout(function() {
+        setTimeout(function () {
           if (populateEpoch == epoch) {
             populateResults(data, true, false);
           }
@@ -474,7 +503,7 @@ $(function() {
     }
   }
 
-  window.showSearchResults = function(results) {
+  window.showSearchResults = function (results) {
     var jumpToSingle = window.location.search.indexOf("&redirect=false") == -1;
     populateResults(results, true, jumpToSingle);
   };
@@ -485,7 +514,7 @@ $(function() {
   function doQuery() {
     function oneMoreRequest() {
       if (requestsInFlight === 0) {
-        $('#search-box').addClass('in-progress');
+        $("#search-box").addClass("in-progress");
       }
       requestsInFlight += 1;
     }
@@ -493,7 +522,7 @@ $(function() {
     function oneFewerRequest() {
       requestsInFlight -= 1;
       if (requestsInFlight === 0) {
-        $('#search-box').removeClass('in-progress');
+        $("#search-box").removeClass("in-progress");
       }
     }
 
@@ -510,8 +539,11 @@ $(function() {
     }
 
     if (query.length < 3 && pathFilter.length < 3) {
-      showBubble("info", "Enter at least 3 characters to do a search.",
-                 query.length ? "query" : "path");
+      showBubble(
+        "info",
+        "Enter at least 3 characters to do a search.",
+        query.length ? "query" : "path"
+      );
       return;
     }
 
@@ -520,49 +552,58 @@ $(function() {
     nextRequestNumber += 1;
     oneMoreRequest();
     var searchUrl = buildAjaxURL(query);
-    $.getJSON(searchUrl, function(data) {
+    $.getJSON(searchUrl, function (data) {
       // New results, overwrite
       if (myRequestNumber > displayedRequestNumber) {
         displayedRequestNumber = myRequestNumber;
         populateResults(data, false, false);
-        historyWaiter = setTimeout(pushHistoryState, timeouts.history, searchUrl);
+        historyWaiter = setTimeout(
+          pushHistoryState,
+          timeouts.history,
+          searchUrl
+        );
       }
       oneFewerRequest();
-    })
-      .fail(function(jqxhr) {
-        oneFewerRequest();
+    }).fail(function (jqxhr) {
+      oneFewerRequest();
 
-        // A newer response already arrived and is displayed. Don't bother complaining about this old one.
-        if (myRequestNumber < displayedRequestNumber)
-          return;
+      // A newer response already arrived and is displayed. Don't bother complaining about this old one.
+      if (myRequestNumber < displayedRequestNumber) {
+        return;
+      }
 
-        if (jqxhr.responseJSON)
-          showBubble(jqxhr.responseJSON.error_level, jqxhr.responseJSON.error_html);
-        else
-          showBubble("error", "An error occurred. Please try again.");
-      });
+      if (jqxhr.responseJSON) {
+        showBubble(
+          jqxhr.responseJSON.error_level,
+          jqxhr.responseJSON.error_html
+        );
+      } else {
+        showBubble("error", "An error occurred. Please try again.");
+      }
+    });
   }
 
   // Do a search every time you pause typing for 300ms:
-  queryField.on('input', querySoon);
-  pathField.on('input', querySoon);
+  queryField.on("input", querySoon);
+  pathField.on("input", querySoon);
 
   // Update the search when the case-sensitive box is toggled, canceling any pending query:
-  caseSensitiveBox.on('change', updateLocalStorageAndQueryNow);
+  caseSensitiveBox.on("change", updateLocalStorageAndQueryNow);
 
-  regexpBox.on('change', queryNow);
-
+  regexpBox.on("change", queryNow);
 
   var urlCaseSensitive = caseFromUrl();
   if (urlCaseSensitive !== null) {
     // Any case-sensitivity specification in the URL overrides what was in localStorage:
-    localStorage.setItem('caseSensitive', urlCaseSensitive);
-    caseSensitiveBox.prop('checked', urlCaseSensitive);
+    localStorage.setItem("caseSensitive", urlCaseSensitive);
+    caseSensitiveBox.prop("checked", urlCaseSensitive);
   } else {
     // Restore checkbox state from localStorage:
-    caseSensitiveBox.prop('checked', 'true' === localStorage.getItem('caseSensitive'));
+    caseSensitiveBox.prop(
+      "checked",
+      "true" === localStorage.getItem("caseSensitive")
+    );
   }
-
 
   /**
    * Adds a leading 0 to numbers less than 10 and greater that 0
@@ -572,7 +613,7 @@ $(function() {
    * return Either the original number or the number prefixed with 0
    */
   function addLeadingZero(number) {
-    return (number <= 9) || (number === 0) ? "0" + number : number;
+    return number <= 9 || number === 0 ? "0" + number : number;
   }
 
   /**
@@ -583,23 +624,31 @@ $(function() {
    */
   function formatDate(dateString) {
     var fullDateTime = new Date(dateString),
-    date = fullDateTime.getFullYear() + '-' + (fullDateTime.getMonth() + 1) + '-' + addLeadingZero(fullDateTime.getDate()),
-    time = fullDateTime.getHours() + ':' + addLeadingZero(fullDateTime.getMinutes());
+      date =
+        fullDateTime.getFullYear() +
+        "-" +
+        (fullDateTime.getMonth() + 1) +
+        "-" +
+        addLeadingZero(fullDateTime.getDate()),
+      time =
+        fullDateTime.getHours() +
+        ":" +
+        addLeadingZero(fullDateTime.getMinutes());
 
-    return date + ' ' + time;
+    return date + " " + time;
   }
 
-  var prettyDate = $('.pretty-date');
-  prettyDate.each(function() {
-    $(this).text(formatDate($(this).data('datetime')));
+  var prettyDate = $(".pretty-date");
+  prettyDate.each(function () {
+    $(this).text(formatDate($(this).data("datetime")));
   });
 
   // Thanks to bug 63040 in Chrome, onpopstate is fired when the page reloads.
   // That means that if we naively set onpopstate, we would get into an
   // infinite loop of reloading whenever onpopstate is triggered. Therefore,
   // we have to only add our onpopstate handler once the page has loaded.
-  window.onload = function() {
-    setTimeout(function() {
+  window.onload = function () {
+    setTimeout(function () {
       window.onpopstate = popStateHandler;
     }, 0);
   };
@@ -615,16 +664,17 @@ $(function() {
    * Replace 'source' with 'raw' in href, and set that to the background-image
    */
   function setBackgroundImageFromLink(anchorElement) {
-    var href = anchorElement.getAttribute('href');
+    var href = anchorElement.getAttribute("href");
     // note: breaks if the tree's name is "source"
-    var bg_src = href.replace('source', 'raw');
-    anchorElement.style.backgroundImage = 'url(' + bg_src + ')';
+    var bg_src = href.replace("source", "raw");
+    anchorElement.style.backgroundImage = "url(" + bg_src + ")";
   }
 
-  window.addEventListener('load', function() {
-    $(".image").not('.too_fat').each(function() {
-      setBackgroundImageFromLink(this);
-    });
+  window.addEventListener("load", function () {
+    $(".image")
+      .not(".too_fat")
+      .each(function () {
+        setBackgroundImageFromLink(this);
+      });
   });
-
 });
