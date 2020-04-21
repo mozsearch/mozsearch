@@ -33,18 +33,18 @@ let previouslyStuckElements = [];
  *   leverage math by making sure that a line beyond our maximum nesting level's
  *   line number lines up.
  */
-$("#scrolling").on('scroll', function() {
+$("#scrolling").on("scroll", function () {
   // Our logic can't work on our diff output because there will be line number
   // discontinuities and line numbers that are simply missing.
-  const contentElem = document.getElementById('content');
-  if (contentElem.classList.contains('diff')) {
+  const contentElem = document.getElementById("content");
+  if (contentElem.classList.contains("diff")) {
     return;
   }
 
-  const scrolling = document.getElementById('scrolling');
+  const scrolling = document.getElementById("scrolling");
   const firstSourceY = scrolling.offsetTop;
   // The goal is to make sure we're in the area the source line numbers live.
-  const lineForSizing = document.querySelector('.line-number');
+  const lineForSizing = document.querySelector(".line-number");
   const sourceLinesX = lineForSizing.offsetLeft + 6;
   const lineHeight = lineForSizing.offsetHeight;
 
@@ -55,7 +55,7 @@ $("#scrolling").on('scroll', function() {
   const jitter = 6;
 
   function extractLineNumberFromElem(elem) {
-    if (!elem.classList.contains('line-number')) {
+    if (!elem.classList.contains("line-number")) {
       return null;
     }
 
@@ -85,15 +85,21 @@ $("#scrolling").on('scroll', function() {
     let sourceLines = [];
 
     // Find a line number that can't possibly be stuck.
-    let sanityCheckLineNum =
-      extractLineNumberFromElem(document.elementFromPoint(
-        sourceLinesX, firstSourceY + offset + lineHeight * MAX_NESTING));
+    let sanityCheckLineNum = extractLineNumberFromElem(
+      document.elementFromPoint(
+        sourceLinesX,
+        firstSourceY + offset + lineHeight * MAX_NESTING
+      )
+    );
     // if we didn't find a line, try again with a slight jitter because there
     // might have been a box boundary edge-case.
     if (!sanityCheckLineNum) {
-      sanityCheckLineNum =
-        extractLineNumberFromElem(document.elementFromPoint(
-          sourceLinesX, jitter + firstSourceY + offset + lineHeight * MAX_NESTING));
+      sanityCheckLineNum = extractLineNumberFromElem(
+        document.elementFromPoint(
+          sourceLinesX,
+          jitter + firstSourceY + offset + lineHeight * MAX_NESTING
+        )
+      );
     }
 
     // If we couldn't find a sanity-checking line number, then either our logic
@@ -103,9 +109,9 @@ $("#scrolling").on('scroll', function() {
       return sourceLines;
     }
 
-    for (let iLine=0; iLine <= MAX_NESTING; iLine++) {
+    for (let iLine = 0; iLine <= MAX_NESTING; iLine++) {
       let elem = document.elementFromPoint(sourceLinesX, firstSourceY + offset);
-      if (!elem || !elem.classList.contains('line-number')) {
+      if (!elem || !elem.classList.contains("line-number")) {
         break;
       }
 
@@ -129,7 +135,7 @@ $("#scrolling").on('scroll', function() {
 
   let noLongerStuck = new Set(previouslyStuckElements);
   for (let elem of newlyStuckElements) {
-    elem.classList.add('stuck');
+    elem.classList.add("stuck");
     noLongerStuck.delete(elem);
   }
   let lastElem = null;
@@ -142,23 +148,23 @@ $("#scrolling").on('scroll', function() {
   }
   if (lastElem !== prevLastElem) {
     if (prevLastElem) {
-      prevLastElem.classList.remove('last-stuck');
+      prevLastElem.classList.remove("last-stuck");
     }
     if (lastElem) {
-      lastElem.classList.add('last-stuck');
+      lastElem.classList.add("last-stuck");
     }
   }
 
   for (let elem of noLongerStuck) {
-    elem.classList.remove('stuck');
+    elem.classList.remove("stuck");
   }
 
   previouslyStuckElements = newlyStuckElements;
 });
 
 $(function () {
-  'use strict';
-  var container = $('#file');
+  "use strict";
+  var container = $("#file");
   var lastModifierKey = null; // use this as a sort of canary/state indicator showing the last user action
   var singleLinesArray = []; //track single highlighted lines here
   var rangesArray = []; // track ranges of highlighted lines here
@@ -168,14 +174,14 @@ $(function () {
     return a - b;
   }
   function stringToRange(a) {
-    a = a.split('-');
-    a[0] = parseInt(a[0],10);
-    a[1] = parseInt(a[1],10);
+    a = a.split("-");
+    a[0] = parseInt(a[0], 10);
+    a[1] = parseInt(a[1], 10);
     return a;
   }
   function sortRangeAsc(a, b) {
     // tweak in order to account for inverted ranges like 150-120
-    return Math.min(a[0],a[1]) - Math.min(b[0],b[1]);
+    return Math.min(a[0], a[1]) - Math.min(b[0], b[1]);
   }
   function lineFromId(id) {
     if (id) {
@@ -195,8 +201,8 @@ $(function () {
     var rangesArray = [];
     var singleLinesArray = [];
 
-    var multiSelected = $('.line-number.multihighlight');
-    var singleSelected = $('.line-number.highlighted');
+    var multiSelected = $(".line-number.multihighlight");
+    var singleSelected = $(".line-number.highlighted");
 
     function generateLines(selected, lines) {
       for (var i = 0; i < selected.length; i++) {
@@ -251,32 +257,39 @@ $(function () {
     for (s = 0; s < singleLinesArray.length; s++) {
       for (r = 0; r < rangesArray.length; r++) {
         if (s >= rangesArray[r][0] && s <= rangesArray[r][1]) {
-          singleLinesArray.splice(s,1);
+          singleLinesArray.splice(s, 1);
           s--;
         }
       }
     }
     if (singleLinesArray.length || rangesArray.length) {
-      windowHash = '#';
+      windowHash = "#";
     }
-    for (s = 0, r = 0; s < singleLinesArray.length || r < rangesArray.length;) {
+    for (
+      s = 0, r = 0;
+      s < singleLinesArray.length || r < rangesArray.length;
+
+    ) {
       // if no ranges left or singleLine < range add singleLine to hash
       // if no singleLines left or range < singleLine add range to hash
-      if ((r == rangesArray.length) || (singleLinesArray[s] < rangesArray[r][0])) {
-        windowHash += singleLinesArray[s] + ',';
+      if (r == rangesArray.length || singleLinesArray[s] < rangesArray[r][0]) {
+        windowHash += singleLinesArray[s] + ",";
         s++;
-      } else if (( s == singleLinesArray.length) || (rangesArray[r][0] < singleLinesArray[s])) {
-        windowHash += rangesArray[r][0] + '-' + rangesArray[r][1] + ',';
+      } else if (
+        s == singleLinesArray.length ||
+        rangesArray[r][0] < singleLinesArray[s]
+      ) {
+        windowHash += rangesArray[r][0] + "-" + rangesArray[r][1] + ",";
         r++;
       }
     }
     if (windowHash) {
-      windowHash = windowHash.replace(reCleanup, '');
-      history.replaceState(null, '', windowHash);
+      windowHash = windowHash.replace(reCleanup, "");
+      history.replaceState(null, "", windowHash);
       let lineno = windowHash.slice(1);
       createSyntheticAnchor(lineno, false);
 
-      $("a[data-update-link]").each(function(i, elt) {
+      $("a[data-update-link]").each(function (i, elt) {
         let extra = $(elt).attr("data-update-link").replace("{}", lineno);
         $(elt).attr("href", $(elt).attr("data-link") + extra);
       });
@@ -293,32 +306,32 @@ $(function () {
     var reCleanup = /[^0-9,]/g;
     var ranges = null;
     var firstRange = null;
-    highlights = highlights.replace(/ /g,''); // clean whitespace
+    highlights = highlights.replace(/ /g, ""); // clean whitespace
     ranges = highlights.match(reRanges);
     if (ranges !== null) {
       ranges = ranges.map(stringToRange).sort(sortRangeAsc);
       //strip out multiline items like 12-15, so that all that is left are single lines
       //populate rangesArray for reuse if a user selects more ranges later
       for (var i = 0; i < ranges.length; i++) {
-        highlights = highlights.replace(ranges[i].join('-'), '');
+        highlights = highlights.replace(ranges[i].join("-"), "");
         ranges[i].sort(sortAsc);
       }
       // add the ordered ranges to the rangesArray
       rangesArray = rangesArray.concat(ranges);
       firstRange = rangesArray[0];
-      highlights = highlights.replace(reCleanup ,''); // clean anything other than digits and commas
-      highlights = highlights.replace(/,,+/g, ','); // clean multiple commas
-      highlights = highlights.replace(/^,|,$/g, ''); // clean leading and tailing comas
+      highlights = highlights.replace(reCleanup, ""); // clean anything other than digits and commas
+      highlights = highlights.replace(/,,+/g, ","); // clean multiple commas
+      highlights = highlights.replace(/^,|,$/g, ""); // clean leading and tailing comas
     }
 
     if (highlights.length) {
       //make an array of integers and sort it for the remaining single lines
-      highlights = highlights.split(',');
+      highlights = highlights.split(",");
       for (var h = 0; h < highlights.length; h++) {
         highlights[h] = parseInt(highlights[h], 10);
         //in case some unwanted string snuck by remove it
         if (isNaN(highlights[h])) {
-          highlights.splice(h,1);
+          highlights.splice(h, 1);
           h--;
         }
       }
@@ -348,26 +361,36 @@ $(function () {
       lineStart = null;
     }
 
-    return {'lineStart':lineStart, 'highlights':singleLinesArray, 'ranges':rangesArray};
+    return {
+      lineStart: lineStart,
+      highlights: singleLinesArray,
+      ranges: rangesArray,
+    };
   }
 
   //first bind to all .line-number click events only
-  container.on('click', '.line-number', function (event) {
+  container.on("click", ".line-number", function (event) {
     // hacky logic to jump if this is a stuck line number
     if (!event.shiftKey && !event.ctrlKey) {
-      var containingLine = $(this).closest('.source-line-with-number')[0];
+      var containingLine = $(this).closest(".source-line-with-number")[0];
       if (containingLine) {
-        if (containingLine.classList.contains('stuck')) {
-          document.getElementById('scrolling').scrollTop -= containingLine.offsetTop;
+        if (containingLine.classList.contains("stuck")) {
+          document.getElementById("scrolling").scrollTop -=
+            containingLine.offsetTop;
           return;
         }
       }
     }
 
-    var clickedNum = parseInt(lineFromId($(this).attr('id')), 10); // get the clicked line number
-    var line = $('#l' + clickedNum + ', #line-' + clickedNum); // get line-number and code
-    var lastSelectedLine = $('.line-number.last-selected, .source-line.last-selected');
-    var lastSelectedNum = parseInt(lineFromId($('.line-number.last-selected').attr('id')), 10); // get last selected line number as integer
+    var clickedNum = parseInt(lineFromId($(this).attr("id")), 10); // get the clicked line number
+    var line = $("#l" + clickedNum + ", #line-" + clickedNum); // get line-number and code
+    var lastSelectedLine = $(
+      ".line-number.last-selected, .source-line.last-selected"
+    );
+    var lastSelectedNum = parseInt(
+      lineFromId($(".line-number.last-selected").attr("id")),
+      10
+    ); // get last selected line number as integer
     var selectedLineNums = null; // used for selecting elements with class .line-number
     var selectedLineCode = null; // used for selecting code elements in .code class
     var self = this;
@@ -378,7 +401,7 @@ $(function () {
       for (let i = 0; i < count; i++) {
         ids[i] = `#l${lowInclusive + i}`;
       }
-      return $(ids.join(', '));
+      return $(ids.join(", "));
     }
     function pickLineCodes(lowInclusive, highExclusive) {
       let count = highExclusive - lowInclusive;
@@ -386,28 +409,28 @@ $(function () {
       for (let i = 0; i < count; i++) {
         ids[i] = `#line-${lowInclusive + i}`;
       }
-      return $(ids.join(', '));
+      return $(ids.join(", "));
     }
 
     //multiselect on shiftkey modifier combined with click
     if (event.shiftKey) {
-      var classToAdd = 'multihighlight';
+      var classToAdd = "multihighlight";
       // on shift, find last-selected code element
       // if lastSelectedNum less than clickedNum go back
       // else if lastSelectedNum greater than line id, go forward
       if (lastSelectedNum === clickedNum) {
         //toggle a single shiftclicked line
-        line.removeClass('last-selected highlighted clicked multihighlight');
+        line.removeClass("last-selected highlighted clicked multihighlight");
       } else if (lastSelectedNum < clickedNum) {
         //shiftclick descending down the page
-        line.addClass('clicked');
+        line.addClass("clicked");
         selectedLineNums = pickLineNums(lastSelectedNum, clickedNum);
         selectedLineCode = pickLineCodes(lastSelectedNum, clickedNum);
-        $('.last-selected').removeClass('clicked');
+        $(".last-selected").removeClass("clicked");
       } else if (lastSelectedNum > clickedNum) {
         //shiftclick ascending up the page
-        $('.line-number, .source-line').removeClass('clicked');
-        line.addClass('clicked');
+        $(".line-number, .source-line").removeClass("clicked");
+        line.addClass("clicked");
         selectedLineNums = pickLineNums(clickedNum, lastSelectedNum);
         selectedLineCode = pickLineCodes(clickedNum, lastSelectedNum);
       }
@@ -415,52 +438,52 @@ $(function () {
       selectedLineCode.addClass(classToAdd);
 
       //set the last used modifier key
-      lastModifierKey = 'shift';
+      lastModifierKey = "shift";
       // since all highlighed items are stripped, add one back, mark new last-selected
-      lastSelectedLine.addClass(classToAdd)
-        .removeClass('last-selected highlighted');
+      lastSelectedLine
+        .addClass(classToAdd)
+        .removeClass("last-selected highlighted");
       //line.removeClass('highlighted');
       line.addClass(classToAdd);
-      line.addClass('last-selected');
-
-    } else if (event.shiftKey && lastModifierKey === 'singleSelectKey') {
+      line.addClass("last-selected");
+    } else if (event.shiftKey && lastModifierKey === "singleSelectKey") {
       //if ctrl/command was last pressed, add multihighlight class to new lines
-      $('.line-number, .source-line').removeClass('clicked');
-      line.addClass('clicked');
+      $(".line-number, .source-line").removeClass("clicked");
+      line.addClass("clicked");
       selectedLineNums = pickLineNums(lastSelectedNum, clickedNum);
-      selectedLineNums.addClass('multihighlight')
-        .removeClass('highlighted');
+      selectedLineNums.addClass("multihighlight").removeClass("highlighted");
       selectedLineCode = pickLineCodes(lastSelectedNum, clickedNum);
-      selectedLineCode.addClass('multihighlight')
-        .removeClass('highlighted');
-      line.addClass('multihighlight');
-
+      selectedLineCode.addClass("multihighlight").removeClass("highlighted");
+      line.addClass("multihighlight");
     } else if (event.ctrlKey || event.metaKey) {
       //a single click with ctrl/command highlights one line and preserves existing highlights
-      lastModifierKey = 'singleSelectKey';
-      $('.highlighted').addClass('multihighlight');
-      $('.line-number, .source-line').removeClass('last-selected clicked highlighted');
+      lastModifierKey = "singleSelectKey";
+      $(".highlighted").addClass("multihighlight");
+      $(".line-number, .source-line").removeClass(
+        "last-selected clicked highlighted"
+      );
       if (lastSelectedNum !== clickedNum) {
-        line.toggleClass('clicked last-selected multihighlight');
+        line.toggleClass("clicked last-selected multihighlight");
       } else {
-        line.toggleClass('multihighlight');
-        history.replaceState(null, '', '#');
+        line.toggleClass("multihighlight");
+        history.replaceState(null, "", "#");
       }
-
     } else {
       //set lastModifierKey ranges and single lines to null, then clear all highlights
       lastModifierKey = null;
       //Remove existing highlights.
-      $('.line-number, .source-line').removeClass('last-selected highlighted multihighlight clicked');
+      $(".line-number, .source-line").removeClass(
+        "last-selected highlighted multihighlight clicked"
+      );
       //empty out single lines and ranges arrays
       rangesArray = [];
       singleLinesArray = [];
       //toggle highlighting on for any line that was not previously clicked
       if (lastSelectedNum !== clickedNum) {
         //With this we're one better than github, which doesn't allow toggling single lines
-        line.toggleClass('last-selected highlighted');
+        line.toggleClass("last-selected highlighted");
       } else {
-        history.replaceState(null, '', '#');
+        history.replaceState(null, "", "#");
       }
     }
     setWindowHash();
@@ -470,22 +493,24 @@ $(function () {
   $(document).ready(function () {
     if (window.location.hash.substring(1)) {
       var toHighlight = getSortedHashLines(),
-      highlights = toHighlight.highlights,
-      ranges = toHighlight.ranges;
+        highlights = toHighlight.highlights,
+        ranges = toHighlight.ranges;
 
       if (highlights !== null) {
         //add single line highlights
-        for (var i=0; i < highlights.length; i++) {
-          $('#l' + highlights[i] + ', #line-' + highlights[i]).addClass('highlighted');
+        for (var i = 0; i < highlights.length; i++) {
+          $("#l" + highlights[i] + ", #line-" + highlights[i]).addClass(
+            "highlighted"
+          );
         }
       }
 
       if (ranges !== null) {
         //handle multiple sets of multi-line highlights from an incoming url
-        for (var j=0; j < ranges.length; j++) {
+        for (var j = 0; j < ranges.length; j++) {
           //handle a single set of line ranges here; the c counter must be <= since it is a line id
           for (var c = ranges[j][0]; c <= ranges[j][1]; c++) {
-            $('#l' + c + ', #line-' + c).addClass('highlighted');
+            $("#l" + c + ", #line-" + c).addClass("highlighted");
           }
         }
       }
@@ -494,7 +519,6 @@ $(function () {
       setWindowHash();
     }
   });
-
 });
 
 // We use user-select:none to hide line numbers from text selections. That
@@ -502,11 +526,15 @@ $(function () {
 // or Safari (https://bugzilla.mozilla.org/show_bug.cgi?id=1616104#c1).
 // As a work-around, move all line numbers into pseudo-elements when the user
 // selects something for the first time.
-if (navigator.userAgent.indexOf('Firefox') == -1) {
-  document.addEventListener('selectstart', function() {
-    for (let lineno of document.querySelectorAll('.line-number')) {
-      lineno.dataset.lineNumber = lineno.textContent;
-      lineno.textContent = '';
-    }
-  }, { once: true });
+if (navigator.userAgent.indexOf("Firefox") == -1) {
+  document.addEventListener(
+    "selectstart",
+    function () {
+      for (let lineno of document.querySelectorAll(".line-number")) {
+        lineno.dataset.lineNumber = lineno.textContent;
+        lineno.textContent = "";
+      }
+    },
+    { once: true }
+  );
 }
