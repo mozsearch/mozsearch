@@ -177,6 +177,9 @@ var Highlight = new (class Highlight {
     this.lastSelectedLine = null;
     this.selectedLines = new Set();
     this.updateFromHash();
+    window.addEventListener("hashchange", () => {
+      this.updateFromHash();
+    });
   }
 
   addSelectedLine(line) {
@@ -256,6 +259,38 @@ var Highlight = new (class Highlight {
     this.updateHash();
   }
 
+  /**
+   * Creates a synthetic anchor for all hash configurations, even ones that
+   * highlight more than one line and therefore can't be understood by the
+   * browser's native anchor-seeking like "#200-205" and "#200,205".
+   *
+   * Even if it seemed like a good idea to attempt to manually trigger this
+   * scrolling on load and the "hashchange" event, Firefox notably will manually
+   * seek to an anchor if you press the enter key in the location bar and have not
+   * changed the hash.  This is a UX flow used by many developers, so it's
+   * essential the synthetic anchor is in place.  For this reason, any
+   * manipulation of history state via replaceState must call this method.
+   *
+   * This synthetic anchor also doubles as a means of creating sufficient padding
+   * so that "position:sticky" stuck lines don't obscure the line we're seeking
+   * to.  (That's what the "goto" class accomplishes.)  Please see mosearch.css
+   * for some additional details and context here.
+   */
+  createSyntheticAnchor(id) {
+    if (document.getElementById(id)) {
+      return;
+    }
+
+    // XXX A bit hackish.
+    let firstLineno = id.split(/[,-]/)[0];
+    let elt = document.getElementById("l" + firstLineno);
+
+    let anchor = document.createElement("div");
+    anchor.id = id;
+    anchor.className = "goto";
+    elt.appendChild(anchor);
+  }
+
   updateHash() {
     let hash = this.toHash();
     {
@@ -265,7 +300,7 @@ var Highlight = new (class Highlight {
       }
     }
     if (hash) {
-      createSyntheticAnchor(hash, false);
+      this.createSyntheticAnchor(hash);
     }
     for (let link of document.querySelectorAll("a[data-update-link]")) {
       let extra = link.getAttribute("data-update-link").replace("{}", hash);

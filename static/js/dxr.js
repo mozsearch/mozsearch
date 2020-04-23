@@ -1,39 +1,3 @@
-/**
- * Creates a synthetic anchor for all hash configurations, even ones that
- * highlight more than one line and therefore can't be understood by the
- * browser's native anchor-seeking like "#200-205" and "#200,205".
- *
- * Even if it seemed like a good idea to attempt to manually trigger this
- * scrolling on load and the "hashchange" event, Firefox notably will manually
- * seek to an anchor if you press the enter key in the location bar and have not
- * changed the hash.  This is a UX flow used by many developers, so it's
- * essential the synthetic anchor is in place.  For this reason, any
- * manipulation of history state via replaceState must call this method.
- *
- * This synthetic anchor also doubles as a means of creating sufficient padding
- * so that "position:sticky" stuck lines don't obscure the line we're seeking
- * to.  (That's what the "goto" class accomplishes.)  Please see mosearch.css
- * for some additional details and context here.
- */
-function createSyntheticAnchor(id, navigate = true) {
-  if (document.getElementById(id)) {
-    return;
-  }
-
-  var firstLineno = id.split(/[,-]/)[0];
-  var elt = document.getElementById("l" + firstLineno);
-
-  var gotoElt = document.createElement("div");
-  gotoElt.id = id;
-  gotoElt.className = "goto";
-  elt.appendChild(gotoElt);
-
-  // Need this for Chrome.
-  if (navigate && navigator.userAgent.indexOf("Firefox") == -1) {
-    window.location = window.location;
-  }
-}
-
 String.prototype.hashCode = function () {
   var hash = 0;
   if (this.length == 0) {
@@ -66,16 +30,6 @@ $(function () {
   // We start the history timeout after the search updates (i.e., after
   // timeouts.search has elapsed).
   timeouts.history = 2000 - timeouts.search;
-
-  // Check if the currently loaded page has a hash in the URL
-  if (window.location.hash) {
-    createSyntheticAnchor(window.location.hash.substr(1));
-  }
-
-  // We also need to cater for the above scenario when a user clicks on in page links.
-  window.onhashchange = function () {
-    createSyntheticAnchor(window.location.hash.substr(1));
-  };
 
   /**
    * Hang an advisory message off the search field.
