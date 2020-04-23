@@ -156,15 +156,22 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     // element will null this out as a means of letting the user get rid of the
     // popup if they didn't actually want to see the pop-up.
     this.mouseElement = null;
+    // Set to true if the user clicks on the blame strip. This will keep the
+    // keep the popup visible until the user clicks elsewhere.
+    this.keepVisible = false;
 
     for (let element of document.querySelectorAll(".blame-strip")) {
       element.addEventListener("mouseenter", this);
       element.addEventListener("mouseleave", this);
-      element.addEventListener("click", this);
     }
 
     BlamePopup.popup.addEventListener("mouseenter", this);
     BlamePopup.popup.addEventListener("mouseleave", this);
+    // Click listener needs to be capturing since whatever is being clicked on
+    // (e.g. a code fragment that displays a context menu) may actually
+    // consume the event.
+    window.addEventListener("click", this, {capture: true});
+    document.getElementById("scrolling").addEventListener("scroll", this, {passive: true});
   }
 
   handleEvent(event) {
@@ -172,6 +179,22 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     if (ContextMenu.active) {
       return;
     }
+
+    if (this.keepVisible) {
+      if (event.type == "mouseenter" || event.type == "mouseleave") {
+        // Ignore mouseenter/mouseleave events if keepVisible is true
+        return;
+      }
+    }
+
+    let clickedOutsideBlameStrip =
+        event.type == "click" &&
+        !event.target.matches(".blame-strip");
+    if (clickedOutsideBlameStrip && !BlamePopup.blameElement) {
+      // Don't care about clicks outside the blame strip if there's no popup showing.
+      return;
+    }
+
     // Debounced pop-up closer..
     //
     // If the mouse leaves a blame-strip element and doesn't move onto another
@@ -180,8 +203,10 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     // pop-up.
     if (
       event.type == "mouseleave" ||
-      (event.type == "click" && BlamePopup.blameElement)
+      event.type == "scroll" ||
+      clickedOutsideBlameStrip
     ) {
+      this.keepVisible = false;
       this.mouseElement = null;
       setTimeout(() => {
         if (this.mouseElement) {
@@ -190,6 +215,12 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
         BlamePopup.blameElement = null;
       }, 100);
     } else {
+      // We run this code on either "mouseenter", or on a "click" event where
+      // the click landed inside the blame strip. In the latter case we set
+      // keepVisible to pin the blame popup open until another click dismisses
+      // it, or a scroll event happens (since the popup doesn't move properly with
+      // scrolling).
+      this.keepVisible = (event.type == 'click');
       this.mouseElement = event.target;
       if (this.mouseElement != BlamePopup.popup) {
         BlamePopup.blameElement = this.mouseElement;
