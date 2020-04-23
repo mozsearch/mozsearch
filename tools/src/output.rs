@@ -116,7 +116,6 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     let css = [
         "mozsearch.css",
         "icons.css",
-        "selector-common.css",
         "filter.css",
         "xcode.css",
     ];
@@ -265,7 +264,6 @@ pub fn generate_footer(
         "utils.js",
         "dxr.js",
         "context-menu.js",
-        "filter.js",
         "panel.js",
         "code-highlighter.js",
         "blame.js",

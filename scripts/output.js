@@ -46,30 +46,12 @@ function generate(content, opt)
   let tree = opt.tree;
   let shouldAutofocusQuery = opt.shouldAutofocusQuery || false;
   let query = opt.query || "";
-  let filters = opt.filters || [];
   let isCaseSensitive = opt.isCaseSensitive === undefined ? true : opt.isCaseSensitive;
   let stateOffset = opt.stateOffset || 0;
   let stateLimit = opt.stateLimit || 100;
   let resultCount = opt.resultCount || 100;
   let eof = opt.eof || false;
   let includeDate = opt.includeDate || false;
-
-  let filterText = "";
-  for (let filter of filters) {
-    filterText += `
-                      <li>
-                        <a href="javascript:void(0)" data-value="${filter.name}:">
-                          <span class="selector-option-label">
-                            ${filter.name}:
-                          </span>
-                          <span class="selector-option-description">
-                            ${filter.description}
-                          </span>
-                        </a>
-                      </li>
-`;
-  }
-
 
   let date = "";
   if (includeDate) {
@@ -89,7 +71,6 @@ function generate(content, opt)
 
   <link href="/static/css/mozsearch.css" rel="stylesheet" type="text/css" media="screen"/>
   <link href="/static/css/icons.css" rel="stylesheet" type="text/css" media="screen" />
-  <link href="/static/css/selector-common.css" rel="stylesheet" type="text/css" media="screen" />
   <link href="/static/css/filter.css" rel="stylesheet" type="text/css" media="screen" />
   <link href="/static/css/xcode.css" rel="stylesheet" type="text/css" media="screen">
 </head>
@@ -146,7 +127,6 @@ function generate(content, opt)
   <script src="/static/js/utils.js"></script>
   <script src="/static/js/dxr.js"></script>
   <script src="/static/js/context-menu.js"></script>
-  <script src="/static/js/filter.js"></script>
   <script src="/static/js/panel.js"></script>
   <script src="/static/js/code-highlighter.js"></script>
 </div>
