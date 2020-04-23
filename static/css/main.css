@@ -198,8 +198,7 @@ td pre code {
     font-size: .7rem;
     margin: 0 0 0 1.2rem;
 }
-.highlighted,
-.multihighlight {
+.highlighted {
     background: none repeat scroll 0 0 rgb(255, 255, 204);
 }
 .code code {

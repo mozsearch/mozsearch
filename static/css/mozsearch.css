@@ -180,8 +180,7 @@ td#line-numbers {
     width: 8ex;
     flex-shrink: 0;
 }
-.highlighted,
-.multihighlight {
+.highlighted {
     background: none repeat scroll 0 0 rgb(255, 255, 204) !important;
 }
 .source-line {
