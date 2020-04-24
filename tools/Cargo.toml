@@ -6,7 +6,7 @@ authors = ["Bill McCloskey <billm@mozilla.com>"]
 [dependencies]
 chrono = "0.2"
 rustc-serialize = "0.3.18"
-git2 = "0.7"
+git2 = "0.13.3"
 lazy_static = "1.1"
 hyper = "0.10"
 log = "0.4.0"
@@ -23,6 +23,7 @@ malloc_size_of_derive = "0.1"
 malloc_size_of = { path = "./malloc_size_of" }
 jemalloc-sys = "0.3.2"
 jemallocator = "0.3.2"
+unicode-normalization = "0.1.12"
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production
