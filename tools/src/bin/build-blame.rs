@@ -286,7 +286,7 @@ fn main() {
     let args: Vec<_> = env::args().collect();
     let git_repo = Repository::open(&args[1]).unwrap();
     let blame_repo = Repository::open(&args[2]).unwrap();
-    let use_cinnabar = env::var("CINNABAR").map(|v| v == "1").unwrap_or(false);
+    let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
     let mut hg_helper = if use_cinnabar {
         Some(start_cinnabar_helper(&git_repo))
     } else {
