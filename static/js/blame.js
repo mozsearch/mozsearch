@@ -194,6 +194,11 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       // Don't care about clicks outside the blame strip if there's no popup showing.
       return;
     }
+    if (clickedOutsideBlameStrip && BlamePopup.popup.contains(event.target)) {
+      // Also don't care if the click landed on the blame popup itself (e.g. clicking
+      // on a link or expanding the details box in the popup).
+      return;
+    }
 
     // Debounced pop-up closer..
     //
