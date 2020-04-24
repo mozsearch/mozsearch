@@ -358,7 +358,7 @@ mod tests {
             .ok()
             .map(|s| Repository::open(s).unwrap());
         let (blame_map, hg_map) = match &blame_repo {
-            Some(ref blame_repo) => index_blame(&repo, &blame_repo),
+            Some(ref blame_repo) => index_blame(&blame_repo, None),
             None => (HashMap::new(), HashMap::new()),
         };
         let mailmap = Mailmap::load(&repo);

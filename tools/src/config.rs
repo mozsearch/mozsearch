@@ -85,11 +85,15 @@ pub fn get_git_path(tree_config: &TreeConfig) -> Result<&str, &'static str> {
 }
 
 pub fn index_blame(
-    _repo: &Repository,
     blame_repo: &Repository,
+    head_ref: Option<Oid>,
 ) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
     let mut walk = blame_repo.revwalk().unwrap();
-    walk.push_head().unwrap();
+    if let Some(oid) = head_ref {
+        walk.push(oid).unwrap();
+    } else {
+        walk.push_head().unwrap();
+    }
 
     let mut blame_map = HashMap::new();
     let mut hg_map = HashMap::new();
@@ -139,7 +143,7 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
 
                 let blame_repo = Repository::open(&git_blame_path).unwrap();
                 let (blame_map, hg_map) = if need_indexes {
-                    index_blame(&repo, &blame_repo)
+                    index_blame(&blame_repo, None)
                 } else {
                     (HashMap::new(), HashMap::new())
                 };
