@@ -8,30 +8,38 @@ extern crate unicode_normalization;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::env;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command, Stdio};
 
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::config::index_blame;
-use tools::git_ops;
 use unicode_normalization::UnicodeNormalization;
 
-fn get_hg_rev(git_repo: &Repository, git_oid: &Oid) -> Option<String> {
-    // TODO: start a helper process and stream I/O to it instead of spawning a new process every time
-    let output = Command::new("git")
-        .arg("cinnabar")
-        .arg("git2hg")
-        .arg(format!("{}", git_oid))
+fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
+    write!(helper.stdin.as_mut().unwrap(), "git2hg {}\n", git_oid).unwrap();
+    let mut reader = BufReader::new(helper.stdout.as_mut().unwrap());
+    loop {
+        let mut result = String::new();
+        reader.read_line(&mut result).unwrap();
+        if result.starts_with("changeset ") {
+            return result.split(' ').nth(1).map(str::trim).map(str::to_string);
+        }
+        if result.trim().chars().all(|c| c == '0') {
+            return None;
+        }
+        // else loop again. cinnabar-helper emits a bunch of other info that we don't care about
+    }
+}
+
+fn start_cinnabar_helper(git_repo: &Repository) -> Child {
+    Command::new("git")
+        .arg("cinnabar-helper")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
         .current_dir(git_repo.path())
-        .output()
-        .unwrap();
-    if !output.status.success() {
-        panic!("`git cinnabar git2hg {}` returned error code {:?}", git_oid, output.status.code());
-    }
-    match git_ops::decode_bytes(output.stdout).lines().next() {
-        Some(r) if r != "0000000000000000000000000000000000000000" => Some(r.to_string()),
-        _ => None,
-    }
+        .spawn()
+        .unwrap()
 }
 
 fn count_lines(blob: &git2::Blob) -> usize {
@@ -279,6 +287,11 @@ fn main() {
     let git_repo = Repository::open(&args[1]).unwrap();
     let blame_repo = Repository::open(&args[2]).unwrap();
     let use_cinnabar = env::var("CINNABAR").map(|v| v == "1").unwrap_or(false);
+    let mut hg_helper = if use_cinnabar {
+        Some(start_cinnabar_helper(&git_repo))
+    } else {
+        None
+    };
     let blame_ref = env::var("BLAME_REF").ok().unwrap_or("HEAD".to_string());
 
     info!("Reading existing blame map of ref {}...", blame_ref);
@@ -310,11 +323,9 @@ fn main() {
     for git_oid in revs_to_process {
         rev_done += 1;
 
-        let hg_rev = if use_cinnabar {
-            get_hg_rev(&git_repo, &git_oid)
-        } else {
-            // we don't support mapfiles any more.
-            None
+        let hg_rev = match hg_helper {
+            Some(ref mut helper) => get_hg_rev(helper, &git_oid),
+            None => None, // we don't support mapfiles any more.
         };
 
         info!(
@@ -404,5 +415,9 @@ fn main() {
 
         blame_map.insert(git_oid, blame_oid);
         info!("  -> {}", blame_oid);
+    }
+
+    if let Some(mut helper) = hg_helper {
+        helper.kill().unwrap();
     }
 }
