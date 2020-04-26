@@ -345,7 +345,7 @@ pub fn generate_panel(
         .collect::<Vec<_>>();
 
     let f = F::Seq(vec![
-        F::S(r#"<div class="panel">"#),
+        F::S(r#"<div class="panel" id="panel">"#),
         F::Indent(vec![
             F::S(r#"<button id="panel-toggle">"#),
             F::Indent(vec![

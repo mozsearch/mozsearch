@@ -1,55 +1,74 @@
-$(function () {
-  /**
-   * Toggles the ARIA expanded and hidden attributes' state.
-   *
-   * @param Object elem The element on which to toggle the attribute.
-   */
-  function toggleAria(elem) {
-    var expandedState =
-      elem.attr("aria-expanded") === "true" ? "false" : "true";
-    var hiddenState = elem.attr("aria-hidden") === "true" ? "false" : "true";
-    elem.attr("aria-hidden", hiddenState);
-    elem.attr("aria-expanded", expandedState);
-  }
+var Panel = new (class Panel {
+  constructor() {
+    this.panel = document.getElementById("panel");
+    this.toggleButton = document.getElementById("panel-toggle");
+    this.icon = this.panel.querySelector(".navpanel-icon");
+    this.content = document.getElementById("panel-content");
+    this.accelEnabledCheckbox = document.getElementById("panel-accel-enable");
 
-  $("#panel-toggle").click(function (event) {
-    var panelContent = $("#panel-content");
-    var icon = $(".navpanel-icon", this);
+    this.permalinkNode = this.findLink("Permalink");
+    this.logNode = this.findLink("Log");
+    this.rawNode = this.findLink("Raw");
 
-    icon.toggleClass("expanded");
-    panelContent.toggle();
-    toggleAria(panelContent);
-  });
-
-  var permalinkNode = $('.panel a[title="Permalink"]');
-  permalinkNode = permalinkNode.length == 0 ? null : permalinkNode[0];
-
-  function pushPermalink() {
-    if (permalinkNode) {
-      if (window.location.href != permalinkNode.href) {
-        history.pushState(
-          { permalink: permalinkNode.href },
-          window.title,
-          permalinkNode.href
-        );
-      }
-      return true;
-    }
-    return false;
-  }
-
-  if (permalinkNode) {
-    permalinkNode.addEventListener("click", event => {
-      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-        return;
-      }
-      if (pushPermalink()) {
-        event.preventDefault();
-      }
+    this.toggleButton.addEventListener("click", () => this.toggle());
+    this.accelEnabledCheckbox.addEventListener("change", () => {
+      localStorage.setItem("accel-enable", event.target.checked ? "1" : "0");
+      this.updateAccelerators();
     });
+    document.documentElement.addEventListener("keypress", event =>
+      this.maybeHandleAccelerator(event)
+    );
+
+    if (this.permalinkNode) {
+      this.permalinkNode.addEventListener("click", event => {
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+          return;
+        }
+        window.history.pushState(
+          { permalink: event.target.href },
+          window.title,
+          event.target.href
+        );
+        event.preventDefault();
+      });
+    }
+
+    // If the user toggles it in a different tab, update the checkbox/state here
+    //
+    // TODO(emilio): We should probably do the same for the case-sensitive
+    // checkbox and such.
+    window.addEventListener("storage", () => this.initFromLocalStorage());
+
+    this.initFromLocalStorage();
   }
 
-  function handleAccelerator(event) {
+  get acceleratorsEnabled() {
+    return this.accelEnabledCheckbox.checked;
+  }
+
+  initFromLocalStorage() {
+    let acceleratorsEnabled =
+      !("accel-enable" in localStorage) ||
+      localStorage.getItem("accel-enable") == "1";
+    this.accelEnabledCheckbox.checked = acceleratorsEnabled;
+    this.updateAccelerators();
+  }
+
+  updateAccelerators() {
+    let enabled = this.acceleratorsEnabled;
+    for (let accel of this.panel.querySelectorAll("span.accel")) {
+      accel.style.display = enabled ? "" : "none";
+    }
+  }
+
+  findLink(title) {
+    return this.panel.querySelector(`a[title="${title}"]`);
+  }
+
+  maybeHandleAccelerator(event) {
+    if (!this.acceleratorsEnabled) {
+      return;
+    }
     if (event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }
@@ -57,91 +76,31 @@ $(function () {
     if (inputs.test(event.target.nodeName)) {
       return;
     }
-    switch (event.key) {
-      case "y":
-      case "Y":
-        if (pushPermalink()) {
-          event.preventDefault();
-        }
-        break;
-      case "l":
-      case "L":
-        var linkNode = $('.panel a[title="Log"]');
-        if (linkNode.length) {
-          linkNode[0].click();
-          event.preventDefault();
-        }
-        break;
-      case "r":
-      case "R":
-        var linkNode = $('.panel a[title="Raw"]');
-        if (linkNode.length) {
-          linkNode[0].click();
-          event.preventDefault();
-        }
-        break;
-    }
-  }
-
-  function acceleratorsEnabledInLocalStorage() {
-    return (
-      !("accel-enable" in localStorage) ||
-      localStorage.getItem("accel-enable") == "1"
-    );
-  }
-
-  var acceleratorsEnabled = acceleratorsEnabledInLocalStorage();
-
-  if (acceleratorsEnabled) {
-    // Keyboard accelerators are enabled, so register them.
-    document.documentElement.addEventListener("keypress", handleAccelerator);
-  } else {
-    // Keyboard accelerators disabled, so reflect that state in the checkbox and
-    // hide the accelerators. Also don't register the keyboard listeners.
-    let panelAccelEnable = $("#panel-accel-enable")[0];
-    if (panelAccelEnable) {
-      panelAccelEnable.checked = false;
-    }
-    $(".panel span.accel").hide();
-  }
-
-  function updateAccelerators(newState) {
-    if (acceleratorsEnabled == newState) {
-      return;
-    }
-    acceleratorsEnabled = newState;
-    let panelAccelEnable = $("#panel-accel-enable")[0];
-    if (newState) {
-      document.documentElement.addEventListener("keypress", handleAccelerator);
-      $(".panel span.accel").show();
-      localStorage.setItem("accel-enable", "1");
-      if (panelAccelEnable) {
-        panelAccelEnable.checked = true;
+    let link = (() => {
+      switch (event.key) {
+        case "y":
+        case "Y":
+          return this.permalinkNode;
+        case "l":
+        case "L":
+          return this.logNode;
+        case "r":
+        case "R":
+          return this.rawNode;
       }
-    } else {
-      document.documentElement.removeEventListener(
-        "keypress",
-        handleAccelerator
-      );
-      $(".panel span.accel").hide();
-      localStorage.setItem("accel-enable", "0");
-      if (panelAccelEnable) {
-        panelAccelEnable.checked = false;
-      }
+    })();
+
+    if (link) {
+      link.click();
+      event.preventDefault();
     }
   }
 
-  // If the user toggles the checkbox let's update the state accordingly.
-  let panelAccelEnable = document.getElementById("panel-accel-enable");
-  if (panelAccelEnable) {
-    panelAccelEnable.addEventListener("change", () => {
-      var newState = panelAccelEnable.checked;
-      updateAccelerators(newState);
-    });
+  toggle() {
+    let hidden = this.content.style.display != "none";
+    this.content.style.display = hidden ? "none" : "";
+    this.content.setAttribute("aria-hidden", hidden);
+    this.content.setAttribute("aria-expanded", !hidden);
+    this.icon.classList.toggle("expanded");
   }
-  // If the user toggles it in a different tab, update the checkbox/state here
-  window.addEventListener("storage", function () {
-    var newState = acceleratorsEnabledInLocalStorage();
-    updateAccelerators(newState);
-  });
-});
+})();
