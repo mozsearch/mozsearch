@@ -170,8 +170,10 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     // Click listener needs to be capturing since whatever is being clicked on
     // (e.g. a code fragment that displays a context menu) may actually
     // consume the event.
-    window.addEventListener("click", this, {capture: true});
-    document.getElementById("scrolling").addEventListener("scroll", this, {passive: true});
+    window.addEventListener("click", this, { capture: true });
+    document
+      .getElementById("scrolling")
+      .addEventListener("scroll", this, { passive: true });
   }
 
   handleEvent(event) {
@@ -188,8 +190,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     }
 
     let clickedOutsideBlameStrip =
-        event.type == "click" &&
-        !event.target.matches(".blame-strip");
+      event.type == "click" && !event.target.matches(".blame-strip");
     if (clickedOutsideBlameStrip && !BlamePopup.blameElement) {
       // Don't care about clicks outside the blame strip if there's no popup showing.
       return;
@@ -225,7 +226,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       // keepVisible to pin the blame popup open until another click dismisses
       // it, or a scroll event happens (since the popup doesn't move properly with
       // scrolling).
-      this.keepVisible = (event.type == 'click');
+      this.keepVisible = event.type == "click";
       this.mouseElement = event.target;
       if (this.mouseElement != BlamePopup.popup) {
         BlamePopup.blameElement = this.mouseElement;
