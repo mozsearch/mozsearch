@@ -146,11 +146,12 @@ fn blame_for_path(
             .and_then(|m| m.get(&blob.id()))
             .map(|p| p.borrow())
             .unwrap_or(path);
-        let parent_blob = match parent.tree()?.get_path(parent_path) {
-            Ok(t) if t.kind() == Some(ObjectType::Blob) => t.to_object(git_repo)?.peel_to_blob()?,
-            _ => {
-                continue;
-            }
+        let unmodified_lines = match diff_data
+            .unmodified_lines
+            .get(&(parent.id(), path.to_path_buf()))
+        {
+            Some(entry) => entry,
+            _ => continue,
         };
         let parent_blame_blob = match blame_parent.tree()?.get_path(parent_path) {
             Ok(entry) => entry.to_object(blame_repo)?.peel_to_blob()?,
@@ -162,12 +163,12 @@ fn blame_for_path(
             .collect::<Vec<&str>>();
 
         let path_unchanged = path == parent_path;
-        for (lineno, parent_lineno) in unmodified_lines(&blob, &parent_blob)? {
+        for (lineno, parent_lineno) in unmodified_lines {
             if path_unchanged {
-                blame[lineno] = String::from(parent_blame[parent_lineno]);
+                blame[*lineno] = String::from(parent_blame[*parent_lineno]);
                 continue;
             }
-            let mut pieces = parent_blame[parent_lineno].splitn(4, ':');
+            let mut pieces = parent_blame[*parent_lineno].splitn(4, ':');
             let p_rev = pieces.next().unwrap();
             let mut p_fname = pieces.next().unwrap();
             let p_lineno = pieces.next().unwrap();
@@ -175,12 +176,77 @@ fn blame_for_path(
             if p_fname == "%" {
                 p_fname = parent_path.to_str().unwrap();
             }
-            blame[lineno] = format!("{}:{}:{}:{}", p_rev, p_fname, p_lineno, p_author);
+            blame[*lineno] = format!("{}:{}:{}:{}", p_rev, p_fname, p_lineno, p_author);
         }
     }
     // Extra entry so the `join` call after adds a trailing newline
     blame.push(String::new());
     Ok(blame.join("\n"))
+}
+
+// This recursively walks the tree for the given commit, skipping over unmodified
+// entries, exactly like build_blame_tree does. However, instead of building the
+// blame tree, this simply computes the unmodified_lines for each blob that was
+// modified in `commit`, relative to all the parents. The results are populated
+// into the `results` HashMap.
+fn find_unmodified_lines(
+    file_movement: Option<&HashMap<Oid, PathBuf>>,
+    git_repo: &git2::Repository,
+    commit: &git2::Commit,
+    mut path: PathBuf,
+    results: &mut HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
+) -> Result<(), git2::Error> {
+    let tree_at_path = if path == PathBuf::new() {
+        commit.tree()?
+    } else {
+        commit
+            .tree()?
+            .get_path(&path)?
+            .to_object(git_repo)?
+            .peel_to_tree()?
+    };
+    'outer: for entry in tree_at_path.iter() {
+        path.push(entry.name().unwrap());
+        for parent in commit.parents() {
+            if let Ok(parent_entry) = parent.tree()?.get_path(&path) {
+                if parent_entry.id() == entry.id() {
+                    path.pop();
+                    continue 'outer;
+                }
+            }
+        }
+
+        match entry.kind() {
+            Some(ObjectType::Blob) => {
+                let blob = entry.to_object(git_repo)?.peel_to_blob()?;
+                for parent in commit.parents() {
+                    let parent_path = file_movement
+                        .and_then(|m| m.get(&blob.id()))
+                        .map(|p| p.borrow())
+                        .unwrap_or(&path);
+                    let parent_blob = match parent.tree()?.get_path(parent_path) {
+                        Ok(t) if t.kind() == Some(ObjectType::Blob) => {
+                            t.to_object(git_repo)?.peel_to_blob()?
+                        }
+                        _ => continue,
+                    };
+
+                    results.insert(
+                        (parent.id(), path.clone()),
+                        unmodified_lines(&blob, &parent_blob)?,
+                    );
+                }
+            }
+            Some(ObjectType::Tree) => {
+                find_unmodified_lines(file_movement, git_repo, commit, path.clone(), results)?;
+            }
+            _ => (),
+        };
+
+        path.pop();
+    }
+
+    Ok(())
 }
 
 fn build_blame_tree(
@@ -286,12 +352,24 @@ struct DiffData {
     // at in the parent revision, for files that got moved. Set to None if the
     // child rev has multiple parents.
     file_movement: Option<HashMap<Oid, PathBuf>>,
+    // Map to find unmodified lines for modified files in a revision (files that
+    // are not modified don't have entries here). The key is of the map is a
+    // tuple containing the parent commit id and path to the file (in the child
+    // revision). The parent commit id is needed in the case of merge commits,
+    // where a file that is modified may have different sets of unmodified lines
+    // with respect to the different parent commits.
+    // The value in the map is a vec of line mappings as produced by the
+    // `unmodified_lines` function.
+    unmodified_lines: HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
 }
 
 // Does the CPU-intensive work required for blame computation of a given revision.
 // This does not mutate anything in `git_repo` and has no other dependencies, so
 // it can be parallelized.
-fn compute_diff_data(git_repo: &git2::Repository, git_oid: &git2::Oid) -> DiffData {
+fn compute_diff_data(
+    git_repo: &git2::Repository,
+    git_oid: &git2::Oid,
+) -> Result<DiffData, git2::Error> {
     let commit = git_repo.find_commit(*git_oid).unwrap();
     let file_movement = if commit.parent_count() == 1 {
         let mut movement = HashMap::new();
@@ -322,10 +400,20 @@ fn compute_diff_data(git_repo: &git2::Repository, git_oid: &git2::Oid) -> DiffDa
         None
     };
 
-    DiffData {
+    let mut unmodified_lines = HashMap::new();
+    find_unmodified_lines(
+        file_movement.as_ref(),
+        git_repo,
+        &commit,
+        PathBuf::new(),
+        &mut unmodified_lines,
+    )?;
+
+    Ok(DiffData {
         _revision: *git_oid,
         file_movement,
-    }
+        unmodified_lines,
+    })
 }
 
 fn main() {
@@ -386,7 +474,7 @@ fn main() {
             .map(|pid| blame_repo.find_commit(blame_map[&pid]).unwrap())
             .collect::<Vec<_>>();
 
-        let diff_data = compute_diff_data(&git_repo, &git_oid);
+        let diff_data = compute_diff_data(&git_repo, &git_oid).unwrap();
 
         let mut builder = blame_repo.treebuilder(None).unwrap();
         build_blame_tree(
