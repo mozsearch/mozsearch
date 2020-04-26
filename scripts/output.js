@@ -122,7 +122,6 @@ function generate(content, opt)
   <span id="data" data-root="/" data-search="/${tree}/search" data-tree="${tree}"></span>
   <span id="state" data-offset="${stateOffset}" data-limit="${stateLimit}" data-result-count="${resultCount}" data-eof="${eof}"></span>
 
-  <script src="/static/js/libs/jquery-2.1.3.min.js"></script>
   <script src="/static/js/dxr.js"></script>
   <script src="/static/js/context-menu.js"></script>
   <script src="/static/js/panel.js"></script>
