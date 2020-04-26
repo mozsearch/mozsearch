@@ -1,5 +1,4 @@
 /* jshint devel:true, esnext: true */
-/* globals nunjucks: true, $ */
 
 /**
  * This file consists of four major pieces of functionality for a file view:

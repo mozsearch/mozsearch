@@ -92,10 +92,18 @@ var ContextMenu = new (class ContextMenu {
       return;
     }
 
-    this.menu.innerHTML = nunjucks.render(
-      "static/templates/context-menu.html",
-      { menuItems }
-    );
+    this.menu.innerHTML = "";
+    for (let item of menuItems) {
+      let li = document.createElement("li");
+      let link = li.appendChild(document.createElement("a"));
+      link.href = item.href;
+      link.classList.add("icon");
+      if (item.icon) {
+        link.classList.add(item.icon);
+      }
+      link.innerHTML = item.html;
+      this.menu.appendChild(li);
+    }
 
     let top = event.clientY + window.scrollY;
     let left = event.clientX + window.scrollX;

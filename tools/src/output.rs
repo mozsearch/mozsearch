@@ -260,7 +260,6 @@ pub fn generate_footer(
 
     let scripts = [
         "libs/jquery-2.1.3.min.js",
-        "libs/nunjucks.min.js",
         "utils.js",
         "dxr.js",
         "context-menu.js",
