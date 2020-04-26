@@ -114,7 +114,7 @@ fn unmodified_lines(
 }
 
 fn blame_for_path(
-    file_movement: &HashMap<Oid, HashMap<Oid, PathBuf>>,
+    file_movement: &Option<HashMap<Oid, PathBuf>>,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     blame_repo: &git2::Repository,
@@ -141,7 +141,7 @@ fn blame_for_path(
 
     for (parent, blame_parent) in commit.parents().zip(blame_parents.iter()).rev() {
         let parent_path = file_movement
-            .get(&parent.id())
+            .as_ref()
             .and_then(|m| m.get(&blob.id()))
             .map(|p| p.borrow())
             .unwrap_or(path);
@@ -184,7 +184,7 @@ fn blame_for_path(
 
 fn build_blame_tree(
     builder: &mut git2::TreeBuilder,
-    file_movement: &HashMap<Oid, HashMap<Oid, PathBuf>>,
+    file_movement: &Option<HashMap<Oid, PathBuf>>,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     blame_repo: &git2::Repository,
@@ -336,8 +336,7 @@ fn main() {
             .map(|pid| blame_repo.find_commit(blame_map[&pid]).unwrap())
             .collect::<Vec<_>>();
 
-        let mut file_movement = HashMap::new();
-        if commit.parent_count() == 1 {
+        let file_movement = if commit.parent_count() == 1 {
             let mut movement = HashMap::new();
             let mut diff = git_repo
                 .diff_tree_to_tree(
@@ -361,8 +360,10 @@ fn main() {
                     );
                 }
             }
-            file_movement.insert(commit.parent_id(0).unwrap(), movement);
-        }
+            Some(movement)
+        } else {
+            None
+        };
 
         let mut builder = blame_repo.treebuilder(None).unwrap();
         build_blame_tree(
