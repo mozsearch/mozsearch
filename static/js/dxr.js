@@ -542,6 +542,6 @@ function formatDate(dateString) {
   return date + " " + time;
 }
 
-$(".pretty-date").each(function () {
-  $(this).text(formatDate($(this).data("datetime")));
-});
+for (let element of document.querySelectorAll(".pretty-date")) {
+  element.innerText = formatDate(element.getAttribute("data-datetime"));
+}
