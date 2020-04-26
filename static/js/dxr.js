@@ -15,8 +15,7 @@ $(function () {
   "use strict";
 
   var constants = $("#data");
-  var dxr = {},
-    docElem = document.documentElement;
+  var dxr = {};
 
   dxr.wwwRoot = constants.data("root");
   dxr.baseUrl = location.protocol + "//" + location.host;
