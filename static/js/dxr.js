@@ -223,21 +223,17 @@ function classOfResult(pathkind, qkind) {
 }
 
 function onExpandoClick(event) {
-  var target = $(event.target);
-  var open = target.hasClass("open");
-
-  if (open) {
-    $("." + target.data("klass")).hide();
-    target.removeClass("open");
-    target.html("&#9654;");
-  } else {
-    $("." + target.data("klass")).show();
-    target.addClass("open");
-    target.html("&#9660;");
+  let target = event.target;
+  let open = target.classList.contains("open");
+  let elements = document.querySelectorAll(
+    "." + target.getAttribute("data-klass")
+  );
+  for (let element of elements) {
+    element.style.display = open ? "" : "none";
   }
+  target.classList.toggle("open");
+  target.innerHTML = open ? "&#9654;" : "&#9660;";
 }
-
-var contentContainer = $("#content");
 
 var populateEpoch = 0;
 function populateResults(data, full, jumpToSingle) {
@@ -405,36 +401,37 @@ function populateResults(data, full, jumpToSingle) {
     return;
   }
 
-  var timeoutWarning = null;
-  if (timed_out) {
-    timeoutWarning = $(
-      `<div>Warning: results may be incomplete due to server-side search timeout!</div>`
-    );
-  }
   // If no data is returned, inform the user.
+  let container = document.getElementById("content");
+  container.innerHTML = "";
+
+  let timeoutWarning = timed_out
+    ? "<div>Warning: results may be incomplete due to server-side search timeout!</div>"
+    : "";
+
   if (!fileCount) {
-    var user_message = contentContainer.data("no-results");
-    contentContainer.empty().append($("<span>" + user_message + "</span>"));
+    container.insertAdjacentHTML(
+      "beforeend",
+      "<span>No results for current query.</span>"
+    );
     if (timeoutWarning) {
-      container.append(timeoutWarning);
+      container.insertAdjacentHTML("beforeend", timeoutWarning);
     }
   } else {
-    var container = contentContainer.empty();
-
     if (count) {
-      var numResults = $(
+      container.insertAdjacentHTML(
+        "beforeend",
         `<div>Number of results: ${count} (maximum is 1000)</div>`
       );
-      container.append(numResults);
     }
     if (timeoutWarning) {
-      container.append(timeoutWarning);
+      container.insertAdjacentHTML("beforeend", timeoutWarning);
     }
 
     var table = document.createElement("table");
     table.className = "results";
 
-    container.append($(table));
+    container.appendChild(table);
 
     var counter = 0;
 
@@ -493,7 +490,9 @@ function populateResults(data, full, jumpToSingle) {
 
     table.innerHTML = html;
 
-    $(".expando").click(onExpandoClick);
+    for (let element of document.querySelectorAll(".expando")) {
+      element.addEventListener("click", onExpandoClick);
+    }
 
     if (counter > 100 && !full) {
       var epoch = populateEpoch;
