@@ -15,3 +15,5 @@ env
 repos
 /index
 addons
+/java/bazel-*
+/java/build

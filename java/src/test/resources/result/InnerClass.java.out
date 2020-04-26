@@ -1,0 +1,34 @@
+{"loc":"1:13-23","pretty":"class InnerClass","sym":"InnerClass","syntax":"def,type","source":1}
+{"loc":"1:13","pretty":"InnerClass","kind":"def","sym":"InnerClass","context":"","target":1}
+{"loc":"2:13-14","pretty":"member InnerClass.x","sym":"InnerClass#x","syntax":"def,variable","source":1}
+{"loc":"2:13","pretty":"InnerClass.x","kind":"def","sym":"InnerClass#x","context":"InnerClass","target":1}
+{"loc":"4:8-13","pretty":"class InnerClass.First","sym":"InnerClass#First","syntax":"def,type","source":1}
+{"loc":"4:8","pretty":"InnerClass.First","kind":"def","sym":"InnerClass#First","context":"InnerClass","target":1}
+{"loc":"5:15-16","pretty":"member InnerClass.First.x","sym":"InnerClass#First#x","syntax":"def,variable","source":1}
+{"loc":"5:15","pretty":"InnerClass.First.x","kind":"def","sym":"InnerClass#First#x","context":"InnerClass.First","target":1}
+{"loc":"8:21-25","pretty":"method InnerClass.main","sym":"InnerClass#main","syntax":"def,function","source":1}
+{"loc":"8:21","pretty":"InnerClass.main","kind":"def","sym":"InnerClass#main","context":"InnerClass","target":1}
+{"loc":"8:21-25","pretty":"method main","sym":"main","syntax":"def,function","source":1}
+{"loc":"8:21","pretty":"main","kind":"def","sym":"main","context":"InnerClass","target":1}
+{"loc":"8:26-32","pretty":"class java.lang.String","sym":"java#lang#String","syntax":"type,use","source":1}
+{"no_crossref":1,"loc":"8:35-39","pretty":"parameter args","sym":"args","syntax":"use,variable","source":1}
+{"loc":"8:26","pretty":"java.lang.String","kind":"use","sym":"java#lang#String","context":"InnerClass","target":1}
+{"loc":"8:35","pretty":"args","kind":"def","sym":"args","context":"InnerClass","target":1}
+{"no_crossref":1,"loc":"9:15-20","pretty":"variable first","sym":"first","syntax":"use,variable","source":1}
+{"loc":"9:15","pretty":"first","kind":"def","sym":"first","context":"InnerClass.main","target":1}
+{"loc":"9:4-14","pretty":"class InnerClass","sym":"InnerClass","syntax":"type,use","source":1}
+{"loc":"9:4","pretty":"InnerClass","kind":"use","sym":"InnerClass","context":"InnerClass.main","target":1}
+{"loc":"9:27-37","pretty":"constructor InnerClass.InnerClass","sym":"InnerClass#InnerClass","syntax":"use,function","source":1}
+{"loc":"9:27","pretty":"InnerClass.InnerClass","kind":"use","sym":"InnerClass#InnerClass","context":"InnerClass.main","target":1}
+{"no_crossref":1,"loc":"10:21-22","pretty":"variable v","sym":"v","syntax":"use,variable","source":1}
+{"loc":"10:21","pretty":"v","kind":"def","sym":"v","context":"InnerClass.main","target":1}
+{"loc":"10:15-20","pretty":"class InnerClass.First","sym":"InnerClass#First","syntax":"type,use","source":1}
+{"loc":"10:15","pretty":"InnerClass.First","kind":"use","sym":"InnerClass#First","context":"InnerClass.main","target":1}
+{"loc":"10:35-40","pretty":"constructor InnerClass.First.First","sym":"InnerClass#First#First","syntax":"use,function","source":1}
+{"loc":"10:35","pretty":"InnerClass.First.First","kind":"use","sym":"InnerClass#First#First","context":"InnerClass.main","target":1}
+{"no_crossref":1,"loc":"10:25-30","pretty":"variable first","sym":"first","syntax":"uselocal,variable","source":1}
+{"loc":"10:25","pretty":"first","kind":"use","sym":"first","context":"InnerClass.main","target":1}
+{"loc":"11:6-7","pretty":"member InnerClass.First.x","sym":"InnerClass#First#x","syntax":"use","source":1}
+{"loc":"11:6","pretty":"InnerClass.First.x","kind":"use","sym":"InnerClass#First#x","context":"InnerClass.main","target":1}
+{"no_crossref":1,"loc":"11:4-5","pretty":"variable v","sym":"v","syntax":"uselocal,variable","source":1}
+{"loc":"11:4","pretty":"v","kind":"use","sym":"v","context":"InnerClass.main","target":1}

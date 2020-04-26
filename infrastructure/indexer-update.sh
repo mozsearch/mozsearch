@@ -57,6 +57,10 @@ pushd mozsearch/clang-plugin
 make
 popd
 
+pushd mozsearch/java
+bazel build //:JavaAnalyze
+popd
+
 pushd mozsearch/tools
 cargo build --release --verbose
 popd

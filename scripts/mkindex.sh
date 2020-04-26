@@ -60,6 +60,10 @@ $MOZSEARCH_PATH/scripts/ipdl-analyze.sh $CONFIG_FILE $TREE_NAME
 
 date
 
+$MOZSEARCH_PATH/scripts/java-analyze.sh $CONFIG_FILE $TREE_NAME
+
+date
+
 $MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME
 
 date

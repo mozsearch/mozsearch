@@ -1,0 +1,28 @@
+{"loc":"1:13-22","pretty":"class EnumClass","sym":"EnumClass","syntax":"def,type","source":1}
+{"loc":"1:13","pretty":"EnumClass","kind":"def","sym":"EnumClass","context":"","target":1}
+{"loc":"2:7-15","pretty":"enum EnumClass.PRIORITY","sym":"EnumClass#PRIORITY","syntax":"def,variable","source":1}
+{"loc":"2:7","pretty":"EnumClass.PRIORITY","kind":"def","sym":"EnumClass#PRIORITY","context":"EnumClass","target":1}
+{"loc":"3:4-7","pretty":"enum constant EnumClass.PRIORITY.LOW","sym":"EnumClass#PRIORITY#LOW","syntax":"def,variable","source":1}
+{"loc":"3:4","pretty":"EnumClass.PRIORITY.LOW","kind":"def","sym":"EnumClass#PRIORITY#LOW","context":"EnumClass.PRIORITY","target":1}
+{"loc":"4:4-10","pretty":"enum constant EnumClass.PRIORITY.MEDIUM","sym":"EnumClass#PRIORITY#MEDIUM","syntax":"def,variable","source":1}
+{"loc":"4:4","pretty":"EnumClass.PRIORITY.MEDIUM","kind":"def","sym":"EnumClass#PRIORITY#MEDIUM","context":"EnumClass.PRIORITY","target":1}
+{"loc":"5:4-8","pretty":"enum constant EnumClass.PRIORITY.HIGH","sym":"EnumClass#PRIORITY#HIGH","syntax":"def,variable","source":1}
+{"loc":"5:4","pretty":"EnumClass.PRIORITY.HIGH","kind":"def","sym":"EnumClass#PRIORITY#HIGH","context":"EnumClass.PRIORITY","target":1}
+{"loc":"8:19-30","pretty":"method EnumClass.getPriority","sym":"EnumClass#getPriority","syntax":"def,function","source":1}
+{"loc":"8:19","pretty":"EnumClass.getPriority","kind":"def","sym":"EnumClass#getPriority","context":"EnumClass","target":1}
+{"loc":"8:19-30","pretty":"method getPriority","sym":"getPriority","syntax":"def,function","source":1}
+{"loc":"8:19","pretty":"getPriority","kind":"def","sym":"getPriority","context":"EnumClass","target":1}
+{"loc":"8:10-18","pretty":"class EnumClass.PRIORITY","sym":"EnumClass#PRIORITY","syntax":"type,use","source":1}
+{"loc":"8:10","pretty":"EnumClass.PRIORITY","kind":"use","sym":"EnumClass#PRIORITY","context":"EnumClass","target":1}
+{"loc":"9:20-26","pretty":"member MEDIUM","sym":"MEDIUM","syntax":"use","source":1}
+{"loc":"9:20","pretty":"MEDIUM","kind":"use","sym":"MEDIUM","context":"EnumClass.getPriority","target":1}
+{"no_crossref":1,"loc":"9:11-19","pretty":"variable PRIORITY","sym":"PRIORITY","syntax":"uselocal,variable","source":1}
+{"loc":"9:11","pretty":"PRIORITY","kind":"use","sym":"PRIORITY","context":"EnumClass.getPriority","target":1}
+{"loc":"12:21-25","pretty":"method EnumClass.main","sym":"EnumClass#main","syntax":"def,function","source":1}
+{"loc":"12:21","pretty":"EnumClass.main","kind":"def","sym":"EnumClass#main","context":"EnumClass","target":1}
+{"loc":"12:21-25","pretty":"method main","sym":"main","syntax":"def,function","source":1}
+{"loc":"12:21","pretty":"main","kind":"def","sym":"main","context":"EnumClass","target":1}
+{"loc":"12:26-32","pretty":"class java.lang.String","sym":"java#lang#String","syntax":"type,use","source":1}
+{"no_crossref":1,"loc":"12:35-39","pretty":"parameter args","sym":"args","syntax":"use,variable","source":1}
+{"loc":"12:26","pretty":"java.lang.String","kind":"use","sym":"java#lang#String","context":"EnumClass","target":1}
+{"loc":"12:35","pretty":"args","kind":"def","sym":"args","context":"EnumClass","target":1}
