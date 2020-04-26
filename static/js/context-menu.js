@@ -208,31 +208,31 @@ function getTargetWord() {
 
   var offset = selection.focusOffset;
   var node = selection.anchorNode;
-  var selectedTxtString = node.nodeValue;
-  var nonWordCharRE = /[^A-Z0-9_]/i;
-  var startIndex =
-    selectedTxtString.regexLastIndexOf(nonWordCharRE, offset) + 1;
-  var endIndex = selectedTxtString.regexIndexOf(nonWordCharRE, offset);
+  var string = node.nodeValue;
 
-  // If the regex did not find a start index, start from index 0
-  if (startIndex === -1) {
-    startIndex = 0;
+  let start = offset;
+  let end = offset;
+
+  function isWordChar(character) {
+    // TODO: this could be more non-ascii friendly.
+    return /[A-Z0-9_]/i.test(character);
   }
 
-  // If the regex did not find an end index, end at the position
-  // equal to the length of the string.
-  if (endIndex === -1) {
-    endIndex = selectedTxtString.length;
+  while (start > 0 && isWordChar(string[start])) {
+    --start;
+  }
+  while (end < string.length && isWordChar(string[end])) {
+    ++end;
   }
 
   // If the offset is beyond the last word, no word was clicked on.
-  if (offset > endIndex) {
+  if (offset > end) {
     return null;
   }
 
-  if (endIndex <= startIndex) {
+  if (end <= start) {
     return null;
   }
 
-  return selectedTxtString.substr(startIndex, endIndex - startIndex);
+  return string.substr(start, end);
 }
