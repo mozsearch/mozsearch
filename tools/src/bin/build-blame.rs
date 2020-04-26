@@ -114,7 +114,7 @@ fn unmodified_lines(
 }
 
 fn blame_for_path(
-    file_movement: &Option<HashMap<Oid, PathBuf>>,
+    diff_data: &DiffData,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     blame_repo: &git2::Repository,
@@ -140,7 +140,8 @@ fn blame_for_path(
     }
 
     for (parent, blame_parent) in commit.parents().zip(blame_parents.iter()).rev() {
-        let parent_path = file_movement
+        let parent_path = diff_data
+            .file_movement
             .as_ref()
             .and_then(|m| m.get(&blob.id()))
             .map(|p| p.borrow())
@@ -184,7 +185,7 @@ fn blame_for_path(
 
 fn build_blame_tree(
     builder: &mut git2::TreeBuilder,
-    file_movement: &Option<HashMap<Oid, PathBuf>>,
+    diff_data: &DiffData,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     blame_repo: &git2::Repository,
@@ -222,7 +223,7 @@ fn build_blame_tree(
         match entry.kind() {
             Some(ObjectType::Blob) => {
                 let blame_text = blame_for_path(
-                    file_movement,
+                    diff_data,
                     git_repo,
                     commit,
                     blame_repo,
@@ -249,7 +250,7 @@ fn build_blame_tree(
                 let mut entry_builder = blame_repo.treebuilder(None)?;
                 build_blame_tree(
                     &mut entry_builder,
-                    file_movement,
+                    diff_data,
                     git_repo,
                     commit,
                     blame_repo,
@@ -276,6 +277,55 @@ fn build_blame_tree(
     }
 
     Ok(())
+}
+
+struct DiffData {
+    // The commit for which this DiffData holds data.
+    _revision: git2::Oid,
+    // Map from file (blob) id in the child rev to the path that the file was
+    // at in the parent revision, for files that got moved. Set to None if the
+    // child rev has multiple parents.
+    file_movement: Option<HashMap<Oid, PathBuf>>,
+}
+
+// Does the CPU-intensive work required for blame computation of a given revision.
+// This does not mutate anything in `git_repo` and has no other dependencies, so
+// it can be parallelized.
+fn compute_diff_data(git_repo: &git2::Repository, git_oid: &git2::Oid) -> DiffData {
+    let commit = git_repo.find_commit(*git_oid).unwrap();
+    let file_movement = if commit.parent_count() == 1 {
+        let mut movement = HashMap::new();
+        let mut diff = git_repo
+            .diff_tree_to_tree(
+                Some(&commit.parent(0).unwrap().tree().unwrap()),
+                Some(&commit.tree().unwrap()),
+                None,
+            )
+            .unwrap();
+        diff.find_similar(Some(
+            DiffFindOptions::new().copies(true).rename_limit(1000000),
+        ))
+        .unwrap();
+        for delta in diff.deltas() {
+            if !delta.old_file().id().is_zero()
+                && !delta.new_file().id().is_zero()
+                && delta.old_file().path() != delta.new_file().path()
+            {
+                movement.insert(
+                    delta.new_file().id(),
+                    delta.old_file().path().unwrap().to_path_buf(),
+                );
+            }
+        }
+        Some(movement)
+    } else {
+        None
+    };
+
+    DiffData {
+        _revision: *git_oid,
+        file_movement,
+    }
 }
 
 fn main() {
@@ -336,39 +386,12 @@ fn main() {
             .map(|pid| blame_repo.find_commit(blame_map[&pid]).unwrap())
             .collect::<Vec<_>>();
 
-        let file_movement = if commit.parent_count() == 1 {
-            let mut movement = HashMap::new();
-            let mut diff = git_repo
-                .diff_tree_to_tree(
-                    Some(&commit.parent(0).unwrap().tree().unwrap()),
-                    Some(&commit.tree().unwrap()),
-                    None,
-                )
-                .unwrap();
-            diff.find_similar(Some(
-                DiffFindOptions::new().copies(true).rename_limit(1000000),
-            ))
-            .unwrap();
-            for delta in diff.deltas() {
-                if !delta.old_file().id().is_zero()
-                    && !delta.new_file().id().is_zero()
-                    && delta.old_file().path() != delta.new_file().path()
-                {
-                    movement.insert(
-                        delta.new_file().id(),
-                        delta.old_file().path().unwrap().to_path_buf(),
-                    );
-                }
-            }
-            Some(movement)
-        } else {
-            None
-        };
+        let diff_data = compute_diff_data(&git_repo, &git_oid);
 
         let mut builder = blame_repo.treebuilder(None).unwrap();
         build_blame_tree(
             &mut builder,
-            &file_movement,
+            &diff_data,
             &git_repo,
             &commit,
             &blame_repo,
