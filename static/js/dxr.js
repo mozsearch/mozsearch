@@ -1,18 +1,18 @@
-String.prototype.hashCode = function () {
-  var hash = 0;
-  if (this.length == 0) {
-    return hash;
-  }
-  for (i = 0; i < this.length; i++) {
-    char = this.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return hash;
-};
-
 $(function () {
   "use strict";
+
+  function hashString(string) {
+    let hash = 0;
+    if (string.length == 0) {
+      return hash;
+    }
+    for (let i = 0; i < string.length; i++) {
+      let char = string.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+  }
 
   var constants = $("#data");
   var dxr = {};
@@ -161,8 +161,7 @@ $(function () {
 
   function classOfResult(pathkind, qkind) {
     var klass = pathkind + ":" + qkind;
-    klass = String(klass.hashCode());
-    return "EXPANDO" + klass;
+    return "EXPANDO" + hashString(klass);
   }
 
   function onExpandoClick(event) {
