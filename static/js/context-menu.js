@@ -225,14 +225,9 @@ function getTargetWord() {
     ++end;
   }
 
-  // If the offset is beyond the last word, no word was clicked on.
-  if (offset > end) {
-    return null;
-  }
-
   if (end <= start) {
     return null;
   }
 
-  return string.substr(start, end);
+  return string.substring(start, end);
 }
