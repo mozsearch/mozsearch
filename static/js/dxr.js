@@ -54,7 +54,7 @@ var Dxr = new (class Dxr {
     this.initFormFromLocalStorageOrUrl();
   }
 
-  cancel() {
+  cancel(cancelFetch = true) {
     if (this.startSearchTimer) {
       clearTimeout(this.startSearchTimer);
       this.startSearchTimer = null;
@@ -63,14 +63,14 @@ var Dxr = new (class Dxr {
       clearTimeout(this.historyTimer);
       this.historyTimer = null;
     }
-    if (this.fetchController) {
+    if (cancelFetch && this.fetchController) {
       this.fetchController.abort();
       this.fetchController = null;
     }
   }
 
   startSearchSoon() {
-    this.cancel();
+    this.cancel(/* cancelFetch = */ false);
     this.startSearchTimer = setTimeout(() => {
       this.startSearchTimer = null;
       this.startSearch();
