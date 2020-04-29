@@ -281,7 +281,7 @@ fn build_blame_tree(
 }
 
 fn main() {
-    env_logger::init();
+    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args: Vec<_> = env::args().collect();
     let git_repo = Repository::open(&args[1]).unwrap();
