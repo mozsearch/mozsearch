@@ -218,7 +218,7 @@ function getTargetWord() {
     return /[A-Z0-9_]/i.test(character);
   }
 
-  while (start > 0 && isWordChar(string[start])) {
+  while (start > 0 && isWordChar(string[start - 1])) {
     --start;
   }
   while (end < string.length && isWordChar(string[end])) {
