@@ -165,7 +165,7 @@ var Dxr = new (class Dxr {
 
     let path = params.get("path");
     if (path) {
-      this.fields.query.value = path;
+      this.fields.path.value = path;
     }
   }
 
