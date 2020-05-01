@@ -58,7 +58,7 @@ mapping between revisions in memory for this purpose). Then find
 `${f}` in the blame repository at revision `${blame_rev}`. Finally,
 show these two files side-by-side and you're done.
 
-Mozsearch uses the `blame/transform-repo.py` tool to generate a blame
+Mozsearch uses the `tools/src/bin/build-blame` tool to generate a blame
 repository. Generating cached blame information is pretty
 slow. However, each indexing run only needs to generate new blame
 revisions for each new revision that has appeared in the original
