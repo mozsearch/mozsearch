@@ -7,7 +7,7 @@ that you have set up the Vagrant VM as documented in the [top level README](../R
 
 This is as simple as running `git clone` to clone the repo locally, and then running `tar` to make a tarball.
 Note that it's best to do this inside your mozsearch folder so that it's automatically mirrored inside the
-vagrant VM instance for step 2 below. For example:
+vagrant VM instance for other steps below. For example:
 
 ```
 cd $MOZSEARCH
@@ -17,16 +17,18 @@ tar cf glean.tar glean
 
 ## 2. Create a tarball of the blame repo
 
-To create the blame repo, you can manually run the `blame/transform-repo.py` script. Note that this requires pygit2 to be
-available to Python, so it's easiest to run it inside the vagrant instance. Note that if there is an hg canonical repo
-for the repo you want to index, you can provide a git <-> hg mapping file as a third argument to the `transform-repo.py`
-script to include hg revision identifiers in the index.
+To create the blame repo, you can manually run the `build-blame` tool. If your git repo has hg metadata that
+git-cinnabar can access, that will also be included into the blame repo. If you don't have git-cinnabar
+installed at all, set `CINNABAR=0` in your environment before running the `build-blame` tool. You can run
+this step inside or outside the Vagrant VM, wherever you prefer. The instructions assume you're inside
+the VM because that's usually where the rust code is built and run.
 
 ```
 cd /vagrant
+pushd tools && cargo +nightly build --release && popd
 mkdir glean-blame
 pushd glean-blame && git init . && popd
-python blame/transform-repo.py glean glean-blame # this might take a while, depending on your repo size
+tools/target/release/build-blame glean glean-blame # this might take a while, depending on your repo size
 tar cf glean-blame.tar glean-blame
 ```
 
