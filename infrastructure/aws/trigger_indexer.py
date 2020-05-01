@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import sys
 import os.path
 
-# Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <branch> [release|dev]
+# Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <config-input> <branch> [release|dev]
 
 def trigger(mozsearch_repo, config_repo, config_input, branch, channel, spot=False):
     ec2 = boto3.resource('ec2')
