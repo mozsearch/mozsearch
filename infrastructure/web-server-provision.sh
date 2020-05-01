@@ -41,7 +41,7 @@ sudo ./bazel-0.22.0-installer-linux-x86_64.sh
 popd
 
 # Other
-sudo apt-get install -y parallel unzip python-pip
+sudo apt-get install -y parallel unzip python-pip python3-pip
 
 # Nginx
 sudo apt-get install -y nginx
@@ -81,6 +81,7 @@ echo "$PWD/livegrep-grpc" > "$SITEDIR/livegrep.pth"
 
 # Install AWS scripts.
 sudo pip install boto3
+sudo pip3 install boto3
 
 # Create update script.
 cat > update.sh <<"THEEND"

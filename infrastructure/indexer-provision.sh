@@ -64,7 +64,7 @@ sudo apt-get update
 sudo apt-get install -y clang-${CLANG_VERSION} libclang-${CLANG_VERSION}-dev
 
 # Other
-sudo apt-get install -y parallel python-virtualenv python-pip
+sudo apt-get install -y parallel python-virtualenv python-pip python3-virtualenv python3-pip
 
 # Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
 wget -O bootstrap.py https://hg.mozilla.org/mozilla-central/raw-file/default/python/mozboot/bin/bootstrap.py && python bootstrap.py --application-choice=browser --no-interactive && rm bootstrap.py
@@ -93,6 +93,7 @@ rm -rf .cache/bazel
 
 # Install AWS scripts.
 sudo pip install boto3
+sudo pip3 install boto3
 
 # Install pandoc
 sudo apt-get install -y pandoc
