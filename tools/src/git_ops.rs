@@ -333,7 +333,12 @@ pub fn find_prev_blame(
         target_file.to_str().unwrap(),
     ) {
         Some(blame_lines) => {
-            let old_lineno_ix = old_lineno - 1; // line numbers are 1-based, array indexing is 0-based
+            // line numbers are 1-based, array indexing is 0-based. But we might get old_lineno
+            // as 0 if the hunk that's getting blame-skipped was just adding a bunch of lines to
+            // the top of a file, as the "previous line" would be the last line of the "old" side
+            // of the hunk, which would just point to line 0 (start of file). This is fine, but
+            // we need to avoid looking up index -1 in the array.
+            let old_lineno_ix = i32::max(0, (old_lineno as i32) - 1);
             Ok((
                 blame_lines[old_lineno_ix as usize].clone(),
                 old_path.to_path_buf(),
