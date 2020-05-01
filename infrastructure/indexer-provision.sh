@@ -69,9 +69,6 @@ sudo apt-get install -y parallel python-virtualenv python-pip
 # Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
 wget -O bootstrap.py https://hg.mozilla.org/mozilla-central/raw-file/default/python/mozboot/bin/bootstrap.py && python bootstrap.py --application-choice=browser --no-interactive && rm bootstrap.py
 
-# pygit2
-sudo apt-get install -y python-dev libffi-dev cmake
-
 # Setup direct links to clang
 sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} ${CLANG_PRIORITY}
@@ -96,24 +93,6 @@ rm -rf .cache/bazel
 
 # Install AWS scripts.
 sudo pip install boto3
-
-# Install pygit2.
-# The 1.0 version has moved to python3, so we're currently holding ourselves
-# back to the 0.28.2 version.
-LIBGIT2_VERSION=0.28.4
-LIBGIT2_TARBALL=v$LIBGIT2_VERSION.tar.gz
-PYGIT2_VERSION=0.28.2
-rm -rf libgit2-*
-wget -nv https://github.com/libgit2/libgit2/archive/$LIBGIT2_TARBALL
-tar xf $LIBGIT2_TARBALL
-rm -rf $LIBGIT2_TARBALL
-pushd libgit2-$LIBGIT2_VERSION
-cmake .
-make
-sudo make install
-popd
-sudo ldconfig
-sudo pip install pygit2==$PYGIT2_VERSION
 
 # Install pandoc
 sudo apt-get install -y pandoc
