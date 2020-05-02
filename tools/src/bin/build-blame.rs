@@ -17,24 +17,22 @@ use tools::config::index_blame;
 use unicode_normalization::UnicodeNormalization;
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
-    write!(helper.stdin.as_mut().unwrap(), "git2hg {}\n", git_oid).unwrap();
+    write!(helper.stdin.as_mut().unwrap(), "{}\n", git_oid).unwrap();
     let mut reader = BufReader::new(helper.stdout.as_mut().unwrap());
-    loop {
-        let mut result = String::new();
-        reader.read_line(&mut result).unwrap();
-        if result.starts_with("changeset ") {
-            return result.split(' ').nth(1).map(str::trim).map(str::to_string);
-        }
-        if result.trim().chars().all(|c| c == '0') {
-            return None;
-        }
-        // else loop again. cinnabar-helper emits a bunch of other info that we don't care about
+    let mut result = String::new();
+    reader.read_line(&mut result).unwrap();
+    let hgrev = result.trim();
+    if hgrev.chars().all(|c| c == '0') {
+        return None;
     }
+    return Some(hgrev.to_string());
 }
 
 fn start_cinnabar_helper(git_repo: &Repository) -> Child {
     Command::new("git")
-        .arg("cinnabar-helper")
+        .arg("cinnabar")
+        .arg("git2hg")
+        .arg("--batch")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
