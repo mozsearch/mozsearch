@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 # Deletes the specified EBS volume. If it is in use by an
 # instance, we wait until it is detached and in the 'available'
 # state before deleting it.

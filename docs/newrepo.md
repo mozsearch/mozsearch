@@ -53,8 +53,8 @@ and testing the setup.
 
 ```
 cd $MOZSEARCH
-python infrastructure/aws/upload.py ./glean.tar searchfox.repositories glean.tar
-python infrastructure/aws/upload.py ./glean-blame.tar searchfox.repositories glean-blame.tar
+infrastructure/aws/upload.py ./glean.tar searchfox.repositories glean.tar
+infrastructure/aws/upload.py ./glean-blame.tar searchfox.repositories glean-blame.tar
 ```
 
 ## 4. Update the mozsearch-mozilla repo

@@ -1,6 +1,8 @@
+#!/usr/bin/env python2
+
 # Uploads data to an S3 bucket
 #
-# Usage: detach-volume.py <filename> <bucket> <key>
+# Usage: upload.py <filename> <bucket> <key>
 
 import sys
 import boto3

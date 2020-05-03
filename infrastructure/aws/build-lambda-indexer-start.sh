@@ -24,7 +24,7 @@ mkdir /tmp/lambda
 cp $MOZSEARCH_PATH/infrastructure/aws/trigger_indexer.py /tmp/lambda
 
 cat >/tmp/lambda/lambda-indexer-start.py <<EOF
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import boto3
 import trigger_indexer
@@ -34,7 +34,7 @@ def start(event, context):
 EOF
 
 pushd /tmp/lambda
-virtualenv env
+virtualenv --python=python2 env
 env/bin/pip install boto3
 cp -r env/lib/python2.7/site-packages/* .
 rm -rf env

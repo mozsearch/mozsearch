@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 # Detaches an EBS volume from an instance to which it's attached.
 #
 # Usage: detach-volume.py <instance-id> <volume-id>

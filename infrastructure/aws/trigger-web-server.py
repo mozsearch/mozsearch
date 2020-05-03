@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 # Responsibilities:
 # - Start the web server instance, tag it as a web server
 # - Attach INDEX_VOL to the web server
@@ -7,7 +9,7 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: swap-web-server.py <branch> <channel> <config-repo> <index-volume-id>
+# Usage: ./trigger-web-server.py <branch> <channel> <config-repo> <config-input> <index-volume-id>
 
 import sys
 from datetime import datetime, timedelta

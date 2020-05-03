@@ -30,7 +30,7 @@ ${AWS_ROOT}/mkscratch.sh
 echo "Branch is $BRANCH"
 echo "Channel is $CHANNEL"
 
-VOLUME_ID=$(python $AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
+VOLUME_ID=$($AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
 
 # Since we know the volume id and it's exposed as the `SerialNumber` in the JSON
 # structure (see above), we can look that up here too.  Note that we need to
@@ -80,8 +80,8 @@ cp ~ubuntu/index-log /index/index-log
 
 sudo umount /index
 
-python $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-python $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID
+$AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
+$AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID
 
 case "$CHANNEL" in
 release | mozilla-releases )
@@ -97,7 +97,7 @@ esac
 $AWS_ROOT/send-warning-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 
 gzip -k ~ubuntu/index-log
-python $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}"
+$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}"
 
 case "$CHANNEL" in
 release | mozilla-releases )
@@ -110,4 +110,4 @@ esac
 
 # Give logger time to catch up
 sleep 30
-python $AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
+$AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
