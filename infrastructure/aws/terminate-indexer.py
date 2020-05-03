@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 # Shuts down the indexer instance.
 # Usage: terminate-indexer.py <indexer-instance-id>
 

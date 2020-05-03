@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 # Creates an EBS volume for the index and attaches it to a given instance as /dev/xvdf.
 # Prints the volume ID on stdout.
 # Usage: attach-index-volume.py <channel> <instance-id>

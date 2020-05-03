@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 # trigger-provision.py <indexer-provision.sh | web-server-provision.sh>
 
 import boto3

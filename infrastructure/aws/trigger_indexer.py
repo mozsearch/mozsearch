@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 import boto3
 from datetime import datetime, timedelta
 import sys

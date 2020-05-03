@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 # This is a helper to let you copy files from a machine that you've already
 # ssh'ed into via `ssh.py`.  `ssh.py` handles changing the security bits for
 # the instance so that ssh/scp can connect to the server.  If you try and run
@@ -5,13 +7,13 @@
 # work.
 #
 # The general syntax is
-#   python scp-while-sshed.py <instance-id> <remote-file-path> <local-target>
+#   ./scp-while-sshed.py <instance-id> <remote-file-path> <local-target>
 #
 # If you wanted to copy /foo/bar/baz to the current directory
-#   python scp-while-sshed.py INSTANCEID /foo/bar/baz .
+#   ./scp-while-sshed.py INSTANCEID /foo/bar/baz .
 #
 # If you wanted to copy all log files from /fancy/path to ~/local/dir
-#  python scp-while-sshed.py INSTANCEID "/fancy/path/*.log" ~/local/dir
+#   ./scp-while-sshed.py INSTANCEID "/fancy/path/*.log" ~/local/dir
 #
 # The key thing with wildcards is the standard shell expansion thing where if
 # you fail to double-quote the argument, path expansion may be performed in your

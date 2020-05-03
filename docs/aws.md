@@ -114,7 +114,7 @@ library.
 ```
 # Run these commands from within a mozsearch checkout.
 
-virtualenv env
+virtualenv --python=python2 env
 source env/bin/activate
 pip install boto3
 ```
@@ -132,7 +132,7 @@ and use this as the identity file if it exists.
 Now you can connect to an instance as follows:
 
 ```
-python infrastructure/aws/ssh.py
+infrastructure/aws/ssh.py
 ```
 
 This command will print a list of instances that you can connect to as
@@ -140,7 +140,7 @@ well as details about them. Select an instance ID (starting with `i-`)
 and connect to it:
 
 ```
-python infrastructure/aws/ssh.py i-955af89
+infrastructure/aws/ssh.py i-955af89
 ```
 
 ## Lambda
@@ -177,7 +177,7 @@ It's fairly easy to trigger an indexing job manually from your local
 computer. To do so, run the following from within the Python virtual environment:
 
 ```
-python infrastructure/aws/trigger_indexer.py \
+infrastructure/aws/trigger_indexer.py \
   https://github.com/some-user/mozsearch \
   https://github.com/some-user/mozsearch-mozilla \
   some-config.json \
@@ -260,7 +260,7 @@ the AMI for indexing, run the following from within the Python virtual
 environment:
 
 ```
-python infrastructure/aws/trigger-provision.py \
+infrastructure/aws/trigger-provision.py \
   infrastructure/indexer-provision.sh \
   infrastructure/aws/indexer-provision.sh
 ```
@@ -268,7 +268,7 @@ python infrastructure/aws/trigger-provision.py \
 For web serving, use this command:
 
 ```
-python infrastructure/aws/trigger-provision.py \
+infrastructure/aws/trigger-provision.py \
   infrastructure/web-server-provision.sh \
   infrastructure/aws/web-server-provision.sh
 ```
@@ -370,8 +370,8 @@ index volume, otherwise they will sit around forever and eat up money.
 You can terminate the indexer either through the EC2 web console, or
 by running
 ```
-python infrastructure/aws/terminate-indexer.py <instance-id>
-python infrastructure/aws/delete-volume.py <volume-id>
+infrastructure/aws/terminate-indexer.py <instance-id>
+infrastructure/aws/delete-volume.py <volume-id>
 ```
 from within your local searchfox virtualenv (see the above section
 on setting up AWS locally). The terminate-indexer.py script or the
