@@ -46,6 +46,6 @@ fi
 export PYTHONPATH="${TREE_PYMODULES}"
 
 cat $INDEX_ROOT/idl-files | \
-    parallel python $MOZSEARCH_PATH/scripts/idl-analyze.py \
+    parallel $MOZSEARCH_PATH/scripts/idl-analyze.py \
     $INDEX_ROOT $FILES_ROOT/{} ">" $INDEX_ROOT/analysis/{}
 echo $?

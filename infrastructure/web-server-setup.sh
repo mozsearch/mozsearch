@@ -53,7 +53,7 @@ do
     fi
 done
 
-python $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > /tmp/nginx
+$MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > /tmp/nginx
 sudo mv /tmp/nginx /etc/nginx/sites-enabled/mozsearch.conf
 sudo chmod 0644 /etc/nginx/sites-enabled/mozsearch.conf
 
