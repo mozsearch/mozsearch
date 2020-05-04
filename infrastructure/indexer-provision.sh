@@ -104,7 +104,7 @@ sudo apt-get install -y nodejs
 
 # Install git-cinnabar
 
-CINNABAR_REVISION=7fd771337e6dc6a8598098acab9513be9030d80c
+CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
 rm -rf git-cinnabar
 git clone https://github.com/glandium/git-cinnabar
 pushd git-cinnabar
