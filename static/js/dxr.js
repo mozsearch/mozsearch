@@ -224,15 +224,15 @@ function classOfResult(pathkind, qkind) {
 
 function onExpandoClick(event) {
   let target = event.target;
-  let open = target.classList.contains("open");
+  let wasOpen = target.classList.contains("open");
   let elements = document.querySelectorAll(
     "." + target.getAttribute("data-klass")
   );
   for (let element of elements) {
-    element.style.display = open ? "" : "none";
+    element.style.display = wasOpen ? "none" : "";
   }
   target.classList.toggle("open");
-  target.innerHTML = open ? "&#9654;" : "&#9660;";
+  target.innerHTML = wasOpen ? "&#9654;" : "&#9660;";
 }
 
 var populateEpoch = 0;
