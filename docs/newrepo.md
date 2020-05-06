@@ -15,6 +15,17 @@ git clone https://github.com/mozilla/glean
 tar cf glean.tar glean
 ```
 
+If you're cloning a hg repo, use cinnabar:
+
+```
+git clone -b branches/default/tip hg::https://hg.mozilla.org/hgcustom/version-control-tools
+pushd version-control-tools
+git branch -m master
+git config fetch.prune true
+popd
+tar cf version-control-tools.tar version-control-tools
+```
+
 ## 2. Create a tarball of the blame repo
 
 To create the blame repo, you can manually run the `build-blame` tool. If your git repo has hg metadata that
