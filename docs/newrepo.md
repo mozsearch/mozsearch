@@ -11,19 +11,19 @@ vagrant VM instance for other steps below. For example:
 
 ```
 cd $MOZSEARCH
-git clone https://github.com/mozilla/glean
-tar cf glean.tar glean
+git clone https://github.com/mozilla/glean git
+tar cf glean.tar git
 ```
 
 If you're cloning a hg repo, use cinnabar:
 
 ```
-git clone -b branches/default/tip hg::https://hg.mozilla.org/hgcustom/version-control-tools
-pushd version-control-tools
+git clone -b branches/default/tip hg::https://hg.mozilla.org/hgcustom/version-control-tools git
+pushd git
 git branch -m master
 git config fetch.prune true
 popd
-tar cf version-control-tools.tar version-control-tools
+tar cf version-control-tools.tar git
 ```
 
 ## 2. Create a tarball of the blame repo
@@ -37,10 +37,10 @@ the VM because that's usually where the rust code is built and run.
 ```
 cd /vagrant
 pushd tools && cargo +nightly build --release && popd
-mkdir glean-blame
-pushd glean-blame && git init . && popd
-tools/target/release/build-blame glean glean-blame # this might take a while, depending on your repo size
-tar cf glean-blame.tar glean-blame
+mkdir blame
+pushd blame && git init . && popd
+tools/target/release/build-blame ./git ./blame # this might take a while, depending on your repo size
+tar cf glean-blame.tar blame
 ```
 
 ## 3. Upload the two tarballs to the S3 bucket
