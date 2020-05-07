@@ -24,6 +24,7 @@ malloc_size_of = { path = "./malloc_size_of" }
 jemalloc-sys = "0.3.2"
 jemallocator = "0.3.2"
 unicode-normalization = "0.1.12"
+num_cpus = "1"
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production

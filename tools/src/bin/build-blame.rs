@@ -2,6 +2,7 @@ extern crate env_logger;
 extern crate git2;
 #[macro_use]
 extern crate log;
+extern crate num_cpus;
 extern crate tools;
 extern crate unicode_normalization;
 
@@ -11,6 +12,8 @@ use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
 
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::config::index_blame;
@@ -347,7 +350,7 @@ fn build_blame_tree(
 
 struct DiffData {
     // The commit for which this DiffData holds data.
-    _revision: git2::Oid,
+    revision: git2::Oid,
     // Map from file (blob) id in the child rev to the path that the file was
     // at in the parent revision, for files that got moved. Set to None if the
     // child rev has multiple parents.
@@ -410,17 +413,65 @@ fn compute_diff_data(
     )?;
 
     Ok(DiffData {
-        _revision: *git_oid,
+        revision: *git_oid,
         file_movement,
         unmodified_lines,
     })
+}
+
+struct ComputeThread {
+    query_tx: Sender<git2::Oid>,
+    response_rx: Receiver<DiffData>,
+}
+
+impl ComputeThread {
+    fn new(git_repo_path: &str) -> Self {
+        let (query_tx, query_rx) = channel();
+        let (response_tx, response_rx) = channel();
+        let git_repo_path = git_repo_path.to_string();
+        thread::spawn(move || {
+            compute_thread_main(query_rx, response_tx, git_repo_path);
+        });
+
+        ComputeThread {
+            query_tx,
+            response_rx,
+        }
+    }
+
+    fn compute(&self, rev: &git2::Oid) {
+        self.query_tx.send(*rev).unwrap();
+    }
+
+    fn read_result(&self) -> DiffData {
+        match self.response_rx.try_recv() {
+            Ok(result) => result,
+            Err(_) => {
+                info!("Waiting on compute, work on optimizing that...");
+                self.response_rx.recv().unwrap()
+            }
+        }
+    }
+}
+
+fn compute_thread_main(
+    query_rx: Receiver<git2::Oid>,
+    response_tx: Sender<DiffData>,
+    git_repo_path: String,
+) {
+    let git_repo = Repository::open(git_repo_path).unwrap();
+    while let Ok(rev) = query_rx.recv() {
+        let result = compute_diff_data(&git_repo, &rev).unwrap();
+        response_tx.send(result).unwrap();
+    }
 }
 
 fn main() {
     env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args: Vec<_> = env::args().collect();
-    let git_repo = Repository::open(&args[1]).unwrap();
+    let git_repo_path = args[1].to_string();
+    let git_repo = Repository::open(&git_repo_path).unwrap();
     let blame_repo = Repository::open(&args[2]).unwrap();
     let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
     let mut hg_helper = if use_cinnabar {
@@ -453,10 +504,51 @@ fn main() {
         .collect::<Vec<_>>();
     let rev_count = revs_to_process.len();
 
-    info!("Transforming new commits...");
+    let num_threads: usize = num_cpus::get() - 1; // 1 for the main thread
+    const COMPUTE_BUFFER_SIZE: usize = 10;
 
+    info!("Starting {} compute threads...", num_threads);
+    let mut compute_threads = Vec::with_capacity(num_threads);
+    for _ in 0..num_threads {
+        compute_threads.push(ComputeThread::new(&git_repo_path));
+    }
+
+    // This tracks the index of the next revision in revs_to_process for which
+    // we want to request a compute. All revs at indices less than this index
+    // have already been requested.
+    let mut compute_index = 0;
+
+    info!("Filling compute buffer...");
+    let initial_request_count = rev_count.min(COMPUTE_BUFFER_SIZE * num_threads);
+    while compute_index < initial_request_count {
+        let thread = &compute_threads[compute_index % num_threads];
+        thread.compute(&revs_to_process[compute_index]);
+        compute_index += 1;
+    }
+
+    // We should have sent an equal number of requests to each thread, except
+    // if we ran out of requests because there were so few.
+    assert!((compute_index % num_threads == 0) || compute_index == rev_count);
+
+    // Tracks completion count
     let mut rev_done = 0;
-    for git_oid in revs_to_process {
+
+    for git_oid in revs_to_process.iter() {
+        // Read a result. Since we hand out compute requests in round-robin order
+        // and each thread processes them in FIFO order we know exactly which
+        // thread is going to give us our result.
+        // We assert to make sure it's the right one.
+        let thread = &compute_threads[rev_done % num_threads];
+        let diff_data = thread.read_result();
+        assert!(diff_data.revision == *git_oid);
+
+        // If there are more revisions that we haven't requested yet, request
+        // another one from this thread.
+        if compute_index < rev_count {
+            thread.compute(&revs_to_process[compute_index]);
+            compute_index += 1;
+        }
+
         rev_done += 1;
 
         let hg_rev = match hg_helper {
@@ -468,13 +560,11 @@ fn main() {
             "Transforming {} (hg {:?}) progress {}/{}",
             git_oid, hg_rev, rev_done, rev_count
         );
-        let commit = git_repo.find_commit(git_oid).unwrap();
+        let commit = git_repo.find_commit(*git_oid).unwrap();
         let blame_parents = commit
             .parent_ids()
             .map(|pid| blame_repo.find_commit(blame_map[&pid]).unwrap())
             .collect::<Vec<_>>();
-
-        let diff_data = compute_diff_data(&git_repo, &git_oid).unwrap();
 
         let mut builder = blame_repo.treebuilder(None).unwrap();
         build_blame_tree(
@@ -523,7 +613,7 @@ fn main() {
             assert!(refobj.is_some());
         }
 
-        blame_map.insert(git_oid, blame_oid);
+        blame_map.insert(*git_oid, blame_oid);
         info!("  -> {}", blame_oid);
     }
 
