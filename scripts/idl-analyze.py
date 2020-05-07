@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import xpidl
 import os.path
@@ -57,14 +59,14 @@ def read_cpp_analysis(fname):
     p = os.path.join(indexRoot, 'analysis', '__GENERATED__', 'dist', 'include', headerName)
     try:
         lines = open(p).readlines()
-    except IOError, e:
+    except IOError as e:
         return None
     decls = {}
     for line in lines:
         try:
             j = json.loads(line.strip())
-        except ValueError, e:
-            print >>sys.stderr, 'Syntax error in JSON file', p, line.strip()
+        except ValueError as e:
+            print('Syntax error in JSON file', p, line.strip(), file=sys.stderr)
             raise e
         if 'target' in j and j['kind'] == 'decl' and j['sym'].startswith('_Z'):
             idents = parse_mangled(j['sym'])
@@ -98,7 +100,7 @@ def handle_interface(analysis, iface):
         'pretty': 'IDL class %s' % iface.name,
         'sym': mangled + ('' if iface.attributes.scriptable else ',#' + iface.name),
     }
-    print json.dumps(j)
+    print(json.dumps(j))
 
     # C++ target
     j = {
@@ -107,7 +109,7 @@ def handle_interface(analysis, iface):
         'kind': 'idl',
         'sym': mangled,
     }
-    print json.dumps(j)
+    print(json.dumps(j))
 
     if iface.attributes.scriptable:
         # JS target
@@ -117,7 +119,7 @@ def handle_interface(analysis, iface):
             'kind': 'idl',
             'sym': '#' + iface.name,
         }
-        print json.dumps(j)
+        print(json.dumps(j))
 
     if iface.base:
         (lineno, colno) = find_line_column(text, iface.base, iface.location._lexpos)
@@ -130,7 +132,7 @@ def handle_interface(analysis, iface):
             'pretty': 'IDL class %s' % iface.base,
             'sym': mangled + ',#' + iface.base,
         }
-        print json.dumps(j)
+        print(json.dumps(j))
 
     #print p.name
     #print 'BASE', p.base
@@ -149,7 +151,7 @@ def handle_interface(analysis, iface):
                 'kind': 'idl',
                 'sym': mangled,
             }
-            print json.dumps(j)
+            print(json.dumps(j))
 
             # Source
             j = {
@@ -158,7 +160,7 @@ def handle_interface(analysis, iface):
                 'pretty': 'IDL method %s' % m.name,
                 'sym': mangled + ('' if m.noscript else ',#' + m.name),
             }
-            print json.dumps(j)
+            print(json.dumps(j))
 
             if not m.noscript:
                 # JS target
@@ -168,7 +170,7 @@ def handle_interface(analysis, iface):
                     'kind': 'idl',
                     'sym': '#' + m.name,
                 }
-                print json.dumps(j)
+                print(json.dumps(j))
 
         elif isinstance(m, xpidl.Attribute):
             if not m.noscript:
@@ -179,7 +181,7 @@ def handle_interface(analysis, iface):
                     'kind': 'idl',
                     'sym': '#' + m.name,
                 }
-                print json.dumps(j)
+                print(json.dumps(j))
 
             mangled_getter = analysis[getter_name(m)]
 
@@ -190,7 +192,7 @@ def handle_interface(analysis, iface):
                 'kind': 'idl',
                 'sym': mangled_getter,
             }
-            print json.dumps(j)
+            print(json.dumps(j))
 
             if not m.readonly:
                 mangled_setter = analysis[setter_name(m)]
@@ -202,7 +204,7 @@ def handle_interface(analysis, iface):
                     'kind': 'idl',
                     'sym': mangled_setter,
                 }
-                print json.dumps(j)
+                print(json.dumps(j))
 
             # Source
             sym = mangled_getter
@@ -216,7 +218,7 @@ def handle_interface(analysis, iface):
                 'pretty': 'IDL attribute %s' % m.name,
                 'sym': sym,
             }
-            print json.dumps(j)
+            print(json.dumps(j))
 
         elif isinstance(m, xpidl.ConstMember):
             # No C++ support until clang-plugin supports it.
@@ -228,7 +230,7 @@ def handle_interface(analysis, iface):
                 'kind': 'idl',
                 'sym': '#' + m.name,
             }
-            print json.dumps(j)
+            print(json.dumps(j))
 
             # JS source
             j = {
@@ -237,7 +239,7 @@ def handle_interface(analysis, iface):
                 'pretty': 'IDL constant %s' % m.name,
                 'sym': '#' + m.name,
             }
-            print json.dumps(j)
+            print(json.dumps(j))
 
 indexRoot = sys.argv[1]
 fname = sys.argv[2]
@@ -256,8 +258,8 @@ if analysis:
     p = xpidl.IDLParser(outputdir='/tmp')
     try:
         r = p.parse(text, filename=fname)
-    except xpidl.IDLError, e:
-        print >>sys.stderr, 'Syntax error in IDL', fname
+    except xpidl.IDLError as e:
+        print('Syntax error in IDL', fname, file=sys.stderr)
         raise e
         sys.exit(1)
     for p in r.productions:
