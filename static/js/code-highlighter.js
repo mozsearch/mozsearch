@@ -282,12 +282,12 @@ var Highlight = new (class Highlight {
 
     // XXX A bit hackish.
     let firstLineno = id.split(/[,-]/)[0];
-    let elt = document.getElementById("l" + firstLineno);
-
     let anchor = document.createElement("div");
     anchor.id = id;
     anchor.className = "goto";
-    elt.appendChild(anchor);
+
+    let elt = document.getElementById("l" + firstLineno);
+    elt.insertBefore(anchor, elt.firstChild);
   }
 
   updateHash() {
