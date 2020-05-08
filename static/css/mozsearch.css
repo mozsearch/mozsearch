@@ -572,8 +572,9 @@ span[data-symbols].hovered {
   scroll-margin-top: calc((var(--nesting-level, -1) + 1) * 12px * 1.3);
 }
 
-.nesting-sticky-line .goto {
-  /* The first-line for a sticky container doesn't need to account for itself */
+.nesting-container > .goto {
+  /* The anchor for the first-line of a sticky container doesn't need to
+   * account for the sticky line itself */
   scroll-margin-top: calc(var(--nesting-level) * 12px * 1.3);
 }
 

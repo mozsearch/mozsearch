@@ -285,7 +285,13 @@ var Highlight = new (class Highlight {
     anchor.className = "goto";
 
     let elt = document.getElementById("line-" + firstLineno);
-    elt.insertBefore(anchor, elt.firstChild);
+    if (elt.classList.contains("nesting-sticky-line")) {
+      // As an special-case, if this is a sticky line, we insert the anchor in
+      // the container, so that it has its static position.
+      elt.parentNode.insertBefore(anchor, elt);
+    } else {
+      elt.insertBefore(anchor, elt.firstChild);
+    }
   }
 
   updateHash() {
