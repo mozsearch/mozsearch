@@ -511,7 +511,8 @@ pub fn format_file_data(
         // Emit the actual source line here.
         let f = F::Seq(vec![
             F::T(format!(
-                "<div role=\"row\" class=\"source-line-with-number{}\">",
+                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\">",
+                lineno,
                 if line.starts_nest { " nesting-sticky-line" } else { "" }
             )),
             F::Indent(vec![
@@ -519,13 +520,12 @@ pub fn format_file_data(
                 F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
                 // The line number.
                 F::T(format!(
-                    "<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
-                    lineno, lineno
+                    "<div role=\"cell\" class=\"line-number\">{}</div>",
+                    lineno
                 )),
                 // The source line.
                 F::T(format!(
-                    "<code role=\"cell\" class=\"source-line\" id=\"line-{}\">{}\n</code>",
-                    i + 1,
+                    "<code role=\"cell\" class=\"source-line\">{}\n</code>",
                     line.line
                 )),
             ]),
@@ -921,15 +921,6 @@ pub fn format_diff(
             None => " class=\"blame-strip\"".to_owned(),
         };
 
-        let line_str = if lineno > 0 {
-            format!(
-                "<div id=\"l{}\" role=\"cell\" class=\"line-number\">{}</div>",
-                lineno, lineno
-            )
-        } else {
-            "<div role=\"cell\" class=\"line-number\">&nbsp;</div>".to_owned()
-        };
-
         let content = entity_replace(content.to_owned());
         let content = if lineno > 0 && (lineno as usize) < formatted_lines.len() + 1 {
             &formatted_lines[(lineno as usize) - 1].line
@@ -948,7 +939,11 @@ pub fn format_diff(
         };
 
         let f = F::Seq(vec![
-            F::S("<div role=\"row\" class=\"source-line-with-number\">"),
+            F::T(format!(
+                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number\">",
+                // note: this can be -1 but that's the way it's always been.
+                lineno
+            )),
             F::Indent(vec![
                 // Blame info.
                 F::T(format!(
@@ -956,13 +951,14 @@ pub fn format_diff(
                     blame_data
                 )),
                 // The line number and blame info.
-                F::T(line_str),
+                F::T(format!(
+                    "<div role=\"cell\" class=\"line-number\">{}</div>",
+                    if lineno > 0 { format!("{}", lineno) } else { "&nbsp;".to_owned() },
+                )),
                 // The source line.
                 F::T(format!(
-                    "<code role=\"cell\" class=\"source-line{}\" id=\"line-{}\">{} {}\n</code>",
+                    "<code role=\"cell\" class=\"source-line{}\">{} {}\n</code>",
                     class,
-                    // note: this can be -1 but that's the way it's always been.
-                    lineno,
                     origin,
                     content
                 )),

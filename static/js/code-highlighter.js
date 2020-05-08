@@ -182,7 +182,6 @@ var Highlight = new (class Highlight {
   }
 
   addSelectedLine(line) {
-    document.getElementById("l" + line).classList.add("highlighted");
     document.getElementById("line-" + line).classList.add("highlighted");
     // NOTE: The order here is intentional so that we throw above if the line
     // is not in the document.
@@ -195,7 +194,6 @@ var Highlight = new (class Highlight {
     if (this.lastSelectedLine == line) {
       this.lastSelectedLine = null;
     }
-    document.getElementById("l" + line).classList.remove("highlighted");
     document.getElementById("line-" + line).classList.remove("highlighted");
   }
 
@@ -230,7 +228,7 @@ var Highlight = new (class Highlight {
       }
     }
 
-    let line = parseInt(event.target.id.substring(1), 10);
+    let line = parseInt(event.target.innerText, 10);
     if (event.shiftKey) {
       // Range-select on shiftkey.
       //
@@ -286,7 +284,7 @@ var Highlight = new (class Highlight {
     anchor.id = id;
     anchor.className = "goto";
 
-    let elt = document.getElementById("l" + firstLineno);
+    let elt = document.getElementById("line-" + firstLineno);
     elt.insertBefore(anchor, elt.firstChild);
   }
 
