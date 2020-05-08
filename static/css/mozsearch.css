@@ -14,9 +14,6 @@
   --highlighted-bgcolor: rgb(255, 255, 204);
 
   /* ### Sticky Headers ### */
-  /* Basically, what's the highest number we have a `.nesting-depth-N` selector
-     for. This is only used by the `.goto` scroll-padding as a constant.  */
-  --max-sticky-lines: 10;
 
   /* The background color applied to code lines that start a block and stick
      around until the block is closed. (They have the "stuck" class applied.) */
@@ -262,64 +259,28 @@ body {
      .source-line-with-number div necessary for sticky operation. */
   position: relative;
 }
-.nesting-depth-1,
-.nesting-depth-2,
-.nesting-depth-3,
-.nesting-depth-4,
-.nesting-depth-5,
-.nesting-depth-6,
-.nesting-depth-7,
-.nesting-depth-8,
-.nesting-depth-9,
-.nesting-depth-10 {
+
+.nesting-depth-0 { --nesting-level: 0; }
+.nesting-depth-1 { --nesting-level: 1; }
+.nesting-depth-2 { --nesting-level: 2; }
+.nesting-depth-3 { --nesting-level: 3; }
+.nesting-depth-4 { --nesting-level: 4; }
+.nesting-depth-5 { --nesting-level: 5; }
+.nesting-depth-6 { --nesting-level: 6; }
+.nesting-depth-7 { --nesting-level: 7; }
+.nesting-depth-8 { --nesting-level: 8; }
+.nesting-depth-9 { --nesting-level: 9; }
+
+.nesting-sticky-line {
   /* be sticky, contained within a .nesting-container */
   position: sticky;
   /* even with our "stuck" and "last-stuck" classes, it's important to have an
      opaque background color for these because those classes don't take effect
      immediately. */
   background-color: white;
+  top: calc(var(--nesting-level) * 12px * 1.3);
+  z-index: calc(100 - var(--nesting-level));
 }
-.nesting-depth-1 {
-  top: calc(0 * 12px * 1.3);
-  z-index: 100;
-}
-.nesting-depth-2 {
-  top: calc(1 * 12px * 1.3);
-  z-index: 99;
-}
-.nesting-depth-3 {
-  top: calc(2 * 12px * 1.3);
-  z-index: 98;
-}
-.nesting-depth-4 {
-  top: calc(3 * 12px * 1.3);
-  z-index: 97;
-}
-.nesting-depth-5 {
-  top: calc(4 * 12px * 1.3);
-  z-index: 96;
-}
-.nesting-depth-6 {
-  top: calc(5 * 12px * 1.3);
-  z-index: 95;
-}
-.nesting-depth-7 {
-  top: calc(6 * 12px * 1.3);
-  z-index: 94;
-}
-.nesting-depth-8 {
-  top: calc(7 * 12px * 1.3);
-  z-index: 93;
-}
-.nesting-depth-9 {
-  top: calc(8 * 12px * 1.3);
-  z-index: 92;
-}
-.nesting-depth-10 {
-  top: calc(9 * 12px * 1.3);
-  z-index: 91;
-}
-
 /* Search results */
 
 .results tr:hover,
@@ -606,21 +567,14 @@ span[data-symbols].hovered {
    See the method's documentation for more context.
 */
 .goto {
-    /* The negative top allows us to control how much visible padding there
-       should be.  This needs to be large enough so that the "position: sticky"
-       stuck lines don't obscure the line we're trying to display.  Previously
-       this was necessary because the search header was position: fixed and we
-       needed to avoid being obscured by that.
+  /* This needs to be large enough so that the "position: sticky"
+     stuck lines don't obscure the line we're trying to display. */
+  scroll-margin-top: calc((var(--nesting-level, -1) + 2) * 12px * 1.3);
+}
 
-       The negative top could be eliminated and replaced with use of the CSS
-       scroll-padding mechanism introduced in Firefox 68 (currently beta).
-       However, we can't actually get rid of the synthetic anchor.  And since
-       scroll-padding isn't on release yet, we're sticking with this for now. */
-    top: calc(var(--max-sticky-lines) * 12px * -1.3);
-    /* and for the negative top to work, we need to be position: absolute and
-       .line-number needs to be position: relative to create a containing block
-       that we can offset against. */
-    position: absolute;
+.nesting-sticky-line .goto {
+  /* The first-line for a sticky container doesn't need to account for itself */
+  scroll-margin-top: calc((var(--nesting-level) + 1) * 12px * 1.3);
 }
 
 /* ## Blame ## */

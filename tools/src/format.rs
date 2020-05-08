@@ -503,18 +503,16 @@ pub fn format_file_data(
 
         // If this line starts nesting, we need to create a div that exists strictly to contain the
         // position:sticky element.
-        let mut maybe_nesting_style = String::new();
         if line.starts_nest {
-            write!(writer, "<div class=\"nesting-container\">").unwrap();
+            write!(writer, "<div class=\"nesting-container nesting-depth-{}\">", nest_depth).unwrap();
             nest_depth += 1;
-            maybe_nesting_style = format!(" nesting-depth-{}", nest_depth);
         }
 
         // Emit the actual source line here.
         let f = F::Seq(vec![
             F::T(format!(
                 "<div role=\"row\" class=\"source-line-with-number{}\">",
-                maybe_nesting_style
+                if line.starts_nest { " nesting-sticky-line" } else { "" }
             )),
             F::Indent(vec![
                 // Blame info.
