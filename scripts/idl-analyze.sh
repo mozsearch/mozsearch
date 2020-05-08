@@ -34,9 +34,9 @@ if [ ! -d "${TREE_PYMODULES}" ]; then
     pushd ply
     for PLYFILE in __init__.py lex.py yacc.py; do
         if [ $PULL_FROM_MC -eq 0 ]; then
-            cp "${FILES_ROOT}/other-licenses/ply/ply/${PLYFILE}" ./
+            cp "${FILES_ROOT}/other-licenses/ply/ply/${PLYFILE}" ./ || cp "${FILES_ROOT}/third_party/python/ply/ply/${PLYFILE}" ./
         else
-            wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/other-licenses/ply/ply/${PLYFILE}"
+            wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/third_party/python/ply/ply/${PLYFILE}"
         fi
     done
     popd
