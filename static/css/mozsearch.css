@@ -158,10 +158,6 @@ td#line-numbers {
 }
 
 .line-number {
-    /* this needs to create a containing block for the .goto synthetic anchor
-       elements which are created as children of .line-number elements, at least
-       as long as .goto is position: absolute. */
-    position: relative;
     display: inline-block;
     cursor: pointer;
     -moz-user-select: none;
