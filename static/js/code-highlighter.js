@@ -62,7 +62,7 @@ var Sticky = new (class Sticky {
       if (!elem.classList.contains("line-number")) {
         return null;
       }
-      let num = parseInt(elem.textContent, 10);
+      let num = parseInt(elem.dataset.lineNumber, 10);
       if (isNaN(num) || num < 0) {
         return null;
       }
@@ -120,7 +120,7 @@ var Sticky = new (class Sticky {
           break;
         }
 
-        let lineNum = parseInt(elem.textContent, 10);
+        let lineNum = parseInt(elem.dataset.lineNumber, 10);
 
         let expectedLineNum = sanityCheckLineNum - MAX_NESTING + iLine;
         if (lineNum !== expectedLineNum) {
@@ -228,7 +228,7 @@ var Highlight = new (class Highlight {
       }
     }
 
-    let line = parseInt(event.target.innerText, 10);
+    let line = parseInt(event.target.dataset.lineNumber, 10);
     if (event.shiftKey) {
       // Range-select on shiftkey.
       //
@@ -388,22 +388,3 @@ var Highlight = new (class Highlight {
     }
   }
 })();
-
-// We use user-select:none to hide line numbers from text selections. That
-// does however not work in Chrome (https://crbug.com/850685)
-// or Safari (https://bugzilla.mozilla.org/show_bug.cgi?id=1616104#c1).
-// As a work-around, move all line numbers into pseudo-elements when the user
-// selects something for the first time.
-if (navigator.userAgent.indexOf("Firefox") == -1) {
-  document.addEventListener(
-    "selectstart",
-    function () {
-      // FIXME(emilio): Doesn't this break the sticky detector?
-      for (let lineno of document.querySelectorAll(".line-number")) {
-        lineno.dataset.lineNumber = lineno.textContent;
-        lineno.textContent = "";
-      }
-    },
-    { once: true }
-  );
-}
