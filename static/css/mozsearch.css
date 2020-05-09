@@ -169,7 +169,7 @@ td#line-numbers {
     user-select: none;
 }
 .highlighted {
-    background: none repeat scroll 0 0 rgb(255, 255, 204) !important;
+    background: none repeat scroll content-box 0 0 rgb(255, 255, 204) !important;
 }
 .source-line {
     margin: 0;
