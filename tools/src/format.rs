@@ -520,7 +520,7 @@ pub fn format_file_data(
                 F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
                 // The line number.
                 F::T(format!(
-                    "<div role=\"cell\" class=\"line-number\">{}</div>",
+                    "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
                     lineno
                 )),
                 // The source line.
@@ -952,8 +952,8 @@ pub fn format_diff(
                 )),
                 // The line number and blame info.
                 F::T(format!(
-                    "<div role=\"cell\" class=\"line-number\">{}</div>",
-                    if lineno > 0 { format!("{}", lineno) } else { "&nbsp;".to_owned() },
+                    "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
+                    if lineno > 0 { format!("{}", lineno) } else { "".to_owned() },
                 )),
                 // The source line.
                 F::T(format!(
