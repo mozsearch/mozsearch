@@ -605,12 +605,6 @@ span[data-symbols].hovered {
     text-align: left;
     z-index: 200;
     cursor: auto;
-    -moz-user-select: text;
-    -o-user-select: text;
-    -khtml-user-select: text;
-    -webkit-user-select: text;
-    -ms-user-select: text;
-    user-select: text;
 }
 .blame-popup a {
     text-decoration: underline;
