@@ -238,18 +238,9 @@ body {
   overflow-y: auto;
 }
 
-
-
 /**
  * Nesting!
  */
-
-.nesting-container {
-  display: block;
-  /* create a containing block that bounds the position: sticky
-     .source-line-with-number div necessary for sticky operation. */
-  position: relative;
-}
 
 .nesting-depth-0 { --nesting-level: 0; }
 .nesting-depth-1 { --nesting-level: 1; }
