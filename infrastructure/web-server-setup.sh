@@ -29,9 +29,9 @@ rm -rf $SERVER_ROOT/docroot
 mkdir -p $SERVER_ROOT/docroot
 DOCROOT=$(realpath $SERVER_ROOT/docroot)
 
-DEFAULT_TREE_NAME=$($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE default_tree)
+DEFAULT_TREE_NAME=$(jq -r ".default_tree" ${CONFIG_FILE})
 
-for TREE_NAME in $($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees)
+for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
     mkdir -p $DOCROOT/file/$TREE_NAME
     mkdir -p $DOCROOT/dir/$TREE_NAME

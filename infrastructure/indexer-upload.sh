@@ -19,7 +19,7 @@ CONFIG_FILE=$WORKING/config.json
 
 export AWS_ROOT=$MOZSEARCH_PATH/infrastructure/aws
 
-for TREE_NAME in $($MOZSEARCH_PATH/scripts/read-json.py $CONFIG_FILE trees)
+for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
