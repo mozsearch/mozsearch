@@ -1,10 +1,11 @@
 #!/usr/bin/env python2
 
-import SimpleHTTPServer
-from BaseHTTPServer import HTTPServer
-from SocketServer import ForkingMixIn
-import urllib
-import urlparse
+from __future__ import absolute_import
+import six.moves.SimpleHTTPServer
+from six.moves.BaseHTTPServer import HTTPServer
+from six.moves.socketserver import ForkingMixIn
+import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
+import six.moves.urllib.parse
 import sys
 import os
 import os.path
@@ -21,6 +22,7 @@ import crossrefs
 import identifiers
 import codesearch
 from logger import log
+from six.moves import range
 
 def index_path(tree_name):
     return config['trees'][tree_name]['index_path']
@@ -28,7 +30,7 @@ def index_path(tree_name):
 def get_main_tree():
     if 'mozilla-central' in config['trees']:
         return 'mozilla-central'
-    return config['trees'].keys()[0]
+    return list(config['trees'].keys())[0]
 
 # Simple globbing implementation, except ^ and $ are also allowed.
 def parse_path_filter(filter):
@@ -173,7 +175,7 @@ class SearchResults(object):
         result = collections.OrderedDict()
         for pathkind in self.path_precedences:
             for qkind in self.compiled.get(pathkind, []):
-                paths = self.compiled[pathkind][qkind].keys()
+                paths = list(self.compiled[pathkind][qkind].keys())
                 paths.sort()
                 for path in paths:
                     (lines, line_modifier) = self.compiled[pathkind][qkind][path]
@@ -359,7 +361,7 @@ def get_json_search_results(tree_name, query):
     results['*timedout*'] = hit_timeout
     return json.dumps(results)
 
-class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
         pid = os.fork()
         if pid:
@@ -379,7 +381,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 try:
                     (pid2, status) = os.waitpid(pid, 0)
                     break
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.EINTR: raise e
 
             failed = timedOut[0]
@@ -406,7 +408,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         pass
 
     def process_request(self):
-        url = urlparse.urlparse(self.path)
+        url = six.moves.urllib.parse.urlparse(self.path)
         path_elts = url.path.split('/')
 
         # Strip any extra slashes.
@@ -431,12 +433,12 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 try:
                     data = open(filename).read()
                 except:
-                    return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
+                    return six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
             self.generate(data, 'text/html')
         elif len(path_elts) >= 2 and path_elts[1] == 'search':
             tree_name = path_elts[0]
-            query = urlparse.parse_qs(url.query)
+            query = six.moves.urllib.parse.parse_qs(url.query)
             j = get_json_search_results(tree_name, query)
             if 'json' in self.headers.getheader('Accept', ''):
                 self.generate(j, 'application/json')
@@ -446,7 +448,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
         elif len(path_elts) >= 2 and path_elts[1] == 'define':
             tree_name = path_elts[0]
-            query = urlparse.parse_qs(url.query)
+            query = six.moves.urllib.parse.parse_qs(url.query)
             symbol = query['q'][0]
             results = crossrefs.lookup(tree_name, symbol)
             definition = results['Definitions'][0]
@@ -458,7 +460,7 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.send_header("Location", url)
             self.end_headers()
         else:
-            return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
+            return six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
     def generate(self, data, type):
         self.send_response(200)

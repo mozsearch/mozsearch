@@ -4,6 +4,8 @@
 # Prints the volume ID on stdout.
 # Usage: attach-index-volume.py <channel> <instance-id>
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import boto3
 import awslib
@@ -41,4 +43,4 @@ instance.attach_volume(VolumeId=volumeId, Device='xvdf')
 
 awslib.await_volume(client, volumeId, 'available', 'in-use')
 
-print volumeId
+print(volumeId)

@@ -2,6 +2,7 @@
 
 # trigger-provision.py <indexer-provision.sh | web-server-provision.sh>
 
+from __future__ import absolute_import
 import boto3
 from datetime import datetime, timedelta
 import sys

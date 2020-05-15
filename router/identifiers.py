@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 import json
 import sys
 import mmap
@@ -82,4 +84,4 @@ def lookup(tree_name, needle, complete, fold_case):
 
 if __name__ == '__main__':
     load(json.load(open(sys.argv[1])))
-    print lookup(sys.argv[2], sys.argv[3])
+    print(lookup(sys.argv[2], sys.argv[3]))

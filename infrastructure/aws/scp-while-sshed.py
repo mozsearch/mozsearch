@@ -33,6 +33,8 @@
 # - If you want to copy a file TO the machine, you need to update this script or
 #   fork it to make a TO version.
 
+from __future__ import absolute_import
+from __future__ import print_function
 import boto3
 from datetime import datetime
 import os
@@ -47,17 +49,17 @@ def scp_from(instance, file_on_host, local_target):
     identity_args = []
     privkey_file = os.path.expanduser('~/.aws/private_key.pem')
     if os.path.isfile(privkey_file):
-        print('Using %s as identity keyfile' % privkey_file)
+        print(('Using %s as identity keyfile' % privkey_file))
         identity_args = ['-i', privkey_file]
 
-    print('Connecting to', instance.public_ip_address)
+    print(('Connecting to', instance.public_ip_address))
     p = subprocess.Popen(['scp'] + identity_args + ['ubuntu@' + instance.public_ip_address + ':' + file_on_host, local_target])
     p.wait()
 
     sys.exit(p.returncode)
 
 if len(sys.argv) < 4:
-    print('usage: %s <instance-id> <remote-file-path> <local-target>' % sys.argv[0])
+    print(('usage: %s <instance-id> <remote-file-path> <local-target>' % sys.argv[0]))
     sys.exit(0)
 
 id = sys.argv[1]

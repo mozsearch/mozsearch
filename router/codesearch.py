@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import sys
 import socket
 import os
@@ -56,9 +57,9 @@ def daemonize(args):
     if pid:
         os._exit(0)
 
-    si = file('/dev/null', 'r')
-    so = file('/dev/null', 'a+')
-    se = file('/dev/null', 'a+', 0)
+    si = open('/dev/null', 'r')
+    so = open('/dev/null', 'a+')
+    se = open('/dev/null', 'a+', 0)
     os.dup2(si.fileno(), sys.stdin.fileno())
     os.dup2(so.fileno(), sys.stdout.fileno())
     os.dup2(se.fileno(), sys.stderr.fileno())
