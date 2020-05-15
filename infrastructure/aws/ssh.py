@@ -78,7 +78,7 @@ def restore_state(instance, old_state):
         print("Awaiting instance stop...")
         awslib.await_instance(client, instance.id, None, old_state)
     else:
-        print("Unrecognized initial state %s, cannot restore state!", old_state)
+        print("Unrecognized initial state %s, cannot restore state!" % old_state)
 
 def change_security(instance, make_secure):
     secure_suffix = '-secure'
