@@ -114,7 +114,7 @@ library.
 ```
 # Run these commands from within a mozsearch checkout.
 
-virtualenv --python=python2 env
+virtualenv --python=python3 env
 source env/bin/activate
 pip install boto3
 ```

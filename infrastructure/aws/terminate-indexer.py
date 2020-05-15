@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Shuts down the indexer instance.
 # Usage: terminate-indexer.py <indexer-instance-id>

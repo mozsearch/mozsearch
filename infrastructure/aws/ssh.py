@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # SSH into a server. This command opens the SSH port before connecting
 # and closes it after SSH is finished.
