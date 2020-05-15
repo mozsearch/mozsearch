@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # This is a helper to let you copy files from a machine that you've already
 # ssh'ed into via `ssh.py`.  `ssh.py` handles changing the security bits for
