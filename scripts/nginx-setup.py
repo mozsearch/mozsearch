@@ -13,10 +13,13 @@
 # listings), but that could just as easily be accomplished with slightly fancier
 # location directives.
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import json
 import os.path
 import subprocess
+import six
 
 config_fname = sys.argv[1]
 # doc_root will usually be /home/unbutu/docroot and will hold files like:
@@ -29,7 +32,7 @@ doc_root = sys.argv[2]
 use_hsts = sys.argv[3] == 'hsts'
 nginx_cache_dir = sys.argv[4] # empty string if not specified, which is falsey.
 
-print '# use_hsts =', sys.argv[3]
+print('# use_hsts =', sys.argv[3])
 
 mozsearch_path = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), '..'))
 
@@ -55,26 +58,26 @@ binary_types = {
 fmt = {
   'doc_root': doc_root,
   'mozsearch_path': mozsearch_path,
-  'binary_types': " ".join((mime + " " + exts + ";") for (exts, mime) in binary_types.iteritems()),
+  'binary_types': " ".join((mime + " " + exts + ";") for (exts, mime) in six.iteritems(binary_types)),
 }
 
 def location(route, directives):
-    print '  location %s {' % (route % fmt)
+    print('  location %s {' % (route % fmt))
 
     # Use HSTS in release - ELB sets http_x_forwarded_proto, so this
     # won't match in dev builds.  This needs to be included in all
     # locations, instead of in the server block, since add_header
     # won't be inherited if a location sets any headers of its own.
     if use_hsts:
-        print '    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;'
+        print('    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;')
 
     for directive in directives:
-        print '    ' + (directive % fmt)
+        print('    ' + (directive % fmt))
         if nginx_cache_dir and 'proxy_pass' in directive:
-            print '    proxy_cache sfox;'
-            print '    add_header X-Cache-Status $upstream_cache_status;'
-    print '  }'
-    print
+            print('    proxy_cache sfox;')
+            print('    add_header X-Cache-Status $upstream_cache_status;')
+    print('  }')
+    print()
 
 if nginx_cache_dir:
     # Proxy Cache Settings.
@@ -97,24 +100,24 @@ if nginx_cache_dir:
     #   the cache has filled up.  The machine should be reaped after 2 days in
     #   normal successful operation, so anything above that is really just a
     #   convenience for analysis purposes.
-    print 'proxy_cache_path', nginx_cache_dir, 'levels=1:2 keys_zone=sfox:10m max_size=20g use_temp_path=off inactive=7d;'
+    print('proxy_cache_path', nginx_cache_dir, 'levels=1:2 keys_zone=sfox:10m max_size=20g use_temp_path=off inactive=7d;')
     # If a 2nd identical request comes in while we're still asking the server
     # for an answer, block the 2nd and serve it the result of the 1st.  This is
     # massively desired for cases where anxious users hit the refresh button on
     # a slow-to-load page.
-    print 'proxy_cache_lock on;'
+    print('proxy_cache_lock on;')
     # And those worst-cases can be very bad, so choose much longer lock timeouts
     # than 5s.  Note that proxy_read_timeout is still 60s so if the server
     # buffers the whole time, things will still break.
-    print 'proxy_cache_lock_age 3m;'
-    print 'proxy_cache_lock_timeout 3m;'
-    print 'proxy_read_timeout 3m;'
-    print 'proxy_cache_valid 200 120d;'
+    print('proxy_cache_lock_age 3m;')
+    print('proxy_cache_lock_timeout 3m;')
+    print('proxy_read_timeout 3m;')
+    print('proxy_cache_valid 200 120d;')
     # XXX cache despite the server saying otherwise
-    print 'proxy_ignore_headers X-Accel-Expires Expires Cache-Control Set-Cookie;'
-    print ''
+    print('proxy_ignore_headers X-Accel-Expires Expires Cache-Control Set-Cookie;')
+    print('')
 
-print '''# we are in the "http" context here.
+print('''# we are in the "http" context here.
 log_format custom_cache_log '[$time_local] [Cache:$upstream_cache_status] [$host] [Remote_Addr: $remote_addr] - $remote_user - $server_name to: $upstream_addr: "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' ;
 
 map $status $expires {
@@ -136,7 +139,7 @@ server {
 
   expires $expires;
   etag on;
-''' % fmt
+''' % fmt)
 
 location('/static', ['root %(mozsearch_path)s;'])
 location('= /robots.txt', [
@@ -225,4 +228,4 @@ location('= /status.txt', [
     'add_header Cache-Control "must-revalidate";',
 ])
 
-print '}'
+print('}')

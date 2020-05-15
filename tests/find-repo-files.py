@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
 import os
 import os.path
 import sys
@@ -8,6 +9,7 @@ import json
 import collections
 
 from lib import run
+from six.moves import range
 
 config = json.load(open(sys.argv[1]))
 tree_name = sys.argv[2]

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 import boto3
 import time
 
@@ -10,7 +12,7 @@ def await_volume(client, volumeId, waitingState, finishedState):
         time.sleep(1)
 
     if state != finishedState:
-        print('Unexpected volume state (expected {}): {}'.format(finishedState, volumes))
+        print(('Unexpected volume state (expected {}): {}'.format(finishedState, volumes)))
         sys.exit(1)
 
 def await_instance(client, instanceId, waitingState, finishedState):
@@ -27,10 +29,10 @@ def await_instance(client, instanceId, waitingState, finishedState):
             if exceptionCount > 2:
                 raise
             exceptionCount += 1
-            print('Unable to describe instance ID {}, will retry...'.format(instanceId))
+            print(('Unable to describe instance ID {}, will retry...'.format(instanceId)))
             time.sleep(10)
         time.sleep(1)
 
     if state != finishedState:
-        print('Unexpected instance state (expected {}): {}'.format(finishedState, instances))
+        print(('Unexpected instance state (expected {}): {}'.format(finishedState, instances)))
         sys.exit(1)

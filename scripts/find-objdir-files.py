@@ -1,9 +1,11 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
 import os
 import os.path
 import sys
 import subprocess
+from six.moves import range
 
 mozSearchRoot = os.environ['MOZSEARCH_PATH']
 indexRoot = os.environ['INDEX_ROOT']

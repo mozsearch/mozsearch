@@ -11,6 +11,8 @@
 #
 # Usage: ./trigger-web-server.py <branch> <channel> <config-repo> <config-input> <index-volume-id>
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from datetime import datetime, timedelta
 import dateutil.parser
@@ -53,7 +55,7 @@ if volumes['Volumes'][0]['Attachments']:
 
 # - Start the web server instance, tag it as a web server
 
-print 'Starting web server instance...'
+print('Starting web server instance...')
 
 images = ec2.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-18.04']}])
 image_id = images['Images'][0]['ImageId']
@@ -74,9 +76,9 @@ webServerInstanceId = r['Instances'][0]['InstanceId']
 
 awslib.await_instance(ec2, webServerInstanceId, 'pending', 'running')
 
-print '  State is running.'
+print('  State is running.')
 
-print 'Tagging web server instance...'
+print('Tagging web server instance...')
 
 instances = ec2_resource.instances.filter(InstanceIds=[webServerInstanceId])
 webServerInstance = list(instances)[0]
@@ -92,7 +94,7 @@ ec2.create_tags(Resources=[webServerInstanceId], Tags=[{
     'Value': config_input,
 }])
 
-print 'Attaching index volume to web server instance...'
+print('Attaching index volume to web server instance...')
 
 # - Attach INDEX_VOL to the web server
 ec2.attach_volume(VolumeId=volumeId, InstanceId=webServerInstanceId, Device='xvdf')
@@ -105,7 +107,7 @@ while True:
     try:
         status = subprocess.check_output(
             ["curl", "-f", "-s", "-m", "10.0", "http://%s/status.txt" % ip])
-        print 'Got status.txt: [%s]' % status
+        print('Got status.txt: [%s]' % status)
         if len(status.splitlines()) < 2:
             time.sleep(10)
             continue
@@ -116,7 +118,7 @@ while True:
 
 # - Attach the elastic IP to the new web server
 
-print 'Switching requests to new server...'
+print('Switching requests to new server...')
 
 r = elb.describe_target_groups(Names=[targetGroup])
 targetGroupArn = r['TargetGroups'][0]['TargetGroupArn']
@@ -135,7 +137,7 @@ if oldTargets:
 
 # - Shut down any old web server (a web server not equal to the one I've started)
 
-print 'Shutting down old servers...'
+print('Shutting down old servers...')
 
 r = ec2.describe_instances(Filters=[{'Name': 'tag-key', 'Values': ['web-server']},
                                     {'Name': 'tag:channel', 'Values': [channel]}])
@@ -159,7 +161,7 @@ for reservation in r['Reservations']:
         if kill:
             terminate.append(instanceId)
 
-print 'Terminating {}'.format(terminate)
+print('Terminating {}'.format(terminate))
 
 if len(terminate):
     ec2.terminate_instances(InstanceIds=terminate)
@@ -169,7 +171,7 @@ for instanceId in terminate:
 
 # - Delete any old EBS index volumes
 
-print 'Deleting old EBS index volumes...'
+print('Deleting old EBS index volumes...')
 
 volumes = ec2.describe_volumes(Filters=[{'Name': 'tag-key', 'Values': ['index']},
                                         {'Name': 'tag:channel', 'Values': [channel]},
@@ -177,5 +179,5 @@ volumes = ec2.describe_volumes(Filters=[{'Name': 'tag-key', 'Values': ['index']}
 volumes = volumes['Volumes']
 for volume in volumes:
     if volumeId != volume['VolumeId']:
-        print 'Deleting {}'.format(volume['VolumeId'])
+        print('Deleting {}'.format(volume['VolumeId']))
         ec2.delete_volume(VolumeId=volume['VolumeId'])

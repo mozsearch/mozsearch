@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+from __future__ import print_function
 import datetime
 import os
 import subprocess
@@ -16,7 +18,7 @@ s = when.strftime('%M %H %d %m *')
 
 s += ' ' + os.path.join(dir_path, 'send-failure-email.py') + ' ' + subj_prefix + ' ' + dest_email + '\n'
 
-print s
+print(s)
 
 p = subprocess.Popen(['crontab', '-'], stdin=subprocess.PIPE)
 p.communicate(s)

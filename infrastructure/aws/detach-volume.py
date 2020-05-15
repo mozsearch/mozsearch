@@ -4,6 +4,7 @@
 #
 # Usage: detach-volume.py <instance-id> <volume-id>
 
+from __future__ import absolute_import
 import sys
 import boto3
 import awslib
