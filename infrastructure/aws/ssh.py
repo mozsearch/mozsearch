@@ -48,7 +48,7 @@ def print_instances():
         # strip off sub-seconds
         age_str = age_str[:age_str.find('.')]
 
-        print((instance.id, state, group, age_str, ["%s: %s" % (k, tags[k]) for k in sorted(tags.keys())]))
+        print(instance.id, state, group, age_str, ["%s: %s" % (k, tags[k]) for k in sorted(tags.keys())])
 
 def prompt(text):
     while True:
@@ -78,7 +78,7 @@ def restore_state(instance, old_state):
         print("Awaiting instance stop...")
         awslib.await_instance(client, instance.id, None, old_state)
     else:
-        print(("Unrecognized initial state %s, cannot restore state!", old_state))
+        print("Unrecognized initial state %s, cannot restore state!", old_state)
 
 def change_security(instance, make_secure):
     secure_suffix = '-secure'
@@ -99,7 +99,7 @@ def change_security(instance, make_secure):
     new_group = vpc.security_groups.filter(GroupNames=[new_group_name])
     new_group = list(new_group)[0]
 
-    print(('Changing instance security group to', new_group.group_name, '--', new_group))
+    print('Changing instance security group to', new_group.group_name, '--', new_group)
 
     instance.modify_attribute(Groups=[new_group.id])
     return True
@@ -112,10 +112,10 @@ def log_into(instance):
     identity_args = []
     privkey_file = os.path.expanduser('~/.aws/private_key.pem')
     if os.path.isfile(privkey_file):
-        print(('Using %s as identity keyfile' % privkey_file))
+        print('Using %s as identity keyfile' % privkey_file)
         identity_args = ['-i', privkey_file]
 
-    print(('Connecting to', instance.public_ip_address))
+    print('Connecting to', instance.public_ip_address)
     p = subprocess.Popen(['ssh'] + identity_args + ['ubuntu@' + instance.public_ip_address])
     p.wait()
 
@@ -128,7 +128,7 @@ def log_into(instance):
     sys.exit(p.returncode)
 
 if len(sys.argv) == 1:
-    print(('usage: %s <instance-id>' % sys.argv[0]))
+    print('usage: %s <instance-id>' % sys.argv[0])
     print()
     print('Current instances:')
     print_instances()

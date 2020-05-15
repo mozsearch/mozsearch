@@ -20,7 +20,7 @@ indexerInstanceId = sys.argv[1]
 for volume in client.describe_volumes()['Volumes']:
     for attachment in volume['Attachments']:
         if attachment['InstanceId'] == indexerInstanceId and not attachment['DeleteOnTermination']:
-            print(("Volume %s is attached to the indexer and won't be deleted; you may want to delete it if not needed any more" % volume['VolumeId']))
+            print("Volume %s is attached to the indexer and won't be deleted; you may want to delete it if not needed any more" % volume['VolumeId'])
             if len(volume['Attachments']) > 1:
                 print("But watch out! The volume is attached to multiple instances")
                 pprint(volume['Attachments'])
