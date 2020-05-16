@@ -79,6 +79,19 @@ SITEDIR=$(python -m site --user-site)
 mkdir -p "$SITEDIR"
 echo "$PWD/livegrep-grpc" > "$SITEDIR/livegrep.pth"
 
+# Same as above, but for python3 so we can run router.py with either python2 or python3
+sudo pip3 install grpcio grpcio-tools
+rm -rf livegrep-grpc3
+mkdir livegrep-grpc3
+python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
+python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
+touch livegrep-grpc3/src/__init__.py
+touch livegrep-grpc3/src/proto/__init__.py
+# Add the generated modules to the python path
+SITEDIR=$(python3 -m site --user-site)
+mkdir -p "$SITEDIR"
+echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
+
 # Install AWS scripts.
 sudo pip install boto3
 sudo pip3 install boto3
