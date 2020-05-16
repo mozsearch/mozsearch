@@ -28,18 +28,19 @@ def load(config):
             pos = 0
             while True:
                 line = mm.readline()
-                if line == '':
+                linelen = len(line)
+                if linelen == 0:
                     break
 
                 if key == None:
-                    pos += len(line)
+                    pos += linelen
                     key = line.strip()
                 else:
                     value = line.strip()
                     s = "{},{}".format(pos, pos + len(value))
                     crossrefs[key] = s
                     key = None
-                    pos += len(line)
+                    pos += linelen
 
         repo_data[repo_name] = (mm, crossrefs)
 
