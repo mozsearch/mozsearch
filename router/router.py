@@ -230,8 +230,8 @@ def search_files(tree_name, path):
     objdirFile = os.path.join(index_path(tree_name), 'objdir-files')
     try:
         # We set the locale to make grep much faster.
-        results = subprocess.check_output(['grep', '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'}, text=True)
-    except:
+        results = subprocess.check_output(['grep', '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'}, universal_newlines=True)
+    except subprocess.CalledProcessError:
         return []
     results = results.strip().split('\n')
     results = [ {'path': f, 'lines': []} for f in results ]
@@ -239,8 +239,8 @@ def search_files(tree_name, path):
 
 def demangle(sym):
     try:
-        return subprocess.check_output(['c++filt', '--no-params', sym], text=True).strip()
-    except:
+        return subprocess.check_output(['c++filt', '--no-params', sym], universal_newlines=True).strip()
+    except subprocess.CalledProcessError:
         return sym
 
 def identifier_search(search, tree_name, needle, complete, fold_case):
