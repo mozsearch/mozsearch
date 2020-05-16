@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from __future__ import absolute_import
 import six.moves.SimpleHTTPServer
@@ -230,7 +230,7 @@ def search_files(tree_name, path):
     objdirFile = os.path.join(index_path(tree_name), 'objdir-files')
     try:
         # We set the locale to make grep much faster.
-        results = subprocess.check_output(['grep', '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'})
+        results = subprocess.check_output(['grep', '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'}, text=True)
     except:
         return []
     results = results.strip().split('\n')
@@ -238,11 +238,9 @@ def search_files(tree_name, path):
     return results[:1000]
 
 def demangle(sym):
-    p = subprocess.Popen(['c++filt', '--no-params', sym], stdout=subprocess.PIPE)
-    (stdout, stderr) = p.communicate()
-    if not p.returncode:
-        return stdout.strip()
-    else:
+    try:
+        return subprocess.check_output(['c++filt', '--no-params', sym], text=True).strip()
+    except:
         return sym
 
 def identifier_search(search, tree_name, needle, complete, fold_case):
@@ -413,8 +411,8 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
             tree_name = path_elts[0]
             query = six.moves.urllib.parse.parse_qs(url.query)
             j = get_json_search_results(tree_name, query)
-            if 'json' in self.headers.getheader('Accept', ''):
-                self.generate(j, 'application/json')
+            if 'json' in self.headers.get('Accept', ''):
+                self.generateJson(j)
             else:
                 j = j.replace("</", "<\\/").replace("<script", "<\\script").replace("<!", "<\\!")
                 template = os.path.join(index_path(tree_name), 'templates/search.html')
@@ -435,27 +433,31 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
         else:
             return six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
 
-    def generate(self, data, type):
+    def generateJson(self, data):
+        databytes = data.encode('utf-8')
+
         self.send_response(200)
         self.send_header("Vary", "Accept")
-        self.send_header("Content-type", type)
-        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-type", "application/json;charset=utf-8")
+        self.send_header("Content-Length", str(len(databytes)))
         self.end_headers()
 
-        self.wfile.write(data)
+        self.wfile.write(databytes)
 
     def generateWithTemplate(self, replacements, templateFile):
         output = open(templateFile).read()
         for (k, v) in replacements.items():
             output = output.replace(k, v)
 
+        databytes = output.encode('utf-8')
+
         self.send_response(200)
         self.send_header("Vary", "Accept")
-        self.send_header("Content-type", "text/html")
-        self.send_header("Content-Length", str(len(output)))
+        self.send_header("Content-type", "text/html;charset=utf-8")
+        self.send_header("Content-Length", str(len(databytes)))
         self.end_headers()
 
-        self.wfile.write(output)
+        self.wfile.write(databytes)
 
 config_fname = sys.argv[1]
 status_fname = sys.argv[2]

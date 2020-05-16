@@ -32,11 +32,13 @@ def load(config):
                 if linelen == 0:
                     break
 
+                # Crossrefs file is written by Rust in utf-8
+                line = line.decode('utf-8').strip()
                 if key == None:
                     pos += linelen
-                    key = line.strip()
+                    key = line
                 else:
-                    value = line.strip()
+                    value = line
                     s = "{},{}".format(pos, pos + len(value))
                     crossrefs[key] = s
                     key = None
