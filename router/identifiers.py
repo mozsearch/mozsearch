@@ -47,7 +47,7 @@ def bisect(mm, needle, upper_bound):
     first = 0
     count = mm.size()
     while count > 0:
-        step = count / 2
+        step = int(count / 2)
         pos = first + step
 
         line = get_line(mm, pos).upper()
