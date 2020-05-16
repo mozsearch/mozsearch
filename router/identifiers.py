@@ -26,20 +26,21 @@ def load(config):
         repo_data[repo_name] = mm
 
 def get_line(mm, pos):
-    if mm[pos] == '\n':
+    if mm[pos] == ord('\n'):
         pos -= 1
 
     start = end = pos
 
-    while start >= 0 and mm[start] != '\n':
+    while start >= 0 and mm[start] != ord('\n'):
         start -= 1
     start += 1
 
     size = mm.size()
-    while end < size and mm[end] != '\n':
+    while end < size and mm[end] != ord('\n'):
         end += 1
 
-    return mm[start:end]
+    # Identifiers files are written from Rust and are in utf-8
+    return mm[start:end].decode('utf-8')
 
 def bisect(mm, needle, upper_bound):
     needle = needle.upper()
@@ -71,7 +72,8 @@ def lookup(tree_name, needle, complete, fold_case):
     result = []
     mm.seek(first)
     while mm.tell() < last:
-        line = mm.readline().strip()
+        # Identifiers files are written from Rust and are in utf-8
+        line = mm.readline().decode('utf-8').strip()
         pieces = line.split(' ')
         suffix = pieces[0][len(needle):]
         if ':' in suffix or '.' in suffix or (complete and suffix):
