@@ -72,3 +72,9 @@ date
 $MOZSEARCH_PATH/scripts/build-codesearch.py $CONFIG_FILE $TREE_NAME
 
 date
+
+# Check the resulting index for correctness, but there's no webserver so the
+# 4th argument needs to be empty.
+$MOZSEARCH_PATH/scripts/check-index.sh $CONFIG_FILE $TREE_NAME "filesystem" ""
+
+date

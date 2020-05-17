@@ -36,7 +36,7 @@ extern "C" fn WithNoMangle() {}
 impl Loader {
     pub fn new(deps_dir: PathBuf) -> Self {
         Self {
-            whatever: build_time_generated::GeneratedType,
+            whatever: build_time_generated::GeneratedType{ some_num: 1 },
             deps_dir,
             my_type: MyType::new(),
         }
