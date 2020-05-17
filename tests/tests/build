@@ -22,7 +22,9 @@ cargo build
 
 # Normalize the save-analysis paths.
 NORMALIZE_EXPR='s#/vagrant/tests/tests/files/##g'
-find $OBJDIR -type f -name "*.json" | parallel --halt now,fail=1 sed --in-place -e "$NORMALIZE_EXPR" {}
+NORMALIZE_EXPR+=";s#$OBJDIR#__GENERATED__#g"
+# parallel -q quotes the semicolons
+find $OBJDIR -type f -name "*.json" | parallel -q --halt now,fail=1 sed --in-place -Ee "$NORMALIZE_EXPR" {}
 
 # Firefox generates files named something like Configure.cpp during
 # the build process, but their source files are not around by the time

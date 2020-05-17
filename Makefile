@@ -30,6 +30,9 @@ build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~
 
+check-test-repo:
+	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index ~
+
 build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/searchfox-index
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index

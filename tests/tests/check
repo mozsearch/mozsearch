@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+date
+
+# We are passed in the name of the helper script to invoke to run each check.
+# The syntax is:
+#   "$@" <searchfox user exposed path> <canonical symbol name as found in data-symbols>
+#
+# Note that "$@" is used because the command is expected to have curried
+# arguments.
+
+### Rust
+## direct source
+"$@" "simple.rs" "simple::Loader"
+
+## dependency
+"$@" "test_rust_dependency/src/lib.rs" "test_rust_dependency::MyType"
+
+## generated
+"$@" "__GENERATED__/debug/build/files-7e56eb8bb8e7c9bb/out/generated.rs" "simple::build_time_generated::GeneratedType"
