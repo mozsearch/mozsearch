@@ -206,7 +206,7 @@ class SearchResults(object):
         # It will build a list of paths indexed by pathkind, qkind.
         # Later I'll iterate over this, remove dupes, sort, and keep the top ones.
 
-        self.qualified_results.sort()
+        self.qualified_results.sort(key=lambda x: x[0])
         for kind in self.key_precedences:
             work = 0
             for (qual, results, line_modifier) in self.qualified_results:
