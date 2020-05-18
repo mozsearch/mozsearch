@@ -27,11 +27,6 @@ from six.moves import range
 def index_path(tree_name):
     return config['trees'][tree_name]['index_path']
 
-def get_main_tree():
-    if 'mozilla-central' in config['trees']:
-        return 'mozilla-central'
-    return list(config['trees'].keys())[0]
-
 # Simple globbing implementation, except ^ and $ are also allowed.
 def parse_path_filter(filter):
     filter = filter.replace('(', '\\(')
@@ -414,29 +409,7 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
         # Strip any extra slashes.
         path_elts = [ elt for elt in path_elts if elt != '' ]
 
-        # Warning: many of the branches in this branch condition don't actually
-        # get executed, because nginx handles them directly. See scripts/nginx-setup.py
-        # for which paths are proxied or handled directly by nginx before you
-        # start mucking around in here.
-
-        if not path_elts:
-            filename = os.path.join(index_path(get_main_tree()), 'help.html')
-            data = open(filename).read()
-            self.generate(data, 'text/html')
-        elif len(path_elts) >= 2 and path_elts[1] == 'source':
-            tree_name = path_elts[0]
-            filename = os.path.join(index_path(tree_name), 'file', '/'.join(path_elts[2:]))
-            try:
-                data = open(filename).read()
-            except:
-                filename = os.path.join(index_path(tree_name), 'dir', '/'.join(path_elts[2:]), 'index.html')
-                try:
-                    data = open(filename).read()
-                except:
-                    return six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
-
-            self.generate(data, 'text/html')
-        elif len(path_elts) >= 2 and path_elts[1] == 'search':
+        if len(path_elts) >= 2 and path_elts[1] == 'search':
             tree_name = path_elts[0]
             query = six.moves.urllib.parse.parse_qs(url.query)
             j = get_json_search_results(tree_name, query)
