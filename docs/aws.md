@@ -59,26 +59,34 @@ and index volumes. Finally, the indexer instance terminates itself.
 ## Logging into the AWS console
 
 The AWS console allows you to manually control AWS resources. To log
-in, you need to request an IAM identity for the Searchfox
-account. After you've logged in, you need to [change the AWS region in
-the top right
+in, you need to be a member of the
+[searchfox-aws](https://mozillians.org/en-US/group/searchfox-aws/)
+Mozillians access group.
+Once you are a member, you can use your Mozilla SSO authentication to
+log in to AWS by going to https://aws.sso.mozilla.com. Once you get past the
+SSO authentication, you'll be asked to pick a role - the admin role is generally
+the one you will want, as it gives you access to make changes whereas the other
+ones are read-only type roles.
+
+After you've logged in, you need to [change the AWS region in the top right
 corner](http://docs.aws.amazon.com/awsconsolehelpdocs/latest/gsg/getting-started.html#select-region). The
 region for Searchfox is "US West (Oregon)". Now you should be able to
-select EC2 from Services and see the list of EC2 machines running.
-
-Web server instances use the t2.large instance type while indexers use
-the c3.2xlarge type. When selecting an instance, the most important
-data is the "Launch time" and "IPv4 Public IP".
+select EC2 from Services and see the list of EC2 machines running. The
+tags on the machine can be useful in selecting a particular instance that
+you might be looking for.
 
 ## Setting up AWS locally
 
 Mozsearch uses a lot of scripts that use the AWS API to start and stop
-indexing, provision servers, etc. It's better to run these scripts
-**outside** the VM so that you don't need to store credentials in the
-VM (where they might get deleted easily).
+indexing, provision servers, etc. It is recommended that you run these
+scripts **outside** the VM, as that is where the commands below have been tested.
+In particular, the `maws` authentication flow opens a web browser which might
+not work properly in a headless VM, but if you do that flow outside the VM and
+copy the resulting credentials into the VM that might work.
 
 To start, you'll need to create some AWS configuration files in your
-home directory.
+home directory, and set up a python3 virtual environment with some AWS-related
+packages:
 
 ```
 # RUN THESE COMMANDS OUTSIDE THE VM!
@@ -90,34 +98,43 @@ cat > ~/.aws/config <<"THEEND"
 region = us-west-2
 THEEND
 
-cat > ~/.aws/credentials <<"THEEND"
-[default]
-aws_access_key_id =
-aws_secret_access_key =
-THEEND
-```
-
-Now we need to fill in the keys for the latter file. To create an
-access key, [follow the instructions for creating an access key from
-the AWS
-console](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey)
-(you'll need to scroll down to the section labeled "To create, modify,
-or delete a user's access keys"). Rather than downloading the
-credentials for the new key, it's easier to copy the key ID and secret
-key and paste them into the `~/.aws/credentials` file.
-
-Once the credentials are set up, the AWS Python API must be
-installed. First, create a virtual environment in the mozsearch git
-repository. Then install the `boto3` package, which is the AWS Python
-library.
-
-```
-# Run these commands from within a mozsearch checkout.
-
 virtualenv --python=python3 env
 source env/bin/activate
-pip install boto3
+pip install boto3 awscli mozilla-aws-cli-mozilla
 ```
+
+With this in place, you can use the `maws` (Mozilla-AWS) tool to obtain
+access credentials, by running the command below. This will open a web browser
+and request you to log in to Mozilla's SSO. As described in the AWS web console
+section above, you will be need to be a member of the
+[searchfox-aws](https://mozillians.org/en-US/group/searchfox-aws/)
+Mozillians group, and will be prompted to pick a role after authentication.
+
+```
+eval $(maws -o awscli --profile default)
+```
+
+The `maws` command will write your access credentials into a `~/.aws/credentials`
+file (that is what the `-o awscli` option does); the `boto3` library and `aws`
+binary both read credentials from this file and so the AWS scripts that use
+these things will Just Work. The `--profile default` argument to `maws` tells it
+what section name to put the credentials in your `~/.aws/credentials` file. If
+you have multiple sets of AWS credentials that you switch between, you may want
+to use a different profile name, and also manually add `region = us-west-2` into
+that section of the file.
+
+Once the `maws` command completes, your command prompt will be augmented with
+the role (or profile, if it's not `default`) name that you are working with.
+When your access token expires (in 24 hours) it changes to indicate that,
+and you need to re-run the `eval` command above to refresh
+your access token.
+
+Note that you can run `maws-logout` to clear your prompt decorations, but that
+doesn't actually invalidate your AWS credentials. (If you run `maws` with one
+of the other `-o` options, the access tokens are stored in different places, and
+some of those can be erased by running `maws-logout`.) You can safely delete your
+`~/.aws/credentials` file if you want to remove your access, and re-run
+the `eval` command above to get it back.
 
 All later AWS commands should be run within the virtual environment.
 
