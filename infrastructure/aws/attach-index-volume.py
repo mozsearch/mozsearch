@@ -43,4 +43,11 @@ instance.attach_volume(VolumeId=volumeId, Device='xvdf')
 
 awslib.await_volume(client, volumeId, 'available', 'in-use')
 
+instance.modify_attribute(BlockDeviceMappings=[{
+    'DeviceName': 'xvdf',
+    'Ebs': {
+        'DeleteOnTermination': True,
+    },
+}])
+
 print(volumeId)
