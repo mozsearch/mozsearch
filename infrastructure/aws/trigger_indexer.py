@@ -12,6 +12,13 @@ def trigger(mozsearch_repo, config_repo, config_input, branch, channel, spot=Fal
     ec2 = boto3.resource('ec2')
     client = boto3.client('ec2')
 
+    running = ec2.instances.filter(Filters=[{'Name': 'tag-key', 'Values': ['indexer']},
+                                           {'Name': 'tag:channel', 'Values': [channel]},
+                                           {'Name': 'instance-state-name', 'Values': ['running']}])
+    for instance in running:
+        print("Terminating existing running indexer %s for channel %s" % (instance.instance_id, channel))
+        instance.terminate()
+
     user_data = '''#!/usr/bin/env bash
 
 cd ~ubuntu
@@ -37,6 +44,9 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
         'TagSpecifications': [{
             'ResourceType': 'instance',
             'Tags': [{
+                'Key': 'indexer',
+                'Value': str(datetime.now())
+            }, {
                 'Key': 'channel',
                 'Value': channel,
             }, {
