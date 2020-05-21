@@ -201,22 +201,31 @@ var Hover = new (class Hover {
 })();
 
 function getTargetWord() {
-  var selection = window.getSelection();
+  let selection = window.getSelection();
   if (!selection.isCollapsed) {
     return null;
   }
 
-  var offset = selection.focusOffset;
-  var node = selection.anchorNode;
-  var string = node.nodeValue;
+  let offset = selection.focusOffset;
+  let node = selection.anchorNode;
+  let string = node.nodeValue;
 
-  let start = offset;
-  let end = offset;
+  if (!string.length) {
+    return null;
+  }
 
   function isWordChar(character) {
     // TODO: this could be more non-ascii friendly.
     return /[A-Z0-9_]/i.test(character);
   }
+
+  if (offset < string.length && !isWordChar(string[offset])) {
+    // Not really in a word.
+    return null;
+  }
+
+  let start = offset;
+  let end = offset;
 
   while (start > 0 && isWordChar(string[start - 1])) {
     --start;
