@@ -65,8 +65,8 @@ struct TreeInfo<'a> {
     /// path space presented to users, this means paths prefixed with
     /// `__GENERATED__/__RUST__`.
     libstd: &'a Path,
-    /// The searchfox path space prefix for the rust stdlib, assumed to be a
-    /// suffix of objdir_friendly.
+    /// The searchfox path space prefix for the rust stdlib.  It's assumed
+    /// generated_friendly is a prefix of this.
     libstd_friendly: &'a Path,
 }
 
