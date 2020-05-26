@@ -39,7 +39,7 @@ def load(config):
                     key = line
                 else:
                     value = line
-                    s = "{},{}".format(pos, pos + len(value))
+                    s = "{},{}".format(pos, pos + linelen)
                     crossrefs[key] = s
                     key = None
                     pos += linelen
