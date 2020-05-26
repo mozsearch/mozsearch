@@ -29,7 +29,7 @@ rm -rf $SERVER_ROOT/docroot
 mkdir -p $SERVER_ROOT/docroot
 DOCROOT=$(realpath $SERVER_ROOT/docroot)
 
-DEFAULT_TREE_NAME=$(jq -r ".default_tree" ${CONFIG_FILE})
+DEFAULT_TREE_NAME=$(jq -r ".default_tree // empty" ${CONFIG_FILE})
 
 for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
