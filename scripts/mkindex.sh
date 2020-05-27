@@ -38,7 +38,6 @@ if [[ ! -f $OBJDIR/rust-analyzed ]]; then
     "$TREE_NAME" \
     "$OBJDIR" \
     "$OBJDIR" \
-    "$INDEX_ROOT/rustlib/src/rust/src" \
     "$INDEX_ROOT/analysis"
 fi
 

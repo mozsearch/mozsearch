@@ -38,14 +38,9 @@ pub struct Defs {
 ///   - There is only ever one analysis output directory.
 /// 2. Know how to locate rust source files in order to hackily extract strings
 ///    that should have been in the save-analysis files.
-///    - There are potentially 4 source directories: the real source directory
-///      (cross-platform), the per-platform objdir where generated source files
-///      live in practice, the synthetic unified objdir that the
-///      merge-analyses steps creates out of the per-platform objdirs, and the
-///      rust stdlib directory.
-///    - We ignore the concept of the unified objdir and hope that all files
-///      be identical at a source level so they merge cleanly.  If they don't,
-///      it's assumed merge-analyses will perform any necessary fix-ups.
+///    - After config scripts run and normalize things there are 2 source
+///      directories: revision controlled source (cross-platform) and the
+///      (per-platform) generated files directory.
 #[derive(Debug)]
 struct TreeInfo<'a> {
     /// Local filesystem path root for the analysis dir where rust-indexer.rs
@@ -61,13 +56,6 @@ struct TreeInfo<'a> {
     generated: &'a Path,
     /// The searchfox path space prefix for generated.
     generated_friendly: &'a Path,
-    /// Local filesystem path root for the rust stdlib source.  In the searchfox
-    /// path space presented to users, this means paths prefixed with
-    /// `__GENERATED__/__RUST__`.
-    libstd: &'a Path,
-    /// The searchfox path space prefix for the rust stdlib.  It's assumed
-    /// generated_friendly is a prefix of this.
-    libstd_friendly: &'a Path,
 }
 
 fn construct_qualname(scope: &str, name: &str) -> String {
@@ -439,9 +427,6 @@ fn visit_common(
 /// local filesystem path.  No attempt is made to validate the existence of the
 /// path.  That's up to the caller.
 fn searchfox_path_to_local_path(searchfox_path: &Path, tree_info: &TreeInfo) -> PathBuf {
-    if let Ok(std_path) = searchfox_path.strip_prefix(tree_info.libstd_friendly) {
-        return tree_info.libstd.join(std_path);
-    }
     if let Ok(objdir_path) = searchfox_path.strip_prefix(tree_info.generated_friendly) {
         return tree_info.generated.join(objdir_path);
     }
@@ -767,8 +752,7 @@ fn main() {
         .args_from_usage(
             "<src>       'Points to the source root (FILES_ROOT)'
              <output>    'Points to the directory where searchfox metadata should go (ANALYSIS_ROOT)'
-             <generated> 'Points to the objdir generated files may come from (GENERATED)'
-             <libstd>    'Points to the directory with the rust source'",
+             <generated> 'Points to the generated source files root (GENERATED)'",
         )
         .arg(
             Arg::with_name("input")
@@ -781,15 +765,12 @@ fn main() {
     let srcdir = Path::new(matches.value_of("src").unwrap());
     let out_analysis_dir = Path::new(matches.value_of("output").unwrap());
     let generated = Path::new(matches.value_of("generated").unwrap());
-    let libstd = Path::new(matches.value_of("libstd").unwrap());
 
     let tree_info = TreeInfo {
         srcdir,
         out_analysis_dir,
         generated,
         generated_friendly: &PathBuf::from("__GENERATED__"),
-        libstd,
-        libstd_friendly: &PathBuf::from("__GENERATED__/__RUST__"),
     };
 
     info!("Tree info: {:?}", tree_info);
