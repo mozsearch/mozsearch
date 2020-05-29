@@ -47,12 +47,6 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_inpu
 volumes = ec2.describe_volumes(VolumeIds=[volumeId])
 availability_zone = volumes['Volumes'][0]['AvailabilityZone']
 
-if volumes['Volumes'][0]['Attachments']:
-    attachment = volumes['Volumes'][0]['Attachments']
-    if attachment['State'] == 'attached':
-        instance.detach_volume(VolumeId=volumeId)
-        awslib.await_volume(ec2, volumeId, 'in-use', 'available')
-
 # - Start the web server instance, tag it as a web server
 
 print('Starting web server instance...')
