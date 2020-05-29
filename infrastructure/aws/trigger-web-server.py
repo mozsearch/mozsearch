@@ -169,15 +169,22 @@ if len(terminate):
 for instanceId in terminate:
     awslib.await_instance(ec2, instanceId, None, 'terminated')
 
-# - Delete any old EBS index volumes
+# - Report any old EBS unattached index volumes.
+# Since they are marked as DeleteOnTermination we shouldn't need to delete
+# volumes explicitly, but let's report if we find any that are older than half
+# a day. This is because within the first half-day of a volume's life it may
+# be temporarily unattached (on creation, or during transfer from indexer to
+# web-server).
 
-print('Deleting old EBS index volumes...')
+print('Checking for old EBS index volumes...')
 
-volumes = ec2.describe_volumes(Filters=[{'Name': 'tag-key', 'Values': ['index']},
-                                        {'Name': 'tag:channel', 'Values': [channel]},
-                                        {'Name': 'status', 'Values': ['available']}])
-volumes = volumes['Volumes']
+volumes = ec2_resource.volumes.filter(
+    Filters=[{'Name': 'tag-key', 'Values': ['index']},
+             {'Name': 'tag:channel', 'Values': [channel]},
+             {'Name': 'status', 'Values': ['available']}])
 for volume in volumes:
-    if volumeId != volume['VolumeId']:
-        print('Deleting {}'.format(volume['VolumeId']))
-        ec2.delete_volume(VolumeId=volume['VolumeId'])
+    for tag in volume.tags:
+        if tag['Key'] == 'index':
+            t = dateutil.parser.parse(tag['Value'])
+            if datetime.now() - t >= timedelta(0.5)
+                print('WARNING: Found stray index volume %s created on %s' % (volume.volume_id, tag['Value']))
