@@ -93,6 +93,15 @@ print('Attaching index volume to web server instance...')
 # - Attach INDEX_VOL to the web server
 ec2.attach_volume(VolumeId=volumeId, InstanceId=webServerInstanceId, Device='xvdf')
 
+# - Wait for it to be attached, and then mark it as DeleteOnTermination
+awslib.await_volume(ec2, volumeId, 'available', 'in-use')
+webServerInstance.modify_attribute(BlockDeviceMappings=[{
+    'DeviceName': 'xvdf',
+    'Ebs': {
+        'DeleteOnTermination': True,
+    },
+}])
+
 # - Wait until the web server is ready to serve requests
 
 ip = webServerInstance.private_ip_address
