@@ -6,21 +6,6 @@ function logError(msg)
   printErr("ERROR " + msg + "\n");
 }
 
-function Symbol(name, loc)
-{
-  this.name = name;
-  this.loc = loc;
-  this.id = fileIndex + "-" + nextSymId++;
-  this.uses = [];
-  this.skip = false;
-}
-
-Symbol.prototype = {
-  use(loc) {
-    this.uses.push(loc);
-  },
-};
-
 function SymbolTable()
 {
   this.table = new Map();
@@ -33,6 +18,21 @@ SymbolTable.prototype = {
 
   get(name) {
     return this.table.get(name);
+  },
+};
+
+SymbolTable.Symbol = function(name, loc)
+{
+  this.name = name;
+  this.loc = loc;
+  this.id = fileIndex + "-" + nextSymId++;
+  this.uses = [];
+  this.skip = false;
+}
+
+SymbolTable.Symbol.prototype = {
+  use(loc) {
+    this.uses.push(loc);
   },
 };
 
@@ -277,7 +277,7 @@ let Analyzer = {
     let expr = stmt.expression;
 
     for (let {name, skip} of args) {
-      let sym = new Symbol(name, null);
+      let sym = new SymbolTable.Symbol(name, null);
       sym.skip = true;
       this.symbols.put(name, sym);
     }
@@ -427,7 +427,7 @@ let Analyzer = {
       this.defProp(name, loc, undefined, undefined, maybeNesting);
       return;
     }
-    let sym = new Symbol(name, loc);
+    let sym = new SymbolTable.Symbol(name, loc);
     this.symbols.put(name, sym);
 
     this.source(loc, name, "deflocal,variable", `variable ${name}`, sym.id, true,
