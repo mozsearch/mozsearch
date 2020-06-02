@@ -106,6 +106,8 @@ webServerInstance.modify_attribute(BlockDeviceMappings=[{
 
 ip = webServerInstance.private_ip_address
 
+print('Pinging web-server at %s to check readiness...' % ip)
+
 while True:
     try:
         status = subprocess.check_output(
