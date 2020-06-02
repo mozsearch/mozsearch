@@ -189,5 +189,5 @@ for volume in volumes:
     for tag in volume.tags:
         if tag['Key'] == 'index':
             t = dateutil.parser.parse(tag['Value'])
-            if datetime.now() - t >= timedelta(0.5)
+            if datetime.now() - t >= timedelta(0.5):
                 print('WARNING: Found stray index volume %s created on %s' % (volume.volume_id, tag['Value']))
