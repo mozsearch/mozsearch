@@ -29,7 +29,7 @@ pub fn linkify_comment(s: String) -> String {
 fn linkify_bug_numbers(s: &str) -> Cow<str> {
     lazy_static! {
         static ref BUG_NUMBER_REGEX: Regex =
-            { Regex::new(r"\b(?i)bug\s*(?P<bugno>[1-9][0-9]{2,6})\b").unwrap() };
+            Regex::new(r"\b(?i)bug\s*(?P<bugno>[1-9][0-9]{2,6})\b").unwrap();
     }
     BUG_NUMBER_REGEX.replace_all(
         s,
@@ -40,8 +40,8 @@ fn linkify_bug_numbers(s: &str) -> Cow<str> {
 pub fn linkify_commit_header(s: &str) -> String {
     lazy_static! {
         static ref BUG_NUMBER_REGEX: Regex =
-            { Regex::new(r"\b(?P<bugno>[1-9][0-9]{4,9})\b").unwrap() };
-        static ref SERVO_PR_REGEX: Regex = { Regex::new(r"#(?P<prno>[1-9][0-9]*)\b").unwrap() };
+            Regex::new(r"\b(?P<bugno>[1-9][0-9]{4,9})\b").unwrap();
+        static ref SERVO_PR_REGEX: Regex = Regex::new(r"#(?P<prno>[1-9][0-9]*)\b").unwrap();
     }
     if s.starts_with("servo: ") {
         SERVO_PR_REGEX
