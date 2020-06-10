@@ -42,12 +42,24 @@ pub fn linkify_commit_header(s: &str) -> String {
         static ref BUG_NUMBER_REGEX: Regex =
             Regex::new(r"\b(?P<bugno>[1-9][0-9]{4,9})\b").unwrap();
         static ref SERVO_PR_REGEX: Regex = Regex::new(r"#(?P<prno>[1-9][0-9]*)\b").unwrap();
+        static ref WPT_SYNC_REGEX: Regex = Regex::new(r"\[wpt PR (?P<prno>[1-9][0-9]*)\]").unwrap();
     }
     if s.starts_with("servo: ") {
         SERVO_PR_REGEX
             .replace_all(
                 s,
                 "#<a href=\"https://github.com/servo/servo/pull/$prno\">$prno</a>",
+            )
+            .into_owned()
+    } else if s.contains("[wpt PR") {
+        // Linkify the "Bug XYZ" bit first. It's slightly unfortunate that this
+        // would linkify the whole "Bug <number>" word, but for other commits
+        // it'd only linkify the number. It doesn't seem like a big deal though.
+        let s = linkify_bug_numbers(s);
+        WPT_SYNC_REGEX
+            .replace_all(
+                &*s,
+                r#"[<a href="https://github.com/web-platform-tests/wpt/pull/$prno">wpt PR $prno</a>]"#,
             )
             .into_owned()
     } else {
@@ -58,6 +70,16 @@ pub fn linkify_commit_header(s: &str) -> String {
             )
             .into_owned()
     }
+}
+
+#[test]
+fn test_linkify_wpt_sync() {
+    let linkified =
+        linkify_commit_header("Bug 1643934 [wpt PR 24024] - Align prefers-color-scheme:no-preference tests with spec., a=testonly");
+    assert_eq!(
+        linkified,
+        r#"<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1643934">Bug 1643934</a> [<a href="https://github.com/web-platform-tests/wpt/pull/24024">wpt PR 24024</a>] - Align prefers-color-scheme:no-preference tests with spec., a=testonly"#,
+    );
 }
 
 #[test]
