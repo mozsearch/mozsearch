@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Creates an EBS volume for the index and attaches it to a given instance as /dev/xvdf.
 # Prints the volume ID on stdout.

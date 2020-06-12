@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Detaches an EBS volume from an instance to which it's attached.
 #

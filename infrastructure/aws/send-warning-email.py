@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from __future__ import absolute_import
 import sys
@@ -17,6 +17,8 @@ try:
 except subprocess.CalledProcessError:
     # grep found no matches, so no need to send this email
     sys.exit(0)
+
+warnings = warnings.decode('utf-8', 'replace')
 
 response = client.send_email(
     Source='daemon@searchfox.org',

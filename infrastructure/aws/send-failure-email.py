@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from __future__ import absolute_import
 import sys
@@ -11,6 +11,7 @@ subj_prefix = sys.argv[1]
 dest_email = sys.argv[2]
 
 log_tail = subprocess.check_output(["tail", "-n", "30", "/home/ubuntu/index-log"])
+log_tail = log_tail.decode('utf-8', 'replace')
 
 response = client.send_email(
     Source='daemon@searchfox.org',

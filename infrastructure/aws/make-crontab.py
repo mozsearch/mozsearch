@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -21,4 +21,4 @@ s += ' ' + os.path.join(dir_path, 'send-failure-email.py') + ' ' + subj_prefix +
 print(s)
 
 p = subprocess.Popen(['crontab', '-'], stdin=subprocess.PIPE)
-p.communicate(s)
+p.communicate(s.encode())
