@@ -19,9 +19,11 @@ handle_error() {
     # drive that will be lost if we don't first move them to the persistent EBS
     # store.  We create an "interrupted" parent directory for these contents in
     # order to avoid any ambiguities about what the state of the scratch drive
-    # was.
-    mkdir /index/interrupted
-    mv -f /mnt/index-scratch/* /index/interrupted
+    # was. We only do this if we got far enough to actually start indexing.
+    if [ -d "/index" ]; then
+        mkdir /index/interrupted
+        mv -f /mnt/index-scratch/* /index/interrupted
+    fi
 
     # Send failure email and shut down. Release channel failures get sent to the
     # default email address, other channel failures get sent to the author of
