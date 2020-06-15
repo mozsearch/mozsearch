@@ -43,7 +43,7 @@ fi
 
 date
 
-$MOZSEARCH_PATH/scripts/find-objdir-files.py
+$MOZSEARCH_PATH/scripts/find-objdir-files.sh
 $MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
