@@ -21,4 +21,4 @@ date
 "$@" "test_rust_dependency/src/lib.rs" "test_rust_dependency::MyType"
 
 ## generated
-"$@" "__GENERATED__/debug/build/files-7e56eb8bb8e7c9bb/out/generated.rs" "simple::build_time_generated::GeneratedType"
+"$@" "__GENERATED__/__RUST_BUILD_SCRIPT__/files/generated.rs" "simple::build_time_generated::GeneratedType"
