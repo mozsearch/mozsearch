@@ -12,7 +12,7 @@ dest_email = sys.argv[2]
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-delta = datetime.timedelta(hours=6)
+delta = datetime.timedelta(hours=10)
 when = datetime.datetime.now() + delta
 s = when.strftime('%M %H %d %m *')
 
