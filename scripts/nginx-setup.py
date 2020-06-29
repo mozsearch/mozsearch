@@ -168,6 +168,8 @@ for repo in config['trees']:
         'default_type text/html;',
         'add_header Cache-Control "must-revalidate";',
     ])
+    
+    location('/%(repo)s', ['return 301 $scheme://$host$request_uri/source;`])
 
     location('/%(repo)s/raw-analysis', [
         'root %(doc_root)s;',
