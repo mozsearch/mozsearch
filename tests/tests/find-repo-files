@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-exec $(dirname $0)/../find-repo-files.py $*
