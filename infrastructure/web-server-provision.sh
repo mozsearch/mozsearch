@@ -47,7 +47,7 @@ sudo apt-get install -y parallel unzip python-pip python3-pip
 sudo apt-get install -y nginx
 
 # Install pkg-config (needed for Rust's OpenSSL wrappers)
-sudo apt-get install pkg-config
+sudo apt-get install -y pkg-config
 
 # Install Rust. We need rust nightly to build rls-data.
 curl https://sh.rustup.rs -sSf | sh -s -- -y

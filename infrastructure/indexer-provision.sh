@@ -39,7 +39,8 @@ sudo apt-get install -y python-dbg
 # we want to be able to extract stuff from json
 sudo apt-get install -y jq
 
-sudo apt-get install -y git
+# need mercurial to prevent cinnabar from spewing warnings
+sudo apt-get install -y git mercurial
 sudo apt-get install -y curl
 
 # dos2unix is used to normalize generated files from windows
@@ -66,13 +67,17 @@ sudo apt-get install -y clang-${CLANG_VERSION} libclang-${CLANG_VERSION}-dev
 # Other
 sudo apt-get install -y parallel python-virtualenv python-pip python3-virtualenv python3-pip
 
-# Firefox: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
-wget -O bootstrap.py https://hg.mozilla.org/mozilla-central/raw-file/default/python/mozboot/bin/bootstrap.py && python bootstrap.py --application-choice=browser --no-interactive && rm bootstrap.py
 
 # Setup direct links to clang
 sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} ${CLANG_PRIORITY}
+
+# Install zlib.h (needed for NSS build)
+sudo apt-get install -y zlib1g-dev
+
+# Install pkg-config (needed for Rust's OpenSSL wrappers)
+sudo apt-get install -y pkg-config
 
 # Install Rust. We need rust nightly to use the save-analysis
 curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -94,13 +99,6 @@ rm -rf .cache/bazel
 # Install AWS scripts.
 sudo pip install boto3
 sudo pip3 install boto3
-
-# Install pandoc
-sudo apt-get install -y pandoc
-
-# Install nodejs >= 8.11.3, needed for mozilla-central build
-curl -sSfL https://deb.nodesource.com/setup_8.x | sudo bash
-sudo apt-get install -y nodejs
 
 # Install git-cinnabar
 
