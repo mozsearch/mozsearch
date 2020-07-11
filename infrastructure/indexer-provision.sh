@@ -19,6 +19,8 @@ sudo apt-get install -y software-properties-common
 
 sudo add-apt-repository -y ppa:git-core/ppa    # For latest git
 sudo apt-get update
+sudo apt-get install -y git
+git config --global pull.ff only
 
 # the base image we're building against is inherently not up-to-date (new base
 # images are released only monthly), so let's be consistently up-to-date.
@@ -33,14 +35,10 @@ sudo DEBIAN_FRONTEND=noninteractive \
 # end up running version N but have debug symbols for N+1 and that doesn't work.
 sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
-sudo apt-get install -y gdb
-sudo apt-get install -y python3-dbg
+sudo apt-get install -y gdb python3-dbg
 
 # we want to be able to extract stuff from json
 sudo apt-get install -y jq
-
-sudo apt-get install -y git
-sudo apt-get install -y curl
 
 # dos2unix is used to normalize generated files from windows
 sudo apt-get install -y dos2unix
@@ -66,6 +64,8 @@ sudo apt-get install -y clang-${CLANG_VERSION} libclang-${CLANG_VERSION}-dev
 
 # Other
 sudo apt-get install -y parallel python3-virtualenv python3-pip
+# Silence parallel citation warning
+echo "will cite" | parallel --citation
 
 # Setup direct links to clang
 sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} ${CLANG_PRIORITY}
