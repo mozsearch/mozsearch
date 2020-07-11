@@ -96,6 +96,23 @@ echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 sudo pip install boto3
 sudo pip3 install boto3
 
+# Install git-cinnabar. Need mercurial to prevent cinnabar from spewing warnings
+sudo apt-get install -y mercurial
+CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
+rm -rf git-cinnabar
+git clone https://github.com/glandium/git-cinnabar
+pushd git-cinnabar
+git checkout $CINNABAR_REVISION
+./git-cinnabar download
+
+# These need to be symlinks rather than `install`d binaries because cinnabar
+# uses other python code from the repo.
+for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
+  sudo ln -fs $(pwd)/$file /usr/local/bin/$file
+done
+
+popd
+
 # Create update script.
 cat > update.sh <<"THEEND"
 #!/usr/bin/env bash

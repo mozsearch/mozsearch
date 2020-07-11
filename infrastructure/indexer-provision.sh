@@ -39,8 +39,7 @@ sudo apt-get install -y python-dbg
 # we want to be able to extract stuff from json
 sudo apt-get install -y jq
 
-# need mercurial to prevent cinnabar from spewing warnings
-sudo apt-get install -y git mercurial
+sudo apt-get install -y git
 sudo apt-get install -y curl
 
 # dos2unix is used to normalize generated files from windows
@@ -100,8 +99,8 @@ rm -rf .cache/bazel
 sudo pip install boto3
 sudo pip3 install boto3
 
-# Install git-cinnabar
-
+# Install git-cinnabar. Need mercurial to prevent cinnabar from spewing warnings
+sudo apt-get install -y mercurial
 CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
 rm -rf git-cinnabar
 git clone https://github.com/glandium/git-cinnabar
