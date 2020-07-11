@@ -21,7 +21,7 @@ sudo DEBIAN_FRONTEND=noninteractive \
 sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
 sudo apt-get install -y gdb
-sudo apt-get install -y python-dbg
+sudo apt-get install -y python3-dbg
 
 # and we want to be able to extract stuff from json
 sudo apt-get install -y jq
@@ -42,7 +42,7 @@ if [ ! -d bazel ]; then
 fi
 
 # Other
-sudo apt-get install -y parallel unzip python-pip python3-pip
+sudo apt-get install -y parallel unzip python3-pip
 
 # Nginx
 sudo apt-get install -y nginx
@@ -71,19 +71,6 @@ if [ ! -d livegrep ]; then
 fi
 
 # Install gRPC python libs and generate the python modules to communicate with the codesearch server
-sudo pip install grpcio grpcio-tools
-rm -rf livegrep-grpc
-mkdir livegrep-grpc
-python -m grpc_tools.protoc --python_out=livegrep-grpc --grpc_python_out=livegrep-grpc -I livegrep/ livegrep/src/proto/config.proto
-python -m grpc_tools.protoc --python_out=livegrep-grpc --grpc_python_out=livegrep-grpc -I livegrep/ livegrep/src/proto/livegrep.proto
-touch livegrep-grpc/src/__init__.py
-touch livegrep-grpc/src/proto/__init__.py
-# Add the generated modules to the python path
-SITEDIR=$(python -m site --user-site)
-mkdir -p "$SITEDIR"
-echo "$PWD/livegrep-grpc" > "$SITEDIR/livegrep.pth"
-
-# Same as above, but for python3 so we can run router.py with either python2 or python3
 sudo pip3 install grpcio grpcio-tools
 mkdir livegrep-grpc3
 python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
@@ -96,13 +83,12 @@ mkdir -p "$SITEDIR"
 echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 
 # Install AWS scripts.
-sudo pip install boto3
 sudo pip3 install boto3
 
 # Install git-cinnabar.
 if [ ! -d git-cinnabar ]; then
-  # Need mercurial to prevent cinnabar from spewing warnings
-  sudo apt-get install -y mercurial
+  # Need mercurial to prevent cinnabar from spewing warnings, and cinnabar requires python2.7
+  sudo apt-get install -y mercurial python2.7
   CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
   git clone https://github.com/glandium/git-cinnabar
   pushd git-cinnabar

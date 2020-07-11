@@ -34,7 +34,7 @@ sudo DEBIAN_FRONTEND=noninteractive \
 sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
 sudo apt-get install -y gdb
-sudo apt-get install -y python-dbg
+sudo apt-get install -y python3-dbg
 
 # we want to be able to extract stuff from json
 sudo apt-get install -y jq
@@ -65,8 +65,7 @@ sudo apt-get update
 sudo apt-get install -y clang-${CLANG_VERSION} libclang-${CLANG_VERSION}-dev
 
 # Other
-sudo apt-get install -y parallel python-virtualenv python-pip python3-virtualenv python3-pip
-
+sudo apt-get install -y parallel python3-virtualenv python3-pip
 
 # Setup direct links to clang
 sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} ${CLANG_PRIORITY}
@@ -78,6 +77,9 @@ sudo apt-get install -y zlib1g-dev
 
 # Install pkg-config (needed for Rust's OpenSSL wrappers)
 sudo apt-get install -y pkg-config
+
+# Install python2 and six (needed for cinnabar and idl-analyze.py)
+sudo apt-get install -y python2.7 python-six
 
 # Install Rust. We need rust nightly to use the save-analysis
 if [ ! -d $HOME/.cargo ]; then
@@ -100,7 +102,6 @@ if [ ! -d livegrep ]; then
 fi
 
 # Install AWS scripts.
-sudo pip install boto3
 sudo pip3 install boto3
 
 # Install git-cinnabar.
