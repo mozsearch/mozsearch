@@ -28,17 +28,18 @@ sudo apt-get install -y jq
 
 sudo apt-get install -y git
 
-# Livegrep (Bazel is needed for Livegrep builds)
+# Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
-# Install Bazel 0.16.1
-rm -rf bazel
-mkdir bazel
-pushd bazel
-# Note that bazel unzips itself so we can't just pipe it to sudo bash.
-curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh
-chmod +x bazel-0.22.0-installer-linux-x86_64.sh
-sudo ./bazel-0.22.0-installer-linux-x86_64.sh
-popd
+# Install Bazel 0.22.0
+if [ ! -d bazel ]; then
+  mkdir bazel
+  pushd bazel
+    # Note that bazel unzips itself so we can't just pipe it to sudo bash.
+    curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh
+    chmod +x bazel-0.22.0-installer-linux-x86_64.sh
+    sudo ./bazel-0.22.0-installer-linux-x86_64.sh
+  popd
+fi
 
 # Other
 sudo apt-get install -y parallel unzip python-pip python3-pip
@@ -50,21 +51,24 @@ sudo apt-get install -y nginx
 sudo apt-get install -y pkg-config
 
 # Install Rust. We need rust nightly to build rls-data.
-curl https://sh.rustup.rs -sSf | sh -s -- -y
-source $HOME/.cargo/env
-rustup install nightly
-rustup default nightly
-rustup uninstall stable
+if [ ! -d $HOME/.cargo ]; then
+  curl https://sh.rustup.rs -sSf | sh -s -- -y
+  source $HOME/.cargo/env
+  rustup install nightly
+  rustup default nightly
+  rustup uninstall stable
+fi
 
 # Install codesearch.
-rm -rf livegrep
-git clone -b mozsearch-version4 https://github.com/mozsearch/livegrep
-pushd livegrep
-bazel build //src/tools:codesearch
-sudo install bazel-bin/src/tools/codesearch /usr/local/bin
-popd
-# Remove ~2G of build artifacts that we don't need anymore
-rm -rf .cache/bazel
+if [ ! -d livegrep ]; then
+  git clone -b mozsearch-version4 https://github.com/mozsearch/livegrep
+  pushd livegrep
+    bazel build //src/tools:codesearch
+    sudo install bazel-bin/src/tools/codesearch /usr/local/bin
+  popd
+  # Remove ~2G of build artifacts that we don't need anymore
+  rm -rf .cache/bazel
+fi
 
 # Install gRPC python libs and generate the python modules to communicate with the codesearch server
 sudo pip install grpcio grpcio-tools
@@ -81,7 +85,6 @@ echo "$PWD/livegrep-grpc" > "$SITEDIR/livegrep.pth"
 
 # Same as above, but for python3 so we can run router.py with either python2 or python3
 sudo pip3 install grpcio grpcio-tools
-rm -rf livegrep-grpc3
 mkdir livegrep-grpc3
 python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
 python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
@@ -96,22 +99,22 @@ echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 sudo pip install boto3
 sudo pip3 install boto3
 
-# Install git-cinnabar. Need mercurial to prevent cinnabar from spewing warnings
-sudo apt-get install -y mercurial
-CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
-rm -rf git-cinnabar
-git clone https://github.com/glandium/git-cinnabar
-pushd git-cinnabar
-git checkout $CINNABAR_REVISION
-./git-cinnabar download
-
-# These need to be symlinks rather than `install`d binaries because cinnabar
-# uses other python code from the repo.
-for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
-  sudo ln -fs $(pwd)/$file /usr/local/bin/$file
-done
-
-popd
+# Install git-cinnabar.
+if [ ! -d git-cinnabar ]; then
+  # Need mercurial to prevent cinnabar from spewing warnings
+  sudo apt-get install -y mercurial
+  CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
+  git clone https://github.com/glandium/git-cinnabar
+  pushd git-cinnabar
+    git checkout $CINNABAR_REVISION
+    ./git-cinnabar download
+    # These need to be symlinks rather than `install`d binaries because cinnabar
+    # uses other python code from the repo.
+    for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
+      sudo ln -fs $(pwd)/$file /usr/local/bin/$file
+    done
+  popd
+fi
 
 # Create update script.
 cat > update.sh <<"THEEND"

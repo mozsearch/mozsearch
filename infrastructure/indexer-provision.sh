@@ -47,15 +47,16 @@ sudo apt-get install -y dos2unix
 
 # Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
-# Install Bazel 0.16.1
-rm -rf bazel
-mkdir bazel
-pushd bazel
-# Note that bazel unzips itself so we can't just pipe it to sudo bash.
-curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh
-chmod +x bazel-0.22.0-installer-linux-x86_64.sh
-sudo ./bazel-0.22.0-installer-linux-x86_64.sh
-popd
+# Install Bazel 0.22.0
+if [ ! -d bazel ]; then
+  mkdir bazel
+  pushd bazel
+    # Note that bazel unzips itself so we can't just pipe it to sudo bash.
+    curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh
+    chmod +x bazel-0.22.0-installer-linux-x86_64.sh
+    sudo ./bazel-0.22.0-installer-linux-x86_64.sh
+  popd
+fi
 
 # Clang
 wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -79,42 +80,45 @@ sudo apt-get install -y zlib1g-dev
 sudo apt-get install -y pkg-config
 
 # Install Rust. We need rust nightly to use the save-analysis
-curl https://sh.rustup.rs -sSf | sh -s -- -y
-source $HOME/.cargo/env
-rustup install nightly
-rustup default nightly
-rustup uninstall stable
+if [ ! -d $HOME/.cargo ]; then
+  curl https://sh.rustup.rs -sSf | sh -s -- -y
+  source $HOME/.cargo/env
+  rustup install nightly
+  rustup default nightly
+  rustup uninstall stable
+fi
 
 # Install codesearch.
-rm -rf livegrep
-git clone -b mozsearch-version4 https://github.com/mozsearch/livegrep
-pushd livegrep
-bazel build //src/tools:codesearch
-sudo install bazel-bin/src/tools/codesearch /usr/local/bin
-popd
-# Remove ~2G of build artifacts that we don't need anymore
-rm -rf .cache/bazel
+if [ ! -d livegrep ]; then
+  git clone -b mozsearch-version4 https://github.com/mozsearch/livegrep
+  pushd livegrep
+    bazel build //src/tools:codesearch
+    sudo install bazel-bin/src/tools/codesearch /usr/local/bin
+  popd
+  # Remove ~2G of build artifacts that we don't need anymore
+  rm -rf .cache/bazel
+fi
 
 # Install AWS scripts.
 sudo pip install boto3
 sudo pip3 install boto3
 
-# Install git-cinnabar. Need mercurial to prevent cinnabar from spewing warnings
-sudo apt-get install -y mercurial
-CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
-rm -rf git-cinnabar
-git clone https://github.com/glandium/git-cinnabar
-pushd git-cinnabar
-git checkout $CINNABAR_REVISION
-./git-cinnabar download
-
-# These need to be symlinks rather than `install`d binaries because cinnabar
-# uses other python code from the repo.
-for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
-  sudo ln -fs $(pwd)/$file /usr/local/bin/$file
-done
-
-popd
+# Install git-cinnabar.
+if [ ! -d git-cinnabar ]; then
+  # Need mercurial to prevent cinnabar from spewing warnings
+  sudo apt-get install -y mercurial
+  CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
+  git clone https://github.com/glandium/git-cinnabar
+  pushd git-cinnabar
+    git checkout $CINNABAR_REVISION
+    ./git-cinnabar download
+    # These need to be symlinks rather than `install`d binaries because cinnabar
+    # uses other python code from the repo.
+    for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
+      sudo ln -fs $(pwd)/$file /usr/local/bin/$file
+    done
+  popd
+fi
 
 # Create update script.
 cat > update.sh <<"THEEND"
