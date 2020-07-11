@@ -6,6 +6,8 @@ set -o pipefail # Check all commands in a pipeline
 
 sudo add-apt-repository ppa:git-core/ppa    # For latest git
 sudo apt-get update
+sudo apt-get install -y git
+git config --global pull.ff only
 
 # the base image we're building against is inherently not up-to-date (new base
 # images are released only monthly), so let's be consistently up-to-date.
@@ -20,13 +22,10 @@ sudo DEBIAN_FRONTEND=noninteractive \
 # end up running version N but have debug symbols for N+1 and that doesn't work.
 sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
-sudo apt-get install -y gdb
-sudo apt-get install -y python3-dbg
+sudo apt-get install -y gdb python3-dbg
 
 # and we want to be able to extract stuff from json
 sudo apt-get install -y jq
-
-sudo apt-get install -y git
 
 # Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
@@ -43,6 +42,8 @@ fi
 
 # Other
 sudo apt-get install -y parallel unzip python3-pip
+# Silence parallel citation warning
+echo "will cite" | parallel --citation
 
 # Nginx
 sudo apt-get install -y nginx
