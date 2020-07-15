@@ -480,6 +480,10 @@ fn main() {
         None
     };
     let blame_ref = env::var("BLAME_REF").ok().unwrap_or("HEAD".to_string());
+    let commit_limit = env::var("COMMIT_LIMIT")
+        .ok()
+        .and_then(|x| x.parse::<usize>().ok())
+        .unwrap_or(0);
 
     info!("Reading existing blame map of ref {}...", blame_ref);
     let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&blame_ref) {
@@ -498,10 +502,18 @@ fn main() {
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(git_repo.refname_to_id(&blame_ref).unwrap())
         .unwrap();
-    let revs_to_process = walk
+    let mut revs_to_process = walk
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
         .filter(|git_oid| !blame_map.contains_key(git_oid))
         .collect::<Vec<_>>();
+    if commit_limit > 0 && commit_limit < revs_to_process.len() {
+        info!(
+            "Truncating list of commits from {} to specified limit {}",
+            revs_to_process.len(),
+            commit_limit
+        );
+        revs_to_process.truncate(commit_limit);
+    }
     let rev_count = revs_to_process.len();
 
     let num_threads: usize = num_cpus::get() - 1; // 1 for the main thread
