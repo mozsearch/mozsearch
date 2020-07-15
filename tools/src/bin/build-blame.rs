@@ -253,6 +253,7 @@ fn build_blame_tree(
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     tree_at_path: &git2::Tree,
+    parent_trees: &[Option<git2::Tree>],
     blame_repo: &git2::Repository,
     blame_parents: &[git2::Commit],
     mut path: PathBuf,
@@ -260,11 +261,15 @@ fn build_blame_tree(
     'outer: for entry in tree_at_path.iter() {
         let entry_name = entry.name().unwrap();
         path.push(entry_name);
-        for (i, parent) in commit.parents().enumerate() {
-            if let Ok(parent_entry) = parent.tree()?.get_path(&path) {
+        for (i, parent_tree) in parent_trees.iter().enumerate() {
+            let parent_tree = match parent_tree {
+                None => continue, // This parent doesn't even have a tree at this path
+                Some(p) => p,
+            };
+            if let Some(parent_entry) = parent_tree.get_name(entry_name) {
                 if parent_entry.id() == entry.id() {
-                    // Item at `path` is the same in the tree for `commit` as in the tree
-                    // for `parent`, so the blame must be the same too
+                    // Item at `path` is the same in the tree for `commit` as in
+                    // `parent_trees[i]`, so the blame must be the same too
                     let blame_parent_entry = blame_parents[i].tree()?.get_path(&path)?;
                     builder.insert(
                         entry.name().unwrap(),
@@ -305,12 +310,27 @@ fn build_blame_tree(
             }
             Some(ObjectType::Tree) => {
                 let mut entry_builder = blame_repo.treebuilder(None)?;
+                let mut parent_subtrees = Vec::with_capacity(parent_trees.len());
+                // Note that we require the elements in parent_trees to
+                // correspond to elements in blame_parents, so we need to keep
+                // the None elements in the vec rather than discarding them.
+                for parent_tree in parent_trees {
+                    let parent_subtree = match parent_tree {
+                        None => None,
+                        Some(tree) => tree
+                            .get_name(entry_name)
+                            .map(|e| e.to_object(git_repo).unwrap())
+                            .and_then(|o| o.into_tree().ok()),
+                    };
+                    parent_subtrees.push(parent_subtree);
+                }
                 build_blame_tree(
                     &mut entry_builder,
                     diff_data,
                     git_repo,
                     commit,
                     &entry.to_object(git_repo)?.peel_to_tree()?,
+                    &parent_subtrees,
                     blame_repo,
                     blame_parents,
                     path.clone(),
@@ -562,6 +582,10 @@ fn main() {
             git_oid, hg_rev, rev_done, rev_count
         );
         let commit = git_repo.find_commit(*git_oid).unwrap();
+        let parent_trees = commit
+            .parents()
+            .map(|parent_commit| Some(parent_commit.tree().unwrap()))
+            .collect::<Vec<_>>();
         let blame_parents = commit
             .parent_ids()
             .map(|pid| blame_repo.find_commit(blame_map[&pid]).unwrap())
@@ -574,6 +598,7 @@ fn main() {
             &git_repo,
             &commit,
             &commit.tree().unwrap(),
+            &parent_trees,
             &blame_repo,
             &blame_parents,
             PathBuf::new(),
