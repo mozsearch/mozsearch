@@ -118,17 +118,12 @@ fn unmodified_lines(
 
 fn blame_for_path(
     diff_data: &DiffData,
-    git_repo: &git2::Repository,
     commit: &git2::Commit,
+    blob: &git2::Blob,
     blame_repo: &git2::Repository,
     blame_parents: &[git2::Commit],
     path: &Path,
 ) -> Result<String, git2::Error> {
-    let blob = commit
-        .tree()?
-        .get_path(path)?
-        .to_object(git_repo)?
-        .peel_to_blob()?;
     let linecount = count_lines(&blob);
     // TODO: drop this author field entirely, I don't think it gets consumed by anything
     let commit_id = commit.id();
@@ -286,8 +281,8 @@ fn build_blame_tree(
             Some(ObjectType::Blob) => {
                 let blame_text = blame_for_path(
                     diff_data,
-                    git_repo,
                     commit,
+                    &entry.to_object(git_repo)?.peel_to_blob()?,
                     blame_repo,
                     blame_parents,
                     &path,
