@@ -257,21 +257,14 @@ fn build_blame_tree(
     diff_data: &DiffData,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
+    tree_at_path: &git2::Tree,
     blame_repo: &git2::Repository,
     blame_parents: &[git2::Commit],
     mut path: PathBuf,
 ) -> Result<(), git2::Error> {
-    let tree_at_path = if path == PathBuf::new() {
-        commit.tree()?
-    } else {
-        commit
-            .tree()?
-            .get_path(&path)?
-            .to_object(git_repo)?
-            .peel_to_tree()?
-    };
     'outer: for entry in tree_at_path.iter() {
-        path.push(entry.name().unwrap());
+        let entry_name = entry.name().unwrap();
+        path.push(entry_name);
         for (i, parent) in commit.parents().enumerate() {
             if let Ok(parent_entry) = parent.tree()?.get_path(&path) {
                 if parent_entry.id() == entry.id() {
@@ -322,6 +315,7 @@ fn build_blame_tree(
                     diff_data,
                     git_repo,
                     commit,
+                    &entry.to_object(git_repo)?.peel_to_tree()?,
                     blame_repo,
                     blame_parents,
                     path.clone(),
@@ -584,6 +578,7 @@ fn main() {
             &diff_data,
             &git_repo,
             &commit,
+            &commit.tree().unwrap(),
             &blame_repo,
             &blame_parents,
             PathBuf::new(),
