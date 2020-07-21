@@ -14,7 +14,7 @@ use crate::tokenize;
 
 use crate::config::GitData;
 use crate::file_format::analysis::{AnalysisSource, Jump, WithLocation};
-use crate::output::{self, Options, PanelItem, PanelSection, F};
+use crate::output::{self, Options, InfoBox, PanelItem, PanelSection, F};
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
@@ -323,6 +323,7 @@ pub fn format_file_data(
     cfg: &config::Config,
     tree_name: &str,
     panel: &[PanelSection],
+    info_boxes: Vec<InfoBox>,
     commit: &Option<git2::Commit>,
     blame_commit: &Option<git2::Commit>,
     path: &str,
@@ -377,6 +378,8 @@ pub fn format_file_data(
     output::generate_breadcrumbs(&opt, writer, path)?;
 
     output::generate_panel(writer, panel)?;
+
+    output::generate_info_boxes(writer, info_boxes)?;
 
     if let Some(ext) = path_wrapper.extension() {
         if ext.to_str().unwrap() == "svg" {
@@ -692,6 +695,7 @@ pub fn format_path(
         cfg,
         tree_name,
         &panel,
+        vec![],
         &Some(commit),
         &blame_commit,
         path,

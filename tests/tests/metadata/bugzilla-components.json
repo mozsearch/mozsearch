@@ -1,0 +1,23 @@
+{
+  "components": {
+    "0": [
+      "Nope",
+      "Double Nope"
+    ],
+    "1": [
+      "Webtools",
+      "Searchfox"
+    ]
+  },
+  "paths": {
+    "big_header.h": 1,
+    "big_cpp.cpp": 1,
+    "simple.cpp": 1,
+    "simple.rs": 1,
+    "test_rust_dependency": {
+      "src": {
+        "lib.rs": 1
+      }
+    }
+  }
+}

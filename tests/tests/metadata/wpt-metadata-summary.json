@@ -1,0 +1,21 @@
+{
+  "fake-standard": {
+    "_tests": {
+      "test_ima_disabled_wpt.js": {
+        "disabled": [
+          [null, "123456"],
+          ["os == \"win\"\n", "234567"]
+        ]
+      },
+      "test_ima_sad_subtests_wpt.js": {
+        "_subtests": {
+          "foo": {},
+          "bar": {},
+          "baz": {}
+        }
+      },
+      "test_ima_weird_meta_wpt.js": {
+      }
+    }
+  }
+}

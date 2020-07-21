@@ -501,6 +501,40 @@ body {
     background-color: #e0e0e0;
     text-decoration: underline;
 }
+
+/* Info Boxes */
+.info-box {
+    border: 1px solid gray;
+    border-radius: 8px;
+    padding: .8rem;
+    margin: .5rem;
+    font-size: 110%;
+}
+.info-box-error {
+    background-color: #ffeeee;
+}
+.info-box-warning {
+    background-color: #ffffee;
+}
+.info-box-info {
+    background-color: #eeffee;
+}
+.info-box ul {
+    padding-inline-start: 20px !important;
+    margin: 0;
+}
+/* make it obvious that links in the info box are links */
+.info-box a {
+    text-decoration: underline !important;
+}
+.info-box .test-skip-info {
+    font-family: monospace;
+    background-color: #eee;
+    padding: 5px;
+    margin: -5px;
+}
+
+
 .no-results {
     clear: both;
     font-style: italic;
