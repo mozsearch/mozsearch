@@ -249,6 +249,7 @@ fn find_unmodified_lines(
 
 fn build_blame_tree(
     builder: &mut git2::TreeBuilder,
+    stats: &mut MempackStats,
     diff_data: &DiffData,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
@@ -292,11 +293,13 @@ fn build_blame_tree(
                     blame_parents,
                     &path,
                 )?;
+                let blame_bytes = blame_text.as_bytes();
                 builder.insert(
                     entry.name().unwrap(),
-                    blame_repo.blob(&blame_text.as_bytes())?,
+                    blame_repo.blob(&blame_bytes)?,
                     entry.filemode(),
                 )?;
+                stats.blob_bytes += blame_bytes.len();
             }
             Some(ObjectType::Commit) => {
                 // This is a submodule, just treat it as an empty dir. We could
@@ -326,6 +329,7 @@ fn build_blame_tree(
                 }
                 build_blame_tree(
                     &mut entry_builder,
+                    stats,
                     diff_data,
                     git_repo,
                     commit,
@@ -340,6 +344,7 @@ fn build_blame_tree(
                     entry_builder.write()?,
                     entry.filemode(),
                 )?;
+                stats.trees += 1;
             }
             _ => {
                 panic!(
@@ -475,6 +480,59 @@ fn compute_thread_main(
     }
 }
 
+/// A small helper structure to track how much stuff we've written into the
+/// current mempack, so that we can flush it to disk periodically.
+#[derive(Debug)]
+struct MempackStats {
+    pub blob_bytes: usize,
+    pub trees: usize,
+    pub commits: usize,
+}
+
+impl MempackStats {
+    pub fn new() -> Self {
+        MempackStats {
+            blob_bytes: 0,
+            trees: 0,
+            commits: 0,
+        }
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+
+    fn estimate_bytes(&self) -> usize {
+        // Total guesswork on trees and commits. The blob_bytes is what will
+        // dominate anyway, and we don't need to be particularly exact here.
+        self.blob_bytes + (self.trees * 100) + (self.commits * 500)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.estimate_bytes() == 0
+    }
+
+    pub fn should_flush(&self) -> bool {
+        // Let's arbitrarily flush to disk after 500MB.
+        self.estimate_bytes() >= 500 * 1024 * 1024
+    }
+}
+
+fn flush_mempack(
+    blame_repo: &git2::Repository,
+    odb: &git2::Odb,
+    mempack: &git2::Mempack,
+    stats: &mut MempackStats,
+) {
+    let mut buf = git2::Buf::new();
+    mempack.dump(blame_repo, &mut buf).unwrap();
+    let mut packwriter = odb.packwriter().unwrap();
+    packwriter.write(&buf).unwrap();
+    packwriter.commit().unwrap();
+    mempack.reset().unwrap();
+    stats.reset();
+}
+
 fn main() {
     env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -554,6 +612,19 @@ fn main() {
     // Tracks completion count
     let mut rev_done = 0;
 
+    // Add a mempack backend to the blame repo's object database. This allows
+    // us to write our new commits to an in-memory store and periodically flush
+    // that directly into packfiles. If we don't do this, all the new commits
+    // get written as loose objects in the repo, which is quite inefficient in
+    // terms of disk space usage because it can't take advantage of delta
+    // compression.
+    let odb = blame_repo.odb().unwrap();
+    // The default loose and pack backends are at priority 1 and 2, we want a
+    // priority higher than those.
+    let high_priority = 1000;
+    let mempack = odb.add_new_mempack_backend(high_priority).unwrap();
+    let mut stats = MempackStats::new();
+
     for git_oid in revs_to_process.iter() {
         // Read a result. Since we hand out compute requests in round-robin order
         // and each thread processes them in FIFO order we know exactly which
@@ -594,6 +665,7 @@ fn main() {
         let mut builder = blame_repo.treebuilder(None).unwrap();
         build_blame_tree(
             &mut builder,
+            &mut stats,
             &diff_data,
             &git_repo,
             &commit,
@@ -605,6 +677,7 @@ fn main() {
         )
         .unwrap();
         let tree_oid = builder.write().unwrap();
+        stats.trees += 1;
 
         let commit_msg = if let Some(hg_rev) = hg_rev {
             format!("git {}\nhg {}\n", git_oid, hg_rev)
@@ -629,6 +702,7 @@ fn main() {
                 &blame_parents.iter().collect::<Vec<_>>(),
             )
             .unwrap();
+        stats.commits += 1;
 
         if let Some(ref mut refobj) = refobj {
             *refobj = refobj.set_target(blame_oid, "").unwrap();
@@ -642,6 +716,18 @@ fn main() {
 
         blame_map.insert(*git_oid, blame_oid);
         info!("  -> {}", blame_oid);
+
+        if stats.should_flush() {
+            // Ok, we have a bunch of stuff in the mempack, let's serialize it
+            // to a packfile.
+            info!("Flushing mempack to packfile with {:?}...", stats);
+            flush_mempack(&blame_repo, &odb, &mempack, &mut stats);
+        }
+    }
+
+    if !stats.is_empty() {
+        info!("Writing final packfile with {:?}...", stats);
+        flush_mempack(&blame_repo, &odb, &mempack, &mut stats);
     }
 
     if let Some(mut helper) = hg_helper {
