@@ -8,6 +8,7 @@
       "index_path": "$WORKING/tests",
       "files_path": "$WORKING/tests/files",
       "objdir_path": "$WORKING/tests/objdir",
+      "wpt_root": "fake-wpt",
       "codesearch_path": "$WORKING/tests/livegrep.idx",
       "codesearch_port": 8080
     }

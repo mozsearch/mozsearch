@@ -19,3 +19,7 @@ $MOZSEARCH_PATH/tools/target/release/crossref $CONFIG_FILE $TREE_NAME /tmp/files
 ID_FILE=$INDEX_ROOT/identifiers
 LC_ALL=C sort -f $ID_FILE > /tmp/ids
 mv /tmp/ids $ID_FILE
+
+# Derive the per-file information.  We do this after the cross-referencing
+# because this might want to digest some cross-referenced info.
+$MOZSEARCH_PATH/tools/target/release/derive-per-file-info $CONFIG_FILE $TREE_NAME

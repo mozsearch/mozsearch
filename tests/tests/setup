@@ -4,4 +4,10 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+# Create a "files" symlink in $INDEX_ROOT that links to their source tree.
 ln -s -f $CONFIG_REPO/tests/files $INDEX_ROOT
+
+# Link over the fake metadata and test file information as well.
+ln -s -f $CONFIG_REPO/tests/metadata/bugzilla-components.json $INDEX_ROOT
+ln -s -f $CONFIG_REPO/tests/metadata/test-info-all-tests.json $INDEX_ROOT
+ln -s -f $CONFIG_REPO/tests/metadata/wpt-metadata-summary.json $INDEX_ROOT
