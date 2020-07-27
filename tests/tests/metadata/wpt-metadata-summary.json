@@ -3,8 +3,9 @@
     "_tests": {
       "test_ima_disabled_wpt.js": {
         "disabled": [
-          [null, "123456"],
-          ["os == \"win\"\n", "234567"]
+          [null, "12345"],
+          ["os == \"win\"\n", "https://bugzilla.mozilla.org/show_bug.cgi?id=234567"],
+          ["os == \"linux\"\n", "https://bugzilla.mozilla.org/234567"]
         ]
       },
       "test_ima_sad_subtests_wpt.js": {

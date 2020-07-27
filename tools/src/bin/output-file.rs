@@ -54,6 +54,17 @@ fn get_bugzilla_component<'a>(
     Some((product, component))
 }
 
+/// Some fields support free-form indications of what bug is present.  This
+/// could be a bug number or a bug URL.  For simplicity we pass-through things
+/// that look like http URLs and prepend the bug id for everything else.
+fn ensure_bugzilla_url(maybe_bug: &str) -> String {
+    if maybe_bug.starts_with("http") {
+        maybe_bug.to_string()
+    } else {
+        format!("https://bugzilla.mozilla.org/show_bug.cgi?id={}", maybe_bug)
+    }
+}
+
 /// Information about expected failures/problems for specific web platform
 /// tests.
 struct WPTExpectationInfo {
@@ -526,10 +537,10 @@ fn main() {
                             F::S("<ul>"),
                             F::Indent(wpt_info.disabling_conditions.iter().map(|(cond, bug)| {
                                 F::T(format!(
-                                    r#"<li><span class="test-skip-info">{}</span>&nbsp; : <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={}">{}</a></li>"#,
+                                    r#"<li><span class="test-skip-info">{}</span>&nbsp; : <a href="{}">{}</a></li>"#,
                                     // The condition text can embed newlines at the end.
                                     cond.trim(),
-                                    bug,
+                                    ensure_bugzilla_url(bug),
                                     bug,
                                 ))
                             }).collect()),
