@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::{ BufReader, BufWriter, Write };
 
 extern crate env_logger;
+#[macro_use]
+extern crate log;
 extern crate tools;
 use tools::config;
 
@@ -227,7 +229,7 @@ fn main() {
     let bugzilla_fname = format!("{}/bugzilla-components.json", tree_config.paths.index_path);
     let bugzilla_data = read_json_from_file(&bugzilla_fname);
     if let Some(mut data) = bugzilla_data {
-        println!("Bugzilla components read");
+        info!("Bugzilla components read");
 
         all_info.insert("bugzilla-components".to_string(),
                         data.remove("components").unwrap());
@@ -238,14 +240,14 @@ fn main() {
                 all_info.get_mut("root").unwrap().as_object_mut().unwrap());
         }
     } else {
-        println!("No bugzilla-components.json file found");
+        warn!("No bugzilla-components.json file found");
     }
 
     // ## Load test info and merge it in to the derived info structure
     let test_info_fname = format!("{}/test-info-all-tests.json", tree_config.paths.index_path);
     let test_info_data = read_json_from_file(&test_info_fname);
     if let Some(mut data) = test_info_data {
-        println!("Test info data read");
+        info!("Test info data read");
 
         if let Some(Json::Object(tests_obj)) = data.remove("tests") {
             for (_, component_tests_value) in tests_obj.into_iter() {
@@ -268,14 +270,14 @@ fn main() {
             }
         }
     } else {
-        println!("No test-info-all-tests.json file found");
+        warn!("No test-info-all-tests.json file found");
     }
 
     // ## Load WPT meta info and merge it in to the derived info structure
     let wpt_info_fname = format!("{}/wpt-metadata-summary.json", tree_config.paths.index_path);
     let wpt_info_data = read_json_from_file(&wpt_info_fname);
     if let (Some(wpt_root), Some(data)) = (tree_config.paths.wpt_root.clone(), wpt_info_data) {
-        println!("WPT info read");
+        info!("WPT info read");
 
         for (dir_path, dir_info) in data.into_iter() {
             // Process only the tests info.  There may be some notable stuff
@@ -307,14 +309,14 @@ fn main() {
             }
         }
     } else {
-        println!("No wpt-metadata-summary.json file found");
+        warn!("No wpt-metadata-summary.json file found");
     }
 
     // ## Write out the derived info structure
     let output_fname = format!("{}/derived-per-file-info.json", tree_config.paths.index_path);
      if write_json_to_file(Json::Object(all_info), &output_fname).is_some() {
-         println!("Per-file info written to disk");
+        info!("Per-file info written to disk");
      } else {
-         println!("Unable to write per-file info to disk");
+        warn!("Unable to write per-file info to disk");
      }
 }
