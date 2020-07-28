@@ -615,7 +615,7 @@ fn main() {
             &cfg,
             tree_name,
             &panel,
-            info_boxes,
+            &info_boxes,
             &head_commit,
             &blame_commit,
             path,
