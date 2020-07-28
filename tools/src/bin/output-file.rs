@@ -12,6 +12,8 @@ use std::io::Write;
 use std::path::Path;
 
 extern crate env_logger;
+#[macro_use]
+extern crate log;
 extern crate tools;
 use crate::languages::FormatAs;
 use tools::config;
@@ -127,7 +129,10 @@ fn read_test_info_from_file_info(per_file_info: Option<&json::Object>) -> Option
                         // I guess this is just covering up our failures?  I'm
                         // sorta tired of this patch though, so... cover up our
                         // failures.
-                        _ => None,
+                        _ => {
+                            warn!("Unhandled disabled condition JSON branch! {:?}", cond);
+                            None
+                        },
                     }
                 }).collect(),
                 _ => vec![]
