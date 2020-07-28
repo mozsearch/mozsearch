@@ -574,11 +574,13 @@ fn main() {
                 }
             }
 
-            list_nodes.push(F::T(format!(
-                "<li>This test ran {} times in the preceding 7 days with an average run time of {:.2} secs.</li>",
-                test_info.unskipped_runs,
-                test_info.total_run_time_secs / (test_info.unskipped_runs as f64),
-            )));
+            if test_info.unskipped_runs > 0 {
+                list_nodes.push(F::T(format!(
+                    "<li>This test ran {} times in the preceding 7 days with an average run time of {:.2} secs.</li>",
+                    test_info.unskipped_runs,
+                    test_info.total_run_time_secs / (test_info.unskipped_runs as f64),
+                )));
+            }
 
             // box_kind is used for styling, currently naive red-green
             // color-blindness unfriendly background colors, but hopefully with
