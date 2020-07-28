@@ -24,7 +24,7 @@ use tools::format::format_file_data;
 use tools::git_ops;
 use tools::languages;
 
-use tools::output::{F, InfoBox, PanelItem, PanelSection};
+use tools::output::{InfoBox, PanelItem, PanelSection, F};
 
 extern crate rustc_serialize;
 use rustc_serialize::json;
@@ -42,7 +42,7 @@ fn read_json_from_file(path: &str) -> Option<json::Object> {
 /// and is fairly straightforward.
 fn get_bugzilla_component<'a>(
     all_info: &'a json::Object,
-    per_file_info: &'a json::Object
+    per_file_info: &'a json::Object,
 ) -> Option<(&'a str, &'a str)> {
     let component_id = per_file_info.get("component")?.as_i64()?.to_string();
     let mut result_iter = all_info
@@ -96,46 +96,53 @@ fn read_test_info_from_file_info(per_file_info: Option<&json::Object>) -> Option
 
     let failed_runs = match obj.get("failed runs") {
         Some(json) => json.as_i64().unwrap(),
-        _ => 0
+        _ => 0,
     };
     let skip_if = match obj.get("skip-if") {
         Some(json) => Some(json.as_string().unwrap().to_string()),
-        _ => None
+        _ => None,
     };
     let skipped_runs = match obj.get("skipped runs") {
         Some(json) => json.as_i64().unwrap(),
-        _ => 0
+        _ => 0,
     };
-    let total_run_time_secs= match obj.get("total run time, seconds") {
+    let total_run_time_secs = match obj.get("total run time, seconds") {
         Some(json) => json.as_f64().unwrap(),
-        _ => 0.0
+        _ => 0.0,
     };
     let total_runs = match obj.get("total runs") {
         Some(json) => json.as_i64().unwrap(),
-        _ => 0
+        _ => 0,
     };
 
     let wpt_expectation_info = match per_file_info?.get("wptInfo") {
         Some(Json::Object(obj)) => {
             let disabling_conditions = match obj.get("disabled") {
-                Some(Json::Array(arr)) => arr.iter().filter_map(|cond| {
-                    // cond itself should be a 2-element array where the first
-                    // element is a null or the condition string and the 2nd is
-                    // the bug link.
-                    match cond.as_array().unwrap_or(&vec![]).as_slice() {
-                        // null means there was no condition, it's always disabled.
-                        [Json::Null, Json::String(b)] => Some(("ALWAYS".to_string(), b.to_string())),
-                        [Json::String(a), Json::String(b)] => Some((a.to_string(), b.to_string())),
-                        // I guess this is just covering up our failures?  I'm
-                        // sorta tired of this patch though, so... cover up our
-                        // failures.
-                        _ => {
-                            warn!("Unhandled disabled condition JSON branch! {:?}", cond);
-                            None
-                        },
-                    }
-                }).collect(),
-                _ => vec![]
+                Some(Json::Array(arr)) => arr
+                    .iter()
+                    .filter_map(|cond| {
+                        // cond itself should be a 2-element array where the first
+                        // element is a null or the condition string and the 2nd is
+                        // the bug link.
+                        match cond.as_array().unwrap_or(&vec![]).as_slice() {
+                            // null means there was no condition, it's always disabled.
+                            [Json::Null, Json::String(b)] => {
+                                Some(("ALWAYS".to_string(), b.to_string()))
+                            }
+                            [Json::String(a), Json::String(b)] => {
+                                Some((a.to_string(), b.to_string()))
+                            }
+                            // I guess this is just covering up our failures?  I'm
+                            // sorta tired of this patch though, so... cover up our
+                            // failures.
+                            _ => {
+                                warn!("Unhandled disabled condition JSON branch! {:?}", cond);
+                                None
+                            }
+                        }
+                    })
+                    .collect(),
+                _ => vec![],
             };
 
             let disabled_subtests_count = match obj.get("subtests_with_conditions") {
@@ -147,8 +154,8 @@ fn read_test_info_from_file_info(per_file_info: Option<&json::Object>) -> Option
                 disabling_conditions,
                 disabled_subtests_count,
             })
-        },
-        _ => None
+        }
+        _ => None,
     };
 
     Some(TestInfo {
@@ -191,7 +198,10 @@ fn main() {
     let jumps = read_jumps(&jumps_fname);
     println!("Jumps read");
 
-    let all_file_info_fname = format!("{}/derived-per-file-info.json", tree_config.paths.index_path);
+    let all_file_info_fname = format!(
+        "{}/derived-per-file-info.json",
+        tree_config.paths.index_path
+    );
     let all_file_info_data = read_json_from_file(&all_file_info_fname);
     if all_file_info_data.is_some() {
         println!("Per-file info read");
@@ -272,7 +282,7 @@ fn main() {
 
         let per_file_info = match &all_file_info_data {
             Some(data) => get_per_file_info(data, path),
-            _ => None
+            _ => None,
         };
 
         let mut input = String::new();
@@ -465,8 +475,9 @@ fn main() {
                 // and non-fission cases AND the fission team has been VERY
                 // proactive about tracking and fixing these issues, so there's
                 // no need to be loud about it.
-                if skip_if.eq_ignore_ascii_case("fission") ||
-                   skip_if.eq_ignore_ascii_case("!fission") {
+                if skip_if.eq_ignore_ascii_case("fission")
+                    || skip_if.eq_ignore_ascii_case("!fission")
+                {
                     has_quieted_warnings = true;
                 } else {
                     has_warnings = true;
@@ -601,11 +612,7 @@ fn main() {
 
             info_boxes.push(InfoBox {
                 heading_html: heading_html.to_string(),
-                body_nodes: vec![
-                    F::S("<ul>"),
-                    F::Indent(list_nodes),
-                    F::S("</ul>"),
-                ],
+                body_nodes: vec![F::S("<ul>"), F::Indent(list_nodes), F::S("</ul>")],
                 box_kind: box_kind.to_string(),
             });
         }
@@ -616,7 +623,6 @@ fn main() {
                 items: tools_items,
             });
         }
-
 
         format_file_data(
             &cfg,

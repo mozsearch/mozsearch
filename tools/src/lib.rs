@@ -9,9 +9,9 @@ extern crate regex;
 extern crate rustc_serialize;
 #[macro_use]
 extern crate malloc_size_of_derive;
-extern crate malloc_size_of;
 extern crate jemalloc_sys;
 extern crate jemallocator;
+extern crate malloc_size_of;
 
 pub mod file_format;
 

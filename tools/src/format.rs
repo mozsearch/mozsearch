@@ -14,7 +14,7 @@ use crate::tokenize;
 
 use crate::config::GitData;
 use crate::file_format::analysis::{AnalysisSource, Jump, WithLocation};
-use crate::output::{self, Options, InfoBox, PanelItem, PanelSection, F};
+use crate::output::{self, InfoBox, Options, PanelItem, PanelSection, F};
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
@@ -497,8 +497,10 @@ pub fn format_file_data(
             last_revs = Some(revs.clone());
             last_color = color;
             let class = if color { 1 } else { 2 };
-            let data = format!(r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
-                               class, revs, filespecs, blame_linenos);
+            let data = format!(
+                r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
+                class, revs, filespecs, blame_linenos
+            );
             data
         } else {
             " class=\"blame-strip\"".to_owned()
@@ -507,7 +509,12 @@ pub fn format_file_data(
         // If this line starts nesting, we need to create a div that exists strictly to contain the
         // position:sticky element.
         if line.starts_nest {
-            write!(writer, "<div class=\"nesting-container nesting-depth-{}\">", nest_depth).unwrap();
+            write!(
+                writer,
+                "<div class=\"nesting-container nesting-depth-{}\">",
+                nest_depth
+            )
+            .unwrap();
             nest_depth += 1;
         }
 
@@ -516,11 +523,18 @@ pub fn format_file_data(
             F::T(format!(
                 "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\">",
                 lineno,
-                if line.starts_nest { " nesting-sticky-line" } else { "" }
+                if line.starts_nest {
+                    " nesting-sticky-line"
+                } else {
+                    ""
+                }
             )),
             F::Indent(vec![
                 // Blame info.
-                F::T(format!("<div role=\"cell\"><div{}></div></div>", blame_data)),
+                F::T(format!(
+                    "<div role=\"cell\"><div{}></div></div>",
+                    blame_data
+                )),
                 // The line number.
                 F::T(format!(
                     "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
@@ -919,8 +933,10 @@ pub fn format_diff(
                 last_rev = Some(rev);
                 last_color = color;
                 let class = if color { 1 } else { 2 };
-                format!(r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
-                        class, rev, filespec, blame_lineno)
+                format!(
+                    r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
+                    class, rev, filespec, blame_lineno
+                )
             }
             None => " class=\"blame-strip\"".to_owned(),
         };
@@ -957,14 +973,16 @@ pub fn format_diff(
                 // The line number and blame info.
                 F::T(format!(
                     "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
-                    if lineno > 0 { format!("{}", lineno) } else { "".to_owned() },
+                    if lineno > 0 {
+                        format!("{}", lineno)
+                    } else {
+                        "".to_owned()
+                    },
                 )),
                 // The source line.
                 F::T(format!(
                     "<code role=\"cell\" class=\"source-line{}\">{} {}\n</code>",
-                    class,
-                    origin,
-                    content
+                    class, origin, content
                 )),
             ]),
             F::S("</div>"),

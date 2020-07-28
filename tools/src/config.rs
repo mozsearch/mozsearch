@@ -7,8 +7,8 @@ use std::str;
 use rustc_serialize::json::{self, Json};
 use rustc_serialize::Decodable;
 
-use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use jemalloc_sys;
+use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 
 use git2::{Oid, Repository};
 
@@ -51,7 +51,7 @@ pub struct Config {
     pub mozsearch_path: String,
 }
 
-use std::os::raw::{c_void};
+use std::os::raw::c_void;
 pub unsafe extern "C" fn usable_size(ptr: *const c_void) -> usize {
     jemalloc_sys::malloc_usable_size(ptr as *const _)
 }
@@ -61,10 +61,20 @@ impl Config {
         let mut ops = MallocSizeOfOps::new(usable_size, None, None);
         let mut pieces = vec![format!("Config: {} bytes", self.size_of(&mut ops))];
         for (tree_name, tree) in &self.trees {
-            pieces.push(format!("  Tree: {} = {} bytes", tree_name, tree.size_of(&mut ops)));
+            pieces.push(format!(
+                "  Tree: {} = {} bytes",
+                tree_name,
+                tree.size_of(&mut ops)
+            ));
             if let Some(data) = &tree.git {
-                pieces.push(format!("    blame_map = {} bytes", data.blame_map.size_of(&mut ops)));
-                pieces.push(format!("    hg_map    = {} bytes", data.hg_map.size_of(&mut ops)));
+                pieces.push(format!(
+                    "    blame_map = {} bytes",
+                    data.blame_map.size_of(&mut ops)
+                ));
+                pieces.push(format!(
+                    "    hg_map    = {} bytes",
+                    data.hg_map.size_of(&mut ops)
+                ));
             }
         }
         pieces.join("\n")
