@@ -285,10 +285,7 @@ pub fn read_analyses<T>(
         let file = match File::open(filename) {
             Ok(f) => f,
             Err(_) => {
-                warn!(
-                    "Error trying to open analysis file [{}]",
-                    filename
-                );
+                warn!("Error trying to open analysis file [{}]", filename);
                 continue;
             }
         };

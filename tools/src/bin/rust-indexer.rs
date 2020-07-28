@@ -473,7 +473,7 @@ fn extract_span_from_source_as_string(
         // `Unable to read file: Custom { kind: UnexpectedEof, error: "failed to fill whole buffer" }`
         // which was not useful or informative and may be due to invalid spans
         // being told to us by save-analysis.
-        Err(_) => None
+        Err(_) => None,
     }
 }
 

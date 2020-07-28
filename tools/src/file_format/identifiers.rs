@@ -58,7 +58,7 @@ impl IdentMap {
             Err(e) => {
                 warn!("Failed to mmap {}: {:?}", filename, e);
                 None
-            },
+            }
         };
         IdentMap { mmap }
     }

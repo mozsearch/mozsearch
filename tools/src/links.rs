@@ -39,8 +39,7 @@ fn linkify_bug_numbers(s: &str) -> Cow<str> {
 
 pub fn linkify_commit_header(s: &str) -> String {
     lazy_static! {
-        static ref BUG_NUMBER_REGEX: Regex =
-            Regex::new(r"\b(?P<bugno>[1-9][0-9]{4,9})\b").unwrap();
+        static ref BUG_NUMBER_REGEX: Regex = Regex::new(r"\b(?P<bugno>[1-9][0-9]{4,9})\b").unwrap();
         static ref SERVO_PR_REGEX: Regex = Regex::new(r"#(?P<prno>[1-9][0-9]*)\b").unwrap();
         static ref WPT_SYNC_REGEX: Regex = Regex::new(r"\[wpt PR (?P<prno>[1-9][0-9]*)\]").unwrap();
     }
