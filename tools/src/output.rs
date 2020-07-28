@@ -72,6 +72,7 @@ pub fn generate_breadcrumbs(
 
 /// `generate_formatted` input type that allows for hierarchical indentation and
 /// not having to call to_string() on everything.
+#[derive(Clone)]
 pub enum F {
     /// Indents its children by one 2-spaced level.
     /// Use like `F::Indent(vec![...])`.
@@ -409,7 +410,7 @@ pub struct InfoBox {
 /// writer.  This is expected to be called once per document.
 pub fn generate_info_boxes(
     writer: &mut dyn Write,
-    info_boxes: Vec<InfoBox>,
+    info_boxes: &[InfoBox],
 ) -> Result<(), &'static str> {
 
     let info_boxes = info_boxes
@@ -422,7 +423,7 @@ pub fn generate_info_boxes(
                 F::Indent(vec![
                     F::T(format!("<h4>{}</h4>", info_box.heading_html)),
                     F::S("<div>"),
-                    F::Indent(info_box.body_nodes),
+                    F::Indent(info_box.body_nodes.clone()),
                     F::S("</div>"),
                 ]),
                 F::S("</div>"),
