@@ -73,6 +73,7 @@ fi
 
 # Install gRPC python libs and generate the python modules to communicate with the codesearch server
 sudo pip3 install grpcio grpcio-tools
+rm -rf livegrep-grpc3
 mkdir livegrep-grpc3
 python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
 python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
