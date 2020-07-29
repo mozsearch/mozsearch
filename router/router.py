@@ -119,7 +119,7 @@ class SearchResults(object):
 
     max_count = 1000
     max_work = 750
-    path_precedences = ['normal', 'test', 'generated']
+    path_precedences = ['normal', 'test', 'generated', 'thirdparty']
     key_precedences = ["Files", "IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
 
     def categorize_path(self, path):
@@ -138,6 +138,8 @@ class SearchResults(object):
 
         if '__GENERATED__' in path:
             return 'generated'
+        elif path.startswith("third_party/"):
+            return "thirdparty"
         elif is_test(path):
             return 'test'
         else:
