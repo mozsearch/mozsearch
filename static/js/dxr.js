@@ -439,6 +439,7 @@ function populateResults(data, full, jumpToSingle) {
       normal: null,
       test: "Test files",
       generated: "Generated code",
+      thirdparty: "Third-party code",
     };
 
     var html = "";
