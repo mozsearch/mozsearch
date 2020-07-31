@@ -4,6 +4,15 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+# Fail on reprovisioning attempts, as we don't support them
+if [ -f $HOME/.provisioned ]; then
+    echo "Sorry! Re-provisioning is not supported. Please destroy your vagrant box and re-create/provision it from scratch, or manually apply changes."
+    echo "If you want to manually apply changes, here is the commit at which this box was last provisioned:"
+    cat $HOME/.provisioned
+    exit 1
+fi
+git -C /vagrant log -1 > $HOME/.provisioned
+
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js
 wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
