@@ -141,16 +141,22 @@ var Dxr = new (class Dxr {
     let url = new URL(location.href);
     let params = url.searchParams;
 
-    // If the `case` param is in the URL, returns its boolean value. Otherwise,
-    // returns null.
-    //
-    // FIXME(emilio): Why is case sensitivity different from every other param?
+    // If the `case` param is in the URL, use its boolean value, so that the
+    // checkbox reflects what's in the URL. If the `case` param is not in the
+    // URL and this is in fact a search URL, then the search is implicitly
+    // case-insensitive, so ensure the checkbox reflects that. Don't update
+    // the localStorage value in either of these cases, because the user
+    // may just have received a link from somebody else and we don't want to
+    // update the user's saved defaults. The saved defaults *only* get updated
+    // when the user explicitly clicks on the checkbox and the change event
+    // listener triggers.
+    // Finally, if we're not in a search already, have the checkbox reflect
+    // the saved default from localStorage.
     let caseSensitive = params.get("case");
     if (caseSensitive) {
       caseSensitive = caseSensitive === "true";
-      // Any case-sensitivity specification in the URL overrides what was in
-      // localStorage.
-      window.localStorage.setItem("caseSensitive", caseSensitive);
+    } else if (params.get("q")) {
+      caseSensitive = false;
     } else {
       caseSensitive = window.localStorage.getItem("caseSensitive") === "true";
     }
