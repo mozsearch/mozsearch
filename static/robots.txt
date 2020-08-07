@@ -14,3 +14,7 @@ Allow: /mozilla-mobile/source/
 # There's a copy of mozilla-central inside comm-central, let's skip that
 # since we have a top-level mozilla-central instead.
 Disallow: /comm-central/source/mozilla/
+
+# Also allow indexing the top-level help page, so as to improve
+# findability when people search in search engines.
+Allow: /index.html
