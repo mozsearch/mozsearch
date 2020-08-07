@@ -222,6 +222,12 @@ location('= /', [
     'add_header Cache-Control "must-revalidate";',
 ])
 
+location('= /index.html', [
+    'root %(doc_root)s;',
+    'try_files /help.html =404;',
+    'add_header Cache-Control "must-revalidate";',
+])
+
 location('= /status.txt', [
     'root %(doc_root)s;',
     'try_files $uri =404;',
