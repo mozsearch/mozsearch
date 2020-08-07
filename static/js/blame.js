@@ -135,6 +135,13 @@ var BlamePopup = new (class BlamePopup {
     // We set aria-owns on the parent role=cell instead of the button.
     this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
     this.popupOwner.setAttribute("aria-expanded", "true");
+
+    // Adjust transform to ensure the popup doesn't go outside the window.
+    let popupBox = this.popup.getBoundingClientRect();
+    if (popupBox.bottom > window.innerHeight) {
+      top -= (popupBox.bottom - window.innerHeight);
+      this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
+    }
   }
 
   get blameElement() {
