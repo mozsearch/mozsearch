@@ -16,7 +16,9 @@ var Sticky = new (class Sticky {
 
     // Our logic can't work on our diff output because there will be line
     // number discontinuities and line numbers that are simply missing.
-    if (!document.getElementById("content").classList.contains("diff")) {
+    let hasLineNumbers = !!document.querySelector(".line-number");
+    let isDiffView = document.getElementById("content").classList.contains("diff");
+    if (hasLineNumbers && !isDiffView) {
       this.scroller.addEventListener("scroll", () => this.handleScroll(), {
         passive: true,
       });
