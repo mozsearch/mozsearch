@@ -9,3 +9,6 @@ rm -f $INDEX_ROOT/searchfox
 mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
 $MOZSEARCH_PATH/tools/target/release/build-blame $GIT_ROOT $BLAME_ROOT
+
+# Link over the fake metadata and test file information as well.
+ln -s -f $CONFIG_REPO/searchfox/metadata/code-coverage-report.json $INDEX_ROOT

@@ -43,7 +43,7 @@ fn read_json_from_file(path: &str) -> Option<json::Object> {
 fn get_bugzilla_component<'a>(
     all_info: &'a json::Object,
     per_file_info: &'a json::Object,
-) -> Option<(&'a str, &'a str)> {
+) -> Option<(String, String)> {
     let component_id = per_file_info.get("component")?.as_i64()?.to_string();
     let mut result_iter = all_info
         .get("bugzilla-components")?
@@ -53,7 +53,7 @@ fn get_bugzilla_component<'a>(
         .iter();
     let product = result_iter.next()?.as_string()?;
     let component = result_iter.next()?.as_string()?;
-    Some((product, component))
+    Some((product.to_string(), component.to_string()))
 }
 
 /// Some fields support free-form indications of what bug is present.  This
@@ -91,8 +91,8 @@ struct TestInfo {
     wpt_expectation_info: Option<WPTExpectationInfo>,
 }
 
-fn read_test_info_from_file_info(per_file_info: Option<&json::Object>) -> Option<TestInfo> {
-    let obj = per_file_info?.get("testInfo")?.as_object()?;
+fn read_test_info_from_concise_info(concise_info: &json::Object) -> Option<TestInfo> {
+    let obj = concise_info.get("testInfo")?.as_object()?;
 
     let failed_runs = match obj.get("failed runs") {
         Some(json) => json.as_i64().unwrap(),
@@ -115,7 +115,7 @@ fn read_test_info_from_file_info(per_file_info: Option<&json::Object>) -> Option
         _ => 0,
     };
 
-    let wpt_expectation_info = match per_file_info?.get("wptInfo") {
+    let wpt_expectation_info = match concise_info.get("wptInfo") {
         Some(Json::Object(obj)) => {
             let disabling_conditions = match obj.get("disabled") {
                 Some(Json::Array(arr)) => arr
@@ -168,8 +168,17 @@ fn read_test_info_from_file_info(per_file_info: Option<&json::Object>) -> Option
     })
 }
 
-fn get_per_file_info<'a>(all_info: &'a json::Object, path: &str) -> Option<&'a json::Object> {
-    let mut cur_obj = all_info.get("root")?.as_object()?;
+/// Per-file info derived from the concise and detailed info for a given file.
+/// Everything in here is optional data, but this structure will be available
+/// for every file to simplify control-flow.
+struct PerFileInfo {
+    bugzilla_component: Option<(String, String)>,
+    test_info: Option<TestInfo>,
+    coverage: Vec<i32>,
+}
+
+fn get_concise_file_info<'a>(all_concise_info: &'a json::Object, path: &str) -> Option<&'a json::Object> {
+    let mut cur_obj = all_concise_info.get("root")?.as_object()?;
 
     for path_component in path.split('/') {
         // The current node must be a directory, get its contents.
@@ -179,6 +188,43 @@ fn get_per_file_info<'a>(all_info: &'a json::Object, path: &str) -> Option<&'a j
     }
 
     Some(cur_obj)
+}
+
+fn read_detailed_file_info(path: &str, index_path: &str) -> Option<json::Object> {
+    let detailed_file_info_fname = format!(
+        "{}/detailed-per-file-info/{}",
+        index_path,
+        path
+    );
+    read_json_from_file(&detailed_file_info_fname)
+}
+
+/// Extract any per-file info from the concise info aggregate object plus
+/// anything in the individual detailed file if it exists.
+fn get_per_file_info(all_concise_info: &json::Object, path: &str, index_path: &str) -> PerFileInfo {
+    let (bugzilla_component, test_info) = match get_concise_file_info(all_concise_info, path) {
+        Some(concise_info) => (
+            get_bugzilla_component(all_concise_info, concise_info),
+            read_test_info_from_concise_info(concise_info)
+        ),
+        None => (None, None),
+    };
+
+    let coverage = match read_detailed_file_info(path, index_path) {
+        Some(mut detailed_obj) => {
+            match detailed_obj.remove("lineCoverage") {
+                Some(Json::Array(arr)) => arr.iter().map(|x| x.as_i64().unwrap_or(-1) as i32).collect(),
+                _ => vec![],
+            }
+        },
+        None => vec![],
+    };
+
+    PerFileInfo {
+        bugzilla_component,
+        test_info,
+        coverage,
+    }
 }
 
 fn main() {
@@ -199,15 +245,19 @@ fn main() {
     println!("Jumps read");
 
     let all_file_info_fname = format!(
-        "{}/derived-per-file-info.json",
+        "{}/concise-per-file-info.json",
         tree_config.paths.index_path
     );
-    let all_file_info_data = read_json_from_file(&all_file_info_fname);
-    if all_file_info_data.is_some() {
-        println!("Per-file info read");
-    } else {
-        println!("No derived-per-file-info.json file found");
-    }
+    let all_file_info_data = match read_json_from_file(&all_file_info_fname) {
+        Some(data) => {
+            println!("Per-file info read");
+            data
+        },
+        None => {
+            println!("No concise-per-file-info.json file found");
+            json::Object::new()
+        }
+    };
 
     let (blame_commit, head_oid) = match &tree_config.git {
         &Some(ref git) => {
@@ -280,10 +330,10 @@ fn main() {
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &mut read_source);
 
-        let per_file_info = match &all_file_info_data {
-            Some(data) => get_per_file_info(data, path),
-            _ => None,
-        };
+        let per_file_info = get_per_file_info(
+            &all_file_info_data,
+            path,
+            &tree_config.paths.index_path);
 
         let mut input = String::new();
         match reader.read_to_string(&mut input) {
@@ -348,20 +398,19 @@ fn main() {
                 accel_key: None,
             });
         };
-        if let (Some(data), Some(info)) = (&all_file_info_data, &per_file_info) {
-            if !path.contains("__GENERATED__") {
-                if let Some((product, component)) = get_bugzilla_component(data, info) {
-                    source_panel_items.push(PanelItem {
-                        title: format!("File a bug in {} :: {}", product, component),
-                        link: format!(
-                            "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
-                            product.replace("&", "%26"),
-                            component.replace("&", "%26")
-                        ),
-                        update_link_lineno: "",
-                        accel_key: None,
-                    });
-                }
+
+        if !path.contains("__GENERATED__") {
+            if let Some((product, component)) = per_file_info.bugzilla_component {
+                source_panel_items.push(PanelItem {
+                    title: format!("File a bug in {} :: {}", product, component),
+                    link: format!(
+                        "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
+                        product.replace("&", "%26"),
+                        component.replace("&", "%26")
+                    ),
+                    update_link_lineno: "",
+                    accel_key: None,
+                });
             }
         }
 
@@ -456,7 +505,7 @@ fn main() {
         // Defer pushing "Other Tools" until after the test processing so that
         // we can add a wpt.fyi link as appropriate.
 
-        if let Some(test_info) = read_test_info_from_file_info(per_file_info) {
+        if let Some(test_info) = per_file_info.test_info {
             let mut list_nodes: Vec<F> = vec![];
 
             let mut has_quieted_warnings = false;
@@ -635,6 +684,7 @@ fn main() {
             input,
             &jumps,
             &analysis,
+            &per_file_info.coverage,
             &mut writer,
             Some(&mut diff_cache),
         )

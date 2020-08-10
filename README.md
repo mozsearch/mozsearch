@@ -379,6 +379,7 @@ blame repository is used to generate HTML for the blame strip.
 
 ## More background
 
+* [Index Directory Contents](docs/index-directory-contents.md)
 * [Blame caching](docs/blame.md)
 * [Analysis](docs/analysis.md)
 * [Cross-referencing](docs/crossref.md)

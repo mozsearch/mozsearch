@@ -375,6 +375,33 @@ pub fn generate_panel(
             F::S(
                 r#"<label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>"#,
             ),
+            F::S(r#"<div><label class="panel-theme">"#),
+            F::Indent(vec![
+                F::S("Code Coverage Theme:"),
+                F::S(r#"<select name="theme-style" id="panel-theme-style-select">"#),
+                F::Indent(vec![
+                    F::S(r#"<option value="cov-theme-default">Do Not Show</option>"#),
+                    F::S(r#"<option value="cov-theme-bg-all">Background Color: All</option>"#),
+                    F::S(r#"<option value="cov-theme-bg-num">Background Color: Line #</option>"#),
+                    F::S(r#"<option value="cov-theme-blame-color">Blame Bar Color</option>"#),
+                    F::S(r#"<option value="cov-theme-bar-fixed">Bar: Fixed No Gap</option>"#),
+                    F::S(r#"<option value="cov-theme-bar-fixed-gap">Bar: Fixed Yes Gap</option>"#),
+                    F::S(r#"<option value="cov-theme-bar-var">Bar: Variable No Gap</option>"#),
+                    F::S(r#"<option value="cov-theme-bar-var-gap">Bar: Variable Yes Gap</option>"#),
+                    F::S(r#"<option value="cov-theme-text-shadow">Text Shadow</option>"#),
+                    F::S(r#"<option value="cov-theme-font-size">Font Size</option>"#),
+                    F::S(r#"<option value="cov-theme-bounce">Not Annoying!</option>"#),
+                    F::S(r#"<option value="cov-theme-shoddy-3d">Very Useful!</option>"#),
+                ]),
+                F::S("</select>"),
+                F::S(r#"<select name="theme-color" id="panel-theme-color-select">"#),
+                F::Indent(vec![
+                    F::S(r#"<option value="theme-color-pink-green">Pink Green</option>"#),
+                    F::S(r#"<option value="theme-color-red-blue">Red Blue</option>"#),
+                ]),
+                F::S("</select>"),
+            ]),
+            F::S("</label></div>"),
             F::Seq(sections),
             F::S("</section>"),
         ]),
@@ -439,7 +466,7 @@ pub fn generate_info_boxes(
         .collect::<Vec<_>>();
 
     let f = F::Seq(vec![
-        F::S(r#"<div class="info-boxes" id="info-boxes-container">"#),
+        F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
         F::Indent(vec![F::Seq(info_boxes)]),
         F::S("</section>"),
     ]);

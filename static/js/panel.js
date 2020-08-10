@@ -5,6 +5,8 @@ var Panel = new (class Panel {
     this.icon = this.panel.querySelector(".navpanel-icon");
     this.content = document.getElementById("panel-content");
     this.accelEnabledCheckbox = document.getElementById("panel-accel-enable");
+    this.themeStyleSelect = document.getElementById("panel-theme-style-select");
+    this.themeColorSelect = document.getElementById("panel-theme-color-select");
 
     this.permalinkNode = this.findLink("Permalink");
     this.logNode = this.findLink("Log");
@@ -14,6 +16,14 @@ var Panel = new (class Panel {
     this.accelEnabledCheckbox.addEventListener("change", () => {
       localStorage.setItem("accel-enable", event.target.checked ? "1" : "0");
       this.updateAccelerators();
+    });
+    this.themeStyleSelect.addEventListener("change", (evt) => {
+      localStorage.setItem("theme-style", evt.target.value);
+      this.updateThemes();
+    });
+    this.themeColorSelect.addEventListener("change", (evt) => {
+      localStorage.setItem("theme-color", evt.target.value);
+      this.updateThemes();
     });
     document.documentElement.addEventListener("keypress", event =>
       this.maybeHandleAccelerator(event)
@@ -52,6 +62,12 @@ var Panel = new (class Panel {
       localStorage.getItem("accel-enable") == "1";
     this.accelEnabledCheckbox.checked = acceleratorsEnabled;
     this.updateAccelerators();
+
+    let themeStyle = localStorage.getItem("theme-style") || "cov-theme-default";
+    let themeColor = localStorage.getItem("theme-color") || "theme-color-red-blue";
+    this.themeStyleSelect.value = themeStyle;
+    this.themeColorSelect.value = themeColor;
+    this.updateThemes();
   }
 
   updateAccelerators() {
@@ -59,6 +75,22 @@ var Panel = new (class Panel {
     for (let accel of this.panel.querySelectorAll("span.accel")) {
       accel.style.display = enabled ? "" : "none";
     }
+  }
+
+  updateThemes() {
+    let themeStyle = localStorage.getItem("theme-style") || "cov-theme-default";
+    let themeColor = localStorage.getItem("theme-color") || "theme-color-red-blue";
+
+    let fileElem = document.getElementById("file");
+    let filtered = fileElem.getAttribute("class")
+      .replace(/ cov-theme-[^ ]+/g, '')
+      .replace(/ theme-color-[^ ]+/g, '');
+    fileElem.setAttribute("class", `${filtered} ${themeStyle} ${themeColor}`);
+
+    // Novelty effects want the property also applied on the #scrolling element.
+    // This probably doesn't need to land...
+    let scrollElem = document.getElementById("scrolling");
+    scrollElem.setAttribute("class", `${themeStyle} ${themeColor}`);
   }
 
   findLink(title) {

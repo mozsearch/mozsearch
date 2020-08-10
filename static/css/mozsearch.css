@@ -868,3 +868,195 @@ body.old-rev #fixed-header .search-box {
 .syn_regex {
     color: #6d7b8d;
 }
+
+/* ## Theme Panel UI ## */
+
+#panel-theme-style-select,
+#panel-theme-color-select {
+  padding: 0;
+  /* These take up too much space otherwise, but this is not great design. */
+  font-size: 80%;
+}
+
+.panel-theme {
+    padding: 0.5rem;
+    margin-left: 0.5rem;
+}
+
+/* ## Code Coverage Styling ## */
+
+/* Color themes are currently from the Color Brewer 2.0 Project which is for
+ * cartography and other uses.  Themes below are using "diverging"
+ * "colorblind safe" 11-count colors.  The (middle) 6th color is used as the
+ * uncovered foreground color, the adjacent (lightest) 5th and 7th colors used
+ * for background colors, and 2nd and 10th colors used for foreground colors
+ * unless otherwise noted.
+ */
+
+ :root {
+    --cov-strip-width: 5px;
+    --cov-log10-base: 3px;
+    --cov-log10-scale: 2px;
+    --cov-strip-gap: 3px;
+}
+
+.cov-log10-0 { --cov-log10: 0; }
+.cov-log10-1 { --cov-log10: 1; }
+.cov-log10-2 { --cov-log10: 2; }
+.cov-log10-3 { --cov-log10: 3; }
+.cov-log10-4 { --cov-log10: 4; }
+.cov-log10-5 { --cov-log10: 5; }
+.cov-log10-6 { --cov-log10: 6; }
+.cov-log10-7 { --cov-log10: 7; }
+.cov-log10-8 { --cov-log10: 8; }
+.cov-log10-9 { --cov-log10: 9; }
+
+/* https://colorbrewer2.org/#type=diverging&scheme=PiYG&n=11 */
+.theme-color-pink-green {
+    --cov-miss-bg: #fde0ef;
+    --cov-miss-fg: #c51b7d;
+    --cov-uncovered-bg: none;
+    --cov-uncovered-fg: #f7f7f7;
+    --cov-hit-bg:  #e6f5d0;
+    --cov-hit-fg:  #4d9221;
+}
+
+/* https://colorbrewer2.org/#type=diverging&scheme=RdBu&n=11 */
+.theme-color-red-blue {
+    --cov-miss-bg: #fddbc7;
+    --cov-miss-fg: #b2182b;
+    --cov-uncovered-bg: none;
+    --cov-uncovered-fg: #f7f7f7;
+    --cov-hit-bg:  #d1e5f0;
+    --cov-hit-fg:  #2166ac;
+}
+
+/* Background Color: Lightly color line backgrounds. */
+.file.cov-theme-bg-all .cov-miss {
+    background-color: var(--cov-miss-bg);
+}
+.file.cov-theme-bg-all .cov-uncovered {
+}
+.file.cov-theme-bg-all .cov-hit {
+    background-color: var(--cov-hit-bg);
+}
+
+/* Background Color: Lightly color line number backgrounds. */
+.file.cov-theme-bg-num .cov-miss .line-number {
+    background-color: var(--cov-miss-bg);
+}
+.file.cov-theme-bg-num .cov-uncovered .line-number {
+}
+.file.cov-theme-bg-num .cov-hit .line-number {
+    background-color: var(--cov-hit-bg);
+}
+
+/* Blame Color: Clobber the blame bar's coloring. */
+.file.cov-theme-blame-color .cov-miss .blame-strip {
+    background-color: var(--cov-miss-fg) !important;
+}
+.file.cov-theme-blame-color .cov-uncovered .blame-strip {
+    background-color: var(--cov-uncovered-fg) !important;
+}
+.file.cov-theme-blame-color .cov-hit .blame-strip {
+    background-color: var(--cov-hit-fg) !important;
+}
+
+/* Bar: Fixed No Gap */
+.file.cov-theme-bar-fixed .cov-miss .line-number {
+    border-left: var(--cov-strip-width) solid var(--cov-miss-fg);
+}
+.file.cov-theme-bar-fixed .cov-uncovered .line-number {
+    border-left: var(--cov-strip-width) solid var(--cov-uncovered-fg);
+}
+.file.cov-theme-bar-fixed .cov-hit .line-number {
+    border-left: var(--cov-strip-width) solid var(--cov-hit-fg);
+}
+
+/* Bar: Fixed Yes Gap */
+.file.cov-theme-bar-fixed-gap .cov-miss .line-number {
+    border-left: var(--cov-strip-width) solid var(--cov-miss-fg);
+    margin-left: var(--cov-strip-gap);
+}
+.file.cov-theme-bar-fixed-gap .cov-uncovered .line-number {
+    border-left: var(--cov-strip-width) solid var(--cov-uncovered-fg);
+    margin-left: var(--cov-strip-gap);
+}
+.file.cov-theme-bar-fixed-gap .cov-hit .line-number {
+    border-left: var(--cov-strip-width) solid var(--cov-hit-fg);
+    margin-left: var(--cov-strip-gap);
+}
+
+/* Bar: Variable No Gap */
+.file.cov-theme-bar-var .cov-miss .line-number {
+    border-left: var(--cov-log10-base) solid var(--cov-miss-fg);
+}
+.file.cov-theme-bar-var .cov-uncovered .line-number {
+    border-left: var(--cov-log10-base) solid var(--cov-uncovered-fg);
+}
+.file.cov-theme-bar-var .cov-hit .line-number {
+    border-left: calc(var(--cov-log10-base) + var(--cov-log10-scale) * var(--cov-log10)) solid var(--cov-hit-fg);
+}
+
+/* Bar: Variable Yes Gap */
+.file.cov-theme-bar-var-gap .cov-miss .line-number {
+    border-left: var(--cov-log10-base) solid var(--cov-miss-fg);
+    margin-left: var(--cov-strip-gap);
+}
+.file.cov-theme-bar-var-gap .cov-uncovered .line-number {
+    border-left: var(--cov-log10-base) solid var(--cov-uncovered-fg);
+    margin-left: var(--cov-strip-gap);
+}
+.file.cov-theme-bar-var-gap .cov-hit .line-number {
+    border-left: calc(var(--cov-log10-base) + var(--cov-log10-scale) * var(--cov-log10)) solid var(--cov-hit-fg);
+    margin-left: var(--cov-strip-gap);
+}
+
+/* Text Shadow: It is what it sounds like. */
+.file.cov-theme-text-shadow .cov-miss .source-line {
+    text-shadow: var(--cov-miss-fg) 0px 0px 4px;
+}
+.file.cov-theme-text-shadow .cov-hit .source-line {
+    text-shadow: var(--cov-hit-fg) 0px 0px 4px;
+}
+
+/* Font-Size: LOUD COVERAGE INFORMATION */
+.file.cov-theme-font-size .cov-miss .source-line {
+    font-size: 80%;
+}
+.file.cov-theme-font-size .cov-uncovered .source-line {
+    font-style: italic;
+}
+.file.cov-theme-font-size .cov-hit .source-line {
+    font-size: calc(100% + var(--cov-log10) * 20%);
+}
+
+
+/* Bounce: A Very Serious Proposal! */
+@keyframes variable-bounce {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(calc(5px + var(--cov-log10) * 10px));
+    }
+}
+
+.file.cov-theme-bounce .cov-hit .source-line {
+    animation: variable-bounce ease infinite 0.5s alternate;
+}
+
+/* Shoddy 3d: An even more serious proposal! */
+#scrolling.cov-theme-shoddy-3d {
+    perspective: calc( 720px + ( 100vw - 320px ) * 7 );
+    width: 80vw;
+    height: 100vh;
+    transform: translateX(10vmin) perspective(500px) rotateX(10deg);
+}
+.file.cov-theme-shoddy-3d {
+}
+.file.cov-theme-shoddy-3d .cov-hit .source-line {
+    transform: translate3d(calc(-2px - var(--cov-log10) * 2px), calc(-2px - var(--cov-log10) * 2px), 0px);
+    text-shadow: var(--cov-hit-fg) calc(2px + var(--cov-log10) * 2px) calc(2px + var(--cov-log10) * 2px) 4px;
+}

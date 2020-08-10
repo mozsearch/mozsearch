@@ -31,8 +31,8 @@ fn write_json_to_file(val: Json, path: &str) -> Option<()> {
 ///
 /// This does not know how to set meta-info on directories at this time but can
 /// be generalized in the future.
-fn store_in_file_value(all_info: &mut json::Object, path: &str, key: &str, val: Json) {
-    let mut dir_obj: &mut json::Object = all_info
+fn store_in_file_value(concise_info: &mut json::Object, path: &str, key: &str, val: Json) {
+    let mut dir_obj: &mut json::Object = concise_info
         .get_mut("root")
         .unwrap()
         .as_object_mut()
@@ -72,18 +72,28 @@ fn store_in_file_value(all_info: &mut json::Object, path: &str, key: &str, val: 
     file_obj.insert(key.to_string(), val);
 }
 
+fn store_details_in_file_value(detailed_per_file_info: &mut BTreeMap<String, json::Object>, path: &str, key: &str, val: Json) {
+    let file_obj = detailed_per_file_info.entry(path.to_string()).or_insert_with(|| {
+        let mut obj = BTreeMap::new();
+        // We always want the JSON file to self-identify itself.
+        obj.insert("path".to_string(), path.to_string().to_json());
+        obj
+    });
+    file_obj.insert(key.to_string(), val);
+}
+
 /// Recursive helper to traverse the bugzilla component "paths" hierarchy and
-/// propagate its values into the all_info structure.
+/// propagate its values into the concise_info structure.
 ///
 /// - `bz_dir`: This will always be an object whose fields are filenames and
 ///   values will either be a recursively self-same directory object or a Number
 ///   which is a bugzilla components index.
-/// - `all_node`: This will always be a { type: 'dir', contents } all_info
-///   node.
-fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, all_node: &mut json::Object) {
+/// - `concise_node`: This will always be a { type: 'dir', contents }
+///   concise_info node.
+fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, concise_node: &mut json::Object) {
     // We never actually want to be altering the metadata of the current
     // all_node, so just immediately access its contents.
-    let all_contents = all_node
+    let concise_contents = concise_node
         .get_mut("contents")
         .unwrap()
         .as_object_mut()
@@ -91,7 +101,7 @@ fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, all_node: &mut json::O
     for (filename, value) in bz_dir {
         if value.is_object() {
             // Objects mean the child is a directory as well.
-            let all_child = all_contents.entry(filename.to_string()).or_insert_with(|| {
+            let concise_child = concise_contents.entry(filename.to_string()).or_insert_with(|| {
                 let mut child = BTreeMap::new();
                 child.insert("type".to_string(), "dir".to_string().to_json());
                 child.insert("contents".to_string(), Json::Object(json::Object::new()));
@@ -99,38 +109,52 @@ fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, all_node: &mut json::O
             });
             traverse_and_store_bugzilla_map(
                 value.as_object().unwrap(),
-                all_child.as_object_mut().unwrap(),
+                concise_child.as_object_mut().unwrap(),
             );
         } else {
             // It's a number and therefore a file.
-            let all_child = all_contents.entry(filename.to_string()).or_insert_with(|| {
+            let concise_child = concise_contents.entry(filename.to_string()).or_insert_with(|| {
                 let mut child = BTreeMap::new();
                 child.insert("type".to_string(), "file".to_string().to_json());
                 Json::Object(child)
             });
-            let child_obj = all_child.as_object_mut().unwrap();
+            let child_obj = concise_child.as_object_mut().unwrap();
             child_obj.insert("component".to_string(), value.clone());
         }
     }
 }
 
-/// Process a number of JSON input files that provide per-file data into a
-/// single aggregated JSON file.  The schema is taken from the bugzilla
-/// `components-normalized.json` representation which is a compact/normalized
-/// representation.
-///
-/// The intent of the resulting file is to provide a place for small amounts of
-/// meta-information about a file, such as would be appropriate to display and
-/// facet search results that match files or display in the directory listing.
-///
-/// Information that is verbose in nature and specific to the contents of a
-/// file, such as code coverage information should instead be stored in separate
-/// files-per-file.  This tool could still be responsible for performing the
-/// aggregation of that information from disparate sources, however!
+
+/// Recursive helper to traverse the code coverage hierarchy.
+fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, detailed_per_file_info: &mut BTreeMap<String, json::Object>) {
+    if let Some(coverage) = cov_node.remove("coverage") {
+        store_details_in_file_value(detailed_per_file_info, path_so_far, &"lineCoverage", coverage);
+    }
+    if let Some(children) = cov_node.get_mut("children") {
+        for (filename, child_json) in children.as_object_mut().unwrap() {
+            let child_path = format!("{}/{}", path_so_far, filename);
+            let child_obj = child_json.as_object_mut().unwrap();
+            traverse_and_store_coverage(child_obj, &child_path, detailed_per_file_info);
+        }
+    }
+}
+
+/// Process a number of JSON input files that provide per-file data into:
+/// 1. `INDEX_ROOT/concise-per-file-info.json`: A single JSON file that contains
+///    concise per-file data aggregated from a number of sources that's useful
+///    metadata appropriate for directory listings and search results that match
+///    the file.
+/// 2. `INDEX_ROOT/detailed-per-file-info/PATH`: A per-file JSON file that
+///    containts detailed per-file datafrom a number of sources that is either
+///    very large or specific to the contents of the file.  For example, code
+///    coverage data is O(number of lines * number of distinctly tracked
+///    scenarios).
 ///
 /// ## Input Files
 ///
 /// ### bugzilla-components.json
+///
+/// Paths are stored via recursive nesting.
 ///
 /// - "components": A dictionary mapping from stringified numeric values to list
 ///   tuples of the form [product, component].
@@ -140,6 +164,9 @@ fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, all_node: &mut json::O
 ///   in the `components` top-level dictionary.
 ///
 /// ### test-info-all-tests.json
+///
+/// Paths are flat, with only a single level of clustering by bugzilla
+/// component.
 ///
 /// - "description": A string which conveys the date range and tree that this
 ///   data corresponds to.
@@ -160,9 +187,11 @@ fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, all_node: &mut json::O
 ///
 /// ### WPT wpt-metadata-summary.json
 ///
+/// Paths are flat with only a single level of directory clustering.
+///
 /// Consult
 /// https://searchfox.org/mozilla-central/source/testing/web-platform/tests/tools/wptrunner/wptrunner/manifestexpected.py
-/// for
+/// for detailed info about the schema.
 ///
 /// - [directory]: A WPT-root (testing/web-platform/tests) string identifying a
 ///   directory containing tests.  Value is an object.
@@ -196,7 +225,43 @@ fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, all_node: &mut json::O
 ///               to `[null, ["FAIL"]]` I guess.
 ///       - "max-asserts": [condition?, max-asserts value]
 ///
-/// ## Output File
+/// ### code-coverage-report.json
+///
+/// Hierarchical file where the root node corresponds to the root of the source
+/// tree.  Paths are stored via recursive nesting.
+///
+/// Each node can contain the following keys:
+/// - "children": An object whose keys are file/directory names and whose values
+///   are nodes of the self-same type.
+/// - "coverage": An array where each entry corresponds to a line of the source
+///   file with `-1` indicating an uninstrumented line, `0` indicating an
+///   instrumented line with no coverage hits, and any positive integers
+///   indicating a line with that number of hits.
+/// - "coveragePercent": Coverage percent in the node and all its children as a
+///   floating point value in the range [0, 100] which 2 digits of precision
+///   maybe.  So for a file this is for the file and for a directory this is the
+///   average over all of its children.
+/// - "linesCovered": The number of coverage lines in the node and all its
+///   children which are `> 0`.  So for a file this is derived from its
+///   "coverage" and for a directory this is the sum of the value in all of its
+///   children.
+/// - "linesMissed": The number of lines in the node and all its children which
+///   are `0`.
+/// - "linesTotal": The number of lines in the node and all its children which
+///   aren't `-1` AKA are `>= 0`.  Should be the same as adding up
+///   `linesCovered` and `linesMissed`.  There is no summary value for the
+///   number of lines that report `-1` because they're presumed to be whitespace
+///   or comments or whatever.
+/// - "name": The same name that is the key that matches this value in its
+///   parent's "children" dictionary.  In the case of the root node this is "".
+///
+/// Currently only the "coverage" data is used, going in the detailed per-file
+/// storage, but it would make a lot of sense to save off the aggregate info
+/// in the summary file.
+///
+/// ## Output Files
+///
+/// ### All-file aggregate concise-per-file-info.json
 ///
 /// For the time being we imitate the bugzilla-components.json representation.
 /// A hierarchical tree representation is retained because the ability to
@@ -222,6 +287,12 @@ fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, all_node: &mut json::O
 ///       an indication of there being some kind of notable manipulation going
 ///       on even if we don't understand it specifically.
 ///       - "disabled": Directly propagated from the test-level "disabled".
+///
+/// ### Per-file detailed JSON file (filename is that of the source file)
+///
+/// An object with the following keys:
+/// - "lineCoverage": The "coverage" line results array from
+///   `code-coverage-report.json`.
 fn main() {
     env_logger::init();
 
@@ -233,15 +304,21 @@ fn main() {
     let tree_name = &args[2];
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
-    // ## Build empty derived info structure
-    let mut all_info: json::Object = BTreeMap::new();
+    // ## Build empty derived info structures
+    // The single JSON object that holds concise info for all files and is
+    // written out to `concise-per-file-info.json`.
+    let mut concise_info: json::Object = BTreeMap::new();
     {
         let contents = json::Object::new();
         let mut root = json::Object::new();
         root.insert("type".to_string(), "dir".to_string().to_json());
         root.insert("contents".to_string(), Json::Object(contents));
-        all_info.insert("root".to_string(), Json::Object(root));
+        concise_info.insert("root".to_string(), Json::Object(root));
     }
+
+    // A map from path to the specific per-file JSON object that will be written
+    // out into a separate file for each source/analysis file.
+    let mut detailed_per_file_info = BTreeMap::new();
 
     // ## Load bugzilla data and merge it in to the derived info structure
     let bugzilla_fname = format!("{}/bugzilla-components.json", tree_config.paths.index_path);
@@ -249,7 +326,7 @@ fn main() {
     if let Some(mut data) = bugzilla_data {
         info!("Bugzilla components read");
 
-        all_info.insert(
+        concise_info.insert(
             "bugzilla-components".to_string(),
             data.remove("components").unwrap(),
         );
@@ -257,7 +334,7 @@ fn main() {
         if let Some(bz_root) = data.get("paths") {
             traverse_and_store_bugzilla_map(
                 bz_root.as_object().unwrap(),
-                all_info.get_mut("root").unwrap().as_object_mut().unwrap(),
+                concise_info.get_mut("root").unwrap().as_object_mut().unwrap(),
             );
         }
     } else {
@@ -283,7 +360,7 @@ fn main() {
                             _ => panic!("Test `test` field should be present and a string."),
                         };
                         store_in_file_value(
-                            &mut all_info,
+                            &mut concise_info,
                             &test_path,
                             "testInfo",
                             Json::Object(test_info_obj),
@@ -326,7 +403,7 @@ fn main() {
                     }
 
                     store_in_file_value(
-                        &mut all_info,
+                        &mut concise_info,
                         &format!("{}/tests/{}/{}", wpt_root, dir_path, test_filename),
                         "wptInfo",
                         Json::Object(propagate),
@@ -338,14 +415,37 @@ fn main() {
         warn!("No wpt-metadata-summary.json file found");
     }
 
-    // ## Write out the derived info structure
+    let coverage_info_fname = format!("{}/code-coverage-report.json", tree_config.paths.index_path);
+    let coverage_info_data = read_json_from_file(&coverage_info_fname);
+    if let Some(mut cov_root) = coverage_info_data {
+        traverse_and_store_coverage(&mut cov_root, "", &mut detailed_per_file_info);
+    }
+
+    // ## Write out the derived info structures
+    // The single concise aggregate file.
     let output_fname = format!(
-        "{}/derived-per-file-info.json",
+        "{}/concise-per-file-info.json",
         tree_config.paths.index_path
     );
-    if write_json_to_file(Json::Object(all_info), &output_fname).is_some() {
+    if write_json_to_file(Json::Object(concise_info), &output_fname).is_some() {
         info!("Per-file info written to disk");
     } else {
         warn!("Unable to write per-file info to disk");
+    }
+
+    // The separate detailed files.
+    for (path, json_obj) in detailed_per_file_info.into_iter() {
+        let detailed_fname = format!(
+            "{}/detailed-per-file-info/{}",
+            tree_config.paths.index_path,
+            path
+        );
+        // We haven't actually bothered to create this directory tree anywhere,
+        // and we expect to be sparesly populating it, so just do the mkdir -p
+        // ourself here.
+        let detailed_path = std::path::Path::new(&detailed_fname);
+        std::fs::create_dir_all(detailed_path.parent().unwrap()).unwrap();
+
+        write_json_to_file(Json::Object(json_obj), &detailed_fname);
     }
 }

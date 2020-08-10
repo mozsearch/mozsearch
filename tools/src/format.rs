@@ -330,6 +330,7 @@ pub fn format_file_data(
     data: String,
     jumps: &HashMap<String, Jump>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
+    coverage: &[i32],
     writer: &mut dyn Write,
     mut diff_cache: Option<&mut git_ops::TreeDiffCache>,
 ) -> Result<(), &'static str> {
@@ -521,12 +522,21 @@ pub fn format_file_data(
         // Emit the actual source line here.
         let f = F::Seq(vec![
             F::T(format!(
-                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\">",
+                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}{}\">",
                 lineno,
                 if line.starts_nest {
                     " nesting-sticky-line"
                 } else {
                     ""
+                },
+                match coverage.get(i) {
+                    // Not having an array entry at all is a bit more concerning
+                    // than a -1 so add a cov-unknown class.
+                    None => " cov-uncovered cov-unknown".to_string(),
+                    Some(-1) => " cov-uncovered cov-known".to_string(),
+                    Some(0) => " cov-miss cov-known".to_string(),
+                    // Should this directly be a CSS variable?
+                    Some(x) => format!(" cov-hit cov-known cov-log10-{}", (*x as f64).log10().floor() as u32),
                 }
             )),
             F::Indent(vec![
@@ -716,6 +726,7 @@ pub fn format_path(
         data,
         &jumps,
         &analysis,
+        &vec![],
         writer,
         None,
     )
