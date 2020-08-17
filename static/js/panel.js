@@ -20,15 +20,17 @@ var Panel = new (class Panel {
     );
 
     if (this.permalinkNode) {
+      this.permalinkNode.title += " (double-click to copy)";
       this.permalinkNode.addEventListener("click", event => {
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
           return;
         }
-        window.history.pushState(
-          { permalink: event.target.href },
-          window.title,
-          event.target.href
-        );
+        let url = event.target.href;
+        if (window.location.href == url) {
+          navigator.clipboard.writeText(url);
+        } else {
+          window.history.pushState({ permalink: url }, window.title, url);
+        }
         event.preventDefault();
       });
     }
