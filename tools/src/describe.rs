@@ -46,7 +46,7 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
 /// Returns the content of the title tag
 fn describe_html(contents: &str) -> Option<String> {
     lazy_static! {
-        static ref TITLE_REGEX: Regex = { Regex::new(r#"(?i)<title>((?s).*?)</title>"#).unwrap() };
+        static ref TITLE_REGEX: Regex = Regex::new(r#"(?i)<title>((?s).*?)</title>"#).unwrap();
     }
     TITLE_REGEX
         .captures(contents)
@@ -57,8 +57,8 @@ fn describe_html(contents: &str) -> Option<String> {
 /// Returns the first docstring (single-quoted preferred)
 fn describe_py(contents: &str) -> Option<String> {
     lazy_static! {
-        static ref DOCSTRING_SINGLE_REGEX: Regex = { Regex::new(r#"'''\s*((?s).*?)'''"#).unwrap() };
-        static ref DOCSTRING_DOUBLE_REGEX: Regex = { Regex::new(r#""""\s*((?s).*?)""""#).unwrap() };
+        static ref DOCSTRING_SINGLE_REGEX: Regex = Regex::new(r#"'''\s*((?s).*?)'''"#).unwrap();
+        static ref DOCSTRING_DOUBLE_REGEX: Regex = Regex::new(r#""""\s*((?s).*?)""""#).unwrap();
     }
     DOCSTRING_SINGLE_REGEX
         .captures(contents)
