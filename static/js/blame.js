@@ -1,3 +1,9 @@
+/**
+ * The BlamePopup is used for showing coverage and "annotate" (the less
+ * judgemental term for "blame").  It previously was "annotate" specific.  Out
+ * of an abundance of laziness and to minimize diff size, the existing
+ * terminology is being left intact for now.
+ */
 var BlamePopup = new (class BlamePopup {
   constructor() {
     this.popup = document.createElement("div");
@@ -20,6 +26,54 @@ var BlamePopup = new (class BlamePopup {
     // the `blameElement` changes, but the `revs` stays the same.
     this.prevRevs = null;
     this.prevJson = null;
+
+    // We play games with CSS variables to allow us to display a more detailed
+    // set of colors when hovering over a coverage cell and a less detailed set
+    // when not hovered.  See mozsearch.css for more info, but the basic idea
+    // is:
+    // - The "unhovered" CSS variables are used with preference in all our CSS
+    //   styles, so when defined we use their less detailed colors.  So our
+    //   style `background-color: var(--cov-miss-unhovered-color, #f7f7f7);`
+    //   will use #f7f7f7 when it's not defined and the variable value when it
+    //   is.
+    // - So we set the "unhovered" values when we want a less detailed
+    //   visualization of what's going on and we clear set them to the empty
+    //   string.
+    // -
+    this.HIT_COLOR_VAR = "--cov-hit-color";
+    this.MISS_COLOR_VAR = "--cov-miss-color";
+    this.HIT_UNHOVERED_COLOR_VAR = "--cov-hit-unhovered-color";
+    this.MISS_UNHOVERED_COLOR_VAR = "--cov-miss-unhovered-color";
+    const computed = getComputedStyle(document.documentElement);
+    this.COV_HIT_COLOR = computed.getPropertyValue(this.HIT_COLOR_VAR);
+    this.COV_MISS_COLOR = computed.getPropertyValue(this.MISS_COLOR_VAR);
+
+    this.coverageDetailsShown = true;
+    this.hideCoverageStripDetails();
+  }
+
+  showCoverageStripDetails() {
+    if (this.coverageDetailsShown) {
+      return;
+    }
+    this.coverageDetailsShown = true;
+
+    document.documentElement.style.setProperty(
+      this.HIT_UNHOVERED_COLOR_VAR, "");
+    document.documentElement.style.setProperty(
+      this.MISS_UNHOVERED_COLOR_VAR, "");
+  }
+
+  hideCoverageStripDetails() {
+    if (!this.coverageDetailsShown) {
+      return;
+    }
+    this.coverageDetailsShown = false;
+
+    document.documentElement.style.setProperty(
+      this.HIT_UNHOVERED_COLOR_VAR, this.COV_HIT_COLOR);
+    document.documentElement.style.setProperty(
+      this.MISS_UNHOVERED_COLOR_VAR, this.COV_MISS_COLOR);
   }
 
   detachFromCurrentOwner() {
@@ -35,6 +89,8 @@ var BlamePopup = new (class BlamePopup {
   hide() {
     this.detachFromCurrentOwner();
     this.popup.style.display = "none";
+
+    this.hideCoverageStripDetails();
   }
 
   // Asynchronously initiates lookup and display of the blame data for the current
@@ -48,6 +104,80 @@ var BlamePopup = new (class BlamePopup {
     // Latch the current element in case by the time our fetch comes back it's
     // no longer the current one.
     const elt = this.blameElement;
+    // The coverage and annotate strips are adjacent and it would be bad UX for
+    // hovering over the coverage strip to occlude the annotate strip, so we
+    // adjust the coverage elements to use the annotate element for positioning.
+    let hoverRightOfElt = elt;
+    let content;
+    const isAnnotate = !!elt.dataset.blame;
+    if (isAnnotate) {
+      content = await this.generateAnnotateContent(elt);
+    } else {
+      content = await this.generateCoverageContent(elt);
+      // This obviously assumes the known hard-coded DOM from `format.rs`.
+      hoverRightOfElt = elt.parentElement.nextElementSibling.firstElementChild;
+    }
+
+    // If no content was returned or the blame element has changed, bail.
+    if (!content || this.blameElement != elt) {
+      return;
+    }
+
+    let rect = hoverRightOfElt.getBoundingClientRect();
+    let top = rect.top + window.scrollY;
+    let left = rect.left + rect.width + window.scrollX;
+
+    this.detachFromCurrentOwner();
+    this.popup.style.display = "";
+    // This also works, but transform doesn't even require layout.
+    // this.popup.style.left = left + "px";
+    // this.popup.style.top = top + "px";
+    this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
+    this.popup.innerHTML = content;
+    this.popupOwner = this.blameElement;
+    // We set aria-owns on the parent role=cell instead of the button.
+    this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
+    this.popupOwner.setAttribute("aria-expanded", "true");
+
+    // Adjust transform to ensure the popup doesn't go outside the window.
+    let popupBox = this.popup.getBoundingClientRect();
+    if (popupBox.bottom > window.innerHeight) {
+      top -= (popupBox.bottom - window.innerHeight);
+      this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
+    }
+
+    if (isAnnotate) {
+      this.hideCoverageStripDetails();
+    } else {
+      this.showCoverageStripDetails();
+    }
+  }
+
+  async generateCoverageContent(elt) {
+    let content;
+
+    if (elt.classList.contains("cov-no-data")) {
+      content =
+        `<div>There is no coverage data for this file.</div>`;
+    } else if (elt.classList.contains("cov-unknown")) {
+      content =
+        `<div>There was coverage data for this file but not for this line.</div>`;
+    } else if (elt.classList.contains("cov-interpolated")) {
+      content = `<div>This line wasn't instrumented for coverage, but we ` +
+                `interpolated coverage for this line to make it visually less `+
+                `distracting.</div>`;
+    } else if (elt.classList.contains("cov-uncovered")) {
+      content = `<div>This line wasn't instrumented for coverage.</div>`;
+    } else {
+      const hitCount = parseInt(elt.dataset.coverage, 10);
+      content = `<div>This line was hit ${hitCount} times per coverage ` +
+                `instrumentation.<div>`;
+    }
+
+    return content;
+  }
+
+  async generateAnnotateContent(elt) {
     const blame = elt.dataset.blame;
     const [revs, filespecs, linenos] = blame.split("#");
 
@@ -120,28 +250,7 @@ var BlamePopup = new (class BlamePopup {
       } ignored changesets</summary>${ignored.join("")}</details>`;
     }
 
-    let rect = this.blameElement.getBoundingClientRect();
-    let top = rect.top + window.scrollY;
-    let left = rect.left + rect.width + window.scrollX;
-
-    this.detachFromCurrentOwner();
-    this.popup.style.display = "";
-    // This also works, but transform doesn't even require layout.
-    // this.popup.style.left = left + "px";
-    // this.popup.style.top = top + "px";
-    this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
-    this.popup.innerHTML = content;
-    this.popupOwner = this.blameElement;
-    // We set aria-owns on the parent role=cell instead of the button.
-    this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
-    this.popupOwner.setAttribute("aria-expanded", "true");
-
-    // Adjust transform to ensure the popup doesn't go outside the window.
-    let popupBox = this.popup.getBoundingClientRect();
-    if (popupBox.bottom > window.innerHeight) {
-      top -= (popupBox.bottom - window.innerHeight);
-      this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
-    }
+    return content;
   }
 
   get blameElement() {
@@ -172,6 +281,11 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       element.addEventListener("mouseleave", this);
     }
 
+    for (let element of document.querySelectorAll(".cov-strip")) {
+      element.addEventListener("mouseenter", this);
+      element.addEventListener("mouseleave", this);
+    }
+
     BlamePopup.popup.addEventListener("mouseenter", this);
     BlamePopup.popup.addEventListener("mouseleave", this);
     // Click listener needs to be capturing since whatever is being clicked on
@@ -197,7 +311,8 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     }
 
     let clickedOutsideBlameStrip =
-      event.type == "click" && !event.target.matches(".blame-strip");
+      event.type == "click" && !event.target.matches(".blame-strip") &&
+      !event.target.matches(".cov-strip");
     if (clickedOutsideBlameStrip && !BlamePopup.blameElement) {
       // Don't care about clicks outside the blame strip if there's no popup showing.
       return;
