@@ -145,7 +145,7 @@ fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, d
 ///    metadata appropriate for directory listings and search results that match
 ///    the file.
 /// 2. `INDEX_ROOT/detailed-per-file-info/PATH`: A per-file JSON file that
-///    containts detailed per-file datafrom a number of sources that is either
+///    containts detailed per-file data from a number of sources that is either
 ///    very large or specific to the contents of the file.  For example, code
 ///    coverage data is O(number of lines * number of distinctly tracked
 ///    scenarios).
@@ -238,9 +238,9 @@ fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, d
 ///   instrumented line with no coverage hits, and any positive integers
 ///   indicating a line with that number of hits.
 /// - "coveragePercent": Coverage percent in the node and all its children as a
-///   floating point value in the range [0, 100] which 2 digits of precision
-///   maybe.  So for a file this is for the file and for a directory this is the
-///   average over all of its children.
+///   floating point value in the range [0, 100] to 2 decimal places.  For a
+///   file this is for the file and for a directory this is the average over all
+///   of its children.
 /// - "linesCovered": The number of coverage lines in the node and all its
 ///   children which are `> 0`.  So for a file this is derived from its
 ///   "coverage" and for a directory this is the sum of the value in all of its
@@ -441,7 +441,7 @@ fn main() {
             path
         );
         // We haven't actually bothered to create this directory tree anywhere,
-        // and we expect to be sparesly populating it, so just do the mkdir -p
+        // and we expect to be sparsely populating it, so just do the mkdir -p
         // ourself here.
         let detailed_path = std::path::Path::new(&detailed_fname);
         std::fs::create_dir_all(detailed_path.parent().unwrap()).unwrap();

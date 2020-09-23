@@ -330,7 +330,7 @@ pub fn format_file_data(
     data: String,
     jumps: &HashMap<String, Jump>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-    coverage: &[i32],
+    coverage: &Option<Vec<i32>>,
     writer: &mut dyn Write,
     mut diff_cache: Option<&mut git_ops::TreeDiffCache>,
 ) -> Result<(), &'static str> {
@@ -404,6 +404,12 @@ pub fn format_file_data(
     // the same computation needlessly without this cache.
     let mut prev_blame_cache = git_ops::PrevBlameCache::new();
 
+    // Map blame revisions to consecutive integer identifiers so that our aria
+    // labels for screen readers can have a more human friendly identifier than
+    // (some portion of) the git hash.
+    let mut blame_hash_to_human_id = HashMap::new();
+    let mut next_human_id = 1;
+
     // Blame lines and source lines are now interleaved.  Since we already have fully rendered the
     // source above, we output the blame info, line number, and rendered HTML source as we process
     // each line for blame purposes.
@@ -412,6 +418,37 @@ pub fn format_file_data(
     let mut nest_depth = 0;
     for (i, line) in output_lines.iter().enumerate() {
         let lineno = i + 1;
+
+        // Compute the coverage data for this line (if any)
+        let coverage_data: String = if let Some(ref coverage) = coverage {
+            // There's 2 levels of not having data for a line here:
+            // 1. We had no coverage data, coverage is None.  In that case,
+            //    we'll map to -5.
+            // 2. We have coverage data (coverage is Some(x)), but the array
+            //    has no data for this line.  This should only happen if the
+            //    coverage data is for a different revision control revision
+            //    than the source code.  We map this to -4.
+            //
+            // We also have -3 and -2 from interpolate_coverage, and -1
+            // which is directly part of the coverage data we receive (that
+            // interpolation converts to -2 and -3.)
+            match coverage.get(i).unwrap_or(&-4) {
+                -4 => r#" class="cov-strip cov-uncovered cov-unknown" role="button" aria-label="missing data""#.to_owned(),
+                -3 => r#" class="cov-strip cov-miss cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
+                -2 => r#" class="cov-strip cov-hit cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
+                -1 => r#" class="cov-strip cov-uncovered cov-known" role="button" aria-label="uncovered""#.to_owned(),
+                 0 => r#" class="cov-strip cov-miss cov-known" role="button" aria-label="miss" data-coverage="0""#.to_owned(),
+                // Should this directly be a CSS variable?
+                 x => format!(
+                    r#" class="cov-strip cov-hit cov-known cov-log10-{}" role="button" aria-label="hit {}{}" data-coverage="{}""#,
+                    (*x as f64).log10().floor() as u32,
+                    if *x < 1000 { *x } else { *x / 1000 },
+                    if *x < 1000 { "" } else { "k" },
+                    *x)
+            }
+        } else {
+            " class=\"cov-strip cov-no-data\"".to_owned()
+        };
 
         // Compute the blame data for this line (if any)
         let blame_data = if let Some(ref lines) = blame_lines {
@@ -424,6 +461,9 @@ pub fn format_file_data(
             let mut revs = String::from(pieces[0]);
             let mut filespecs = String::from(pieces[1]);
             let mut blame_linenos = String::from(pieces[2]);
+
+            let human_id =
+                blame_hash_to_human_id.entry(revs.clone()).or_insert_with(|| { let id = next_human_id; next_human_id += 1; id } );
 
             if let Some(ref git) = tree_config.git {
                 // These are the inputs to the find_prev_blame operation,
@@ -490,7 +530,8 @@ pub fn format_file_data(
                 }
             }
 
-            let color = if last_revs.map_or(false, |last| last == revs) {
+            let same_rev_as_last = last_revs.map_or(false, |last| last == revs);
+            let color = if same_rev_as_last {
                 last_color
             } else {
                 !last_color
@@ -499,8 +540,13 @@ pub fn format_file_data(
             last_color = color;
             let class = if color { 1 } else { 2 };
             let data = format!(
-                r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
-                class, revs, filespecs, blame_linenos
+                r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="{}" aria-expanded="false""#,
+                class, revs, filespecs, blame_linenos,
+                format!(
+                    "{} hash {}",
+                    if same_rev_as_last { "same" } else { "new" },
+                    human_id
+                )
             );
             data
         } else {
@@ -512,7 +558,7 @@ pub fn format_file_data(
         if line.starts_nest {
             write!(
                 writer,
-                "<div class=\"nesting-container nesting-depth-{}\">",
+                r#"<div role="rowgroup" class="nesting-container nesting-depth-{}">"#,
                 nest_depth
             )
             .unwrap();
@@ -522,25 +568,25 @@ pub fn format_file_data(
         // Emit the actual source line here.
         let f = F::Seq(vec![
             F::T(format!(
-                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}{}\">",
+                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\">",
                 lineno,
                 if line.starts_nest {
                     " nesting-sticky-line"
                 } else {
                     ""
-                },
-                match coverage.get(i) {
-                    // Not having an array entry at all is a bit more concerning
-                    // than a -1 so add a cov-unknown class.
-                    None => " cov-uncovered cov-unknown".to_string(),
-                    Some(-1) => " cov-uncovered cov-known".to_string(),
-                    Some(0) => " cov-miss cov-known".to_string(),
-                    // Should this directly be a CSS variable?
-                    Some(x) => format!(" cov-hit cov-known cov-log10-{}", (*x as f64).log10().floor() as u32),
                 }
             )),
             F::Indent(vec![
-                // Blame info.
+                // Coverage Info. Its contents go in a div nested inside the
+                // "cell" role div because in order to make the hover UI
+                // accessible we expose it as a role=button which needs its own
+                // element.
+                F::T(format!(
+                    "<div role=\"cell\"><div{}></div></div>",
+                    coverage_data
+                )),
+                // Blame info.  Contents are nested for the exact same reason as
+                // the coverage info (role=button needs its own div).
                 F::T(format!(
                     "<div role=\"cell\"><div{}></div></div>",
                     blame_data
@@ -726,7 +772,7 @@ pub fn format_path(
         data,
         &jumps,
         &analysis,
-        &vec![],
+        &None,
         writer,
         None,
     )
@@ -976,12 +1022,17 @@ pub fn format_diff(
                 lineno
             )),
             F::Indent(vec![
+                // Coverage info.
+                F::T(format!(
+                    "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
+                    blame_data
+                )),
                 // Blame info.
                 F::T(format!(
                     "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
                     blame_data
                 )),
-                // The line number and blame info.
+                // The line number.
                 F::T(format!(
                     "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",
                     if lineno > 0 {
