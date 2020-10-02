@@ -1,0 +1,2 @@
+I have a file that's me but gzipped which helps test that we don't explode when
+this happens, which it can happen for tests.

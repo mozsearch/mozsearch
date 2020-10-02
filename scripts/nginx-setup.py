@@ -167,6 +167,8 @@ for repo in config['trees']:
         'types { %(binary_types)s }',
         'default_type text/html;',
         'add_header Cache-Control "must-revalidate";',
+        'gzip_static always;',
+        'gunzip on;',
     ])
 
     location('/%(repo)s/raw-analysis', [
@@ -179,6 +181,8 @@ for repo in config['trees']:
         # decode the result.
         'default_type text/plain;',
         'add_header Cache-Control "must-revalidate";',
+        'gzip_static always;',
+        'gunzip on;',
     ])
 
     location('/%(repo)s/file-lists', [

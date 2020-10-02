@@ -72,6 +72,11 @@ $MOZSEARCH_PATH/scripts/build-codesearch.py $CONFIG_FILE $TREE_NAME
 
 date
 
+# this depends on INDEX_ROOT already being available
+$MOZSEARCH_PATH/scripts/compress-outputs.sh
+
+date
+
 # Check the resulting index for correctness, but there's no webserver so the
 # 4th argument needs to be empty.
 $MOZSEARCH_PATH/scripts/check-index.sh $CONFIG_FILE $TREE_NAME "filesystem" ""
