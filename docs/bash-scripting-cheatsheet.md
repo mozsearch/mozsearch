@@ -148,6 +148,32 @@ Using a wildcard that you don't want globbed because you're passing it to
 "*.json foo-${VAR}-*.json"
 ```
 
+### For loops are bad while while loops are good
+
+See https://mywiki.wooledge.org/BashFAQ/001 but the basic idea is that instead
+of doing:
+
+```bash
+# THIS IS THE BAD EXAMPLE DON'T DO THIS BECAUSE IF THERE ARE SPACES IN THE FILE
+# NAME IT WILL BE PARSED AS TWO SEPARATE TOKENS, NOT ONE, AND THEN YOU WILL HAVE
+# A BAD TIME.
+for file in $(find . -type f | sort -r); do
+  gzip -f "$file"
+  touch -r "$file".gz "$file"
+done
+```
+
+you want to do:
+
+```bash
+find . -type f | sort -r | while read -r file; do
+  gzip -f "$file"
+  touch -r "$file".gz "$file"
+done
+```
+
+because the for loop will tokenize things incorrectly.
+
 ### GNU parallel and its processing
 
 GNU parallel does use a shell in each of its invocations.  So shell parsing

@@ -1,0 +1,2 @@
+The spaces in this file's name cause trouble!
+Trouble right here in test directory!

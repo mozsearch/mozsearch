@@ -24,9 +24,13 @@ function fail {
 
 if [[ $CHECK_DISK ]]
 then
-
-  LOCAL_ANALYSIS_PATH=$INDEX_ROOT/analysis/$SEARCHFOX_PATH
-  LOCAL_HTML_PATH=$INDEX_ROOT/file/$SEARCHFOX_PATH
+  # We now gzip these files as part of the indexing process prior to running
+  # these checks.  Note that because we use the nginx try_files mechanism
+  # probing for the non .gz versions we also need to create zero-length versions
+  # of the files which defeats zgrep's magic failover to trying the .gz suffixed
+  # version of the file.
+  LOCAL_ANALYSIS_PATH=$INDEX_ROOT/analysis/$SEARCHFOX_PATH.gz
+  LOCAL_HTML_PATH=$INDEX_ROOT/file/$SEARCHFOX_PATH.gz
 
   # The analysis file should exist.
   if [[ ! -f $LOCAL_ANALYSIS_PATH ]]; then
@@ -49,10 +53,10 @@ then
   # currently contain multiple symbol names, in which case we wouldn't want to
   # look for the closing quote or would need to allow for it to be also be a
   # comma.)
-  grep -m1 "\"sym\":\"$SYMBOL_NAME\"" "$LOCAL_ANALYSIS_PATH" || fail "No symbol: $SYMBOL_NAME in analysis in $LOCAL_ANALYSIS_PATH"
+  zgrep -m1 "\"sym\":\"$SYMBOL_NAME\"" "$LOCAL_ANALYSIS_PATH" || fail "No symbol: $SYMBOL_NAME in analysis in $LOCAL_ANALYSIS_PATH"
 
   # The output file should exist.
-  if [[ ! -f $LOCAL_ANALYSIS_PATH ]]; then
+  if [[ ! -f "$LOCAL_ANALYSIS_PATH" ]]; then
     # logic to run if the file didn't exist / wasn't a file
     set +x  # Turn off echoing of commands and output only relevant things to avoid bloating logfiles
     echo "The expected analysis file $LOCAL_ANALYSIS_PATH does not exist!"
@@ -61,7 +65,7 @@ then
 
   # The output file should explicitly reference the symbol name as part of
   # `data-symbols`.  We allow for a comma or closing quote.
-  egrep -m1 -e "data-symbols=\"$SYMBOL_NAME[\",]" "$LOCAL_HTML_PATH"  || fail "No symbol: $SYMBOL_NAME in HTML in $LOCAL_HTML_PATH"
+  zegrep -m1 -e "data-symbols=\"$SYMBOL_NAME[\",]" "$LOCAL_HTML_PATH"  || fail "No symbol: $SYMBOL_NAME in HTML in $LOCAL_HTML_PATH"
 
   # Note: It would be neat to check the crossref database here, but the file
   # gets very large and it's much more efficient to just ask the webserver.
