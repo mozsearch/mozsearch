@@ -348,7 +348,24 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       // keepVisible to pin the blame popup open until another click dismisses
       // it, or a scroll event happens (since the popup doesn't move properly with
       // scrolling).
-      this.keepVisible = event.type == "click";
+      const isClick = event.type == "click";
+      // A click on the same exact element as the last click should toggle the
+      // popup closed.  This is important for the screen-reader use-case where
+      // inspecting blame details involves hitting enter on the role=button
+      // blame cell to toggle the blame popup on and then off.
+      //
+      // We could check `keepVisible` here but that creates a weird situation
+      // when activating via mouse where we get the sequence 1) hover triggers
+      // popup, 2) click maintains popup and makes it keepVisible, and then 3)
+      // second click hides popup.  By not checking, we get 1) hover triggers
+      // popup, 2) click hides popup.
+      if (isClick && this.mouseElement === event.target) {
+        this.keepVisible = false;
+        this.mouseElement = null;
+        BlamePopup.blameElement = null;
+        return
+      }
+      this.keepVisible = isClick;
       this.mouseElement = event.target;
       if (this.mouseElement != BlamePopup.popup) {
         BlamePopup.blameElement = this.mouseElement;
