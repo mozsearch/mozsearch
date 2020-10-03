@@ -363,7 +363,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
         this.keepVisible = false;
         this.mouseElement = null;
         BlamePopup.blameElement = null;
-        return
+        return;
       }
       this.keepVisible = isClick;
       this.mouseElement = event.target;
