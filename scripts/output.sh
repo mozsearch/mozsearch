@@ -14,8 +14,13 @@ CONFIG_REPO=$(realpath $1)
 CONFIG_FILE=$(realpath $2)
 TREE_NAME=$3
 
+# parallel args:
+# --files: Place .par files in /tmp that document stdout/stderr for each run.
+# --joblog: Emit a joblog that can be used to `--resume` the previous job.  This
+# might be useful to attempt to reproduce failures without having to copy and
+# paste insanely long command lines.
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | \
-    parallel --files --halt 2 -X --eta \
+    parallel --files --joblog /tmp/output.joblog --halt 2 -X --eta \
 	     $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
 
 HG_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].hg_root" ${CONFIG_FILE})

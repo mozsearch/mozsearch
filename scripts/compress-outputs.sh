@@ -54,21 +54,16 @@ function compress_dir_with_touch {
   popd
 }
 
-# We could also have parameterized the above to take the command but this seemed
-# less confusing / harder to mess up.
-function compress_dir_only {
+# gzip all the files in a directory that aren't already gzipped.  Ignore files
+# that are already gzipped.
+function idempotently_gzip_dir_no_touch {
   echo "Compressing files in $1 without zero-length marker"
   pushd $1
   find . -type f > ../compress-file-list
-  # It's possible there won't be matches, in which case grep will exit with 1,
-  # which we want to eat.
-  { egrep '\.gz$' ../compress-file-list || test $? = 1; } | parallel --halt now,fail=1 'gzip -f {}'
   egrep -v '\.gz$' ../compress-file-list | parallel --halt now,fail=1 'gzip -f {}'
   rm ../compress-file-list
   popd
 }
 
-
-compress_dir_with_touch "${INDEX_ROOT}/file/"
 compress_dir_with_touch "${INDEX_ROOT}/dir/"
-compress_dir_only "${INDEX_ROOT}/analysis/"
+idempotently_gzip_dir_no_touch "${INDEX_ROOT}/analysis/"

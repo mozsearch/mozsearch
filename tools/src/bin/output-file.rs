@@ -30,6 +30,10 @@ extern crate rustc_serialize;
 use rustc_serialize::json;
 use rustc_serialize::json::Json;
 
+extern crate flate2;
+use flate2::Compression;
+use flate2::write::GzEncoder;
+
 fn read_json_from_file(path: &str) -> Option<json::Object> {
     let components_file = File::open(path).ok()?;
     let mut reader = BufReader::new(&components_file);
@@ -382,6 +386,7 @@ fn main() {
         println!("File {}", path);
 
         let output_fname = format!("{}/file/{}", tree_config.paths.index_path, path);
+        let gzip_output_fname = format!("{}.gz", output_fname);
         let source_fname = find_source_file(
             path,
             &tree_config.paths.files_path,
@@ -390,8 +395,31 @@ fn main() {
 
         let format = languages::select_formatting(path);
 
-        let output_file = File::create(output_fname).unwrap();
-        let mut writer = BufWriter::new(output_file);
+        // Create a zero length output file with the normal name for nginx
+        // try_files reasons... UNLESS the file we're dealing with already has
+        // a ".gz" suffix.  (try_files isn't aware of the gzip_static magic and
+        // so looks for a file with the exact non-.gz suffix, which means it has
+        // to exist and so we normally need to create one.)
+        //
+        // The general problem scenario are tests where there's a file "FOO" and
+        // its gzipped variant "FOO.gz" in the tree.  In that case there's an
+        // overlap for "FOO.gz".  When processing "FOO.gz" we will write to
+        // "FOO.gz.gz" but also want the file "FOO.gz" to exist.  And for "FOO"
+        // we will write to "FOO.gz" and want "FOO" to exist.  If our heuristic
+        // is to not create the zero-length file for "FOO.gz", we win and don't
+        // have to worry about pathological races as long as the source file
+        // "FOO" exists.  But if it doesn't our try_files logic will never allow
+        // the user to view the (gibberish for humans) "FOO.gz" source file.
+        //
+        // So we use that heuristic.  Because I'm a human.  A lazy, lazy human.
+        // Robots or non-lazy humans are welcome to contribute better fixes for
+        // this and will be showered with praise.
+        if !output_fname.ends_with(".gz") {
+          File::create(output_fname).unwrap();
+        }
+        let output_file = File::create(gzip_output_fname).unwrap();
+        let raw_writer = BufWriter::new(output_file);
+        let mut writer = GzEncoder::new(raw_writer, Compression::default());
 
         let source_file = match File::open(source_fname.clone()) {
             Ok(f) => f,
@@ -781,5 +809,7 @@ fn main() {
             Some(&mut diff_cache),
         )
         .unwrap();
+
+        writer.finish().unwrap();
     }
 }
