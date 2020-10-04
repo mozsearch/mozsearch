@@ -21,8 +21,14 @@ handle_error() {
     # order to avoid any ambiguities about what the state of the scratch drive
     # was. We only do this if we got far enough to actually start indexing.
     if [ -d "/index" ]; then
-        mkdir /index/interrupted
+        mkdir -p /index/interrupted
         mv -f /mnt/index-scratch/* /index/interrupted
+        # When GNU parallel is passed `--files` it will place the output of jobs
+        # in `.par` files in `/tmp`.  Currently only output.sh uses this, but
+        # the output is very interesting.
+        mkdir -p /index/tmp
+        cp /tmp/*.par /index/tmp || true
+        cp /tmp/*.joblog /index/tmp || true
     fi
 
     # Send failure email and shut down. Release channel failures get sent to the
