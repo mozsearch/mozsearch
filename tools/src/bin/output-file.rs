@@ -284,15 +284,80 @@ fn interpolate_coverage(mut raw: Vec<i32>) -> Vec<i32> {
             // we start the loop with have_interp_val=true.)
 
             // Favor hits over misses (see func doc block for rationale).
-            if val > 0 || last_noninterp_val > 0 {
+            if next_val > 0 || last_noninterp_val > 0 {
                 interp_val = -2;
             } else {
                 interp_val = -3;
             }
+            break;
         }
         raw[i] = interp_val;
     }
     raw
+}
+
+#[test]
+fn test_interpolate_coverage() {
+    let cases = vec![
+        // empty
+        vec![
+            vec![],
+            vec![]
+        ],
+        // interpolate a hit between two hits
+        vec![
+            vec![1, -1, 1],
+            vec![1, -2, 1]
+        ],
+        // interpolate a miss between two misses
+        vec![
+            vec![0, -1, 0],
+            vec![0, -3, 0]
+        ],
+        // interpolate a hit if there's a hit on either side
+        vec![
+            vec![1, -1, 0, -1, 1],
+            vec![1, -2, 0, -2, 1]
+        ],
+        // don't interpolate ends
+        vec![
+            vec![-1, 1, -1, 1, -1],
+            vec![-1, 1, -2, 1, -1]
+        ],
+        // don't interpolate if the whole file is uncoveredj
+        vec![
+            vec![-1, -1, -1, -1, -1],
+            vec![-1, -1, -1, -1, -1]
+        ],
+        // combine all of the above (except for whole file), single interp each.
+        vec![
+            vec![-1, -1, 0, -1, 0, -1, 1, -1, 1, -1, 1, -1, 0, -1],
+            vec![-1, -1, 0, -3, 0, -2, 1, -2, 1, -2, 1, -2, 0, -1]
+        ],
+        // now double the length of the interpolation runs
+        vec![
+            vec![-1, -1, 0, -1, -1, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, -1],
+            vec![-1, -1, 0, -3, -3, 0, -2, -2, 1, -2, -2, 1, -2, -2, 1, -2, -2, 0, -1]
+        ],
+        // now triple!
+        vec![
+            vec![-1, -1, 0, -1, -1, -1, 0, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1, 0, -1],
+            vec![-1, -1, 0, -3, -3, -3, 0, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2, 0, -1]
+        ],
+        // add some runs of non-interpolated values to make sure we don't randomly clobber data.
+        vec![
+            vec![1, 2, 4, -1, 8, 16, 32, -1, -1, 64, 0, 0, -1, 0, 128, 256, -1, 512],
+            vec![1, 2, 4, -2, 8, 16, 32, -2, -2, 64, 0, 0, -3, 0, 128, 256, -2, 512]
+        ],
+    ];
+
+    for pair in cases {
+        assert_eq!(
+            interpolate_coverage(pair[0].clone()),
+            pair[1]
+        );
+    }
+
 }
 
 /// Extract any per-file info from the concise info aggregate object plus

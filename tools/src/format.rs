@@ -423,7 +423,7 @@ pub fn format_file_data(
         let coverage_data: String = if let Some(ref coverage) = coverage {
             // There's 2 levels of not having data for a line here:
             // 1. We had no coverage data, coverage is None.  In that case,
-            //    we'll map to -5.
+            //    we'll take the else case.
             // 2. We have coverage data (coverage is Some(x)), but the array
             //    has no data for this line.  This should only happen if the
             //    coverage data is for a different revision control revision
