@@ -558,7 +558,7 @@ pub fn format_file_data(
         if line.starts_nest {
             write!(
                 writer,
-                r#"<div role="rowgroup" class="nesting-container nesting-depth-{}">"#,
+                r#"<div class="nesting-container nesting-depth-{}">"#,
                 nest_depth
             )
             .unwrap();
