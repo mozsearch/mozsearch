@@ -49,8 +49,8 @@ function compress_dir_with_touch {
   # It's possible there won't be matches, in which case grep will exit with 1,
   # which we want to eat.
   { egrep '\.gz$' ../compress-file-list || test $? = 1; } | parallel --halt now,fail=1 'gzip -f {} && touch -r {}.gz {}'
-  egrep -v '\.gz$' ../compress-file-list | parallel --halt now,fail=1 'gzip -f {} && touch -r {}.gz {}'
-  rm ../compress-file-list
+  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel --halt now,fail=1 'gzip -f {} && touch -r {}.gz {}'
+  rm -f ../compress-file-list
   popd
 }
 
@@ -60,8 +60,8 @@ function idempotently_gzip_dir_no_touch {
   echo "Compressing files in $1 without zero-length marker"
   pushd $1
   find . -type f > ../compress-file-list
-  egrep -v '\.gz$' ../compress-file-list | parallel --halt now,fail=1 'gzip -f {}'
-  rm ../compress-file-list
+  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel --halt now,fail=1 'gzip -f {}'
+  rm -f ../compress-file-list
   popd
 }
 
