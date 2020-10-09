@@ -60,7 +60,7 @@ sudo chown ubuntu.ubuntu /index
 # Do indexer setup locally on disk.
 $MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_INPUT /mnt/index-scratch
 case "$CHANNEL" in
-release | mozilla-releases )
+release | mozilla-releases | mozilla-archived | release4 )
     # Only upload files on release channels.
     $MOZSEARCH_PATH/infrastructure/indexer-upload.sh $CONFIG_REPO_PATH /mnt/index-scratch
     ;;
@@ -84,7 +84,7 @@ $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
 $AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID
 
 case "$CHANNEL" in
-release | mozilla-releases )
+release | mozilla-releases | mozilla-archived | release4 )
     DEST_EMAIL="searchfox-aws@mozilla.com"
     ;;
 * )
@@ -100,7 +100,7 @@ gzip -k ~ubuntu/index-log
 $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}"
 
 case "$CHANNEL" in
-release | mozilla-releases )
+release | mozilla-releases | mozilla-archived | release4 )
     # Don't send completion email notification for release channel.
     ;;
 * )
