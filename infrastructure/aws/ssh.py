@@ -70,6 +70,8 @@ def ensure_started(instance):
     client.start_instances(InstanceIds=[instance.id])
     print("Awaiting instance start...")
     awslib.await_instance(client, instance.id, None, 'running')
+    print("Instance switched to running state, waiting 20s for SSH server to start...")
+    time.sleep(20)
     return state
 
 def restore_state(instance, old_state):
