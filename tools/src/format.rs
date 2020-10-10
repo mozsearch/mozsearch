@@ -470,10 +470,13 @@ pub fn format_file_data(
                 // updated per iteration of the loop.
                 let mut cur_rev = pieces[0].to_string();
                 let mut cur_path = PathBuf::from(if pieces[1] == "%" { path } else { pieces[1] });
-                let mut cur_lineno = pieces[2].parse::<u32>().unwrap();
+                // See bug 1670395 - if the filename has a colon in it, this code won't work properly,
+                // and we might fail to parse pieces[2] as a u32. Guard against that case until
+                // we have a proper fix, by skipping the blame-skip loop if cur_lineno is an Err value.
+                let mut cur_lineno = pieces[2].parse::<u32>();
 
                 let mut max_ignored_allowed = 5; // chosen arbitrarily
-                while git.should_ignore_for_blame(&cur_rev) {
+                while cur_lineno.is_ok() && git.should_ignore_for_blame(&cur_rev) {
                     if max_ignored_allowed == 0 {
                         // Push an empty entry on the end to indicate we hit the
                         // limit, but the last entry was still ignored
@@ -488,7 +491,7 @@ pub fn format_file_data(
                         git,
                         &cur_rev,
                         &cur_path,
-                        cur_lineno,
+                        cur_lineno.unwrap(),
                         &mut prev_blame_cache,
                         diff_cache.as_mut().map(|c| &mut **c),
                     ) {
@@ -526,7 +529,7 @@ pub fn format_file_data(
                     } else {
                         PathBuf::from(pieces[1])
                     };
-                    cur_lineno = pieces[2].parse::<u32>().unwrap();
+                    cur_lineno = pieces[2].parse::<u32>();
                 }
             }
 
