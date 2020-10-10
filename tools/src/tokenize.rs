@@ -90,6 +90,15 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
         ch
     };
 
+    let peek_isnot = |c| {
+        if cur_pos.get() == chars.len() {
+            return false;
+        }
+
+        let (_, ch) = chars[cur_pos.get()];
+        ch != c
+    };
+
     let peek_pos = || {
         if cur_pos.get() == chars.len() {
             return string.len();
@@ -425,10 +434,10 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                     if next == '/' {
                         break;
                     } else if next == '[' {
-                        while peek_char() != ']' {
+                        while peek_isnot(']') {
                             get_char();
                         }
-                    } else if next == '\\' && peek_char() != '\n' {
+                    } else if next == '\\' && peek_isnot('\n') {
                         get_char();
                     } else if next == '\n' {
                         debug!("Invalid regexp literal");
@@ -463,7 +472,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 } else if next == '\n' {
                     // Tokens shouldn't span across lines.
                     start = push_newline(start, &mut tokens, TokenKind::StringLiteral);
-                } else if next == '\\' && peek_char() != '\n' {
+                } else if next == '\\' && peek_isnot('\n') {
                     get_char();
                 } else if next == '$' && peek_char() == '{' {
                     // A template! Note that we're in a template and start
@@ -537,7 +546,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 } else if next == '\n' {
                     // Tokens shouldn't span across lines.
                     start = push_newline(start, &mut tokens, TokenKind::StringLiteral);
-                } else if next == '\\' && peek_char() != '\n' {
+                } else if next == '\\' && peek_isnot('\n') {
                     get_char();
                 }
             }
