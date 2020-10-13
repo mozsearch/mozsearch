@@ -70,6 +70,7 @@ def startup_codesearch(data):
     log('Starting codesearch')
 
     args = ['codesearch', '-grpc', 'localhost:' + str(data['codesearch_port']),
+            '--noreuseport',
             '-load_index', data['codesearch_path'],
             '-max_matches', '1000', '-timeout', '10000']
 
