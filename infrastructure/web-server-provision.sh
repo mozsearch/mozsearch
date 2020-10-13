@@ -29,14 +29,14 @@ sudo apt-get install -y jq
 
 # Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
-# Install Bazel 0.22.0
+# Install Bazel 1.1.0
 if [ ! -d bazel ]; then
   mkdir bazel
   pushd bazel
     # Note that bazel unzips itself so we can't just pipe it to sudo bash.
-    curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel-0.22.0-installer-linux-x86_64.sh
-    chmod +x bazel-0.22.0-installer-linux-x86_64.sh
-    sudo ./bazel-0.22.0-installer-linux-x86_64.sh
+    curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/1.1.0/bazel-1.1.0-installer-linux-x86_64.sh
+    chmod +x bazel-1.1.0-installer-linux-x86_64.sh
+    sudo ./bazel-1.1.0-installer-linux-x86_64.sh
   popd
 fi
 
@@ -62,7 +62,7 @@ fi
 
 # Install codesearch.
 if [ ! -d livegrep ]; then
-  git clone -b mozsearch-version4 https://github.com/mozsearch/livegrep
+  git clone -b mozsearch-version5 https://github.com/mozsearch/livegrep
   pushd livegrep
     bazel build //src/tools:codesearch
     sudo install bazel-bin/src/tools/codesearch /usr/local/bin
