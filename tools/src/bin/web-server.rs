@@ -32,11 +32,47 @@ struct WebResponse {
     output: String,
 }
 
-fn not_found() -> WebResponse {
-    WebResponse {
-        status: StatusCode::NotFound,
-        content_type: "text/plain".to_owned(),
-        output: "Not found".to_owned(),
+impl Default for WebResponse {
+    fn default() -> WebResponse {
+        WebResponse {
+            status: StatusCode::Ok,
+            content_type: "text/plain".to_owned(),
+            output: String::new(),
+        }
+    }
+}
+
+impl WebResponse {
+    fn html(body: String) -> WebResponse {
+        WebResponse {
+            content_type: "text/html".to_owned(),
+            output: body,
+            .. WebResponse::default()
+        }
+    }
+
+    fn json(body: String) -> WebResponse {
+        WebResponse {
+            content_type: "application/json".to_owned(),
+            output: body,
+            .. WebResponse::default()
+        }
+    }
+
+    fn internal_error(body: String) -> WebResponse {
+        WebResponse {
+            status: StatusCode::InternalServerError,
+            output: body,
+            .. WebResponse::default()
+        }
+    }
+
+    fn not_found() -> WebResponse {
+        WebResponse {
+            status: StatusCode::NotFound,
+            output: "Not found".to_owned(),
+            .. WebResponse::default()
+        }
     }
 }
 
@@ -44,7 +80,7 @@ fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
     let source_file = match File::open(&path) {
         Ok(f) => f,
         Err(_) => {
-            return not_found();
+            return WebResponse::not_found();
         }
     };
     let mut reader = BufReader::new(&source_file);
@@ -52,7 +88,7 @@ fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
     match reader.read_to_string(&mut input) {
         Ok(_) => {}
         Err(_) => {
-            return not_found();
+            return WebResponse::not_found();
         }
     }
 
@@ -70,9 +106,9 @@ fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
     };
 
     WebResponse {
-        status: StatusCode::Ok,
         content_type: content_type.to_owned(),
         output: input,
+        .. WebResponse::default()
     }
 }
 
@@ -90,7 +126,7 @@ fn handle(
     }
 
     if path.len() < 2 {
-        return not_found();
+        return WebResponse::not_found();
     }
 
     let tree_name = &path[0];
@@ -101,7 +137,7 @@ fn handle(
     match &kind[..] {
         "rev" => {
             if path.len() < 3 {
-                return not_found();
+                return WebResponse::not_found();
             }
 
             let rev = &path[2];
@@ -110,19 +146,8 @@ fn handle(
 
             let mut writer = Vec::new();
             match format::format_path(cfg, &tree_name, &rev, &path, &mut writer) {
-                Ok(()) => {
-                    let output = String::from_utf8(writer).unwrap();
-                    WebResponse {
-                        status: StatusCode::Ok,
-                        content_type: "text/html".to_owned(),
-                        output: output,
-                    }
-                }
-                Err(err) => WebResponse {
-                    status: StatusCode::InternalServerError,
-                    content_type: "text/plain".to_owned(),
-                    output: err.to_owned(),
-                },
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
             }
         }
 
@@ -130,7 +155,7 @@ fn handle(
             let path = path.clone().split_off(2);
             let path = path.join("/");
 
-            let tree_config = cfg.trees.get(*tree_name).unwrap();
+            let tree_config = &cfg.trees[*tree_name];
 
             let path = format!("{}/file/{}", tree_config.paths.index_path, path);
             return handle_static(path, Some("text/html"));
@@ -138,7 +163,7 @@ fn handle(
 
         "diff" => {
             if path.len() < 3 {
-                return not_found();
+                return WebResponse::not_found();
             }
 
             let rev = &path[2];
@@ -147,78 +172,44 @@ fn handle(
 
             let mut writer = Vec::new();
             match format::format_diff(cfg, &tree_name, &rev, &path, &mut writer) {
-                Ok(()) => {
-                    let output = String::from_utf8(writer).unwrap();
-                    WebResponse {
-                        status: StatusCode::Ok,
-                        content_type: "text/html".to_owned(),
-                        output: output,
-                    }
-                }
-                Err(err) => WebResponse {
-                    status: StatusCode::InternalServerError,
-                    content_type: "text/plain".to_owned(),
-                    output: err.to_owned(),
-                },
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
             }
         }
 
         "commit" => {
             if path.len() < 3 {
-                return not_found();
+                return WebResponse::not_found();
             }
 
             let rev = &path[2];
 
             let mut writer = Vec::new();
             match format::format_commit(cfg, &tree_name, &rev, &mut writer) {
-                Ok(()) => {
-                    let output = String::from_utf8(writer).unwrap();
-                    WebResponse {
-                        status: StatusCode::Ok,
-                        content_type: "text/html".to_owned(),
-                        output: output,
-                    }
-                }
-                Err(err) => WebResponse {
-                    status: StatusCode::InternalServerError,
-                    content_type: "text/plain".to_owned(),
-                    output: err.to_owned(),
-                },
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
             }
         }
 
         "commit-info" => {
             if path.len() < 3 {
-                return not_found();
+                return WebResponse::not_found();
             }
 
             let rev = &path[2];
             match blame::get_commit_info(&cfg, tree_name, rev) {
-                Ok(json) => WebResponse {
-                    status: StatusCode::Ok,
-                    content_type: "application/json".to_owned(),
-                    output: json,
-                },
-                Err(err) => WebResponse {
-                    status: StatusCode::InternalServerError,
-                    content_type: "text/plain".to_owned(),
-                    output: err.to_owned(),
-                },
+                Ok(json) => WebResponse::json(json),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
             }
         }
 
         "complete" => {
             let ids = ident_map.get(&tree_name.to_string()).unwrap();
             let json = ids.lookup_json(&path[2], false, false, 6);
-            WebResponse {
-                status: StatusCode::Ok,
-                content_type: "application/json".to_owned(),
-                output: json,
-            }
+            WebResponse::json(json)
         }
 
-        _ => not_found(),
+        _ => WebResponse::not_found(),
     }
 }
 
