@@ -8,9 +8,10 @@ use std::fs::{File, OpenOptions};
 use std::io::BufReader;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::process::Command;
 use std::sync::Mutex;
 
-use hyper::header::ContentType;
+use hyper::header::{ContentType, Location};
 use hyper::method::Method;
 use hyper::mime::Mime;
 use hyper::server::{Request, Response};
@@ -21,6 +22,7 @@ use tools::blame;
 use tools::config;
 use tools::file_format::identifiers::IdentMap;
 use tools::format;
+use tools::git_ops;
 
 struct WebRequest {
     path: String,
@@ -29,6 +31,7 @@ struct WebRequest {
 struct WebResponse {
     status: StatusCode,
     content_type: String,
+    redirect_location: Option<String>,
     output: String,
 }
 
@@ -37,6 +40,7 @@ impl Default for WebResponse {
         WebResponse {
             status: StatusCode::Ok,
             content_type: "text/plain".to_owned(),
+            redirect_location: None,
             output: String::new(),
         }
     }
@@ -71,6 +75,14 @@ impl WebResponse {
         WebResponse {
             status: StatusCode::NotFound,
             output: "Not found".to_owned(),
+            .. WebResponse::default()
+        }
+    }
+
+    fn redirect(url: String) -> WebResponse {
+        WebResponse {
+            status: StatusCode::MovedPermanently,
+            redirect_location: Some(url),
             .. WebResponse::default()
         }
     }
@@ -148,6 +160,33 @@ fn handle(
             match format::format_path(cfg, &tree_name, &rev, &path, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
                 Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
+        "hgrev" => {
+            let tree_config = &cfg.trees[*tree_name];
+            let git_path = match config::get_git_path(tree_config) {
+                Ok(git_path) => git_path,
+                Err(_) => return WebResponse::not_found(),
+            };
+
+            let hg_rev = path[2];
+            let output_result = Command::new("git")
+                .arg("cinnabar")
+                .arg("hg2git")
+                .arg(hg_rev)
+                .current_dir(&git_path)
+                .output();
+            match output_result {
+                Ok(output) if output.status.success() => {
+                    WebResponse::redirect(format!("/{}/rev/{}/{}",
+                        tree_name,
+                        git_ops::decode_bytes(output.stdout).trim(),
+                        path[3..].join("/"))
+                    )
+                }
+                Ok(_) => WebResponse::not_found(),
+                Err(err) => WebResponse::internal_error(format!("{:?}", err)),
             }
         }
 
@@ -251,6 +290,9 @@ fn main() {
         let output = response.output.into_bytes();
         let mime: Mime = response.content_type.parse().unwrap();
         res.headers_mut().set(ContentType(mime));
+        if let Some(loc) = response.redirect_location {
+            res.headers_mut().set(Location(loc));
+        }
         res.send(&output).unwrap();
     };
 

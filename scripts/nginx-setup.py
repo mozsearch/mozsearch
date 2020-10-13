@@ -213,6 +213,7 @@ for repo in config['trees']:
     location('/%(repo)s/diff', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/commit', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/rev', ['proxy_pass http://localhost:8001;'])
+    location('/%(repo)s/hgrev', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/complete', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/commit-info', ['proxy_pass http://localhost:8001;'])
 
