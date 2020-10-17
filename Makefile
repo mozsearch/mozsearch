@@ -1,7 +1,7 @@
 help:
 	@echo "This Makefile provides some useful targets to run:"
 	@echo "  build-test-repo - Builds the index and starts the web server for the test repo"
-	@echo "  build-mozilla-repo - Builds the index and starts the web server for the mozsearch-mozilla repo"
+	@echo "  build-mozilla-repo - Builds the index and starts the web server for the repos in mozsearch-mozilla/config1.json"
 	@echo ""
 	@echo "To build a local index from a try push of mozilla-central:"
 	@echo "  TRYPUSH_REV=7b25952b97afc2a34cc31701ffb185222727be72 make trypush # set TRYPUSH_REV to the full hg rev of your try push"
@@ -43,24 +43,16 @@ build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 	mkdir -p ~/mozilla-index
-	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config.json ~/mozilla-index
+	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config1.json ~/mozilla-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config config.json ~/mozilla-index ~
+	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config config1.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
-
-build-releases-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-	mkdir -p ~/releases-index
-	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config mozilla-releases.json ~/releases-index
-	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/releases-index
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config mozilla-releases.json ~/releases-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/releases-index ~
 
 # This is similar to build-mozilla-repo, except it strips out the non-mozilla-central trees
 # from config.json and puts the stripped version into trypush.json.
 trypush: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-	jq '{mozsearch_path, default_tree, trees: {"mozilla-central": .trees["mozilla-central"]}}' ~/mozilla-config/config.json > ~/mozilla-config/trypush.json
+	jq '{mozsearch_path, default_tree, trees: {"mozilla-central": .trees["mozilla-central"]}}' ~/mozilla-config/config1.json > ~/mozilla-config/trypush.json
 	mkdir -p ~/trypush-index
 	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config trypush.json ~/trypush-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/trypush-index
