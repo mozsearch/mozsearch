@@ -96,9 +96,7 @@ be advisable to connect to the VPN.
 A successful provisioning run will end with `default: + chmod +x update.sh`.
 
 In the event of failure you will want to run
-`vagrant up --provision` in order to re-trigger the provisioning steps
-which are idempotent (although could be further optimized).  In the worst
-case, you can run `vagrant destroy` to completely delete the VM and then
+`vagrant destroy` to completely delete the VM and then
 run `vagrant up` again to re-create it.  The base image gets cached on
 your system, so you'll save ~1GB of download, but all the Ubuntu package
 installation will be re-done.
