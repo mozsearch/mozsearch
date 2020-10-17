@@ -54,7 +54,7 @@ AWS_ROOT=$(dirname "$SELF")
 EMAIL_PREFIX="${CHANNEL}/${BRANCH}"
 
 case "${CHANNEL}" in
-    release* | mozilla-releases | mozilla-archived )
+    release* )
         DEST_EMAIL="searchfox-aws@mozilla.com"
         ;;
     * )
