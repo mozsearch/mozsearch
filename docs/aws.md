@@ -8,28 +8,28 @@ directs each incoming request to a "target group", which consists
 of a single EC2 machine that handles web serving. The target group
 is chosen based on the code repository that the request is directed
 to. As of this writing, for example, the mozilla-central repository
-is handled by the "release-target" target group, while the mozilla-beta
-repository is handled by the "mozilla-releases-target" target group.
+is handled by the "release1-target" target group, while the mozilla-beta
+repository is handled by the "release2-target" target group.
 The mapping from repository to target group is set manually by path
 routing rules in the load balancer configuration.
 
-An AWS Lambda task runs each day to start indexing of all the
-trees. This job starts up EC2 instances to perform the indexing. Each
+AWS Lambda tasks run each day to start indexing of all the
+trees. These jobs start up EC2 instances to perform the indexing. Each
 indexing instance takes care of the repos from a single config file.
 So there will be one indexer instance processing the repos in
-[config.json](https://github.com/mozsearch/mozsearch-mozilla/config.json)
-and another instance processing the repos in
-[mozilla-releases.json](https://github.com/mozsearch/mozsearch-mozilla/blob/master/mozilla-releases.json).
-The indexing instances have an extra Elastic Block Store volume attached
+[config1.json](https://github.com/mozsearch/mozsearch-mozilla/blob/master/config1.json),
+another instance processing the repos in
+[config2.json](https://github.com/mozsearch/mozsearch-mozilla/blob/master/config2.json),
+etc. The indexing instances have an extra Elastic Block Store volume attached
 where the index will be stored. The following paragraps explain the
 lifecycle of a single indexer and its web server; the lifecycle applies
 to each indexer instance.
 
-Note that there is a third config file,
-[mozilla-archived.json](https://github.com/mozsearch/mozsearch-mozilla/mozilla-archived.json),
-which specifies the configuration for "archived" repositories (ones
+Note that as of this writing, config1.json, config2.json, and config4.json
+are processed via the above-described Lambda task/indexer every day.
+config3.json contains "archived" repositories (ones
 which are not getting any more code updates). This one is not run
-via the daily Lambda task, and need to be triggered manually if an
+via a daily Lambda task, and need to be triggered manually if an
 update is desired (generally not, since the code isn't changing).
 Updates for this config should only be needed if the generated HTML
 changes significantly.
@@ -170,23 +170,40 @@ the Vagrant VM instance:
 ./infrastructure/aws/build-lambda-indexer-start.sh \
   https://github.com/mozsearch/mozsearch \
   https://github.com/mozsearch/mozsearch-mozilla \
-  config.json \
+  config1.json \
   master \
-  release
+  release1
 ```
 
 The first three arguments are links to the repositories containing
 Mozsearch and the configuration to use. The fourth argument is a branch
 name. When scripts check out Mozsearch or the configuration
 repository, they will check out this branch. The last argument is used
-to determine which ELB target group will be updated. The `release`
-argument updates the `release-target` target group (which might
+to determine which ELB target group will be updated. The `release1`
+argument updates the `release1-target` target group (which might
 control, for example, `example.com`). The `dev` argument updates the
 `dev-target` target group (which might control, for example,
 `dev.example.com`).
 
 When the script finishes, it generates a file, `/tmp/lambda.zip`, that
-can be uploaded to AWS Lambda using the AWS control panel.
+can be uploaded to AWS Lambda using the AWS control panel. To update
+an existing lambda task, select that task from the AWS Lambda console,
+scroll down to the "Function code" section, and select "Upload a .zip file"
+from the Actions menu. Save your changes and that should be all that
+you need.
+
+If you're setting up a new Lambda task for a new channel, select "Create Function"
+from the AWS Lambda console. Give it a name similar to the others (`start-<channel>-indexer`),
+select Python 3.8 for the Runtime, and use the existing `lambda_indexer_start_role`
+for the execution role. This gives the task permissions to create indexer instances.
+Once you hit "Create function", you can use the Actions menu on the "Function code"
+section to upload the zip file. Be sure to also edit the "Basic Settings" section
+to set the Handler to `lambda-indexer-start.start` (this refers to the `start`
+function in the `lambda-indexer-start.py` file inside the generated `lambda.zip`),
+and to give it a reasonable timeout (e.g. 1 minute).
+Finally, in the Designer pane at the top, you can add a trigger to control
+how the lambda task gets run. For daily cron-job style tasks, add an EventBridge
+trigger using one of the existing "everyday" rules, or create a new one as needed.
 
 ## Triggering indexing manually
 
@@ -211,7 +228,7 @@ Note that the .zip file created for AWS Lambda in the previous section
 merely includes a copy of the `trigger_indexer.py` script, which it
 invokes when the task runs.
 
-## Creating additional channels
+## Creating additional development channels
 
 If many developers are working on features concurrently, it might be
 useful to set up additional channels so they can test on AWS without
@@ -243,11 +260,33 @@ That's it! After this is set up, you can trigger an indexer run
 using the `foo` channel (instead of `dev` or `release`) and it
 will show up at https://foo.searchfox.org once it is complete.
 
+## Creating additional release channels
+
+If more release channels are required (usually because we want to
+host even more repos and the existing indexers/web-servers are
+nearing their capacity limits), the process is a little different
+than that for creating additional development channels as described
+above. There is only one load balancer for all release channels,
+so you don't have to create one. However, you do need to create a
+new target group. Make sure it starts with the string "release" as
+this is handled specially within parts of the Mozsearch codebase.
+
+Once you've created a new target group, you can kick off an indexer
+and/or set up a lambda task for this channel using your desired
+config file. The only other step required is to modify the `release-lb`
+load balancer to direct requests for those new repos to the appopriate
+target group. Do this by selecting the `release-lb` load balancer in
+the AWS EC2 console, going to the listeners tab, and editing the rules.
+Note that you need to edit the rules for both HTTP and HTTPS manually.
+The rule editor is fairly self-explanatory, just add new rules
+in the (ordered) list to redirect requests for the new repos to the
+new target group.
+
 ## Provisioning and cloud init
 
 The EC2 instances for indexing and web serving are started using a
 custom Amazon Machine Image (AMI). This is the disk image used for
-booting the machine. These AMIs are based off Ubuntu 16.04, but
+booting the machine. These AMIs are based off Ubuntu 18.04, but
 additional software has been installed for all the basic dependencies,
 like clang for the indexing machine and nginx for the web server.
 
@@ -298,7 +337,7 @@ AWS console, sshing into it, and `tail`ing the provision.log file to
 check for completion), you can use the AWS console to generate an AMI from the
 instance. Select the instance in the console, then choose "Actions,
 Image, Create Image". The Image Name must be changed to
-`indexer-16.04` or `web-server-16.04`. The other values can remain as
+`indexer-18.04` or `web-server-18.04`. The other values can remain as
 before. (Note: make sure to delete any old AMIs of the same name
 before doing this.) Once the AMI is created, new jobs will use it
 automatically.

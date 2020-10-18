@@ -6,7 +6,7 @@ Simpler configurations with fewer platforms will be simpler.
 
 Note that many of the files referenced here are from the
 https://github.com/mozsearch/mozsearch-mozilla configuration repository, most
-specifically referencing the "mozilla-central" tree in its config.json.
+specifically referencing the "mozilla-central" tree in its config1.json.
 
 Directories:
 - `analysis`: Directory hierarchy that directly corresponds to the paths exposed
