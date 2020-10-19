@@ -24,8 +24,9 @@ sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
 sudo apt-get install -y gdb python3-dbg
 
-# and we want to be able to extract stuff from json
+# and we want to be able to extract stuff from json and yaml
 sudo apt-get install -y jq
+sudo snap install yq
 
 # Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
