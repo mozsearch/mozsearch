@@ -7,7 +7,6 @@ Big tasks:
 
 UI:
 * Crossref result matches in bold
-* Get rid of Nunjucks (context menu)
 * "Search substring" context menu option
 * Allow "locking on" a given highlighted symbol (from Kris)
 * Incrementally load search results for less jank
