@@ -72,16 +72,45 @@ a.type {
     padding: 0.5rem
 }
 
+.panel .accel,
+.panel .copy {
+    font-size: 10px;
+    border-radius: 2px;
+    padding: 1px 3px;
+    margin: 0 10px;
+    border: 1px solid #ddd;
+}
+
 .panel .accel {
     /* simulate a keyboard key effect */
     font-family: monospace;
-    font-size: 10px;
-    padding: 1px 3px;
-    border: 1px solid #ddd;
-    border-radius: 2px;
-    box-shadow: 0 1px #999;
     background: #f5f5f5;
-    margin-left: 10px;
+    box-shadow: 0 1px #999;
+}
+
+.panel .copy {
+  height: 1em;
+  width: 1em;
+  padding: 3px;
+  margin: 0 3px;
+  box-sizing: content-box;
+  cursor: pointer;
+  vertical-align: middle;
+  background-image: url(/static/icons/copy.svg);
+  background-position: center center;
+  background-color: #f5f5f5;
+}
+
+.panel .copy:hover {
+  background-color: white;
+}
+
+.panel .copy:active {
+  background-color: #d5d5d5;
+}
+
+.panel .copy.copied {
+  background-image: url(/static/icons/tick.svg);
 }
 
 /* Panel only icons */

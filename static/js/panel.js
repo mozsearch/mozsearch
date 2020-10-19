@@ -19,9 +19,32 @@ var Panel = new (class Panel {
       this.maybeHandleAccelerator(event)
     );
 
+    for (let copy of this.panel.querySelectorAll(".copy")) {
+      copy.addEventListener("click", function(e) {
+        e.preventDefault();
+
+        if (copy.hasAttribute("data-copying")) {
+          return;
+        }
+        copy.setAttribute("data-copying", "true");
+        navigator.clipboard.writeText(copy.parentNode.href)
+          .then(function() {
+            copy.classList.add("copied");
+            setTimeout(function() {
+              if (!copy.hasAttribute("data-copying")) {
+                copy.classList.remove("copied");
+              }
+            }, 1000);
+          })
+          .finally(function() {
+            copy.removeAttribute("data-copying");
+          });
+      });
+    }
+
     if (this.permalinkNode) {
       this.permalinkNode.addEventListener("click", event => {
-        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
           return;
         }
         window.history.pushState(

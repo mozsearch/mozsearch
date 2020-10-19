@@ -309,6 +309,7 @@ pub struct PanelItem {
     /// replaced by the line number.
     pub update_link_lineno: &'static str,
     pub accel_key: Option<char>,
+    pub copyable: bool,
 }
 
 pub struct PanelSection {
@@ -342,11 +343,17 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
+                    let copy = if item.copyable {
+                        format!(r#"<button class="icon copy" title="Copy to clipboard"></button>"#)
+                    } else {
+                        String::new()
+                    };
                     F::Seq(vec![
                         F::S("<li>"),
                         F::T(format!(
-                            r#"<a href="{}" title="{}" class="icon"{}>{}{}</a>"#,
-                            item.link, item.title, update_attr, item.title, accel
+                            r#"<a href="{}" title="{}" class="icon"{}>{}{}{}</a>"#,
+                            item.link, item.title, update_attr, item.title,
+                            accel, copy
                         )),
                         F::S("</li>"),
                     ])

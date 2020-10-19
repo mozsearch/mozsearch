@@ -1,0 +1,9 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+  Taken from https://searchfox.org/mozilla-central/rev/819be4899a92213abf121b449779ced662f2ce13/widget/nsNativeBasicTheme.cpp#226-230 with coordinates converted appropriately.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+  <path fill="#3e3d40" d="M 2.857143 8.571428 L 6.285714 12.571428 L 7.428571 12.571428 L 13.714286 5.142857 L 13.428572 3.428571 L 12 3.428571 L 7.428571 9.142858 L 6.285714 9.428572 L 4 6.857143"/>
+</svg>

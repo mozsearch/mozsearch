@@ -440,7 +440,7 @@ body {
     max-height: calc(100% - 150px);
     z-index: 102;
 }
-.panel button{
+#panel-toggle {
     display: inline-block;
     background-color: #333;
     color: #fff;
