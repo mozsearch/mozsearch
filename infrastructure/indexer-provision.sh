@@ -37,8 +37,9 @@ sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
 sudo apt-get install -y gdb python3-dbg
 
-# we want to be able to extract stuff from json
+# we want to be able to extract stuff from json and yaml
 sudo apt-get install -y jq
+sudo snap install yq
 
 # dos2unix is used to normalize generated files from windows
 sudo apt-get install -y dos2unix
