@@ -368,9 +368,9 @@ pub fn format_file_data(
     let title = format!("{} - mozsearch", filename);
     let opt = Options {
         title: &title,
-        tree_name: tree_name,
+        tree_name,
         include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
-        revision: revision,
+        revision,
         extra_content_classes: "source-listing not-diff",
     };
 
@@ -734,6 +734,7 @@ pub fn format_path(
         link: format!("/{}/source/{}", tree_name, path),
         update_link_lineno: "#{}",
         accel_key: None,
+        copyable: true,
     });
     if let Some(ref hg_root) = tree_config.paths.hg_root {
         vcs_panel_items.push(PanelItem {
@@ -741,12 +742,14 @@ pub fn format_path(
             link: format!("{}/log/{}/{}", hg_root, hg_rev, path),
             update_link_lineno: "",
             accel_key: Some('L'),
+            copyable: true,
         });
         vcs_panel_items.push(PanelItem {
             title: "Raw".to_owned(),
             link: format!("{}/raw-file/{}/{}", hg_root, hg_rev, path),
             update_link_lineno: "",
             accel_key: Some('R'),
+            copyable: true,
         });
     }
     if tree_config.paths.git_blame_path.is_some() {
@@ -757,6 +760,7 @@ pub fn format_path(
                     .to_owned(),
             update_link_lineno: "",
             accel_key: None,
+            copyable: false,
         });
     }
     let panel = vec![PanelSection {
@@ -923,7 +927,7 @@ pub fn format_diff(
     let title = format!("{} - mozsearch", filename);
     let opt = Options {
         title: &title,
-        tree_name: tree_name,
+        tree_name,
         include_date: true,
         revision: Some((rev, &header)),
         extra_content_classes: "source-listing diff",
@@ -937,18 +941,21 @@ pub fn format_diff(
             link: format!("/{}/commit/{}", tree_name, rev),
             update_link_lineno: "",
             accel_key: None,
+            copyable: true,
         },
         PanelItem {
             title: "Show file without diff".to_owned(),
             link: format!("/{}/rev/{}/{}", tree_name, rev, path),
             update_link_lineno: "#{}",
             accel_key: None,
+            copyable: true,
         },
         PanelItem {
             title: "Go to latest version".to_owned(),
             link: format!("/{}/source/{}", tree_name, path),
             update_link_lineno: "#{}",
             accel_key: None,
+            copyable: false,
         },
     ];
     if let Some(ref hg_root) = tree_config.paths.hg_root {
@@ -957,6 +964,7 @@ pub fn format_diff(
             link: format!("{}/log/tip/{}", hg_root, path),
             update_link_lineno: "",
             accel_key: Some('L'),
+            copyable: true,
         });
     }
     let sections = vec![PanelSection {

@@ -581,6 +581,7 @@ fn main() {
                 link: other_path,
                 update_link_lineno: "",
                 accel_key: None,
+                copyable: false,
             });
         };
 
@@ -595,6 +596,7 @@ fn main() {
                     ),
                     update_link_lineno: "",
                     accel_key: None,
+                    copyable: true,
                 });
             }
         }
@@ -614,6 +616,7 @@ fn main() {
                     link: format!("/{}/rev/{}/{}", tree_name, oid, path),
                     update_link_lineno: "#{}",
                     accel_key: Some('Y'),
+                    copyable: true,
                 });
                 if let Some(ref hg_root) = tree_config.paths.hg_root {
                     vcs_panel_items.push(PanelItem {
@@ -621,12 +624,14 @@ fn main() {
                         link: format!("{}/log/tip/{}", hg_root, path),
                         update_link_lineno: "",
                         accel_key: Some('L'),
+                        copyable: true,
                     });
                     vcs_panel_items.push(PanelItem {
                         title: "Raw".to_owned(),
                         link: format!("{}/raw-file/tip/{}", hg_root, path),
                         update_link_lineno: "",
                         accel_key: Some('R'),
+                        copyable: true,
                     });
                 }
                 if tree_config.paths.git_blame_path.is_some() {
@@ -635,6 +640,7 @@ fn main() {
                         link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
                         update_link_lineno: "",
                         accel_key: None,
+                        copyable: false,
                     });
                 }
                 panel.push(PanelSection {
@@ -651,6 +657,7 @@ fn main() {
                 link: format!("{}/file/tip/{}", hg_root, path),
                 update_link_lineno: "#l{}",
                 accel_key: None,
+                copyable: false,
             });
         }
         if let Some(ref ccov_root) = tree_config.paths.ccov_root {
@@ -659,6 +666,7 @@ fn main() {
                 link: format!("{}#revision=latest&path={}&view=file", ccov_root, path),
                 update_link_lineno: "&line={}",
                 accel_key: None,
+                copyable: false,
             });
         }
         if let Some(ref dxr_root) = tree_config.paths.dxr_root {
@@ -667,6 +675,7 @@ fn main() {
                 link: format!("{}/source/{}", dxr_root, path),
                 update_link_lineno: "#{}",
                 accel_key: None,
+                copyable: false,
             });
         }
         if let Some(ref github) = tree_config.paths.github_repo {
@@ -682,6 +691,7 @@ fn main() {
                         ),
                         update_link_lineno: "",
                         accel_key: None,
+                        copyable: false,
                     });
                 }
                 _ => (),
@@ -748,6 +758,7 @@ fn main() {
                         link: format!("https://wpt.fyi/results/{}", wpt_test_path),
                         update_link_lineno: "",
                         accel_key: None,
+                        copyable: true,
                     });
                 }
             }
