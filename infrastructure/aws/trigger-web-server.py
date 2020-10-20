@@ -158,9 +158,9 @@ for reservation in r['Reservations']:
         for tag in tags:
             if tag['Key'] == 'web-server':
                 t = dateutil.parser.parse(tag['Value'])
-                # Leave one old release-channel server around so we can switch
+                # Leave one old release1-channel server around so we can switch
                 # to it in an emergency.
-                if channel != "release" or datetime.now() - t >= timedelta(1.5):
+                if channel != "release1" or datetime.now() - t >= timedelta(1.5):
                     kill = True
 
         if kill:
