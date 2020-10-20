@@ -4,7 +4,7 @@ import sys
 import subprocess
 
 def run(cmd, **extra):
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, **extra)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **extra)
     (stdout, stderr) = p.communicate()
 
     if p.returncode:
