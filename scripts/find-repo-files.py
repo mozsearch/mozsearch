@@ -70,7 +70,7 @@ for line in lines:
         dir = '/'.join(elts[:-1])
         ipdl_dirs[dir] = True
 
-    if ext in ['.js', '.jsm', '.xml', '.xul', '.inc']:
+    if ext in ['.js', '.jsm', '.mjs', '.xml', '.xul', '.inc']:
         if 'filter_js' in repo_files:
             if not repo_files['filter_js'](path):
                 continue
