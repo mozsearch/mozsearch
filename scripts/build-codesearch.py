@@ -47,7 +47,7 @@ if 'git_path' in tree:
         'name': tree_name,
         'path': tree['git_path'],
         'revisions': ['HEAD'],
-        'walk_submodules': True
+        'walk_submodules': tree.get('walk_submodules', True)
     })
 
     # comm-central has a mozilla subfolder which is another git repo, so
