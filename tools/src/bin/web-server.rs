@@ -24,8 +24,8 @@ use tools::file_format::identifiers::IdentMap;
 use tools::format;
 use tools::git_ops;
 
-struct WebRequest {
-    path: String,
+struct WebRequest<'a> {
+    path: &'a str,
 }
 
 struct WebResponse {
@@ -129,7 +129,7 @@ fn handle(
     ident_map: &HashMap<String, IdentMap>,
     req: WebRequest,
 ) -> WebResponse {
-    let path = req.path.clone();
+    let path = req.path.to_owned();
     let path = path[1..].split('/').collect::<Vec<_>>();
 
     if path.len() > 0 && path[0] == "static" {
@@ -268,7 +268,9 @@ fn main() {
         if req.method != Method::Get {
             *res.status_mut() = StatusCode::MethodNotAllowed;
             let resp = format!("Invalid method").into_bytes();
-            res.send(&resp).unwrap();
+            if let Err(e) = res.send(&resp) {
+                eprintln!("Error when replying to {}: {:?}", req.uri, e);
+            }
             return;
         }
 
@@ -284,7 +286,7 @@ fn main() {
         };
         let (ref cfg, ref ident_map) = *guard;
 
-        let response = handle(&cfg, &ident_map, WebRequest { path: path });
+        let response = handle(&cfg, &ident_map, WebRequest { path: &path });
 
         *res.status_mut() = response.status;
         let output = response.output.into_bytes();
@@ -293,7 +295,9 @@ fn main() {
         if let Some(loc) = response.redirect_location {
             res.headers_mut().set(Location(loc));
         }
-        res.send(&output).unwrap();
+        if let Err(e) = res.send(&output) {
+            eprintln!("Error when replying to {}: {:?}", path, e);
+        }
     };
 
     {
