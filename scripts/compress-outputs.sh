@@ -66,4 +66,4 @@ function idempotently_gzip_dir_no_touch {
 }
 
 compress_dir_with_touch "${INDEX_ROOT}/dir/"
-idempotently_gzip_dir_no_touch "${INDEX_ROOT}/analysis/"
+compress_dir_with_touch "${INDEX_ROOT}/analysis/"
