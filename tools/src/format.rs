@@ -152,7 +152,8 @@ pub fn format_code(
         };
 
         let data = match (&token.kind, datum) {
-            (&tokenize::TokenKind::Identifier(None), Some(d)) => {
+            (&tokenize::TokenKind::Identifier(None), Some(d)) |
+            (&tokenize::TokenKind::StringLiteral, Some(d)) => {
                 // If this symbol starts a relevant nesting range and we haven't already pushed a
                 // symbol for this line, push it onto our stack.  Note that the nesting_range
                 // identifies the start/end brace which may not be on the same line as the symbol,
