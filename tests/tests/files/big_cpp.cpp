@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include "big_header.h"
+#include "subdir/header@with,many^strange~chars.h"
 
 class GlobalContext {
   public:
