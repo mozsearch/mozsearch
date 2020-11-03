@@ -196,6 +196,23 @@ static RESERVED_WORDS_CPP: &'static [&'static str] = &[
     "defined",
 ];
 
+static RESERVED_WORDS_AIDL: &'static [&'static str] = &[
+    "parcelable",
+    "import",
+    "package",
+    "in",
+    "out",
+    "inout",
+    "cpp_header",
+    "const",
+    "true",
+    "false",
+    "interface",
+    "oneway",
+    "enum",
+    "union",
+];
+
 // From 'reserved' in ipc/ipdl/ipdl/parser.py
 static RESERVED_WORDS_IPDL: &'static [&'static str] = &[
     "async",
@@ -560,6 +577,12 @@ lazy_static! {
         .. LanguageSpec::default()
     };
 
+    static ref AIDL_SPEC : LanguageSpec = LanguageSpec {
+        reserved_words: make_reserved(&*RESERVED_WORDS_AIDL),
+        c_style_comments: true,
+        .. LanguageSpec::default()
+    };
+
     static ref IPDL_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_IPDL),
         c_style_comments: true,
@@ -623,6 +646,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" | "mm" => {
             FormatAs::FormatCLike(&*CPP_SPEC)
         }
+        "aidl" => FormatAs::FormatCLike(&*AIDL_SPEC),
         "ipdl" | "ipdlh" => FormatAs::FormatCLike(&*IPDL_SPEC),
         "idl" => FormatAs::FormatCLike(&*IDL_SPEC),
         "webidl" => FormatAs::FormatCLike(&*WEBIDL_SPEC),
