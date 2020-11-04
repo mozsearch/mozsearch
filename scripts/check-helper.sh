@@ -8,6 +8,8 @@ if [[ $# -ne 4 ]]
 then
     set +x  # Turn off echoing of commands and output only relevant things to avoid bloating logfiles
     echo "usage: $0 <check-disk> <server-url> <searchfox user exposed path> <canonical symbol name as found in data-symbols>"
+    echo "Set CHECK_SKIP_DATA_SYMBOL=1 in the environment to skip the check for the symbol in the generated HTML, currently"
+    echo "needed for zero-length symbols or analysis data that otherwise doesn't get attached to source-code tokens."
     exit 1
 fi
 
@@ -63,9 +65,11 @@ then
     exit 1
   fi
 
-  # The output file should explicitly reference the symbol name as part of
-  # `data-symbols`.  We allow for a comma or closing quote.
-  zegrep -m1 -e "data-symbols=\"$SYMBOL_NAME[\",]" "$LOCAL_HTML_PATH"  || fail "No symbol: $SYMBOL_NAME in HTML in $LOCAL_HTML_PATH"
+  if [[ -z ${CHECK_SKIP_DATA_SYMBOL:-} ]]; then
+    # The output file should explicitly reference the symbol name as part of
+    # `data-symbols`.  We allow for a comma or closing quote.
+    zegrep -m1 -e "data-symbols=\"$SYMBOL_NAME[\",]" "$LOCAL_HTML_PATH"  || fail "No symbol: $SYMBOL_NAME in HTML in $LOCAL_HTML_PATH"
+  fi
 
   # Note: It would be neat to check the crossref database here, but the file
   # gets very large and it's much more efficient to just ask the webserver.
@@ -94,9 +98,11 @@ then
   # same check from the disk case.
   grep -m1 "\"sym\":\"$SYMBOL_NAME\"" <( curl -fs "$SERVER_ANALYSIS_URL" ) || fail "No symbol: $SYMBOL_NAME in analysis served at $SERVER_ANALYSIS_URL"
 
-  # Check the HTML file exists and contains the expected symbol using the same
-  # check from the disk case.
-  egrep -m1 -e "data-symbols=\"$SYMBOL_NAME[\",]" <( curl -fs "$SERVER_HTML_URL" ) || fail "No symbol: $SYMBOL_NAME in HTML served at $SERVER_HTML_URL"
+  if [[ -z ${CHECK_SKIP_DATA_SYMBOL:-} ]]; then
+    # Check the HTML file exists and contains the expected symbol using the same
+    # check from the disk case.
+    egrep -m1 -e "data-symbols=\"$SYMBOL_NAME[\",]" <( curl -fs "$SERVER_HTML_URL" ) || fail "No symbol: $SYMBOL_NAME in HTML served at $SERVER_HTML_URL"
+  fi
 
   # This JQ expression looks for a definition that has the searchfox path as its
   # path.  Explanation:
