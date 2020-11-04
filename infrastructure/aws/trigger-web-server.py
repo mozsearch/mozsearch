@@ -9,7 +9,7 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: ./trigger-web-server.py <branch> <channel> <config-repo> <config-input> <index-volume-id>
+# Usage: ./trigger-web-server.py <branch> <channel> <config-repo-url> <config-input> <index-volume-id> <check-script> <config-repo-path> <working-dir>
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -29,6 +29,9 @@ mozsearch_repo = sys.argv[3]
 config_repo = sys.argv[4]
 config_input = sys.argv[5]
 volumeId = sys.argv[6]
+check_script = sys.argv[7]
+config_repo_path = sys.argv[8]
+working_dir = sys.argv[9]
 
 targetGroup = "%s-target" % channel
 
@@ -120,6 +123,13 @@ while True:
         time.sleep(10)
         continue
     break
+
+# - Run the sanity checks on the web server to ensure it is serving things fine
+
+print('Checking web-server at %s to ensure served data seems reasonable...' % ip)
+
+subprocess.run([check_script, config_repo_path, working_dir, "http://%s/" % ip],
+               check=True)
 
 # - Attach the elastic IP to the new web server
 
