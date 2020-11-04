@@ -18,5 +18,5 @@ CONFIG_FILE=$WORKING/config.json
 for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
   . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
-  $MOZSEARCH_PATH/scripts/check-index.sh $CONFIG_FILE $TREE_NAME "filesystem" "http://localhost/"
+  $MOZSEARCH_PATH/scripts/check-index.sh $CONFIG_FILE $TREE_NAME "" "http://localhost/"
 done
