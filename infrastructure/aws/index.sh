@@ -81,7 +81,7 @@ cp ~ubuntu/index-log /index/index-log
 sudo umount /index
 
 $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-$AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID
+$AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID "$MOZSEARCH_PATH/infrastructure/web-server-check.sh" $CONFIG_REPO_PATH "/mnt/index-scratch"
 
 case "$CHANNEL" in
 release* )
