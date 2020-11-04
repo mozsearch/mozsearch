@@ -4,9 +4,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 3 ]
+if [ $# != 2 ]
 then
-    echo "usage: $0 <config-repo-path> <index-path> <server-root>"
+    echo "usage: $0 <config-repo-path> <index-path>"
     exit 1
 fi
 
