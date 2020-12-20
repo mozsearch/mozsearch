@@ -601,6 +601,8 @@ span[data-symbols].hovered {
     height: 16px;
     padding: 0;
     margin: 0;
+    touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
+    touch-action: pinch-zoom;
 }
 /* blame zebra stripes: we alternate colors whenever the revision a line is from
    changes between lines. */
@@ -946,6 +948,8 @@ body.old-rev #fixed-header .search-box {
     height: 16px;
     padding: 0;
     margin: 0;
+    touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
+    touch-action: pinch-zoom;
 }
 
 .cov-interpolated.cov-miss {
