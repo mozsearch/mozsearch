@@ -23,7 +23,7 @@ work.  You will need to move searchfox to a partition that's a normal block devi
 ##### Ubuntu 19.10
 
 ```shell
-# make sure out apt package database is up-to-date
+# make sure the apt package database is up-to-date
 sudo apt update
 # vagrant will also install vagrant-libvirt which is the vagrant provider we use.
 # virt-manager is a UI that helps inspect that your VM got created
