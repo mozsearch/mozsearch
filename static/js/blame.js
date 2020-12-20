@@ -279,11 +279,19 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     for (let element of document.querySelectorAll(".blame-strip")) {
       element.addEventListener("mouseenter", this);
       element.addEventListener("mouseleave", this);
+      // Use passive listeners for touch, because these elements already
+      // disable touch-panning via touch-action properties.
+      element.addEventListener("touchstart", this, {passive: true});
+      element.addEventListener("touchmove", this, {passive: true});
     }
 
     for (let element of document.querySelectorAll(".cov-strip")) {
       element.addEventListener("mouseenter", this);
       element.addEventListener("mouseleave", this);
+      // Use passive listeners for touch, because these elements already
+      // disable touch-panning via touch-action properties.
+      element.addEventListener("touchstart", this, {passive: true});
+      element.addEventListener("touchmove", this, {passive: true});
     }
 
     BlamePopup.popup.addEventListener("mouseenter", this);
@@ -297,7 +305,23 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       .addEventListener("scroll", this, { passive: true });
   }
 
+  isStripElement(elem) {
+    return elem.matches(".blame-strip") || elem.matches(".cov-strip");
+  }
+
   handleEvent(event) {
+    if (event.type == "touchstart" || event.type == "touchmove") {
+      // For touch events, event.target is always the element at which the first touchstart landed. So
+      // this condition filters for touch sequences where the touchstart started on a strip element.
+      if (this.isStripElement(event.target) && event.touches.length == 1) {
+        // Within those touch sequences, update the blame element to whatever is under the touch
+        // point, or null if the touch point moves off the strip.
+        let elementUnderTouch = document.elementFromPoint(event.touches[0].clientX, event.touches[0].clientY);
+        BlamePopup.blameElement = this.isStripElement(elementUnderTouch) ? elementUnderTouch : null;
+      }
+      return;
+    }
+
     // Suppress the blame hover popup if the context menu is visible.
     if (ContextMenu.active) {
       return;
@@ -311,8 +335,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     }
 
     let clickedOutsideBlameStrip =
-      event.type == "click" && !event.target.matches(".blame-strip") &&
-      !event.target.matches(".cov-strip");
+      event.type == "click" && !this.isStripElement(event.target);
     if (clickedOutsideBlameStrip && !BlamePopup.blameElement) {
       // Don't care about clicks outside the blame strip if there's no popup showing.
       return;
