@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-from __future__ import absolute_import
 import boto3
 from datetime import datetime, timedelta
 import sys
 import os.path
 
-# Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <config-input> <branch> [release|dev]
+# Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <config-input> <branch> <channel>
 
-def trigger(mozsearch_repo, config_repo, config_input, branch, channel, spot=False):
+def trigger(mozsearch_repo, config_repo, config_input, branch, channel):
     ec2 = boto3.resource('ec2')
     client = boto3.client('ec2')
 
@@ -57,30 +56,14 @@ sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{
                 'Value': mozsearch_repo,
             }, {
                 'Key': 'crepo',
-                'Value': config_repo
+                'Value': config_repo,
             }, {
                 'Key': 'cfile',
-                'Value': config_input
+                'Value': config_input,
             }],
         }],
     }
-
-    validUntil = datetime.now() + timedelta(days=1)
-
-    if spot:
-        r = client.request_spot_instances(
-            SpotPrice='0.10',
-            InstanceCount=1,
-            Type='one-time',
-            BlockDurationMinutes=300,
-            LaunchSpecification=launch_spec,
-            ValidUntil=validUntil,
-        )
-
-        requestId = r['SpotInstanceRequests'][0]['SpotInstanceRequestId']
-    else:
-        r = client.run_instances(MinCount=1, MaxCount=1, **launch_spec)
-    return r
+    return client.run_instances(MinCount=1, MaxCount=1, **launch_spec)
 
 
 if __name__ == '__main__':
@@ -88,8 +71,6 @@ if __name__ == '__main__':
     config_repo = sys.argv[2]
     config_input = sys.argv[3]
     branch = sys.argv[4]
-
-    # 'release' or 'dev'
     channel = sys.argv[5]
 
-    trigger(mozsearch_repo, config_repo, config_input, branch, channel, spot=False)
+    trigger(mozsearch_repo, config_repo, config_input, branch, channel)
