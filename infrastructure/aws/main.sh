@@ -70,8 +70,8 @@ STOP
 
 # Create a crontab entry to send failure email if indexing takes too long. This
 # is basically a failsafe for if this indexer instance doesn't shut down within
-# 6 hours.
-$AWS_ROOT/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}"
+# 10 hours.
+$AWS_ROOT/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}" 10
 
 # Run indexer with arguments supplied to this script.
 $AWS_ROOT/index.sh $*
