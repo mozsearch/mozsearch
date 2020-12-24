@@ -30,7 +30,7 @@ import boto3
 import trigger_indexer
 
 def start(event, context):
-    trigger_indexer.trigger("$MOZSEARCH_REPO", "$CONFIG_REPO", "$CONFIG_INPUT", "$BRANCH", "$CHANNEL", False)
+    trigger_indexer.trigger("$MOZSEARCH_REPO", "$CONFIG_REPO", "$CONFIG_INPUT", "$BRANCH", "$CHANNEL")
 EOF
 
 pushd /tmp/lambda
