@@ -9,10 +9,11 @@ import sys
 
 subj_prefix = sys.argv[1]
 dest_email = sys.argv[2]
+allowed_runtime_hours = int(sys.argv[3])
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-delta = datetime.timedelta(hours=10)
+delta = datetime.timedelta(hours=allowed_runtime_hours)
 when = datetime.datetime.now() + delta
 s = when.strftime('%M %H %d %m *')
 
