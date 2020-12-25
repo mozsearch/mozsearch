@@ -43,7 +43,16 @@ handle_error() {
     exit 1
 }
 
-# See index.sh for the arguments to this script
+# Pull out the first two arguments, which are for consumption by this
+# main.sh script. The rest of the arguments get passed as arguments to
+# TARGETSCRIPT, so we leave them in $*
+TARGETSCRIPT=$1; shift
+MAXHOURS=$1; shift
+
+# See index.sh and rebuild-blame.sh for the arguments to this script.
+# This code assumes that the first two arguments for both of those scripts
+# are the branch and channel values.
+
 # Note that we set up the EMAIL_PREFIX and DEST_EMAIL variables as early
 # as possible, so that they can be used by the handle_error function in
 # case anything goes wrong.
@@ -70,10 +79,10 @@ cat > ~/.aws/config <<"STOP"
 region = us-west-2
 STOP
 
-# Create a crontab entry to send failure email if indexing takes too long. This
-# is basically a failsafe for if this indexer instance doesn't shut down within
+# Create a crontab entry to send failure email if TARGETSCRIPT takes too long. This
+# is basically a failsafe for if this instance doesn't shut down within
 # 10 hours.
-$AWS_ROOT/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}" 10
+${AWS_ROOT}/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}" ${MAXHOURS}
 
 # Daily cron jobs can include things like the `locate` `updatedb` script which
 # can end up tying up the indexer's mount point.  These are run via `run-parts`
@@ -91,5 +100,5 @@ sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
 echo "Creating index-scratch on local instance SSD"
 ${AWS_ROOT}/mkscratch.sh
 
-# Run indexer with arguments supplied to this script.
-$AWS_ROOT/index.sh $*
+# Run target script with arguments supplied to this script.
+${AWS_ROOT}/${TARGETSCRIPT} $*

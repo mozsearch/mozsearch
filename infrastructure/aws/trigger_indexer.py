@@ -22,7 +22,7 @@ def trigger(mozsearch_repo, config_repo, config_input, branch, channel):
 
 cd ~ubuntu
 sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
-sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh "{branch}" "{channel}" "{mozsearch_repo}" "{config_repo}" config "{config_input}"
+sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh index.sh 10 "{branch}" "{channel}" "{mozsearch_repo}" "{config_repo}" config "{config_input}"
 '''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input)
 
     block_devices = []
