@@ -9,7 +9,8 @@ extern crate unicode_normalization;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::env;
-use std::io::{BufRead, BufReader, Write};
+use std::fmt;
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -41,6 +42,161 @@ fn start_cinnabar_helper(git_repo: &Repository) -> Child {
         .current_dir(git_repo.path())
         .spawn()
         .unwrap()
+}
+
+/// Starts the git-fast-import subcommand, to which data
+/// is fed for adding to the blame repo. Refer to
+/// https://git-scm.com/docs/git-fast-import for detailed
+/// documentation on git-fast-import.
+fn start_fast_import(git_repo: &Repository) -> Child {
+    // Note that we use the `--force` flag here, because there
+    // are cases where the blame repo branch we're building was
+    // initialized from some other branch (e.g. gecko-dev beta
+    // being initialized from gecko-dev master) just to take
+    // advantage of work already done (the commits shared between
+    // beta and master). After writing the new blame information
+    // (for beta) the new branch head (beta) is not going to be a
+    // a descendant of the original (master), and we need `--force`
+    // to make git-fast-import allow that.
+    Command::new("git")
+        .arg("fast-import")
+        .arg("--force")
+        .arg("--quiet")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .current_dir(git_repo.path())
+        .spawn()
+        .unwrap()
+}
+
+/// When writing to a git-fast-import stream, we can insert temporary
+/// names (called "marks") for commits as we create them. This allows
+/// us to refer to them later in the stream without knowing the final
+/// oid for that commit. This enum abstracts over that, so bits of code
+/// can refer to a specific commit that is either pre-existing in the
+/// blame repo (and for which we have an oid) or that was written
+/// earlier in the stream (and has a mark).
+#[derive(Clone, Copy, Debug)]
+enum BlameRepoCommit {
+    Commit(git2::Oid),
+    Mark(usize),
+}
+
+impl fmt::Display for BlameRepoCommit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Commit(oid) => write!(f, "{}", oid),
+            // Mark-type commit references take the form :<idnum>
+            Self::Mark(id) => write!(f, ":{}", id),
+        }
+    }
+}
+
+/// Read the oid of the object at the given path in the given
+/// commit. Returns None if there is no such object.
+/// Documentation for the fast-import command used is at
+/// https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Readingfromanamedtree
+fn read_path_oid(
+    import_helper: &mut Child,
+    commit: &BlameRepoCommit,
+    path: &Path,
+) -> Option<String> {
+    write!(
+        import_helper.stdin.as_mut().unwrap(),
+        "ls {} {}\n",
+        commit,
+        sanitize(path)
+    )
+    .unwrap();
+    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    let mut result = String::new();
+    reader.read_line(&mut result).unwrap();
+    // result will be of format
+    //   <mode> SP ('blob' | 'tree' | 'commit') SP <dataref> HT <path> LF
+    // where SP is a single space, HT is a tab character, and LF is the end of line.
+    // We just want to extract the <dataref> piece which is the git oid of the
+    // object we care about.
+    // If the path doesn't exist, the response will instead be
+    //   'missing' SP <path> LF
+    // and in that case we return None
+    let mut tokens = result.split_ascii_whitespace();
+    if tokens.next() == Some("missing") {
+        return None;
+    }
+    tokens.nth(1).map(str::to_string)
+}
+
+/// Return the contents of the object at the given path in the
+/// given commit. Returns None if there is no such object.
+/// Documentation for the fast-import command used is at
+/// https://git-scm.com/docs/git-fast-import#_cat_blob
+fn read_path_blob(
+    import_helper: &mut Child,
+    commit: &BlameRepoCommit,
+    path: &Path,
+) -> Option<Vec<u8>> {
+    match read_path_oid(import_helper, commit, path) {
+        Some(oid) => {
+            write!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}\n", oid).unwrap();
+            let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+            let mut description = String::new();
+            reader.read_line(&mut description).unwrap();
+            // description will be of the format:
+            //   <sha1> SP 'blob' SP <size> LF
+            let size: usize = description
+                .split_ascii_whitespace()
+                .nth(2)
+                .unwrap()
+                .parse()
+                .unwrap();
+            // The stream will now have <size> bytes of content followed
+            // by a LF character that we want to discard. So we read size+1
+            // bytes and then trim off the LF
+            let mut blob = Vec::with_capacity(size + 1);
+            reader
+                .take((size + 1) as u64)
+                .read_to_end(&mut blob)
+                .unwrap();
+            blob.truncate(size);
+            Some(blob)
+        }
+        None => None,
+    }
+}
+
+/// Sanitizes a path into a format that git-fast-import wants.
+fn sanitize(path: &Path) -> std::borrow::Cow<str> {
+    // Technically, I'm not sure what git-fast-import expects to happen with
+    // non-unicode sequences in the path; the documentation is a bit unclear.
+    // But in practice that hasn't come up yet.
+    let mut result = path.to_string_lossy();
+    if result.starts_with('"') || result.contains('\n') {
+        // From git-fast-import documentation:
+        // A path can use C-style string quoting; this is accepted
+        // in all cases and mandatory if the filename starts with
+        // double quote or contains LF. In C-style quoting, the complete
+        // name should be surrounded with double quotes, and any LF,
+        // backslash, or double quote characters must be escaped by
+        // preceding them with a backslash.
+        let escaped = result
+            .replace("\\", "\\\\")
+            .replace("\n", "\\\n")
+            .replace("\"", "\\\"");
+        result = std::borrow::Cow::Owned(format!(r#""{}""#, escaped));
+    }
+    result
+}
+
+#[test]
+fn test_sanitize() {
+    let p1 = PathBuf::from("first/second/third");
+    assert_eq!(sanitize(&p1), "first/second/third");
+    let p2 = PathBuf::from(r#""starts/with/quote"#);
+    assert_eq!(sanitize(&p2), r#""\"starts/with/quote""#);
+    let p3 = PathBuf::from(r#"internal/quote/"/is/ok"#);
+    assert_eq!(sanitize(&p3), r#"internal/quote/"/is/ok"#);
+    let p4 = PathBuf::from("internal/lf/\n/needs/escaping");
+    assert_eq!(sanitize(&p4), "\"internal/lf/\\\n/needs/escaping\"");
 }
 
 fn count_lines(blob: &git2::Blob) -> usize {
@@ -120,8 +276,8 @@ fn blame_for_path(
     diff_data: &DiffData,
     commit: &git2::Commit,
     blob: &git2::Blob,
-    blame_repo: &git2::Repository,
-    blame_parents: &[git2::Commit],
+    import_helper: &mut Child,
+    blame_parents: &[BlameRepoCommit],
     path: &Path,
 ) -> Result<String, git2::Error> {
     let linecount = count_lines(&blob);
@@ -151,11 +307,11 @@ fn blame_for_path(
             Some(entry) => entry,
             _ => continue,
         };
-        let parent_blame_blob = match blame_parent.tree()?.get_path(parent_path) {
-            Ok(entry) => entry.to_object(blame_repo)?.peel_to_blob()?,
+        let parent_blame_blob = match read_path_blob(import_helper, blame_parent, parent_path) {
+            Some(blob) => blob,
             _ => continue,
         };
-        let parent_blame = std::str::from_utf8(parent_blame_blob.content())
+        let parent_blame = std::str::from_utf8(&parent_blame_blob)
             .unwrap() // We only ever put ascii in the blame blob (for now)
             .lines()
             .collect::<Vec<&str>>();
@@ -248,15 +404,13 @@ fn find_unmodified_lines(
 }
 
 fn build_blame_tree(
-    builder: &mut git2::TreeBuilder,
-    stats: &mut MempackStats,
     diff_data: &DiffData,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     tree_at_path: &git2::Tree,
     parent_trees: &[Option<git2::Tree>],
-    blame_repo: &git2::Repository,
-    blame_parents: &[git2::Commit],
+    import_helper: &mut Child,
+    blame_parents: &[BlameRepoCommit],
     mut path: PathBuf,
 ) -> Result<(), git2::Error> {
     'outer: for entry in tree_at_path.iter() {
@@ -271,12 +425,15 @@ fn build_blame_tree(
                 if parent_entry.id() == entry.id() {
                     // Item at `path` is the same in the tree for `commit` as in
                     // `parent_trees[i]`, so the blame must be the same too
-                    let blame_parent_entry = blame_parents[i].tree()?.get_path(&path)?;
-                    builder.insert(
-                        entry.name().unwrap(),
-                        blame_parent_entry.id(),
+                    let oid = read_path_oid(import_helper, &blame_parents[i], &path).unwrap();
+                    write!(
+                        import_helper.stdin.as_mut().unwrap(),
+                        "M {:06o} {} {}\n",
                         entry.filemode(),
-                    )?;
+                        oid,
+                        sanitize(&path)
+                    )
+                    .unwrap();
                     path.pop();
                     continue 'outer;
                 }
@@ -289,30 +446,45 @@ fn build_blame_tree(
                     diff_data,
                     commit,
                     &entry.to_object(git_repo)?.peel_to_blob()?,
-                    blame_repo,
+                    import_helper,
                     blame_parents,
                     &path,
                 )?;
+                // For the inline data format documentation, refer to
+                // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Inlinedataformat
+                // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Exactbytecountformat
                 let blame_bytes = blame_text.as_bytes();
-                builder.insert(
-                    entry.name().unwrap(),
-                    blame_repo.blob(&blame_bytes)?,
+                let import_stream = import_helper.stdin.as_mut().unwrap();
+                write!(
+                    import_stream,
+                    "M {:06o} inline {}\n",
                     entry.filemode(),
-                )?;
-                stats.blob_bytes += blame_bytes.len();
+                    sanitize(&path)
+                )
+                .unwrap();
+                write!(import_stream, "data {}\n", blame_bytes.len()).unwrap();
+                import_stream.write(blame_bytes).unwrap();
+                // We skip the optional trailing LF character here since in practice it
+                // wasn't particuarly useful for debugging. Also the blame blobs we write
+                // here always have a trailing LF anyway.
             }
             Some(ObjectType::Commit) => {
-                // This is a submodule, just treat it as an empty dir. We could
-                // probably also skip over it entirely.
-                let entry_builder = blame_repo.treebuilder(None)?;
-                builder.insert(
-                    entry.name().unwrap(),
-                    entry_builder.write()?,
+                // This is a submodule. We insert a corresponding submodule entry in the blame
+                // repo. The oid that we use doesn't really matter here but for hash-compatibility
+                // with the old (pre-fast-import) code, we use the same hash that the old code
+                // used, which corresponds to an empty directory.
+                // For the external ref data format documentation, refer to
+                // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Externaldataformat
+                assert_eq!(entry.filemode(), 0o160000);
+                write!(
+                    import_helper.stdin.as_mut().unwrap(),
+                    "M {:06o} 4b825dc642cb6eb9a060e54bf8d69288fbee4904 {}\n",
                     entry.filemode(),
-                )?;
+                    sanitize(&path)
+                )
+                .unwrap();
             }
             Some(ObjectType::Tree) => {
-                let mut entry_builder = blame_repo.treebuilder(None)?;
                 let mut parent_subtrees = Vec::with_capacity(parent_trees.len());
                 // Note that we require the elements in parent_trees to
                 // correspond to elements in blame_parents, so we need to keep
@@ -328,23 +500,15 @@ fn build_blame_tree(
                     parent_subtrees.push(parent_subtree);
                 }
                 build_blame_tree(
-                    &mut entry_builder,
-                    stats,
                     diff_data,
                     git_repo,
                     commit,
                     &entry.to_object(git_repo)?.peel_to_tree()?,
                     &parent_subtrees,
-                    blame_repo,
+                    import_helper,
                     blame_parents,
                     path.clone(),
                 )?;
-                builder.insert(
-                    entry.name().unwrap(),
-                    entry_builder.write()?,
-                    entry.filemode(),
-                )?;
-                stats.trees += 1;
             }
             _ => {
                 panic!(
@@ -480,59 +644,6 @@ fn compute_thread_main(
     }
 }
 
-/// A small helper structure to track how much stuff we've written into the
-/// current mempack, so that we can flush it to disk periodically.
-#[derive(Debug)]
-struct MempackStats {
-    pub blob_bytes: usize,
-    pub trees: usize,
-    pub commits: usize,
-}
-
-impl MempackStats {
-    pub fn new() -> Self {
-        MempackStats {
-            blob_bytes: 0,
-            trees: 0,
-            commits: 0,
-        }
-    }
-
-    pub fn reset(&mut self) {
-        *self = Self::new();
-    }
-
-    fn estimate_bytes(&self) -> usize {
-        // Total guesswork on trees and commits. The blob_bytes is what will
-        // dominate anyway, and we don't need to be particularly exact here.
-        self.blob_bytes + (self.trees * 100) + (self.commits * 500)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.estimate_bytes() == 0
-    }
-
-    pub fn should_flush(&self) -> bool {
-        // Let's arbitrarily flush to disk after 500MB.
-        self.estimate_bytes() >= 500 * 1024 * 1024
-    }
-}
-
-fn flush_mempack(
-    blame_repo: &git2::Repository,
-    odb: &git2::Odb,
-    mempack: &git2::Mempack,
-    stats: &mut MempackStats,
-) {
-    let mut buf = git2::Buf::new();
-    mempack.dump(blame_repo, &mut buf).unwrap();
-    let mut packwriter = odb.packwriter().unwrap();
-    packwriter.write(&buf).unwrap();
-    packwriter.commit().unwrap();
-    mempack.reset().unwrap();
-    stats.reset();
-}
-
 fn main() {
     env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -556,14 +667,12 @@ fn main() {
     let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&blame_ref) {
         let (blame_map, _) = index_blame(&blame_repo, Some(oid));
         blame_map
+            .into_iter()
+            .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
+            .collect::<HashMap<git2::Oid, BlameRepoCommit>>()
     } else {
         HashMap::new()
     };
-
-    let mut refobj = blame_repo
-        .find_reference(&blame_ref)
-        .ok()
-        .and_then(|r| r.resolve().ok());
 
     let mut walk = git_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
@@ -609,21 +718,11 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    // Tracks completion count
-    let mut rev_done = 0;
+    let mut import_helper = start_fast_import(&blame_repo);
 
-    // Add a mempack backend to the blame repo's object database. This allows
-    // us to write our new commits to an in-memory store and periodically flush
-    // that directly into packfiles. If we don't do this, all the new commits
-    // get written as loose objects in the repo, which is quite inefficient in
-    // terms of disk space usage because it can't take advantage of delta
-    // compression.
-    let odb = blame_repo.odb().unwrap();
-    // The default loose and pack backends are at priority 1 and 2, we want a
-    // priority higher than those.
-    let high_priority = 1000;
-    let mempack = odb.add_new_mempack_backend(high_priority).unwrap();
-    let mut stats = MempackStats::new();
+    // Tracks completion count and serves as the basis for the the mark <idnum>
+    // assigned to each commit.
+    let mut rev_done = 0;
 
     for git_oid in revs_to_process.iter() {
         // Read a result. Since we hand out compute requests in round-robin order
@@ -659,78 +758,103 @@ fn main() {
             .collect::<Vec<_>>();
         let blame_parents = commit
             .parent_ids()
-            .map(|pid| blame_repo.find_commit(blame_map[&pid]).unwrap())
+            .map(|pid| blame_map[&pid])
             .collect::<Vec<_>>();
 
-        let mut builder = blame_repo.treebuilder(None).unwrap();
+        // Scope the import_helper borrow
+        {
+            // Here we write out the metadata for a new commit to the blame repo.
+            // For details on the data format, refer to the documentation at
+            // https://git-scm.com/docs/git-fast-import#_commit
+            // https://git-scm.com/docs/git-fast-import#_mark
+            let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
+            write!(import_stream, "commit {}\n", blame_ref).unwrap();
+            write!(import_stream, "mark :{}\n", rev_done).unwrap();
+            blame_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
+
+            let mut write_role = |role: &str, sig: &git2::Signature| {
+                write!(import_stream, "{} ", role).unwrap();
+                import_stream.write(sig.name_bytes()).unwrap();
+                write!(import_stream, " <").unwrap();
+                import_stream.write(sig.email_bytes()).unwrap();
+                write!(import_stream, "> ").unwrap();
+                // git-fast-import can take a few different date formats, but the
+                // default "raw" format is the easiest for us to write. Refer to
+                // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-coderawcode
+                let when = sig.when();
+                write!(
+                    import_stream,
+                    "{} {}{:02}{:02}\n",
+                    when.seconds(),
+                    when.sign(),
+                    when.offset_minutes().abs() / 60,
+                    when.offset_minutes().abs() % 60,
+                )
+                .unwrap();
+            };
+            write_role("author", &commit.author());
+            write_role("committer", &commit.committer());
+
+            let commit_msg = if let Some(hg_rev) = hg_rev {
+                format!("git {}\nhg {}\n", git_oid, hg_rev)
+            } else {
+                format!("git {}\n", git_oid)
+            };
+
+            write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
+            if let Some(first_parent) = blame_parents.first() {
+                write!(import_stream, "from {}\n", first_parent).unwrap();
+            } else {
+                // This is a new root commit, so we need to use a special null
+                // parent commit identifier for git-fast-import to know that.
+                write!(
+                    import_stream,
+                    "from 0000000000000000000000000000000000000000\n"
+                )
+                .unwrap();
+            }
+            for additional_parent in blame_parents.iter().skip(1) {
+                write!(import_stream, "merge {}\n", additional_parent).unwrap();
+            }
+            // For each commit, we start with a clean slate (all files deleted), and then
+            // the build_blame_tree call below will add new files or link pre-existing
+            // unmodified files/folders from older commits into the new commit's tree.
+            // This is the recommended approach by the git-fast-import documentation at
+            // https://git-scm.com/docs/git-fast-import#_filedeleteall and works
+            // well for us, particularly in the case of merge commits where we might
+            // need to pull some entries from one parent and other entries from the other
+            // parent.
+            write!(import_stream, "deleteall\n").unwrap();
+            import_stream.flush().unwrap();
+        }
+
         build_blame_tree(
-            &mut builder,
-            &mut stats,
             &diff_data,
             &git_repo,
             &commit,
             &commit.tree().unwrap(),
             &parent_trees,
-            &blame_repo,
+            &mut import_helper,
             &blame_parents,
             PathBuf::new(),
         )
         .unwrap();
-        let tree_oid = builder.write().unwrap();
-        stats.trees += 1;
 
-        let commit_msg = if let Some(hg_rev) = hg_rev {
-            format!("git {}\nhg {}\n", git_oid, hg_rev)
-        } else {
-            format!("git {}\n", git_oid)
-        };
-
-        let commit_ref = if refobj.is_some() {
-            None
-        } else {
-            // This should only happen on the first commit, if the blame_ref
-            // doesn't exist yet in the destination repo
-            Some(blame_ref.as_str())
-        };
-        let blame_oid = blame_repo
-            .commit(
-                commit_ref,
-                &commit.author(),
-                &commit.committer(),
-                &commit_msg,
-                &blame_repo.find_tree(tree_oid).unwrap(),
-                &blame_parents.iter().collect::<Vec<_>>(),
-            )
-            .unwrap();
-        stats.commits += 1;
-
-        if let Some(ref mut refobj) = refobj {
-            *refobj = refobj.set_target(blame_oid, "").unwrap();
-        } else {
-            refobj = blame_repo
-                .find_reference(&blame_ref)
-                .ok()
-                .and_then(|r| r.resolve().ok());
-            assert!(refobj.is_some());
+        if rev_done % 100000 == 0 {
+            info!("Completed 100,000 commits, issuing checkpoint...");
+            write!(import_helper.stdin.as_mut().unwrap(), "checkpoint\n").unwrap();
         }
-
-        blame_map.insert(*git_oid, blame_oid);
-        info!("  -> {}", blame_oid);
-
-        if stats.should_flush() {
-            // Ok, we have a bunch of stuff in the mempack, let's serialize it
-            // to a packfile.
-            info!("Flushing mempack to packfile with {:?}...", stats);
-            flush_mempack(&blame_repo, &odb, &mempack, &mut stats);
-        }
-    }
-
-    if !stats.is_empty() {
-        info!("Writing final packfile with {:?}...", stats);
-        flush_mempack(&blame_repo, &odb, &mempack, &mut stats);
     }
 
     if let Some(mut helper) = hg_helper {
         helper.kill().unwrap();
+    }
+
+    info!("Shutting down fast-import...");
+    let exitcode = import_helper.wait().unwrap();
+    if exitcode.success() {
+        info!("Done!");
+    } else {
+        info!("Fast-import exited with {:?}", exitcode.code());
     }
 }
