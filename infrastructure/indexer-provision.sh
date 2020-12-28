@@ -37,9 +37,14 @@ sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
 sudo apt-get install -y gdb python3-dbg
 
+# Other
+sudo apt-get install -y parallel python3-virtualenv python3-pip
+# Silence parallel citation warning
+echo "will cite" | parallel --citation
+
 # we want to be able to extract stuff from json and yaml
 sudo apt-get install -y jq
-sudo snap install yq
+sudo pip3 install yq
 
 # dos2unix is used to normalize generated files from windows
 sudo apt-get install -y dos2unix
@@ -62,11 +67,6 @@ wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-${CLANG_VERSION} main"
 sudo apt-get update
 sudo apt-get install -y clang-${CLANG_VERSION} libclang-${CLANG_VERSION}-dev
-
-# Other
-sudo apt-get install -y parallel python3-virtualenv python3-pip
-# Silence parallel citation warning
-echo "will cite" | parallel --citation
 
 # Setup direct links to clang
 sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} ${CLANG_PRIORITY}
