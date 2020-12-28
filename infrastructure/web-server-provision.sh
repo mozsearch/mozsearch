@@ -24,9 +24,14 @@ sudo apt-get remove -y unattended-upgrades
 # and we want to be able to debug python
 sudo apt-get install -y gdb python3-dbg
 
+# Other
+sudo apt-get install -y parallel unzip python3-pip
+# Silence parallel citation warning
+echo "will cite" | parallel --citation
+
 # and we want to be able to extract stuff from json and yaml
 sudo apt-get install -y jq
-sudo snap install yq
+sudo pip3 install yq
 
 # Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
 sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
@@ -40,11 +45,6 @@ if [ ! -d bazel ]; then
     sudo ./bazel-1.1.0-installer-linux-x86_64.sh
   popd
 fi
-
-# Other
-sudo apt-get install -y parallel unzip python3-pip
-# Silence parallel citation warning
-echo "will cite" | parallel --citation
 
 # Nginx
 sudo apt-get install -y nginx
