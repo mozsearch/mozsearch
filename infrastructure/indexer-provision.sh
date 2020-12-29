@@ -159,7 +159,7 @@ popd
 # Install files from the config repo.
 git clone $CONFIG_REPO config
 pushd config
-git checkout $BRANCH || true
+git checkout $BRANCH -- || true
 popd
 
 date
