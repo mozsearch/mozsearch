@@ -29,7 +29,7 @@ fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     if hgrev.chars().all(|c| c == '0') {
         return None;
     }
-    return Some(hgrev.to_string());
+    Some(hgrev.to_string())
 }
 
 fn start_cinnabar_helper(git_repo: &Repository) -> Child {
@@ -120,7 +120,7 @@ fn read_path_oid(
     //   'missing' SP <path> LF
     // and in that case we return None
     let mut tokens = result.split_ascii_whitespace();
-    if tokens.next() == Some("missing") {
+    if tokens.next()? == "missing" {
         return None;
     }
     tokens.nth(1).map(str::to_string)
@@ -135,33 +135,29 @@ fn read_path_blob(
     commit: &BlameRepoCommit,
     path: &Path,
 ) -> Option<Vec<u8>> {
-    match read_path_oid(import_helper, commit, path) {
-        Some(oid) => {
-            write!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}\n", oid).unwrap();
-            let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
-            let mut description = String::new();
-            reader.read_line(&mut description).unwrap();
-            // description will be of the format:
-            //   <sha1> SP 'blob' SP <size> LF
-            let size: usize = description
-                .split_ascii_whitespace()
-                .nth(2)
-                .unwrap()
-                .parse()
-                .unwrap();
-            // The stream will now have <size> bytes of content followed
-            // by a LF character that we want to discard. So we read size+1
-            // bytes and then trim off the LF
-            let mut blob = Vec::with_capacity(size + 1);
-            reader
-                .take((size + 1) as u64)
-                .read_to_end(&mut blob)
-                .unwrap();
-            blob.truncate(size);
-            Some(blob)
-        }
-        None => None,
-    }
+    let oid = read_path_oid(import_helper, commit, path)?;
+    write!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}\n", oid).unwrap();
+    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    let mut description = String::new();
+    reader.read_line(&mut description).unwrap();
+    // description will be of the format:
+    //   <sha1> SP 'blob' SP <size> LF
+    let size: usize = description
+        .split_ascii_whitespace()
+        .nth(2)
+        .unwrap()
+        .parse()
+        .unwrap();
+    // The stream will now have <size> bytes of content followed
+    // by a LF character that we want to discard. So we read size+1
+    // bytes and then trim off the LF
+    let mut blob = Vec::with_capacity(size + 1);
+    reader
+        .take((size + 1) as u64)
+        .read_to_end(&mut blob)
+        .unwrap();
+    blob.truncate(size);
+    Some(blob)
 }
 
 /// Sanitizes a path into a format that git-fast-import wants.
