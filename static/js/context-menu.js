@@ -15,7 +15,7 @@ var ContextMenu = new (class ContextMenu {
 
     window.addEventListener("mousedown", () => this.hide());
     window.addEventListener("pageshow", () => this.hide());
-    window.addEventListener("click", () => this.tryShowOnClick(event));
+    window.addEventListener("click", event => this.tryShowOnClick(event));
   }
 
   fmt(s, data) {
