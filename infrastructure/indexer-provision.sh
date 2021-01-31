@@ -102,8 +102,8 @@ if [ ! -d livegrep ]; then
   rm -rf .cache/bazel
 fi
 
-# Install AWS scripts.
-sudo pip3 install boto3
+# Install AWS scripts and command-line tool.
+sudo pip3 install boto3 awscli
 
 # Install git-cinnabar.
 if [ ! -d git-cinnabar ]; then
