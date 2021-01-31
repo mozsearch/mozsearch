@@ -84,8 +84,8 @@ SITEDIR=$(python3 -m site --user-site)
 mkdir -p "$SITEDIR"
 echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 
-# Install AWS scripts.
-sudo pip3 install boto3
+# Install AWS scripts and command-line tool.
+sudo pip3 install boto3 awscli
 
 # Install git-cinnabar.
 if [ ! -d git-cinnabar ]; then
