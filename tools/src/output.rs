@@ -271,7 +271,7 @@ pub fn generate_footer(
     }
 
     let scripts = [
-        "dxr.js",
+        "search.js",
         "context-menu.js",
         "panel.js",
         "code-highlighter.js",
