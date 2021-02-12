@@ -669,15 +669,6 @@ fn main() {
                 copyable: false,
             });
         }
-        if let Some(ref dxr_root) = tree_config.paths.dxr_root {
-            tools_items.push(PanelItem {
-                title: "DXR".to_owned(),
-                link: format!("{}/source/{}", dxr_root, path),
-                update_link_lineno: "#{}",
-                accel_key: None,
-                copyable: false,
-            });
-        }
         if let Some(ref github) = tree_config.paths.github_repo {
             match Path::new(path).extension().and_then(OsStr::to_str) {
                 Some("md") | Some("rst") => {
