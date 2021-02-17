@@ -313,5 +313,7 @@ fn main() {
     }
 
     println!("On 8001");
-    let _listening = hyper::Server::http("0.0.0.0:8001").unwrap().handle(handler);
+    // Use 4 threads instead of the 2 that would be automatically chosen on our
+    // AWS boxes.
+    let _listening = hyper::Server::http("0.0.0.0:8001").unwrap().handle_threads(handler, 4);
 }
