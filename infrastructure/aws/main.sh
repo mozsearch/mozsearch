@@ -51,7 +51,7 @@ handle_error() {
 SELF=$(readlink -f "$0")
 BRANCH=$1
 CHANNEL=$2
-AWS_ROOT=$(dirname "$SELF")
+export AWS_ROOT=$(dirname "$SELF")
 
 EMAIL_PREFIX="${CHANNEL}/${BRANCH}"
 
@@ -74,6 +74,22 @@ STOP
 # is basically a failsafe for if this indexer instance doesn't shut down within
 # 10 hours.
 $AWS_ROOT/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}" 10
+
+# Daily cron jobs can include things like the `locate` `updatedb` script which
+# can end up tying up the indexer's mount point.  These are run via `run-parts`
+# which only runs executable files, so we remove that bit from all of the daily
+# jobs.  We do this here as part of running the indexer rather than as part of
+# provisioning because we don't want to disable the cron jobs in our local
+# testing VMs, etc.
+#
+# We also disable weekly cron jobs because we don't need them either.  We don't
+# bother with any of the longer time intervals because the directories are
+# currently empty and so the globbing gets more complicated for no point.
+echo "Disabling daily and weekly cron jobs for this indexing run"
+sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
+
+echo "Creating index-scratch on local instance SSD"
+${AWS_ROOT}/mkscratch.sh
 
 # Run indexer with arguments supplied to this script.
 $AWS_ROOT/index.sh $*
