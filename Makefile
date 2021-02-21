@@ -60,6 +60,12 @@ trypush: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config trypush.json ~/trypush-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/trypush-index ~
 
+nss-reblame: check-in-vagrant build-rust-tools
+	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
+	jq '{mozsearch_path, default_tree, trees: {"nss": .trees["nss"]}}' ~/mozilla-config/config1.json > ~/mozilla-config/nss.json
+	mkdir -p ~/reblame
+	/vagrant/infrastructure/reblame-run.sh ~/mozilla-config nss.json ~/reblame
+
 # To test changes to indexing, run this first to generate the baseline. Then
 # make your changes, and run `make comparison`. Note that we generate
 # the index into ~/diffable and move it to ~/baseline so that when we
