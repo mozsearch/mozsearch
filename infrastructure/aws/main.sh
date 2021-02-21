@@ -22,7 +22,9 @@ handle_error() {
     # was. We only do this if we got far enough to actually start indexing.
     if [ -d "/index" ]; then
         mkdir -p /index/interrupted
-        mv -f /mnt/index-scratch/* /index/interrupted
+        if [ -d "/mnt/index-scratch" ]; then
+            mv -f /mnt/index-scratch/* /index/interrupted
+        fi
         # When GNU parallel is passed `--files` it will place the output of jobs
         # in `.par` files in `/tmp`.  Currently only output.sh uses this, but
         # the output is very interesting.
