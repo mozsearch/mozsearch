@@ -28,9 +28,12 @@ sudo -i -u ubuntu ~ubuntu/provision.sh > ~ubuntu/provision.log 2>&1
 echo "Provisioning complete." >> ~ubuntu/provision.log
 '''.format(script=script)
 
-# us-west-2	bionic	18.04 LTS	amd64	hvm:ebs-ssd	20191113	ami-0a7d051a1c4b54f65	hvm
-# ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-20191113 - ami-0a7d051a1c4b54f65
-image_id = 'ami-0a7d051a1c4b54f65'
+# Performing lookup from https://cloud-images.ubuntu.com/locator/ec2/ we get:
+# us-west-2	focal	20.04 LTS	amd64	hvm:ebs-ssd	20210129	ami-0928f4202481dfdf6	hvm
+# and then clicking on the AMI link (already logged into EC2) and hitting
+# "previous" we get the full path:
+# ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210129 - ami-0928f4202481dfdf6
+image_id = 'ami-0928f4202481dfdf6'
 
 launch_spec = {
     'ImageId': image_id,

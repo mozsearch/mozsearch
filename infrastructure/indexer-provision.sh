@@ -39,8 +39,6 @@ sudo apt-get install -y gdb python3-dbg
 
 # Other
 sudo apt-get install -y parallel python3-virtualenv python3-pip
-# Silence parallel citation warning
-echo "will cite" | parallel --citation
 
 # we want to be able to extract stuff from json and yaml
 sudo apt-get install -y jq
