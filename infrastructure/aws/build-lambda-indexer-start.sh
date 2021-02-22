@@ -36,6 +36,13 @@ EOF
 pushd /tmp/lambda
 virtualenv --python=python3 env
 env/bin/pip install boto3
+# Because our virtualenv doesn't specify --no-seed/--without-pip, it may pull
+# packages from your machine into the virtualenv which can include a potentially
+# out-of-date version of certifi.  For example, on asuth's Ubuntu 20.04 machine,
+# certifi==2019.11.28 is installed via a debian package somehow.  Without an
+# explicit upgrade, we end up trying to use that version which will fail to
+# validate the AWS server's certificate.
+env/bin/pip install --upgrade certifi
 cp -r env/lib/python3*/site-packages/* .
 rm -rf env
 
