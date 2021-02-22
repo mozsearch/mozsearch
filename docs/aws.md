@@ -286,7 +286,7 @@ new target group.
 
 The EC2 instances for indexing and web serving are started using a
 custom Amazon Machine Image (AMI). This is the disk image used for
-booting the machine. These AMIs are based off Ubuntu 18.04, but
+booting the machine. These AMIs are based off Ubuntu 20.04, but
 additional software has been installed for all the basic dependencies,
 like clang for the indexing machine and nginx for the web server.
 
@@ -337,7 +337,7 @@ AWS console, sshing into it, and `tail`ing the provision.log file to
 check for completion), you can use the AWS console to generate an AMI from the
 instance. Select the instance in the console, then choose "Actions,
 Image, Create Image". The Image Name must be changed to
-`indexer-18.04` or `web-server-18.04`. The other values can remain as
+`indexer-20.04` or `web-server-20.04`. The other values can remain as
 before. (Note: make sure to delete any old AMIs of the same name
 before doing this.) Once the AMI is created, new jobs will use it
 automatically.

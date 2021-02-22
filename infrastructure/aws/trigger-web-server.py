@@ -54,7 +54,7 @@ availability_zone = volumes['Volumes'][0]['AvailabilityZone']
 
 print('Starting web server instance...')
 
-images = ec2.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-18.04']}])
+images = ec2.describe_images(Filters=[{'Name': 'name', 'Values': ['web-server-20.04']}])
 image_id = images['Images'][0]['ImageId']
 
 r = ec2.run_instances(

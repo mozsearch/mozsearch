@@ -21,4 +21,6 @@ date
 
 wget -nv https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
 chmod +x awslogs-agent-setup.py
-sudo ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
+# Currently this claims to only work with Python 2.6 - 3.5, so we use python2
+# which will use Python 2.7.
+sudo python2 ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
