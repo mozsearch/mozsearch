@@ -225,7 +225,11 @@ var Highlight = new (class Highlight {
       // TODO(emilio): This should probably select the line as well, or something?
       let containingLine = event.target.closest(".source-line-with-number");
       if (containingLine && containingLine.classList.contains("stuck")) {
-        Sticky.scroller.scrollTop -= containingLine.offsetTop;
+        let nestingContainer = containingLine.closest(".nesting-container");
+        if (nestingContainer) {
+          Sticky.scroller.scrollTop -=
+              containingLine.offsetTop - nestingContainer.offsetTop;
+        }
         return;
       }
     }
