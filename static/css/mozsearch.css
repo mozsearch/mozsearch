@@ -598,7 +598,7 @@ span[data-symbols].hovered {
 .blame-strip {
     display: block;
     width: 20px;
-    height: 16px;
+    height: 100%;
     padding: 0;
     margin: 0;
     touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
@@ -945,7 +945,7 @@ body.old-rev #fixed-header .search-box {
 .cov-strip {
     display: block;
     width: 5px;
-    height: 16px;
+    height: 100%;
     padding: 0;
     margin: 0;
     touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
