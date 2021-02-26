@@ -35,7 +35,7 @@ release* )
 esac
 
 gzip -k ~ubuntu/index-log
-$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}"
+$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "reblame-$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}.gz"
 $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 
 # Give logger time to catch up
