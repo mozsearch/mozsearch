@@ -558,7 +558,14 @@ fn compute_diff_data(
             )
             .unwrap();
         diff.find_similar(Some(
-            DiffFindOptions::new().copies(true).rename_limit(1000000),
+            DiffFindOptions::new()
+                .copies(true)
+                .copy_threshold(30)
+                .renames(true)
+                .rename_threshold(30)
+                .rename_limit(1000000)
+                .break_rewrites(true)
+                .break_rewrites_for_renames_only(true),
         ))
         .unwrap();
         for delta in diff.deltas() {
