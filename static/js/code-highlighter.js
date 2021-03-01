@@ -53,8 +53,9 @@ var Sticky = new (class Sticky {
     const firstSourceY = scrolling.offsetTop;
     // The goal is to make sure we're in the area the source line numbers live.
     const lineForSizing = document.querySelector(".line-number");
-    const sourceLinesX = lineForSizing.offsetLeft + 6;
-    const lineHeight = lineForSizing.offsetHeight;
+    const lineRect = lineForSizing.getBoundingClientRect();
+    const sourceLinesX = lineRect.left + 6;
+    const lineHeight = lineRect.height;
 
     let firstStuck = null;
     let lastStuck = null;
