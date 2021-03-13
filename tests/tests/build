@@ -13,7 +13,7 @@ source $INDEX_ROOT/config
 cd $INDEX_ROOT/files
 for f in *.cpp
 do
-  $CXX -DTEST_MACRO1 -DTEST_MACRO2 $f -std=c++14 -c -o $OBJDIR/${f%%.cpp}.o -Wall
+  $CXX -DTEST_MACRO1 -DTEST_MACRO2 $f -std=c++17 -c -o $OBJDIR/${f%%.cpp}.o -Wall
 done
 
 export CARGO_TARGET_DIR=$OBJDIR
@@ -68,9 +68,9 @@ find $OBJDIR -type f -name "*.json" | parallel -q --halt now,fail=1 sed --in-pla
 # rather than bailing out. This simulates that case.
 BUILD_TIME_FILE=BuildTimeFile.cpp
 echo "int main() { return 0; }" > $BUILD_TIME_FILE
-$CXX -DTEST_MACRO1 -DTEST_MACRO2 $BUILD_TIME_FILE -std=c++14 -c -o $OBJDIR/BuildTimeFile.o -Wall
+$CXX -DTEST_MACRO1 -DTEST_MACRO2 $BUILD_TIME_FILE -std=c++17 -c -o $OBJDIR/BuildTimeFile.o -Wall
 rm BuildTimeFile.cpp
 
 GENERATED_FILE=$OBJDIR/GeneratedFile.cpp
 echo "int main() { return 0; }" > $GENERATED_FILE
-$CXX -DTEST_MACRO1 -DTEST_MACRO2 $GENERATED_FILE -std=c++14 -c -o $OBJDIR/GeneratedFile.o -Wall
+$CXX -DTEST_MACRO1 -DTEST_MACRO2 $GENERATED_FILE -std=c++17 -c -o $OBJDIR/GeneratedFile.o -Wall
