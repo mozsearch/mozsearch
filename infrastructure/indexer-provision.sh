@@ -8,10 +8,19 @@ set -o pipefail # Check all commands in a pipeline
 # will be used by the Firefox build process.  If you have a "mach bootstrap"ped
 # system then you can see the current version locally via
 # "~/.mozbuild/clang/bin/clang --version"
-CLANG_VERSION=9
+#
+# Note that for the most recent LLVM/clang release (ex: right now v13), you
+# would actually want to leave this empty.  Check out https://apt.llvm.org/ for
+# the latest info in all cases.
+CLANG_SUFFIX=-11
 # Bumping the priority with each version upgrade lets running the provisioning
 # script on an already provisioned machine do the right thing alternative-wise.
-CLANG_PRIORITY=411
+# Actually, we no longer support re-provisioning, but it's fun to increment
+# numbers.
+CLANG_PRIORITY=412
+# The clang packages build the Ubuntu release name in; let's dynamically extract
+# it since I, asuth, once forgot to update this.
+UBUNTU_RELEASE=$(lsb_release -cs)
 
 sudo apt-get update
 # necessary for apt-add-repository to exist
@@ -61,15 +70,15 @@ if [ ! -d bazel ]; then
 fi
 
 # Clang
-wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-${CLANG_VERSION} main"
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+sudo apt-add-repository "deb https://apt.llvm.org/${UBUNTU_RELEASE}/ llvm-toolchain-${UBUNTU_RELEASE}${CLANG_SUFFIX} main"
 sudo apt-get update
-sudo apt-get install -y clang-${CLANG_VERSION} libclang-${CLANG_VERSION}-dev
+sudo apt-get install -y clang${CLANG_SUFFIX} libclang${CLANG_SUFFIX}-dev
 
 # Setup direct links to clang
-sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-${CLANG_VERSION} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++${CLANG_SUFFIX} ${CLANG_PRIORITY}
 
 # Install zlib.h (needed for NSS build)
 sudo apt-get install -y zlib1g-dev
