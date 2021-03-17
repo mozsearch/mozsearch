@@ -302,7 +302,12 @@ function populateResults(data, full, jumpToSingle) {
       chooseIcon(fileResult.path) +
       " icon-container'></div></td>";
 
-    html += "<td>";
+    // This span exists for a11y reasons.  See bug 1558691 but the core idea is:
+    // - It's fine (and good!) to upgrade this to an explicit h3 in the future.
+    //   We should always favor semantic HTML over use of divs/spans.
+    // - At the current moment we're just introducing the span because the
+    //   styling fallout is potentially more than we want to get into.
+    html += `<td><span role="heading" aria-level="3">`;
 
     var elts = fileResult.path.split("/");
     var pathSoFar = "";
@@ -317,7 +322,7 @@ function populateResults(data, full, jumpToSingle) {
       pathSoFar += "/";
     }
 
-    html += "</td>";
+    html += "</span></td>";
     html += "</tr>";
 
     return html;
@@ -374,6 +379,8 @@ function populateResults(data, full, jumpToSingle) {
     return html;
   }
 
+  // Accumulate the total number of results for our initial summary and to
+  // support our "automatically go to a single result" UX optimization below.
   var count = 0;
   for (var pathkind in data) {
     for (var qkind in data[pathkind]) {
@@ -384,6 +391,8 @@ function populateResults(data, full, jumpToSingle) {
     }
   }
 
+  // Accumulate the total number of files to support our "automatically go to a
+  // single result" UX optimization below.
   var fileCount = 0;
   for (var pathkind in data) {
     for (var qkind in data[pathkind]) {
@@ -391,6 +400,7 @@ function populateResults(data, full, jumpToSingle) {
     }
   }
 
+  // If there's only a single result, redirect ourselves there directly.
   if (jumpToSingle && fileCount == 1 && count <= 1) {
     var pathkind = Object.keys(data)[0];
     var qkind = Object.keys(data[pathkind])[0];
@@ -449,6 +459,7 @@ function populateResults(data, full, jumpToSingle) {
     };
 
     var html = "";
+    // Loop over normal/test/generated/thirdparty "pathkind"s
     for (var pathkind in data) {
       var pathkindName = pathkindNames[pathkind];
       if (pathkindName) {
@@ -459,6 +470,7 @@ function populateResults(data, full, jumpToSingle) {
           "</div></td></tr>";
       }
 
+      // Loop over definition/declaration/use/etc. "qkind"s
       var qkinds = Object.keys(data[pathkind]);
       for (var qkind in data[pathkind]) {
         if (data[pathkind][qkind].length) {
@@ -474,6 +486,7 @@ function populateResults(data, full, jumpToSingle) {
           html += "<td><h2 class='result-kind'>" + qkind + "</h2></td></tr>";
         }
 
+        // Loop over the files with hits.
         for (var i = 0; i < data[pathkind][qkind].length; i++) {
           var file = data[pathkind][qkind][i];
 
