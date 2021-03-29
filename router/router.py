@@ -123,6 +123,15 @@ class SearchResults(object):
     key_precedences = ["Files", "IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
 
     def categorize_path(self, path):
+        '''
+        Given a path, decide whether it's "normal"/"test"/"generated".  These
+        are the 3 top-level groups by which results are categorized.
+
+        These are hardcoded heuristics that probably could be better defined
+        in the `config.json` metadata, with a means for trees like gecko to be
+        able to leverage in-tree build meta-information like moz.build and the
+        various mochitest.ini files, etc.
+        '''
         def is_test(p):
             # Except /unit/ and /androidTest/, all other paths contain the substring 'test', so we can exit early
             # in case it is not present.
@@ -146,6 +155,21 @@ class SearchResults(object):
             return 'normal'
 
     def compile_result(self, kind, qual, pathr, line_modifier):
+        '''
+        Given path-binned results of a specific analysis `kind` for a
+        pretty symbol (`qual`), categorize the path into generated/test/normal
+        and nest the results under a [pathkind, qkind, path] nested key
+        hierarchy where the values are an array of crossref.rs `SearchResult`
+        json results plus the line_modifier fixup hack.
+
+        Path filtering requested via `set_path_filter` is performed at this
+        stage.
+
+        line_modifier is a (closed-over) fixup function that was passed in to
+        add_qualified_results that's provided the given `line`.  It's only ever
+        used by identifier_search in order to fixup "bounds" to compensate for
+        prefix searches.
+        '''
         if qual:
             qkind = '%s (%s)' % (kind, qual)
         else:
@@ -165,6 +189,22 @@ class SearchResults(object):
         path_results[0].extend(lines)
 
     def sort_compiled(self):
+        '''
+        Traverse the `compiled` state in `path_precedences` order, and then
+        its "qkind" children in their inherent order (which is derived from
+        the use of `key_precedences` by `get()`), transforming and propagating
+        the results, applying a `max_count` result limit.
+
+        Additional transformations that are performed:
+        - result de-duplication is performed so that a given (path, line) tuple
+          can only be emitted once.  Because of the intentional order of
+          `key_precedences` this means that semantic matches should preclude
+          their results from being duplicated in the more naive text search
+          results.
+        - line_modifier's bounds fixups as mentioned in `compile_result` are
+          applied which helps the bolding logic in the display logic on the
+          (web) client.
+        '''
         count = 0
 
         line_hash = {}
@@ -175,6 +215,7 @@ class SearchResults(object):
                 paths = list(self.compiled[pathkind][qkind].keys())
                 paths.sort()
                 for path in paths:
+                    # see `compile_resulte docs for line_modifier above.
                     (lines, line_modifier) = self.compiled[pathkind][qkind][path]
                     lines.sort(key=lambda l: l['lno'])
                     lines_out = []
@@ -204,6 +245,14 @@ class SearchResults(object):
         return result
 
     def get(self, work_limit):
+        '''
+        Work-limiting/result-bounding logic to process the returned results,
+        capping them based on some heuristics.  Limiting is performed for each
+        "key" type (AKA analysis kind), with the harder result limit occurring
+        in `sort_compiled` where a hard result limit `max_count` is enforced.
+
+        See `compile_result` and `sort_compiled` for more info.
+        '''
         # compile_result will categorize each path that it sees.
         # It will build a list of paths indexed by pathkind, qkind.
         # Later I'll iterate over this, remove dupes, sort, and keep the top ones.
@@ -249,9 +298,17 @@ def identifier_search(search, tree_name, needle, complete, fold_case):
     needle = re.sub(r'\\(.)', r'\1', needle)
 
     pieces = re.split(r'\.|::', needle)
+    # If the last segment of the search needle is too short, return no results
+    # because we're worried that would return too many results.
     if not complete and len(pieces[-1]) < 3:
         return {}
 
+    # Fixup closure for use by add_qualified_results to reduce the range of the
+    # match's bounds to the prefix that was included in the search needle from
+    # the full bounds of the search result.  (So if the search was "foo::bar"
+    # and we matched "foo::bartab" and "foo::barhat", the idea I guess is that
+    # only the "bar" portion would be highlighted assuming the bounds
+    # previously were referencing "bartab" and "barhat".)
     def line_modifier(line):
         if 'bounds' in line:
             (start, end) = line['bounds']
