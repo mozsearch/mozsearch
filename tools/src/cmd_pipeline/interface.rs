@@ -11,6 +11,7 @@ arg_enum! {
   pub enum RecordType {
       Source,
       Target,
+      Structured,
   }
 }
 

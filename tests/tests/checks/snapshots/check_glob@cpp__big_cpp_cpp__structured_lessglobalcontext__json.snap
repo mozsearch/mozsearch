@@ -1,0 +1,27 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "fields": [],
+    "kind": "class",
+    "loc": "00075:8-25",
+    "methods": [
+      {
+        "pretty": "GlobalContext::LessGlobalContext::decideWhetherToDecide",
+        "props": [
+          "static",
+          "user"
+        ],
+        "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv"
+      }
+    ],
+    "pretty": "GlobalContext::LessGlobalContext",
+    "sizeBytes": 1,
+    "structured": 1,
+    "supers": [],
+    "sym": "T_GlobalContext::LessGlobalContext"
+  }
+]

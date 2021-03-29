@@ -1,0 +1,23 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "loc": "00135:6-11",
+    "nestingRange": "135:12-164:0",
+    "pretty": "type outerNS::Thing",
+    "source": 1,
+    "sym": "T_outerNS::Thing",
+    "syntax": "def,type"
+  },
+  {
+    "kind": "def",
+    "loc": "00135:6-11",
+    "peekRange": "135-135",
+    "pretty": "outerNS::Thing",
+    "sym": "T_outerNS::Thing",
+    "target": 1
+  }
+]

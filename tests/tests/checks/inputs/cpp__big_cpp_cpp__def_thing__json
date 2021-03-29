@@ -1,0 +1,1 @@
+filter-analysis big_cpp.cpp -k def -i outerNS::Thing

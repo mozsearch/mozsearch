@@ -1,0 +1,128 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "fields": [
+      {
+        "offsetBytes": 13,
+        "pretty": "outerNS::OuterCat::mIsFriendly",
+        "sizeBytes": 1,
+        "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+        "type": "_Bool"
+      },
+      {
+        "offsetBytes": 14,
+        "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+        "sizeBytes": 1,
+        "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+        "type": "_Bool"
+      }
+    ],
+    "kind": "class",
+    "loc": "00221:6-14",
+    "methods": [
+      {
+        "pretty": "outerNS::OuterCat::OuterCat",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCatC1Ebb"
+      },
+      {
+        "pretty": "outerNS::OuterCat::isFriendlyCat",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv"
+      },
+      {
+        "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv"
+      },
+      {
+        "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv"
+      },
+      {
+        "pretty": "outerNS::OuterCat::meet",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
+      },
+      {
+        "pretty": "outerNS::OuterCat::meet",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
+      },
+      {
+        "pretty": "outerNS::OuterCat::shred",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+      },
+      {
+        "pretty": "outerNS::OuterCat::destroy",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+      },
+      {
+        "pretty": "outerNS::OuterCat::operator=",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "sym": "_ZN7outerNS8OuterCataSERKS0_"
+      },
+      {
+        "pretty": "outerNS::OuterCat::operator=",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "sym": "_ZN7outerNS8OuterCataSEOS0_"
+      },
+      {
+        "pretty": "outerNS::OuterCat::~OuterCat",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "sym": "_ZN7outerNS8OuterCatD1Ev"
+      }
+    ],
+    "pretty": "outerNS::OuterCat",
+    "sizeBytes": 16,
+    "structured": 1,
+    "supers": [
+      {
+        "pretty": "outerNS::Thing",
+        "props": [],
+        "sym": "T_outerNS::Thing"
+      }
+    ],
+    "sym": "T_outerNS::OuterCat"
+  }
+]
