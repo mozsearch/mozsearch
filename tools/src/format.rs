@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -27,8 +27,9 @@ use crate::config;
 #[derive(Debug)]
 pub struct FormattedLine {
     pub line: String,
-    // True if this line should open a new <div> and its <code> line should be position: sticky.
-    pub starts_nest: bool,
+    // If this line should open a new <div> and its <code> line should be position: sticky, this
+    // has a String which is the symbol starting the nest.
+    pub sym_starts_nest: Option<String>,
     // This line should close this many <div>'s.
     pub pop_nest_count: u32,
 }
@@ -42,7 +43,7 @@ pub fn format_code(
     path: &str,
     input: &str,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-) -> (Vec<FormattedLine>, String) {
+) -> (Vec<FormattedLine>, String, String) {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
         FormatAs::Plain => tokenize::tokenize_plain(&input),
@@ -59,7 +60,7 @@ pub fn format_code(
     // use case is making the entire line position:sticky, it only makes sense to create a single
     // range in that case.)
     let mut nesting_stack: Vec<&AnalysisSource> = Vec::new();
-    let mut starts_nest = false;
+    let mut starts_nest: Option<String> = None;
 
     fn fixup(s: String) -> String {
         s.replace("\r", "\u{21A9}") // U+21A9 = LEFTWARDS ARROW WITH HOOK.
@@ -80,6 +81,11 @@ pub fn format_code(
     // is found.  This mechanism has been about binding DOM elements to structured JS data rather
     // than efficiency of encoding.
     let mut generated_json = json::Array::new();
+    // The SYM_INFO dictionary we output into the HTML.  This is used to stash the type_pretty and
+    // type_sym information for symbols that possess it, including no_crossref symbols which won't
+    // have an entry in `generated_json` with corresponding `data-i` attr, but do possess a
+    // `data-symbols` attr (which is a more recent invention).
+    let mut generated_sym_info = BTreeMap::new();
 
     let mut last_pos = 0;
 
@@ -113,7 +119,7 @@ pub fn format_code(
 
                 output_lines.push(FormattedLine {
                     line: fixup(output),
-                    starts_nest: starts_nest,
+                    sym_starts_nest: starts_nest.take(),
                     pop_nest_count: pop_count as u32,
                 });
                 output = String::new();
@@ -121,8 +127,6 @@ pub fn format_code(
                 cur_line += 1;
                 line_start = token.end;
                 last = token.end;
-
-                starts_nest = false;
 
                 continue;
             }
@@ -159,18 +163,18 @@ pub fn format_code(
         let data = match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(None), Some(d)) |
             (&tokenize::TokenKind::StringLiteral, Some(d)) => {
-                // If this symbol starts a relevant nesting range and we haven't already pushed a
-                // symbol for this line, push it onto our stack.  Note that the nesting_range
-                // identifies the start/end brace which may not be on the same line as the symbol,
-                // but since we want the symbol to be the thing that's sticky, we start the range
-                // on the symbol.
-                //
-                // A range is "relevant" if:
-                // - It has a valid nesting_range.  (Empty ranges have 0 lineno's for start/end.)
-                // - The range start is on this line or after this line.
-                // - Its end line is not on the current line or the next line and therefore will
-                //   actually trigger the "position:sticky" display scenario.
                 for a in d.iter() {
+                    // If this symbol starts a relevant nesting range and we haven't already pushed a
+                    // symbol for this line, push it onto our stack.  Note that the nesting_range
+                    // identifies the start/end brace which may not be on the same line as the symbol,
+                    // but since we want the symbol to be the thing that's sticky, we start the range
+                    // on the symbol.
+                    //
+                    // A range is "relevant" if:
+                    // - It has a valid nesting_range.  (Empty ranges have 0 lineno's for start/end.)
+                    // - The range start is on this line or after this line.
+                    // - Its end line is not on the current line or the next line and therefore will
+                    //   actually trigger the "position:sticky" display scenario.
                     let nests = match (a.nesting_range.start_lineno, nesting_stack.last()) {
                         (0, _) => false,
                         (_, None) => true,
@@ -181,8 +185,27 @@ pub fn format_code(
                         }
                     };
                     if nests {
-                        starts_nest = true;
+                        starts_nest = Some(a.sym.first().unwrap().clone());
                         nesting_stack.push(a);
+                    }
+
+                    // Pass-through local symbol information that won't be available from the
+                    // cross-reference database because it was marked no_crossref.  This is only
+                    // intended to cover type information about the locals; other info like srcsym
+                    // and targetsym doesn't make sense for locals.
+                    if a.no_crossref && a.type_pretty.is_some() && a.sym.len() >= 1 &&
+                       !generated_sym_info.contains_key(&a.sym[0]) {
+                        let mut obj = json::Object::new();
+                        if a.get_syntax_kind().is_some() {
+                            obj.insert("syntax".to_string(),
+                                       Json::String(a.get_syntax_kind().unwrap().to_string()));
+                        }
+                        obj.insert("type".to_string(),
+                                   Json::String(a.type_pretty.as_ref().unwrap().to_string()));
+                        if let Some(type_sym) = &a.type_sym {
+                            obj.insert("typesym".to_string(), Json::String(type_sym.to_string()));
+                        }
+                        generated_sym_info.insert(a.sym[0].clone(), Json::Object(obj));
                     }
                 }
 
@@ -313,7 +336,7 @@ pub fn format_code(
     if output.len() > 0 {
         output_lines.push(FormattedLine {
             line: fixup(output),
-            starts_nest: starts_nest,
+            sym_starts_nest: starts_nest.take(),
             pop_nest_count: nesting_stack.len() as u32,
         });
     }
@@ -323,7 +346,12 @@ pub fn format_code(
     } else {
         format!("{}", json::as_pretty_json(&Json::Array(generated_json)))
     };
-    (output_lines, analysis_json)
+    let sym_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
+        json::encode(&Json::Object(generated_sym_info)).unwrap()
+    } else {
+        format!("{}", json::as_pretty_json(&Json::Object(generated_sym_info)))
+    };
+    (output_lines, analysis_json, sym_json)
 }
 
 /// Renders source code with blame annotations and semantic analysis data (if provided).
@@ -356,7 +384,7 @@ pub fn format_file_data(
         _ => {}
     };
 
-    let (output_lines, analysis_json) = format_code(jumps, format, path, &data, &analysis);
+    let (output_lines, analysis_json, sym_json) = format_code(jumps, format, path, &data, &analysis);
 
     let blame_lines = git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path);
 
@@ -569,13 +597,13 @@ pub fn format_file_data(
 
         // If this line starts nesting, we need to create a div that exists strictly to contain the
         // position:sticky element.
-        if line.starts_nest {
+        if let Some(nest_sym) = &line.sym_starts_nest {
             write!(
                 writer,
-                r#"<div class="nesting-container nesting-depth-{}">"#,
-                nest_depth
-            )
-            .unwrap();
+                r#"<div class="nesting-container nesting-depth-{}" data-nesting-sym="{}">"#,
+                nest_depth,
+                nest_sym
+            ).unwrap();
             nest_depth += 1;
         }
 
@@ -584,11 +612,7 @@ pub fn format_file_data(
             F::T(format!(
                 "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\">",
                 lineno,
-                if line.starts_nest {
-                    " nesting-sticky-line"
-                } else {
-                    ""
-                }
+                if line.sym_starts_nest.is_some() { " nesting-sticky-line" } else { "" }
             )),
             F::Indent(vec![
                 // Coverage Info. Its contents go in a div nested inside the
@@ -633,8 +657,9 @@ pub fn format_file_data(
 
     write!(
         writer,
-        "<script>var ANALYSIS_DATA = {};</script>\n",
-        analysis_json
+        "<script>var ANALYSIS_DATA = {}; var SYM_INFO = {};</script>\n",
+        analysis_json,
+        sym_json,
     )
     .unwrap();
 
@@ -930,7 +955,7 @@ pub fn format_diff(
     };
     let jumps: HashMap<String, analysis::Jump> = HashMap::new();
     let analysis = Vec::new();
-    let (formatted_lines, _) = format_code(&jumps, format, path, &new_lines, &analysis);
+    let (formatted_lines, _, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 
     let (header, _) = blame::commit_header(&commit)?;
 

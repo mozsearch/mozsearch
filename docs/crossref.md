@@ -14,9 +14,10 @@ general structure is:
 ```
 
 The values for `<kind>` are Declarations, Definitions, Uses,
-Assignments, and IDL. The `<text-of-line>` contains the text of the
-given line, with leading and trailing spaces stripped.
-An example entry in this file looks like:
+Assignments, IDL, and Consumes.
+
+The `<text-of-line>` contains the text of the given line, with leading and
+trailing spaces stripped.  An example entry in this file looks like:
 
 ```
 _ZN19nsISupportsPRUint647SetDataEm
@@ -24,7 +25,7 @@ _ZN19nsISupportsPRUint647SetDataEm
 ```
 
 The first line is the symbol name and the second line is a JSON object
-describing all the target records for that symbol. The file is not sorted.
+describing all the target records for that symbol.  The file is sorted.
 
 ### Identifiers file
 

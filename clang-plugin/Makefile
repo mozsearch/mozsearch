@@ -11,7 +11,7 @@ build: libclang-index-plugin.so
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-libclang-index-plugin.so: FileOperations.o StringOperations.o JSONFormatter.o MozsearchIndexer.o
+libclang-index-plugin.so: FileOperations.o StringOperations.o MozsearchIndexer.o
 	$(CXX) $(LDFLAGS) $^ -o $@ -lclangASTMatchers
 
 check: build
@@ -24,19 +24,25 @@ clean:
 dump: build
 	-clang++ -c -Xclang -ast-dump testfiles/test.cpp
 
+# When NFS is used on linux under libvirt, the file-locking is a real problem,
+# so let's not use an immediate subdirectory of this dir.
+ANALYSIS_DIR := /tmp/searchfox-analysis
 analyze: build
 	@if [ ! -d objdir ]; then mkdir objdir; fi
 	@if [ ! -d analysis ]; then mkdir analysis; fi
-	-$(RM) analysis/*
-	-clang++ -c \
+	-mkdir -p $(ANALYSIS_DIR)
+	-$(RM) $(ANALYSIS_DIR)/*
+	$(CXX) -c \
 		-Xclang -load                       -Xclang ./libclang-index-plugin.so \
 		-Xclang -add-plugin                 -Xclang mozsearch-index \
 		-Xclang -plugin-arg-mozsearch-index -Xclang testfiles/ \
-		-Xclang -plugin-arg-mozsearch-index -Xclang analysis/ \
+		-Xclang -plugin-arg-mozsearch-index -Xclang $(ANALYSIS_DIR) \
 		-Xclang -plugin-arg-mozsearch-index -Xclang objdir/ \
 		testfiles/test.cpp
 	@echo "-------------------------------------------"
-	@echo "Analysis output is in the analysis/ folder"
+	@echo "Analysis output is in the ${ANALYSIS_DIR}/ folder"
 	@echo "-------------------------------------------"
+	@echo "maybe type:"
+	@echo "vim ${ANALYSIS_DIR}/test.cpp"
 
 .PHONY: build clean

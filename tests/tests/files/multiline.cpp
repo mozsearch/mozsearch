@@ -1,3 +1,5 @@
+#include "atom_magic.h"
+
 /**
  * Some documentation.
  */

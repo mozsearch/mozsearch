@@ -2314,6 +2314,7 @@ dependencies = [
  "hyper 0.10.16",
  "insta",
  "ipdl_parser",
+ "itertools 0.7.11",
  "jemalloc-sys",
  "jemallocator",
  "lazy_static",

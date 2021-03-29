@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include "atom_magic.h"
+
 extern "C" void WithNoMangle();
 
 extern "C" void ExternFunctionImplementedInCpp() { }

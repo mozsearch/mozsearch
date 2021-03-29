@@ -14,13 +14,13 @@ extern crate env_logger;
 
 extern crate tools;
 use tools::config;
-use tools::file_format::analysis::{read_analysis, read_target, AnalysisKind};
+use tools::file_format::analysis::{read_analysis, read_structured, read_target, AnalysisKind};
 use tools::find_source_file;
 
 extern crate rustc_serialize;
 use rustc_serialize::json::{Json, ToJson};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct SearchResult {
     lineno: u32,
     bounds: (u32, u32),
@@ -45,6 +45,72 @@ impl ToJson for SearchResult {
             obj.insert("peekLines".to_string(), self.peek_lines.to_json());
         }
         Json::Object(obj)
+    }
+}
+
+/// SymbolMeta is derived from AnalysisStructured records.  It differs by using reference-counted
+/// strings and adding additional cross-referencing data.  The `sym` is not included because it's
+/// a given that the record is stored in a map keeyed by the symbol.
+struct SymbolMeta {
+    pretty: Rc<String>,
+    kind: Rc<String>,
+    /// This might be a little silly given that we don't expect these payloads to be duplicated.
+    payload: Rc<String>,
+
+    // ## Data that may also be populated by linkage
+    // These are initially populated in the IDL sym, but src/target/idl are propagated to the src
+    // and target syms.
+    src_sym: Option<Rc<String>>,
+    target_sym: Option<Rc<String>>,
+
+    // ## Derived from cross-referencing
+    // All of these are cross-referenced information that does get emitted into the JSON.
+
+    // IDL up-edge from src_sym/target_sym to their synthetic idl_sym, derived from the IDL sym.
+    idl_sym: Option<Rc<String>>,
+    subclass_syms: Vec<Rc<String>>,
+    overridden_by_syms: Vec<Rc<String>>,
+}
+
+impl ToJson for SymbolMeta {
+    fn to_json(&self) -> Json {
+        // For now we just start from having decoded the "payload" into an object rep, but the
+        // intent is that we could be more clever about where we output SymbolMeta and instead
+        // just directly inject the string rather than round-tripping it through the object
+        // representation.
+        //
+        // TODO: Maybe be more clever with `payload` here / when outputting to the crossref db.
+        //
+        // (Although an advantage of this late re-parsing of the JSON is that we could do memory
+        // efficient augmentation at output-time without having had to leave the entire object
+        // rep in memory during the primary loading and cross-referencing phase.)
+        let mut payload_data = Json::from_str(&self.payload).unwrap();
+        let obj = payload_data.as_object_mut().unwrap();
+        obj.insert("pretty".to_string(), self.pretty.to_json());
+        obj.insert("kind".to_string(), self.kind.to_json());
+
+        if let Some(src_sym) = &self.src_sym {
+            obj.insert("srcsym".to_string(), src_sym.to_json());
+        }
+        if let Some(target_sym) = &self.target_sym {
+            obj.insert("targetsym".to_string(), target_sym.to_json());
+        }
+
+        if let Some(idl_sym) = &self.idl_sym {
+            obj.insert("idlsym".to_string(), idl_sym.to_json());
+        }
+
+        if !self.subclass_syms.is_empty() {
+            obj.insert("subclasses".to_string(),
+                       Json::Array(self.subclass_syms.iter().map(|x| x.to_json()).collect()));
+        }
+
+        if !self.overridden_by_syms.is_empty() {
+            obj.insert("overriddenBy".to_string(),
+                       Json::Array(self.overridden_by_syms.iter().map(|x| x.to_json()).collect()));
+        }
+
+        Json::Object(obj.clone())
     }
 }
 
@@ -141,7 +207,27 @@ fn main() {
     // of the raw symbols that map to the pretty symbol.  Pretty symbols that start with numbers or
     // include whitespace are considered illegal and not included in the map.
     let mut id_table = BTreeMap::new();
+    // Maps (raw) symbol to `SymbolMeta` info for this symbol.  This information is currently
+    // extracted from the source records during an additional pass of the analysis file, looking
+    // only at defs.  However, in the future, this will likely come from a new type of record.
+    let mut meta_table = BTreeMap::new();
+    // Maps (raw) symbol to a BTreeSet of the (raw) symbols it consumes.
+    let mut consumes_table = BTreeMap::new();
+    // Not populated until phase 2 when we walk the above data-structures.
     let mut jumps = Vec::new();
+
+    // As we process the source entries and build the SourceMeta, we keep a running list of what
+    // cross-SourceMeta links need to be established.  We then process this after all of the files
+    // have been processed and we know all symbols are known.
+
+    // Pairs of [parent class sym, subclass sym] to add subclass to parent.
+    let mut xref_link_subclass = Vec::new();
+    // Pairs of [parent method sym, overridden by sym] to add the override to the parent.
+    let mut xref_link_override = Vec::new();
+
+    // Triples of [ipc sym, src src, target sym].
+    let mut xref_link_ipc = Vec::new();
+
 
     for path in &file_paths {
         print!("File {}\n", path);
@@ -149,11 +235,9 @@ fn main() {
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &mut read_target);
 
-        let source_fname = find_source_file(
-            path,
-            &tree_config.paths.files_path,
-            &tree_config.paths.objdir_path,
-        );
+        // Load the source file and chop it up into `lines` so that we extract `peek_lines` for
+        // each symbol with a peek_range.
+        let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
         let source_file = match File::open(source_fname) {
             Ok(f) => f,
             Err(_) => {
@@ -181,8 +265,9 @@ fn main() {
             // pieces are all `AnalysisTarget` instances.
             for piece in datum.data {
                 let sym = strings.add(piece.sym.to_owned());
+                let contextsym = strings.add(piece.contextsym.to_owned());
                 let t1 = table.entry(Rc::clone(&sym)).or_insert(BTreeMap::new());
-                let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
+                let t2 = t1.entry(piece.kind.clone()).or_insert(BTreeMap::new());
                 let p: &str = &path;
                 let t3 = t2.entry(p).or_insert(Vec::new());
                 let lineno = (datum.loc.lineno - 1) as usize;
@@ -203,10 +288,10 @@ fn main() {
                     // to be cut to this offset.
                     let left_offset = lines[(peek_start - 1) as usize].1;
 
-                    for peek_line_index in peek_start..peek_end + 1 {
+                    for peek_line_index in peek_start .. peek_end + 1 {
                         let &(ref peek_line, peek_offset) = &lines[(peek_line_index - 1) as usize];
 
-                        for _i in left_offset..peek_offset {
+                        for _i in left_offset .. peek_offset {
                             peek_lines.push(' ');
                         }
                         peek_lines.push_str(&peek_line);
@@ -214,17 +299,27 @@ fn main() {
                     }
                 }
 
+                // Idempotently insert the symbol -> pretty symbol mapping into `pretty_table`.
+                let pretty = strings.add(piece.pretty.to_owned());
+                pretty_table.insert(Rc::clone(&sym), Rc::clone(&pretty));
+
+                // If this is a use and there's a contextsym, we want to create a "Consume"
+                // entry under the contextsym.  We also want to invert the use of "context"
+                // to be the symbol in question; it's not useful to name the context symbol
+                // redundantly when it's the symbol we're attaching data to.
+                if piece.kind == AnalysisKind::Use && !contextsym.is_empty() {
+                    let consumed = consumes_table.entry(Rc::clone(&contextsym)).or_insert(BTreeSet::new());
+                    consumed.insert(Rc::clone(&sym));
+                }
+
                 t3.push(SearchResult {
                     lineno: datum.loc.lineno,
                     bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
                     line: line,
                     context: strings.add(piece.context),
-                    contextsym: strings.add(piece.contextsym),
+                    contextsym: contextsym,
                     peek_lines: strings.add(peek_lines),
                 });
-
-                let pretty = strings.add(piece.pretty.to_owned());
-                pretty_table.insert(Rc::clone(&sym), Rc::clone(&pretty));
 
                 // Idempotently insert the pretty symbol -> symbol mapping as long as the pretty
                 // symbol looks sane.  (Whitespace breaks the `identifiers` file's text format, so
@@ -236,8 +331,81 @@ fn main() {
                 }
             }
         }
+
+        let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
+        for datum in structured_analysis {
+            // pieces are all `AnalysisStructured` instances that were generated alongside source
+            // definition records.
+            for piece in datum.data {
+                let sym = strings.add(piece.sym.clone());
+                meta_table.entry(sym.clone()).or_insert_with(|| {
+                    if !piece.super_syms.is_empty() {
+                        for super_sym in &piece.super_syms {
+                            xref_link_subclass.push((
+                                strings.add(super_sym.clone()),
+                                sym.clone()));
+                        }
+                    }
+
+                    if !piece.override_syms.is_empty() {
+                        for override_sym in &piece.override_syms {
+                            xref_link_override.push((
+                                strings.add(override_sym.clone()),
+                                sym.clone()));
+                        }
+                    }
+
+                    if let ("ipc", Some(src_sym), Some(target_sym)) =
+                      (piece.kind.as_str(), &piece.src_sym, &piece.target_sym) {
+                          xref_link_ipc.push((
+                              sym.clone(),
+                              strings.add(src_sym.clone()),
+                              strings.add(target_sym.clone())));
+                    }
+
+                    SymbolMeta {
+                        pretty: strings.add(piece.pretty.clone()),
+                        kind: strings.add(piece.kind.clone()),
+                        payload: strings.add(piece.payload.clone()),
+
+                        src_sym: piece.src_sym.as_ref().map(|x| strings.add(x.clone())),
+                        target_sym: piece.target_sym.as_ref().map(|x| strings.add(x.clone())),
+
+                        idl_sym: None,
+                        subclass_syms: vec![],
+                        overridden_by_syms: vec![],
+                    }
+                });
+            }
+        }
     }
 
+    // ## Process deferred meta cross-referencing
+    for (super_sym, sub_sym) in xref_link_subclass {
+        if let Some(super_meta) = meta_table.get_mut(&super_sym) {
+            super_meta.subclass_syms.push(sub_sym);
+        }
+    }
+
+    for (method_sym, override_sym) in xref_link_override {
+        if let Some(method_meta) = meta_table.get_mut(&method_sym) {
+            method_meta.overridden_by_syms.push(override_sym);
+        }
+    }
+
+    for (ipc_sym, src_sym, target_sym) in xref_link_ipc {
+        if let Some(src_meta) = meta_table.get_mut(&src_sym) {
+            src_meta.idl_sym = Some(ipc_sym.clone());
+            src_meta.target_sym = Some(target_sym.clone());
+        }
+
+        if let Some(target_meta) = meta_table.get_mut(&target_sym) {
+            target_meta.idl_sym = Some(ipc_sym.clone());
+            target_meta.src_sym = Some(src_sym.clone());
+        }
+    }
+
+    // ## Write out the crossref database.
     let mut outputf = File::create(output_file).unwrap();
 
     for (id, id_data) in table {
@@ -251,14 +419,36 @@ fn main() {
                 result.push(Json::Object(obj));
             }
             let kindstr = match *kind {
-                AnalysisKind::Use => "Uses",
-                AnalysisKind::Def => "Definitions",
-                AnalysisKind::Assign => "Assignments",
-                AnalysisKind::Decl => "Declarations",
-                AnalysisKind::Idl => "IDL",
+                AnalysisKind::Use => "uses",
+                AnalysisKind::Def => "defs",
+                AnalysisKind::Assign => "assignments",
+                AnalysisKind::Decl => "decls",
+                AnalysisKind::Forward => "forwards",
+                AnalysisKind::Idl => "idl",
+                AnalysisKind::IPC => "ipc",
             };
             kindmap.insert(kindstr.to_string(), Json::Array(result));
         }
+        if let Some(consumed_syms) = consumes_table.get(&id) {
+            let mut consumed = Vec::new();
+            for consumed_sym in consumed_syms {
+                if let Some(meta) = meta_table.get(consumed_sym) {
+                    let mut obj = BTreeMap::new();
+                    obj.insert("sym".to_string(), consumed_sym.to_json());
+                    if let Some(pretty) = pretty_table.get(consumed_sym) {
+                        obj.insert("pretty".to_string(), pretty.to_json());
+                    }
+                    obj.insert("kind".to_string(), meta.kind.to_json());
+                    consumed.push(Json::Object(obj));
+                }
+            }
+            kindmap.insert("consumes".to_string(), consumed.to_json());
+        }
+        // Put the metadata in there too.
+        if let Some(meta) = meta_table.get(&id) {
+            kindmap.insert("meta".to_string(), meta.to_json());
+        }
+
         let kindmap = Json::Object(kindmap);
 
         let _ = outputf.write_all(format!("{}\n{}\n", id, kindmap.to_string()).as_bytes());
