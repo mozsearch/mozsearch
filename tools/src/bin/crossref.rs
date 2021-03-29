@@ -94,6 +94,21 @@ impl StringIntern {
     }
 }
 
+/// Process all analysis files, deriving the `crossref`, `jumps`, and `identifiers` output files.
+/// See https://github.com/mozsearch/mozsearch/blob/master/docs/crossref.md for high-level
+/// documentation on how this works (locally, `docs/crossref.md`).
+///
+/// ## Implementation
+/// There are 2 phases of processing:
+/// 1. The analysis files are read, populating `table`, `pretty_table`, `id_table`, and
+///    `meta_table` incrementally.  Primary cross-reference information comes from target records,
+///    but the file is also processed for source records in order to populate `meta_table` with
+///    meta-information about the symbol.
+/// 2. The table is consumed with jumps generated as a byproduct.
+///
+/// ### Memory Management
+/// Memory usage grows continually throughout phase 1.  Because we load many identical strings,
+/// we use string interning so that all long-lived strings are reference-counted interned strings.
 fn main() {
     env_logger::init();
     let args: Vec<_> = env::args().collect();
@@ -116,8 +131,15 @@ fn main() {
     let mut strings = StringIntern::new();
     let empty_string = strings.add("".to_string());
 
+    // Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult> as the leaf
+    // values.
     let mut table = BTreeMap::new();
+    // Maps (raw) symbol to interned-pretty symbol string.  Each raw symbol is unique, but there
+    // may be many raw symbols that map to the same pretty symbol string.
     let mut pretty_table = HashMap::new();
+    // Reverse of pretty_table.  The key is the pretty symbol, and the value is a BTreeSet of all
+    // of the raw symbols that map to the pretty symbol.  Pretty symbols that start with numbers or
+    // include whitespace are considered illegal and not included in the map.
     let mut id_table = BTreeMap::new();
     let mut jumps = Vec::new();
 
@@ -156,6 +178,7 @@ fn main() {
             .collect();
 
         for datum in analysis {
+            // pieces are all `AnalysisTarget` instances.
             for piece in datum.data {
                 let sym = strings.add(piece.sym.to_owned());
                 let t1 = table.entry(Rc::clone(&sym)).or_insert(BTreeMap::new());
@@ -203,6 +226,9 @@ fn main() {
                 let pretty = strings.add(piece.pretty.to_owned());
                 pretty_table.insert(Rc::clone(&sym), Rc::clone(&pretty));
 
+                // Idempotently insert the pretty symbol -> symbol mapping as long as the pretty
+                // symbol looks sane.  (Whitespace breaks the `identifiers` file's text format, so
+                // we can't include them.)
                 let ch = piece.sym.chars().nth(0).unwrap();
                 if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
                     let t1 = id_table.entry(pretty).or_insert(BTreeSet::new());

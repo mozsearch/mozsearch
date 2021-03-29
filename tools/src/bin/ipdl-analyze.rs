@@ -49,6 +49,9 @@ fn get_options_parser() -> Options {
     opts
 }
 
+/**
+ * Derive where the auto-generated PFooParent.h/PFooChild.h files will show up.
+ */
 fn header_file_name(outheaders_dir: &str, ns: &ast::Namespace, parent_or_child: &str) -> String {
     format!(
         "{}/{}/{}{}.h",
@@ -84,7 +87,7 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
         }
     }
 
-    println!("No analysis target found for {}", mangled);
+    println!("  No analysis target found for {}", mangled);
     return None;
 }
 

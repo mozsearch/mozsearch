@@ -276,6 +276,10 @@ pub fn read_analysis<T>(
     read_analyses(&vec![filename], filter)
 }
 
+/// Load analysis data for one or more files, sorting and grouping by location, with data payloads
+/// transformed via the provided `filter`, resulting in either AnalysisSource records being
+/// returned (if `read_source` is provided) or AnalysisTarget (if `read_target`) and other record
+/// types being ignored.
 pub fn read_analyses<T>(
     filenames: &[&str],
     filter: &mut dyn FnMut(&Object) -> Option<T>,

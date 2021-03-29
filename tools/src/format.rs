@@ -74,6 +74,11 @@ pub fn format_code(
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
 
+    // The ANALYSIS_DATA array we output into the HTML that the "data-i" values key into.  There's
+    // potentially a ton of redundant data in here.  Jumps filter out jumping to their own current
+    // line, but otherwise the entries for a given symbol will be identical every time the symbol
+    // is found.  This mechanism has been about binding DOM elements to structured JS data rather
+    // than efficiency of encoding.
     let mut generated_json = json::Array::new();
 
     let mut last_pos = 0;
@@ -181,7 +186,9 @@ pub fn format_code(
                     }
                 }
 
-                // Build the list of symbols for the highlighter.
+                // Build the list of symbols for the highlighter.  We do this for all source
+                // records, even ones marked "no_crossref" because we still want to highlight
+                // locals.  These will be emitted into a `data-symbols` attribute below.
                 let syms = {
                     let mut syms = String::new();
                     for (i, sym) in d.iter().flat_map(|item| item.sym.iter()).enumerate() {
@@ -193,11 +200,14 @@ pub fn format_code(
                     syms
                 };
 
+                // Filter out items marked no_crossref so we can process for search/jumps for
+                // context menus.
                 let d = d
                     .iter()
                     .filter(|item| !item.no_crossref)
                     .collect::<Vec<_>>();
 
+                // map to de-duplicate jumps on path:lineno, later flattened to vec.
                 let mut menu_jumps: HashMap<String, Json> = HashMap::new();
                 for sym in d.iter().flat_map(|item| item.sym.iter()) {
                     let jump = match jumps.get(sym) {
