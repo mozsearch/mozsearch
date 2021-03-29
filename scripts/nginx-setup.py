@@ -207,6 +207,7 @@ for repo in config['trees']:
 
     # Handled by router/router.py
     location('/%(repo)s/search', ['proxy_pass http://localhost:8000;'])
+    location('/%(repo)s/sorch', ['proxy_pass http://localhost:8000;'])
     location('/%(repo)s/define', ['proxy_pass http://localhost:8000;'])
 
     # Handled by Rust web-server.

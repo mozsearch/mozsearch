@@ -19,6 +19,7 @@
 
 #include "big_header.h"
 #include "subdir/header@with,many^strange~chars.h"
+#include "atom_magic.h"
 
 class GlobalContext {
   public:

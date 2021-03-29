@@ -5,6 +5,8 @@ extern crate log;
 extern crate clap;
 extern crate chrono;
 extern crate git2;
+#[macro_use]
+extern crate itertools;
 extern crate linkify;
 extern crate regex;
 extern crate rustc_serialize;

@@ -46,7 +46,11 @@ def load(config):
 
         repo_data[repo_name] = (mm, crossrefs)
 
-def lookup(tree_name, symbols):
+def lookup_merging(tree_name, symbols):
+    '''
+    Split `symbols` on commas, and lookup all of the requested symbols, merging
+    their results.
+    '''
     symbols = symbols.split(',')
 
     (mm, crossrefs) = repo_data[tree_name]
@@ -64,6 +68,27 @@ def lookup(tree_name, symbols):
         result = json.loads(data)
 
         for (k, v) in result.items():
+            if k == 'meta' or k == 'consumes':
+                continue
             results[k] = results.get(k, []) + result[k]
 
     return results
+
+def lookup_single_symbol(tree_name, symbol):
+    '''
+    Look up a single symbol, returning its results dict if it existed or None
+    if it didn't exist.
+    '''
+    (mm, crossrefs) = repo_data[tree_name]
+
+    s = crossrefs.get(symbol)
+    if s == None:
+        return None
+
+    (startPos, endPos) = s.split(',')
+    (startPos, endPos) = (int(startPos), int(endPos))
+
+    data = mm[startPos:endPos]
+    result = json.loads(data)
+
+    return result

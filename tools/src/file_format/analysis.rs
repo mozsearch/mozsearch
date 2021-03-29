@@ -4,8 +4,10 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 
+use itertools::Itertools;
+
 extern crate rustc_serialize;
-use self::rustc_serialize::json::{as_json, Json, Object};
+use self::rustc_serialize::json::{as_json, encode, Json, Object};
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
@@ -86,13 +88,15 @@ pub struct WithLocation<T> {
     pub loc: Location,
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum AnalysisKind {
     Use,
     Def,
     Assign,
     Decl,
+    Forward,
     Idl,
+    IPC,
 }
 
 impl fmt::Display for AnalysisKind {
@@ -102,7 +106,9 @@ impl fmt::Display for AnalysisKind {
             AnalysisKind::Def => "def",
             AnalysisKind::Assign => "assign",
             AnalysisKind::Decl => "decl",
+            AnalysisKind::Forward => "forward",
             AnalysisKind::Idl => "idl",
+            AnalysisKind::IPC => "ipc",
         };
         formatter.write_str(str)
     }
@@ -150,6 +156,82 @@ impl fmt::Display for WithLocation<AnalysisTarget> {
     }
 }
 
+/// The structured record type extracts out the necessary information to uniquely identify the
+/// symbol and what is required for cross-referencing's establishment of hierarchy/links.  The rest
+/// of the data in the JSON payload of the record (minus these fields) is re-encoded as a
+/// JSON-formatted string.  It's fine to promote things out of the payload into the struct as
+/// needed.
+///
+/// Structured records are merged by choosing one platform rep to be the canoncial variant and
+/// embedding the other variants observed under a `variants` attribute.  See `analysis.md` and
+/// `merge-analyses.rs` for more details.
+#[derive(Debug, Hash)]
+pub struct AnalysisStructured {
+    pub pretty: String,
+    pub sym: String,
+    pub kind: String,
+    // Note that this is a valid JSON string, so if you want to just use its contents, you need
+    // to slice off the enclosing "{}".
+    pub payload: String,
+    pub src_sym: Option<String>,
+    pub target_sym: Option<String>,
+    /// A digest containing the `sym` values from each entry in `supers`.  `supers` is left intact
+    /// in `payload`, so this member should never be directly emitted, just used in crossref.
+    pub super_syms: Vec<String>,
+    /// A digest containing the `sym` values from each entry in `overrides`.  `overrides` is left
+    /// intact in `payload`, so this member should never be directly emitted, just crossreferenced.
+    pub override_syms: Vec<String>,
+}
+
+impl fmt::Display for AnalysisStructured {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            formatter,
+            r#""structured":1,"pretty":{},"sym":{},"kind":{}"#,
+            as_json(&self.pretty),
+            as_json(&self.sym),
+            as_json(&self.kind)
+        )?;
+        if let Some(src_sym) = &self.src_sym {
+            write!(
+                formatter,
+                r#","srcsym":{}"#,
+                as_json(&src_sym)
+            )?;
+        }
+        if let Some(target_sym) = &self.target_sym {
+            write!(
+                formatter,
+                r#","targetsym":{}"#,
+                as_json(&target_sym)
+            )?;
+        }
+        // super_syms and override_syms are digests of data that's still present in payload so we
+        // don't need to do anything with them, just emit the payload string as-is.
+        write!(
+            formatter,
+            r#",{}"#,
+            &self.payload[1..self.payload.len()-1])?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for WithLocation<AnalysisStructured> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "{{{},{}}}", self.loc, self.data)
+    }
+}
+
+impl fmt::Display for WithLocation<Vec<AnalysisStructured>> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        let locstr = format!("{}", self.loc);
+        for src in &self.data {
+            writeln!(formatter, "{{{},{}}}", locstr, src)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct AnalysisSource {
     pub syntax: Vec<String>,
@@ -157,6 +239,14 @@ pub struct AnalysisSource {
     pub sym: Vec<String>,
     pub no_crossref: bool,
     pub nesting_range: SourceRange,
+    /// For records that have an associated type (and aren't a type), this is the human-readable
+    /// representation of the type that may have all kinds of qualifiers that searchfox otherwise
+    /// ignores.  Not all records will have this type.
+    pub type_pretty: Option<String>,
+    /// For records that have an associated type, we may be able to map the type to a searchfox
+    /// symbol, and if so, this is that.  Even if the record has a `type_pretty`, it may not have a
+    /// type_sym.
+    pub type_sym: Option<String>,
 }
 
 impl AnalysisSource {
@@ -178,11 +268,41 @@ impl AnalysisSource {
         self.syntax.append(&mut other.syntax);
         self.syntax.sort();
         self.syntax.dedup();
-        self.sym.append(&mut other.sym);
-        self.sym.sort();
-        self.sym.dedup();
+        // de-duplicate symbols without sorting the symbol list so we can maintain the original
+        // ordering which can allow the symbols to go from most-specific to least-specific.  In
+        // the face of multiple platforms with completely platform-specific symbols and where each
+        // platform has more than one symbol, this doesn't maintain a useful overall order, but the
+        // first symbol can still remain useful.  (And given in-order processing of platforms, the
+        // choice of first symbol remains stable as long as the indexer's symbol ordering remains
+        // stable.)
+        //
+        // This currently will give precedence to the order in "other" rather than "self", but
+        // it's still consistent.
+        other.sym.append(&mut self.sym);
+        self.sym.extend(other.sym.drain(0..).unique());
         self.nesting_range.union(other.nesting_range);
+        // We regrettably have no guarantee that the types are the same, so just pick a type when
+        // we have it.
+        // I tried to make this idiomatic using "or" to overwrite the type, but it got ugly.
+        if let Some(type_pretty) = other.type_pretty {
+            self.type_pretty.get_or_insert(type_pretty);
+        }
+        if let Some(type_sym) = other.type_sym {
+            self.type_sym.get_or_insert(type_sym);
+        }
     }
+
+    /// Source records' "pretty" field is prefixed with their SyntaxKind.  It's also placed in the
+    /// "syntax" sorted array, but that string/array ends up empty when no_crossref is set, so
+    /// it's currently easiest to get it from here.
+    ///
+    /// XXX note that the clang indexer can generate "enum constant" syntax kinds that possess a
+    /// space, but that just means we lose the "constant" bit, not that we get confused about the
+    /// pretty name.
+    pub fn get_syntax_kind(&self) -> Option<&str> {
+        // It's a given that we're using a standard ASCII space character.
+        return self.pretty.split(' ').next();
+     }
 }
 
 impl fmt::Display for AnalysisSource {
@@ -205,6 +325,20 @@ impl fmt::Display for AnalysisSource {
                 self.nesting_range.start_col,
                 self.nesting_range.end_lineno,
                 self.nesting_range.end_col
+            )?;
+        }
+        if let Some(type_pretty) = &self.type_pretty {
+            write!(
+                formatter,
+                r#","type":{}"#,
+                as_json(&type_pretty)
+            )?;
+        }
+        if let Some(type_sym) = &self.type_sym {
+            write!(
+                formatter,
+                r#","typesym":{}"#,
+                as_json(&type_sym)
             )?;
         }
         Ok(())
@@ -271,9 +405,9 @@ fn parse_source_range(range: &str) -> SourceRange {
 
 pub fn read_analysis<T>(
     filename: &str,
-    filter: &mut dyn FnMut(&Object) -> Option<T>,
+    filter: &mut dyn FnMut(&mut Object, &Location, usize) -> Option<T>,
 ) -> Vec<WithLocation<Vec<T>>> {
-    read_analyses(&vec![filename], filter)
+    read_analyses(vec![filename.to_string()].as_slice(), filter)
 }
 
 /// Load analysis data for one or more files, sorting and grouping by location, with data payloads
@@ -281,11 +415,11 @@ pub fn read_analysis<T>(
 /// returned (if `read_source` is provided) or AnalysisTarget (if `read_target`) and other record
 /// types being ignored.
 pub fn read_analyses<T>(
-    filenames: &[&str],
-    filter: &mut dyn FnMut(&Object) -> Option<T>,
+    filenames: &[String],
+    filter: &mut dyn FnMut(&mut Object, &Location, usize) -> Option<T>,
 ) -> Vec<WithLocation<Vec<T>>> {
     let mut result = Vec::new();
-    for filename in filenames {
+    for (i_file, filename) in filenames.into_iter().enumerate() {
         let file = match File::open(filename) {
             Ok(f) => f,
             Err(_) => {
@@ -299,7 +433,7 @@ pub fn read_analyses<T>(
             let line = line.unwrap();
             lineno += 1;
             let data = Json::from_str(&line);
-            let data = match data {
+            let mut data = match data {
                 Ok(data) => data,
                 Err(e) => {
                     warn!(
@@ -309,10 +443,12 @@ pub fn read_analyses<T>(
                     continue;
                 }
             };
-            let obj = data.as_object().unwrap();
-            match filter(obj) {
+            let obj = data.as_object_mut().unwrap();
+            // Destructively pull the "loc" out before passing it into the filter.  This is for
+            // read_structured which stores everything it doesn't directly process in `payload`.
+            let loc = parse_location(obj.remove("loc").unwrap().as_string().unwrap());
+            match filter(obj, &loc, i_file) {
                 Some(v) => {
-                    let loc = parse_location(obj.get("loc").unwrap().as_string().unwrap());
                     result.push(WithLocation { data: v, loc: loc })
                 }
                 None => {}
@@ -357,7 +493,7 @@ pub fn read_analyses<T>(
     result2
 }
 
-pub fn read_target(obj: &Object) -> Option<AnalysisTarget> {
+pub fn read_target(obj: &mut Object, _loc: &Location, _i_size: usize) -> Option<AnalysisTarget> {
     if !obj.contains_key("target") {
         return None;
     }
@@ -368,7 +504,9 @@ pub fn read_target(obj: &Object) -> Option<AnalysisTarget> {
         "def" => AnalysisKind::Def,
         "assign" => AnalysisKind::Assign,
         "decl" => AnalysisKind::Decl,
+        "forward" => AnalysisKind::Forward,
         "idl" => AnalysisKind::Idl,
+        "ipc" => AnalysisKind::IPC,
         _ => panic!("bad target kind"),
     };
 
@@ -403,7 +541,69 @@ pub fn read_target(obj: &Object) -> Option<AnalysisTarget> {
     })
 }
 
-pub fn read_source(obj: &Object) -> Option<AnalysisSource> {
+pub fn read_structured(obj: &mut Object, _loc: &Location, _i_size: usize) -> Option<AnalysisStructured> {
+    if !obj.contains_key("structured") {
+        return None;
+    }
+
+    // We don't want this in payload.
+    obj.remove("structured");
+
+    // We remove fields that go directly in the record type so that we can save
+    // off the leftovers in `payload` as a JSON-encoded string.
+    let pretty = match obj.remove("pretty") {
+        Some(json) => json.as_string().unwrap().to_string(),
+        None => "".to_string(),
+    };
+    let sym = match obj.remove("sym") {
+        Some(json) => json.as_string().unwrap().to_string(),
+        None => "".to_string(),
+    };
+    let kind = match obj.remove("kind") {
+        Some(json) => json.as_string().unwrap().to_string(),
+        None => "".to_string(),
+    };
+
+    // We need to go from Option<Json> to Option<String>.
+    let to_str_opt = |oj: Option<Json>| match oj {
+        Some(j) => Some(j.as_string().unwrap().to_string()),
+        None => None
+    };
+
+    let src_sym = to_str_opt(obj.remove("srcsym"));
+    let target_sym = to_str_opt(obj.remove("targetsym"));
+
+    let super_syms: Vec<String> = match obj.get("supers") {
+        Some(Json::Array(arr)) => arr.iter().map(|item| item.as_object().unwrap()
+                                                            .get("sym").unwrap()
+                                                            .as_string().unwrap().to_string())
+                                            .collect(),
+        _ => vec![],
+    };
+    let override_syms: Vec<String> = match obj.get("overrides") {
+        Some(Json::Array(arr)) => arr.iter().map(|item| item.as_object().unwrap()
+                                                            .get("sym").unwrap()
+                                                            .as_string().unwrap().to_string())
+                                            .collect(),
+        _ => vec![],
+    };
+
+    // Render the remaining fields into a string.
+    let payload = encode(obj).unwrap();
+
+    Some(AnalysisStructured {
+        pretty,
+        sym,
+        kind,
+        payload,
+        src_sym,
+        target_sym,
+        super_syms,
+        override_syms,
+    })
+}
+
+pub fn read_source(obj: &mut Object, _loc: &Location, _i_size: usize) -> Option<AnalysisSource> {
     if !obj.contains_key("source") {
         return None;
     }
@@ -420,7 +620,7 @@ pub fn read_source(obj: &Object) -> Option<AnalysisSource> {
         Some(json) => json.as_string().unwrap().to_string(),
         None => "".to_string(),
     };
-    let mut sym: Vec<String> = obj
+    let sym: Vec<String> = obj
         .get("sym")
         .unwrap()
         .as_string()
@@ -429,8 +629,12 @@ pub fn read_source(obj: &Object) -> Option<AnalysisSource> {
         .split(',')
         .map(str::to_string)
         .collect();
-    sym.sort();
-    sym.dedup();
+    // We used to sort() and dedup() here, with the sort() presumably happening because dup()
+    // requires it to completely eliminate duplicates.  We now no longer do either because
+    // - It's a nice property that the symbols maintain the ordering so that the first symbol can
+    //   be the most-specific symbol.
+    // - We do not expect symbol duplication to occur unless we are merging, and our merging logic
+    //   handles that.
 
     let no_crossref = match obj.get("no_crossref") {
         Some(_) => true,
@@ -447,12 +651,23 @@ pub fn read_source(obj: &Object) -> Option<AnalysisSource> {
         },
     };
 
+    // We need to go from Option<Json> to Option<String>.
+    let to_str_opt = |oj: &Option<&Json>| match oj {
+        Some(j) => Some(j.as_string().unwrap().to_string()),
+        None => None
+    };
+
+    let type_pretty = to_str_opt(&obj.get("type"));
+    let type_sym = to_str_opt(&obj.get("typesym"));
+
     Some(AnalysisSource {
         pretty,
         sym,
         syntax,
         no_crossref,
         nesting_range,
+        type_pretty,
+        type_sym,
     })
 }
 
