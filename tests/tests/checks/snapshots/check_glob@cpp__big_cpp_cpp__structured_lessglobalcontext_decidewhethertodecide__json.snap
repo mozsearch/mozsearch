@@ -1,0 +1,20 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "kind": "method",
+    "loc": "00087:4-25",
+    "overrides": [],
+    "parentsym": "T_GlobalContext::LessGlobalContext",
+    "pretty": "GlobalContext::LessGlobalContext::decideWhetherToDecide",
+    "props": [
+      "static",
+      "user"
+    ],
+    "structured": 1,
+    "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv"
+  }
+]

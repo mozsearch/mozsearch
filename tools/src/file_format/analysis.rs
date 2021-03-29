@@ -165,7 +165,7 @@ impl fmt::Display for WithLocation<AnalysisTarget> {
 /// Structured records are merged by choosing one platform rep to be the canoncial variant and
 /// embedding the other variants observed under a `variants` attribute.  See `analysis.md` and
 /// `merge-analyses.rs` for more details.
-#[derive(Debug, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct AnalysisStructured {
     pub pretty: String,
     pub sym: String,
@@ -573,6 +573,9 @@ pub fn read_structured(obj: &mut Object, _loc: &Location, _i_size: usize) -> Opt
     let src_sym = to_str_opt(obj.remove("srcsym"));
     let target_sym = to_str_opt(obj.remove("targetsym"));
 
+    // Note that we are intentionally leave supers and override_syms intact.
+    // We are extracting the symbol names here for cross-referencing, but there
+    // is additional data in the sub-objects that we want to keep and expose.
     let super_syms: Vec<String> = match obj.get("supers") {
         Some(Json::Array(arr)) => arr.iter().map(|item| item.as_object().unwrap()
                                                             .get("sym").unwrap()
@@ -601,6 +604,36 @@ pub fn read_structured(obj: &mut Object, _loc: &Location, _i_size: usize) -> Opt
         super_syms,
         override_syms,
     })
+}
+
+#[test]
+fn test_read_structured() {
+    let inputs = vec![
+        r#"{"loc":"00010:15-23","structured":1,"pretty":"Template","sym":"T_Template","kind":"class","sizeBytes":1,"supers":[{"pretty":"Base","sym":"T_Base","props":[]}],"methods":[],"fields":[]}"#,
+    ];
+
+    let outputs = vec![
+        Some(AnalysisStructured {
+            pretty: "Template".to_string(),
+            sym: "T_Template".to_string(),
+            kind: "class".to_string(),
+            payload: r#"{"fields":[],"methods":[],"sizeBytes":1,"supers":[{"pretty":"Base","props":[],"sym":"T_Base"}]}"#.to_string(),
+            src_sym: None,
+            target_sym: None,
+            super_syms: vec!["T_Base".to_string()],
+            override_syms: vec![],
+        }),
+    ];
+
+    for (i, input) in inputs.iter().enumerate() {
+        let mut input_json = Json::from_str(input).unwrap();
+        let input_obj = input_json.as_object_mut().unwrap();
+        let loc = parse_location(input_obj.remove("loc").unwrap().as_string().unwrap());
+        assert_eq!(
+            read_structured(input_obj, &loc, 0),
+            outputs[i]
+        );
+    }
 }
 
 pub fn read_source(obj: &mut Object, _loc: &Location, _i_size: usize) -> Option<AnalysisSource> {

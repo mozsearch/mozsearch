@@ -29,7 +29,6 @@ dump: build
 ANALYSIS_DIR := /tmp/searchfox-analysis
 analyze: build
 	@if [ ! -d objdir ]; then mkdir objdir; fi
-	@if [ ! -d analysis ]; then mkdir analysis; fi
 	-mkdir -p $(ANALYSIS_DIR)
 	-$(RM) $(ANALYSIS_DIR)/*
 	$(CXX) -c \

@@ -1,0 +1,26 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "kind": "method",
+    "loc": "00196:7-17",
+    "overrides": [
+      {
+        "pretty": "outerNS::Thing::takeDamage",
+        "sym": "_ZN7outerNS5Thing10takeDamageEi"
+      }
+    ],
+    "parentsym": "T_outerNS::Superhero",
+    "pretty": "outerNS::Superhero::takeDamage",
+    "props": [
+      "instance",
+      "virtual",
+      "user"
+    ],
+    "structured": 1,
+    "sym": "_ZN7outerNS9Superhero10takeDamageEi"
+  }
+]

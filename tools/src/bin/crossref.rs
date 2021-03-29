@@ -211,8 +211,11 @@ fn main() {
     // extracted from the source records during an additional pass of the analysis file, looking
     // only at defs.  However, in the future, this will likely come from a new type of record.
     let mut meta_table = BTreeMap::new();
-    // Maps (raw) symbol to a BTreeSet of the (raw) symbols it consumes.
-    let mut consumes_table = BTreeMap::new();
+    // Maps (raw) symbol to a BTreeSet of the (raw) symbols it "calls".  (The
+    // term makes most sense when dealing with functions/similar.  This was
+    // formerly dubbed "consumes" in prototyping, but that was even more
+    // confusing.  This may want to get renamed again.)
+    let mut callees_table = BTreeMap::new();
     // Not populated until phase 2 when we walk the above data-structures.
     let mut jumps = Vec::new();
 
@@ -303,13 +306,13 @@ fn main() {
                 let pretty = strings.add(piece.pretty.to_owned());
                 pretty_table.insert(Rc::clone(&sym), Rc::clone(&pretty));
 
-                // If this is a use and there's a contextsym, we want to create a "Consume"
+                // If this is a use and there's a contextsym, we want to create a "callees"
                 // entry under the contextsym.  We also want to invert the use of "context"
                 // to be the symbol in question; it's not useful to name the context symbol
                 // redundantly when it's the symbol we're attaching data to.
                 if piece.kind == AnalysisKind::Use && !contextsym.is_empty() {
-                    let consumed = consumes_table.entry(Rc::clone(&contextsym)).or_insert(BTreeSet::new());
-                    consumed.insert(Rc::clone(&sym));
+                    let callees = callees_table.entry(Rc::clone(&contextsym)).or_insert(BTreeSet::new());
+                    callees.insert(Rc::clone(&sym));
                 }
 
                 t3.push(SearchResult {
@@ -429,20 +432,20 @@ fn main() {
             };
             kindmap.insert(kindstr.to_string(), Json::Array(result));
         }
-        if let Some(consumed_syms) = consumes_table.get(&id) {
-            let mut consumed = Vec::new();
-            for consumed_sym in consumed_syms {
-                if let Some(meta) = meta_table.get(consumed_sym) {
+        if let Some(callee_syms) = callees_table.get(&id) {
+            let mut callees = Vec::new();
+            for callee_sym in callee_syms {
+                if let Some(meta) = meta_table.get(callee_sym) {
                     let mut obj = BTreeMap::new();
-                    obj.insert("sym".to_string(), consumed_sym.to_json());
-                    if let Some(pretty) = pretty_table.get(consumed_sym) {
+                    obj.insert("sym".to_string(), callee_sym.to_json());
+                    if let Some(pretty) = pretty_table.get(callee_sym) {
                         obj.insert("pretty".to_string(), pretty.to_json());
                     }
                     obj.insert("kind".to_string(), meta.kind.to_json());
-                    consumed.push(Json::Object(obj));
+                    callees.push(Json::Object(obj));
                 }
             }
-            kindmap.insert("consumes".to_string(), consumed.to_json());
+            kindmap.insert("callees".to_string(), callees.to_json());
         }
         // Put the metadata in there too.
         if let Some(meta) = meta_table.get(&id) {

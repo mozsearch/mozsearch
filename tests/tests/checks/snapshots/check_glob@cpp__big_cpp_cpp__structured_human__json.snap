@@ -1,0 +1,75 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "fields": [],
+    "kind": "class",
+    "loc": "00179:6-11",
+    "methods": [
+      {
+        "pretty": "outerNS::Human::Human",
+        "props": [
+          "instance",
+          "user"
+        ],
+        "sym": "_ZN7outerNS5HumanC1Ev"
+      },
+      {
+        "pretty": "outerNS::Human::operator=",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "sym": "_ZN7outerNS5HumanaSERKS0_"
+      },
+      {
+        "pretty": "outerNS::Human::operator=",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "sym": "_ZN7outerNS5HumanaSEOS0_"
+      },
+      {
+        "pretty": "outerNS::Human::~Human",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "sym": "_ZN7outerNS5HumanD1Ev"
+      },
+      {
+        "pretty": "outerNS::Human::Human",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ],
+        "sym": "_ZN7outerNS5HumanC1ERKS0_"
+      },
+      {
+        "pretty": "outerNS::Human::Human",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ],
+        "sym": "_ZN7outerNS5HumanC1EOS0_"
+      }
+    ],
+    "pretty": "outerNS::Human",
+    "sizeBytes": 16,
+    "structured": 1,
+    "supers": [
+      {
+        "pretty": "outerNS::Thing",
+        "props": [],
+        "sym": "T_outerNS::Thing"
+      }
+    ],
+    "sym": "T_outerNS::Human"
+  }
+]

@@ -1385,7 +1385,6 @@ public:
       J.objectEnd();
       // we want a newline.
       ros << '\n';
-      std::string S;
       F->Output.push_back(std::move(ros.str()));
     }
 
