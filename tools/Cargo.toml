@@ -5,27 +5,27 @@ authors = ["Bill McCloskey <billm@mozilla.com>"]
 
 [dependencies]
 chrono = "0.2"
-rustc-serialize = "0.3.18"
-git2 = "0.13.15"
-lazy_static = "1.1"
-hyper = "0.10"
-log = "0.4.0"
-env_logger = "0.7.1"
-regex = "1"
-ipdl_parser = { path = "./ipdl_parser" }
-getopts = "0.2.19"
-memmap = "0.5.0"
-linkify = "0.2.0"
-rls-analysis = "0.17"
-rls-data = "0.19"
 clap = "2"
-malloc_size_of_derive = "0.1"
-malloc_size_of = { path = "./malloc_size_of" }
+env_logger = "0.7.1"
+flate2 = "1"
+getopts = "0.2.19"
+git2 = "0.13.15"
+hyper = "0.10"
+ipdl_parser = { path = "./ipdl_parser" }
 jemalloc-sys = "0.3.2"
 jemallocator = "0.3.2"
-unicode-normalization = "0.1.12"
+lazy_static = "1.1"
+linkify = "0.2.0"
+log = "0.4.0"
+malloc_size_of = { path = "./malloc_size_of" }
+malloc_size_of_derive = "0.1"
+memmap = "0.5.0"
 num_cpus = "1"
-flate2 = "1"
+regex = "1"
+rls-analysis = "0.17"
+rls-data = "0.19"
+rustc-serialize = "0.3.18"
+unicode-normalization = "0.1.12"
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production
