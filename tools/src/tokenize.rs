@@ -643,7 +643,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
         TagComment(usize),
         TagPI(usize),
         Doctype(bool),
-    };
+    }
 
     let mut tag_state = TagState::TagNone(0);
 
