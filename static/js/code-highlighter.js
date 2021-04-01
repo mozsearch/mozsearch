@@ -8,6 +8,232 @@
  * 3) Highlight lines when page loads, if window.location.hash exists
  */
 
+/**
+ * Decides what the document title should be.
+ */
+var DocumentTitler = new (class DocumentTitler {
+  constructor() {
+    this.originalTitle = document.title;
+    this.currentTitle = this.originalTitle;
+
+    this.stickyTitle = null;
+    this.selectionTitle = null;
+  }
+
+  updateTitle() {
+    let bestTitle;
+
+    // If we have a better title than the original title, use it, but making
+    // sure to include the original filename because this is important for
+    // finding the tab again in the awesomebar via its filename.
+    if (this.selectionTitle) {
+      bestTitle = `${this.selectionTitle} (${this.originalTitle})`;
+    } else if (this.stickyTitle) {
+      bestTitle = `${this.stickyTitle} (${this.originalTitle})`;
+    } else {
+      bestTitle = this.originalTitle;
+    }
+
+    // Debounce setting the title out of a fear of slowing down scrolling but
+    // not wanting to to do the legwork to figure out if this would pose a
+    // problem.  I am assuming this shouldn't result in synchronous reflows.
+    if (bestTitle === this.currentTitle) {
+      return;
+    }
+    document.title = this.currentTitle = bestTitle;
+  }
+
+  /**
+   * Recognizing that namespaces can be a little verbose and use up precious
+   * space, flatten things that look like namespaces to be a single-character
+   * delimited by a single colon.
+   *
+   *
+   * Good example transforms:
+   * - `Foo` => `Foo`
+   * - `Foo::Bar` => `Foo::Bar`
+   * - `mozilla::Foo::Bar` => `m:Foo::Bar`
+   * - `mozilla::dom::quota::Foo::Bar` => `m:d:q:Foo::Bar`
+   *
+   * Sketchy example transforms:
+   * - `mozilla::Foo` => `m:Foo`
+   * - `mozilla::dom::Foo` => `m:d:Foo`
+   *
+   * The sketchy transforms are sketchy because we're assuming that lowercase is
+   * indicative of a namespace.  Note that, similarly to the comments in
+   * `_findBestPrettySymbolInSourceLineElem`, this heuristic should simply be
+   * mooted by having the symbol dictionary provide a pre-computed concise
+   * pretty name for a symbol.  That mechanism can leverage knowing what is and
+   * isn't a namespace/class and also having global knowledge of the names that
+   * are in the codebase so that additional tokens can be used in cases where
+   * ambiguity exists, etc.
+   */
+  _shortenNamespaces(pretty) {
+    const pieces = pretty.split("::");
+    // Nothing to do if we don't have anything to split.
+    if (pieces.length < 2) {
+      return pretty;
+    }
+
+    // We want to use the last two components if they are both initial-caps,
+    // but not for the "mozilla::Foo" case, or "mozilla::dom::Foo" case, where
+    // we still want to collapse the lower-cased namespace.  In that case, we
+    // collapse everything but the last piece.
+    let splitPoint;
+    // Our regexp assumes it's a namespace if it's:
+    // - All ASCII lowercase.
+    // - And therefore has no underscores (which helps avoid us getting tricked
+    //   by nested functions named_like_this in some hypothetical world where
+    //   we understand Python).
+    if (/^[a-z]+$/.test(pieces[pieces.length - 2])) {
+      splitPoint = -1;
+    } else {
+      splitPoint = -2;
+    }
+
+    const nsPieces = pieces.slice(0, splitPoint);
+    const fullPieces = pieces.slice(splitPoint);
+
+    const nsTransformed = nsPieces.map(piece => {
+      return piece[0];
+    });
+
+    if (nsTransformed.length === 0) {
+      return fullPieces.join("::");
+    }
+    return nsTransformed.join(":") + ":" + fullPieces.join("::");
+  }
+
+  /**
+   * Given an element corresponding to a source line, figure out the most
+   * appropriate pretty symbol in the line.  This is currently done using a
+   * heuristic, but this should ideally be handled by either:
+   * - Directly annotating the DOM with the symbol element that is inducing
+   *   the nesting.
+   * - Switching from the data-i scheme to using a symbols dictionary and
+   *   ensuring the symbol data similarly identifies any nesting associated with
+   *   the symbol.
+   *
+   * The current heuristic logic is:
+   * - Pick the last observed symbol (by having a "data-i" attribute) preceding
+   *   a `(`.
+   */
+  _findBestPrettySymbolInSourceLineElem(elem) {
+    let bestPretty = null;
+    if (!elem) {
+      return bestPretty;
+    }
+
+    const symElems = elem.querySelectorAll("[data-i]");
+    scan: for (const symElem of symElems) {
+      // Check if any of the preceding nodes had a "(" in them.  If they did,
+      // this symbol is irrelevant and we should break out of the outer "scan"
+      // loop.
+      //
+      // Okay, and now we're gaining one more hacky heuristic to deal with the
+      // situation "class Foo : public DontCare, public AlsoDontCare {".  If we
+      // see "class" and " : ", we also bail.  The complication here is that we
+      // do absolutely want to pick "Bar" in "Foo::Bar()", so we can't just bail
+      // when we see a colon anywhere.
+      let sawClass = false;
+      let sawColon = false;
+      for (let prevNode = symElem.previousSibling;
+           prevNode;
+           prevNode = prevNode.previousSibling) {
+        // A "(" always means stop immediately.
+        if (prevNode.textContent.includes("(")) {
+          break scan;
+        }
+
+        // The compound class check.
+        if (prevNode.textContent.includes("class")) {
+          sawClass = true;
+        }
+        if (prevNode.textContent.includes(" : ")) {
+          sawColon = true;
+        }
+        if (sawClass && sawColon) {
+          break scan;
+        }
+      }
+
+      // Extract the most appropriate pretty data from the searches.
+      // Specifically, we are looking for "pretty" text in the searches that
+      // contains the textContent from the semantic token.  We do this to
+      // compensate for the implicitly invoked field constructors which
+      // currently end up coalesced into the constructor's symbol/point.
+      const visibleToken = symElem.textContent;
+      const data = window.ANALYSIS_DATA[symElem.getAttribute("data-i")];
+      const searches = data[1];
+      // Process all of the searches, retaining the last one we see as the way
+      // we sort the symbols currently means the most appropriate symbol may be
+      // last.  The motivating scenario here is WorkerPrivate::MemoryReporter
+      // that subclasses nsIMemoryReporter (and where "MemoryReporter" is also a
+      // substring of "nsIMemoryReporter") and the MemoryReporter search is
+      // currently deterministically last in the list.
+      let useSearch;
+      for (const search of searches) {
+        if (search.pretty?.includes(visibleToken)) {
+          useSearch = search;
+        }
+      }
+      if (useSearch) {
+        bestPretty = useSearch.pretty;
+      }
+    }
+
+    // The pretty will include a descriptor prefix like "function " which we
+    // don't care about.
+    if (bestPretty) {
+      let idxSpace = bestPretty.indexOf(" ");
+      if (idxSpace !== -1) {
+        bestPretty = bestPretty.substring(idxSpace + 1);
+      }
+
+      // Shorten any namespaces.
+      bestPretty = this._shortenNamespaces(bestPretty);
+    }
+
+    return bestPretty;
+  }
+
+  /**
+   * Called by `Sticky` when it updates the currently visible sticky lines.
+   * This method attempts to extract the symbol on the line that would
+   * correspond to whatever is opening a nesting block.
+   */
+  processStickyElems(stickyElems) {
+    this.stickyTitle = null;
+    if (stickyElems.length) {
+      const useSticky = stickyElems[stickyElems.length - 1];
+      const stickySourceLine = useSticky.querySelector(".source-line");
+      this.stickyTitle =
+        this._findBestPrettySymbolInSourceLineElem(stickySourceLine);
+    }
+
+    this.updateTitle();
+  }
+
+  /**
+   * Called by Highlight when it updates the hash (which it does whenever the
+   * hash changes, etc.)  This method finds the nesting block that encloses this
+   * line and use its nesting block opening symbol.
+   */
+  processLineSelection(lastSelectedLine) {
+    this.selectionTitle = null;
+    if (lastSelectedLine) {
+      const selectedLine = document.getElementById(`line-${lastSelectedLine}`);
+      const nestingContainer = selectedLine?.closest(".nesting-container");
+      const nestingLine = nestingContainer?.querySelector(".nesting-sticky-line");
+      const sourceLine = nestingLine?.querySelector(".source-line");
+      this.selectionTitle =
+        this._findBestPrettySymbolInSourceLineElem(sourceLine);
+    }
+
+    this.updateTitle();
+  }
+})();
+
 var Sticky = new (class Sticky {
   constructor() {
     // List of already stuck elements.
@@ -168,6 +394,7 @@ var Sticky = new (class Sticky {
     }
 
     this.stuck = newlyStuckElements;
+    DocumentTitler.processStickyElems(this.stuck);
   }
 })();
 
@@ -306,6 +533,9 @@ var Highlight = new (class Highlight {
     {
       let historyHash = hash ? "#" + hash : "";
       if (historyHash != window.location.hash) {
+        // XXX it appears that we can't actually clear the historyHash this way?
+        // Like, if I ctrl-click to remove the last line in our set, we visibly
+        // remove the line, but the hash stays there in my Firefox URL bar?
         window.history.replaceState(null, "", historyHash);
       }
     }
@@ -316,6 +546,7 @@ var Highlight = new (class Highlight {
       let extra = link.getAttribute("data-update-link").replace("{}", hash);
       link.href = link.getAttribute("data-link") + extra;
     }
+    DocumentTitler.processLineSelection(this.lastSelectedLine);
   }
 
   toHash() {
