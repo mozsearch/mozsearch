@@ -669,7 +669,7 @@ input[placeholder], input::placeholder {
     padding: .8rem;
     width: 100%;
 }
-body.old-rev #fixed-header .search-box {
+:root.old-rev #fixed-header .search-box {
     padding-bottom: .4rem;
 }
 #revision {
