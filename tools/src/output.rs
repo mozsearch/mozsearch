@@ -125,10 +125,10 @@ pub fn generate_formatted(
 }
 
 pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'static str> {
-    let css = ["mozsearch.css", "icons.css", "xcode.css"];
+    let css = ["mozsearch.css", "icons.css"];
     let css_tags = css.iter().map(|c| {
         F::T(format!(
-            r#"<link href="/static/css/{}" rel="stylesheet" type="text/css" media="screen"/>"#,
+            r#"<link href="/static/css/{}" rel="stylesheet" media="screen"/>"#,
             c
         ))
     });
