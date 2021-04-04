@@ -69,9 +69,8 @@ function generate(content, opt)
   <link href="/static/icons/search.png" rel="shortcut icon">
   <title>${title}</title>
 
-  <link href="/static/css/mozsearch.css" rel="stylesheet" type="text/css" media="screen"/>
-  <link href="/static/css/icons.css" rel="stylesheet" type="text/css" media="screen" />
-  <link href="/static/css/xcode.css" rel="stylesheet" type="text/css" media="screen">
+  <link href="/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
+  <link href="/static/css/icons.css" rel="stylesheet" media="screen" />
 </head>
 
 <body>
