@@ -77,35 +77,33 @@ function generate(content, opt)
 
 <body>
 <div id="fixed-header">
-  <form method="get" action="/${tree}/search" id="basic_search" class="search-box">
+  <form method="get" action="/${tree}/search" class="search-box" id="search-box">
     <fieldset>
-        <div id="search-box" class="h-flex-container" role="group">
-          <div id="query-section">
-              <label for="query" class="query_label visually-hidden">Find</label>
-              <input type="text" name="q"  value="${query}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" ${opt.autofocusSearch ? "autofocus" : ""}/>
-              <div class="zero-size-container">
-                <div class="bubble" id="query-bubble">
-                </div>
-              </div>
-              <section id="spinner"></section>
-          </div>
-          <div id="option-section" class="v-flex-container">
-              <label for="case">
-                  <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" ${isCaseSensitive ? "checked" : ""}/><span class="access-key">C</span>ase-sensitive
-              </label>
-              <label for="regexp">
-                  <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search
-              </label>
-          </div>
-          <div id="path-section">
-              <label for="path" class="query_label visually-hidden">Path</label>
-              <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />
-              <div class="zero-size-container">
-                <div class="bubble" id="path-bubble">
-                </div>
-              </div>
+      <div id="query-section">
+        <label for="query" class="query_label visually-hidden">Find</label>
+        <input type="text" name="q"  value="${query}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" ${opt.autofocusSearch ? "autofocus" : ""}/>
+        <div class="zero-size-container">
+          <div class="bubble" id="query-bubble">
           </div>
         </div>
+        <section id="spinner"></section>
+      </div>
+      <div id="option-section" class="v-flex-container">
+        <label for="case">
+          <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" ${isCaseSensitive ? "checked" : ""}/><span class="access-key">C</span>ase-sensitive
+        </label>
+        <label for="regexp">
+          <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search
+        </label>
+      </div>
+      <div id="path-section">
+        <label for="path" class="query_label visually-hidden">Path</label>
+        <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />
+        <div class="zero-size-container">
+          <div class="bubble" id="path-bubble">
+          </div>
+        </div>
+      </div>
     </fieldset>
     <input type="submit" value="Search" class="visually-hidden" />
   </form>

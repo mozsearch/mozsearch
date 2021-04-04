@@ -634,12 +634,6 @@ span[data-symbols].hovered {
 }
 
 /* Search box */
-fieldset {
-    position: relative;
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
 input,
 select {
     padding: .5em;
@@ -660,7 +654,7 @@ input[placeholder], input::placeholder {
 .access-key {
     text-decoration: underline;
 }
-.search-box {
+#search-box {
     background-color: #f5f5f5;
     background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
     border-bottom: 1px solid #6d6d6d;
@@ -669,7 +663,18 @@ input[placeholder], input::placeholder {
     padding: .8rem;
     width: 100%;
 }
-:root.old-rev #fixed-header .search-box {
+
+#search-box > fieldset {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+:root.old-rev #search-box {
     padding-bottom: .4rem;
 }
 #revision {
@@ -679,11 +684,6 @@ input[placeholder], input::placeholder {
 #revision a {
     text-decoration: underline;
     cursor: pointer;
-}
-.h-flex-container {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
 }
 .v-flex-container {
     display: flex;
@@ -778,9 +778,6 @@ input[placeholder], input::placeholder {
     .bubble {
         margin-right: 16%;  /* 100% minus the above */
     }
-    .basic_search {
-        right: 13%;
-    }
 }
 
 @media only screen and (min-device-width: 320px) {
@@ -789,11 +786,6 @@ input[placeholder], input::placeholder {
     }
     input[type="submit"] {
         margin-right: 14%;
-    }
-    .basic_search {
-        top: 11%;
-        left: 13px;
-        text-align: left;
     }
 }
 

@@ -14,7 +14,6 @@ var Dxr = new (class Dxr {
       // timeouts.search has elapsed).
       history: 2000 - 300,
     };
-    this.form = document.getElementById("basic_search");
     this.searchBox = document.getElementById("search-box");
 
     // TODO(emilio): Maybe these should be their own web component or
