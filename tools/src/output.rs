@@ -204,11 +204,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         None => vec![],
     };
 
-    let body_class = match opt.revision {
-        Some(_) => "old-rev",
-        None => "",
-    };
-
+    let root_class = if opt.revision.is_some() { "old-rev" } else { "" };
     let form = vec![
         F::S("<fieldset>"),
         F::Indent(fieldset),
@@ -221,12 +217,12 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
 
     let f = F::Seq(vec![
         F::S("<!DOCTYPE html>"),
-        F::S(r#"<html lang="en-US">"#),
+        F::T(format!(r#"<html lang="en-US" class="{}">"#, root_class)),
         F::S("<head>"),
         F::Indent(head_seq),
         F::S("</head>"),
         F::S(""),
-        F::T(format!(r#"<body class="{}">"#, body_class)),
+        F::S("<body>"),
         F::Indent(vec![
             F::S(r#"<div id="fixed-header">"#),
             F::T(format!(
