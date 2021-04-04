@@ -864,20 +864,6 @@ body.old-rev #fixed-header .search-box {
     color: #6d7b8d;
 }
 
-/* ## Theme Panel UI ## */
-
-#panel-theme-style-select,
-#panel-theme-color-select {
-  padding: 0;
-  /* These take up too much space otherwise, but this is not great design. */
-  font-size: 80%;
-}
-
-.panel-theme {
-    padding: 0.5rem;
-    margin-left: 0.5rem;
-}
-
 /* ## Code Coverage Styling ## */
 
 /* Color themes are currently from the Color Brewer 2.0 Project which is for
