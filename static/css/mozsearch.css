@@ -634,8 +634,7 @@ span[data-symbols].hovered {
 }
 
 /* Search box */
-input,
-select {
+input, select {
     padding: .5em;
 }
 input[placeholder], input::placeholder {
@@ -905,9 +904,7 @@ input[placeholder], input::placeholder {
  * to a correspondence to the stereotypical red/green color theme (that's not
  * color blind friendly!).
  */
-
-
- :root {
+:root {
     --cov-strip-width: 5px;
     --cov-log10-base: 3px;
     --cov-log10-scale: 2px;
