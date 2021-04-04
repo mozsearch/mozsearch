@@ -653,10 +653,7 @@ input,
 select {
     padding: .5em;
 }
-/* Kudos to David Walsh */
-input[placeholder],
-::-moz-placeholder, /* firefox 19+ */
-input:-moz-placeholder {
+input[placeholder], input::placeholder {
     text-overflow: ellipsis;
 }
 #search-box #query {
