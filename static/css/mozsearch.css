@@ -1,27 +1,27 @@
 @font-face {
-    font-family: 'icons';
-    src: url('/static/fonts/icons.eot?#iefix2013') format('embedded-opentype'),
-         url('/static/fonts/icons.woff?2013') format('woff'),
-         url('/static/fonts/icons.ttf?2013') format('truetype');
-    font-weight: normal;
-    font-style: normal;
+  font-family: 'icons';
+  src: url('/static/fonts/icons.eot?#iefix2013') format('embedded-opentype'),
+       url('/static/fonts/icons.woff?2013') format('woff'),
+       url('/static/fonts/icons.ttf?2013') format('truetype');
+  font-weight: normal;
+  font-style: normal;
 }
 
 :root {
   /* ### Highlighting ### */
   /* Selected source line background color.  This is used when clicking on a
-     line-number (optionally holding ctrl or shift) to select it/a range. */
+   line-number (optionally holding ctrl or shift) to select it/a range. */
   --highlighted-bgcolor: rgb(255, 255, 204);
 
   /* ### Sticky Headers ### */
 
   /* The background color applied to code lines that start a block and stick
-     around until the block is closed. (They have the "stuck" class applied.) */
+   around until the block is closed. (They have the "stuck" class applied.) */
   --sticky-header-bgcolor: #ffe;
 
   /* ### Blame ### */
   /* Static blame zebra stripe colors. This may change in the future to be
-     zebra-striping with logarithmic age coloring. */
+   zebra-striping with logarithmic age coloring. */
   --blame-c1: lightgray;
   --blame-c2: darkgray;
 }
@@ -31,107 +31,107 @@
  */
 a:active,
 a:hover {
-    outline: 0;
+  outline: 0;
 }
 /**
  * normalize - Remove most spacing between table cells.
  */
 table {
-    border-collapse: collapse;
-    border-spacing: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
 }
 
 /* apply a natural box layout model to all elements */
 * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 :root {
-    font: 12px/1.5 Arial, Helvetica, sans-serif;
-    background-color: #fff;
-    color: #333;
+  font: 12px/1.5 Arial, Helvetica, sans-serif;
+  background-color: #fff;
+  color: #333;
 }
 
 body {
-    margin: 0;
+  margin: 0;
 }
 h4 {
-    margin: 0 0 .5rem 0;
+  margin: 0 0 .5rem 0;
 }
 a:link,
 a:visited {
-    color: inherit;
-    text-decoration: none;
+  color: inherit;
+  text-decoration: none;
 }
 a:hover {
-    text-decoration: underline;
+  text-decoration: underline;
 }
 caption {
-    text-align: left;
+  text-align: left;
 }
 table {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    overflow: auto;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow: auto;
 }
 table#file {
-    width: 100%;
+  width: 100%;
 }
 table.folder-content thead tr:first-child {
-    color: #555;
-    padding: .5em;
+  color: #555;
+  padding: .5em;
 }
 table th {
-    font-weight: bold;
-    padding: .5em;
-    text-align: left;
+  font-weight: bold;
+  padding: .5em;
+  text-align: left;
 }
 .folder-content th:first-child {
-    padding-left: .5em;
+  padding-left: .5em;
 }
 .folder-content th {
-    padding-left: 0;
-    padding-right: .5em;
-    padding-top: .2em;
-    padding-bottom: .2em;
+  padding-left: 0;
+  padding-right: .5em;
+  padding-top: .2em;
+  padding-bottom: .2em;
 }
 table.folder-content thead tr:first-child,
 table.folder-content tr:nth-child(even) {
-    background-color: #f5f5f5;
+  background-color: #f5f5f5;
 }
 table.folder-content tbody tr:hover,
 table tbody tr:hover,
 .context-menu a:hover {
-    background-color: #e8e8e8;
+  background-color: #e8e8e8;
 }
 table.folder-content td {
-    padding: 0;
+  padding: 0;
 }
 table.folder-content a {
-    display: block;  /* Make entire cells clickable. */
-    padding-top: .5em;
-    padding-right: .5em;
-    padding-bottom: .5em;
-    text-decoration: none;
+  display: block;  /* Make entire cells clickable. */
+  padding-top: .5em;
+  padding-right: .5em;
+  padding-bottom: .5em;
+  text-decoration: none;
 }
 table td {
-    padding: .5em;
+  padding: .5em;
 }
 table.folder-content td.description {
-    max-width: 60vw;
-    padding-right: 2em;
+  max-width: 60vw;
+  padding-right: 2em;
 }
 table.folder-content td.description a {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 td.code {
-    padding: 0 0 0 .5em;
+  padding: 0 0 0 .5em;
 }
 td#line-numbers {
-    padding: 0;
+  padding: 0;
 }
 
 .source-line-with-number {
@@ -141,34 +141,34 @@ td#line-numbers {
 }
 
 .line-number::before {
-    content: attr(data-line-number);
+  content: attr(data-line-number);
 }
 
 .line-number {
-    display: inline-block;
-    cursor: pointer;
-    text-align: right;
-    padding: 0 0.5rem;
-    /* this was originally set on the ".file td:first-child" */
-    color: #aaa;
-    width: 8ex;
-    flex-shrink: 0;
-    /* This prevents shift-clicking in non-gecko browsers from selecting all
-     * text in between the lines */
-    -moz-user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+  display: inline-block;
+  cursor: pointer;
+  text-align: right;
+  padding: 0 0.5rem;
+  /* this was originally set on the ".file td:first-child" */
+  color: #aaa;
+  width: 8ex;
+  flex-shrink: 0;
+  /* This prevents shift-clicking in non-gecko browsers from selecting all
+   * text in between the lines */
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 .highlighted {
-    background: none repeat scroll content-box 0 0 rgb(255, 255, 204) !important;
+  background: none repeat scroll content-box 0 0 rgb(255, 255, 204) !important;
 }
 .source-line {
-    margin: 0;
-    padding: 0;
-    display: inline-block;
-    white-space: pre;
-    flex-grow: 1;
+  margin: 0;
+  padding: 0;
+  display: inline-block;
+  white-space: pre;
+  flex-grow: 1;
 }
 
 .source-line-with-number.stuck {
@@ -179,18 +179,18 @@ td#line-numbers {
 }
 
 .source-line a {
-    cursor: pointer;
+  cursor: pointer;
 }
 .code code {
-    padding: 0 0.5rem;
-    width: 100%;
+  padding: 0 0.5rem;
+  width: 100%;
 }
 .code code a {
-    cursor: context-menu;
+  cursor: context-menu;
 }
 mark {
-    position: relative;
-    padding: .5rem;
+  position: relative;
+  padding: .5rem;
 }
 
 /**
@@ -246,8 +246,8 @@ body {
   /* be sticky, contained within a .nesting-container */
   position: sticky;
   /* even with our "stuck" and "last-stuck" classes, it's important to have an
-     opaque background color for these because those classes don't take effect
-     immediately. */
+   opaque background color for these because those classes don't take effect
+   immediately. */
   background-color: white;
   top: calc(var(--nesting-level) * 12px * 1.3);
   z-index: calc(100 - var(--nesting-level));
@@ -256,63 +256,63 @@ body {
 
 .results tr:hover,
 .file tr:hover {
-    background: none;
+  background: none;
 }
 .results tr,
 .file tr {
-    border: 0;
-    line-height: 1.3;
+  border: 0;
+  line-height: 1.3;
 }
 .file tr .line-number,
 .file tr .code pre code {
-    max-height: calc(12px * 1.3); /* don't let bolded code increase the line-height - see bug 1322740 comment 9 */
+  max-height: calc(12px * 1.3); /* don't let bolded code increase the line-height - see bug 1322740 comment 9 */
 }
 .left-column,
 .file td:first-child {
-    text-align: right;
-    color: #aaa;
-    width: 8ex;
+  text-align: right;
+  color: #aaa;
+  width: 8ex;
 }
 .results td {
-    padding: .1rem .5rem;
+  padding: .1rem .5rem;
 }
 .results a {
-    cursor: pointer;
-    display: inline-block;
+  cursor: pointer;
+  display: inline-block;
 }
 .file a:target {
-    background-color: gray;
-    color: white;
-    padding: 0 .5rem;
+  background-color: gray;
+  color: white;
+  padding: 0 .5rem;
 }
 .results code {
-    white-space: pre;
+  white-space: pre;
 }
 .result-head td
 {
-    padding-top: .3rem; /* Additional padding to visually seperate results.*/
-    padding-bottom: 0;
+  padding-top: .3rem; /* Additional padding to visually seperate results.*/
+  padding-bottom: 0;
 }
 .result-head td.left-column
 {
-    padding-right: .2rem; /* Moves the icon closer to the path by reducing the padding.*/
+  padding-right: .2rem; /* Moves the icon closer to the path by reducing the padding.*/
 }
 .result-head a
 {
-    display: inline;
+  display: inline;
 }
 
 .result-context {
-    font-style: italic;
-    margin-left: 10px;
-    padding-left: 4px;
-    padding-right: 4px;
-    color: royalblue;
+  font-style: italic;
+  margin-left: 10px;
+  padding-left: 4px;
+  padding-right: 4px;
+  color: royalblue;
 }
 
 .section {
-    text-align: right;
-    font-size: 150%;
+  text-align: right;
+  font-size: 150%;
 }
 
 .result-pathkind {
@@ -331,55 +331,55 @@ body {
 /* End search results */
 
 .file td {
-    padding: 0;
+  padding: 0;
 }
 .file pre {
-    margin: 0;
+  margin: 0;
 }
 
 /* Context menu */
 .context-menu {
-    /* absolutely positioned within the containing block of the <body> relative
-       to the click event */
-    position: absolute;
-    background-color: #fff;
-    margin: 0;
-    padding: 0;
-    border: 1px solid #333;
-    border-radius: 6px;
-    border-top-left-radius: 0;
-    width: auto;
-    list-style: none;
-    z-index: 102;
+  /* absolutely positioned within the containing block of the <body> relative
+     to the click event */
+  position: absolute;
+  background-color: #fff;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #333;
+  border-radius: 6px;
+  border-top-left-radius: 0;
+  width: auto;
+  list-style: none;
+  z-index: 102;
 }
 .context-menu a {
-    display: block;
-    text-decoration: none;
+  display: block;
+  text-decoration: none;
 }
 .context-menu li:first-child a:hover {
-    border-top-right-radius: 6px;
+  border-top-right-radius: 6px;
 }
 .context-menu li:last-child a:hover {
-    border-bottom-right-radius: 6px;
-    border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom-left-radius: 6px;
 }
 
 .content {
-    padding: 1rem 2rem;
+  padding: 1rem 2rem;
 }
 .content.source-listing {
-    padding: 0.5rem 0rem;
+  padding: 0.5rem 0rem;
 }
 
 /* Breadcrumbs */
 .path-separator {
-    margin: 0 .2rem;
+  margin: 0 .2rem;
 }
 .breadcrumbs {
-    display: inline-block;
-    margin: 0;
-    padding: 1rem;
-    text-align: left;
+  display: inline-block;
+  margin: 0;
+  padding: 1rem;
+  text-align: left;
 }
 
 /* Link styling */
@@ -389,139 +389,139 @@ body {
 .bubble a:visited,
 .result-head a:link,
 .result-head a:visited {
-    color: #0095dd;
+  color: #0095dd;
 }
 .breadcrumbs a:hover,
 .result-head a:hover {
-    color: #00539f;
+  color: #00539f;
 }
 .breadcrumbs a:focus,
 .result-head a:focus {
-    color: #00539f;
-    text-decoration: none;
+  color: #00539f;
+  text-decoration: none;
 }
 
 /* Footer */
 .footer {
-    color: #999;
-    font-size: .7rem;
-    margin: 0 0 0 1.2rem;
+  color: #999;
+  font-size: .7rem;
+  margin: 0 0 0 1.2rem;
 }
 
 /* Navigation panel */
 .panel {
-    /* (position:fixed is always relative to the viewport's initial containing
-       block, so it doesn't matter where this node lives in the DOM, apart from
-       accessibility tree purposes.) */
-    position: fixed;
-    top: 105px;
-    right: 22px;
-    background-color: #fff;
-    border: 1px solid #e0e0e0;
-    border-right: 0;
-    min-width: 12rem;
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: calc(100% - 150px);
-    z-index: 102;
+  /* (position:fixed is always relative to the viewport's initial containing
+     block, so it doesn't matter where this node lives in the DOM, apart from
+     accessibility tree purposes.) */
+  position: fixed;
+  top: 105px;
+  right: 22px;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-right: 0;
+  min-width: 12rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100% - 150px);
+  z-index: 102;
 }
 #panel-toggle {
-    display: inline-block;
-    background-color: #333;
-    color: #fff;
-    margin: 0;
-    padding: .5rem .2rem .5rem .7rem;
-    border: 0;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
+  display: inline-block;
+  background-color: #333;
+  color: #fff;
+  margin: 0;
+  padding: .5rem .2rem .5rem .7rem;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
 }
 .navpanel-icon {
-    display: inline-block;
-    margin-right: .5rem;
-    transform: rotate(-90deg);
-    transition: all .1s;
+  display: inline-block;
+  margin-right: .5rem;
+  transform: rotate(-90deg);
+  transition: all .1s;
 }
 .navpanel-icon.expanded {
-    transform: rotate(0deg);
-    transition: all .1s;
+  transform: rotate(0deg);
+  transition: all .1s;
 }
 .navpanel-icon:before {
-    font-family: icons;
-    content: "\e801";
-    speak: none;
+  font-family: icons;
+  content: "\e801";
+  speak: none;
 }
 .panel h4 {
-    margin: 0;
-    padding: .5rem;
+  margin: 0;
+  padding: .5rem;
 }
 .panel ul {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .panel a.class {
-    background-position: 4px 8px;
+  background-position: 4px 8px;
 }
 .panel a.method {
-    background-position: 4px 6px;
+  background-position: 4px 6px;
 }
 .panel a.field {
-    background-position: 2px 10px;
+  background-position: 2px 10px;
 }
 .panel section a {
-    display: inline-block;
-    background-color: #fff;
-    width: 100%;
+  display: inline-block;
+  background-color: #fff;
+  width: 100%;
 }
 .panel section a:hover {
-    background-color: #e0e0e0;
-    text-decoration: none;
+  background-color: #e0e0e0;
+  text-decoration: none;
 }
 .panel section a:focus {
-    background-color: #e0e0e0;
-    text-decoration: underline;
+  background-color: #e0e0e0;
+  text-decoration: underline;
 }
 
 /* Info Boxes */
 .info-box {
-    border: 1px solid gray;
-    border-radius: 8px;
-    padding: .8rem;
-    margin: .5rem;
-    font-size: 110%;
+  border: 1px solid gray;
+  border-radius: 8px;
+  padding: .8rem;
+  margin: .5rem;
+  font-size: 110%;
 }
 .info-box-error {
-    background-color: #ffeeee;
+  background-color: #ffeeee;
 }
 .info-box-warning {
-    background-color: #ffffee;
+  background-color: #ffffee;
 }
 .info-box-info {
-    background-color: #eeffee;
+  background-color: #eeffee;
 }
 .info-box ul {
-    padding-inline-start: 20px !important;
-    margin: 0;
+  padding-inline-start: 20px !important;
+  margin: 0;
 }
 /* make it obvious that links in the info box are links */
 .info-box a {
-    text-decoration: underline !important;
+  text-decoration: underline !important;
 }
 .info-box .test-skip-info {
-    font-family: monospace;
-    background-color: #eee;
-    padding: 5px;
-    margin: -5px;
+  font-family: monospace;
+  background-color: #eee;
+  padding: 5px;
+  margin: -5px;
 }
 
 
 .no-results {
-    clear: both;
-    font-style: italic;
+  clear: both;
+  font-style: italic;
 }
 #fetch-results {
-    display: none;
+  display: none;
 }
 
 /* Hovering over symbol names */
@@ -534,22 +534,22 @@ span[data-symbols].hovered {
 
 /* Help screen */
 .intro {
-    font: 14px/1.5 Arial, Helvetica, sans-serif;
-    margin-left: 10%;
-    margin-right: 10%;
-    margin-bottom: 10%;
+  font: 14px/1.5 Arial, Helvetica, sans-serif;
+  margin-left: 10%;
+  margin-right: 10%;
+  margin-bottom: 10%;
 }
 
 .intro td,
 .intro th {
-    text-align: center;
-    vertical-align: middle;
+  text-align: center;
+  vertical-align: middle;
 }
 .intro td[yes]::before {
-    content: "\2713";
+  content: "\2713";
 }
 .intro td a {
-    text-decoration: underline;
+  text-decoration: underline;
 }
 
 /* ## Line number goto ##
@@ -565,7 +565,7 @@ span[data-symbols].hovered {
 */
 .goto {
   /* This needs to be large enough so that the "position: sticky"
-     stuck lines don't obscure the line we're trying to display. */
+   stuck lines don't obscure the line we're trying to display. */
   scroll-margin-top: calc((var(--nesting-level, -1) + 1) * 12px * 1.3);
 }
 
@@ -577,275 +577,275 @@ span[data-symbols].hovered {
 
 /* ## Blame ## */
 .blame-strip {
-    display: block;
-    width: 20px;
-    height: 100%;
-    padding: 0;
-    margin: 0;
-    touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
-    touch-action: pinch-zoom;
+  display: block;
+  width: 20px;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
+  touch-action: pinch-zoom;
 }
 /* blame zebra stripes: we alternate colors whenever the revision a line is from
    changes between lines. */
 .c1 {
-    background: var(--blame-c1);
+  background: var(--blame-c1);
 }
 .c2 {
-    background: var(--blame-c2);
+  background: var(--blame-c2);
 }
 
 .blame-popup {
-    position: absolute;
-    /* positioned by BlamePopup in blame.js */
-    top: 0;
-    left: 0;
-    width: 600px;
-    padding: 10px;
-    background: #404040;
-    box-shadow: 3px 3px 3px grey;
-    border-radius: 3px;
-    color: white;
-    text-align: left;
-    z-index: 200;
-    cursor: auto;
+  position: absolute;
+  /* positioned by BlamePopup in blame.js */
+  top: 0;
+  left: 0;
+  width: 600px;
+  padding: 10px;
+  background: #404040;
+  box-shadow: 3px 3px 3px grey;
+  border-radius: 3px;
+  color: white;
+  text-align: left;
+  z-index: 200;
+  cursor: auto;
 }
 .blame-popup a {
-    text-decoration: underline;
-    cursor: pointer;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .deemphasize {
-    color: #8c8c8c !important;
+  color: #8c8c8c !important;
 }
 .minus-line {
-    background-color: rgb(255, 204, 204);
+  background-color: rgb(255, 204, 204);
 }
 .plus-line {
-    background-color: rgb(153, 204, 255);
+  background-color: rgb(153, 204, 255);
 }
 
 /* Search box */
 input, select {
-    padding: .5em;
+  padding: .5em;
 }
 input[placeholder], input::placeholder {
-    text-overflow: ellipsis;
+  text-overflow: ellipsis;
 }
 #search-box #query {
-    width: 100%;
+  width: 100%;
 }
 #search-box #path {
-    width: 100%;
+  width: 100%;
 }
 #query {
-    /* Leave room for spinner. */
-    padding-right: 40px;
+  /* Leave room for spinner. */
+  padding-right: 40px;
 }
 .in-progress #spinner {
-    background: transparent url('/static/images/spinner-large.gif') 0 0 / contain no-repeat;
+  background: transparent url('/static/images/spinner-large.gif') 0 0 / contain no-repeat;
 }
 #spinner {
-    display: inline-block;
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    padding-left: 2rem;
-    width: auto;
-    bottom: 10px
+  display: inline-block;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding-left: 2rem;
+  width: auto;
+  bottom: 10px
 }
 .access-key {
-    text-decoration: underline;
+  text-decoration: underline;
 }
 #search-box {
-    background-color: #f5f5f5;
-    background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
-    border-bottom: 1px solid #6d6d6d;
-    border-top: 1px solid #f5f5f5;
-    color: #333;
-    padding: .8rem;
-    width: 100%;
+  background-color: #f5f5f5;
+  background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
+  border-bottom: 1px solid #6d6d6d;
+  border-top: 1px solid #f5f5f5;
+  color: #333;
+  padding: .8rem;
+  width: 100%;
 }
 
 #search-box > fieldset {
-    position: relative;
-    margin: 0;
-    padding: 0;
-    border: 0;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
 
-    display: flex;
-    flex-direction: row;
-    align-items: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 :root.old-rev #search-box {
-    padding-bottom: .4rem;
+  padding-bottom: .4rem;
 }
 #revision {
-    padding-top: .2rem;
-    color: #656565;
+  padding-top: .2rem;
+  color: #656565;
 }
 #revision a {
-    text-decoration: underline;
-    cursor: pointer;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .v-flex-container {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 #query-section {
-    flex: 6;
-    position: relative;
+  flex: 6;
+  position: relative;
 }
 #option-section {
-    flex-grow: 0;
-    flex-shrink: 0;
-    flex-basis: auto;
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: auto;
 
-    justify-content: center;
-    padding: 0 2rem 0 0;
-    /*min-width: 9rem;*/
-    /*align-self: center;*/
+  justify-content: center;
+  padding: 0 2rem 0 0;
+  /*min-width: 9rem;*/
+  /*align-self: center;*/
 }
 #path-section {
-    flex: 3;
+  flex: 3;
 }
 /*http://developer.yahoo.com/blogs/ydn/posts/2012/10/clip-your-hidden-content-for-better-accessibility/*/
 .visually-hidden {
-    position: absolute;
-    clip: rect(1px 1px 1px 1px); /* IE6, IE7 */
-    clip: rect(1px, 1px, 1px, 1px);
-    padding:0;
-    border:0;
-    height: 1px;
-    width: 1px;
-    overflow: hidden;
+  position: absolute;
+  clip: rect(1px 1px 1px 1px); /* IE6, IE7 */
+  clip: rect(1px, 1px, 1px, 1px);
+  padding:0;
+  border:0;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
 }
 /* Message bubble */
 .bubble {
-    border: 1px solid #ccc;
-    border-radius: 9px;
-    color: #6c6c6c;
-    display: none;
-    font-size: 85%;
-    padding: 0.1rem 30px 0.1rem 34px;
-    position: absolute;
-    top: .25rem;
+  border: 1px solid #ccc;
+  border-radius: 9px;
+  color: #6c6c6c;
+  display: none;
+  font-size: 85%;
+  padding: 0.1rem 30px 0.1rem 34px;
+  position: absolute;
+  top: .25rem;
 }
 /* The big triangle */
 .bubble:before {
-    content: "";
-    position: absolute;
-    border-style: solid;
-    border-color: #ccc transparent;
-    /* reduce the damage in FF3.0 */
-    display: block;
-    width: 0;
+  content: "";
+  position: absolute;
+  border-style: solid;
+  border-color: #ccc transparent;
+  /* reduce the damage in FF3.0 */
+  display: block;
+  width: 0;
 
-    top: -9px; /* value = - border-top-width - border-bottom-width */
-    bottom: auto;
-    right: auto;
-    left: 11px; /* controls horizontal position */
-    border-width: 0 9px 9px;
+  top: -9px; /* value = - border-top-width - border-bottom-width */
+  bottom: auto;
+  right: auto;
+  left: 11px; /* controls horizontal position */
+  border-width: 0 9px 9px;
 }
 /* The small triangle */
 .bubble:after {
-    content: "";
-    position: absolute;
-    border-style: solid;
-    border-color: #fff transparent;
-    /* reduce the damage in FF3.0 */
-    display: block;
-    width: 0;
+  content: "";
+  position: absolute;
+  border-style: solid;
+  border-color: #fff transparent;
+  /* reduce the damage in FF3.0 */
+  display: block;
+  width: 0;
 
-    top: -8px; /* value = - border-top-width - border-bottom-width */
-    bottom: auto;
-    right: auto;
-    left: 11px; /* value = (:before left) + (:before border-left) - (:after border-left) */
-    border-width: 0 9px 9px;
+  top: -8px; /* value = - border-top-width - border-bottom-width */
+  bottom: auto;
+  right: auto;
+  left: 11px; /* value = (:before left) + (:before border-left) - (:after border-left) */
+  border-width: 0 9px 9px;
 }
 .bubble.info {
-    background: white url(/static/images/info.gif) 12px 0 / 3ex no-repeat;
+  background: white url(/static/images/info.gif) 12px 0 / 3ex no-repeat;
 }
 .bubble.warning {
-    background: white url('/static/images/warning.gif') 10px -2px / 3.5ex no-repeat;
+  background: white url('/static/images/warning.gif') 10px -2px / 3.5ex no-repeat;
 }
 .bubble.error {
-    background: white url(/static/images/error.gif) 12px 0 / 3ex no-repeat;
+  background: white url(/static/images/error.gif) 12px 0 / 3ex no-repeat;
 }
 .zero-size-container {
-    position: relative;
-    height: 0;
-    width: 100%;
+  position: relative;
+  height: 0;
+  width: 100%;
 }
 @media only screen and (min-width: 740px) {
-    .bubble {
-        margin-right: 16%;  /* 100% minus the above */
-    }
+  .bubble {
+    margin-right: 16%;  /* 100% minus the above */
+  }
 }
 
 @media only screen and (min-device-width: 320px) {
-    .bubble {
-        margin-right: 38%;  /* 100% minus the above */
-    }
-    input[type="submit"] {
-        margin-right: 14%;
-    }
+  .bubble {
+    margin-right: 38%;  /* 100% minus the above */
+  }
+  input[type="submit"] {
+    margin-right: 14%;
+  }
 }
 
 .svg-preview > h4 {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .svg-preview > a {
-    display: block;
+  display: block;
 }
 
 .svg-preview > a > img {
-    float: left;
-    clear: both;
-    min-height: 50px;
-    max-height: 300px;
-    min-width: 50px;
-    max-width: 300px;
-    box-sizing: content-box;
-    border: 1px dashed #555;
-    margin-top: 1em;
-    margin-bottom: 1em;
+  float: left;
+  clear: both;
+  min-height: 50px;
+  max-height: 300px;
+  min-width: 50px;
+  max-width: 300px;
+  box-sizing: content-box;
+  border: 1px dashed #555;
+  margin-top: 1em;
+  margin-bottom: 1em;
 }
 
 #svg-preview-checkerboard {
-    margin-inline-start: 0;
+  margin-inline-start: 0;
 }
 
 #svg-preview-checkerboard:checked + label + a > img {
-    background-image:
-      linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%),
-      linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%);
-    background-size: 10px 10px;
-    background-position: 0 0, 5px 5px;
+  background-image:
+    linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%),
+    linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
 }
 
 .syn_type {
-    color: teal;
+  color: teal;
 }
 
 .syn_def {
-    font-weight: 600;
+  font-weight: 600;
 }
 
 .syn_string {
-    color: green;
+  color: green;
 }
 
 .syn_comment {
-    color: darkred;
+  color: darkred;
 }
 
 .syn_tag,
 .syn_reserved {
-    color: blue;
+  color: blue;
 }
 
 .syn_regex {
-    color: #6d7b8d;
+  color: #6d7b8d;
 }
 
 /* ## Code Coverage Styling ## */
@@ -895,52 +895,52 @@ input[placeholder], input::placeholder {
  * color blind friendly!).
  */
 :root {
-    --cov-strip-width: 5px;
-    --cov-log10-base: 3px;
-    --cov-log10-scale: 2px;
-    --cov-strip-gap: 3px;
-    --cov-hit-color: #d1e5f0;
-    --cov-miss-color: #f4a582;
+  --cov-strip-width: 5px;
+  --cov-log10-base: 3px;
+  --cov-log10-scale: 2px;
+  --cov-strip-gap: 3px;
+  --cov-hit-color: #d1e5f0;
+  --cov-miss-color: #f4a582;
 }
 
 .cov-strip {
-    display: block;
-    width: 5px;
-    height: 100%;
-    padding: 0;
-    margin: 0;
-    touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
-    touch-action: pinch-zoom;
+  display: block;
+  width: 5px;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
+  touch-action: pinch-zoom;
 }
 
 .cov-interpolated.cov-miss {
-    background-color: var(--cov-miss-unhovered-color, #f7f7f7);
+  background-color: var(--cov-miss-unhovered-color, #f7f7f7);
 }
 .cov-interpolated.cov-hit {
-    background-color: var(--cov-hit-unhovered-color, #f7f7f7);
+  background-color: var(--cov-hit-unhovered-color, #f7f7f7);
 }
 
 .cov-known.cov-miss {
-    background-color: #f4a582;
+  background-color: #f4a582;
 }
 
 .cov-log10-0,
 .cov-log10-1 {
-    background-color: var(--cov-hit-unhovered-color, #d1e5f0);
+  background-color: var(--cov-hit-unhovered-color, #d1e5f0);
 }
 .cov-log10-2,
 .cov-log10-3 {
-    background-color: var(--cov-hit-unhovered-color, #92c5de);
+  background-color: var(--cov-hit-unhovered-color, #92c5de);
 }
 .cov-log10-4,
 .cov-log10-5 {
-    background-color: var(--cov-hit-unhovered-color, #4393c3);
+  background-color: var(--cov-hit-unhovered-color, #4393c3);
 }
 .cov-log10-6,
 .cov-log10-7 {
-    background-color: var(--cov-hit-unhovered-color, #2166ac);
+  background-color: var(--cov-hit-unhovered-color, #2166ac);
 }
 .cov-log10-8,
 .cov-log10-9 {
-    background-color: var(--cov-hit-unhovered-color, #053061);
+  background-color: var(--cov-hit-unhovered-color, #053061);
 }
