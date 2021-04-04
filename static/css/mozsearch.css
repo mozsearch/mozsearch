@@ -659,10 +659,6 @@ input[placeholder],
 input:-moz-placeholder {
     text-overflow: ellipsis;
 }
-input[type="checkbox"] {
-    /*width: 1rem;*/
-    /*height: 1rem;*/
-}
 #search-box #query {
     width: 100%;
 }
