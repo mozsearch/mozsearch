@@ -140,50 +140,47 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     ];
     head_seq.extend(css_tags);
 
+
     let fieldset = vec![
-        F::S(r#"<div id="search-box" class="h-flex-container" role="group">"#),
+        F::S(r#"<div id="query-section">"#),
         F::Indent(vec![
-            F::S(r#"<div id="query-section">"#),
+            F::S(r#"<label for="query" class="query_label visually-hidden">Find</label>"#),
+            F::T(format!(
+                r#"<input type="text" name="q" value="" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {}" autocomplete="off" />"#,
+                opt.tree_name
+            )),
+            F::S(r#"<div class="zero-size-container">"#),
             F::Indent(vec![
-                F::S(r#"<label for="query" class="query_label visually-hidden">Find</label>"#),
-                F::T(format!(
-                    r#"<input type="text" name="q" value="" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {}" autocomplete="off" />"#,
-                    opt.tree_name
-                )),
-                F::S(r#"<div class="zero-size-container">"#),
-                F::Indent(vec![
-                    F::S(r#"<div class="bubble" id="query-bubble">"#),
-                    F::S("</div>"),
-                ]),
+                F::S(r#"<div class="bubble" id="query-bubble">"#),
                 F::S("</div>"),
-                F::S(r#"<section id="spinner"></section>"#),
             ]),
             F::S("</div>"),
-            F::S(r#"<div id="option-section" class="v-flex-container">"#),
+            F::S(r#"<section id="spinner"></section>"#),
+        ]),
+        F::S("</div>"),
+        F::S(r#"<div id="option-section" class="v-flex-container">"#),
+        F::Indent(vec![
+            F::S(r#"<label for="case">"#),
+            F::Indent(vec![F::S(
+                r#"<input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c"/><span class="access-key">C</span>ase-sensitive"#,
+            )]),
+            F::S("</label>"),
+            F::S(r#"<label for="regexp">"#),
+            F::Indent(vec![F::S(
+                r#"<input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search"#,
+            )]),
+            F::S("</label>"),
+        ]),
+        F::S("</div>"),
+        F::S(r#"<div id="path-section">"#),
+        F::Indent(vec![
+            F::S(r#"<label for="query" class="query_label visually-hidden">Path</label>"#),
+            F::S(
+                r#"<input type="text" name="path" value="" maxlength="2048" id="path" accesskey="p" title="Path" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />"#,
+            ),
+            F::S(r#"<div class="zero-size-container">"#),
             F::Indent(vec![
-                F::S(r#"<label for="case">"#),
-                F::Indent(vec![F::S(
-                    r#"<input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c"/><span class="access-key">C</span>ase-sensitive"#,
-                )]),
-                F::S("</label>"),
-                F::S(r#"<label for="regexp">"#),
-                F::Indent(vec![F::S(
-                    r#"<input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search"#,
-                )]),
-                F::S("</label>"),
-            ]),
-            F::S("</div>"),
-            F::S(r#"<div id="path-section">"#),
-            F::Indent(vec![
-                F::S(r#"<label for="query" class="query_label visually-hidden">Path</label>"#),
-                F::S(
-                    r#"<input type="text" name="path" value="" maxlength="2048" id="path" accesskey="p" title="Path" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />"#,
-                ),
-                F::S(r#"<div class="zero-size-container">"#),
-                F::Indent(vec![
-                    F::S(r#"<div class="bubble" id="path-bubble">"#),
-                    F::S("</div>"),
-                ]),
+                F::S(r#"<div class="bubble" id="path-bubble">"#),
                 F::S("</div>"),
             ]),
             F::S("</div>"),
@@ -204,7 +201,6 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         None => vec![],
     };
 
-    let root_class = if opt.revision.is_some() { "old-rev" } else { "" };
     let form = vec![
         F::S("<fieldset>"),
         F::Indent(fieldset),
@@ -214,6 +210,12 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         F::Indent(revision),
         F::S("</div>"),
     ];
+
+    let root_class = if opt.revision.is_some() {
+        "old-rev"
+    } else {
+        ""
+    };
 
     let f = F::Seq(vec![
         F::S("<!DOCTYPE html>"),
@@ -226,7 +228,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         F::Indent(vec![
             F::S(r#"<div id="fixed-header">"#),
             F::T(format!(
-                r#"<form method="get" action="/{}/search" id="basic_search" class="search-box">"#,
+                r#"<form method="get" action="/{}/search" class="search-box" id="search-box">"#,
                 opt.tree_name
             )),
             F::Indent(form),
@@ -348,8 +350,7 @@ pub fn generate_panel(
                         F::S("<li>"),
                         F::T(format!(
                             r#"<a href="{}" title="{}" class="icon"{}>{}{}{}</a>"#,
-                            item.link, item.title, update_attr, item.title,
-                            accel, copy
+                            item.link, item.title, update_attr, item.title, accel, copy
                         )),
                         F::S("</li>"),
                     ])
