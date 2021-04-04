@@ -43,8 +43,6 @@ table {
 
 /* apply a natural box layout model to all elements */
 * {
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
     box-sizing: border-box;
 }
 
@@ -348,11 +346,7 @@ body {
     margin: 0;
     padding: 0;
     border: 1px solid #333;
-    -webkit-border-radius: 6px;
-    -moz-border-radius: 6px;
     border-radius: 6px;
-    -webkit-border-top-left-radius: 0;
-    -moz-border-top-left-radius: 0;
     border-top-left-radius: 0;
     width: auto;
     list-style: none;
@@ -445,14 +439,10 @@ body {
 .navpanel-icon {
     display: inline-block;
     margin-right: .5rem;
-    -webkit-transform: rotate(-90deg);
-    -moz-transform: rotate(-90deg);
     transform: rotate(-90deg);
     transition: all .1s;
 }
 .navpanel-icon.expanded {
-    -webkit-transform: rotate(0deg);
-    -moz-transform: rotate(0deg);
     transform: rotate(0deg);
     transition: all .1s;
 }
