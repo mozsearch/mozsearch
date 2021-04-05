@@ -8,22 +8,25 @@
 }
 
 :root {
-  /* ### Highlighting ### */
-  /* Selected source line background color.  This is used when clicking on a
-   line-number (optionally holding ctrl or shift) to select it/a range. */
-  --highlighted-bgcolor: rgb(255, 255, 204);
-
-  /* ### Sticky Headers ### */
-
-  /* The background color applied to code lines that start a block and stick
-   around until the block is closed. (They have the "stuck" class applied.) */
-  --sticky-header-bgcolor: #ffe;
-
   /* ### Blame ### */
   /* Static blame zebra stripe colors. This may change in the future to be
    zebra-striping with logarithmic age coloring. */
-  --blame-c1: lightgray;
-  --blame-c2: darkgray;
+  --blame-c1: var(--grey-30);
+  --blame-c2: var(--grey-43);
+
+  --sf-highlight-background: rgb(255, 255, 204);
+  --sf-source-line-color: var(--theme-body-color);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --blame-c1: var(--grey-55);
+    --blame-c2: var(--grey-70);
+
+    --sf-highlight-background: rgb(57, 57, 42);
+    /* slightly more contrast is useful for reading in dark mode */
+    --sf-source-line-color: var(--theme-text-color-strong);
+  }
 }
 
 /**
@@ -48,8 +51,8 @@ table {
 
 :root {
   font: 12px/1.5 Arial, Helvetica, sans-serif;
-  background-color: #fff;
-  color: #333;
+  background-color: var(--theme-body-background);
+  color: var(--theme-body-color);
 }
 
 body {
@@ -79,7 +82,7 @@ table#file {
   width: 100%;
 }
 table.folder-content thead tr:first-child {
-  color: #555;
+  color: var(--theme-body-text-color-inactive);
   padding: 0.5em;
 }
 table th {
@@ -98,12 +101,10 @@ table th {
 }
 table.folder-content thead tr:first-child,
 table.folder-content tr:nth-child(even) {
-  background-color: #f5f5f5;
+  background-color: var(--theme-button-background);
 }
-table.folder-content tbody tr:hover,
-table tbody tr:hover,
-.context-menu a:hover {
-  background-color: #e8e8e8;
+table.folder-content tbody tr:hover {
+  background-color: var(--theme-button-active-background);
 }
 table.folder-content td {
   padding: 0;
@@ -150,7 +151,7 @@ td#line-numbers {
   text-align: right;
   padding: 0 0.5rem;
   /* this was originally set on the ".file td:first-child" */
-  color: #aaa;
+  color: var(--theme-text-color-inactive);
   width: 8ex;
   flex-shrink: 0;
   /* This prevents shift-clicking in non-gecko browsers from selecting all
@@ -161,7 +162,7 @@ td#line-numbers {
   user-select: none;
 }
 .highlighted {
-  background: none repeat scroll content-box 0 0 rgb(255, 255, 204) !important;
+  background: none repeat scroll content-box 0 0 var(--sf-highlight-background) !important;
 }
 .source-line {
   margin: 0;
@@ -169,10 +170,11 @@ td#line-numbers {
   display: inline-block;
   white-space: pre;
   flex-grow: 1;
+  color: var(--sf-source-line-color);
 }
 
 .source-line-with-number.stuck {
-  background: var(--sticky-header-bgcolor);
+  background: var(--theme-body-emphasized-background);
 }
 .source-line-with-number.last-stuck {
   box-shadow: 0px 4px 8px #0002;
@@ -268,7 +270,7 @@ body {
   /* even with our "stuck" and "last-stuck" classes, it's important to have an
    opaque background color for these because those classes don't take effect
    immediately. */
-  background-color: white;
+  background-color: var(--theme-body-background);
   top: calc(var(--nesting-level) * 12px * 1.3);
   z-index: calc(100 - var(--nesting-level));
 }
@@ -291,7 +293,7 @@ body {
 .left-column,
 .file td:first-child {
   text-align: right;
-  color: #aaa;
+  color: var(--theme-text-color-inactive);
   width: 8ex;
 }
 .results td {
@@ -344,7 +346,7 @@ body {
 
 .expando {
   cursor: pointer;
-  color: black;
+  color: var(--theme-body-color);
 }
 /* End search results */
 
@@ -360,10 +362,11 @@ body {
   /* absolutely positioned within the containing block of the <body> relative
      to the click event */
   position: absolute;
-  background-color: #fff;
+  background-color: var(--theme-popup-background);
+  color: var(--theme-popup-color);
   margin: 0;
   padding: 0;
-  border: 1px solid #333;
+  border: 1px solid var(--theme-popup-border-color);
   border-radius: 6px;
   border-top-left-radius: 0;
   width: auto;
@@ -373,6 +376,9 @@ body {
 .context-menu a {
   display: block;
   text-decoration: none;
+}
+.context-menu a:hover {
+  background-color: var(--theme-popup-dimmed);
 }
 .context-menu li:first-child a:hover {
   border-top-right-radius: 6px;
@@ -407,15 +413,15 @@ body {
 .bubble a:visited,
 .result-head a:link,
 .result-head a:visited {
-  color: #0095dd;
+  color: var(--theme-highlight-blue);
 }
 .breadcrumbs a:hover,
 .result-head a:hover {
-  color: #00539f;
+  color: var(--theme-highlight-bluegrey);
 }
 .breadcrumbs a:focus,
 .result-head a:focus {
-  color: #00539f;
+  color: var(--theme-highlight-bluegrey);
   text-decoration: none;
 }
 
@@ -434,9 +440,9 @@ body {
   position: fixed;
   top: 105px;
   right: 22px;
-  background-color: #fff;
-  border: 1px solid #e0e0e0;
-  border-right: 0;
+  background-color: var(--theme-popup-background);
+  color: var(--theme-popup-color);
+  border: 1px solid var(--theme-popup-border-color);
   min-width: 12rem;
   overflow-y: auto;
   overflow-x: hidden;
@@ -445,14 +451,17 @@ body {
 }
 #panel-toggle {
   display: inline-block;
-  background-color: #333;
-  color: #fff;
+  background-color: var(--theme-toolbar-background);
+  color: var(--theme-toolbar-selected-color);
   margin: 0;
   padding: 0.5rem 0.2rem 0.5rem 0.7rem;
   border: 0;
   width: 100%;
   text-align: left;
   cursor: pointer;
+}
+#panel-content {
+  border-top: 1px solid var(--theme-splitter-color);
 }
 .navpanel-icon {
   display: inline-block;
@@ -489,34 +498,39 @@ body {
 }
 .panel section a {
   display: inline-block;
-  background-color: #fff;
+  background-color: var(--theme-popup-background);
   width: 100%;
 }
 .panel section a:hover {
-  background-color: #e0e0e0;
+  background-color: var(--theme-popup-dimmed);
   text-decoration: none;
 }
 .panel section a:focus {
-  background-color: #e0e0e0;
+  background-color: var(--theme-popup-dimmed);
   text-decoration: underline;
 }
 
 /* Info Boxes */
 .info-box {
-  border: 1px solid gray;
   border-radius: 8px;
   padding: 0.8rem;
   margin: 0.5rem;
   font-size: 110%;
 }
 .info-box-error {
-  background-color: #ffeeee;
+  background-color: var(--theme-error-background);
+  color: var(--theme-error-color);
+  border: 1px solid var(--theme-error-border);
 }
 .info-box-warning {
-  background-color: #ffffee;
+  background-color: var(--theme-warning-background);
+  color: var(--theme-warning-color);
+  border: 1px solid var(--theme-warning-border);
 }
 .info-box-info {
-  background-color: #eeffee;
+  background-color: var(--theme-message-background);
+  color: var(--theme-message-color);
+  border: 1px solid var(--theme-message-border);
 }
 .info-box ul {
   padding-inline-start: 20px !important;
@@ -528,7 +542,7 @@ body {
 }
 .info-box .test-skip-info {
   font-family: monospace;
-  background-color: #eee;
+  background-color: var(--theme-body-emphasized-background);
   padding: 5px;
   margin: -5px;
 }
@@ -546,7 +560,8 @@ span[data-symbols]:hover {
   cursor: pointer;
 }
 span[data-symbols].hovered {
-  background-color: yellow;
+  background-color: var(--theme-contrast-background);
+  color: var(--theme-contrast-color);
 }
 
 /* Help screen */
@@ -633,11 +648,23 @@ span[data-symbols].hovered {
 .deemphasize {
   color: #8c8c8c !important;
 }
+
+/* FIXME: Use the old colors for the diffs in light mode, as the devtools
+ * add/remove colors seem less accessible than the existing ones. */
 .minus-line {
   background-color: rgb(255, 204, 204);
 }
 .plus-line {
   background-color: rgb(153, 204, 255);
+}
+
+@media (prefers-color-scheme: dark) {
+  .minus-line {
+    background-color: var(--diff-remove-background-color);
+  }
+  .plus-line {
+    background-color: var(--diff-add-background-color);
+  }
 }
 
 /* Search box */
@@ -676,13 +703,20 @@ input::placeholder {
   text-decoration: underline;
 }
 #search-box {
-  background-color: #f5f5f5;
-  background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
-  border-bottom: 1px solid #6d6d6d;
-  border-top: 1px solid #f5f5f5;
-  color: #333;
+  background-color: var(--theme-toolbar-background);
+  border-bottom: 1px solid var(--theme-toolbar-separator);
+  border-top: 1px solid var(--theme-toolbar-separator);
+  color: var(--toolbarbutton-focus-color);
   padding: 0.8rem;
   width: 100%;
+}
+
+#search-box input {
+  padding: 8px;
+  background-color: var(--theme-body-background);
+  color: var(--theme-body-color);
+  border: 1px solid var(--theme-popup-border-color);
+  border-radius: 4px;
 }
 
 #search-box > fieldset {
@@ -700,7 +734,7 @@ input::placeholder {
 }
 #revision {
   padding-top: 0.2rem;
-  color: #656565;
+  color: var(--theme-toolbar-color);
 }
 #revision a {
   text-decoration: underline;
@@ -740,9 +774,9 @@ input::placeholder {
 }
 /* Message bubble */
 .bubble {
-  border: 1px solid #ccc;
+  border: 1px solid var(--theme-popup-border-color);
   border-radius: 9px;
-  color: #6c6c6c;
+  color: var(--theme-popup-color);
   display: none;
   font-size: 85%;
   padding: 0.1rem 30px 0.1rem 34px;
@@ -754,7 +788,7 @@ input::placeholder {
   content: "";
   position: absolute;
   border-style: solid;
-  border-color: #ccc transparent;
+  border-color: var(--theme-popup-border-color) transparent;
   /* reduce the damage in FF3.0 */
   display: block;
   width: 0;
@@ -770,7 +804,7 @@ input::placeholder {
   content: "";
   position: absolute;
   border-style: solid;
-  border-color: #fff transparent;
+  border-color: var(--theme-popup-background) transparent;
   /* reduce the damage in FF3.0 */
   display: block;
   width: 0;
@@ -782,13 +816,16 @@ input::placeholder {
   border-width: 0 9px 9px;
 }
 .bubble.info {
-  background: white url(/static/images/info.gif) 12px 0 / 3ex no-repeat;
+  background: var(--theme-popup-background) url(/static/images/info.gif) 12px 0 /
+    3ex no-repeat;
 }
 .bubble.warning {
-  background: white url("/static/images/warning.gif") 10px -2px / 3.5ex no-repeat;
+  background: var(--theme-popup-background) url("/static/images/warning.gif")
+    10px -2px / 3.5ex no-repeat;
 }
 .bubble.error {
-  background: white url(/static/images/error.gif) 12px 0 / 3ex no-repeat;
+  background: var(--theme-popup-background) url(/static/images/error.gif) 12px 0 /
+    3ex no-repeat;
 }
 .zero-size-container {
   position: relative;
@@ -857,7 +894,7 @@ input::placeholder {
 }
 
 .syn_type {
-  color: teal;
+  color: var(--teal-70);
 }
 
 .syn_def {
@@ -865,7 +902,7 @@ input::placeholder {
 }
 
 .syn_string {
-  color: green;
+  color: var(--theme-highlight-green);
 }
 
 .syn_comment {
@@ -878,7 +915,22 @@ input::placeholder {
 }
 
 .syn_regex {
-  color: #6d7b8d;
+  color: var(--theme-highlight-bluegrey);
+}
+
+@media (prefers-color-scheme: dark) {
+  .syn_type {
+    color: var(--theme-highlight-purple);
+  }
+
+  .syn_comment {
+    color: var(--theme-comment);
+  }
+
+  .syn_tag,
+  .syn_reserved {
+    color: var(--theme-highlight-blue);
+  }
 }
 
 /* ## Code Coverage Styling ## */

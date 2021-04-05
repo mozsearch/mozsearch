@@ -75,11 +75,12 @@ a.type {
 
 .panel .accel,
 .panel .copy {
-  font-size: 10px;
-  border-radius: 2px;
-  padding: 1px 3px;
-  margin: 0 10px;
-  border: 1px solid #ddd;
+  background-color: var(--toolbarbutton-background);
+  color: var(--toolbarbutton-color);
+  box-sizing: content-box;
+  border: 1px solid var(--theme-toolbar-separator);
+  height: 1em;
+  padding: 3px;
 }
 
 .panel .accel {
@@ -97,13 +98,31 @@ a.type {
   box-sizing: content-box;
   cursor: pointer;
   vertical-align: middle;
-  background-image: url(/static/icons/copy.svg);
+  /* background-image: url(/static/icons/copy.svg); */
   background-position: center center;
-  background-color: #f5f5f5;
+  /* background-color: #f5f5f5; */
+}
+
+:root {
+  --copy-icon-dark: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><path fill='%2338383d' d='M14.707 8.293l-3-3A1 1 0 0 0 11 5h-1V4a1 1 0 0 0-.293-.707l-3-3A1 1 0 0 0 6 0H3a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3v3a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V9a1 1 0 0 0-.293-.707zM12.586 9H11V7.414zm-5-5H6V2.414zM6 7v2H3V2h2v2.5a.5.5 0 0 0 .5.5H8a2 2 0 0 0-2 2zm2 7V7h2v2.5a.5.5 0 0 0 .5.5H13v4z'/></svg>");
+  --copy-icon-light: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><path fill='%23d7d7db' d='M14.707 8.293l-3-3A1 1 0 0 0 11 5h-1V4a1 1 0 0 0-.293-.707l-3-3A1 1 0 0 0 6 0H3a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3v3a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V9a1 1 0 0 0-.293-.707zM12.586 9H11V7.414zm-5-5H6V2.414zM6 7v2H3V2h2v2.5a.5.5 0 0 0 .5.5H8a2 2 0 0 0-2 2zm2 7V7h2v2.5a.5.5 0 0 0 .5.5H13v4z'/></svg>");
+}
+
+.panel .copy {
+  background-image: var(--copy-icon-dark);
+}
+
+/* HACK(nika): just copy the svg into a url & change colors :s */
+@media (prefers-color-scheme: dark) {
+  .panel .copy {
+    background-image: var(--copy-icon-light);
+  }
 }
 
 .panel .copy:hover {
-  background-color: white;
+  /* FIXME: This is super broken!!! */
+  background-color: var(--theme-toolbar-selected-color);
+  background-image: var(--copy-icon-dark);
 }
 
 .panel .copy:active {
