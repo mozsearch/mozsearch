@@ -1,91 +1,92 @@
 /* icons */
 .icon.folder {
-    background: transparent url(/static/icons/mimetypes/folder.png) .5em 7px no-repeat;
-    padding: .5em .5em .5em 30px;  /* 30px = 16px icon + 7px padding above + a little more whitespace */
+  background: transparent url(/static/icons/mimetypes/folder.png) 0.5em 7px
+    no-repeat;
+  padding: 0.5em 0.5em 0.5em 30px; /* 30px = 16px icon + 7px padding above + a little more whitespace */
 }
 .folder-content {
-    clear: both;
+  clear: both;
 }
 .icon {
-    background-color: transparent;
-    background-position: .5em center;
-    background-repeat: no-repeat;
-    background-size: 16px 16px;
-    padding: .5em .5em .5em 30px;
+  background-color: transparent;
+  background-position: 0.5em center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  padding: 0.5em 0.5em 0.5em 30px;
 }
 .icon-container {
-    background-color: transparent;
-    background-repeat: no-repeat;
-    float: right;
-    padding: 8px; /* Makes the container 16x16 in order to show full icon. */
+  background-color: transparent;
+  background-repeat: no-repeat;
+  float: right;
+  padding: 8px; /* Makes the container 16x16 in order to show full icon. */
 }
 
 /* Folder context-menu */
 a.goto-folder {
-    background-image: url(/static/icons/goto_folder.png);
+  background-image: url(/static/icons/goto_folder.png);
 }
 a.path-search {
-    background-image: url(/static/icons/path_search.png);
+  background-image: url(/static/icons/path_search.png);
 }
 a.exclude-path {
-    background-image: url(/static/icons/exclude_path.png);
+  background-image: url(/static/icons/exclude_path.png);
 }
 /* End of folder context-menu */
 
 /* Context-menu and Panel icons */
 a.class {
-    background-image: url(/static/icons/class.png);
+  background-image: url(/static/icons/class.png);
 }
 a.method {
-    background-image: url(/static/icons/method.png);
+  background-image: url(/static/icons/method.png);
 }
 a.field {
-    background-image: url(/static/icons/field.png);
+  background-image: url(/static/icons/field.png);
 }
 /* End of Context-menu and Panel icons */
 
 /* Context-menu only icons */
 a.reference {
-    background-image: url(/static/icons/reference.png);
+  background-image: url(/static/icons/reference.png);
 }
 a.search {
-    background-image: url(/static/icons/search.png);
+  background-image: url(/static/icons/search.png);
 }
 a.buglink {
-    background-image: url(/static/icons/buglink.png);
+  background-image: url(/static/icons/buglink.png);
 }
 a.external_link {
-    background-image: url(/static/icons/external_link.png);
+  background-image: url(/static/icons/external_link.png);
 }
 a.jump {
-    background-image: url(/static/icons/jump.png);
+  background-image: url(/static/icons/jump.png);
 }
 a.members {
-    background-image: url(/static/icons/members.png);
+  background-image: url(/static/icons/members.png);
 }
 a.type {
-    background-image: url(/static/icons/type.png);
+  background-image: url(/static/icons/type.png);
 }
 /* End of Context-menu only icons */
 
 .panel label.panel-accel {
-    padding: 0.5rem
+  padding: 0.5rem;
 }
 
 .panel .accel,
 .panel .copy {
-    font-size: 10px;
-    border-radius: 2px;
-    padding: 1px 3px;
-    margin: 0 10px;
-    border: 1px solid #ddd;
+  font-size: 10px;
+  border-radius: 2px;
+  padding: 1px 3px;
+  margin: 0 10px;
+  border: 1px solid #ddd;
 }
 
 .panel .accel {
-    /* simulate a keyboard key effect */
-    font-family: monospace;
-    background: #f5f5f5;
-    box-shadow: 0 1px #999;
+  /* simulate a keyboard key effect */
+  font-family: monospace;
+  background: #f5f5f5;
+  box-shadow: 0 1px #999;
 }
 
 .panel .copy {
@@ -131,99 +132,99 @@ a.type {
 /* End of Panel icons that are always shown */
 
 .enum {
-    background-image: url(/static/icons/enum.png);
+  background-image: url(/static/icons/enum.png);
 }
 .struct {
-    background-image: url(/static/icons/struct.png);
+  background-image: url(/static/icons/struct.png);
 }
 .union {
-    background-image: url(/static/icons/union.png);
+  background-image: url(/static/icons/union.png);
 }
 .macro {
-    background-image: url(/static/icons/macro.png);
+  background-image: url(/static/icons/macro.png);
 }
 /* End of Panel only icons */
 
 /* MimeType Icons */
 .build {
-    background-image: url(/static/icons/mimetypes/build.png);
+  background-image: url(/static/icons/mimetypes/build.png);
 }
 /* The .c class is used in files for comments. This definition is there just to prevent overriding. */
 .icon-container.c,
-.icon.c { 
-    background-image: url(/static/icons/mimetypes/c.png);
+.icon.c {
+  background-image: url(/static/icons/mimetypes/c.png);
 }
 .conf {
-    background-image: url(/static/icons/mimetypes/conf.png);
+  background-image: url(/static/icons/mimetypes/conf.png);
 }
 .cpp {
-    background-image: url(/static/icons/mimetypes/cpp.png);
+  background-image: url(/static/icons/mimetypes/cpp.png);
 }
 .cs {
-    background-image: url(/static/icons/mimetypes/cs.png);
+  background-image: url(/static/icons/mimetypes/cs.png);
 }
 .css {
-    background-image: url(/static/icons/mimetypes/css.png);
+  background-image: url(/static/icons/mimetypes/css.png);
 }
 /* Prevents display of diff icon in the panel, which has its own */
 .results .diff,
 .folder-content .diff {
-    background-image: url(/static/icons/mimetypes/diff.png);
+  background-image: url(/static/icons/mimetypes/diff.png);
 }
 .h {
-    background-image: url(/static/icons/mimetypes/h.png);
+  background-image: url(/static/icons/mimetypes/h.png);
 }
 .html {
-    background-image: url(/static/icons/mimetypes/html.png);
+  background-image: url(/static/icons/mimetypes/html.png);
 }
 .iso {
-    background-image: url(/static/icons/mimetypes/iso.png);
+  background-image: url(/static/icons/mimetypes/iso.png);
 }
 .image {
-    background-image: url(/static/icons/mimetypes/image.png);
+  background-image: url(/static/icons/mimetypes/image.png);
 }
 .java {
-    background-image: url(/static/icons/mimetypes/java.png);
+  background-image: url(/static/icons/mimetypes/java.png);
 }
 .js {
-    background-image: url(/static/icons/mimetypes/js.png);
+  background-image: url(/static/icons/mimetypes/js.png);
 }
 .mm {
-    background-image: url(/static/icons/mimetypes/mm.png);
+  background-image: url(/static/icons/mimetypes/mm.png);
 }
 .page_white_code_red {
-    background-image: url(/static/icons/mimetypes/page_white_code_red.png);
+  background-image: url(/static/icons/mimetypes/page_white_code_red.png);
 }
 .php {
-    background-image: url(/static/icons/mimetypes/php.png);
+  background-image: url(/static/icons/mimetypes/php.png);
 }
 .py {
-    background-image: url(/static/icons/mimetypes/py.png);
+  background-image: url(/static/icons/mimetypes/py.png);
 }
 .rb {
-    background-image: url(/static/icons/mimetypes/rb.png);
+  background-image: url(/static/icons/mimetypes/rb.png);
 }
 .sh {
-    background-image: url(/static/icons/mimetypes/sh.png);
+  background-image: url(/static/icons/mimetypes/sh.png);
 }
 .svg {
-    background-image: url(/static/icons/mimetypes/svg.png);
+  background-image: url(/static/icons/mimetypes/svg.png);
 }
 .tex {
-    background-image: url(/static/icons/mimetypes/tex.png);
+  background-image: url(/static/icons/mimetypes/tex.png);
 }
 .txt {
-    background-image: url(/static/icons/mimetypes/txt.png);
+  background-image: url(/static/icons/mimetypes/txt.png);
 }
 .ui {
-    background-image: url(/static/icons/mimetypes/ui.png);
+  background-image: url(/static/icons/mimetypes/ui.png);
 }
 .unknown {
-    background-image: url(/static/icons/mimetypes/unknown.png);
+  background-image: url(/static/icons/mimetypes/unknown.png);
 }
 .vs {
-    background-image: url(/static/icons/mimetypes/vs.png);
+  background-image: url(/static/icons/mimetypes/vs.png);
 }
 .xml {
-    background-image: url(/static/icons/mimetypes/xml.png);
+  background-image: url(/static/icons/mimetypes/xml.png);
 }
