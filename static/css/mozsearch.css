@@ -1,8 +1,8 @@
 @font-face {
-  font-family: 'icons';
-  src: url('/static/fonts/icons.eot?#iefix2013') format('embedded-opentype'),
-       url('/static/fonts/icons.woff?2013') format('woff'),
-       url('/static/fonts/icons.ttf?2013') format('truetype');
+  font-family: "icons";
+  src: url("/static/fonts/icons.eot?#iefix2013") format("embedded-opentype"),
+    url("/static/fonts/icons.woff?2013") format("woff"),
+    url("/static/fonts/icons.ttf?2013") format("truetype");
   font-weight: normal;
   font-style: normal;
 }
@@ -56,7 +56,7 @@ body {
   margin: 0;
 }
 h4 {
-  margin: 0 0 .5rem 0;
+  margin: 0 0 0.5rem 0;
 }
 a:link,
 a:visited {
@@ -80,21 +80,21 @@ table#file {
 }
 table.folder-content thead tr:first-child {
   color: #555;
-  padding: .5em;
+  padding: 0.5em;
 }
 table th {
   font-weight: bold;
-  padding: .5em;
+  padding: 0.5em;
   text-align: left;
 }
 .folder-content th:first-child {
-  padding-left: .5em;
+  padding-left: 0.5em;
 }
 .folder-content th {
   padding-left: 0;
-  padding-right: .5em;
-  padding-top: .2em;
-  padding-bottom: .2em;
+  padding-right: 0.5em;
+  padding-top: 0.2em;
+  padding-bottom: 0.2em;
 }
 table.folder-content thead tr:first-child,
 table.folder-content tr:nth-child(even) {
@@ -109,14 +109,14 @@ table.folder-content td {
   padding: 0;
 }
 table.folder-content a {
-  display: block;  /* Make entire cells clickable. */
-  padding-top: .5em;
-  padding-right: .5em;
-  padding-bottom: .5em;
+  display: block; /* Make entire cells clickable. */
+  padding-top: 0.5em;
+  padding-right: 0.5em;
+  padding-bottom: 0.5em;
   text-decoration: none;
 }
 table td {
-  padding: .5em;
+  padding: 0.5em;
 }
 table.folder-content td.description {
   max-width: 60vw;
@@ -128,7 +128,7 @@ table.folder-content td.description a {
   text-overflow: ellipsis;
 }
 td.code {
-  padding: 0 0 0 .5em;
+  padding: 0 0 0 0.5em;
 }
 td#line-numbers {
   padding: 0;
@@ -190,7 +190,7 @@ td#line-numbers {
 }
 mark {
   position: relative;
-  padding: .5rem;
+  padding: 0.5rem;
 }
 
 /**
@@ -231,16 +231,36 @@ body {
  * Nesting!
  */
 
-.nesting-depth-0 { --nesting-level: 0; }
-.nesting-depth-1 { --nesting-level: 1; }
-.nesting-depth-2 { --nesting-level: 2; }
-.nesting-depth-3 { --nesting-level: 3; }
-.nesting-depth-4 { --nesting-level: 4; }
-.nesting-depth-5 { --nesting-level: 5; }
-.nesting-depth-6 { --nesting-level: 6; }
-.nesting-depth-7 { --nesting-level: 7; }
-.nesting-depth-8 { --nesting-level: 8; }
-.nesting-depth-9 { --nesting-level: 9; }
+.nesting-depth-0 {
+  --nesting-level: 0;
+}
+.nesting-depth-1 {
+  --nesting-level: 1;
+}
+.nesting-depth-2 {
+  --nesting-level: 2;
+}
+.nesting-depth-3 {
+  --nesting-level: 3;
+}
+.nesting-depth-4 {
+  --nesting-level: 4;
+}
+.nesting-depth-5 {
+  --nesting-level: 5;
+}
+.nesting-depth-6 {
+  --nesting-level: 6;
+}
+.nesting-depth-7 {
+  --nesting-level: 7;
+}
+.nesting-depth-8 {
+  --nesting-level: 8;
+}
+.nesting-depth-9 {
+  --nesting-level: 9;
+}
 
 .nesting-sticky-line {
   /* be sticky, contained within a .nesting-container */
@@ -265,7 +285,8 @@ body {
 }
 .file tr .line-number,
 .file tr .code pre code {
-  max-height: calc(12px * 1.3); /* don't let bolded code increase the line-height - see bug 1322740 comment 9 */
+  /* don't let bolded code increase the line-height - see bug 1322740 comment 9 */
+  max-height: calc(12px * 1.3);
 }
 .left-column,
 .file td:first-child {
@@ -274,7 +295,7 @@ body {
   width: 8ex;
 }
 .results td {
-  padding: .1rem .5rem;
+  padding: 0.1rem 0.5rem;
 }
 .results a {
   cursor: pointer;
@@ -283,22 +304,19 @@ body {
 .file a:target {
   background-color: gray;
   color: white;
-  padding: 0 .5rem;
+  padding: 0 0.5rem;
 }
 .results code {
   white-space: pre;
 }
-.result-head td
-{
-  padding-top: .3rem; /* Additional padding to visually seperate results.*/
+.result-head td {
+  padding-top: 0.3rem; /* Additional padding to visually seperate results.*/
   padding-bottom: 0;
 }
-.result-head td.left-column
-{
-  padding-right: .2rem; /* Moves the icon closer to the path by reducing the padding.*/
+.result-head td.left-column {
+  padding-right: 0.2rem; /* Moves the icon closer to the path by reducing the padding.*/
 }
-.result-head a
-{
+.result-head a {
   display: inline;
 }
 
@@ -373,7 +391,7 @@ body {
 
 /* Breadcrumbs */
 .path-separator {
-  margin: 0 .2rem;
+  margin: 0 0.2rem;
 }
 .breadcrumbs {
   display: inline-block;
@@ -404,7 +422,7 @@ body {
 /* Footer */
 .footer {
   color: #999;
-  font-size: .7rem;
+  font-size: 0.7rem;
   margin: 0 0 0 1.2rem;
 }
 
@@ -430,7 +448,7 @@ body {
   background-color: #333;
   color: #fff;
   margin: 0;
-  padding: .5rem .2rem .5rem .7rem;
+  padding: 0.5rem 0.2rem 0.5rem 0.7rem;
   border: 0;
   width: 100%;
   text-align: left;
@@ -438,13 +456,13 @@ body {
 }
 .navpanel-icon {
   display: inline-block;
-  margin-right: .5rem;
+  margin-right: 0.5rem;
   transform: rotate(-90deg);
-  transition: all .1s;
+  transition: all 0.1s;
 }
 .navpanel-icon.expanded {
   transform: rotate(0deg);
-  transition: all .1s;
+  transition: all 0.1s;
 }
 .navpanel-icon:before {
   font-family: icons;
@@ -453,7 +471,7 @@ body {
 }
 .panel h4 {
   margin: 0;
-  padding: .5rem;
+  padding: 0.5rem;
 }
 .panel ul {
   margin: 0;
@@ -487,8 +505,8 @@ body {
 .info-box {
   border: 1px solid gray;
   border-radius: 8px;
-  padding: .8rem;
-  margin: .5rem;
+  padding: 0.8rem;
+  margin: 0.5rem;
   font-size: 110%;
 }
 .info-box-error {
@@ -514,7 +532,6 @@ body {
   padding: 5px;
   margin: -5px;
 }
-
 
 .no-results {
   clear: both;
@@ -624,10 +641,12 @@ span[data-symbols].hovered {
 }
 
 /* Search box */
-input, select {
-  padding: .5em;
+input,
+select {
+  padding: 0.5em;
 }
-input[placeholder], input::placeholder {
+input[placeholder],
+input::placeholder {
   text-overflow: ellipsis;
 }
 #search-box #query {
@@ -641,7 +660,8 @@ input[placeholder], input::placeholder {
   padding-right: 40px;
 }
 .in-progress #spinner {
-  background: transparent url('/static/images/spinner-large.gif') 0 0 / contain no-repeat;
+  background: transparent url("/static/images/spinner-large.gif") 0 0 / contain
+    no-repeat;
 }
 #spinner {
   display: inline-block;
@@ -650,7 +670,7 @@ input[placeholder], input::placeholder {
   right: 10px;
   padding-left: 2rem;
   width: auto;
-  bottom: 10px
+  bottom: 10px;
 }
 .access-key {
   text-decoration: underline;
@@ -661,7 +681,7 @@ input[placeholder], input::placeholder {
   border-bottom: 1px solid #6d6d6d;
   border-top: 1px solid #f5f5f5;
   color: #333;
-  padding: .8rem;
+  padding: 0.8rem;
   width: 100%;
 }
 
@@ -676,10 +696,10 @@ input[placeholder], input::placeholder {
   align-items: center;
 }
 :root.old-rev #search-box {
-  padding-bottom: .4rem;
+  padding-bottom: 0.4rem;
 }
 #revision {
-  padding-top: .2rem;
+  padding-top: 0.2rem;
   color: #656565;
 }
 #revision a {
@@ -712,8 +732,8 @@ input[placeholder], input::placeholder {
   position: absolute;
   clip: rect(1px 1px 1px 1px); /* IE6, IE7 */
   clip: rect(1px, 1px, 1px, 1px);
-  padding:0;
-  border:0;
+  padding: 0;
+  border: 0;
   height: 1px;
   width: 1px;
   overflow: hidden;
@@ -727,7 +747,7 @@ input[placeholder], input::placeholder {
   font-size: 85%;
   padding: 0.1rem 30px 0.1rem 34px;
   position: absolute;
-  top: .25rem;
+  top: 0.25rem;
 }
 /* The big triangle */
 .bubble:before {
@@ -765,7 +785,7 @@ input[placeholder], input::placeholder {
   background: white url(/static/images/info.gif) 12px 0 / 3ex no-repeat;
 }
 .bubble.warning {
-  background: white url('/static/images/warning.gif') 10px -2px / 3.5ex no-repeat;
+  background: white url("/static/images/warning.gif") 10px -2px / 3.5ex no-repeat;
 }
 .bubble.error {
   background: white url(/static/images/error.gif) 12px 0 / 3ex no-repeat;
@@ -777,13 +797,13 @@ input[placeholder], input::placeholder {
 }
 @media only screen and (min-width: 740px) {
   .bubble {
-    margin-right: 16%;  /* 100% minus the above */
+    margin-right: 16%; /* 100% minus the above */
   }
 }
 
 @media only screen and (min-device-width: 320px) {
   .bubble {
-    margin-right: 38%;  /* 100% minus the above */
+    margin-right: 38%; /* 100% minus the above */
   }
   input[type="submit"] {
     margin-right: 14%;
@@ -816,9 +836,22 @@ input[placeholder], input::placeholder {
 }
 
 #svg-preview-checkerboard:checked + label + a > img {
-  background-image:
-    linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%),
-    linear-gradient(45deg, #555 25%, transparent 25%,transparent 75%, #555 75%, #555 100%);
+  background-image: linear-gradient(
+      45deg,
+      #555 25%,
+      transparent 25%,
+      transparent 75%,
+      #555 75%,
+      #555 100%
+    ),
+    linear-gradient(
+      45deg,
+      #555 25%,
+      transparent 25%,
+      transparent 75%,
+      #555 75%,
+      #555 100%
+    );
   background-size: 10px 10px;
   background-position: 0 0, 5px 5px;
 }
