@@ -193,6 +193,15 @@ fn main() {
 
                 let (line, offset) = lines[lineno].clone();
 
+                // It's not specified whether column numbers are byte
+                // offsets or character offsets. For ASCII code this
+                // doesn't matter, but in the case of unicode
+                // characters, we don't want to have an integer
+                // underflow when subtracting these values below.
+                if datum.loc.col_start < offset {
+                    continue;
+                }
+
                 let peek_start = piece.peek_range.start_lineno;
                 let peek_end = piece.peek_range.end_lineno;
                 let mut peek_lines = String::new();
