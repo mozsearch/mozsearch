@@ -274,6 +274,17 @@ body {
 }
 /* Search results */
 
+/* Make context lines more subtle. */
+.results tr.before-context-line,
+.results tr.after-context-line {
+  opacity: 0.5;
+}
+
+/* Delineate the transition between consecutive groups. */
+tr.after-context-line + tr.before-context-line {
+  border-top: 1px solid gray;
+}
+
 .results tr:hover,
 .file tr:hover {
   background: none;

@@ -222,9 +222,13 @@ function hashString(string) {
   return hash;
 }
 
-function classOfResult(pathkind, qkind) {
+function classOfResult(pathkind, qkind, isContext) {
   var klass = pathkind + ":" + qkind;
-  return "EXPANDO" + hashString(klass);
+  let cssClass = "EXPANDO" + hashString(klass);
+  if (isContext) {
+    cssClass += ` ${isContext}-context-line`;
+  }
+  return cssClass;
 }
 
 function onExpandoClick(event) {
@@ -327,13 +331,13 @@ function populateResults(data, full, jumpToSingle) {
     return html;
   }
 
-  function renderSingleSearchResult(pathkind, qkind, file, line) {
+  function renderSingleSearchResult(pathkind, qkind, file, line, isContext) {
     var [start, end] = line.bounds || [0, 0];
     var before = line.line.slice(0, start).replace(/^\s+/, "");
     var middle = line.line.slice(start, end);
     var after = line.line.slice(end).replace(/\s+$/, "");
 
-    var klass = classOfResult(pathkind, qkind);
+    var klass = classOfResult(pathkind, qkind, isContext);
     var html = "";
     html += "<tr class='" + klass + "'>";
     html +=
@@ -501,7 +505,25 @@ function populateResults(data, full, jumpToSingle) {
               return;
             }
 
+            if (line.context_before) {
+              let lineDelta = -line.context_before.length;
+              for (const lineStr of line.context_before) {
+                html += renderSingleSearchResult(
+                  pathkind, qkind, file,
+                  { lno: line.lno + lineDelta, line: lineStr }, 'before');
+                lineDelta++;
+              }
+            }
             html += renderSingleSearchResult(pathkind, qkind, file, line);
+            if (line.context_after) {
+              let lineDelta = 1;
+              for (const lineStr of line.context_after) {
+                html += renderSingleSearchResult(
+                  pathkind, qkind, file,
+                  { lno: line.lno + lineDelta, line: lineStr }, 'after');
+                lineDelta++;
+              }
+            }
           });
         }
       }
