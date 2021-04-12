@@ -27,7 +27,12 @@ def collateMatches(matches):
         }
 
         if len(m.context_before):
-            line['context_before'] = list(m.context_before)
+            # The before context is provided in reverse order which is not what
+            # we want.
+            before = list(m.context_before)
+            # This does not return the list, so it's on its own line.
+            before.reverse()
+            line['context_before'] = before
         if len(m.context_after):
             line['context_after'] = list(m.context_after)
 
@@ -80,7 +85,7 @@ def startup_codesearch(data):
     args = ['codesearch', '-grpc', 'localhost:' + str(data['codesearch_port']),
             '--noreuseport',
             '-load_index', data['codesearch_path'],
-            '-max_matches', '1000', '-timeout', '10000']
+            '-max_matches', '1000', '-timeout', '10000', '-context_lines', '0']
 
     daemonize(args)
     time.sleep(5)
