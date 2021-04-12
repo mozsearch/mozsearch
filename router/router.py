@@ -66,6 +66,16 @@ def parse_search(searchString):
             result['pathre'] = parse_path_filter(pieces[i][len('path:'):])
         elif pieces[i].startswith('pathre:'):
             result['pathre'] = pieces[i][len('pathre:'):]
+        elif pieces[i].startswith('context:'):
+            # Require the context to be an integer <= 10.
+            try:
+                # This may throw.
+                context_lines = int(pieces[i][len('context:'):])
+                context_lines = max(0, context_lines)
+                context_lines = min(10, context_lines)
+                result['context_lines'] = context_lines
+            except:
+                pass
         elif pieces[i].startswith('symbol:'):
             result['symbol'] = ' '.join(pieces[i:])[len('symbol:'):].strip().replace('.', '#')
         elif pieces[i].startswith('re:'):
@@ -87,6 +97,8 @@ def is_trivial_search(parsed):
         return False
 
     for k in parsed:
+        if k == 'context_lines':
+            continue
         if len(parsed[k]) >= 3:
             return False
 
@@ -350,6 +362,11 @@ def get_json_search_results(tree_name, query):
 
     parsed = parse_search(search_string)
 
+    # Should we just be leaving this in parsed?
+    context_lines = 0
+    if 'context_lines' in parsed:
+        context_lines = parsed['context_lines']
+
     if path_filter:
         parsed['pathre'] = parse_path_filter(path_filter)
 
@@ -383,7 +400,7 @@ def get_json_search_results(tree_name, query):
         search.add_results(crossrefs.lookup(tree_name, symbols))
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
-        (substr_results, timed_out) = codesearch.search(parsed['re'], fold_case, path, tree_name)
+        (substr_results, timed_out) = codesearch.search(parsed['re'], fold_case, path, tree_name, context_lines)
         search.add_results({'Textual Occurrences': substr_results})
         hit_timeout |= timed_out
     elif 'id' in parsed:
@@ -392,7 +409,7 @@ def get_json_search_results(tree_name, query):
     elif 'default' in parsed:
         work_limit = True
         path = parsed.get('pathre', '.*')
-        (substr_results, timed_out) = codesearch.search(parsed['default'], fold_case, path, tree_name)
+        (substr_results, timed_out) = codesearch.search(parsed['default'], fold_case, path, tree_name, context_lines)
         search.add_results({'Textual Occurrences': substr_results})
         hit_timeout |= timed_out
         if 'pathre' not in parsed:

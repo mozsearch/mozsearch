@@ -20,16 +20,24 @@ def collateMatches(matches):
         if m.tree == 'mozilla-subrepo':
             path = 'mozilla/' + path
 
-        paths.setdefault(path, []).append({
+        line = {
             'lno': m.line_number,
             'bounds': [m.bounds.left, m.bounds.right],
             'line': m.line
-        })
+        }
+
+        if len(m.context_before):
+            line['context_before'] = list(m.context_before)
+        if len(m.context_after):
+            line['context_after'] = list(m.context_after)
+
+        paths.setdefault(path, []).append(line)
     results = [ {'path': p, 'icon': '', 'lines': paths[p]} for p in paths ]
     return results
 
-def do_search(host, port, pattern, fold_case, file):
-    query = livegrep_pb2.Query(line = pattern, file = file, fold_case = fold_case)
+def do_search(host, port, pattern, fold_case, file, context_lines):
+    query = livegrep_pb2.Query(line = pattern, file = file, fold_case = fold_case,
+                               context_lines = context_lines)
     log('QUERY %s', repr(query).replace('\n', ', '))
 
     channel = grpc.insecure_channel('{0}:{1}'.format(host, port))
@@ -77,11 +85,11 @@ def startup_codesearch(data):
     daemonize(args)
     time.sleep(5)
 
-def search(pattern, fold_case, path, tree_name):
+def search(pattern, fold_case, path, tree_name, context_lines):
     data = tree_data[tree_name]
 
     try:
-        return do_search('localhost', data['codesearch_port'], pattern, fold_case, path)
+        return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, context_lines)
     except Exception as e:
         log('Got exception: %s', repr(e))
         if e.code() != grpc.StatusCode.UNAVAILABLE:
@@ -93,7 +101,7 @@ def search(pattern, fold_case, path, tree_name):
         # again.
         startup_codesearch(data)
         try:
-            return do_search('localhost', data['codesearch_port'], pattern, fold_case, path)
+            return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, context_lines)
         except Exception as e:
             log('Got exception after restarting codesearch: %s', repr(e))
             # TODO: as above, do a better job of surfacing the error back to the user.
