@@ -942,6 +942,7 @@ let Analyzer = {
       break;
 
     case "OptionalExpression":
+    case "DeleteOptionalExpression":
       // a?.b is an optional expression that is equivalent to a && a.b.
       // expr.expression is an OptionalMemberExpression or OptionalCallExpression
       this.expression(expr.expression);
