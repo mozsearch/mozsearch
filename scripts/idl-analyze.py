@@ -13,7 +13,7 @@ def find_line_column(text, token, pos):
         if text[pos] == '\n':
             return (0, 0)
 
-        pos += 1
+        pos = text.find(' ', pos) + 1
 
     line = 0
     while pos > linebreaks[line]:
