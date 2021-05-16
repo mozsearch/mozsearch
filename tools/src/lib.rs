@@ -2,6 +2,7 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate clap;
 extern crate chrono;
 extern crate git2;
 extern crate linkify;
@@ -12,8 +13,12 @@ extern crate malloc_size_of_derive;
 extern crate jemalloc_sys;
 extern crate jemallocator;
 extern crate malloc_size_of;
+extern crate serde_json;
+extern crate structopt;
 
+pub mod abstract_server;
 pub mod file_format;
+pub mod cmd_pipeline;
 
 pub mod blame;
 pub mod config;

@@ -215,7 +215,7 @@ pub fn format_code(
                         None => continue,
                     };
 
-                    if jump.path == *path && jump.lineno == cur_line.into() {
+                    if jump.path == *path && jump.lineno == cur_line as u64 {
                         continue;
                     }
 
