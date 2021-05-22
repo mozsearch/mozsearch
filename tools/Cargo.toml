@@ -11,7 +11,7 @@ clap = "2"
 env_logger = "0.7.1"
 flate2 = { version = "1", features = ["tokio"] }
 getopts = "0.2.19"
-git2 = "0.13.15"
+git2 = "0.13.17"
 hyper = "0.10"
 ipdl_parser = { path = "./ipdl_parser" }
 jemalloc-sys = "0.3.2"
