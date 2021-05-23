@@ -13,6 +13,7 @@ flate2 = { version = "1", features = ["tokio"] }
 getopts = "0.2.19"
 git2 = "0.13.20"
 hyper = "0.10"
+insta = { version = "1.7.1", features = ["glob"] }
 ipdl_parser = { path = "./ipdl_parser" }
 jemalloc-sys = "0.3.2"
 jemallocator = "0.3.2"
@@ -26,8 +27,8 @@ memmap = "0.5.0"
 num_cpus = "1"
 regex = "1"
 reqwest = "0.11.3"
-rls-analysis = "0.17"
-rls-data = "0.19"
+rls-analysis = "0.18.1"
+rls-data = "0.19.1"
 rustc-serialize = "0.3.18"
 shell-words = "1.0.0"
 serde_json = "1.0.64"

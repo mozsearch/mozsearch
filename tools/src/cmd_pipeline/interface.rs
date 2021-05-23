@@ -84,3 +84,22 @@ pub struct ServerPipeline {
     pub server: Box<dyn AbstractServer + Send + Sync>,
     pub commands: Vec<Box<dyn PipelineCommand>>,
 }
+
+impl ServerPipeline {
+    pub async fn run(&self) -> Result<PipelineValues> {
+        let mut cur_values = PipelineValues::Void;
+
+        for cmd in &self.commands {
+            match cmd.execute(&self.server, cur_values).await {
+                Ok(next_values) => {
+                    cur_values = next_values;
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
+
+        Ok(cur_values)
+    }
+}

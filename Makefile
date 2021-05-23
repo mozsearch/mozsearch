@@ -34,6 +34,24 @@ build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 check-test-repo:
 	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
 
+# Target that:
+# - Runs the check script in a special mode that lets the tests run without
+#   failing, instead generating the revised expectations for anything that has
+#   changed.
+# - Runs the `cargo insta review` command which has a cool interactive UI that
+#   shows any differences.
+#
+# You would likely want to run this if:
+# - You ran `make build-test-repo` and got errors and you were like, "oh, yeah,
+#   stuff might have changed and I should look at it and maybe approve those
+#   changes."
+# - You know you already have changed stuff and need to review those changes.
+#
+# Depends on `cargo install cargo-insta`.
+review-test-repo:
+	INSTA_FORCE_PASS=1 /vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
+	cargo insta review --workspace-root=/vagrant/tests/
+
 build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/searchfox-index
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index

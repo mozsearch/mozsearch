@@ -18,7 +18,21 @@ TREE_NAME=$2
 CHECK_DISK=$3
 CHECK_SERVER_URL=$4
 
-if [[ -x $CONFIG_REPO/$TREE_NAME/check ]]
+if [[ -d $CONFIG_REPO/$TREE_NAME/checks ]]
 then
-  $CONFIG_REPO/$TREE_NAME/check "$MOZSEARCH_PATH/scripts/check-helper.sh" "$CHECK_DISK" "$CHECK_SERVER_URL"
+  if [[ $CHECK_DISK ]]; then
+    RUST_BACKTRACE=1 \
+      SEARCHFOX_SERVER=${CONFIG_FILE} \
+      SEARCHFOX_TREE=${TREE_NAME} \
+      CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
+      cargo test --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
+  fi
+  if [[ $CHECK_SERVER_URL ]]; then
+    RUST_BACKTRACE=1 \
+      SEARCHFOX_SERVER="$CHECK_SERVER_URL" \
+      SEARCHFOX_TREE=${TREE_NAME} \
+      CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
+      cargo test --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
+  fi
+  #$CONFIG_REPO/$TREE_NAME/check "$MOZSEARCH_PATH/scripts/check-helper.sh" "$CHECK_DISK" "$CHECK_SERVER_URL"
 fi

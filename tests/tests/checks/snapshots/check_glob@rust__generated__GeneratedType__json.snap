@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "kind": "def",
+    "loc": "00002:11-24",
+    "pretty": "simple::build_time_generated::GeneratedType",
+    "sym": "simple::build_time_generated::GeneratedType",
+    "target": 1
+  }
+]
