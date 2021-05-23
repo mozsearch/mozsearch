@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "kind": "def",
+    "loc": "00014:11-17",
+    "pretty": "test_rust_dependency::<MyType>::do_foo",
+    "sym": "test_rust_dependency::<MyType>::do_foo",
+    "target": 1
+  }
+]

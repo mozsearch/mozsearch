@@ -781,7 +781,7 @@ fn main() {
     };
     let loader = Loader::new(input_dirs);
 
-    let crates = rls_analysis::read_analysis_from_files(&loader, Default::default(), &[]);
+    let crates = rls_analysis::read_analysis_from_files(&loader, Default::default(), &[] as &[&str]);
 
     info!(
         "Crates: {:?}",

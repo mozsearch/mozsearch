@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "kind": "def",
+    "loc": "00037:11-14",
+    "pretty": "simple::<Loader>::new",
+    "sym": "simple::<Loader>::new",
+    "target": 1
+  }
+]

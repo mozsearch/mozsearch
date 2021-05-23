@@ -98,6 +98,13 @@ if [ ! -d $HOME/.cargo ]; then
   rustup uninstall stable
 fi
 
+# cargo-insta makes it possible to use the UI documented at
+# https://insta.rs/docs/cli/ to review changes to "check" scripts.  For the test
+# repo, this is used by `make review-test-repo`.  It's not expected that this
+# will actually be necessary on the production indexer and so this isn't part of
+# the update process.
+cargo install cargo-insta
+
 # Install codesearch.
 if [ ! -d livegrep ]; then
   git clone -b mozsearch-version5 https://github.com/mozsearch/livegrep

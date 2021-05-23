@@ -1,0 +1,1 @@
+filter-analysis __GENERATED__/__RUST_BUILD_SCRIPT__/files/generated.rs -k def -s simple::build_time_generated::GeneratedType
