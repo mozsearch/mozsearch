@@ -100,5 +100,11 @@ sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
 echo "Creating index-scratch on local instance SSD"
 ${AWS_ROOT}/mkscratch.sh
 
+# Put our tmp directory on index scratch instead of /tmp which is on our EBS
+# root image and which would be both slower and has had problems with filling
+# up (bug 1712578).
+mkdir -p /mnt/index-scratch/tmp
+export TMPDIR=/mnt/index-scratch/tmp
+
 # Run target script with arguments supplied to this script.
 ${AWS_ROOT}/${TARGETSCRIPT} $*
