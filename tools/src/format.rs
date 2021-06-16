@@ -463,15 +463,14 @@ pub fn format_file_data(
 
         // Compute the blame data for this line (if any)
         let blame_data = if let Some(ref lines) = blame_lines {
-            let blame_line = &lines[i as usize];
-            let pieces = blame_line.splitn(4, ':').collect::<Vec<_>>();
+            let blame_line = blame::LineData::deserialize(&lines[i as usize]);
 
             // These store the final data we ship to the front-end.
             // Each of these is a comma-separated list with one element
             // for each blame entry.
-            let mut revs = String::from(pieces[0]);
-            let mut filespecs = String::from(pieces[1]);
-            let mut blame_linenos = String::from(pieces[2]);
+            let mut revs = blame_line.rev.to_string();
+            let mut filespecs = blame_line.path.to_string();
+            let mut blame_linenos = blame_line.lineno.to_string();
 
             let human_id =
                 blame_hash_to_human_id.entry(revs.clone()).or_insert_with(|| { let id = next_human_id; next_human_id += 1; id } );
@@ -479,12 +478,12 @@ pub fn format_file_data(
             if let Some(ref git) = tree_config.git {
                 // These are the inputs to the find_prev_blame operation,
                 // updated per iteration of the loop.
-                let mut cur_rev = pieces[0].to_string();
-                let mut cur_path = PathBuf::from(if pieces[1] == "%" { path } else { pieces[1] });
+                let mut cur_rev = blame_line.rev.to_string();
+                let mut cur_path = PathBuf::from(if blame_line.is_path_unchanged() { path } else { blame_line.path.as_ref() });
                 // See bug 1670395 - if the filename has a colon in it, this code won't work properly,
-                // and we might fail to parse pieces[2] as a u32. Guard against that case until
+                // and we might fail to parse blame_line.lineno as a u32. Guard against that case until
                 // we have a proper fix, by skipping the blame-skip loop if cur_lineno is an Err value.
-                let mut cur_lineno = pieces[2].parse::<u32>();
+                let mut cur_lineno = blame_line.lineno.parse::<u32>();
 
                 let mut max_ignored_allowed = 5; // chosen arbitrarily
                 while cur_lineno.is_ok() && git.should_ignore_for_blame(&cur_rev) {
@@ -515,32 +514,33 @@ pub fn format_file_data(
                         }
                     };
 
-                    let pieces = prev_blame_line.splitn(4, ':').collect::<Vec<_>>();
+                    let prev_line = blame::LineData::deserialize(&prev_blame_line);
 
                     revs.push_str(",");
-                    revs.push_str(pieces[0]);
+                    revs.push_str(prev_line.rev.as_ref());
                     filespecs.push_str(",");
-                    filespecs.push_str(match (pieces[1], &prev_path, &cur_path) {
+                    filespecs.push_str(match (prev_line.is_path_unchanged(), prev_line.path.as_ref(), &prev_path, &cur_path) {
                         // file didn't move
-                        ("%", prev, cur) if prev == cur => "%",
+                        (true, _, prev, cur) if prev == cur => "%",
                         // file moved
-                        ("%", prev, _) => prev.to_str().unwrap(),
+                        (true, _, prev, _) => prev.to_str().unwrap(),
                         // file moved, then moved back
-                        (prevprev, _, cur) if Path::new(prevprev) == *cur => "%",
+                        (false, prevprev, _, cur) if Path::new(prevprev) == *cur => "%",
                         // file moved and moved again
-                        (prevprev, _, _) => prevprev,
+                        (false, prevprev, _, _) => prevprev,
                     });
+
                     blame_linenos.push_str(",");
-                    blame_linenos.push_str(pieces[2]);
+                    blame_linenos.push_str(prev_line.lineno.as_ref());
 
                     // Update inputs to find_prev_blame for the next iteration
-                    cur_rev = pieces[0].to_string();
-                    cur_path = if pieces[1] == "%" {
+                    cur_rev = prev_line.rev.to_string();
+                    cur_path = if prev_line.is_path_unchanged() {
                         prev_path
                     } else {
-                        PathBuf::from(pieces[1])
+                        PathBuf::from(prev_line.path.as_ref())
                     };
-                    cur_lineno = pieces[2].parse::<u32>();
+                    cur_lineno = prev_line.lineno.parse::<u32>();
                 }
             }
 
@@ -994,27 +994,24 @@ pub fn format_diff(
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
 
-    let mut last_rev = None;
+    let mut last_rev = String::new();
     let mut last_color = false;
     for &(lineno, blame, ref origin, content) in &output {
         let blame_data = match blame {
             Some(blame) => {
-                let pieces = blame.splitn(4, ':').collect::<Vec<_>>();
-                let rev = pieces[0];
-                let filespec = pieces[1];
-                let blame_lineno = pieces[2];
+                let line_data = blame::LineData::deserialize(blame);
 
-                let color = if last_rev == Some(rev) {
+                let color = if last_rev == line_data.rev {
                     last_color
                 } else {
                     !last_color
                 };
-                last_rev = Some(rev);
+                last_rev = line_data.rev.to_string();
                 last_color = color;
                 let class = if color { 1 } else { 2 };
                 format!(
                     r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="blame" aria-expanded="false""#,
-                    class, rev, filespec, blame_lineno
+                    class, line_data.rev, line_data.path, line_data.lineno
                 )
             }
             None => " class=\"blame-strip\"".to_owned(),

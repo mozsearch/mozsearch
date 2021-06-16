@@ -6,7 +6,7 @@ extern crate num_cpus;
 extern crate tools;
 extern crate unicode_normalization;
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
@@ -17,6 +17,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
+use tools::blame::LineData;
 use tools::config::index_blame;
 use unicode_normalization::UnicodeNormalization;
 
@@ -278,15 +279,21 @@ fn blame_for_path(
 ) -> Result<String, git2::Error> {
     let linecount = count_lines(&blob);
     // TODO: drop this author field entirely, I don't think it gets consumed by anything
-    let commit_id = commit.id();
-    let author = commit
-        .author()
-        .name()
-        .map(|n| n.nfkd().filter(|c| c.is_ascii()).collect::<String>())
-        .unwrap_or_default();
+    let mut line_data = LineData {
+        rev: Cow::Owned(commit.id().to_string()),
+        path: LineData::path_unchanged(),
+        lineno: Cow::Owned(String::new()),
+        author: Cow::Owned(commit
+            .author()
+            .name()
+            .map(|n| n.nfkd().filter(|c| c.is_ascii()).collect::<String>())
+            .unwrap_or_default()
+        ),
+    };
     let mut blame = Vec::with_capacity(linecount);
     for line in 1..=linecount {
-        blame.push(format!("{}:%:{}:{}", commit_id, line, author));
+        line_data.lineno = Cow::Owned(line.to_string());
+        blame.push(line_data.serialize());
     }
 
     for (parent, blame_parent) in commit.parents().zip(blame_parents.iter()).rev() {
@@ -318,15 +325,11 @@ fn blame_for_path(
                 blame[*lineno] = String::from(parent_blame[*parent_lineno]);
                 continue;
             }
-            let mut pieces = parent_blame[*parent_lineno].splitn(4, ':');
-            let p_rev = pieces.next().unwrap();
-            let mut p_fname = pieces.next().unwrap();
-            let p_lineno = pieces.next().unwrap();
-            let p_author = pieces.next().unwrap();
-            if p_fname == "%" {
-                p_fname = parent_path.to_str().unwrap();
+            let mut line_data = LineData::deserialize(parent_blame[*parent_lineno]);
+            if line_data.is_path_unchanged() {
+                line_data.path = Cow::Borrowed(parent_path.to_str().unwrap());
             }
-            blame[*lineno] = format!("{}:{}:{}:{}", p_rev, p_fname, p_lineno, p_author);
+            blame[*lineno] = line_data.serialize();
         }
     }
     // Extra entry so the `join` call after adds a trailing newline

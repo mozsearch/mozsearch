@@ -3,6 +3,7 @@ use crate::links;
 
 use git2;
 use rustc_serialize::json::Json;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use chrono::datetime::DateTime;
@@ -74,4 +75,40 @@ pub fn get_commit_info(
     let json = Json::Array(infos);
 
     Ok(json.to_string())
+}
+
+#[derive(Debug)]
+pub struct LineData<'a> {
+    pub rev: Cow<'a, str>,
+    pub path: Cow<'a, str>,
+    pub lineno: Cow<'a, str>,
+    pub author: Cow<'a, str>,
+}
+
+impl<'a> LineData<'a> {
+    pub fn deserialize(line: &'a str) -> Self {
+        let mut pieces = line.splitn(4, ':');
+        let rev = pieces.next().unwrap();
+        let path = pieces.next().unwrap();
+        let lineno = pieces.next().unwrap();
+        let author = pieces.next().unwrap();
+        LineData {
+            rev: Cow::Borrowed(rev),
+            path: Cow::Borrowed(path),
+            lineno: Cow::Borrowed(lineno),
+            author: Cow::Borrowed(author),
+        }
+    }
+
+    pub fn path_unchanged() -> Cow<'a, str> {
+        Cow::Owned(String::from("%"))
+    }
+
+    pub fn is_path_unchanged(&self) -> bool {
+        self.path == "%"
+    }
+
+    pub fn serialize(&self) -> String {
+        format!("{}:{}:{}:{}", self.rev, self.path, self.lineno, self.author)
+    }
 }
