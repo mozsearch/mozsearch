@@ -82,7 +82,6 @@ pub struct LineData<'a> {
     pub rev: Cow<'a, str>,
     pub path: Cow<'a, str>,
     pub lineno: Cow<'a, str>,
-    pub author: Cow<'a, str>,
 }
 
 impl<'a> LineData<'a> {
@@ -91,12 +90,10 @@ impl<'a> LineData<'a> {
         let rev = pieces.next().unwrap();
         let path = pieces.next().unwrap();
         let lineno = pieces.next().unwrap();
-        let author = pieces.next().unwrap();
         LineData {
             rev: Cow::Borrowed(rev),
             path: Cow::Borrowed(path),
             lineno: Cow::Borrowed(lineno),
-            author: Cow::Borrowed(author),
         }
     }
 
@@ -109,6 +106,8 @@ impl<'a> LineData<'a> {
     }
 
     pub fn serialize(&self) -> String {
-        format!("{}:{}:{}:{}", self.rev, self.path, self.lineno, self.author)
+        // The trailing colon delimits an empty "author" field
+        // that was never used.
+        format!("{}:{}:{}:", self.rev, self.path, self.lineno)
     }
 }

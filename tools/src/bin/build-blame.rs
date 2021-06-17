@@ -4,7 +4,6 @@ extern crate git2;
 extern crate log;
 extern crate num_cpus;
 extern crate tools;
-extern crate unicode_normalization;
 
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
@@ -19,7 +18,6 @@ use std::thread;
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::blame::LineData;
 use tools::config::index_blame;
-use unicode_normalization::UnicodeNormalization;
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     write!(helper.stdin.as_mut().unwrap(), "{}\n", git_oid).unwrap();
@@ -283,12 +281,6 @@ fn blame_for_path(
         rev: Cow::Owned(commit.id().to_string()),
         path: LineData::path_unchanged(),
         lineno: Cow::Owned(String::new()),
-        author: Cow::Owned(commit
-            .author()
-            .name()
-            .map(|n| n.nfkd().filter(|c| c.is_ascii()).collect::<String>())
-            .unwrap_or_default()
-        ),
     };
     let mut blame = Vec::with_capacity(linecount);
     for line in 1..=linecount {
