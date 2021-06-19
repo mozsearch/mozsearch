@@ -116,7 +116,7 @@ sudo pip3 install boto3 awscli
 if [ ! -d git-cinnabar ]; then
   # Need mercurial to prevent cinnabar from spewing warnings
   sudo apt-get install -y mercurial
-  CINNABAR_REVISION=6d21541cb23dbfe066de6cbd1c89f6da4e3d318a
+  CINNABAR_REVISION=1ffb93f88feadf2c376787a844efadf3fe6c519b
   git clone https://github.com/glandium/git-cinnabar
   pushd git-cinnabar
     git checkout $CINNABAR_REVISION
