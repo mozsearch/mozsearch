@@ -276,7 +276,6 @@ fn blame_for_path(
     path: &Path,
 ) -> Result<String, git2::Error> {
     let linecount = count_lines(&blob);
-    // TODO: drop this author field entirely, I don't think it gets consumed by anything
     let mut line_data = LineData {
         rev: Cow::Owned(commit.id().to_string()),
         path: LineData::path_unchanged(),
