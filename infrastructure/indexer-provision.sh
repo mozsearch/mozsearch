@@ -110,6 +110,10 @@ if [ ! -d livegrep ]; then
 fi
 
 # Install AWS scripts and command-line tool.
+#
+# awscli can get credentials via `Ec2InstanceMetadata` which will give it the
+# authorities of the role assigned to the image it's running in.  Look for the
+# `IamInstanceProfile` definition in `trigger_indexer.py` and similar.
 sudo pip3 install boto3 awscli
 
 # Install git-cinnabar.
@@ -164,6 +168,7 @@ git submodule update
 popd
 
 # Install files from the config repo.
+rm -rf config
 git clone $CONFIG_REPO config
 pushd config
 git checkout $BRANCH -- || true
@@ -179,3 +184,19 @@ date
 THEEND
 
 chmod +x update.sh
+
+# Run the update script for a side effect of downloading the crates.io
+# dependencies ahead of time since we're seeing intermittent network problems
+# downloading crates in https://bugzilla.mozilla.org/show_bug.cgi?id=1720037.
+#
+# Note that because the update script fully deletes the mozsearch directory,
+# this really is just:
+# - Validating the image can compile and use rust and clang correctly.
+# - Caching some crates in `~/.cargo`.
+./update.sh master https://github.com/mozsearch/mozsearch https://github.com/mozsearch/mozsearch-mozilla
+mv update-log provision-update-log-1
+
+# Run this a second time to make sure the script is actually idempotent, so we
+# don't have any surprises when the update script gets run when the VM spins up.
+./update.sh master https://github.com/mozsearch/mozsearch https://github.com/mozsearch/mozsearch-mozilla
+mv update-log provision-update-log-2

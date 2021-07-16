@@ -21,9 +21,9 @@ set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
 # See comments in indexer-update.sh
-rustup component remove clippy
-rustup component remove rustfmt
-rustup component remove rust-docs
+rustup component remove clippy || true
+rustup component remove rustfmt || true
+rustup component remove rust-docs || true
 rustup update
 
 pushd mozsearch/tools

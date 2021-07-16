@@ -42,6 +42,14 @@ launch_spec = {
     'UserData': user_data,
     'InstanceType': 'c5d.2xlarge',
     'BlockDeviceMappings': [],
+    # In order to be able to automatically have the `aws` command work so that
+    # we can resize our root partition, we need to assign an IAM role.
+    #
+    # This also could potentially let the provisioning process checkpoint itself
+    # into a new AMI.
+    'IamInstanceProfile': {
+        'Name': 'indexer-role',
+    },
     'TagSpecifications': [{
         'ResourceType': 'instance',
         'Tags': [{
