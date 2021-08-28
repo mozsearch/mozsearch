@@ -5,9 +5,10 @@ from trigger_common import TriggerCommandBase
 # Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <config-input> <branch> <channel>
 
 
-class TriggerIndexerCommand(TriggerCommandBase):
+class TriggerShellCommand(TriggerCommandBase):
     def __init__(self):
-        super().__init__('indexer', 'index.sh', 10)
+        max_hours = 6
+        super().__init__('shell', 'shell-setup.sh', max_hours)
 
     def script_args_after_branch_and_channel(self, args):
         return '''"{mozsearch_repo}" "{config_repo}" config "{config_input}"'''.format(
@@ -17,6 +18,6 @@ class TriggerIndexerCommand(TriggerCommandBase):
         )
 
 if __name__ == '__main__':
-    cmd = TriggerIndexerCommand()
+    cmd = TriggerShellCommand()
     cmd.parse_args()
     cmd.trigger()
