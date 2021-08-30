@@ -14,7 +14,7 @@ general structure is:
 ```
 
 The values for `<kind>` are Declarations, Definitions, Uses,
-Assignments, IDL, and Consumes.
+Assignments, IDL, and Callees.
 
 The `<text-of-line>` contains the text of the given line, with leading and
 trailing spaces stripped.  An example entry in this file looks like:
