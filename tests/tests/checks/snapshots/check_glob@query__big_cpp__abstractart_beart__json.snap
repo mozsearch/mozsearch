@@ -10,15 +10,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 424,
             "bounds": [
               13,
               18
             ],
+            "line": "virtual void beArt() = 0;",
             "context": "outerNS::AbstractArt",
             "contextsym": "T_outerNS::AbstractArt",
-            "line": "virtual void beArt() = 0;",
-            "lno": 424,
-            "peekLines": "// This pure virtual method needs to be treated like a definition for our\n// structured record emission purposes.\nvirtual void beArt() = 0;\n"
+            "peekRange": "422-424"
           }
         ]
       }
@@ -28,15 +28,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 433,
             "bounds": [
               5,
               10
             ],
+            "line": "void beArt() override {",
             "context": "outerNS::PracticalArt",
             "contextsym": "T_outerNS::PracticalArt",
-            "line": "void beArt() override {",
-            "lno": 433,
-            "peekLines": "// This should properly see the beArt as something it's overriding.\nvoid beArt() override {\n",
+            "peekRange": "432-433",
             "upsearch": "symbol:_ZN7outerNS12PracticalArt5beArtEv"
           }
         ]

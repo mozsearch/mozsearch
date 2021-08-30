@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use lazy_static::lazy_static;
 use lol_html::{
-    element, html_content::ContentType, rewrite_str, RewriteStrSettings,
+    element, rewrite_str, RewriteStrSettings,
 };
 use regex::Regex;
 use serde_json::Value;

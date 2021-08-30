@@ -2,9 +2,8 @@ use crate::config;
 use crate::links;
 
 use git2;
-use rustc_serialize::json::Json;
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use serde_json::{json, Map, to_string};
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
@@ -48,33 +47,31 @@ pub fn get_commit_info(
 
         let msg = format!("{}\n<br><i>{} &lt;{}>, {}</i>", msg, name, email, t);
 
-        let mut obj = BTreeMap::new();
+        let mut obj = Map::new();
 
-        obj.insert("header".to_owned(), Json::String(msg));
+        obj.insert("header".to_owned(), json!(msg));
 
         let parents = commit.parent_ids().collect::<Vec<_>>();
         if parents.len() == 1 {
-            obj.insert("parent".to_owned(), Json::String(parents[0].to_string()));
+            obj.insert("parent".to_owned(), json!(parents[0].to_string()));
         }
 
-        obj.insert("date".to_owned(), Json::String(t));
+        obj.insert("date".to_owned(), json!(t));
 
         match (&tree_config.paths.hg_root, git.hg_map.get(&commit_obj.id())) {
             (Some(hg_path), Some(hg_id)) => {
                 obj.insert(
                     "fulldiff".to_owned(),
-                    Json::String(format!("{}/rev/{}", hg_path, hg_id)),
+                    json!(format!("{}/rev/{}", hg_path, hg_id)),
                 );
             }
             _ => (),
         };
 
-        infos.push(Json::Object(obj));
+        infos.push(json!(obj));
     }
 
-    let json = Json::Array(infos);
-
-    Ok(json.to_string())
+    Ok(to_string(&json!(infos)).unwrap())
 }
 
 #[derive(Debug)]

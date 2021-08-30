@@ -9,12 +9,12 @@ extern crate git2;
 extern crate itertools;
 extern crate linkify;
 extern crate regex;
-extern crate rustc_serialize;
 #[macro_use]
 extern crate malloc_size_of_derive;
 extern crate jemalloc_sys;
 extern crate jemallocator;
 extern crate malloc_size_of;
+extern crate serde;
 extern crate serde_json;
 extern crate structopt;
 

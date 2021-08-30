@@ -10,15 +10,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 179,
             "bounds": [
               6,
               11
             ],
+            "line": "class Human: public Thing {",
             "context": "",
             "contextsym": "",
-            "line": "class Human: public Thing {",
-            "lno": 179,
-            "peekLines": "class Human: public Thing {\n"
+            "peekRange": "179-179"
           }
         ]
       }
@@ -28,15 +28,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 135,
             "bounds": [
               6,
               11
             ],
+            "line": "class Thing {",
             "context": "",
             "contextsym": "",
-            "line": "class Thing {",
-            "lno": 135,
-            "peekLines": "class Thing {\n",
+            "peekRange": "135-135",
             "upsearch": "symbol:T_outerNS::Thing"
           }
         ]
@@ -47,15 +47,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 188,
             "bounds": [
               6,
               11
             ],
+            "line": "class Superhero : public Human {",
             "context": "",
             "contextsym": "",
-            "line": "class Superhero : public Human {",
-            "lno": 188,
-            "peekLines": "class Superhero : public Human {\n",
+            "peekRange": "188-188",
             "upsearch": "symbol:T_outerNS::Superhero"
           }
         ]
@@ -66,44 +66,44 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 192,
             "bounds": [
               2,
               7
             ],
-            "context": "outerNS::Superhero::Superhero",
-            "contextsym": "_ZN7outerNS9SuperheroC1Ev",
             "line": ": Human() {",
-            "lno": 192
+            "context": "outerNS::Superhero::Superhero",
+            "contextsym": "_ZN7outerNS9SuperheroC1Ev"
           },
           {
+            "lno": 213,
             "bounds": [
               0,
               5
             ],
-            "context": "outerNS::Couch::Couch",
-            "contextsym": "_ZN7outerNS5CouchC1Ei",
             "line": "Human bob;",
-            "lno": 213
+            "context": "outerNS::Couch::Couch",
+            "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
+            "lno": 214,
             "bounds": [
               16,
               21
             ],
-            "context": "outerNS::Couch::Couch",
-            "contextsym": "_ZN7outerNS5CouchC1Ei",
             "line": "WhatsYourVector<Human> goodReferenceRight(&bob);",
-            "lno": 214
+            "context": "outerNS::Couch::Couch",
+            "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
+            "lno": 340,
             "bounds": [
               10,
               15
             ],
-            "context": "outerNS::OuterCat::meet",
-            "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
             "line": "void meet(Human &human) {",
-            "lno": 340
+            "context": "outerNS::OuterCat::meet",
+            "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
           }
         ]
       }

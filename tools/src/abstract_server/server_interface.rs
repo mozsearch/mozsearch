@@ -83,11 +83,9 @@ pub enum ServerError {
 ///
 /// Currently existing analysis-file processing and other logic:
 /// - Uses synchronous I/O
-/// - Uses rustc_serialize::json
 ///
 /// In the end, it likely would make sense for the analysis mechanism to:
 /// - Support async I/O
-/// - Use serde_json
 /// - Use async streams via https://docs.rs/tokio-stream/0.1.5/tokio_stream/
 ///   on a per-record or per-line granularity, quite possibly using our analysis
 ///   types for analysis records instead of untyped JSON.

@@ -34,10 +34,15 @@ rls-analysis = "0.18.1"
 rls-data = "0.19.1"
 rustc-serialize = "0.3.18"
 shell-words = "1.0.0"
-serde_json = { version = "1.0.64", features = ["preserve_order"] }
+# Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
+# does not make any effort to do interning
+serde = { version = "1.0.130", features = ["derive", "rc", "std"] }
+serde_json = { version = "1.0.67", features = ["preserve_order"] }
+serde_repr = "0.1"
 structopt = "0.3"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util"] }
 url = "2.2.2"
+ustr = { version = "0.8.1", features = ["serialization"] }
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production

@@ -1,4 +1,3 @@
-use regex::Regex;
 use tokio::fs::{read_dir, read_to_string};
 use tools::{abstract_server::ServerError, cmd_pipeline::{build_pipeline, PipelineValues}};
 

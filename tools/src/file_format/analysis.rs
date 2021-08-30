@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use std::fmt;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 
 use itertools::Itertools;
 
-extern crate rustc_serialize;
-use self::rustc_serialize::json::{as_json, encode, Json, Object};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{from_str, from_value, Map, Value};
+use serde_repr::*;
+use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
@@ -16,36 +16,30 @@ pub struct Location {
     pub col_end: u32,
 }
 
-impl fmt::Display for Location {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        if self.col_start == self.col_end {
-            write!(
-                formatter,
-                r#""loc":"{:05}:{}""#,
-                self.lineno, self.col_start
-            )
-        } else {
-            write!(
-                formatter,
-                r#""loc":"{:05}:{}-{}""#,
-                self.lineno, self.col_start, self.col_end
-            )
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct LineRange {
     pub start_lineno: u32,
     pub end_lineno: u32,
 }
 
-#[derive(Eq, PartialEq, PartialOrd, Ord, Debug)]
+impl LineRange {
+    pub fn is_empty(&self) -> bool {
+        self.start_lineno == 0 && self.end_lineno == 0
+    }
+}
+
+#[derive(Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct SourceRange {
     pub start_lineno: u32,
     pub start_col: u32,
     pub end_lineno: u32,
     pub end_col: u32,
+}
+
+impl SourceRange {
+    pub fn is_empty(&self) -> bool {
+        self.start_lineno == 0
+    }
 }
 
 impl SourceRange {
@@ -82,13 +76,15 @@ impl SourceRange {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WithLocation<T> {
-    pub data: T,
     pub loc: Location,
+    #[serde(flatten)]
+    pub data: T,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum AnalysisKind {
     Use,
     Def,
@@ -99,61 +95,94 @@ pub enum AnalysisKind {
     IPC,
 }
 
-impl fmt::Display for AnalysisKind {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        let str = match self {
-            AnalysisKind::Use => "use",
-            AnalysisKind::Def => "def",
-            AnalysisKind::Assign => "assign",
-            AnalysisKind::Decl => "decl",
-            AnalysisKind::Forward => "forward",
-            AnalysisKind::Idl => "idl",
-            AnalysisKind::IPC => "ipc",
-        };
-        formatter.write_str(str)
-    }
+/// This is intended to help model the self-describing nature of analysis
+/// records where we have `"target": 1` at the start of the field.  A normal
+/// single-value enum should take up no space... hopefully that's the case for
+/// this too despite the involvement of `serde_repr` to encode the value as an
+/// int.
+#[derive(Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum TargetTag {
+    Target = 1,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisTarget {
+    pub target: TargetTag,
     pub kind: AnalysisKind,
-    pub pretty: String,
-    pub sym: String,
-    pub context: String,
-    pub contextsym: String,
+    #[serde(default)]
+    pub pretty: Ustr,
+    #[serde(default)]
+    pub sym: Ustr,
+    #[serde(default, skip_serializing_if = "Ustr::is_empty")]
+    pub context: Ustr,
+    #[serde(default, skip_serializing_if = "Ustr::is_empty")]
+    pub contextsym: Ustr,
+    #[serde(
+        rename = "peekRange",
+        default,
+        skip_serializing_if = "LineRange::is_empty"
+    )]
     pub peek_range: LineRange,
 }
 
-impl fmt::Display for AnalysisTarget {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            r#""target":1,"kind":"{}","pretty":{},"sym":{}"#,
-            self.kind,
-            as_json(&self.pretty),
-            as_json(&self.sym)
-        )?;
-        if !self.context.is_empty() {
-            write!(formatter, r#","context":{}"#, as_json(&self.context))?;
-        }
-        if !self.contextsym.is_empty() {
-            write!(formatter, r#","contextsym":{}"#, as_json(&self.contextsym))?;
-        }
-        if self.peek_range.start_lineno != 0 || self.peek_range.end_lineno != 0 {
-            write!(
-                formatter,
-                r#","peekRange":"{}-{}""#,
-                self.peek_range.start_lineno, self.peek_range.end_lineno
-            )?;
-        }
-        Ok(())
-    }
+/// See TargetTag for more info
+#[derive(Debug, Eq, PartialEq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum StructuredTag {
+    Structured = 1,
 }
 
-impl fmt::Display for WithLocation<AnalysisTarget> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "{{{},{}}}", self.loc, self.data)
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredSuperInfo {
+    #[serde(default)]
+    pub pretty: Ustr,
+    #[serde(default)]
+    pub sym: Ustr,
+    #[serde(default)]
+    pub props: Vec<Ustr>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredMethodInfo {
+    #[serde(default)]
+    pub pretty: Ustr,
+    #[serde(default)]
+    pub sym: Ustr,
+    #[serde(default)]
+    pub props: Vec<Ustr>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredBitPositionInfo {
+    pub begin: u32,
+    pub width: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredOverrideInfo {
+    #[serde(default)]
+    pub pretty: Ustr,
+    #[serde(default)]
+    pub sym: Ustr,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredFieldInfo {
+    #[serde(default)]
+    pub pretty: Ustr,
+    #[serde(default)]
+    pub sym: Ustr,
+    #[serde(rename = "type", default)]
+    pub type_pretty: Ustr,
+    #[serde(rename = "typesym", default)]
+    pub type_sym: Ustr,
+    #[serde(rename = "offsetBytes", default)]
+    pub offset_bytes: u32,
+    #[serde(rename = "bitPositions")]
+    pub bit_positions: Option<StructuredBitPositionInfo>,
+    #[serde(rename = "sizeBytes")]
+    pub size_bytes: Option<u32>,
 }
 
 /// The structured record type extracts out the necessary information to uniquely identify the
@@ -165,88 +194,142 @@ impl fmt::Display for WithLocation<AnalysisTarget> {
 /// Structured records are merged by choosing one platform rep to be the canoncial variant and
 /// embedding the other variants observed under a `variants` attribute.  See `analysis.md` and
 /// `merge-analyses.rs` for more details.
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisStructured {
-    pub pretty: String,
-    pub sym: String,
-    pub kind: String,
-    // Note that this is a valid JSON string, so if you want to just use its contents, you need
-    // to slice off the enclosing "{}".
-    pub payload: String,
-    pub src_sym: Option<String>,
-    pub target_sym: Option<String>,
-    /// A digest containing the `sym` values from each entry in `supers`.  `supers` is left intact
-    /// in `payload`, so this member should never be directly emitted, just used in crossref.
-    pub super_syms: Vec<String>,
-    /// A digest containing the `sym` values from each entry in `overrides`.  `overrides` is left
-    /// intact in `payload`, so this member should never be directly emitted, just crossreferenced.
-    pub override_syms: Vec<String>,
+    pub structured: StructuredTag,
+    #[serde(default)]
+    pub pretty: Ustr,
+    #[serde(default)]
+    pub sym: Ustr,
+    #[serde(default)]
+    pub kind: Ustr,
+
+    #[serde(rename = "parentsym", skip_serializing_if = "Option::is_none")]
+    pub parent_sym: Option<Ustr>,
+    #[serde(rename = "srcsym", skip_serializing_if = "Option::is_none")]
+    pub src_sym: Option<Ustr>,
+    #[serde(rename = "targetsym", skip_serializing_if = "Option::is_none")]
+    pub target_sym: Option<Ustr>,
+
+    #[serde(rename = "implKind", default)]
+    pub impl_kind: Ustr,
+
+    #[serde(rename = "sizeBytes")]
+    pub size_bytes: Option<u32>,
+
+    #[serde(default)]
+    pub supers: Vec<StructuredSuperInfo>,
+    #[serde(default)]
+    pub methods: Vec<StructuredMethodInfo>,
+    #[serde(default)]
+    pub fields: Vec<StructuredFieldInfo>,
+    #[serde(default)]
+    pub overrides: Vec<StructuredOverrideInfo>,
+    #[serde(default)]
+    pub props: Vec<Ustr>,
+
+    // ### Derived by cross-referencing
+    #[serde(rename = "idlsym", skip_serializing_if = "Option::is_none")]
+    pub idl_sym: Option<Ustr>,
+    // Note: Originally these (subclasses, overriddenBy) were meant to hold
+    // { pretty, sym } when emitted (and that's how they're documented), but the
+    // current router.py assumes this symbol-only approach.
+    #[serde(rename = "subclasses", default, skip_serializing_if = "Vec::is_empty")]
+    pub subclass_syms: Vec<Ustr>,
+    #[serde(rename = "overriddenBy", default, skip_serializing_if = "Vec::is_empty")]
+    pub overridden_by_syms: Vec<Ustr>,
+
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
-impl fmt::Display for AnalysisStructured {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            r#""structured":1,"pretty":{},"sym":{},"kind":{}"#,
-            as_json(&self.pretty),
-            as_json(&self.sym),
-            as_json(&self.kind)
-        )?;
-        if let Some(src_sym) = &self.src_sym {
-            write!(
-                formatter,
-                r#","srcsym":{}"#,
-                as_json(&src_sym)
-            )?;
-        }
-        if let Some(target_sym) = &self.target_sym {
-            write!(
-                formatter,
-                r#","targetsym":{}"#,
-                as_json(&target_sym)
-            )?;
-        }
-        // super_syms and override_syms are digests of data that's still present in payload so we
-        // don't need to do anything with them, just emit the payload string as-is.
-        write!(
-            formatter,
-            r#",{}"#,
-            &self.payload[1..self.payload.len()-1])?;
-        Ok(())
+mod bool_as_int {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(b: &bool, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i8(if *b { 1 } else { 0 })
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<bool, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let i = i8::deserialize(deserializer)?;
+        Ok(i != 0)
     }
 }
 
-impl fmt::Display for WithLocation<AnalysisStructured> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "{{{},{}}}", self.loc, self.data)
+/// Workaround for join() not currently working on the Vec<Ustr>
+pub fn join_ustr_vec(arr: &Vec<Ustr>, joiner: &str) -> String {
+    arr
+        .iter()
+        .map(|x| x.as_str())
+        .collect::<Vec<&str>>()
+        .join(joiner)
+}
+
+mod comma_delimited_vec {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+    use ustr::{ustr, Ustr};
+
+    use super::join_ustr_vec;
+
+    pub fn serialize<S>(arr: &Vec<Ustr>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&join_ustr_vec(arr, ","))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Ustr>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(s.split(',').map(ustr).collect())
     }
 }
 
-impl fmt::Display for WithLocation<Vec<AnalysisStructured>> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        let locstr = format!("{}", self.loc);
-        for src in &self.data {
-            writeln!(formatter, "{{{},{}}}", locstr, src)?;
-        }
-        Ok(())
-    }
+/// See TargetTag for more info
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug)]
+#[repr(u8)]
+pub enum SourceTag {
+    Source = 1,
 }
 
-#[derive(Debug)]
+fn bool_is_false(b: &bool) -> bool {
+    !b
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisSource {
-    pub syntax: Vec<String>,
-    pub pretty: String,
-    pub sym: Vec<String>,
+    pub source: SourceTag,
+    #[serde(with = "comma_delimited_vec")]
+    pub syntax: Vec<Ustr>,
+    pub pretty: Ustr,
+    #[serde(with = "comma_delimited_vec")]
+    pub sym: Vec<Ustr>,
+    #[serde(default, with = "bool_as_int", skip_serializing_if = "bool_is_false")]
     pub no_crossref: bool,
+    #[serde(
+        rename = "nestingRange",
+        default,
+        skip_serializing_if = "SourceRange::is_empty"
+    )]
     pub nesting_range: SourceRange,
     /// For records that have an associated type (and aren't a type), this is the human-readable
     /// representation of the type that may have all kinds of qualifiers that searchfox otherwise
     /// ignores.  Not all records will have this type.
-    pub type_pretty: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_pretty: Option<Ustr>,
     /// For records that have an associated type, we may be able to map the type to a searchfox
     /// symbol, and if so, this is that.  Even if the record has a `type_pretty`, it may not have a
     /// type_sym.
-    pub type_sym: Option<String>,
+    #[serde(rename = "typesym", skip_serializing_if = "Option::is_none")]
+    pub type_sym: Option<Ustr>,
 }
 
 impl AnalysisSource {
@@ -302,63 +385,21 @@ impl AnalysisSource {
     pub fn get_syntax_kind(&self) -> Option<&str> {
         // It's a given that we're using a standard ASCII space character.
         return self.pretty.split(' ').next();
-     }
-}
+    }
 
-impl fmt::Display for AnalysisSource {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            r#""source":1,"syntax":{},"pretty":{},"sym":{}"#,
-            as_json(&self.syntax.join(",")),
-            as_json(&self.pretty),
-            as_json(&self.sym.join(","))
-        )?;
-        if self.no_crossref {
-            write!(formatter, r#","no_crossref":1"#)?;
-        }
-        if self.nesting_range.start_lineno != 0 {
-            write!(
-                formatter,
-                r#","nestingRange":"{}:{}-{}:{}""#,
-                self.nesting_range.start_lineno,
-                self.nesting_range.start_col,
-                self.nesting_range.end_lineno,
-                self.nesting_range.end_col
-            )?;
-        }
-        if let Some(type_pretty) = &self.type_pretty {
-            write!(
-                formatter,
-                r#","type":{}"#,
-                as_json(&type_pretty)
-            )?;
-        }
-        if let Some(type_sym) = &self.type_sym {
-            write!(
-                formatter,
-                r#","typesym":{}"#,
-                as_json(&type_sym)
-            )?;
-        }
-        Ok(())
+    /// Returns the `sym` array joined with ",".  This convenience method exists
+    /// because join() doesn't currently work on Ustr.
+    pub fn get_joined_syms(&self) -> String {
+        join_ustr_vec(&self.sym, ",")
     }
 }
 
-impl fmt::Display for WithLocation<AnalysisSource> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "{{{},{}}}", self.loc, self.data)
-    }
-}
-
-impl fmt::Display for WithLocation<Vec<AnalysisSource>> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        let locstr = format!("{}", self.loc);
-        for src in &self.data {
-            writeln!(formatter, "{{{},{}}}", locstr, src)?;
-        }
-        Ok(())
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AnalysisUnion {
+    Target(AnalysisTarget),
+    Source(AnalysisSource),
+    Structured(AnalysisStructured),
 }
 
 pub fn parse_location(loc: &str) -> Location {
@@ -379,13 +420,56 @@ pub fn parse_location(loc: &str) -> Location {
     }
 }
 
+impl Serialize for Location {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = if self.col_start == self.col_end {
+            format!("{:05}:{}", self.lineno, self.col_start)
+        } else {
+            format!("{:05}:{}-{}", self.lineno, self.col_start, self.col_end)
+        };
+        serializer.serialize_str(&s)
+    }
+}
+
+impl<'de> Deserialize<'de> for Location {
+    fn deserialize<D>(deserializer: D) -> Result<Location, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(parse_location(&s))
+    }
+}
+
 fn parse_line_range(range: &str) -> LineRange {
     let v: Vec<&str> = range.split("-").collect();
     let start_lineno = v[0].parse::<u32>().unwrap();
     let end_lineno = v[1].parse::<u32>().unwrap();
     LineRange {
-        start_lineno: start_lineno,
-        end_lineno: end_lineno,
+        start_lineno,
+        end_lineno,
+    }
+}
+
+impl Serialize for LineRange {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{}-{}", self.start_lineno, self.end_lineno))
+    }
+}
+
+impl<'de> Deserialize<'de> for LineRange {
+    fn deserialize<D>(deserializer: D) -> Result<LineRange, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(parse_line_range(&s))
     }
 }
 
@@ -403,9 +487,31 @@ fn parse_source_range(range: &str) -> SourceRange {
     }
 }
 
+impl Serialize for SourceRange {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!(
+            "{}:{}-{}:{}",
+            self.start_lineno, self.start_col, self.end_lineno, self.end_col
+        ))
+    }
+}
+
+impl<'de> Deserialize<'de> for SourceRange {
+    fn deserialize<D>(deserializer: D) -> Result<SourceRange, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(parse_source_range(&s))
+    }
+}
+
 pub fn read_analysis<T>(
     filename: &str,
-    filter: &mut dyn FnMut(&mut Object, &Location, usize) -> Option<T>,
+    filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
 ) -> Vec<WithLocation<Vec<T>>> {
     read_analyses(vec![filename.to_string()].as_slice(), filter)
 }
@@ -416,7 +522,7 @@ pub fn read_analysis<T>(
 /// types being ignored.
 pub fn read_analyses<T>(
     filenames: &[String],
-    filter: &mut dyn FnMut(&mut Object, &Location, usize) -> Option<T>,
+    filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
 ) -> Vec<WithLocation<Vec<T>>> {
     let mut result = Vec::new();
     for (i_file, filename) in filenames.into_iter().enumerate() {
@@ -432,7 +538,7 @@ pub fn read_analyses<T>(
         for line in reader.lines() {
             let line = line.unwrap();
             lineno += 1;
-            let data = Json::from_str(&line);
+            let data: serde_json::Result<Value> = from_str(&line);
             let mut data = match data {
                 Ok(data) => data,
                 Err(e) => {
@@ -446,11 +552,9 @@ pub fn read_analyses<T>(
             let obj = data.as_object_mut().unwrap();
             // Destructively pull the "loc" out before passing it into the filter.  This is for
             // read_structured which stores everything it doesn't directly process in `payload`.
-            let loc = parse_location(obj.remove("loc").unwrap().as_string().unwrap());
-            match filter(obj, &loc, i_file) {
-                Some(v) => {
-                    result.push(WithLocation { data: v, loc: loc })
-                }
+            let loc = parse_location(obj.remove("loc").unwrap().as_str().unwrap());
+            match filter(data, &loc, i_file) {
+                Some(v) => result.push(WithLocation { data: v, loc: loc }),
                 None => {}
             }
         }
@@ -493,232 +597,49 @@ pub fn read_analyses<T>(
     result2
 }
 
-pub fn read_target(obj: &mut Object, _loc: &Location, _i_size: usize) -> Option<AnalysisTarget> {
-    if !obj.contains_key("target") {
+pub fn read_target(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisTarget> {
+    // XXX this shouldn't be necessary thanks to our tag, so this should be removable
+    if obj.get("target").is_none() {
         return None;
     }
 
-    let kindstr = obj.get("kind").unwrap().as_string().unwrap();
-    let kind = match kindstr {
-        "use" => AnalysisKind::Use,
-        "def" => AnalysisKind::Def,
-        "assign" => AnalysisKind::Assign,
-        "decl" => AnalysisKind::Decl,
-        "forward" => AnalysisKind::Forward,
-        "idl" => AnalysisKind::Idl,
-        "ipc" => AnalysisKind::IPC,
-        _ => panic!("bad target kind"),
-    };
-
-    let pretty = match obj.get("pretty") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-    let context = match obj.get("context") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-    let contextsym = match obj.get("contextsym") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-    let peek_range = match obj.get("peekRange") {
-        Some(json) => parse_line_range(json.as_string().unwrap()),
-        None => LineRange {
-            start_lineno: 0,
-            end_lineno: 0,
-        },
-    };
-    let sym = obj.get("sym").unwrap().as_string().unwrap().to_string();
-
-    Some(AnalysisTarget {
-        kind: kind,
-        pretty: pretty,
-        sym: sym,
-        context: context,
-        contextsym: contextsym,
-        peek_range: peek_range,
-    })
+    from_value(obj).ok()
 }
 
-pub fn read_structured(obj: &mut Object, _loc: &Location, _i_size: usize) -> Option<AnalysisStructured> {
-    if !obj.contains_key("structured") {
+pub fn read_structured(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisStructured> {
+    // XXX this shouldn't be necessary thanks to our tag, so this should be removable
+    if obj.get("structured").is_none() {
         return None;
     }
 
-    // We don't want this in payload.
-    obj.remove("structured");
-
-    // We remove fields that go directly in the record type so that we can save
-    // off the leftovers in `payload` as a JSON-encoded string.
-    let pretty = match obj.remove("pretty") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-    let sym = match obj.remove("sym") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-    let kind = match obj.remove("kind") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-
-    // We need to go from Option<Json> to Option<String>.
-    let to_str_opt = |oj: Option<Json>| match oj {
-        Some(j) => Some(j.as_string().unwrap().to_string()),
-        None => None
-    };
-
-    let src_sym = to_str_opt(obj.remove("srcsym"));
-    let target_sym = to_str_opt(obj.remove("targetsym"));
-
-    // Note that we are intentionally leave supers and override_syms intact.
-    // We are extracting the symbol names here for cross-referencing, but there
-    // is additional data in the sub-objects that we want to keep and expose.
-    let super_syms: Vec<String> = match obj.get("supers") {
-        Some(Json::Array(arr)) => arr.iter().map(|item| item.as_object().unwrap()
-                                                            .get("sym").unwrap()
-                                                            .as_string().unwrap().to_string())
-                                            .collect(),
-        _ => vec![],
-    };
-    let override_syms: Vec<String> = match obj.get("overrides") {
-        Some(Json::Array(arr)) => arr.iter().map(|item| item.as_object().unwrap()
-                                                            .get("sym").unwrap()
-                                                            .as_string().unwrap().to_string())
-                                            .collect(),
-        _ => vec![],
-    };
-
-    // Render the remaining fields into a string.
-    let payload = encode(obj).unwrap();
-
-    Some(AnalysisStructured {
-        pretty,
-        sym,
-        kind,
-        payload,
-        src_sym,
-        target_sym,
-        super_syms,
-        override_syms,
-    })
+    from_value(obj).ok()
 }
 
-#[test]
-fn test_read_structured() {
-    let inputs = vec![
-        r#"{"loc":"00010:15-23","structured":1,"pretty":"Template","sym":"T_Template","kind":"class","sizeBytes":1,"supers":[{"pretty":"Base","sym":"T_Base","props":[]}],"methods":[],"fields":[]}"#,
-    ];
-
-    let outputs = vec![
-        Some(AnalysisStructured {
-            pretty: "Template".to_string(),
-            sym: "T_Template".to_string(),
-            kind: "class".to_string(),
-            payload: r#"{"fields":[],"methods":[],"sizeBytes":1,"supers":[{"pretty":"Base","props":[],"sym":"T_Base"}]}"#.to_string(),
-            src_sym: None,
-            target_sym: None,
-            super_syms: vec!["T_Base".to_string()],
-            override_syms: vec![],
-        }),
-    ];
-
-    for (i, input) in inputs.iter().enumerate() {
-        let mut input_json = Json::from_str(input).unwrap();
-        let input_obj = input_json.as_object_mut().unwrap();
-        let loc = parse_location(input_obj.remove("loc").unwrap().as_string().unwrap());
-        assert_eq!(
-            read_structured(input_obj, &loc, 0),
-            outputs[i]
-        );
-    }
-}
-
-pub fn read_source(obj: &mut Object, _loc: &Location, _i_size: usize) -> Option<AnalysisSource> {
-    if !obj.contains_key("source") {
+pub fn read_source(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisSource> {
+    // XXX this shouldn't be necessary thanks to our tag, so this should be removable
+    if obj.get("source").is_none() {
         return None;
     }
 
-    let syntax = match obj.get("syntax") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-    let mut syntax: Vec<String> = syntax.split(',').map(str::to_string).collect();
-    syntax.sort();
-    syntax.dedup();
-
-    let pretty = match obj.get("pretty") {
-        Some(json) => json.as_string().unwrap().to_string(),
-        None => "".to_string(),
-    };
-    let sym: Vec<String> = obj
-        .get("sym")
-        .unwrap()
-        .as_string()
-        .unwrap()
-        .to_string()
-        .split(',')
-        .map(str::to_string)
-        .collect();
-    // We used to sort() and dedup() here, with the sort() presumably happening because dup()
-    // requires it to completely eliminate duplicates.  We now no longer do either because
-    // - It's a nice property that the symbols maintain the ordering so that the first symbol can
-    //   be the most-specific symbol.
-    // - We do not expect symbol duplication to occur unless we are merging, and our merging logic
-    //   handles that.
-
-    let no_crossref = match obj.get("no_crossref") {
-        Some(_) => true,
-        None => false,
-    };
-
-    let nesting_range = match obj.get("nestingRange") {
-        Some(json) => parse_source_range(json.as_string().unwrap()),
-        None => SourceRange {
-            start_lineno: 0,
-            start_col: 0,
-            end_lineno: 0,
-            end_col: 0,
-        },
-    };
-
-    // We need to go from Option<Json> to Option<String>.
-    let to_str_opt = |oj: &Option<&Json>| match oj {
-        Some(j) => Some(j.as_string().unwrap().to_string()),
-        None => None
-    };
-
-    let type_pretty = to_str_opt(&obj.get("type"));
-    let type_sym = to_str_opt(&obj.get("typesym"));
-
-    Some(AnalysisSource {
-        pretty,
-        sym,
-        syntax,
-        no_crossref,
-        nesting_range,
-        type_pretty,
-        type_sym,
-    })
+    from_value(obj).ok()
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Jump {
-    pub id: String,
+    pub id: Ustr,
     pub path: String,
     pub lineno: u64,
     pub pretty: String,
 }
 
-pub fn read_jumps(filename: &str) -> HashMap<String, Jump> {
+pub fn read_jumps(filename: &str) -> UstrMap<Jump> {
     let file = File::open(filename).unwrap();
     let reader = BufReader::new(&file);
-    let mut result = HashMap::new();
+    let mut result = UstrMap::default();
     let mut lineno = 1;
     for line in reader.lines() {
         let line = line.unwrap();
-        let data = Json::from_str(&line);
+        let data: serde_json::Result<Value> = from_str(&line);
         let data = match data {
             Ok(data) => data,
             Err(_) => panic!("error on line {}: {}", lineno, &line),
@@ -726,12 +647,12 @@ pub fn read_jumps(filename: &str) -> HashMap<String, Jump> {
         lineno += 1;
 
         let array = data.as_array().unwrap();
-        let id = array[0].as_string().unwrap().to_string();
+        let id = ustr(array[0].as_str().unwrap());
         let data = Jump {
-            id: id.clone(),
-            path: array[1].as_string().unwrap().to_string(),
+            id,
+            path: array[1].as_str().unwrap().to_string(),
             lineno: array[2].as_u64().unwrap(),
-            pretty: array[3].as_string().unwrap().to_string(),
+            pretty: array[3].as_str().unwrap().to_string(),
         };
 
         result.insert(id, data);

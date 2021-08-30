@@ -10,15 +10,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 427,
             "bounds": [
               6,
               18
             ],
+            "line": "class PracticalArt : public AbstractArt {",
             "context": "",
             "contextsym": "",
-            "line": "class PracticalArt : public AbstractArt {",
-            "lno": 427,
-            "peekLines": "class PracticalArt : public AbstractArt {\n"
+            "peekRange": "427-427"
           }
         ]
       }
@@ -28,15 +28,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 417,
             "bounds": [
               6,
               18
             ],
+            "line": "class AbstractArt : public Thing {",
             "context": "",
             "contextsym": "",
-            "line": "class AbstractArt : public Thing {",
-            "lno": 417,
-            "peekLines": "class AbstractArt : public Thing {\n",
+            "peekRange": "417-417",
             "upsearch": "symbol:T_outerNS::AbstractArt"
           }
         ]

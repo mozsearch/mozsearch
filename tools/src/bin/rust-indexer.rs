@@ -10,14 +10,14 @@ extern crate tools;
 use crate::data::GlobalCrateId;
 use crate::data::{DefKind, ImplKind};
 use rls_analysis::{AnalysisHost, AnalysisLoader, SearchDirectory};
+use serde_json::to_string;
+use ustr::ustr;
 use std::collections::{BTreeSet, HashMap};
 use std::fs::{self, File};
 use std::io;
 use std::io::{BufRead, BufReader, Read, Seek};
 use std::path::{Path, PathBuf};
-use tools::file_format::analysis::{
-    AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, SourceRange, WithLocation,
-};
+use tools::file_format::analysis::{AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, SourceRange, SourceTag, TargetTag, WithLocation};
 
 /// A global definition id in a crate.
 ///
@@ -379,11 +379,12 @@ fn visit_common(
     let sanitized = sanitize_symbol(qualname);
     let target_data = WithLocation {
         data: AnalysisTarget {
+            target: TargetTag::Target,
             kind,
-            pretty: sanitized.clone(),
-            sym: sanitized.clone(),
-            context: String::from(context.unwrap_or("")),
-            contextsym: String::from(context.unwrap_or("")),
+            pretty: ustr(&sanitized),
+            sym: ustr(&sanitized),
+            context: ustr(context.unwrap_or("")),
+            contextsym: ustr(context.unwrap_or("")),
             peek_range: LineRange {
                 start_lineno: 0,
                 end_lineno: 0,
@@ -391,7 +392,7 @@ fn visit_common(
         },
         loc: loc.clone(),
     };
-    out_data.insert(format!("{}", target_data));
+    out_data.insert(to_string(&target_data).unwrap());
 
     let nesting_range = match nesting {
         Some(span) => SourceRange {
@@ -412,9 +413,10 @@ fn visit_common(
 
     let source_data = WithLocation {
         data: AnalysisSource {
+            source: SourceTag::Source,
             syntax: vec![],
-            pretty: pretty.to_string(),
-            sym: vec![sanitized],
+            pretty: ustr(&pretty),
+            sym: vec![ustr(&sanitized)],
             no_crossref: false,
             nesting_range,
             // TODO: Expose type information for fields/etc.
@@ -423,7 +425,7 @@ fn visit_common(
         },
         loc,
     };
-    out_data.insert(format!("{}", source_data));
+    out_data.insert(to_string(&source_data).unwrap());
 }
 
 /// Normalizes a searchfox user-visible relative file path to be an absolute

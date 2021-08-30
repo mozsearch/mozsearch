@@ -20,7 +20,8 @@ use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 use git2;
-use rustc_serialize::json::{self, Json};
+use serde_json::{json, Map, Value, to_string, to_string_pretty};
+use ustr::{Ustr, UstrMap};
 
 use crate::config;
 
@@ -29,7 +30,7 @@ pub struct FormattedLine {
     pub line: String,
     // If this line should open a new <div> and its <code> line should be position: sticky, this
     // has a String which is the symbol starting the nest.
-    pub sym_starts_nest: Option<String>,
+    pub sym_starts_nest: Option<Ustr>,
     // This line should close this many <div>'s.
     pub pop_nest_count: u32,
 }
@@ -38,7 +39,7 @@ pub struct FormattedLine {
 /// provide the metadata for the position:sticky post-processing step.  Caller is responsible
 /// for generating line numbers and any blame information.
 pub fn format_code(
-    jumps: &HashMap<String, Jump>,
+    jumps: &UstrMap<Jump>,
     format: FormatAs,
     path: &str,
     input: &str,
@@ -60,7 +61,7 @@ pub fn format_code(
     // use case is making the entire line position:sticky, it only makes sense to create a single
     // range in that case.)
     let mut nesting_stack: Vec<&AnalysisSource> = Vec::new();
-    let mut starts_nest: Option<String> = None;
+    let mut starts_nest: Option<Ustr> = None;
 
     fn fixup(s: String) -> String {
         s.replace("\r", "\u{21A9}") // U+21A9 = LEFTWARDS ARROW WITH HOOK.
@@ -80,7 +81,7 @@ pub fn format_code(
     // line, but otherwise the entries for a given symbol will be identical every time the symbol
     // is found.  This mechanism has been about binding DOM elements to structured JS data rather
     // than efficiency of encoding.
-    let mut generated_json = json::Array::new();
+    let mut generated_json = vec![];
     // The SYM_INFO dictionary we output into the HTML.  This is used to stash the type_pretty and
     // type_sym information for symbols that possess it, including no_crossref symbols which won't
     // have an entry in `generated_json` with corresponding `data-i` attr, but do possess a
@@ -185,7 +186,7 @@ pub fn format_code(
                         }
                     };
                     if nests {
-                        starts_nest = Some(a.sym.first().unwrap().clone());
+                        starts_nest = Some(*a.sym.first().unwrap());
                         nesting_stack.push(a);
                     }
 
@@ -195,17 +196,17 @@ pub fn format_code(
                     // and targetsym doesn't make sense for locals.
                     if a.no_crossref && a.type_pretty.is_some() && a.sym.len() >= 1 &&
                        !generated_sym_info.contains_key(&a.sym[0]) {
-                        let mut obj = json::Object::new();
+                        let mut obj = Map::new();
                         if a.get_syntax_kind().is_some() {
                             obj.insert("syntax".to_string(),
-                                       Json::String(a.get_syntax_kind().unwrap().to_string()));
+                                       json!(a.get_syntax_kind().unwrap().to_string()));
                         }
                         obj.insert("type".to_string(),
-                                   Json::String(a.type_pretty.as_ref().unwrap().to_string()));
+                                   json!(a.type_pretty.as_ref().unwrap().to_string()));
                         if let Some(type_sym) = &a.type_sym {
-                            obj.insert("typesym".to_string(), Json::String(type_sym.to_string()));
+                            obj.insert("typesym".to_string(), json!(type_sym.to_string()));
                         }
-                        generated_sym_info.insert(a.sym[0].clone(), Json::Object(obj));
+                        generated_sym_info.insert(a.sym[0].clone(), json!(obj));
                     }
                 }
 
@@ -231,7 +232,7 @@ pub fn format_code(
                     .collect::<Vec<_>>();
 
                 // map to de-duplicate jumps on path:lineno, later flattened to vec.
-                let mut menu_jumps: HashMap<String, Json> = HashMap::new();
+                let mut menu_jumps: HashMap<String, Value> = HashMap::new();
                 for sym in d.iter().flat_map(|item| item.sym.iter()) {
                     let jump = match jumps.get(sym) {
                         Some(jump) => jump,
@@ -242,20 +243,22 @@ pub fn format_code(
                         continue;
                     }
 
-                    let key = format!("{}:{}", jump.path, jump.lineno);
-                    let mut obj = json::Object::new();
-                    obj.insert("sym".to_string(), Json::String(sym.to_string()));
-                    obj.insert("pretty".to_string(), Json::String(jump.pretty.clone()));
-                    menu_jumps.insert(key, Json::Object(obj));
+                    menu_jumps.insert(
+                        format!("{}:{}", jump.path, jump.lineno),
+                        json!({
+                            "sym": sym,
+                            "pretty": jump.pretty,
+                        })
+                    );
                 }
 
                 let items = d
                     .iter()
                     .map(|item| {
-                        let mut obj = json::Object::new();
-                        obj.insert("pretty".to_string(), Json::String(item.pretty.clone()));
-                        obj.insert("sym".to_string(), Json::String(item.sym.join(",")));
-                        Json::Object(obj)
+                        json!({
+                            "sym": item.get_joined_syms(),
+                            "pretty": item.pretty,
+                        })
                     })
                     .collect::<Vec<_>>();
 
@@ -263,9 +266,9 @@ pub fn format_code(
 
                 let index = generated_json.len();
                 if items.len() > 0 {
-                    generated_json.push(Json::Array(vec![
-                        Json::Array(menu_jumps),
-                        Json::Array(items),
+                    generated_json.push(json!(vec![
+                        json!(menu_jumps),
+                        json!(items),
                     ]));
                     format!("data-symbols=\"{}\" data-i=\"{}\" ", syms, index)
                 } else {
@@ -342,14 +345,14 @@ pub fn format_code(
     }
 
     let analysis_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
-        json::encode(&Json::Array(generated_json)).unwrap()
+        to_string(&json!(generated_json)).unwrap()
     } else {
-        format!("{}", json::as_pretty_json(&Json::Array(generated_json)))
+        to_string_pretty(&json!(generated_json)).unwrap()
     };
     let sym_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
-        json::encode(&Json::Object(generated_sym_info)).unwrap()
+        to_string(&json!(generated_sym_info)).unwrap()
     } else {
-        format!("{}", json::as_pretty_json(&Json::Object(generated_sym_info)))
+        to_string_pretty(&json!(generated_sym_info)).unwrap()
     };
     (output_lines, analysis_json, sym_json)
 }
@@ -367,7 +370,7 @@ pub fn format_file_data(
     blame_commit: &Option<git2::Commit>,
     path: &str,
     data: String,
-    jumps: &HashMap<String, Jump>,
+    jumps: &UstrMap<Jump>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     coverage: &Option<Vec<i32>>,
     writer: &mut dyn Write,
@@ -754,7 +757,7 @@ pub fn format_path(
         None
     };
 
-    let jumps: HashMap<String, analysis::Jump> = HashMap::new();
+    let jumps: UstrMap<analysis::Jump> = UstrMap::default();
     let analysis = Vec::new();
 
     let hg_rev: &str = tree_config
@@ -953,7 +956,7 @@ pub fn format_diff(
         }
         _ => {}
     };
-    let jumps: HashMap<String, analysis::Jump> = HashMap::new();
+    let jumps: UstrMap<analysis::Jump> = UstrMap::default();
     let analysis = Vec::new();
     let (formatted_lines, _, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 
