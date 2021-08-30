@@ -59,7 +59,7 @@ key_remapping = { 'uses': 'Uses', 'defs': 'Definitions', 'assignments': 'Assignm
 def expand_keys(new_keyed):
     '''
     Converts to the old Uses/Definitions/Assignments/Declarations/IDL rep
-    from the new uses/defs/assignments/decls/idl rep, dropping 'consumes'
+    from the new uses/defs/assignments/decls/idl rep, dropping 'callees'
     entries.  Performs the mutation in-place which also means keys that aren't
     re-mapped are passed through untouched.
     '''
