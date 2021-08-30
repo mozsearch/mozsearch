@@ -10,15 +10,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 417,
             "bounds": [
               6,
               17
             ],
+            "line": "class AbstractArt : public Thing {",
             "context": "",
             "contextsym": "",
-            "line": "class AbstractArt : public Thing {",
-            "lno": 417,
-            "peekLines": "class AbstractArt : public Thing {\n"
+            "peekRange": "417-417"
           }
         ]
       }
@@ -28,15 +28,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 135,
             "bounds": [
               6,
               17
             ],
+            "line": "class Thing {",
             "context": "",
             "contextsym": "",
-            "line": "class Thing {",
-            "lno": 135,
-            "peekLines": "class Thing {\n",
+            "peekRange": "135-135",
             "upsearch": "symbol:T_outerNS::Thing"
           }
         ]
@@ -47,15 +47,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 427,
             "bounds": [
               6,
               17
             ],
+            "line": "class PracticalArt : public AbstractArt {",
             "context": "",
             "contextsym": "",
-            "line": "class PracticalArt : public AbstractArt {",
-            "lno": 427,
-            "peekLines": "class PracticalArt : public AbstractArt {\n",
+            "peekRange": "427-427",
             "upsearch": "symbol:T_outerNS::PracticalArt"
           }
         ]
@@ -66,14 +66,14 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
+            "lno": 430,
             "bounds": [
               2,
               13
             ],
-            "context": "outerNS::PracticalArt::PracticalArt",
-            "contextsym": "_ZN7outerNS12PracticalArtC1Ev",
             "line": ": AbstractArt() {}",
-            "lno": 430
+            "context": "outerNS::PracticalArt::PracticalArt",
+            "contextsym": "_ZN7outerNS12PracticalArtC1Ev"
           }
         ]
       }

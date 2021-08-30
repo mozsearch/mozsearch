@@ -6,7 +6,8 @@ use std::io::BufRead;
 use std::process::Command;
 use std::str;
 
-use rustc_serialize::json;
+use serde::{Deserialize, Serialize};
+use serde_json::{to_string};
 
 use crate::config;
 
@@ -26,7 +27,7 @@ pub struct IdentMap {
     mmap: Option<Mmap>,
 }
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(Serialize, Deserialize)]
 pub struct IdentResult {
     pub id: String,
     pub symbol: String,
@@ -191,6 +192,6 @@ impl IdentMap {
         max_results: usize,
     ) -> String {
         let results = self.lookup(needle, complete, fold_case, max_results);
-        json::encode(&results).unwrap()
+        to_string(&results).unwrap()
     }
 }

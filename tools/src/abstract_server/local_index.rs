@@ -46,6 +46,7 @@ async fn read_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
         .collect()
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct LocalIndex {
     // We only hold onto the TreeConfigPaths portion of the config because the

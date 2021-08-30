@@ -25,6 +25,7 @@ impl From<ParseError> for ServerError {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct RemoteServer {
     server_base_url: Url,

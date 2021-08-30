@@ -4,15 +4,15 @@ use std::io::BufReader;
 use std::io::Read;
 use std::str;
 
-use rustc_serialize::json::{self, Json};
-use rustc_serialize::Decodable;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value};
 
 use jemalloc_sys;
 use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 
 use git2::{Oid, Repository};
 
-#[derive(Debug, MallocSizeOf, RustcDecodable, RustcEncodable)]
+#[derive(Debug, MallocSizeOf, Serialize, Deserialize)]
 pub struct TreeConfigPaths {
     pub index_path: String,
     pub files_path: String,
@@ -131,19 +131,18 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
     let mut reader = BufReader::new(&config_file);
     let mut input = String::new();
     reader.read_to_string(&mut input).unwrap();
-    let config = Json::from_str(&input).unwrap();
+    let config: Value = serde_json::from_str(&input).unwrap();
 
     let mut obj = config.as_object().unwrap().clone();
 
     let mozsearch_json = obj.remove("mozsearch_path").unwrap();
-    let mozsearch = mozsearch_json.as_string().unwrap();
+    let mozsearch = mozsearch_json.as_str().unwrap();
 
     let trees_obj = obj.get("trees").unwrap().as_object().unwrap().clone();
 
     let mut trees = BTreeMap::new();
     for (tree_name, tree_config) in trees_obj {
-        let mut decoder = json::Decoder::new(tree_config);
-        let paths = TreeConfigPaths::decode(&mut decoder).unwrap();
+        let paths: TreeConfigPaths = serde_json::from_value(tree_config).unwrap();
 
         let git = match (&paths.git_path, &paths.git_blame_path) {
             (&Some(ref git_path), &Some(ref git_blame_path)) => {

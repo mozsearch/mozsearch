@@ -10,15 +10,15 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
+            "lno": 31,
             "bounds": [
               13,
               23
             ],
+            "line": "virtual void triplePure() = 0;",
             "context": "TripleBase",
             "contextsym": "T_TripleBase",
-            "line": "virtual void triplePure() = 0;",
-            "lno": 31,
-            "peekLines": "virtual void triplePure() = 0;\n"
+            "peekRange": "31-31"
           }
         ]
       }
@@ -28,39 +28,39 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
+            "lno": 37,
             "bounds": [
               5,
               15
             ],
+            "line": "void triplePure() override {",
             "context": "TripleSubOne",
             "contextsym": "T_TripleSubOne",
-            "line": "void triplePure() override {",
-            "lno": 37,
-            "peekLines": "void triplePure() override {\n",
+            "peekRange": "37-37",
             "upsearch": "symbol:_ZN12TripleSubOne10triplePureEv"
           },
           {
+            "lno": 45,
             "bounds": [
               5,
               15
             ],
+            "line": "void triplePure() override {",
             "context": "TripleSubTwo",
             "contextsym": "T_TripleSubTwo",
-            "line": "void triplePure() override {",
-            "lno": 45,
-            "peekLines": "void triplePure() override {\n",
+            "peekRange": "45-45",
             "upsearch": "symbol:_ZN12TripleSubTwo10triplePureEv"
           },
           {
+            "lno": 53,
             "bounds": [
               5,
               15
             ],
+            "line": "void triplePure() override {",
             "context": "TripleSubThree",
             "contextsym": "T_TripleSubThree",
-            "line": "void triplePure() override {",
-            "lno": 53,
-            "peekLines": "void triplePure() override {\n",
+            "peekRange": "53-53",
             "upsearch": "symbol:_ZN14TripleSubThree10triplePureEv"
           }
         ]
@@ -71,34 +71,34 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
+            "lno": 79,
             "bounds": [
               8,
               18
             ],
-            "context": "generateTripleUses",
-            "contextsym": "_Z18generateTripleUsesv",
             "line": "subOne->triplePure();",
-            "lno": 79
+            "context": "generateTripleUses",
+            "contextsym": "_Z18generateTripleUsesv"
           },
           {
+            "lno": 80,
             "bounds": [
               8,
               18
             ],
-            "context": "generateTripleUses",
-            "contextsym": "_Z18generateTripleUsesv",
             "line": "subTwo->triplePure();",
-            "lno": 80
+            "context": "generateTripleUses",
+            "contextsym": "_Z18generateTripleUsesv"
           },
           {
+            "lno": 81,
             "bounds": [
               10,
               20
             ],
-            "context": "generateTripleUses",
-            "contextsym": "_Z18generateTripleUsesv",
             "line": "subThree->triplePure();",
-            "lno": 81
+            "context": "generateTripleUses",
+            "contextsym": "_Z18generateTripleUsesv"
           }
         ]
       }

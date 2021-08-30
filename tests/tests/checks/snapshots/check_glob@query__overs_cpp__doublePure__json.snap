@@ -10,15 +10,15 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
+            "lno": 9,
             "bounds": [
               13,
               23
             ],
+            "line": "virtual void doublePure() = 0;",
             "context": "DoubleBase",
             "contextsym": "T_DoubleBase",
-            "line": "virtual void doublePure() = 0;",
-            "lno": 9,
-            "peekLines": "virtual void doublePure() = 0;\n"
+            "peekRange": "9-9"
           }
         ]
       }
@@ -28,27 +28,27 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
+            "lno": 15,
             "bounds": [
               5,
               15
             ],
+            "line": "void doublePure() override {",
             "context": "DoubleSubOne",
             "contextsym": "T_DoubleSubOne",
-            "line": "void doublePure() override {",
-            "lno": 15,
-            "peekLines": "void doublePure() override {\n",
+            "peekRange": "15-15",
             "upsearch": "symbol:_ZN12DoubleSubOne10doublePureEv"
           },
           {
+            "lno": 23,
             "bounds": [
               5,
               15
             ],
+            "line": "void doublePure() override {",
             "context": "DoubleSubTwo",
             "contextsym": "T_DoubleSubTwo",
-            "line": "void doublePure() override {",
-            "lno": 23,
-            "peekLines": "void doublePure() override {\n",
+            "peekRange": "23-23",
             "upsearch": "symbol:_ZN12DoubleSubTwo10doublePureEv"
           }
         ]
@@ -59,24 +59,24 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
+            "lno": 64,
             "bounds": [
               8,
               18
             ],
-            "context": "generateDoubleUses",
-            "contextsym": "_Z18generateDoubleUsesv",
             "line": "subOne->doublePure();",
-            "lno": 64
+            "context": "generateDoubleUses",
+            "contextsym": "_Z18generateDoubleUsesv"
           },
           {
+            "lno": 65,
             "bounds": [
               8,
               18
             ],
-            "context": "generateDoubleUses",
-            "contextsym": "_Z18generateDoubleUsesv",
             "line": "subTwo->doublePure();",
-            "lno": 65
+            "context": "generateDoubleUses",
+            "contextsym": "_Z18generateDoubleUsesv"
           }
         ]
       }
