@@ -25,14 +25,14 @@ then
       SEARCHFOX_SERVER=${CONFIG_FILE} \
       SEARCHFOX_TREE=${TREE_NAME} \
       CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
-      cargo test --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
+      cargo +nightly test --release --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
   fi
   if [[ $CHECK_SERVER_URL ]]; then
     RUST_BACKTRACE=1 \
       SEARCHFOX_SERVER="$CHECK_SERVER_URL" \
       SEARCHFOX_TREE=${TREE_NAME} \
       CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
-      cargo test --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
+      cargo +nightly test --release --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
   fi
   #$CONFIG_REPO/$TREE_NAME/check "$MOZSEARCH_PATH/scripts/check-helper.sh" "$CHECK_DISK" "$CHECK_SERVER_URL"
 fi
