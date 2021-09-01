@@ -68,7 +68,10 @@ def read_cpp_analysis(fname):
         except ValueError as e:
             print('Syntax error in JSON file', p, line.strip(), file=sys.stderr)
             raise e
-        if 'target' in j and j['kind'] == 'decl' and j['sym'].startswith('_Z'):
+        # Inline method definitions and pure virtual method declarations
+        # will both be reported as definitions by the C++ indexer without a
+        # declaration, so we need to accept both decls and defs.
+        if 'target' in j and (j['kind'] == 'decl' or j['kind'] == 'def') and j['sym'].startswith('_Z'):
             idents = parse_mangled(j['sym'])
             if idents and len(idents) == 2:
                 decls.setdefault(idents[0], {})[idents[1]] = j['sym']
