@@ -1,0 +1,26 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "kind": "method",
+    "loc": "00433:7-12",
+    "overrides": [
+      {
+        "pretty": "outerNS::AbstractArt::beArt",
+        "sym": "_ZN7outerNS11AbstractArt5beArtEv"
+      }
+    ],
+    "parentsym": "T_outerNS::PracticalArt",
+    "pretty": "outerNS::PracticalArt::beArt",
+    "props": [
+      "instance",
+      "virtual",
+      "user"
+    ],
+    "structured": 1,
+    "sym": "_ZN7outerNS12PracticalArt5beArtEv"
+  }
+]

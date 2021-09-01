@@ -412,6 +412,31 @@ class OuterCat : Thing {
   }
 };
 
+#define ART_HP 100
+
+class AbstractArt : public Thing {
+public:
+  AbstractArt()
+  : Thing(ART_HP) {}
+
+  // This pure virtual method needs to be treated like a definition for our
+  // structured record emission purposes.
+  virtual void beArt() = 0;
+};
+
+class PracticalArt : public AbstractArt {
+public:
+  PracticalArt()
+  : AbstractArt() {}
+
+  // This should properly see the beArt as something it's overriding.
+  void beArt() override {
+    // Apprecaite in value!
+    mHP++;
+  }
+};
+
+
 namespace innerNS {
 
 class InnerCat {
