@@ -68,9 +68,12 @@ def lookup_merging(tree_name, symbols):
         result = json.loads(data)
 
         for (k, v) in result.items():
-            if k == 'meta' or k == 'callees':
+            if k == 'callees':
                 continue
-            results[k] = results.get(k, []) + result[k]
+            # expand_keys now expects aggregated meta, so wrap the meta obj.
+            if k == 'meta':
+                v = [v]
+            results[k] = results.get(k, []) + v
 
     return results
 

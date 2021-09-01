@@ -54,14 +54,60 @@ def parse_path_filter(filter):
     return filter
 
 key_remapping = { 'uses': 'Uses', 'defs': 'Definitions', 'assignments': 'Assignments',
-                  'decls': 'Declarations', 'idl': 'IDL', 'conumes': None }
+                  'decls': 'Declarations', 'idl': 'IDL', 'callees': None }
 
-def expand_keys(new_keyed):
+def merge_defs_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
+    '''
+    Helper for `expand_keys` to build an aggregate path hit list to be stored
+    as `as_key` in the `mix_target` consisting of the definitions for each
+    provided symbol name, augmented with some kind of hacky hint for the UI so
+    it can know to generate a search link for each specific type.
+    '''
+    # Do not do anything if there's too many results!
+    if len(symbol_names) >= 50:
+        return
+
+    aggr_defs = []
+    for symbol_name in symbol_names:
+        info = crossrefs.lookup_single_symbol(tree_name, symbol_name)
+        if info is None or 'defs' not in info:
+            continue
+
+        defs = info['defs']
+        for path_hit in defs:
+            path_hit['lines'][0]['upsearch'] = 'symbol:' + symbol_name
+            aggr_defs.append(path_hit)
+
+    if len(aggr_defs):
+        mix_target[as_key] = aggr_defs
+
+
+def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
     '''
     Converts to the old Uses/Definitions/Assignments/Declarations/IDL rep
     from the new uses/defs/assignments/decls/idl rep, dropping 'callees'
     entries.  Performs the mutation in-place which also means keys that aren't
     re-mapped are passed through untouched.
+
+    ## New relation-traversing support!
+
+    To help address the regression in the handling of overridden methods, we
+    now will also investigate the "meta" field and induce synthetic keys
+    ["Overrides", "Overridden By", "Superclasses", "Subclasses"] if
+    `traverse_relations` is set to True.
+
+    Our general UX goal (operating within the existing "search-not-sorch" data
+    model) is:
+    - If showing a method which has overrides:
+      - We will show an "Overridden By" section whose hits will be the
+        definitions of the overrides and exposes a "(search using this symbol)"
+        upsell.
+    - If showing a method which is itself an override of something else:
+      - We will show an "Overrides" section whose hits will be the definitions
+        of the thing we are overriding and upsells "(search using this symbol)".
+    - We do the same thing as the above for "Superclasses" and "Subclasses".
+    - If there will be more than 50 results, we don't attempt to show anything
+      out of concern for overwhelming the server.
     '''
     for new_name, old_name in key_remapping.items():
         if new_name in new_keyed:
@@ -69,7 +115,27 @@ def expand_keys(new_keyed):
             if old_name is None:
                 new_keyed.pop(new_name)
             else:
-                new_keyed[old_name] = new_keyed.pop(new_name);
+                new_keyed[old_name] = new_keyed.pop(new_name)
+
+    if 'meta' in new_keyed:
+        if traverse_relations:
+            # lookup_merging will have wrapped the value into a list
+            meta_arr = new_keyed.pop('meta')
+            for meta in meta_arr:
+                if 'overrides' in meta:
+                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['overrides']], 'Overrides')
+                if 'overriddenBy' in meta:
+                    # Currently this derived relationship only includes the symbol
+                    # name, as opposed to the overrides cases which is an obj with
+                    # { sym, pretty }.
+                    merge_defs_from_symbols_as(tree_name, new_keyed, meta['overriddenBy'], 'Overridden By')
+                if 'supers' in meta:
+                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['supers']], 'Superclasses')
+                if 'subclasses' in meta:
+                    # This is also a derived relationship with only the symbol.
+                    merge_defs_from_symbols_as(tree_name, new_keyed, meta['subclasses'], 'Subclasses')
+        else:
+            del new_keyed['meta']
 
     return new_keyed
 
@@ -153,7 +219,9 @@ class SearchResults(object):
     max_count = 1000
     max_work = 750
     path_precedences = ['normal', 'thirdparty', 'test', 'generated']
-    key_precedences = ["Files", "IDL", "Definitions", "Assignments", "Uses", "Declarations", "Textual Occurrences"]
+    key_precedences = ["Files", "IDL", "Definitions", "Overrides",
+        "Overridden By", "Superclasses", "Subclasses", "Assignments", "Uses",
+        "Declarations", "Textual Occurrences"]
 
     def categorize_path(self, path):
         '''
@@ -357,7 +425,7 @@ def identifier_search(search, tree_name, needle, complete, fold_case):
         if q == sym:
             q = qualified
 
-        results = expand_keys(crossrefs.lookup_merging(tree_name, sym))
+        results = expand_keys(tree_name, crossrefs.lookup_merging(tree_name, sym))
         search.add_qualified_results(q, results, line_modifier)
 
 def get_json_search_results(tree_name, query):
@@ -418,7 +486,7 @@ def get_json_search_results(tree_name, query):
         search.set_path_filter(parsed.get('pathre'))
         symbols = parsed['symbol']
         title = 'Symbol ' + symbols
-        search.add_results(expand_keys(crossrefs.lookup_merging(tree_name, symbols)))
+        search.add_results(expand_keys(tree_name, crossrefs.lookup_merging(tree_name, symbols)))
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
         (substr_results, timed_out) = codesearch.search(parsed['re'], fold_case, path, tree_name, context_lines)
@@ -666,7 +734,7 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
             tree_name = path_elts[0]
             query = six.moves.urllib.parse.parse_qs(url.query)
             symbol = query['q'][0]
-            results = expand_keys(crossrefs.lookup_merging(tree_name, symbol))
+            results = expand_keys(tree_name, crossrefs.lookup_merging(tree_name, symbol), False)
             definition = results['Definitions'][0]
             filename = definition['path']
             lineno = definition['lines'][0]['lno']
