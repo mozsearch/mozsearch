@@ -102,7 +102,11 @@ fn mangle_nested_name(ns: &[String], protocol: &str, name: &str) -> String {
 fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a AnalysisTarget> {
     for datum in analysis {
         for piece in &datum.data {
-            if piece.kind == AnalysisKind::Decl && piece.sym.contains(mangled) {
+            // Inline method definitions and pure virtual method declarations
+            // will both be reported as definitions by the C++ indexer without a
+            // declaration, so we need to accept both decls and defs.
+            if (piece.kind == AnalysisKind::Decl || piece.kind == AnalysisKind::Def) &&
+               piece.sym.contains(mangled) {
                 return Some(&piece);
             }
         }
