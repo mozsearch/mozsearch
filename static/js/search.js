@@ -262,6 +262,10 @@ function populateResults(data, full, jumpToSingle) {
     return "/" + Dxr.tree + "/source/" + path;
   }
 
+  function makeSearchUrl(q) {
+    return `/${Dxr.tree}/search?q=${encodeURIComponent(q)}`;
+  }
+
   function chooseIcon(path) {
     var suffix = path.lastIndexOf(".");
     if (suffix == -1) {
@@ -374,6 +378,11 @@ function populateResults(data, full, jumpToSingle) {
         " <span class='result-context'>// found in <code>" +
         inside +
         "</code></span>";
+    }
+
+    // Hacky attempt to provide a means of providing related searches.
+    if (line.upsearch) {
+      html += `<span class='result-upsearch'><a href="${makeSearchUrl(line.upsearch)}">Symbol Search This</a></span>`;
     }
 
     html += "</td>";
