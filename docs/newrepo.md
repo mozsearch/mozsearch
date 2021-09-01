@@ -57,6 +57,13 @@ infrastructure/aws/upload.py ./glean.tar searchfox.repositories glean.tar
 infrastructure/aws/upload.py ./glean-blame.tar searchfox.repositories glean-blame.tar
 ```
 
+Equivalently, you can do it with the aws CLI tool, making sure to set the permissions:
+```
+cd $MOZSEARCH
+aws s3 cp ./glean.tar s3://searchfox.repositories/glean.tar --acl public-read
+aws s3 cp ./glean-blame.tar s3://searchfox.repositories/glean-blame.tar --acl public-read
+```
+
 ## 4. Update the mozsearch-mozilla repo
 
 For this you need to clone the [mozsearch-mozilla](https://github.com/mozsearch/mozsearch-mozilla) repo. For
