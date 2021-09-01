@@ -3,4 +3,19 @@ source: tests/test_check_insta.rs
 expression: "&json_results"
 
 ---
-[]
+[
+  {
+    "kind": "method",
+    "loc": "00424:15-20",
+    "overrides": [],
+    "parentsym": "T_outerNS::AbstractArt",
+    "pretty": "outerNS::AbstractArt::beArt",
+    "props": [
+      "instance",
+      "virtual",
+      "user"
+    ],
+    "structured": 1,
+    "sym": "_ZN7outerNS11AbstractArt5beArtEv"
+  }
+]
