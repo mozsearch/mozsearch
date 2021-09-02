@@ -660,6 +660,11 @@ let Analyzer = {
       break;
     }
 
+    case "StaticClassBlock": {
+      this.statement(stmt.body);
+      break;
+    }
+
     default:
       throw "Unexpected statement: " + stmt.type + " " + JSON.stringify(stmt);
       break;
