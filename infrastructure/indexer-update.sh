@@ -43,7 +43,7 @@ rustup component remove rust-docs || true
 rustup update
 
 # Install SpiderMonkey.
-rm -rf jsshell-linux-x86_64.zip js
+rm -rf target.jsshell.zip js
 wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
 mkdir js
 pushd js
