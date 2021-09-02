@@ -122,3 +122,14 @@ This will spew out a lot of output as it does stuff, and either end in an error 
 the web server in your vagrant VM which you will be able to access from http://localhost:16995/.
 
 Once any issues are debugged, push a PR with your changes to the `mozsearch-mozilla` repo.
+
+## 6. Update load balancer
+
+If the repo is being added to a config file OTHER than config1.json, it will need an entry in the load balancer. This is
+what tells AWS to route requests for this repo to the web-server that hosts it. Setting this up requires AWS access,
+and is usually done via the web console:
+- Log in to the AWS console at aws.sso.mozilla.org
+- Go to the EC2 service, and then the "Load balancers" page from the sidebar.
+- Select the "release-lb" balancer, and then edit the rules for the HTTP listener.
+- Add a new rule (or edit an existing one) such that the path for your repo is forwarded to the appropriate release target group. Use the existing rules as guides. Note that each rule has a limit of 5 condition values (i.e. repos), which is why they sometimes spill over into new rules even though they have the same target.
+- Repeat the previous step for the HTTPS listener on the "release-lb" balancer.
