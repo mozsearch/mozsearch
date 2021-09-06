@@ -1,6 +1,6 @@
 use regex::Regex;
 use tokio::fs::{read_dir, read_to_string};
-use tools::cmd_pipeline::{build_pipeline, PipelineValues};
+use tools::{abstract_server::ServerError, cmd_pipeline::{build_pipeline, PipelineValues}};
 
 /// Glob-style insta test where we process all of the searchfox-tool command
 /// lines in TREE/checks/inputs and output the results of those pipelines to
@@ -97,7 +97,17 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                             for file_records in jr.by_file {
                                 json_results.extend(file_records.records);
                             }
+
                             insta::assert_json_snapshot!(&json_results);
+                        }
+                        Ok(PipelineValues::JsonValue(jv)) => {
+                            insta::assert_json_snapshot!(&jv.value);
+                        }
+                        Err(ServerError::Unsupported) => {
+                            // We're intentionally skipping doing anything here.
+                            // Our assumption is that this error will only be
+                            // returned in cases like the local index server
+                            // being unable to handle "query" commands.
                         }
                         Err(err) => {
                             insta::assert_snapshot!(format!("Pipeline Error: {:?}", err));

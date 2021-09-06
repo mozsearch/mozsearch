@@ -2,6 +2,7 @@ use clap::arg_enum;
 use structopt::StructOpt;
 
 use super::cmd_filter_analysis::FilterAnalysis;
+use super::cmd_query::Query;
 use super::cmd_show_html::ShowHtml;
 
 arg_enum! {
@@ -43,9 +44,6 @@ pub enum Command {
     ShowHtml(ShowHtml),
     IdentifierLookup(IdentifierLookup),
 }
-
-#[derive(Debug, StructOpt)]
-pub struct Query {}
 
 #[derive(Debug, StructOpt)]
 pub struct IdentifierLookup {}
