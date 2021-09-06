@@ -5,10 +5,10 @@ expression: "&json_results"
 ---
 [
   {
-    "kind": "def",
     "loc": "00014:11-17",
+    "target": 1,
+    "kind": "def",
     "pretty": "test_rust_dependency::<MyType>::do_foo",
-    "sym": "test_rust_dependency::<MyType>::do_foo",
-    "target": 1
+    "sym": "test_rust_dependency::<MyType>::do_foo"
   }
 ]

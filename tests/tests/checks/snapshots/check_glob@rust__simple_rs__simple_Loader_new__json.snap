@@ -5,10 +5,10 @@ expression: "&json_results"
 ---
 [
   {
-    "kind": "def",
     "loc": "00037:11-14",
+    "target": 1,
+    "kind": "def",
     "pretty": "simple::<Loader>::new",
-    "sym": "simple::<Loader>::new",
-    "target": 1
+    "sym": "simple::<Loader>::new"
   }
 ]

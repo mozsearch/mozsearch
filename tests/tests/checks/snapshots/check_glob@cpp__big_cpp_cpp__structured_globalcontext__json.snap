@@ -5,55 +5,55 @@ expression: "&json_results"
 ---
 [
   {
-    "fields": [],
-    "kind": "class",
     "loc": "00024:6-19",
+    "structured": 1,
+    "pretty": "GlobalContext",
+    "sym": "T_GlobalContext",
+    "kind": "class",
+    "sizeBytes": 1,
+    "supers": [],
     "methods": [
       {
         "pretty": "GlobalContext::decideBooleanTrait",
+        "sym": "_ZN13GlobalContext18decideBooleanTraitEv",
         "props": [
           "static",
           "user"
-        ],
-        "sym": "_ZN13GlobalContext18decideBooleanTraitEv"
+        ]
       },
       {
         "pretty": "GlobalContext::decideEnigmaticAnimalBooleanTrait",
+        "sym": "_ZN13GlobalContext33decideEnigmaticAnimalBooleanTraitEv",
         "props": [
           "static",
           "user"
-        ],
-        "sym": "_ZN13GlobalContext33decideEnigmaticAnimalBooleanTraitEv"
+        ]
       },
       {
         "pretty": "GlobalContext::decideCatBooleanTrait",
+        "sym": "_ZN13GlobalContext21decideCatBooleanTraitEv",
         "props": [
           "static",
           "user"
-        ],
-        "sym": "_ZN13GlobalContext21decideCatBooleanTraitEv"
+        ]
       },
       {
         "pretty": "GlobalContext::decideBestFriendBooleanTrait",
+        "sym": "_ZN13GlobalContext28decideBestFriendBooleanTraitEv",
         "props": [
           "static",
           "user"
-        ],
-        "sym": "_ZN13GlobalContext28decideBestFriendBooleanTraitEv"
+        ]
       },
       {
         "pretty": "GlobalContext::decideDogBooleanTrait",
+        "sym": "_ZN13GlobalContext21decideDogBooleanTraitEv",
         "props": [
           "static",
           "user"
-        ],
-        "sym": "_ZN13GlobalContext21decideDogBooleanTraitEv"
+        ]
       }
     ],
-    "pretty": "GlobalContext",
-    "sizeBytes": 1,
-    "structured": 1,
-    "supers": [],
-    "sym": "T_GlobalContext"
+    "fields": []
   }
 ]

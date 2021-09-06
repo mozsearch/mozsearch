@@ -5,16 +5,16 @@ expression: "&json_results"
 ---
 [
   {
-    "kind": "method",
     "loc": "00087:4-25",
-    "overrides": [],
-    "parentsym": "T_GlobalContext::LessGlobalContext",
+    "structured": 1,
     "pretty": "GlobalContext::LessGlobalContext::decideWhetherToDecide",
+    "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv",
+    "kind": "method",
+    "parentsym": "T_GlobalContext::LessGlobalContext",
+    "overrides": [],
     "props": [
       "static",
       "user"
-    ],
-    "structured": 1,
-    "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv"
+    ]
   }
 ]

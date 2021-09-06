@@ -34,7 +34,7 @@ rls-analysis = "0.18.1"
 rls-data = "0.19.1"
 rustc-serialize = "0.3.18"
 shell-words = "1.0.0"
-serde_json = "1.0.64"
+serde_json = { version = "1.0.64", features = ["preserve_order"] }
 structopt = "0.3"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util"] }
 url = "2.2.2"
