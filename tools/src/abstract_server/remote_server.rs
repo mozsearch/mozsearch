@@ -55,6 +55,31 @@ async fn get(url: Url) -> Result<reqwest::Response> {
     Ok(res)
 }
 
+async fn get_json(url: Url) -> Result<reqwest::Response> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(url)
+        .header("Accept", "application/json")
+        .send()
+        .await?;
+
+    if !res.status().is_success() {
+        if res.status().is_server_error() {
+            return Err(ServerError::TransientProblem(ErrorDetails {
+                layer: ErrorLayer::ServerLayer,
+                message: format!("Server status of {}", res.status()),
+            }));
+        } else {
+            return Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::DataLayer,
+                message: format!("Server status of {}", res.status()),
+            }));
+        }
+    }
+
+    Ok(res)
+}
+
 #[async_trait]
 impl AbstractServer for RemoteServer {
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<Vec<Value>> {
@@ -73,9 +98,10 @@ impl AbstractServer for RemoteServer {
     }
 
     async fn perform_query(&self, q: &str) -> Result<Value> {
-        // XXX can we just append a query string like this?
-        let url = self.search_url.join(q)?;
-        let raw_str = get(url).await?.text().await?;
+        let mut url = self.search_url.clone();
+        // If adding more parameters, considering using `query_pairs_mut()`.
+        url.set_query(Some(&format!("q={}", q)));
+        let raw_str = get_json(url).await?.text().await?;
         match from_str(&raw_str) {
             Ok(json) => Ok(json),
             Err(err) => Err(ServerError::StickyProblem(ErrorDetails {

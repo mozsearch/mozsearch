@@ -4,9 +4,11 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 3 ]
+if [[ $# -lt 3 ]]
 then
-    echo "usage: $0 <config-repo-path> <index-path> <server-root>"
+    echo "usage: $0 <config-repo-path> <index-path> <server-root> [WAIT]"
+    echo ""
+    echo "WAIT can optionally be passed to wait until the web server is ready."
     exit 1
 fi
 
@@ -27,3 +29,10 @@ nohup $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/
 
 export RUST_BACKTRACE=1
 nohup $MOZSEARCH_PATH/tools/target/release/web-server $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &
+
+# If WAIT was passed, wait until the servers report they loaded.
+if [[ ${4:-} = "WAIT" ]]; then
+  until [[ $(grep -c loaded ${STATUS_FILE}) -eq 2 ]]; do
+    sleep 1s
+  done
+fi

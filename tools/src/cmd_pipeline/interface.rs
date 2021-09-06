@@ -28,6 +28,7 @@ pub struct SymbolicQueryOpts {
 
 /// The input and output of each pipeline segment
 pub enum PipelineValues {
+    JsonValue(JsonValue),
     JsonRecords(JsonRecords),
     HtmlExcerpts(HtmlExcerpts),
     Void,
@@ -59,6 +60,15 @@ impl JsonRecordsByFile {
     }
 }
 
+/// A single JSON value, usually expected to be from a search query.
+///
+/// It might make sense to add a type-indicating value or origin of the JSON,
+/// but for now this will only be from the query.
+pub struct JsonValue {
+    pub value: Value,
+}
+
+/// JSON Analysis Records grouped by (source) file.
 pub struct JsonRecords {
     pub by_file: Vec<JsonRecordsByFile>,
 }

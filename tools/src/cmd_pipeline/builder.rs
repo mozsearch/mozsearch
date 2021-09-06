@@ -9,6 +9,7 @@ use crate::{
 };
 
 use super::cmd_filter_analysis::FilterAnalysisCommand;
+use super::cmd_query::QueryCommand;
 use super::cmd_show_html::ShowHtmlCommand;
 
 use super::interface::ServerPipeline;
@@ -62,7 +63,9 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         }
 
         match opts.cmd {
-            Command::Query(_q) => {}
+            Command::Query(q) => {
+                commands.push(Box::new(QueryCommand { args: q }))
+            }
 
             Command::FilterAnalysis(fa) => {
                 commands.push(Box::new(FilterAnalysisCommand { args: fa }));

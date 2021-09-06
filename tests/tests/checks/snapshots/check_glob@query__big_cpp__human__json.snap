@@ -1,0 +1,114 @@
+---
+source: tests/test_check_insta.rs
+expression: "&jv.value"
+
+---
+{
+  "normal": {
+    "Definitions (outerNS::Human)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              11
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class Human: public Thing {",
+            "lno": 179,
+            "peekLines": "class Human: public Thing {\n"
+          }
+        ]
+      }
+    ],
+    "Superclasses (outerNS::Human)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              11
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class Thing {",
+            "lno": 135,
+            "peekLines": "class Thing {\n",
+            "upsearch": "symbol:T_outerNS::Thing"
+          }
+        ]
+      }
+    ],
+    "Subclasses (outerNS::Human)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              11
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class Superhero : public Human {",
+            "lno": 188,
+            "peekLines": "class Superhero : public Human {\n",
+            "upsearch": "symbol:T_outerNS::Superhero"
+          }
+        ]
+      }
+    ],
+    "Uses (outerNS::Human)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              2,
+              7
+            ],
+            "context": "outerNS::Superhero::Superhero",
+            "contextsym": "_ZN7outerNS9SuperheroC1Ev",
+            "line": ": Human() {",
+            "lno": 192
+          },
+          {
+            "bounds": [
+              0,
+              5
+            ],
+            "context": "outerNS::Couch::Couch",
+            "contextsym": "_ZN7outerNS5CouchC1Ei",
+            "line": "Human bob;",
+            "lno": 213
+          },
+          {
+            "bounds": [
+              16,
+              21
+            ],
+            "context": "outerNS::Couch::Couch",
+            "contextsym": "_ZN7outerNS5CouchC1Ei",
+            "line": "WhatsYourVector<Human> goodReferenceRight(&bob);",
+            "lno": 214
+          },
+          {
+            "bounds": [
+              10,
+              15
+            ],
+            "context": "outerNS::OuterCat::meet",
+            "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+            "line": "void meet(Human &human) {",
+            "lno": 340
+          }
+        ]
+      }
+    ]
+  },
+  "*title*": "outerNS::Human",
+  "*timedout*": false
+}

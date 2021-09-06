@@ -28,7 +28,7 @@ build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
 
 check-test-repo:

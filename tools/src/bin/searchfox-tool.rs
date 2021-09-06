@@ -46,6 +46,16 @@ async fn main() {
             }
             0
         }
+        Ok(PipelineValues::JsonValue(jv)) => {
+            if output_format == OutputFormat::Concise {
+                println!("{}", jv.value);
+            } else if output_format == OutputFormat::Pretty {
+                if let Ok(pretty) = to_string_pretty(&jv.value) {
+                    println!("{}", pretty);
+                }
+            }
+            0
+        }
         Err(err) => {
             println!("Pipeline Error!");
             println!("{:?}", err);
