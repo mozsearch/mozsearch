@@ -5,97 +5,97 @@ expression: "&json_results"
 ---
 [
   {
-    "fields": [
-      {
-        "offsetBytes": 8,
-        "pretty": "outerNS::Thing::mHP",
-        "sizeBytes": 4,
-        "sym": "F_<T_outerNS::Thing>_mHP",
-        "type": "int"
-      },
-      {
-        "offsetBytes": 12,
-        "pretty": "outerNS::Thing::mDefunct",
-        "sizeBytes": 1,
-        "sym": "F_<T_outerNS::Thing>_mDefunct",
-        "type": "_Bool"
-      }
-    ],
-    "kind": "class",
     "loc": "00135:6-11",
+    "structured": 1,
+    "pretty": "outerNS::Thing",
+    "sym": "T_outerNS::Thing",
+    "kind": "class",
+    "sizeBytes": 16,
+    "supers": [],
     "methods": [
       {
         "pretty": "outerNS::Thing::Thing",
+        "sym": "_ZN7outerNS5ThingC1Ei",
         "props": [
           "instance",
           "user"
-        ],
-        "sym": "_ZN7outerNS5ThingC1Ei"
+        ]
       },
       {
         "pretty": "outerNS::Thing::ignore",
+        "sym": "_ZN7outerNS5Thing6ignoreEv",
         "props": [
           "instance",
           "user"
-        ],
-        "sym": "_ZN7outerNS5Thing6ignoreEv"
+        ]
       },
       {
         "pretty": "outerNS::Thing::takeDamage",
+        "sym": "_ZN7outerNS5Thing10takeDamageEi",
         "props": [
           "instance",
           "virtual",
           "user"
-        ],
-        "sym": "_ZN7outerNS5Thing10takeDamageEi"
+        ]
       },
       {
         "pretty": "outerNS::Thing::operator=",
+        "sym": "_ZN7outerNS5ThingaSERKS0_",
         "props": [
           "instance",
           "defaulted"
-        ],
-        "sym": "_ZN7outerNS5ThingaSERKS0_"
+        ]
       },
       {
         "pretty": "outerNS::Thing::operator=",
+        "sym": "_ZN7outerNS5ThingaSEOS0_",
         "props": [
           "instance",
           "defaulted"
-        ],
-        "sym": "_ZN7outerNS5ThingaSEOS0_"
+        ]
       },
       {
         "pretty": "outerNS::Thing::~Thing",
+        "sym": "_ZN7outerNS5ThingD1Ev",
         "props": [
           "instance",
           "defaulted"
-        ],
-        "sym": "_ZN7outerNS5ThingD1Ev"
+        ]
       },
       {
         "pretty": "outerNS::Thing::Thing",
+        "sym": "_ZN7outerNS5ThingC1ERKS0_",
         "props": [
           "instance",
           "defaulted",
           "constexpr"
-        ],
-        "sym": "_ZN7outerNS5ThingC1ERKS0_"
+        ]
       },
       {
         "pretty": "outerNS::Thing::Thing",
+        "sym": "_ZN7outerNS5ThingC1EOS0_",
         "props": [
           "instance",
           "defaulted",
           "constexpr"
-        ],
-        "sym": "_ZN7outerNS5ThingC1EOS0_"
+        ]
       }
     ],
-    "pretty": "outerNS::Thing",
-    "sizeBytes": 16,
-    "structured": 1,
-    "supers": [],
-    "sym": "T_outerNS::Thing"
+    "fields": [
+      {
+        "pretty": "outerNS::Thing::mHP",
+        "sym": "F_<T_outerNS::Thing>_mHP",
+        "type": "int",
+        "offsetBytes": 8,
+        "sizeBytes": 4
+      },
+      {
+        "pretty": "outerNS::Thing::mDefunct",
+        "sym": "F_<T_outerNS::Thing>_mDefunct",
+        "type": "_Bool",
+        "offsetBytes": 12,
+        "sizeBytes": 1
+      }
+    ]
   }
 ]

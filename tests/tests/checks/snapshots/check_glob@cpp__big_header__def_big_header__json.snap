@@ -6,16 +6,16 @@ expression: "&json_results"
 [
   {
     "loc": "00001:0",
-    "pretty": "file big_header.h",
     "source": 1,
-    "sym": "FILE_big_header@2Eh",
-    "syntax": "def,file"
+    "syntax": "def,file",
+    "pretty": "file big_header.h",
+    "sym": "FILE_big_header@2Eh"
   },
   {
-    "kind": "def",
     "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
     "pretty": "big_header.h",
-    "sym": "FILE_big_header@2Eh",
-    "target": 1
+    "sym": "FILE_big_header@2Eh"
   }
 ]

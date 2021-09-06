@@ -5,11 +5,11 @@ expression: "&json_results"
 ---
 [
   {
-    "kind": "field",
     "loc": "00004:0-7",
-    "parentsym": "T_YoAtoms",
-    "pretty": "YoAtoms::Foo_string",
     "structured": 1,
-    "sym": "F_<T_YoAtoms>_Foo_string"
+    "pretty": "YoAtoms::Foo_string",
+    "sym": "F_<T_YoAtoms>_Foo_string",
+    "kind": "field",
+    "parentsym": "T_YoAtoms"
   }
 ]

@@ -6,18 +6,18 @@ expression: "&json_results"
 [
   {
     "loc": "00135:6-11",
-    "nestingRange": "135:12-164:0",
-    "pretty": "type outerNS::Thing",
     "source": 1,
-    "sym": "T_outerNS::Thing",
-    "syntax": "def,type"
+    "nestingRange": "135:12-164:0",
+    "syntax": "def,type",
+    "pretty": "type outerNS::Thing",
+    "sym": "T_outerNS::Thing"
   },
   {
-    "kind": "def",
     "loc": "00135:6-11",
-    "peekRange": "135-135",
+    "target": 1,
+    "kind": "def",
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "target": 1
+    "peekRange": "135-135"
   }
 ]

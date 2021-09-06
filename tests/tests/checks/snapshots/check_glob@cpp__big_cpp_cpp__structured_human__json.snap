@@ -5,71 +5,71 @@ expression: "&json_results"
 ---
 [
   {
-    "fields": [],
-    "kind": "class",
     "loc": "00179:6-11",
-    "methods": [
-      {
-        "pretty": "outerNS::Human::Human",
-        "props": [
-          "instance",
-          "user"
-        ],
-        "sym": "_ZN7outerNS5HumanC1Ev"
-      },
-      {
-        "pretty": "outerNS::Human::operator=",
-        "props": [
-          "instance",
-          "defaulted"
-        ],
-        "sym": "_ZN7outerNS5HumanaSERKS0_"
-      },
-      {
-        "pretty": "outerNS::Human::operator=",
-        "props": [
-          "instance",
-          "defaulted"
-        ],
-        "sym": "_ZN7outerNS5HumanaSEOS0_"
-      },
-      {
-        "pretty": "outerNS::Human::~Human",
-        "props": [
-          "instance",
-          "defaulted"
-        ],
-        "sym": "_ZN7outerNS5HumanD1Ev"
-      },
-      {
-        "pretty": "outerNS::Human::Human",
-        "props": [
-          "instance",
-          "defaulted",
-          "constexpr"
-        ],
-        "sym": "_ZN7outerNS5HumanC1ERKS0_"
-      },
-      {
-        "pretty": "outerNS::Human::Human",
-        "props": [
-          "instance",
-          "defaulted",
-          "constexpr"
-        ],
-        "sym": "_ZN7outerNS5HumanC1EOS0_"
-      }
-    ],
-    "pretty": "outerNS::Human",
-    "sizeBytes": 16,
     "structured": 1,
+    "pretty": "outerNS::Human",
+    "sym": "T_outerNS::Human",
+    "kind": "class",
+    "sizeBytes": 16,
     "supers": [
       {
         "pretty": "outerNS::Thing",
-        "props": [],
-        "sym": "T_outerNS::Thing"
+        "sym": "T_outerNS::Thing",
+        "props": []
       }
     ],
-    "sym": "T_outerNS::Human"
+    "methods": [
+      {
+        "pretty": "outerNS::Human::Human",
+        "sym": "_ZN7outerNS5HumanC1Ev",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::Human::operator=",
+        "sym": "_ZN7outerNS5HumanaSERKS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Human::operator=",
+        "sym": "_ZN7outerNS5HumanaSEOS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Human::~Human",
+        "sym": "_ZN7outerNS5HumanD1Ev",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Human::Human",
+        "sym": "_ZN7outerNS5HumanC1ERKS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      },
+      {
+        "pretty": "outerNS::Human::Human",
+        "sym": "_ZN7outerNS5HumanC1EOS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      }
+    ],
+    "fields": []
   }
 ]

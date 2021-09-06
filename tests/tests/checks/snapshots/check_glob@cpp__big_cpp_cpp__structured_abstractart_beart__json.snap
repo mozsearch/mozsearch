@@ -5,17 +5,17 @@ expression: "&json_results"
 ---
 [
   {
-    "kind": "method",
     "loc": "00424:15-20",
-    "overrides": [],
-    "parentsym": "T_outerNS::AbstractArt",
+    "structured": 1,
     "pretty": "outerNS::AbstractArt::beArt",
+    "sym": "_ZN7outerNS11AbstractArt5beArtEv",
+    "kind": "method",
+    "parentsym": "T_outerNS::AbstractArt",
+    "overrides": [],
     "props": [
       "instance",
       "virtual",
       "user"
-    ],
-    "structured": 1,
-    "sym": "_ZN7outerNS11AbstractArt5beArtEv"
+    ]
   }
 ]

@@ -5,10 +5,10 @@ expression: "&json_results"
 ---
 [
   {
-    "kind": "def",
     "loc": "00002:11-24",
+    "target": 1,
+    "kind": "def",
     "pretty": "simple::build_time_generated::GeneratedType",
-    "sym": "simple::build_time_generated::GeneratedType",
-    "target": 1
+    "sym": "simple::build_time_generated::GeneratedType"
   }
 ]
