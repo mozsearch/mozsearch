@@ -1,0 +1,84 @@
+---
+source: tests/test_check_insta.rs
+expression: "&jv.value"
+
+---
+{
+  "normal": {
+    "Definitions (outerNS::AbstractArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              17
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class AbstractArt : public Thing {",
+            "lno": 417,
+            "peekLines": "class AbstractArt : public Thing {\n"
+          }
+        ]
+      }
+    ],
+    "Superclasses (outerNS::AbstractArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              17
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class Thing {",
+            "lno": 135,
+            "peekLines": "class Thing {\n",
+            "upsearch": "symbol:T_outerNS::Thing"
+          }
+        ]
+      }
+    ],
+    "Subclasses (outerNS::AbstractArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              17
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class PracticalArt : public AbstractArt {",
+            "lno": 427,
+            "peekLines": "class PracticalArt : public AbstractArt {\n",
+            "upsearch": "symbol:T_outerNS::PracticalArt"
+          }
+        ]
+      }
+    ],
+    "Uses (outerNS::AbstractArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              2,
+              13
+            ],
+            "context": "outerNS::PracticalArt::PracticalArt",
+            "contextsym": "_ZN7outerNS12PracticalArtC1Ev",
+            "line": ": AbstractArt() {}",
+            "lno": 430
+          }
+        ]
+      }
+    ]
+  },
+  "*title*": "outerNS::AbstractArt",
+  "*timedout*": false
+}

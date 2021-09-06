@@ -1,0 +1,48 @@
+---
+source: tests/test_check_insta.rs
+expression: "&jv.value"
+
+---
+{
+  "normal": {
+    "Definitions (outerNS::PracticalArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              18
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class PracticalArt : public AbstractArt {",
+            "lno": 427,
+            "peekLines": "class PracticalArt : public AbstractArt {\n"
+          }
+        ]
+      }
+    ],
+    "Superclasses (outerNS::PracticalArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              6,
+              18
+            ],
+            "context": "",
+            "contextsym": "",
+            "line": "class AbstractArt : public Thing {",
+            "lno": 417,
+            "peekLines": "class AbstractArt : public Thing {\n",
+            "upsearch": "symbol:T_outerNS::AbstractArt"
+          }
+        ]
+      }
+    ]
+  },
+  "*title*": "outerNS::PracticalArt",
+  "*timedout*": false
+}
