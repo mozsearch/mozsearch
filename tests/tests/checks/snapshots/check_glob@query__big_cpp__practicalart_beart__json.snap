@@ -1,0 +1,48 @@
+---
+source: tests/test_check_insta.rs
+expression: "&jv.value"
+
+---
+{
+  "normal": {
+    "Definitions (outerNS::PracticalArt::beArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              5,
+              10
+            ],
+            "context": "outerNS::PracticalArt",
+            "contextsym": "T_outerNS::PracticalArt",
+            "line": "void beArt() override {",
+            "lno": 433,
+            "peekLines": "// This should properly see the beArt as something it's overriding.\nvoid beArt() override {\n"
+          }
+        ]
+      }
+    ],
+    "Overrides (outerNS::PracticalArt::beArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "bounds": [
+              13,
+              18
+            ],
+            "context": "outerNS::AbstractArt",
+            "contextsym": "T_outerNS::AbstractArt",
+            "line": "virtual void beArt() = 0;",
+            "lno": 424,
+            "peekLines": "// This pure virtual method needs to be treated like a definition for our\n// structured record emission purposes.\nvirtual void beArt() = 0;\n",
+            "upsearch": "symbol:_ZN7outerNS11AbstractArt5beArtEv"
+          }
+        ]
+      }
+    ]
+  },
+  "*title*": "outerNS::PracticalArt::beArt",
+  "*timedout*": false
+}
