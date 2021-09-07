@@ -20,7 +20,7 @@ like `eCryptFS` which is a means of encrypting your home directory, things will 
 work.  You will need to move searchfox to a partition that's a normal block device
 (which includes LUKS-style encrypted partitions, etc.)
 
-##### Ubuntu 19.10
+##### Ubuntu
 
 ```shell
 # make sure the apt package database is up-to-date
@@ -127,88 +127,19 @@ The above process will:
 - Build necessary tools.
 - Setup the indexer for the test repo.
 - Run the indexer for the test repo.
+- Run [test checks](docs/testing-checks.md) against the indexer output.
 - Setup the webserver for the test repo.
 - Run the webserver for the test repo.
+- Run [test checks](docs/testing-checks.md) against the web server.  These are
+  the same checks we ran against the indexer above plus several that are
+  specific to the web-server.
 
 After that, you can connect to http://localhost:16995/ and see Searchfox at work!
 
-Once you've done that, you might want to read the next section to understand
-what was happening under the hood.
+Once you've done that, you might want to read the
+[Manual Indexing doc](docs/manual-indexing.md) for more details on what's
+happening under the hood when you run the above make rule.
 
-## Manual Labor with the Test Repo
-
-### Build Necessary Tools
-
-The first step is to build all the statically compiled parts of
-Mozsearch:
-
-```
-# This clang plugin analyzes C++ code and is written in C++.
-cd /vagrant/clang-plugin
-make
-
-# The Rust code is stored here. We do a release build since our scripts
-# look in tools/target/release to find binaries.
-cd /vagrant/tools
-cargo build --release
-```
-
-### Testing locally using the "tests" repository
-
-Mozsearch chooses what to index using a set of configuration
-files. There is a test configuration inside the Mozsearch `tests`
-directory. We'll use this configuration for testing. However, Mozilla
-code indexing is done using the
-[mozsearch-mozilla](https://github.com/mozsearch/mozsearch-mozilla)
-repository.
-
-The `config.json` file is the most important part of the
-configuration. It contains metadata about the trees to be indexed. For
-example, it describes where the files are stored, whether there is a
-git repository that backs the files to be indexed, and whether there
-is blame information available.
-
-Mozsearch stores all the indexed information in a directory called the
-index. This directory contains a full-text search index, a map from
-symbol names to where they appear, a list of all files, and symbol
-information for each file.
-
-The first step in indexing is to run the `indexer-setup.sh`
-script. This script sets up the directory structure for the index. In
-some cases, it will also download the repositories that will be
-indexed. In the case of the test repository, though, all the files are
-already available. From the VM, run the following command to create
-the index directory at `~/index`.
-
-```
-mkdir ~/index
-/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
-```
-
-Now it's time to index! To do that, run the `indexer-run.sh`
-script. It will compile and index all the C++ and Rust files and
-also do whatever indexing is needed on JS, IDL, and IPDL files.
-
-```
-/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-```
-
-Now is a good time to look through the `~/index/tests` directory to
-look at all the index files that were generated. To begin serving web
-requests, we can start the server as follows:
-
-```
-# Creates a configuration file for nginx. The last path gives the location
-# where log files are stored.
-/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-
-# Starts the Python and Rust servers needed for Mozsearch.
-/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~
-```
-
-At this point, you should be able to visit the server, which is
-running on port 80 inside the VM and port 16995 outside the VM. Visit
-`http://localhost:16995/` to do so.
 
 ### Testing locally with blame using the "searchfox" test config
 
@@ -243,15 +174,21 @@ even though the indexes live at different directories (`~/index` versus
 configurations to be served at the same time, you can add a new configuration
 file and update these docs and submit a pull requests.  Thanks in advance!
 
-## Indexing Mozilla code locally
+## Testing changes against mozilla-central
 
-Although it can take a long time, it's sometimes necessary to index
-the Mozilla codebase to test changes to Searchfox. How to do that
-depends on what you want to test.
-If you are making changes to the clang-plugin, you need to do these steps first.
-If not, you can skip to the next set of steps in this section.
+If you are making more extensive changes to searchfox, it's usually advisable to
+test them against mozilla-central before landing them.  While it's possible to
+do this locally, the normal way to do this is:
+- If you have made any changes to the in-tree indexing process, such as the
+  clang plugin, run the relevant try jobs using the mozilla-central try
+  infrastructure.  If you haven't made any changes, you can skip this step and
+  the AWS indexing job will just reuse mozilla-central's most recently nightly
+  searchfox data.
+- Run an AWS indexing job using `trigger_indexer.py`.
 
-### Testing clang-plugin changes
+Details below.
+
+### Running mozilla-central try builds for changes to in-tree indexing
 
 For testing changes to the clang-plugin, run these steps, followed by the
 steps in the next section.
@@ -264,62 +201,80 @@ steps in the next section.
 ./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"
 ```
 * Record the full hg revision hash (40 characters) of the try push.
-* In the vagrant instance, run the following command in `/vagrant/`:
+
+### Triggering an AWS indexer run
+
+An important precondition is that you need to be a member of the "searchfox-aws"
+mozillians.org group in order to have the access rights to do the following.  We
+are happy to add Mozillians to this group who are actively interested in
+contributing to searchfox.  Please reach out in #searchfox on
+https://chat.mozilla.org/
+
+- First, follow the [Searchfox AWS docs](docs/aws.md) to ensure you have your
+  credentials working in general and that you can run the
+  `infrastructure/aws/ssh.py` command and successfully get a list of active VMs.
+  In particular, you will probably need to type:
+  - `. env/bin/activate`
+  - `eval $(maws -o awscli --profile default)`
+- Push your changes to your mozsearch branch and your mozsearch-mozilla branch,
+  if appropriate.
+  - It's usually a good idea to explicitly make sure you've saved all your
+    buffers, that `git status` shows no uncommited changes, that
+    `make build-test-repo` runs successfully, and that
+    `git push -f REMOTE BRANCH` says all the commits are already there.
+- Pick what "channel" you are going to use.  Generally, the right answer is the
+  "dev" channel, which will display its results at https://dev.searchfox.org/
+  but it's possible to use and create other channels.  You can see if anyone
+  already has a server up on the "dev" channel by running the
+  `infrastructure/aws/ssh.py` script.
+- Pick what config file you are going to use.  Normally this is "config1.json"
+  which includes the mozilla-central repo and a few other repositories that
+  don't have all the bells and whistles turned on.  You can use a different
+  config file or edit config1.json to not contain repositories you aren't
+  interested in to make things go faster.
+  - You don't have to have your own branch of mozsearch-mozilla!  You can use
+    https://github.com/mozsearch/mozsearch-mozilla and it's fine that it doesn't
+    have a branch with the name of your development branch.  The scripts will
+    automatically fall back to the default branch.
+- If you didn't run a custom m-c try job, you can edit the following:
 ```
-TRYPUSH_REV=<40-char-rev-hash> make trypush
+infrastructure/aws/trigger_indexer.py \
+  https://github.com/some-user/mozsearch \
+  https://github.com/some-user/mozsearch-mozilla \
+  config1.json \
+  some-development-branch \
+  dev
 ```
-This will clone the Mozilla configuration into ~/mozilla-config, and
-generate a reduced config that has just the mozilla-central tree, but
-use the code and artifacts from your try push when building the index.
-It will build the index into a `~/trypush-index` folder to keep it separate
-from any `~/mozilla-index` folders you might have lying around.
-It's very similar to the operations described in the next section
-which will build an index using the latest mozilla-central version with
-searchfox artifacts.
-
-### Testing basic changes
-
-Note: You can also just do `make build-mozilla-repo` in `/vagrant` to have it
-idempotently do the following for you.
-
+- If you did run a custom m-c try job, the only difference is the addition of a
+  `--setenv TRYPUSH_REV=therevision` to to the command.  So this looks like:
 ```
-# Clone the Mozilla configuration into ~/mozilla-config, if you haven't
-# already done so. (If you are testing clang-plugin changes, you will
-# already have done this and made modifications to mozilla-central/setup,
-# so no need to clone again).
-git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-
-# Manually edit the ~/mozilla-config/config.json to remove trees you don't
-# care about (probably NSS and comm-central). Make sure to remove any trailing
-# commas if they're not valid JSON!
-nano ~/mozilla-config/config.json
-
-# Make a new index directory.
-mkdir ~/mozilla-index
-
-# This step will download copies of the Mozilla code and blame information,
-# along with the latest taskcluster artifacts, so it may be slow.
-/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config.json ~/mozilla-index
-
-# This step involves unpacking the taskcluster artifacts, and indexing a lot of
-# code, so it will be slow!
-/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
+infrastructure/aws/trigger_indexer.py \
+  --setenv TRYPUSH_REV=therevision \
+  https://github.com/some-user/mozsearch \
+  https://github.com/some-user/mozsearch-mozilla \
+  config1.json \
+  some-development-branch \
+  dev
 ```
-
-Note: By default, `indexer-setup.sh` keeps the contents of the working
-directory (in the example above, that's `~/mozilla-index`). In case you want
-to delete the contents of the working directory, define CLEAN_WORKING=1
-when calling `indexer-setup.sh`.
-
-### Locally indexing a try push
-
-If you are not hacking on Searchfox itself, but just want to build a local
-index of changes to mozilla-central (e.g. you are reviewing a complex
-patchset, and want to have a Searchfox instance with those patches applied)
-follow the same steps as described in the "Testing clang-plugin changes"
-section above, except obviously you don't need to make any changes to
-the clang-plugin, but just include the patches you care about in the try
-push.
+- The author of the HEAD commit of the mozsearch branch that gets checked out
+  will receive an email when indexing completes or when it fails.  This means
+  that if you are testing changes that you've only made to mozsearch-mozilla,
+  you will likely need to create a silly change to the mozsearch repo.
+  - If your indexing run failed, the indexer will move the current state of its
+    scratch SSD to the durable S3 storage and then stop itself.  The `ssh.py`
+    command will restart the indexer for you when you connect to it.  Then you
+    will need to investigate what went wrong.  See the section on Debugging
+    errors in our [AWS docs](docs/aws.md) for more info.
+  - If your indexing run succeeded, that means the indexer successfully kicked
+    off a web-server.  You should be able to connect to the searchfox UI at
+    https://dev.searchfox.org/ or whatever the name of the channel you used was.
+    You should also be able to use `infrastructure/aws/ssh.py` to connect to the
+    web-server and explore the contents of the built index under `~/index`.
+- When you are done with any of the above severs, you can use
+  `infrastructure/aws/terminate-indexer.py` to destroy the VM which will also
+  clean up any S3 storage the index used.  You can find which servers are yours
+  via the `ssh.py` script, making sure to pay attention to the "channel" tag;
+  you don't want to terminate any of the release servers!
 
 ## Background on Mozsearch indexing
 
