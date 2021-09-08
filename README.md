@@ -95,7 +95,7 @@ network isn't exceedingly reliable.  In particular, if you are seeing
 errors related to host resolution and you have access to a VPN, it may
 be advisable to connect to the VPN.
 
-A successful provisioning run will end with `default: + chmod +x update.sh`.
+A successful provisioning run will end with `mv update-log provision-update-log-2`.
 
 In the event of failure you will want to run
 `vagrant destroy` to completely delete the VM and then
