@@ -88,7 +88,7 @@ echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 # be able to do anything unless you provide it with credentials.  Indexers,
 # however, do have a role, so if you want to noodle around with something, use
 # an indexer.
-sudo pip3 install boto3 awscli
+sudo pip3 install boto3 awscli rich
 
 # Install git-cinnabar.
 if [ ! -d git-cinnabar ]; then

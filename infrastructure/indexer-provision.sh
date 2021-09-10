@@ -121,7 +121,7 @@ fi
 # awscli can get credentials via `Ec2InstanceMetadata` which will give it the
 # authorities of the role assigned to the image it's running in.  Look for the
 # `IamInstanceProfile` definition in `trigger_indexer.py` and similar.
-sudo pip3 install boto3 awscli
+sudo pip3 install boto3 awscli rich
 
 # Install git-cinnabar.
 if [ ! -d git-cinnabar ]; then

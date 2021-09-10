@@ -100,7 +100,7 @@ THEEND
 
 virtualenv --python=python3 env
 source env/bin/activate
-pip install boto3 awscli mozilla-aws-cli-mozilla
+pip install boto3 awscli rich mozilla-aws-cli-mozilla
 # Make sure that we have an up-to-date version of certifi for certificate
 # validation.  See comments in build-lambda-indexer-start.sh for more context.
 pip install --upgrade certifi
