@@ -246,10 +246,13 @@ infrastructure/aws/trigger_indexer.py \
   dev
 ```
 - If you did run a custom m-c try job, the only difference is the addition of a
-  `--setenv TRYPUSH_REV=therevision` to to the command.  So this looks like:
+  `--setenv TRYPUSH_REV=full-40char-hash` to to the command.  Using a truncated
+  hash won't work because, unlike the hg/git command line, the taskcluster
+  server can't/won't expand revisions and searchfox doesn't apply any transforms
+  at this time.  So this looks like:
 ```
 infrastructure/aws/trigger_indexer.py \
-  --setenv TRYPUSH_REV=therevision \
+  --setenv TRYPUSH_REV=full-40char-hash \
   https://github.com/some-user/mozsearch \
   https://github.com/some-user/mozsearch-mozilla \
   config1.json \
