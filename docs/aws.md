@@ -320,16 +320,16 @@ environment:
 
 ```
 infrastructure/aws/trigger-provision.py \
-  infrastructure/indexer-provision.sh \
-  infrastructure/aws/indexer-provision.sh
+  infrastructure/aws/indexer-provision.sh \
+  infrastructure/indexer-provision.sh
 ```
 
 For web serving, use this command:
 
 ```
 infrastructure/aws/trigger-provision.py \
-  infrastructure/web-server-provision.sh \
-  infrastructure/aws/web-server-provision.sh
+  infrastructure/aws/web-server-provision.sh \
+  infrastructure/web-server-provision.sh
 ```
 
 The `trigger-provision.py` script starts a new EC2 instance and uses
