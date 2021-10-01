@@ -160,7 +160,7 @@ class ChannelHelper:
                 'target_groups': [],
             }
 
-            channel = get_channel(tags['channel'])
+            channel = get_channel(tags.get('channel', 'None'))
             channel['instances'].append(irep)
 
         # The sub-domains live as "resource record sets" under the
