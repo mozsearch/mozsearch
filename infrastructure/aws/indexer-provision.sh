@@ -4,8 +4,34 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+date
+
+# ## Script Ordering
+#
+# This script now gets run before the non-AWS provisioner so that we can
+# increase the size of the partition now and have the rest of the process
+# benefit from the increased partition size.  This does mean that we do some
+# redundant things necessary to make this script work independently of that
+# script.
+
+# We need to know about our packages below...
+sudo apt-get update
+
 # We want the NVME tools, that's how EBS gets mounted now on "nitro" instances.
 sudo apt-get install -y nvme-cli
+
+# In order to do the re-partitioning again, we need jq now, even though we'll
+# also try and install it in the non-AWS scripts.
+sudo apt-get install -y jq
+
+# Need pip3 to get the awscli
+sudo apt-get install -y python3-pip
+
+# Need python2 for the cloud logs below
+sudo apt-get install -y python2.7
+
+# Need AWS client too.
+sudo pip3 install boto3 awscli rich
 
 date
 
@@ -53,4 +79,9 @@ wget -nv https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-
 chmod +x awslogs-agent-setup.py
 # Currently this claims to only work with Python 2.6 - 3.5, so we use python2
 # which will use Python 2.7.
-sudo python2 ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
+#
+# Note that we don't have a `python2` alternative at the current moment, which
+# is why we specify python2.7.
+#
+# The plan is https://bugzilla.mozilla.org/show_bug.cgi?id=1733733
+sudo python2.7 ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
