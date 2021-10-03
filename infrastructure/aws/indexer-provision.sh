@@ -27,9 +27,6 @@ sudo apt-get install -y jq
 # Need pip3 to get the awscli
 sudo apt-get install -y python3-pip
 
-# Need python2 for the cloud logs below
-sudo apt-get install -y python2.7
-
 # Need AWS client too.
 sudo pip3 install boto3 awscli rich
 
@@ -62,26 +59,3 @@ done
 sudo resize2fs /dev/nvme0n1p1
 
 date
-
-cat > cloudwatch.cfg <<"THEEND"
-[general]
-state_file = /var/awslogs/state/agent-state
-
-[/home/ubuntu/index-log]
-file = /home/ubuntu/index-log
-log_group_name = /home/ubuntu/index-log
-log_stream_name = {instance_id}
-THEEND
-
-date
-
-wget -nv https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
-chmod +x awslogs-agent-setup.py
-# Currently this claims to only work with Python 2.6 - 3.5, so we use python2
-# which will use Python 2.7.
-#
-# Note that we don't have a `python2` alternative at the current moment, which
-# is why we specify python2.7.
-#
-# The plan is https://bugzilla.mozilla.org/show_bug.cgi?id=1733733
-sudo python2.7 ./awslogs-agent-setup.py -n -r us-west-2 -c ./cloudwatch.cfg
