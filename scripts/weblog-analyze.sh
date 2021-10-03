@@ -4,6 +4,8 @@
 
 # This script uses https://github.com/rcoh/angle-grinder in order to process our
 # searchfox logs from /var/log/nginx/searchfox.log
+#
+# Install/update angle-grinder via `cargo install ag`
 
 # We don't want to show commands, so no: set -x
 set -eu # Errors/undefined vars are fatal
