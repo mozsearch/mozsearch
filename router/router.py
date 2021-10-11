@@ -655,7 +655,7 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
                 timedOut[0] = True
                 os.kill(pid, signal.SIGKILL)
             signal.signal(signal.SIGALRM, handler)
-            signal.alarm(15)
+            signal.alarm(120)
 
             t = time.time()
             while True:
