@@ -167,3 +167,49 @@ cd /vagrant/config
 
 Then, outside the VM, commit the changes to the branch and create a pull
 request and submit it.
+
+#### Updating checks on a stopped AWS indexer due to local (disk) check failure
+
+Currently, in the event the indexer has a check failure, it will stop before
+starting the web-server, which means you can't use the
+`review-build-check-results.sh` script from your local machine to talk to a web
+server.
+
+In this case if you login, you can run the following to be able to reproduce the
+failures experienced by the indexer run:
+
+```shell
+# mount the index to ~/index as documented in aws.md
+sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index
+# make index-scratch paths valid again
+sudo ln -s /index/interrupted /mnt/index-scratch
+
+export MOZSEARCH_PATH=~/mozsearch
+export CONFIG_REPO=~/config
+$MOZSEARCH_PATH/scripts/check-index.sh /index/interrupted/config.json mozilla-central "filesystem" ""
+```
+
+If we want to update the checks in the config, we can re-run with
+`INSTA_FORCE_PASS=1` like so:
+
+```shell
+INSTA_FORCE_PASS=1 $MOZSEARCH_PATH/scripts/check-index.sh /index/interrupted/config.json mozilla-central "filesystem" ""
+```
+
+If we want to review these changes on the machine, we can do:
+```shell
+cargo insta review --workspace-root=$CONFIG_REPO
+```
+
+Now we've updated the mozsearch-mozilla repo checked out at ~/config on the
+server, but we still need to get that committed to github somehow, and you
+almost certainly don't want the indexer server to have access to your normal
+github creds (although I guess we could give the indexer its own login?), so
+the easiest thing to do is run the following locally to copy the changed
+contents to your local machine (after doing `cargo insta review` above):
+
+```shell
+export INSTANCE=<you gotta get this from ssh.py or channel-tool.py>
+# note this assumes mozilla-central; change as appropriate
+infrastructure/aws/scp-while-sshed.py $INSTANCE 'config/mozilla-central/checks/snapshots/*' config/mozilla-central/checks/snapshots
+```
