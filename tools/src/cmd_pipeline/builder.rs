@@ -1,4 +1,4 @@
-use crate::{cmd_pipeline::PipelineCommand, structopt::StructOpt};
+use crate::{cmd_pipeline::{PipelineCommand, cmd_prod_filter::ProductionFilterCommand}, structopt::StructOpt};
 use url::Url;
 
 use crate::{
@@ -76,6 +76,10 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
             }
 
             Command::IdentifierLookup(_il) => (),
+
+            Command::ProductionFilter(pf) => {
+                commands.push(Box::new(ProductionFilterCommand { args: pf }))
+            }
         }
     }
 

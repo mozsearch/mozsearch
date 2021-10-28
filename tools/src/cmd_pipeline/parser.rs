@@ -2,6 +2,7 @@ use clap::arg_enum;
 use structopt::StructOpt;
 
 use super::cmd_filter_analysis::FilterAnalysis;
+use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
 use super::cmd_show_html::ShowHtml;
 
@@ -43,6 +44,7 @@ pub enum Command {
     FilterAnalysis(FilterAnalysis),
     ShowHtml(ShowHtml),
     IdentifierLookup(IdentifierLookup),
+    ProductionFilter(ProductionFilter),
 }
 
 #[derive(Debug, StructOpt)]
