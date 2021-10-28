@@ -50,9 +50,9 @@ fn norm_json_value(mut val: Value) -> Value {
 fn norm_html_value(s: String) -> String {
     let element_content_handlers = vec![
         element!(
-            r#"div.cell div.cov-strip, div.cell div.blame-strip"#,
+            r#"div.cov-strip, div.blame-strip"#,
             |el| {
-                el.set_inner_content("", ContentType::Html);
+                el.remove();
                 Ok(())
             }
         ),
