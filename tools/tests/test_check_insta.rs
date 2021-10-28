@@ -49,15 +49,6 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
             }
         }
 
-        // Regexp to help with stripping coverage and blame lines which are not
-        // expected to be stable in production for HTML lines.
-        //
-        // TODO: Make this something that doesn't impact the mozsearch test
-        // repository, since its coverage data is expected to always be canned.
-        let strip_stripper =
-            Regex::new(r#"(?m)^  <div role="cell"><div class="(?:cov|blame)-strip.+</div></div>\n"#)
-                .unwrap();
-
         for input_name in input_names {
             let input_path = format!("{}/inputs/{}", check_root, input_name);
             settings.set_input_file(&input_path);
@@ -83,11 +74,8 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         Ok(PipelineValues::HtmlExcerpts(he)) => {
                             let mut aggr_str = String::new();
                             for file_excerpts in he.by_file {
-                                //println!("HTML excerpts from: {}", file_excerpts.file);
                                 for str in file_excerpts.excerpts {
-                                    // Normalize out the blame/coverage lines.
-                                    // See the regexp def for more info.
-                                    aggr_str += &strip_stripper.replace_all(&str, "");
+                                    aggr_str += &str;
                                 }
                             }
                             insta::assert_snapshot!(&aggr_str);
