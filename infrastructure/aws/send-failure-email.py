@@ -10,7 +10,7 @@ client = boto3.client('ses')
 subj_prefix = sys.argv[1]
 dest_email = sys.argv[2]
 
-log_tail = subprocess.check_output(["tail", "-n", "30", "/home/ubuntu/index-log"])
+log_tail = subprocess.check_output(["tail", "-n", "120", "/home/ubuntu/index-log"])
 log_tail = log_tail.decode('utf-8', 'replace')
 
 response = client.send_email(
@@ -26,7 +26,7 @@ response = client.send_email(
         },
         'Body': {
             'Text': {
-                'Data': 'Searchfox failed to index successfully! Last 30 lines of log:\n\n' + log_tail,
+                'Data': 'Searchfox failed to index successfully! Last 120 lines of log:\n\n' + log_tail,
             },
         }
     }
