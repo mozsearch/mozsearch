@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
 use url::{ParseError, Url};
 
@@ -83,13 +84,14 @@ async fn get_json(url: Url) -> Result<reqwest::Response> {
 
 #[async_trait]
 impl AbstractServer for RemoteServer {
-    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<Vec<Value>> {
+    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
         let url = self.raw_analysis_base_url.join(sf_path)?;
         let raw_str = get(url).await?.text().await?;
-        raw_str
+        let values: Result<Vec<Value>> = raw_str
             .lines()
             .map(|s| from_str(s).map_err(|e| ServerError::from(e)))
-            .collect()
+            .collect();
+        Ok(Box::pin(tokio_stream::iter(values?)))
     }
 
     async fn fetch_html(&self, sf_path: &str) -> Result<String> {

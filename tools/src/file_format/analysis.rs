@@ -520,6 +520,10 @@ pub fn read_analysis<T>(
 /// transformed via the provided `filter`, resulting in either AnalysisSource records being
 /// returned (if `read_source` is provided) or AnalysisTarget (if `read_target`) and other record
 /// types being ignored.
+///
+/// Note that the filter function is invoked as records are read in, which means
+/// that the sort order seen by the filter function is the order the file
+/// already had.  It's only the return value that's sorted and grouped.
 pub fn read_analyses<T>(
     filenames: &[String],
     filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,

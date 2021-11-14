@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use futures_core::stream::BoxStream;
 use serde_json::Value;
 
 pub type Result<T> = std::result::Result<T, ServerError>;
@@ -96,7 +97,7 @@ pub enum ServerError {
 ///
 #[async_trait]
 pub trait AbstractServer {
-    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<Vec<Value>>;
+    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>>;
 
     async fn fetch_html(&self, sf_path: &str) -> Result<String>;
 
