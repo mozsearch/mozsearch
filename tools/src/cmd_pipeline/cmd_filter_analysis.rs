@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use structopt::StructOpt;
+use tokio_stream::StreamExt;
 
 use super::interface::{
     JsonRecords, PipelineCommand, PipelineValues, RecordType, SymbolicQueryOpts,
@@ -37,25 +38,21 @@ impl PipelineCommand for FilterAnalysisCommand {
         server: &Box<dyn AbstractServer + Send + Sync>,
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let records = server.fetch_raw_analysis(&self.args.file).await?;
-        let mut filtered = records;
+        let mut filtered = server.fetch_raw_analysis(&self.args.file).await?;
 
         // ## Filter by record type
         if let Some(record_types) = &self.args.record_type {
-            filtered = filtered
-                .into_iter()
-                .filter(|val| {
-                    // Record type is currently indicated via boolean presence of
-                    // "source", "target", or "structured" so check for the
-                    // stringified version of the enum value.
-                    for rt in record_types {
-                        if val.get(rt.to_string().to_lowercase()).is_some() {
-                            return true;
-                        }
+            filtered = Box::pin(filtered.filter(move |val| {
+                // Record type is currently indicated via boolean presence of
+                // "source", "target", or "structured" so check for the
+                // stringified version of the enum value.
+                for rt in record_types {
+                    if val.get(rt.to_string().to_lowercase()).is_some() {
+                        return true;
                     }
-                    false
-                })
-                .collect();
+                }
+                false
+            }));
         }
 
         // ## Filter by kind
@@ -63,57 +60,48 @@ impl PipelineCommand for FilterAnalysisCommand {
             // kind varies by record type:
             // - target: "kind" is a single valued attribute
             // - source: kind is baked into the comma-delimited "syntax"
-            filtered = filtered
-                .into_iter()
-                .filter(
-                    |val| match (val["source"].is_number(), val["target"].is_number()) {
-                        // source: consult "syntax"
-                        (true, _) => match val["syntax"].as_str() {
-                            None => false,
-                            Some(actual) => actual.split(",").next().unwrap_or("") == kind,
-                        },
-                        // target: consult "kind"
-                        (false, true) => match val["kind"].as_str() {
-                            None => false,
-                            Some(actual) => actual == kind,
-                        },
-                        _ => false,
+            filtered = Box::pin(filtered.filter(move |val| {
+                match (val["source"].is_number(), val["target"].is_number()) {
+                    // source: consult "syntax"
+                    (true, _) => match val["syntax"].as_str() {
+                        None => false,
+                        Some(actual) => actual.split(",").next().unwrap_or("") == kind,
                     },
-                )
-                .collect();
+                    // target: consult "kind"
+                    (false, true) => match val["kind"].as_str() {
+                        None => false,
+                        Some(actual) => actual == kind,
+                    },
+                    _ => false,
+                }
+            }));
         }
 
         // ## Filter by symbol
         if let Some(symbol) = &self.args.query_opts.symbol {
             // "sym" is optionally
-            filtered = filtered
-                .into_iter()
-                .filter(|val| match val["sym"].as_str() {
-                    None => false,
-                    Some(actual) => actual.split(",").any(|s| s == symbol),
-                })
-                .collect();
+            filtered = Box::pin(filtered.filter(move |val| match val["sym"].as_str() {
+                None => false,
+                Some(actual) => actual.split(",").any(|s| s == symbol),
+            }));
         }
 
         // ## Filter by identifier
         if let Some(identifier) = &self.args.query_opts.identifier {
-            filtered = filtered
-                .into_iter()
-                .filter(|val| {
-                    match val["pretty"].as_str() {
-                        None => false,
-                        // source records have a space-delimited prefix that we want
-                        // to skip; by using split/last we handle it being optional.
-                        Some(actual) => actual.split(" ").last().unwrap_or("") == identifier,
-                    }
-                })
-                .collect();
+            filtered = Box::pin(filtered.filter(move |val| {
+                match val["pretty"].as_str() {
+                    None => false,
+                    // source records have a space-delimited prefix that we want
+                    // to skip; by using split/last we handle it being optional.
+                    Some(actual) => actual.split(" ").last().unwrap_or("") == identifier,
+                }
+            }));
         }
 
         Ok(PipelineValues::JsonRecords(JsonRecords {
             by_file: vec![JsonRecordsByFile {
                 file: self.args.file.clone(),
-                records: filtered,
+                records: filtered.collect().await,
             }],
         }))
     }

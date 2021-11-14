@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
+use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
 use std::io::Read;
-use tokio::fs::File;
+use tokio::{fs::File};
 use tokio::io::AsyncReadExt;
 
 use super::server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -65,9 +66,10 @@ struct LocalIndex {
 
 #[async_trait]
 impl AbstractServer for LocalIndex {
-    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<Vec<Value>> {
+    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
         let full_path = format!("{}/analysis/{}.gz", self.config_paths.index_path, sf_path);
-        read_gzipped_ndjson_from_file(&full_path).await
+        let values = read_gzipped_ndjson_from_file(&full_path).await?;
+        Ok(Box::pin(tokio_stream::iter(values)))
     }
 
     async fn fetch_html(&self, sf_path: &str) -> Result<String> {
