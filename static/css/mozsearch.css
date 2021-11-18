@@ -7,25 +7,6 @@
   font-style: normal;
 }
 
-:root {
-  /* ### Highlighting ### */
-  /* Selected source line background color.  This is used when clicking on a
-   line-number (optionally holding ctrl or shift) to select it/a range. */
-  --highlighted-bgcolor: rgb(255, 255, 204);
-
-  /* ### Sticky Headers ### */
-
-  /* The background color applied to code lines that start a block and stick
-   around until the block is closed. (They have the "stuck" class applied.) */
-  --sticky-header-bgcolor: #ffe;
-
-  /* ### Blame ### */
-  /* Static blame zebra stripe colors. This may change in the future to be
-   zebra-striping with logarithmic age coloring. */
-  --blame-c1: lightgray;
-  --blame-c2: darkgray;
-}
-
 /**
  * normalize - Improve readability when focused and also mouse hovered in all browsers.
  */
@@ -172,7 +153,7 @@ td#line-numbers {
 }
 
 .source-line-with-number.stuck {
-  background: var(--sticky-header-bgcolor);
+  background-color: #ffe;
 }
 .source-line-with-number.last-stuck {
   box-shadow: 0px 4px 8px #0002;
@@ -621,10 +602,10 @@ span[data-symbols].hovered {
 /* blame zebra stripes: we alternate colors whenever the revision a line is from
    changes between lines. */
 .c1 {
-  background: var(--blame-c1);
+  background-color: lightgray;
 }
 .c2 {
-  background: var(--blame-c2);
+  background-color: darkgray;
 }
 
 .blame-popup {
@@ -944,10 +925,6 @@ input::placeholder {
  * color blind friendly!).
  */
 :root {
-  --cov-strip-width: 5px;
-  --cov-log10-base: 3px;
-  --cov-log10-scale: 2px;
-  --cov-strip-gap: 3px;
   --cov-hit-color: #d1e5f0;
   --cov-miss-color: #f4a582;
 }
