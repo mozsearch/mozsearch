@@ -28,9 +28,87 @@ table {
 }
 
 :root {
+  --page-background: #fff;
+  --page-foreground: #333;
+  --page-border-color: #333;
+
+  --button-color: var(--page-color);
+  --button-background: #f5f5f5;
+  --button-hover-background: white;
+  --button-active-background: #d5d5d5;
+
+  --search-box-background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
+  --revision-text-color: #656565;
+
+  --panel-header-background: #333;
+  --panel-header-color: #fff;
+
+  --list-hover-background: #e0e0e0;
+  --list-hover-color: var(--page-foreground);
+
+  --table-header-color: #555;
+  --table-header-background: #f5f5f5;
+  --table-even-row-background: #f5f5f5;
+
+  --blame-popup-background: #404040;
+  --blame-popup-color: #fff;
+  --blame-light-gray: lightgray;
+  --blame-dark-gray: darkgray;
+
+  --line-highlight-background: rgb(255, 255, 204);
+  --line-stuck-background: #ffe;
+
+  --syntax-type-color: teal;
+  --syntax-comment-color: darkred;
+  --syntax-reserved-color: blue;
+  --syntax-string-color: green;
+  --syntax-regex-color: #6d7b8d;
+  --syntax-symbol-highlight: yellow;
+}
+
+@supports (color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-background: rgb(28, 27, 34);
+    --page-foreground: rgb(251, 251, 254);
+    --page-border-color: ThreeDLightShadow;
+
+    --search-box-background-image: linear-gradient(to bottom, #444, #333);
+    --revision-text-color: #ddd;
+
+    --button-background: rgb(43, 42, 51);
+    --button-hover-background: rgb(82, 82, 94);
+    --button-active-background: rgb(91, 91, 102);
+
+    --list-hover-background: var(--button-hover-background);
+
+    --table-header-color: var(--page-foreground);
+    --table-header-background: rgb(43, 42, 51);
+    --table-even-row-background: rgb(34, 37, 44);
+
+    --blame-light-gray: #595959;
+    --blame-dark-gray: #393939;
+
+    --line-highlight-background: rgb(100, 100, 62);
+    --line-stuck-background: #646435;
+
+    --syntax-comment-color: GrayText;
+    --syntax-symbol-highlight: #5d4d1d;
+    /* Shamelessly taken from source.chromium.org's dark theme */
+    --syntax-type-color: #79a9c4;
+    --syntax-reserved-color: #d8884b;
+    --syntax-string-color: #97c67b;
+    --syntax-regex-color: #b98eff;
+    color-scheme: dark;
+  }
+}
+}
+
+:root {
   font: 12px/1.5 Arial, Helvetica, sans-serif;
-  background-color: #fff;
-  color: #333;
+
+  background-color: var(--page-background);
+  color: var(--page-foreground);
 }
 
 body {
@@ -60,7 +138,8 @@ table#file {
   width: 100%;
 }
 table.folder-content thead tr:first-child {
-  color: #555;
+  color: var(--table-header-color);
+  background-color: var(--table-header-background);
   padding: 0.5em;
 }
 table th {
@@ -77,14 +156,14 @@ table th {
   padding-top: 0.2em;
   padding-bottom: 0.2em;
 }
-table.folder-content thead tr:first-child,
 table.folder-content tr:nth-child(even) {
-  background-color: #f5f5f5;
+  background-color: var(--table-even-row-background);
 }
 table.folder-content tbody tr:hover,
 table tbody tr:hover,
 .context-menu a:hover {
-  background-color: #e8e8e8;
+  background-color: var(--list-hover-background);
+  color: var(--list-hover-color);
 }
 table.folder-content td {
   padding: 0;
@@ -142,7 +221,7 @@ td#line-numbers {
   user-select: none;
 }
 .highlighted {
-  background: none repeat scroll content-box 0 0 rgb(255, 255, 204) !important;
+  background: none repeat scroll content-box 0 0 var(--line-highlight-background) !important;
 }
 .source-line {
   margin: 0;
@@ -153,10 +232,10 @@ td#line-numbers {
 }
 
 .source-line-with-number.stuck {
-  background-color: #ffe;
+  background-color: var(--line-stuck-background);
 }
 .source-line-with-number.last-stuck {
-  box-shadow: 0px 4px 8px #0002;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, .9);
 }
 
 .source-line a {
@@ -249,7 +328,7 @@ body {
   /* even with our "stuck" and "last-stuck" classes, it's important to have an
    opaque background color for these because those classes don't take effect
    immediately. */
-  background-color: white;
+  background-color: var(--page-background-color);
   top: calc(var(--nesting-level) * 12px * 1.3);
   z-index: calc(100 - var(--nesting-level));
 }
@@ -357,15 +436,19 @@ tr.after-context-line + tr.before-context-line {
   /* absolutely positioned within the containing block of the <body> relative
      to the click event */
   position: absolute;
-  background-color: #fff;
+  background-color: var(--page-background);
+  color: var(--page-color);
   margin: 0;
   padding: 0;
-  border: 1px solid #333;
+  border: 1px solid var(--page-border-color);
   border-radius: 6px;
   border-top-left-radius: 0;
   width: auto;
   list-style: none;
   z-index: 102;
+}
+.context-menu:focus {
+  outline: none;
 }
 .context-menu a {
   display: block;
@@ -431,9 +514,8 @@ tr.after-context-line + tr.before-context-line {
   position: fixed;
   top: 105px;
   right: 22px;
-  background-color: #fff;
-  border: 1px solid #e0e0e0;
-  border-right: 0;
+  background-color: var(--page-background);
+  border: 1px solid var(--page-border-color);
   min-width: 12rem;
   overflow-y: auto;
   overflow-x: hidden;
@@ -442,8 +524,8 @@ tr.after-context-line + tr.before-context-line {
 }
 #panel-toggle {
   display: inline-block;
-  background-color: #333;
-  color: #fff;
+  background-color: var(--panel-header-background);
+  color: var(--panel-header-color);
   margin: 0;
   padding: 0.5rem 0.2rem 0.5rem 0.7rem;
   border: 0;
@@ -486,15 +568,14 @@ tr.after-context-line + tr.before-context-line {
 }
 .panel section a {
   display: inline-block;
-  background-color: #fff;
   width: 100%;
 }
-.panel section a:hover {
-  background-color: #e0e0e0;
+.panel section a:is(:hover, :focus) {
+  background-color: var(--list-hover-background);
+  color: var(--list-hover-color);
   text-decoration: none;
 }
 .panel section a:focus {
-  background-color: #e0e0e0;
   text-decoration: underline;
 }
 
@@ -543,7 +624,7 @@ span[data-symbols]:hover {
   cursor: pointer;
 }
 span[data-symbols].hovered {
-  background-color: yellow;
+  background-color: var(--syntax-symbol-highlight);
 }
 
 /* Help screen */
@@ -602,10 +683,10 @@ span[data-symbols].hovered {
 /* blame zebra stripes: we alternate colors whenever the revision a line is from
    changes between lines. */
 .c1 {
-  background-color: lightgray;
+  background-color: var(--blame-light-gray);
 }
 .c2 {
-  background-color: darkgray;
+  background-color: var(--blame-dark-gray);
 }
 
 .blame-popup {
@@ -615,10 +696,10 @@ span[data-symbols].hovered {
   left: 0;
   width: 600px;
   padding: 10px;
-  background: #404040;
-  box-shadow: 3px 3px 3px grey;
+  background-color: var(--blame-popup-background);
+  color: var(--blame-popup-color);
+  box-shadow: 3px 3px 3px rgba(0, 0, 0, .5);
   border-radius: 3px;
-  color: white;
   text-align: left;
   z-index: 200;
   cursor: auto;
@@ -628,7 +709,7 @@ span[data-symbols].hovered {
   cursor: pointer;
 }
 .deemphasize {
-  color: #8c8c8c !important;
+  color: GrayText !important;
 }
 .minus-line {
   background-color: rgb(255, 204, 204);
@@ -673,11 +754,8 @@ input::placeholder {
   text-decoration: underline;
 }
 #search-box {
-  background-color: #f5f5f5;
-  background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
-  border-bottom: 1px solid #6d6d6d;
-  border-top: 1px solid #f5f5f5;
-  color: #333;
+  background-image: var(--search-box-background-image);
+  border-bottom: 1px solid var(--page-border-color);
   padding: 0.8rem;
   width: 100%;
 }
@@ -697,7 +775,7 @@ input::placeholder {
 }
 #revision {
   padding-top: 0.2rem;
-  color: #656565;
+  color: var(--revision-text-color);
 }
 #revision a {
   text-decoration: underline;
@@ -853,29 +931,29 @@ input::placeholder {
   background-position: 0 0, 5px 5px;
 }
 
-.syn_type {
-  color: teal;
-}
-
 .syn_def {
   font-weight: 600;
 }
 
+.syn_type {
+  color: var(--syntax-type-color);
+}
+
 .syn_string {
-  color: green;
+  color: var(--syntax-string-color);
 }
 
 .syn_comment {
-  color: darkred;
+  color: var(--syntax-comment-color);
 }
 
 .syn_tag,
 .syn_reserved {
-  color: blue;
+  color: var(--syntax-reserved-color);
 }
 
 .syn_regex {
-  color: #6d7b8d;
+  color: var(--syntax-regex-color);
 }
 
 /* ## Code Coverage Styling ## */

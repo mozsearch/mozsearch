@@ -135,6 +135,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
 
     let mut head_seq = vec![
         F::S(r#"<meta charset="utf-8" />"#),
+        F::S(r#"<meta name="color-scheme" content="light dark">"#),
         F::S(r#"<link href="/static/icons/search.png" rel="shortcut icon">"#),
         F::T(format!("<title>{}</title>", opt.title)),
     ];
@@ -315,6 +316,28 @@ pub struct PanelSection {
     pub items: Vec<PanelItem>,
 }
 
+static COPY_ICONS: &str = r##"
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+   Taken from mozilla-central@fc6d20cf008c2ca66d2c45439690d2ff067bf1b9/browser/extensions/screenshots/icons/copy.svg
+   -->
+<svg viewbox="0 0 16 16" class="copy-icon">
+  <path d="M14.707 8.293l-3-3A1 1 0 0 0 11 5h-1V4a1 1 0 0 0-.293-.707l-3-3A1 1 0 0 0 6 0H3a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3v3a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V9a1 1 0 0 0-.293-.707zM12.586 9H11V7.414zm-5-5H6V2.414zM6 7v2H3V2h2v2.5a.5.5 0 0 0 .5.5H8a2 2 0 0 0-2 2zm2 7V7h2v2.5a.5.5 0 0 0 .5.5H13v4z"/>
+</svg>
+
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+  Taken from https://searchfox.org/mozilla-central/rev/819be4899a92213abf121b449779ced662f2ce13/widget/nsNativeBasicTheme.cpp#226-230 with coordinates converted appropriately.
+-->
+<svg viewbox="0 0 16 16" class="tick-icon">
+  <path d="M 2.857143 8.571428 L 6.285714 12.571428 L 7.428571 12.571428 L 13.714286 5.142857 L 13.428572 3.428571 L 12 3.428571 L 7.428571 9.142858 L 6.285714 9.428572 L 4 6.857143"/>
+</svg>
+"##;
+
 /// Generate HTML for a panel containing the given sections and write it to the
 /// provided writer.  This is expected to be called once per document.
 pub fn generate_panel(
@@ -342,7 +365,10 @@ pub fn generate_panel(
                         String::new()
                     };
                     let copy = if item.copyable {
-                        format!(r#"<button class="icon copy" title="Copy to clipboard"></button>"#)
+                        format!(
+                            r#"<button class="icon copy" title="Copy to clipboard">{}</button>"#,
+                            COPY_ICONS
+                        )
                     } else {
                         String::new()
                     };

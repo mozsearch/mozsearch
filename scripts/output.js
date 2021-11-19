@@ -65,7 +65,8 @@ function generate(content, opt)
   let output = `<!DOCTYPE html>
 <html lang="en-US">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
   <link href="/static/icons/search.png" rel="shortcut icon">
   <title>${title}</title>
 
