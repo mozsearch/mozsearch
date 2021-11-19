@@ -21,54 +21,6 @@
   padding: 8px; /* Makes the container 16x16 in order to show full icon. */
 }
 
-/* Folder context-menu */
-a.goto-folder {
-  background-image: url(/static/icons/goto_folder.png);
-}
-a.path-search {
-  background-image: url(/static/icons/path_search.png);
-}
-a.exclude-path {
-  background-image: url(/static/icons/exclude_path.png);
-}
-/* End of folder context-menu */
-
-/* Context-menu and Panel icons */
-a.class {
-  background-image: url(/static/icons/class.png);
-}
-a.method {
-  background-image: url(/static/icons/method.png);
-}
-a.field {
-  background-image: url(/static/icons/field.png);
-}
-/* End of Context-menu and Panel icons */
-
-/* Context-menu only icons */
-a.reference {
-  background-image: url(/static/icons/reference.png);
-}
-a.search {
-  background-image: url(/static/icons/search.png);
-}
-a.buglink {
-  background-image: url(/static/icons/buglink.png);
-}
-a.external_link {
-  background-image: url(/static/icons/external_link.png);
-}
-a.jump {
-  background-image: url(/static/icons/jump.png);
-}
-a.members {
-  background-image: url(/static/icons/members.png);
-}
-a.type {
-  background-image: url(/static/icons/type.png);
-}
-/* End of Context-menu only icons */
-
 .panel label.panel-accel {
   padding: 0.5rem;
 }
@@ -113,37 +65,6 @@ a.type {
 .panel .copy.copied {
   background-image: url(/static/icons/tick.svg);
 }
-
-/* Panel only icons */
-
-/* Panel icons that are always shown - uncomment when ready! ->
-.panel .blame {
-    background-image: url(/static/icons/blame.png);
-}
-.panel .diff {
-    background-image: url(/static/icons/diff.png);
-}
-.panel .log {
-    background-image: url(/static/icons/log.png);
-}
-.panel .raw {
-    background-image: url(/static/icons/raw.png);
-}
-/* End of Panel icons that are always shown */
-
-.enum {
-  background-image: url(/static/icons/enum.png);
-}
-.struct {
-  background-image: url(/static/icons/struct.png);
-}
-.union {
-  background-image: url(/static/icons/union.png);
-}
-.macro {
-  background-image: url(/static/icons/macro.png);
-}
-/* End of Panel only icons */
 
 /* MimeType Icons */
 .build {
@@ -191,9 +112,6 @@ a.type {
 }
 .mm {
   background-image: url(/static/icons/mimetypes/mm.png);
-}
-.page_white_code_red {
-  background-image: url(/static/icons/mimetypes/page_white_code_red.png);
 }
 .php {
   background-image: url(/static/icons/mimetypes/php.png);
