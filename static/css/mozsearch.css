@@ -898,25 +898,10 @@ input::placeholder {
  *    color of hits so that lines with more coverage hits are shown with darker
  *    colors.
  *
- * There's potentially concerning performance issues with our goal here.  For
- * now we blindly assume without looking into the implementation details at all
- * that changing CSS variables that are used for colors on the fly will be more
- * performant than changing the DOM or styling rules.  Thankfully all the
- * reviewers know this stuff!
- *
  * To this end, we have two variables --cov-hit-unhovered-color and
  * --cov-miss-unhovered-color that have valid color values when we're not
  * hovering and are made to be empty when we're hovering, allowing us to fail
- * over to a second set of colors.  These are defined at runtime by `blame.js`
- * copying the values of "--cov-hit-color" and "--cov-miss-color", respectively.
- * We do this because for simplicity we manipulate
- * `document.documentElement.style`, not the :root stylesheet below, but that
- * makes it impossible to clear the variables.  So instead the JS takes on the
- * responsibility for defining the unhovered values in the first place.
- *
- * This does mean that if the JS breaks we will show the more detailed hover
- * state, but the blame/annotate popups would also break, and people like those,
- * so someone would tell us.
+ * over to a second set of colors.
  *
  * Our red-blue color scheme is from
  * https://colorbrewer2.org/#type=diverging&scheme=RdBu&n=11 and was chosen
@@ -924,9 +909,9 @@ input::placeholder {
  * to a correspondence to the stereotypical red/green color theme (that's not
  * color blind friendly!).
  */
-:root {
-  --cov-hit-color: #d1e5f0;
-  --cov-miss-color: #f4a582;
+:root:not(.coverage-details-shown) {
+  --cov-hit-unhovered-color: #d1e5f0;
+  --cov-miss-unhovered-color: #f4a582;
 }
 
 .cov-strip {
