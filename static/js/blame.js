@@ -27,27 +27,6 @@ var BlamePopup = new (class BlamePopup {
     this.prevRevs = null;
     this.prevJson = null;
 
-    // We play games with CSS variables to allow us to display a more detailed
-    // set of colors when hovering over a coverage cell and a less detailed set
-    // when not hovered.  See mozsearch.css for more info, but the basic idea
-    // is:
-    // - The "unhovered" CSS variables are used with preference in all our CSS
-    //   styles, so when defined we use their less detailed colors.  So our
-    //   style `background-color: var(--cov-miss-unhovered-color, #f7f7f7);`
-    //   will use #f7f7f7 when it's not defined and the variable value when it
-    //   is.
-    // - So we set the "unhovered" values when we want a less detailed
-    //   visualization of what's going on and we clear set them to the empty
-    //   string.
-    // -
-    this.HIT_COLOR_VAR = "--cov-hit-color";
-    this.MISS_COLOR_VAR = "--cov-miss-color";
-    this.HIT_UNHOVERED_COLOR_VAR = "--cov-hit-unhovered-color";
-    this.MISS_UNHOVERED_COLOR_VAR = "--cov-miss-unhovered-color";
-    const computed = getComputedStyle(document.documentElement);
-    this.COV_HIT_COLOR = computed.getPropertyValue(this.HIT_COLOR_VAR);
-    this.COV_MISS_COLOR = computed.getPropertyValue(this.MISS_COLOR_VAR);
-
     this.coverageDetailsShown = true;
     this.hideCoverageStripDetails();
   }
@@ -57,11 +36,7 @@ var BlamePopup = new (class BlamePopup {
       return;
     }
     this.coverageDetailsShown = true;
-
-    document.documentElement.style.setProperty(
-      this.HIT_UNHOVERED_COLOR_VAR, "");
-    document.documentElement.style.setProperty(
-      this.MISS_UNHOVERED_COLOR_VAR, "");
+    document.documentElement.classList.add("coverage-details-shown");
   }
 
   hideCoverageStripDetails() {
@@ -69,11 +44,7 @@ var BlamePopup = new (class BlamePopup {
       return;
     }
     this.coverageDetailsShown = false;
-
-    document.documentElement.style.setProperty(
-      this.HIT_UNHOVERED_COLOR_VAR, this.COV_HIT_COLOR);
-    document.documentElement.style.setProperty(
-      this.MISS_UNHOVERED_COLOR_VAR, this.COV_MISS_COLOR);
+    document.documentElement.classList.remove("coverage-details-shown");
   }
 
   detachFromCurrentOwner() {
