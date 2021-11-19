@@ -69,6 +69,22 @@ table {
   --syntax-string-color: green;
   --syntax-regex-color: #6d7b8d;
   --syntax-symbol-highlight: yellow;
+
+  /* Our red-blue color scheme is from
+   * https://colorbrewer2.org/#type=diverging&scheme=RdBu&n=11 and was chosen
+   * for being "color blind friendly" while also being reasonably intuitive thanks
+   * to a correspondence to the stereotypical red/green color theme (that's not
+   * color blind friendly!). */
+  --cov-interpolated-background: #f7f7f7;
+  --cov-miss-background: #f4a582;
+  --cov-hit-background-1: #d1e5f0;
+  --cov-hit-background-2: #92c5de;
+  --cov-hit-background-3: #4393c3;
+  --cov-hit-background-4: #2166ac;
+  --cov-hit-background-5: #053061;
+
+  --cov-hit-unhovered-background: var(--cov-hit-background-1);
+  --cov-miss-unhovered-background: var(--cov-miss-background);
 }
 
 @supports (color-scheme: dark) {
@@ -109,6 +125,17 @@ table {
     --syntax-reserved-color: #d8884b;
     --syntax-string-color: #97c67b;
     --syntax-regex-color: #b98eff;
+
+    /* Hit colors from the dark bits from https://colorbrewer2.org/#type=sequential&scheme=Blues&n=9
+     * Miss background from the same link as the light colors (the darkest red in there). */
+    --cov-interpolated-background: #595959;
+    --cov-miss-background: #67001f;
+    --cov-hit-background-1: #6baed6;
+    --cov-hit-background-2: #4292c6;
+    --cov-hit-background-3: #2171b5;
+    --cov-hit-background-4: #08519c;
+    --cov-hit-background-5: #08306b;
+
     color-scheme: dark;
   }
 }
@@ -986,20 +1013,14 @@ input::placeholder {
  *    color of hits so that lines with more coverage hits are shown with darker
  *    colors.
  *
- * To this end, we have two variables --cov-hit-unhovered-color and
- * --cov-miss-unhovered-color that have valid color values when we're not
+ * To this end, we have two variables --cov-hit-unhovered-background and
+ * --cov-miss-unhovered-background that have valid color values when we're not
  * hovering and are made to be empty when we're hovering, allowing us to fail
  * over to a second set of colors.
- *
- * Our red-blue color scheme is from
- * https://colorbrewer2.org/#type=diverging&scheme=RdBu&n=11 and was chosen
- * for being "color blind friendly" while also being reasonably intuitive thanks
- * to a correspondence to the stereotypical red/green color theme (that's not
- * color blind friendly!).
  */
-:root:not(.coverage-details-shown) {
-  --cov-hit-unhovered-color: #d1e5f0;
-  --cov-miss-unhovered-color: #f4a582;
+:root.coverage-details-shown {
+  --cov-miss-unhovered-background: unset;
+  --cov-hit-unhovered-background: unset;
 }
 
 .cov-strip {
@@ -1013,33 +1034,33 @@ input::placeholder {
 }
 
 .cov-interpolated.cov-miss {
-  background-color: var(--cov-miss-unhovered-color, #f7f7f7);
+  background-color: var(--cov-miss-unhovered-background, var(--cov-interpolated-background));
 }
 .cov-interpolated.cov-hit {
-  background-color: var(--cov-hit-unhovered-color, #f7f7f7);
+  background-color: var(--cov-hit-unhovered-background, var(--cov-interpolated-background));
 }
 
 .cov-known.cov-miss {
-  background-color: #f4a582;
+  background-color: var(--cov-miss-background);
 }
 
 .cov-log10-0,
 .cov-log10-1 {
-  background-color: var(--cov-hit-unhovered-color, #d1e5f0);
+  background-color: var(--cov-hit-unhovered-background, var(--cov-hit-background-1));
 }
 .cov-log10-2,
 .cov-log10-3 {
-  background-color: var(--cov-hit-unhovered-color, #92c5de);
+  background-color: var(--cov-hit-unhovered-background, var(--cov-hit-background-2));
 }
 .cov-log10-4,
 .cov-log10-5 {
-  background-color: var(--cov-hit-unhovered-color, #4393c3);
+  background-color: var(--cov-hit-unhovered-background, var(--cov-hit-background-3));
 }
 .cov-log10-6,
 .cov-log10-7 {
-  background-color: var(--cov-hit-unhovered-color, #2166ac);
+  background-color: var(--cov-hit-unhovered-background, var(--cov-hit-background-4));
 }
 .cov-log10-8,
 .cov-log10-9 {
-  background-color: var(--cov-hit-unhovered-color, #053061);
+  background-color: var(--cov-hit-unhovered-background, var(--cov-hit-background-5));
 }
