@@ -31,39 +31,41 @@
   border-radius: 2px;
   padding: 1px 3px;
   margin: 0 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--page-border-color);
+  background-color: var(--button-background);
+  color: var(--button-color);
 }
 
 .panel .accel {
   /* simulate a keyboard key effect */
   font-family: monospace;
-  background: #f5f5f5;
-  box-shadow: 0 1px #999;
+  box-shadow: 0 1px rgba(0, 0, 0, .8);
 }
 
 .panel .copy {
-  height: 1em;
-  width: 1em;
-  padding: 3px;
+  height: 18px;
+  width: 18px;
+  padding: 1px;
   margin: 0 3px;
-  box-sizing: content-box;
   cursor: pointer;
   vertical-align: middle;
-  background-image: url(/static/icons/copy.svg);
-  background-position: center center;
-  background-color: #f5f5f5;
 }
 
 .panel .copy:hover {
-  background-color: white;
+  background-color: var(--button-hover-background);
 }
 
 .panel .copy:active {
-  background-color: #d5d5d5;
+  background-color: var(--button-active-background);
 }
 
-.panel .copy.copied {
-  background-image: url(/static/icons/tick.svg);
+.panel .copy svg {
+  fill: currentColor;
+}
+
+.panel .copy:not(.copied) .tick-icon,
+.panel .copy.copied .copy-icon {
+  display: none;
 }
 
 /* MimeType Icons */
