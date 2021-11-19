@@ -46,6 +46,11 @@ table {
   --list-hover-background: #e0e0e0;
   --list-hover-color: var(--page-foreground);
 
+  --info-box-test-skip-info-background: #eee;
+  --info-box-error-background: #ffeeee;
+  --info-box-warning-background: #ffffee;
+  --info-box-info-background: #eeffee;
+
   --table-header-color: #555;
   --table-header-background: #f5f5f5;
   --table-even-row-background: #f5f5f5;
@@ -81,6 +86,11 @@ table {
     --button-active-background: rgb(91, 91, 102);
 
     --list-hover-background: var(--button-hover-background);
+
+    --info-box-test-skip-info-background: #161b22;
+    --info-box-error-background: #57161c;
+    --info-box-warning-background: #664d03;
+    --info-box-info-background: #0a3722;
 
     --table-header-color: var(--page-foreground);
     --table-header-background: rgb(43, 42, 51);
@@ -581,20 +591,20 @@ tr.after-context-line + tr.before-context-line {
 
 /* Info Boxes */
 .info-box {
-  border: 1px solid gray;
+  border: 1px solid rgba(0, 0, 0, .5);
   border-radius: 8px;
   padding: 0.8rem;
   margin: 0.5rem;
   font-size: 110%;
 }
 .info-box-error {
-  background-color: #ffeeee;
+  background-color: var(--info-box-error-background);
 }
 .info-box-warning {
-  background-color: #ffffee;
+  background-color: var(--info-box-warning-background);
 }
 .info-box-info {
-  background-color: #eeffee;
+  background-color: var(--info-box-info-background);
 }
 .info-box ul {
   padding-inline-start: 20px !important;
@@ -606,7 +616,7 @@ tr.after-context-line + tr.before-context-line {
 }
 .info-box .test-skip-info {
   font-family: monospace;
-  background-color: #eee;
+  background-color: var(--info-box-test-skip-info-background);
   padding: 5px;
   margin: -5px;
 }
