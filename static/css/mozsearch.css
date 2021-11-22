@@ -435,7 +435,7 @@ tr.after-context-line + tr.before-context-line {
 
 .expando {
   cursor: pointer;
-  color: black;
+  color: var(--page-foreground);
 }
 /* End search results */
 
