@@ -37,6 +37,9 @@ table {
   --button-hover-background: white;
   --button-active-background: #d5d5d5;
 
+  --link-color: #0095dd;
+  --link-hover-color: #00539f;
+
   --search-box-background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
   --revision-text-color: #656565;
 
@@ -85,6 +88,9 @@ table {
     --button-hover-background: rgb(82, 82, 94);
     --button-active-background: rgb(91, 91, 102);
 
+    --link-color: #1897db;
+    --link-hover-color: #016cbf;
+
     --list-hover-background: var(--button-hover-background);
 
     --info-box-test-skip-info-background: #161b22;
@@ -127,8 +133,7 @@ body {
 h4 {
   margin: 0 0 0.5rem 0;
 }
-a:link,
-a:visited {
+a:any-link {
   color: inherit;
   text-decoration: none;
 }
@@ -491,21 +496,17 @@ tr.after-context-line + tr.before-context-line {
 }
 
 /* Link styling */
-.breadcrumbs a:link,
-.breadcrumbs a:visited,
-.bubble a:link,
-.bubble a:visited,
-.result-head a:link,
-.result-head a:visited {
-  color: #0095dd;
+.breadcrumbs a:any-link,
+.result-head a:any-link {
+  color: var(--link-color);
 }
 .breadcrumbs a:hover,
 .result-head a:hover {
-  color: #00539f;
+  color: var(--link-hover-color);
 }
 .breadcrumbs a:focus,
 .result-head a:focus {
-  color: #00539f;
+  color: var(--link-hover-color);
   text-decoration: none;
 }
 
