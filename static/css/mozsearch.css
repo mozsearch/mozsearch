@@ -121,8 +121,8 @@ table {
     --blame-light-gray: #595959;
     --blame-dark-gray: #393939;
 
-    --line-highlight-background: rgb(100, 100, 62);
-    --line-stuck-background: #646435;
+    --line-highlight-background: #3c3111;
+    --line-stuck-background: #221c09;
 
     --syntax-comment-color: GrayText;
     --syntax-symbol-highlight: #5d4d1d;
