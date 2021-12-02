@@ -698,14 +698,21 @@ span[data-symbols].hovered {
 */
 .goto {
   /* This needs to be large enough so that the "position: sticky"
-   stuck lines don't obscure the line we're trying to display. */
-  scroll-margin-top: calc((var(--nesting-level, -1) + 1) * 12px * 1.3);
+     stuck lines don't obscure the line we're trying to display.
+     Also, we add an extra line of padding to compensate for the box-shadow.
+     Note: The default must be -1 * the offset for the non-stuck case.
+   */
+  scroll-margin-top: calc((var(--nesting-level, -2) + 2) * 12px * 1.3);
 }
 
 .nesting-container > .goto {
   /* The anchor for the first-line of a sticky container doesn't need to
-   * account for the sticky line itself */
-  scroll-margin-top: calc(var(--nesting-level) * 12px * 1.3);
+     account for the sticky line itself, but still needs a line of padding
+     for the box-shadow.  Disclaimer: This is only necessary for nesting
+     levels >= 1 and results in an extra line of padding for == 0, but the
+     complexity to fix it doesn't seem worth it.
+   */
+  scroll-margin-top: calc((var(--nesting-level) + 1) * 12px * 1.3);
 }
 
 /* ## Blame ## */
