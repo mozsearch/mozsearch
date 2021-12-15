@@ -494,10 +494,16 @@ tr.after-context-line + tr.before-context-line {
   padding: 0;
   border: 1px solid var(--page-border-color);
   border-radius: 6px;
-  border-top-left-radius: 0;
   list-style: none;
   z-index: 102;
   overflow: auto;
+  transition: opacity .2s ease;
+}
+.context-menu:not(.bottom) {
+  border-top-left-radius: 0;
+}
+.context-menu.bottom {
+  border-bottom-left-radius: 0;
 }
 .context-menu:focus {
   outline: none;
