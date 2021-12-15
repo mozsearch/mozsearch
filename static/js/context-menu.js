@@ -110,12 +110,38 @@ var ContextMenu = new (class ContextMenu {
 
     let viewportHeight = window.innerHeight;
     let spaceTowardsBottom = viewportHeight - event.clientY;
+    let spaceTowardsTop = viewportHeight - spaceTowardsBottom;
 
-    this.menu.style.left = x + "px";
+    // Position the menu towards the bottom, and if that overflows and there's
+    // more space to the top, flip it.
+    this.menu.classList.remove("bottom");
+    this.menu.style.bottom = "";
     this.menu.style.top = y + "px";
-    this.menu.style.maxHeight = spaceTowardsBottom + "px";
+    this.menu.style.left = x + "px";
+    this.menu.style.maxHeight = "none";
 
     this.menu.style.display = "";
+    this.menu.style.opacity = "0";
+
+    let rect = this.menu.getBoundingClientRect();
+    // If it overflows, either flip it or constrain its height.
+    if (rect.height > spaceTowardsBottom) {
+      if (spaceTowardsTop > spaceTowardsBottom) {
+        // Position it towards the top.
+        this.menu.classList.add("bottom");
+        this.menu.style.bottom = (viewportHeight - y) + "px";
+        this.menu.style.top = "";
+        if (rect.height > spaceTowardsTop) {
+          this.menu.style.maxHeight = spaceTowardsTop + "px";
+        }
+      } else {
+        // Constrain its height.
+        this.menu.style.maxHeight = spaceTowardsBottom + "px";
+      }
+    }
+
+    // Now the menu is correctly positioned, show it.
+    this.menu.style.opacity = "";
     this.menu.focus();
   }
 
