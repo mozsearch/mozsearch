@@ -84,6 +84,11 @@ async fn get_json(url: Url) -> Result<reqwest::Response> {
 
 #[async_trait]
 impl AbstractServer for RemoteServer {
+    fn translate_analysis_path(&self, _sf_path: &str) -> Result<String> {
+        // Remote servers don't have local filesystem paths.
+        Err(ServerError::Unsupported)
+    }
+
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
         let url = self.raw_analysis_base_url.join(sf_path)?;
         let raw_str = get(url).await?.text().await?;

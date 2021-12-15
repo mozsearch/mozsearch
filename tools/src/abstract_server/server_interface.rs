@@ -97,6 +97,10 @@ pub enum ServerError {
 ///
 #[async_trait]
 pub trait AbstractServer {
+    /// Convert a searchfox tree-local path into an absolute analysis path on
+    /// disk.  This fundamentally only works for local indices.
+    fn translate_analysis_path(&self, sf_path: &str) -> Result<String>;
+
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>>;
 
     async fn fetch_html(&self, sf_path: &str) -> Result<String>;

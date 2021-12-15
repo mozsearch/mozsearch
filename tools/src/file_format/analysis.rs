@@ -1,9 +1,11 @@
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::io::Read;
 
 use itertools::Itertools;
 
+use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{from_str, from_value, Map, Value};
 use serde_repr::*;
@@ -521,6 +523,9 @@ pub fn read_analysis<T>(
 /// returned (if `read_source` is provided) or AnalysisTarget (if `read_target`) and other record
 /// types being ignored.
 ///
+/// Analysis files ending in .gz will be automatically decompressed as they are
+/// read.
+///
 /// Note that the filter function is invoked as records are read in, which means
 /// that the sort order seen by the filter function is the order the file
 /// already had.  It's only the return value that's sorted and grouped.
@@ -537,7 +542,14 @@ pub fn read_analyses<T>(
                 continue;
             }
         };
-        let reader = BufReader::new(&file);
+        // An analysis file that ends in .gz is compressed and should be
+        // dynamically decompressed.
+        let reader: Box<dyn Read> = if filename.ends_with(".gz") {
+            Box::new(GzDecoder::new(file))
+        } else {
+            Box::new(file)
+        };
+        let reader = BufReader::new(reader);
         let mut lineno = 0;
         for line in reader.lines() {
             let line = line.unwrap();

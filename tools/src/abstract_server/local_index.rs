@@ -66,6 +66,10 @@ struct LocalIndex {
 
 #[async_trait]
 impl AbstractServer for LocalIndex {
+    fn translate_analysis_path(&self, sf_path: &str) -> Result<String> {
+        Ok(format!("{}/analysis/{}.gz", self.config_paths.index_path, sf_path))
+    }
+
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
         let full_path = format!("{}/analysis/{}.gz", self.config_paths.index_path, sf_path);
         let values = read_gzipped_ndjson_from_file(&full_path).await?;
