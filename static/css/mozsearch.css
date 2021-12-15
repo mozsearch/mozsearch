@@ -495,9 +495,9 @@ tr.after-context-line + tr.before-context-line {
   border: 1px solid var(--page-border-color);
   border-radius: 6px;
   border-top-left-radius: 0;
-  width: auto;
   list-style: none;
   z-index: 102;
+  overflow: auto;
 }
 .context-menu:focus {
   outline: none;
@@ -506,14 +506,6 @@ tr.after-context-line + tr.before-context-line {
   display: block;
   text-decoration: none;
 }
-.context-menu li:first-child a:hover {
-  border-top-right-radius: 6px;
-}
-.context-menu li:last-child a:hover {
-  border-bottom-right-radius: 6px;
-  border-bottom-left-radius: 6px;
-}
-
 .content {
   padding: 1rem 2rem;
 }
