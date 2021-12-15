@@ -2,6 +2,7 @@ use clap::arg_enum;
 use structopt::StructOpt;
 
 use super::cmd_filter_analysis::FilterAnalysis;
+use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
 use super::cmd_show_html::ShowHtml;
@@ -40,11 +41,12 @@ pub struct ToolOpts {
 
 #[derive(Debug, StructOpt)]
 pub enum Command {
-    Query(Query),
     FilterAnalysis(FilterAnalysis),
-    ShowHtml(ShowHtml),
     IdentifierLookup(IdentifierLookup),
+    MergeAnalyses(MergeAnalyses),
     ProductionFilter(ProductionFilter),
+    Query(Query),
+    ShowHtml(ShowHtml),
 }
 
 #[derive(Debug, StructOpt)]

@@ -8,7 +8,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::cmd_filter_analysis::FilterAnalysisCommand;
+use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand};
 use super::cmd_query::QueryCommand;
 use super::cmd_show_html::ShowHtmlCommand;
 
@@ -63,22 +63,27 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         }
 
         match opts.cmd {
-            Command::Query(q) => {
-                commands.push(Box::new(QueryCommand { args: q }))
-            }
-
             Command::FilterAnalysis(fa) => {
                 commands.push(Box::new(FilterAnalysisCommand { args: fa }));
             }
 
-            Command::ShowHtml(sh) => {
-                commands.push(Box::new(ShowHtmlCommand { args: sh }));
-            }
-
             Command::IdentifierLookup(_il) => (),
+
+            Command::MergeAnalyses(ma) => {
+                commands.push(Box::new(MergeAnalysesCommand{ args: ma }))
+            }
 
             Command::ProductionFilter(pf) => {
                 commands.push(Box::new(ProductionFilterCommand { args: pf }))
+            }
+
+            Command::Query(q) => {
+                commands.push(Box::new(QueryCommand { args: q }))
+            }
+
+
+            Command::ShowHtml(sh) => {
+                commands.push(Box::new(ShowHtmlCommand { args: sh }));
             }
         }
     }
