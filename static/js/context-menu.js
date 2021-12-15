@@ -105,11 +105,15 @@ var ContextMenu = new (class ContextMenu {
       this.menu.appendChild(li);
     }
 
-    let top = event.clientY + window.scrollY;
-    let left = event.clientX + window.scrollX;
+    let x = event.clientX + window.scrollX;
+    let y = event.clientY + window.scrollY;
 
-    this.menu.style.top = top + "px";
-    this.menu.style.left = left + "px";
+    let viewportHeight = window.innerHeight;
+    let spaceTowardsBottom = viewportHeight - event.clientY;
+
+    this.menu.style.left = x + "px";
+    this.menu.style.top = y + "px";
+    this.menu.style.maxHeight = spaceTowardsBottom + "px";
 
     this.menu.style.display = "";
     this.menu.focus();
