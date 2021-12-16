@@ -88,6 +88,9 @@ table {
 
   --cov-hit-unhovered-background: var(--cov-hit-background-1);
   --cov-miss-unhovered-background: var(--cov-miss-background);
+
+  --diff-minus-line-background: rgb(255, 204, 204);
+  --diff-plus-line-background: rgb(153, 204, 255);
 }
 
 @supports (color-scheme: dark) {
@@ -141,6 +144,9 @@ table {
     --cov-hit-background-3: #2171b5;
     --cov-hit-background-4: #08519c;
     --cov-hit-background-5: #08306b;
+
+    --diff-minus-line-background: #42161c;
+    --diff-plus-line-background: #172c47;
 
     color-scheme: dark;
   }
@@ -757,10 +763,10 @@ span[data-symbols].hovered {
   color: GrayText !important;
 }
 .minus-line {
-  background-color: rgb(255, 204, 204);
+  background-color: var(--diff-minus-line-background);
 }
 .plus-line {
-  background-color: rgb(153, 204, 255);
+  background-color: var(--diff-plus-line-background);
 }
 
 /* Search box */
