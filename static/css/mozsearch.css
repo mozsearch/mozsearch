@@ -449,7 +449,7 @@ tr.after-context-line + tr.before-context-line {
 
 .result-upsearch {
   padding-left: 8px;
-  color: blue;
+  color: var(--link-color);
 }
 
 .section {
