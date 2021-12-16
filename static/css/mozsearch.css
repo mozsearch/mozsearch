@@ -91,6 +91,8 @@ table {
 
   --diff-minus-line-background: rgb(255, 204, 204);
   --diff-plus-line-background: rgb(153, 204, 255);
+
+  --result-context-color: royalblue;
 }
 
 @supports (color-scheme: dark) {
@@ -147,6 +149,8 @@ table {
 
     --diff-minus-line-background: #42161c;
     --diff-plus-line-background: #172c47;
+
+    --result-context-color: #7892df;
 
     color-scheme: dark;
   }
@@ -444,7 +448,7 @@ tr.after-context-line + tr.before-context-line {
   margin-left: 10px;
   padding-left: 4px;
   padding-right: 4px;
-  color: royalblue;
+  color: var(--result-context-color);
 }
 
 .result-upsearch {
