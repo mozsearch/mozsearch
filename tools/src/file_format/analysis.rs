@@ -11,7 +11,7 @@ use serde_json::{from_str, from_value, Map, Value};
 use serde_repr::*;
 use ustr::{ustr, Ustr, UstrMap};
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
     pub lineno: u32,
     pub col_start: u32,
