@@ -116,7 +116,12 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String],  platforms: &Vec<Str
       if let Some(e) = last_entry {
           loc_data.data.push(e);
       }
-      writeln!(writer, "{}", to_string(&loc_data).unwrap()).unwrap();
+      // We can't convert WithLocation<Vec<T>> directly to JSON; we need to
+      // spread the loc to each individual piece of data.
+      let loc = loc_data.loc;
+      for datum in loc_data.data {
+        writeln!(writer, "{}", to_string(&WithLocation { loc, data: datum }).unwrap()).unwrap();
+      }
   }
 
   for (_id, mut hmap) in structured_syms {
