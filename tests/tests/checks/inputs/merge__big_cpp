@@ -1,1 +1,1 @@
-merge-analyses big_cpp.cpp -p foo-plat
+merge-analyses big_cpp.cpp big_cpp.cpp -p foo-plat -p bar-plat
