@@ -1083,21 +1083,21 @@ expression: "&json_results"
   {
     "loc": "00020:9-23",
     "source": 1,
-    "syntax": "use,file",
+    "syntax": "file,use",
     "pretty": "file big_header.h",
     "sym": "FILE_big_header@2Eh"
   },
   {
     "loc": "00021:9-50",
     "source": 1,
-    "syntax": "use,file",
+    "syntax": "file,use",
     "pretty": "file subdir/header@with,many^strange~chars.h",
     "sym": "FILE_subdir/header@40with@2Cmany@5Estrange@7Echars@2Eh"
   },
   {
     "loc": "00022:9-23",
     "source": 1,
-    "syntax": "use,file",
+    "syntax": "file,use",
     "pretty": "file atom_magic.h",
     "sym": "FILE_atom_magic@2Eh"
   },
@@ -1130,7 +1130,7 @@ expression: "&json_results"
   {
     "loc": "00028:15-19",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function rand",
     "sym": "rand",
     "type": "int (void) throw()"
@@ -1147,7 +1147,7 @@ expression: "&json_results"
   {
     "loc": "00034:24-32",
     "source": 1,
-    "syntax": "use,macro",
+    "syntax": "macro,use",
     "pretty": "macro RAND_MAX",
     "sym": "M_85a652bdd3e78849"
   },
@@ -1181,7 +1181,7 @@ expression: "&json_results"
   {
     "loc": "00064:11-29",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function GlobalContext::decideBooleanTrait",
     "sym": "_ZN13GlobalContext18decideBooleanTraitEv",
     "type": "_Bool (void)"
@@ -1198,7 +1198,7 @@ expression: "&json_results"
   {
     "loc": "00068:11-44",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function GlobalContext::decideEnigmaticAnimalBooleanTrait",
     "sym": "_ZN13GlobalContext33decideEnigmaticAnimalBooleanTraitEv",
     "type": "_Bool (void)"
@@ -1215,7 +1215,7 @@ expression: "&json_results"
   {
     "loc": "00072:11-29",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function GlobalContext::decideBooleanTrait",
     "sym": "_ZN13GlobalContext18decideBooleanTraitEv",
     "type": "_Bool (void)"
@@ -1249,7 +1249,7 @@ expression: "&json_results"
   {
     "loc": "00123:8-25",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type GlobalContext::LessGlobalContext",
     "sym": "T_GlobalContext::LessGlobalContext",
     "type": "class GlobalContext::LessGlobalContext",
@@ -1258,7 +1258,7 @@ expression: "&json_results"
   {
     "loc": "00123:27-48",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function GlobalContext::LessGlobalContext::decideWhetherToDecide",
     "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv",
     "type": "_Bool (void)"
@@ -1266,7 +1266,7 @@ expression: "&json_results"
   {
     "loc": "00124:13-41",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function GlobalContext::decideBestFriendBooleanTrait",
     "sym": "_ZN13GlobalContext28decideBestFriendBooleanTraitEv",
     "type": "_Bool (void)"
@@ -1331,7 +1331,7 @@ expression: "&json_results"
   {
     "loc": "00149:4-7",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::Thing::mHP",
     "sym": "F_<T_outerNS::Thing>_mHP",
     "type": "int"
@@ -1348,7 +1348,7 @@ expression: "&json_results"
   {
     "loc": "00150:4-12",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::Thing::mDefunct",
     "sym": "F_<T_outerNS::Thing>_mDefunct",
     "type": "_Bool"
@@ -1382,7 +1382,7 @@ expression: "&json_results"
   {
     "loc": "00157:4-7",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::Thing::mHP",
     "sym": "F_<T_outerNS::Thing>_mHP",
     "type": "int"
@@ -1408,7 +1408,7 @@ expression: "&json_results"
   {
     "loc": "00160:6-14",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::Thing::mDefunct",
     "sym": "F_<T_outerNS::Thing>_mDefunct",
     "type": "_Bool"
@@ -1425,7 +1425,7 @@ expression: "&json_results"
   {
     "loc": "00166:5-10",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -1451,7 +1451,7 @@ expression: "&json_results"
   {
     "loc": "00179:20-25",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -1469,7 +1469,7 @@ expression: "&json_results"
   {
     "loc": "00183:4-9",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -1478,14 +1478,14 @@ expression: "&json_results"
   {
     "loc": "00183:4-9",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
   {
     "loc": "00183:10-18",
     "source": 1,
-    "syntax": "use,macro",
+    "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
     "sym": "M_3706282064ef3d77"
   },
@@ -1500,7 +1500,7 @@ expression: "&json_results"
   {
     "loc": "00188:25-30",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
     "type": "class outerNS::Human",
@@ -1518,7 +1518,7 @@ expression: "&json_results"
   {
     "loc": "00192:4-9",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
     "type": "class outerNS::Human",
@@ -1527,7 +1527,7 @@ expression: "&json_results"
   {
     "loc": "00192:4-9",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::Human::Human",
     "sym": "_ZN7outerNS5HumanC1Ev"
   },
@@ -1560,7 +1560,7 @@ expression: "&json_results"
   {
     "loc": "00205:21-26",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -1587,7 +1587,7 @@ expression: "&json_results"
   {
     "loc": "00209:4-9",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -1596,7 +1596,7 @@ expression: "&json_results"
   {
     "loc": "00209:4-9",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
@@ -1612,7 +1612,7 @@ expression: "&json_results"
   {
     "loc": "00210:4-13",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Superhero",
     "sym": "T_outerNS::Superhero",
     "type": "class outerNS::Superhero",
@@ -1621,7 +1621,7 @@ expression: "&json_results"
   {
     "loc": "00210:14-22",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::Superhero::Superhero",
     "sym": "_ZN7outerNS9SuperheroC1Ev"
   },
@@ -1638,14 +1638,14 @@ expression: "&json_results"
   {
     "loc": "00211:4-19",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type WhatsYourVector",
     "sym": "T_WhatsYourVector"
   },
   {
     "loc": "00211:20-29",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Superhero",
     "sym": "T_outerNS::Superhero",
     "type": "class outerNS::Superhero",
@@ -1664,7 +1664,7 @@ expression: "&json_results"
   {
     "loc": "00211:31-37",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor WhatsYourVector::WhatsYourVector<T>",
     "sym": "_ZN15WhatsYourVectorC1EPT_"
   },
@@ -1681,7 +1681,7 @@ expression: "&json_results"
   {
     "loc": "00213:4-9",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
     "type": "class outerNS::Human",
@@ -1700,21 +1700,21 @@ expression: "&json_results"
   {
     "loc": "00213:10-13",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::Human::Human",
     "sym": "_ZN7outerNS5HumanC1Ev"
   },
   {
     "loc": "00214:4-19",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type WhatsYourVector",
     "sym": "T_WhatsYourVector"
   },
   {
     "loc": "00214:20-25",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
     "type": "class outerNS::Human",
@@ -1733,7 +1733,7 @@ expression: "&json_results"
   {
     "loc": "00214:27-45",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor WhatsYourVector::WhatsYourVector<T>",
     "sym": "_ZN15WhatsYourVectorC1EPT_"
   },
@@ -1760,7 +1760,7 @@ expression: "&json_results"
   {
     "loc": "00216:11-51",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
     "type": "WhatsYourVector_impl<class outerNS::Superhero, class CoolAlloc>::elem_type"
@@ -1778,7 +1778,7 @@ expression: "&json_results"
   {
     "loc": "00217:23-63",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
     "type": "WhatsYourVector_impl<class outerNS::Human, class CoolAlloc>::elem_type"
@@ -1794,7 +1794,7 @@ expression: "&json_results"
   {
     "loc": "00221:17-22",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -1846,7 +1846,7 @@ expression: "&json_results"
   {
     "loc": "00258:4-9",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -1855,21 +1855,21 @@ expression: "&json_results"
   {
     "loc": "00258:4-9",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
   {
     "loc": "00258:14-22",
     "source": 1,
-    "syntax": "use,macro",
+    "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
     "sym": "M_3706282064ef3d77"
   },
   {
     "loc": "00259:4-15",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsFriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
     "type": "_Bool"
@@ -1886,7 +1886,7 @@ expression: "&json_results"
   {
     "loc": "00263:4-25",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsSecretlyUnfriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
     "type": "_Bool"
@@ -1912,7 +1912,7 @@ expression: "&json_results"
   {
     "loc": "00312:11-22",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsFriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
     "type": "_Bool"
@@ -1929,7 +1929,7 @@ expression: "&json_results"
   {
     "loc": "00327:11-32",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsSecretlyUnfriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
     "type": "_Bool"
@@ -1946,7 +1946,7 @@ expression: "&json_results"
   {
     "loc": "00331:8-28",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isSecretlyUnfriendly",
     "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
     "type": "_Bool"
@@ -1954,7 +1954,7 @@ expression: "&json_results"
   {
     "loc": "00335:11-24",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isFriendlyCat",
     "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
     "type": "_Bool"
@@ -1971,7 +1971,7 @@ expression: "&json_results"
   {
     "loc": "00340:12-17",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
     "type": "class outerNS::Human",
@@ -1998,7 +1998,7 @@ expression: "&json_results"
   {
     "loc": "00341:10-16",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::Thing::ignore",
     "sym": "_ZN7outerNS5Thing6ignoreEv",
     "type": "void"
@@ -2015,7 +2015,7 @@ expression: "&json_results"
   {
     "loc": "00351:12-17",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Couch",
     "sym": "T_outerNS::Couch",
     "type": "class outerNS::Couch",
@@ -2033,7 +2033,7 @@ expression: "&json_results"
   {
     "loc": "00352:4-9",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "type": "void"
@@ -2050,7 +2050,7 @@ expression: "&json_results"
   {
     "loc": "00354:9-22",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isFriendlyCat",
     "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
     "type": "_Bool"
@@ -2058,7 +2058,7 @@ expression: "&json_results"
   {
     "loc": "00362:6-13",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "type": "void"
@@ -2075,7 +2075,7 @@ expression: "&json_results"
   {
     "loc": "00363:15-46",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
     "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
     "type": "_Bool"
@@ -2083,7 +2083,7 @@ expression: "&json_results"
   {
     "loc": "00383:6-13",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "type": "void"
@@ -2109,7 +2109,7 @@ expression: "&json_results"
   {
     "loc": "00390:13-18",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -2136,7 +2136,7 @@ expression: "&json_results"
   {
     "loc": "00391:10-20",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::Thing::takeDamage",
     "sym": "_ZN7outerNS5Thing10takeDamageEi",
     "type": "void"
@@ -2153,7 +2153,7 @@ expression: "&json_results"
   {
     "loc": "00397:15-20",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -2171,7 +2171,7 @@ expression: "&json_results"
   {
     "loc": "00399:4-9",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "type": "void"
@@ -2188,7 +2188,7 @@ expression: "&json_results"
   {
     "loc": "00402:4-9",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "type": "void"
@@ -2205,7 +2205,7 @@ expression: "&json_results"
   {
     "loc": "00405:4-9",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "type": "void"
@@ -2222,7 +2222,7 @@ expression: "&json_results"
   {
     "loc": "00408:4-9",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "type": "void"
@@ -2239,7 +2239,7 @@ expression: "&json_results"
   {
     "loc": "00411:4-9",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "type": "void"
@@ -2271,7 +2271,7 @@ expression: "&json_results"
   {
     "loc": "00417:27-32",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -2289,7 +2289,7 @@ expression: "&json_results"
   {
     "loc": "00420:4-9",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "type": "class outerNS::Thing",
@@ -2298,14 +2298,14 @@ expression: "&json_results"
   {
     "loc": "00420:4-9",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
   {
     "loc": "00420:10-16",
     "source": 1,
-    "syntax": "use,macro",
+    "syntax": "macro,use",
     "pretty": "macro ART_HP",
     "sym": "M_6b997b2064ef3d77"
   },
@@ -2328,7 +2328,7 @@ expression: "&json_results"
   {
     "loc": "00427:28-39",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::AbstractArt",
     "sym": "T_outerNS::AbstractArt",
     "type": "class outerNS::AbstractArt",
@@ -2346,7 +2346,7 @@ expression: "&json_results"
   {
     "loc": "00430:4-15",
     "source": 1,
-    "syntax": "use,type",
+    "syntax": "type,use",
     "pretty": "type outerNS::AbstractArt",
     "sym": "T_outerNS::AbstractArt",
     "type": "class outerNS::AbstractArt",
@@ -2355,7 +2355,7 @@ expression: "&json_results"
   {
     "loc": "00430:4-15",
     "source": 1,
-    "syntax": "use,constructor",
+    "syntax": "constructor,use",
     "pretty": "constructor outerNS::AbstractArt::AbstractArt",
     "sym": "_ZN7outerNS11AbstractArtC1Ev"
   },
@@ -2371,7 +2371,7 @@ expression: "&json_results"
   {
     "loc": "00435:4-7",
     "source": 1,
-    "syntax": "use,field",
+    "syntax": "field,use",
     "pretty": "field outerNS::Thing::mHP",
     "sym": "F_<T_outerNS::Thing>_mHP",
     "type": "int"
