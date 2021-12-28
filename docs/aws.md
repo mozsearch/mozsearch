@@ -303,23 +303,37 @@ custom shell scripts that are sent to indexing and web server
 instances.
 
 New AMIs need to be built every time a dependency changes (if a newer
-version of Clang is required, for example). The first step is to edit
-the provisioning scripts to change dependencies:
+version of Clang is required, for example). We've also recently started
+re-provisioning whenever we update Cargo.toml dependencies so that the
+update process is less likely to fail due to download failures (which
+was happening frequently enough that we started doing this.)
+
+Dependencies that aren't handled by the build system need to be expressed in
+our shell scripts:
+- infrastructure/aws/indexer-provision.sh: AWS-specific dependencies/setup for
+  the indexing process.  This runs before the normal indexer provisioning script
+  in order to perform setup like resizing the EBS boot partition.
+- infrastructure/indexer-provision.sh: Dependencies for indexing both in the
+  local dev VM and on an AWS instance.
+- infrastructure/aws/web-server-provision.sh: AWS-specific dependencies/setup
+  for the indexing process.  This will tend to be a subset of the indexer setup
+  because there's less to run on the web-server and we also don't give the web
+  server an IAM role so it can't do as much infrastructure manipulation.  (These
+  things must be done on behalf of the web-server by the indexer that is
+  starting the web-server.)
+- infrastructure/web-server-provision.sh: Dependences for web-serving in the
+  local dev VM and on an AWS instance.  Because the dev VM will also run the
+  indexer provisioning scripts, this script should ideally avoid doing redundant
+  work.  However, it's not required for this script to succeed if it's run a
+  second time itself; we no longer support re-provisioning the dev VM manually.
+  (Instead, the VM should be destroyed and rebuilt.)
+
+Generating a new AMI is in the process of being automated in bug 1747289.
+Currently, for manual and automated provisioning, you will need to run the
+following command to start indexer provisioning:
 
 ```
-# Update dependencies for indexing...
-nano infrastructure/indexer-provision.sh
-
-# Update dependencies for web serving...
-nano infrastructure/web-server-provision.sh
-```
-
-Generating a new AMI is still a somewhat manual process. To provision
-the AMI for indexing, run the following from within the Python virtual
-environment:
-
-```
-infrastructure/aws/trigger-provision.py \
+infrastructure/aws/trigger-provision.py indexer \
   infrastructure/aws/indexer-provision.sh \
   infrastructure/indexer-provision.sh
 ```
@@ -327,14 +341,18 @@ infrastructure/aws/trigger-provision.py \
 For web serving, use this command:
 
 ```
-infrastructure/aws/trigger-provision.py \
+infrastructure/aws/trigger-provision.py web-server \
   infrastructure/aws/web-server-provision.sh \
   infrastructure/web-server-provision.sh
 ```
 
 The `trigger-provision.py` script starts a new EC2 instance and uses
 cloud-init to run the given provisioner shell scripts in it. These
-scripts install all the required dependencies. When the scripts finish
+scripts install all the required dependencies.
+
+### Manual Process
+
+When the scripts finish
 (which you need to check for manually by looking up the machine in the
 AWS console, sshing into it, and `tail`ing the provision.log file to
 check for completion), you can use the AWS console to generate an AMI from the
@@ -344,6 +362,14 @@ Image, Create Image". The Image Name must be changed to
 before. (Note: make sure to delete any old AMIs of the same name
 before doing this.) Once the AMI is created, new jobs will use it
 automatically.
+
+### Automated Process
+
+THIS DESCRIBES THE CURRENT PLAN
+
+In the event of failure, the provisioning script will:
+1. Schedule the VM to shutdown after 10 minutes.  This is done so that no one
+   feels compelled to actively watch provisioning.  If watched / email monit
 
 ## Updating the machine after startup
 
