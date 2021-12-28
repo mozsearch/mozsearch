@@ -48,15 +48,60 @@ echo "Provisioning complete.  Attempting Registration." >> ~ubuntu/provision.log
 
 # AWS commands, etc. should work now if provisioning completed.
 INSTANCE_ID=$(ec2metadata --instance-id)
-DATE_STAMP=$(date -Idate)
+# include the hour and minute for sufficient uniqueness
+DATE_STAMP=$(date +"%Y-%m-%d-%H-%M")
+AWS_REGION=us-west-2
+OLD_JSON_AMI="old-ami-details.json"
+NEW_JSON_AMI="new-ami-details.json"
+
+# We get the AMI id almost immediately but the creation takes time.
 aws ec2 create-image \
+    --region $AWS_REGION \
     --instance-id $INSTANCE_ID \
     --name "{kind}-$DATE_STAMP" \
     --tag-specifications "ResourceType=image,Tags=[{{Key={kind},Value=$DATE_STAMP}}]" \
-    --no-reboot >$JSON_AMI
-echo "Registration complete, sending email and scheduling shutdown." >> ~ubuntu/provision.log
+    --no-reboot >$NEW_JSON_AMI
+NEW_AMI_ID=$(jq -r '.ImageId' $NEW_JSON_AMI)
+
+echo "Image $NEW_AMI_ID created, waiting for it to become available." >> ~ubuntu/provision.log
+
+# Wait for the State to become "available"
+until [[ "available" == $(aws ec2 describe-images --region $AWS_REGION --image-ids $NEW_AMI_ID | jq -r '.Images[0].State') ]]
+do
+  sleep 10
+done
+
+echo "Image now available, updating tags." >> ~ubuntu/provision.log
+
+# Locate the old / existing AMI (it may not exist)
+aws ec2 describe-images \
+    --region $AWS_REGION \
+    --filters "Name=tag-key,Values={kind}" \
+    >$OLD_JSON_AMI
+OLD_AMI_ID=$(jq -r '.Images[0].ImageId' $OLD_JSON_AMI)
+
+# Tag our new AMI as usable
+aws ec2 create-tags \
+    --resources $NEW_AMI_ID \
+    --tags "Key={kind},Value=$DATE_STAMP"
+
+echo "New image tagged, possibly removing tag from $OLD_AMI_ID." >> ~ubuntu/provision.log
+
+# Remove the tag from the old AMI
+if [[ $OLD_AMI_ID != "null" ]]; then
+    aws ec2 delete-tags \
+        --resources $OLD_AMI_ID \
+        --tags "Key={kind}"
+    echo "Removed tag from $OLD_AMI_ID." >> ~ubuntu/provision.log
+fi
+
+echo "Tagging complete, sending email." >> ~ubuntu/provision.log
+# failsafe shutdown, although the termination should take effect first
 sudo shutdown -h +10
 $AWS_ROOT/send-provision-email.py "[{kind}]" "$DEST_EMAIL" "succeeded"
+echo "Email sent.  Sleeping for a minute, then terminating." >> ~ubuntu/provision.log
+sleep 60
+aws ec2 terminate-instances --region $AWS_REGION --instance-ids $INSTANCE_ID
 '''
 
 # Performing lookup from https://cloud-images.ubuntu.com/locator/ec2/ by
