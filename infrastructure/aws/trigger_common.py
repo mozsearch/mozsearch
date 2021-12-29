@@ -1,10 +1,10 @@
+# Note that any 3rd party lib dependencies will also need to be added to the
+# install steps in `build-lambda-indexer-start.sh`.
 import boto3
 import argparse
 from datetime import datetime, timedelta
 import sys
 import os.path
-
-# Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <config-input> <branch> <channel>
 
 class TriggerCommandBase:
     '''
@@ -39,9 +39,9 @@ class TriggerCommandBase:
 
         return parser
 
-    def parse_args(self):
+    def parse_args(self, args=None):
         parser = self.make_parser()
-        self.args = parser.parse_args()
+        self.args = parser.parse_args(args)
 
     def script_args_after_branch_and_channel(self, args):
         '''

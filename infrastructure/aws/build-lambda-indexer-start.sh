@@ -21,6 +21,7 @@ CHANNEL=$5
 MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/../..)
 
 mkdir /tmp/lambda
+cp $MOZSEARCH_PATH/infrastructure/aws/trigger_common.py /tmp/lambda
 cp $MOZSEARCH_PATH/infrastructure/aws/trigger_indexer.py /tmp/lambda
 
 cat >/tmp/lambda/lambda-indexer-start.py <<EOF
@@ -30,7 +31,9 @@ import boto3
 import trigger_indexer
 
 def start(event, context):
-    trigger_indexer.trigger("$MOZSEARCH_REPO", "$CONFIG_REPO", "$CONFIG_INPUT", "$BRANCH", "$CHANNEL")
+    cmd = trigger_indexer.TriggerIndexerCommand()
+    cmd.parse_args(["$MOZSEARCH_REPO", "$CONFIG_REPO", "$CONFIG_INPUT", "$BRANCH", "$CHANNEL"])
+    cmd.trigger()
 EOF
 
 pushd /tmp/lambda
@@ -52,4 +55,6 @@ zip -r /tmp/lambda.zip *
 popd
 rm -rf /tmp/lambda
 
-echo "Upload /tmp/lambda.zip to AWS Lambda"
+FINAL_ZIP_NAME=/vagrant/lambda-$CHANNEL.zip
+mv /tmp/lambda.zip $FINAL_ZIP_NAME
+echo "Upload $FINAL_ZIP_NAME to AWS Lambda"
