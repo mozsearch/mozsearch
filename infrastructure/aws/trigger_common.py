@@ -106,7 +106,11 @@ class TriggerCommandBase:
 
         block_devices = []
 
-        images = client.describe_images(Filters=[{'Name': 'name', 'Values': ['indexer-20.04']}])
+        # We only have "indexer" and "web-server" AMI types, and currently all
+        # subclasses do want to be using an indexer AMI which is consistent with
+        # our hardcoded choice of InstanceType and role, etc.
+        images = client.describe_images(Filters=[{'Name': 'tag-key', 'Values': ['indexer']}])
+        # TODO: sort/pick the highest datestamp-y "indexer" tag Value.
         image_id = images['Images'][0]['ImageId']
 
         launch_spec = {
