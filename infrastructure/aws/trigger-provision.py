@@ -22,6 +22,11 @@ script = ''
 for provisioner in provisioners:
     script += open(provisioner).read() + '\n'
 
+# The stdout/stderr from running the following script that we pass can be found
+# on the server in `/var/log/cloud-init-output.log`.  (Note that there's also
+# a file `/var/log/cloud-init.log` that is fairly verbose that will describe
+# when the script is getting launched, etc.)
+
 user_data = f'''#!/usr/bin/env bash
 
 cat > ~ubuntu/provision.sh <<"FINAL"
