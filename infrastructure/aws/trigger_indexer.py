@@ -4,7 +4,8 @@ from trigger_common import TriggerCommandBase
 
 # Usage: trigger_indexer.py <mozsearch-repo> <config-repo> <config-input> <branch> <channel>
 
-
+# Note that this class is also used by `build-lambda-indexer-start.sh`'s
+# dynamically generated hard-coded python script thing.
 class TriggerIndexerCommand(TriggerCommandBase):
     def __init__(self):
         super().__init__('indexer', 'index.sh', 10)
