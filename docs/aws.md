@@ -358,10 +358,16 @@ scripts:
   this takes on the order of 10 minutes.
 - Tag the new image with "indexer" or "web-server" as appropriate.
 - remove the tag from the old image.
-  - There's a command for it in there, but it seems like it's not working?  Note
-    that deleting the old image will
 - send an email about success/failure
-  - Disclaimer: we haven't had a failure yet, that might have problems.
+  - Disclaimer: Depending on when provisioning fails, it's possible that the
+    system state will mean that it's not possible for a failure email to be
+    sent.
+
+In the event of failure, the EC2 instance will shut itself down via `shutdown`
+with a 10 minute delay which means that you can inspect the failure by canceling
+shutdown with `sudo shutdown -c` if you log in before shutdown, or by restarting
+the instance if the instance has already shut down.  The `ssh.py` command will
+offer to start the instance if it's stopped, so no extra steps are required.
 
 ### Still-Required Manual Steps
 
