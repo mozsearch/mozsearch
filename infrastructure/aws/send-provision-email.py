@@ -10,7 +10,11 @@ import boto3
 import os
 import subprocess
 
-client = boto3.client('ses')
+# we need to specify the region for provisioning because we don't have
+# ~/.aws/config setup.  We probably do want to address this, but there's no
+# current harm in hard-coding this for resilience (especially if provisioning
+# fails).
+client = boto3.client('ses', region_name='us-west-2')
 subj_prefix = sys.argv[1]
 dest_email = sys.argv[2]
 what_happened = sys.argv[3]

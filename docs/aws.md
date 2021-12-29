@@ -328,9 +328,11 @@ our shell scripts:
   second time itself; we no longer support re-provisioning the dev VM manually.
   (Instead, the VM should be destroyed and rebuilt.)
 
-Generating a new AMI is in the process of being automated in bug 1747289.
-Currently, for manual and automated provisioning, you will need to run the
-following command to start indexer provisioning:
+Generating a new AMI should not be largely automated thanks to the work on
+bug 1747289.  However, there are a set of manual steps that need to be taken,
+see below.
+
+To re-provision the indexer AMI, run the following:
 
 ```
 infrastructure/aws/trigger-provision.py indexer \
@@ -348,28 +350,40 @@ infrastructure/aws/trigger-provision.py web-server \
 
 The `trigger-provision.py` script starts a new EC2 instance and uses
 cloud-init to run the given provisioner shell scripts in it. These
-scripts install all the required dependencies.
+scripts:
+- Install all the required dependencies.
+- Create a new AMI image named `{indexer/web-server}-YEAR-MONTH-DAY-HOUR-MINUTE`
+  (well, that's the template).
+- Wait for the image to be created; an S3 snapshot needs to be performed and
+  this takes on the order of 10 minutes.
+- Tag the new image with "indexer" or "web-server" as appropriate.
+- remove the tag from the old image.
+  - There's a command for it in there, but it seems like it's not working?  Note
+    that deleting the old image will
+- send an email about success/failure
+  - Disclaimer: we haven't had a failure yet, that might have problems.
 
-### Manual Process
+### Still-Required Manual Steps
 
-When the scripts finish
-(which you need to check for manually by looking up the machine in the
-AWS console, sshing into it, and `tail`ing the provision.log file to
-check for completion), you can use the AWS console to generate an AMI from the
-instance. Select the instance in the console, then choose "Actions,
-Image, Create Image". The Image Name must be changed to
-`indexer-20.04` or `web-server-20.04`. The other values can remain as
-before. (Note: make sure to delete any old AMIs of the same name
-before doing this.) Once the AMI is created, new jobs will use it
-automatically.
-
-### Automated Process
-
-THIS DESCRIBES THE CURRENT PLAN
-
-In the event of failure, the provisioning script will:
-1. Schedule the VM to shutdown after 10 minutes.  This is done so that no one
-   feels compelled to actively watch provisioning.  If watched / email monit
+The following will continue to need to be done eventually, at least until
+more automation is put in place.
+1. The old AMIs need to be deleted.  Each AMI uses S3 storage and has an
+   associated (low) cost, and we don't really need more than one backup or even
+   a backup after a successful indexing run, so it's likely best to delete the
+   old AMIs a few days after provisioning.
+   - Deregistering is accomplished by:
+     - Going to the EC2 console and clicking on "AMIs" under the "Images"
+       heading to get a list of current AMIs.
+     - Click on the AMI you think you want to delete.  Because of the date-based
+       naming scheme, this should be an AMI with an older name.
+     - Confirm that the AMI is not currently tagged for use.  Specifically,
+       there should be no tags listed, resulting in "No tags found" being
+       displayed.
+     - Click the "Actions" button up at the top of the pane and select
+       "Deregister AMI".
+   - You shouldn't need to worry about any side-effects on existing EC2
+     instances because they effectively fork a copy-on-write version of the AMI
+     at startup.
 
 ## Updating the machine after startup
 

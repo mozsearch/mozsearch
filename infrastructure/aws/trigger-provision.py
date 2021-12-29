@@ -59,7 +59,6 @@ aws ec2 create-image \
     --region $AWS_REGION \
     --instance-id $INSTANCE_ID \
     --name "{kind}-$DATE_STAMP" \
-    --tag-specifications "ResourceType=image,Tags=[{{Key={kind},Value=$DATE_STAMP}}]" \
     --no-reboot >$NEW_JSON_AMI
 NEW_AMI_ID=$(jq -r '.ImageId' $NEW_JSON_AMI)
 
@@ -82,6 +81,7 @@ OLD_AMI_ID=$(jq -r '.Images[0].ImageId' $OLD_JSON_AMI)
 
 # Tag our new AMI as usable
 aws ec2 create-tags \
+    --region $AWS_REGION \
     --resources $NEW_AMI_ID \
     --tags "Key={kind},Value=$DATE_STAMP"
 
@@ -90,6 +90,7 @@ echo "New image tagged, possibly removing tag from $OLD_AMI_ID." >> ~ubuntu/prov
 # Remove the tag from the old AMI
 if [[ $OLD_AMI_ID != "null" ]]; then
     aws ec2 delete-tags \
+        --region $AWS_REGION \
         --resources $OLD_AMI_ID \
         --tags "Key={kind}"
     echo "Removed tag from $OLD_AMI_ID." >> ~ubuntu/provision.log
