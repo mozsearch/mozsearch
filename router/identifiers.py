@@ -54,6 +54,9 @@ def bisect(mm, needle, upper_bound):
         line = get_line(mm, pos).upper()
         if line < needle or (upper_bound and line == needle):
             first = pos + 1
+            # Effectively: count = count - int(count/2) - 1
+            # In other words: count = step; count -= 1;
+            # Compensating for moving first a byte forward.
             count -= step + 1
         else:
             count = step
