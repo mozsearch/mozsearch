@@ -9,14 +9,19 @@ use std::io::Write;
 
 extern crate env_logger;
 
-use serde::{Serialize};
-use serde_json::{Map, json};
+use serde::Serialize;
+use serde_json::{json, Map};
 extern crate tools;
 use tools::config;
 use tools::file_format::analysis::LineRange;
 use tools::file_format::analysis::{read_analysis, read_structured, read_target, AnalysisKind};
 use tools::find_source_file;
-use ustr::{Ustr, ustr};
+use ustr::{ustr, Ustr};
+
+/// The size for a payload line (inclusive of leading indicating character and
+/// newline) at which we store it externally in `crossref-extra` instead of
+/// inline in the `crossref` file itself.
+const EXTERNAL_STORAGE_THRESHOLD: usize = 1024 * 3;
 
 #[derive(Clone, Debug, Serialize)]
 struct SearchResult {
@@ -93,7 +98,8 @@ fn main() {
         .lines()
         .map(|x| x.unwrap())
         .collect();
-    let output_file = format!("{}/crossref", tree_config.paths.index_path);
+    let xref_file = format!("{}/crossref", tree_config.paths.index_path);
+    let xref_ext_file = format!("{}/crossref-extra", tree_config.paths.index_path);
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
@@ -131,7 +137,6 @@ fn main() {
     // Triples of [ipc sym, src src, target sym].
     let mut xref_link_ipc = Vec::new();
 
-
     for path in &file_paths {
         print!("File {}\n", path);
 
@@ -142,7 +147,11 @@ fn main() {
         // the `line` for each result.  In the future this could move to
         // dynamic extraction that uses the `peek_range` if available and this
         // line if it's not.
-        let source_fname = find_source_file(path, &tree_config.paths.files_path, &tree_config.paths.objdir_path);
+        let source_fname = find_source_file(
+            path,
+            &tree_config.paths.files_path,
+            &tree_config.paths.objdir_path,
+        );
         let source_file = match File::open(source_fname) {
             Ok(f) => f,
             Err(_) => {
@@ -194,7 +203,9 @@ fn main() {
                 // to be the symbol in question; it's not useful to name the context symbol
                 // redundantly when it's the symbol we're attaching data to.
                 if piece.kind == AnalysisKind::Use && !piece.contextsym.is_empty() {
-                    let callees = callees_table.entry(piece.contextsym).or_insert(BTreeSet::new());
+                    let callees = callees_table
+                        .entry(piece.contextsym)
+                        .or_insert(BTreeSet::new());
                     callees.insert(piece.sym);
                 }
 
@@ -229,26 +240,20 @@ fn main() {
                     // mapped.
                     if !piece.supers.is_empty() {
                         for super_info in &piece.supers {
-                            xref_link_subclass.push((
-                                super_info.sym,
-                                piece.sym));
+                            xref_link_subclass.push((super_info.sym, piece.sym));
                         }
                     }
 
                     if !piece.overrides.is_empty() {
                         for override_info in &piece.overrides {
-                            xref_link_override.push((
-                                override_info.sym,
-                                piece.sym));
+                            xref_link_override.push((override_info.sym, piece.sym));
                         }
                     }
 
                     if let ("ipc", Some(src_sym), Some(target_sym)) =
-                      (piece.kind.as_str(), piece.src_sym, piece.target_sym) {
-                          xref_link_ipc.push((
-                              piece.sym,
-                              src_sym,
-                              target_sym));
+                        (piece.kind.as_str(), piece.src_sym, piece.target_sym)
+                    {
+                        xref_link_ipc.push((piece.sym, src_sym, target_sym));
                     }
 
                     piece
@@ -283,7 +288,18 @@ fn main() {
     }
 
     // ## Write out the crossref database.
-    let mut outputf = File::create(output_file).unwrap();
+    let mut xref_out = File::create(xref_file).unwrap();
+    let mut xref_ext_out = File::create(xref_ext_file).unwrap();
+    // We need to know offset positions in the `-extra` file.  File::tell is a
+    // nightly-only experimental API as documented at
+    // https://github.com/rust-lang/rust/issues/71213 which makes it preferable
+    // to avoid (although I think we may already be dependent on use of nightly
+    // for save-analysis purposes?).  Seek::seek with a relative offset of 0
+    // seems to be the standard fallback but there are suggestions that can
+    // trigger flushes in buffered writers, etc.  So for now we're just keeping
+    // track of offsets ourselves and relying on our tests to make sure we don't
+    // mess up.
+    let mut xref_ext_offset: usize = 0;
 
     for (id, id_data) in table {
         let mut kindmap = Map::new();
@@ -327,8 +343,32 @@ fn main() {
         }
 
         let kindmap = json!(kindmap);
+        let id_line = format!("!{}\n", id);
+        let inline_line = format!(":{}\n", kindmap.to_string());
+        if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
+            // ### External storage.
+            xref_out.write_all(id_line.as_bytes()).unwrap();
+            // We write out the identifier in the extra file as well so that it
+            // can be interpreted in the same fashion.
+            xref_ext_out.write_all(id_line.as_bytes()).unwrap();
+            xref_ext_offset += id_line.len();
 
-        let _ = outputf.write_all(format!("{}\n{}\n", id, kindmap.to_string()).as_bytes());
+            let ext_offset_line = format!(
+                "@{:x} {:x}\n",
+                // Skip the leading ":"
+                xref_ext_offset + 1,
+                // Subtract off the leading ":" but keep the newline.
+                inline_line.len() - 1
+            );
+            xref_out.write_all(ext_offset_line.as_bytes()).unwrap();
+
+            xref_ext_out.write_all(inline_line.as_bytes()).unwrap();
+            xref_ext_offset += inline_line.len();
+        } else {
+            // ### Inline storage.
+            xref_out.write_all(id_line.as_bytes()).unwrap();
+            xref_out.write_all(inline_line.as_bytes()).unwrap();
+        }
 
         if id_data.contains_key(&AnalysisKind::Def) {
             let defs = id_data.get(&AnalysisKind::Def).unwrap();
