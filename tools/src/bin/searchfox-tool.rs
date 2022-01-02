@@ -1,16 +1,38 @@
 use std::env::args_os;
 
 use serde_json::to_string_pretty;
-use tools::cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues};
+use tools::{cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues}, abstract_server::{ServerError, ErrorLayer, ErrorDetails}};
 
 #[tokio::main]
 async fn main() {
-    let os_args: Vec<String> = args_os()
+    let mut os_args: Vec<String> = args_os()
         .map(|os| os.into_string().unwrap_or("".to_string()))
         .collect();
 
+    // We're expecting a single argument
+    if os_args.len() == 1 {
+        println!("!!! NOTE !!!");
+        println!("This command expects a single argument that it can parse up; quote in your shell.");
+        println!("Example: `searchfox-tool 'cmd1 --arg | cmd2 --arg | cmd3'");
+        println!("");
+        println!("The built-in help will work, but the arg parser gets invoked once for each pipe.");
+        println!("---");
+
+        os_args.push("--help".to_string())
+    } else if os_args.len() > 2{
+        println!("!!! TOO MANY ARGS !!!");
+        println!("This command expects a single argument that it can parse up; quote in your shell.");
+        println!("Example: `searchfox-tool 'cmd1 --arg | cmd2 --arg | cmd3'");
+        println!("^^^");
+        std::process::exit(2);
+    }
+
     let (pipeline, output_format) = match build_pipeline(&os_args[0], &os_args[1]) {
         Ok(pipeline) => pipeline,
+        Err(ServerError::StickyProblem(ErrorDetails { layer: ErrorLayer::BadInput, message })) => {
+            println!("{}", message);
+            std::process::exit(1);
+        }
         Err(err) => {
             panic!("You did not specify a good pipeline!\n {:?}", err);
         }
@@ -61,5 +83,5 @@ async fn main() {
             println!("{:?}", err);
             1
         }
-    })
+    });
 }
