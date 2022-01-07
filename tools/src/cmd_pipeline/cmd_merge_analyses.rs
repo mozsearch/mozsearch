@@ -11,6 +11,7 @@ use crate::{
     file_format::merger::merge_files,
 };
 
+/// Merge analysis files from different build configs into one analysis file.
 #[derive(Debug, StructOpt)]
 pub struct MergeAnalyses {
     /// Tree-relative analysis file paths

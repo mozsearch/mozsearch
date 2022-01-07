@@ -10,9 +10,6 @@ use crate::{
     cmd_pipeline::interface::{HtmlExcerpts, HtmlExcerptsByFile},
 };
 
-#[derive(Debug, StructOpt)]
-pub struct ShowHtml {}
-
 /// Output the HTML lines corresponding to the JSON records received via input.
 ///
 /// There's also likely a use-case to process an HTML file as a root where we
@@ -23,6 +20,9 @@ pub struct ShowHtml {}
 /// be driven by command-line use-cases; in particular, the experience of
 /// evolving a more targeted query.  Having to modify a command up-stream should
 /// be considered undesirable.
+#[derive(Debug, StructOpt)]
+pub struct ShowHtml {}
+
 pub struct ShowHtmlCommand {
     pub args: ShowHtml,
 }

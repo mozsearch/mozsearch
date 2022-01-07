@@ -6,6 +6,9 @@ use crate::{
     abstract_server::{AbstractServer, Result},
 };
 
+/// Run a traditional searchfox query against the web server.  This will turn
+/// into a no-op when run against a local index at this time, but in the future
+/// may be able to spin up the necessary pieces.
 #[derive(Debug, StructOpt)]
 pub struct Query {
   /// Query string
