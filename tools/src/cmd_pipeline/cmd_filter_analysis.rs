@@ -10,6 +10,7 @@ use crate::{
     cmd_pipeline::interface::JsonRecordsByFile,
 };
 
+/// Filter the contents of a single analysis file.
 #[derive(Debug, StructOpt)]
 pub struct FilterAnalysis {
     /// Tree-relative analysis file path
@@ -25,12 +26,14 @@ pub struct FilterAnalysis {
     query_opts: SymbolicQueryOpts,
 }
 
-/// Filter a stream of analysis records via raw JSON manipulation rather than
-/// using the strongly typed `analysis.rs` types.
 pub struct FilterAnalysisCommand {
     pub args: FilterAnalysis,
 }
 
+/// ### Implementation Note
+/// Filtering is currently performed via generic JSON rather than the strongly
+/// typed `analysis.rs` types, but this pre-dates the change to using serde-json
+/// and it probably makes sense to switch to using the raw types.
 #[async_trait]
 impl PipelineCommand for FilterAnalysisCommand {
     async fn execute(

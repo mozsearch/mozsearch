@@ -15,12 +15,12 @@ use crate::{
     cmd_pipeline::interface::{HtmlExcerpts, HtmlExcerptsByFile},
 };
 
-#[derive(Debug, StructOpt)]
-pub struct ProductionFilter {}
-
 /// Normalize HTML or JSON records for production environment checks so that
 /// details like line numbers or `data-i` indexes that are subject to churn
 /// due to changes elsewhere in the file are normalized to "NORM".
+#[derive(Debug, StructOpt)]
+pub struct ProductionFilter {}
+
 pub struct ProductionFilterCommand {
     pub args: ProductionFilter,
 }
