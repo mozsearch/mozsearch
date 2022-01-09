@@ -347,7 +347,7 @@ our shell scripts:
   second time itself; we no longer support re-provisioning the dev VM manually.
   (Instead, the VM should be destroyed and rebuilt.)
 
-Generating a new AMI should not be largely automated thanks to the work on
+Generating a new AMI should now be largely automated thanks to the work on
 bug 1747289.  However, there are a set of manual steps that need to be taken,
 see below.
 
