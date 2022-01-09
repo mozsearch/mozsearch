@@ -348,8 +348,8 @@ our shell scripts:
   (Instead, the VM should be destroyed and rebuilt.)
 
 Generating a new AMI should now be largely automated thanks to the work on
-bug 1747289.  However, there are a set of manual steps that need to be taken,
-see below.
+[https://bugzilla.mozilla.org/show_bug.cgi?id=1747289](bug 1747289).
+However, there are a set of manual steps that need to be taken, see below.
 
 To re-provision the indexer AMI, run the following:
 
