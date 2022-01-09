@@ -409,6 +409,19 @@ more automation is put in place.
    - You shouldn't need to worry about any side-effects on existing EC2
      instances because they effectively fork a copy-on-write version of the AMI
      at startup.
+2. The volume snapshots corresponding to the old AMIs need to be deleted. As
+   with the AMI, the volume snapshot uses has an ongoing cost.
+   AWS automatically prevents you from deleting snapshots that are associated
+   with a still-active AMI, so the easiest way to purge unused snapshots is to:
+   - Go to the snapshots pane (under "Elastic Block Store" heading in the EC2
+     console.
+   - Select all the snapshots
+   - From the actions menu, selecte delete.
+   - Confirm the deletion as requested
+   - This will fail to delete some snapshots (because they are currently in
+     use by some AMI) and delete all the unused ones.
+   - Verify that the number of snapshots remaining is equal to the number of
+     AMIs (as of this writing at least, each AMI generates one volume snapshot).
 
 ## Updating the machine after startup
 
