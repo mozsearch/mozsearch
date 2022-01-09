@@ -1,5 +1,9 @@
+use serde_json::{json, Value};
 use tokio::fs::{read_dir, read_to_string};
-use tools::{abstract_server::ServerError, cmd_pipeline::{build_pipeline, PipelineValues}};
+use tools::{
+    abstract_server::ServerError,
+    cmd_pipeline::{build_pipeline, PipelineValues},
+};
 
 /// Glob-style insta test where we process all of the searchfox-tool command
 /// lines in TREE/checks/inputs and output the results of those pipelines to
@@ -69,6 +73,32 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                     match results {
                         Ok(PipelineValues::Void) => {
                             insta::assert_snapshot!("void");
+                        }
+                        Ok(PipelineValues::IdentifierList(il)) => {
+                            insta::assert_json_snapshot!(json!(il.identifiers));
+                        }
+                        Ok(PipelineValues::SymbolList(sl)) => match sl.from_identifiers {
+                            Some(identifiers) => {
+                                let mut pairs = vec![];
+                                for (sym, ident) in sl.symbols.iter().zip(identifiers.iter()) {
+                                    pairs.push(json!({
+                                        "sym": sym,
+                                        "id": ident,
+                                    }));
+                                }
+                                insta::assert_json_snapshot!(json!(pairs));
+                            }
+                            None => {
+                                insta::assert_json_snapshot!(json!(sl.symbols));
+                            }
+                        },
+                        Ok(PipelineValues::SymbolCrossrefInfoList(sl)) => {
+                            let crossref_json = json!(sl
+                                .symbol_crossref_infos
+                                .into_iter()
+                                .map(|sci| sci.crossref_info)
+                                .collect::<Value>());
+                            insta::assert_json_snapshot!(crossref_json);
                         }
                         Ok(PipelineValues::HtmlExcerpts(he)) => {
                             let mut aggr_str = String::new();

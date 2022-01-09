@@ -1,10 +1,12 @@
 use clap::arg_enum;
 use structopt::StructOpt;
 
+use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
+use super::cmd_search_identifiers::SearchIdentifiers;
 use super::cmd_show_html::ShowHtml;
 
 arg_enum! {
@@ -41,13 +43,11 @@ pub struct ToolOpts {
 
 #[derive(Debug, StructOpt)]
 pub enum Command {
+    CrossrefLookup(CrossrefLookup),
     FilterAnalysis(FilterAnalysis),
-    IdentifierLookup(IdentifierLookup),
     MergeAnalyses(MergeAnalyses),
     ProductionFilter(ProductionFilter),
     Query(Query),
+    SearchIdentifiers(SearchIdentifiers),
     ShowHtml(ShowHtml),
 }
-
-#[derive(Debug, StructOpt)]
-pub struct IdentifierLookup {}

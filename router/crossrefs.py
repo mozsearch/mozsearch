@@ -35,10 +35,10 @@ def load(config):
 
         repo_data[repo_name] = (inline_mm, extra_mm)
 
-NEWLINE = ord('\n')
-ID_START = ord('!')
-INLINE_STORED = ord(':')
-EXTERNALLY_STORED = ord('@')
+NEWLINE_ORD = ord('\n')
+ID_START_ORD = ord('!')
+INLINE_STORED_STR = ':'
+EXTERNALLY_STORED_STR = '@'
 
 def get_id_line(mm, pos):
     '''
@@ -56,7 +56,7 @@ def get_id_line(mm, pos):
     for, etc.).
     '''
     # We could the trailing newline as part of the record, so back up a char.
-    if mm[pos] == NEWLINE:
+    if mm[pos] == NEWLINE_ORD:
         pos -= 1
 
     start = end = pos
@@ -64,21 +64,20 @@ def get_id_line(mm, pos):
     # Scan backwards until we hit the start of the file (where the first line
     # must be an identifier) or we hit a newline and the character following
     # the newline is the identifier prefix of `!`.
-    while start >= 0:
-        if mm[start] == NEWLINE:
-            if mm[start+1] == ID_START:
+    while start > 0:
+        if mm[start - 1] == NEWLINE_ORD:
+            if mm[start] == ID_START_ORD:
                 break
             else:
                 # We're hitting a ":" and we need to reset end to this newline
-                end = start
+                end = start - 1
                 # and we want to keep going...
         start -= 1
-    start += 1
 
     # Start should now be pointing at the `!` of the identifier line.
 
     size = mm.size()
-    while end < size and mm[end] != ord('\n'):
+    while end < size and mm[end] != NEWLINE_ORD:
         end += 1
 
     # end should now be pointing at the trailing newline.
@@ -101,9 +100,6 @@ def bisect_for_payload(mm, search_sym):
         pos = first + step
 
         (line_sym, line_start, line_end) = get_id_line(mm, pos)
-        print('sym', search_sym, 'count', count, 'step', step, 'pos', pos)
-        print('  line_sym', line_sym, line_start, line_end)
-        sys.stdout.flush()
 
         if line_sym == search_sym:
             ## Exact Match!
@@ -148,9 +144,9 @@ def lookup_raw(tree_name, sym):
     if not payload:
         return None
 
-    if payload[0] == ':':
+    if payload[0] == INLINE_STORED_STR:
         return json.loads(payload[1:])
-    elif payload[0] != '@':
+    elif payload[0] != EXTERNALLY_STORED_STR:
         # Fail if we're seeing something other than an external ref.
         return None
 
