@@ -23,6 +23,7 @@ fn uppercase(s: &[u8]) -> Vec<u8> {
     result
 }
 
+#[derive(Debug)]
 pub struct IdentMap {
     mmap: Option<Mmap>,
 }
@@ -53,7 +54,7 @@ fn demangle_name(name: &str) -> String {
 }
 
 impl IdentMap {
-    fn new(filename: &str) -> IdentMap {
+    pub fn new(filename: &str) -> IdentMap {
         let mmap = match Mmap::open_path(filename, Protection::Read) {
             Ok(mmap) => Some(mmap),
             Err(e) => {
@@ -130,13 +131,11 @@ impl IdentMap {
         first
     }
 
-    // NEED A WAY TO LIMIT NUMBER OF RESULTS RETURNED TO 6
-    // Also need to apply c++filt to the ident as a better human-readable name
     pub fn lookup(
         &self,
         needle: &str,
-        complete: bool,
-        fold_case: bool,
+        exact_match: bool,
+        ignore_case: bool,
         max_results: usize,
     ) -> Vec<IdentResult> {
         let mmap = match self.mmap {
@@ -159,11 +158,11 @@ impl IdentMap {
 
             {
                 let suffix = &id[needle.len()..];
-                if suffix.contains(':') || suffix.contains('.') || (complete && suffix.len() > 0) {
+                if suffix.contains(':') || suffix.contains('.') || (exact_match && suffix.len() > 0) {
                     continue;
                 }
             }
-            if !fold_case && !id.starts_with(needle) {
+            if !ignore_case && !id.starts_with(needle) {
                 continue;
             }
 

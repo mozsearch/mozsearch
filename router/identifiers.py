@@ -31,9 +31,8 @@ def get_line(mm, pos):
 
     start = end = pos
 
-    while start >= 0 and mm[start] != ord('\n'):
+    while start > 0 and mm[start - 1] != ord('\n'):
         start -= 1
-    start += 1
 
     size = mm.size()
     while end < size and mm[end] != ord('\n'):

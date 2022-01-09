@@ -45,6 +45,39 @@ async fn main() {
             println!("Void result.");
             0
         }
+        Ok(PipelineValues::IdentifierList(il)) => {
+            for identifier in il.identifiers {
+                println!("{}", identifier);
+            }
+            0
+        }
+        Ok(PipelineValues::SymbolList(sl)) => {
+            match sl.from_identifiers {
+                Some(identifiers) => {
+                    for (sym, ident) in sl.symbols.iter().zip(identifiers.iter()) {
+                        println!("{} from {}", sym, ident);
+                    }
+                }
+                None => {
+                    for sym in sl.symbols {
+                        println!("{}", sym);
+                    }
+                }
+            }
+            0
+        }
+        Ok(PipelineValues::SymbolCrossrefInfoList(sl)) => {
+            for symbol_info in sl.symbol_crossref_infos {
+                if output_format == OutputFormat::Concise {
+                    println!("{}", symbol_info.crossref_info);
+                } else if output_format == OutputFormat::Pretty {
+                    if let Ok(pretty) = to_string_pretty(&symbol_info.crossref_info) {
+                        println!("{}", pretty);
+                    }
+                }
+            }
+            0
+        }
         Ok(PipelineValues::HtmlExcerpts(he)) => {
             for file_excerpts in he.by_file {
                 //println!("HTML excerpts from: {}", file_excerpts.file);

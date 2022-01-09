@@ -16,6 +16,8 @@ cd -
 
 $MOZSEARCH_PATH/tools/target/release/crossref $CONFIG_FILE $TREE_NAME ${TMPDIR:-/tmp}/files
 
+# Re-sort the identifiers file so that it's case-insensitive.  (It was written
+# to disk from a case-sensitive BTreeMap.)
 ID_FILE=$INDEX_ROOT/identifiers
 LC_ALL=C sort -f $ID_FILE > ${TMPDIR:-/tmp}/ids
 mv ${TMPDIR:-/tmp}/ids $ID_FILE

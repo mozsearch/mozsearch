@@ -8,7 +8,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand};
+use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand, cmd_crossref_lookup::CrossrefLookupCommand, cmd_search_identifiers::SearchIdentifiersCommand};
 use super::cmd_query::QueryCommand;
 use super::cmd_show_html::ShowHtmlCommand;
 
@@ -63,11 +63,13 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         }
 
         match opts.cmd {
+            Command::CrossrefLookup(cl) => {
+                commands.push(Box::new(CrossrefLookupCommand { args: cl }))
+            }
+
             Command::FilterAnalysis(fa) => {
                 commands.push(Box::new(FilterAnalysisCommand { args: fa }));
             }
-
-            Command::IdentifierLookup(_il) => (),
 
             Command::MergeAnalyses(ma) => {
                 commands.push(Box::new(MergeAnalysesCommand{ args: ma }))
@@ -81,6 +83,9 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
                 commands.push(Box::new(QueryCommand { args: q }))
             }
 
+            Command::SearchIdentifiers(si) => {
+                commands.push(Box::new(SearchIdentifiersCommand { args: si }))
+            },
 
             Command::ShowHtml(sh) => {
                 commands.push(Box::new(ShowHtmlCommand { args: sh }));

@@ -28,10 +28,39 @@ pub struct SymbolicQueryOpts {
 
 /// The input and output of each pipeline segment
 pub enum PipelineValues {
+    IdentifierList(IdentifierList),
+    SymbolList(SymbolList),
+    SymbolCrossrefInfoList(SymbolCrossrefInfoList),
     JsonValue(JsonValue),
     JsonRecords(JsonRecords),
     HtmlExcerpts(HtmlExcerpts),
     Void,
+}
+
+/// A list of (searchfox) identifiers.
+pub struct IdentifierList {
+    pub identifiers: Vec<String>,
+}
+
+/// A list of (searchfox) symbols.
+pub struct SymbolList {
+    pub symbols: Vec<String>,
+    /// If present, these correspond to the identifiers that give us the
+    /// symbols.  This is used in cases where an non-exact_match identifier
+    /// search is performed and so we may not actually know what the identifiers
+    /// actually were.
+    pub from_identifiers: Option<Vec<String>>,
+}
+
+/// A symbol and its cross-reference information.
+pub struct SymbolCrossrefInfo {
+    pub symbol: String,
+    pub crossref_info: Value,
+}
+
+/// A list of `SymbolCrossrefInfo`s.
+pub struct SymbolCrossrefInfoList {
+    pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
 }
 
 /// JSON records are raw analysis records from a single file (for now)

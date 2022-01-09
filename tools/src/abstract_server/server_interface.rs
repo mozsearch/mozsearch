@@ -17,7 +17,23 @@ impl From<serde_json::Error> for ServerError {
 /// Express whether the error seems to be happening in the server or the data.
 #[derive(Debug)]
 pub enum ErrorLayer {
-    /// The request itself has issues like a bad URL.
+    /// The request itself has structural issues like a malformed URL.  This
+    /// should not be used for cases where the user input results in a search
+    /// miss (which should instead be part of the result payload), but is
+    /// appropriate for cases where the user input makes it impossible to return
+    /// a hit or a miss, like an incorrectly constructed pipeline.
+    ///
+    /// For example, we would want to throw an error in an "insta" check if the
+    /// pipeline is not a valid pipeline.  Or similarly, a shell script invoking
+    /// searchfox-tool wants to experience an error if the command pipeline is
+    /// incorrect.
+    ///
+    /// This does potentially end up ambiguous in the web UI case if the web UI
+    /// allows the user to construct pipelines that aren't validated before
+    /// being sent to the server.  In that case we would want to treat the error
+    /// akin to a search miss and not generate errors that would trip alarms.
+    /// (Our "insta" checks of course help avoid such problems becoming serious
+    /// silent errors, as they would/should not be quieted.)
     BadInput,
     /// The error seems to involve server logic, so it may or may not be an issue
     /// with the underlying data.
@@ -104,6 +120,21 @@ pub trait AbstractServer {
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>>;
 
     async fn fetch_html(&self, sf_path: &str) -> Result<String>;
+
+    /// Retrieve the JSON contents of the crossref database for the given
+    /// symbol.
+    async fn crossref_lookup(&self, symbol: &str) -> Result<Value>;
+
+    /// Given an identifier (prefix), return pairs of matching identifiers and
+    /// symbols that correspond to those identifiers.
+    ///
+    /// If `exact_match` is true, then this is just a (potentially case-insensitive)
+    /// lookup.  If it's false, then this is a prefix search that skips anything
+    /// that looks like hierarchy traversal.  That is, if we are searching for
+    /// a needle of "Foo", this will match "Food" and "Fool" but not
+    /// "Food::Pizza" or "Food.Pizza" because `:` and `.` are considered
+    /// indications of hierarchy traversal.
+    async fn search_identifiers(&self, needle: &str, exact_match: bool, ignore_case: bool, match_limit: usize) -> Result<Vec<(String, String)>>;
 
     async fn perform_query(&self, q: &str) -> Result<Value>;
 }

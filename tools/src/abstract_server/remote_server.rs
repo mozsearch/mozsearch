@@ -105,6 +105,24 @@ impl AbstractServer for RemoteServer {
         Ok(html)
     }
 
+    async fn crossref_lookup(&self, _symbol: &str) -> Result<Value> {
+        // Let's require local index for now; we'll expose this once this
+        // mechanism is exposed to the web so we can talk to the corresponding
+        // local server over https.
+        //
+        // That is, we could build this on top of the existing router.py, but
+        // the legacy rep is definitely not what we want and although the
+        // "sorch" endpoint that's an artifact of the fancy-branch prototype
+        // is closer, it's probably better if that doesn't get stabilized.
+        Err(ServerError::Unsupported)
+    }
+
+    async fn search_identifiers(&self, _needle: &str, _exact_match: bool, _ignore_case: bool, _match_limit: usize) -> Result<Vec<(String, String)>> {
+        // Same rationale as crossref_lookup.
+        Err(ServerError::Unsupported)
+    }
+
+
     async fn perform_query(&self, q: &str) -> Result<Value> {
         let mut url = self.search_url.clone();
         // If adding more parameters, considering using `query_pairs_mut()`.
