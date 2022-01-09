@@ -342,6 +342,7 @@ blame repository is used to generate HTML for the blame strip.
 * [Analysis](docs/analysis.md)
 * [Cross-referencing](docs/crossref.md)
 * [HTML output](docs/output.md)
+* [Testing](docs/testing-checks.md)
 * [Web serving](docs/web-server.md)
 * [Deploying to AWS](docs/aws.md)
 * [Adding new repos](docs/newrepo.md)
