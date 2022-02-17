@@ -11,6 +11,7 @@ use crate::{
 use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand, cmd_crossref_lookup::CrossrefLookupCommand, cmd_search_identifiers::SearchIdentifiersCommand};
 use super::cmd_query::QueryCommand;
 use super::cmd_show_html::ShowHtmlCommand;
+use super::cmd_traverse::TraverseCommand;
 
 use super::interface::ServerPipeline;
 
@@ -89,6 +90,10 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
 
             Command::ShowHtml(sh) => {
                 commands.push(Box::new(ShowHtmlCommand { args: sh }));
+            }
+
+            Command::Traverse(t) => {
+                commands.push(Box::new(TraverseCommand { args: t }));
             }
         }
     }

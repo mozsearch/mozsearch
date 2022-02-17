@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use clap::arg_enum;
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashSet};
 use structopt::StructOpt;
 
 pub use crate::abstract_server::{AbstractServer, Result};
+
+use super::symbol_graph::SymbolGraphCollection;
 
 arg_enum! {
   #[derive(Debug, PartialEq)]
@@ -31,6 +33,7 @@ pub enum PipelineValues {
     IdentifierList(IdentifierList),
     SymbolList(SymbolList),
     SymbolCrossrefInfoList(SymbolCrossrefInfoList),
+    SymbolGraphCollection(SymbolGraphCollection),
     JsonValue(JsonValue),
     JsonRecords(JsonRecords),
     HtmlExcerpts(HtmlExcerpts),
@@ -62,6 +65,8 @@ pub struct SymbolCrossrefInfo {
 pub struct SymbolCrossrefInfoList {
     pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
 }
+
+
 
 /// JSON records are raw analysis records from a single file (for now)
 pub struct JsonRecordsByFile {

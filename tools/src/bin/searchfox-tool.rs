@@ -1,6 +1,6 @@
 use std::env::args_os;
 
-use serde_json::to_string_pretty;
+use serde_json::{to_string_pretty, Value};
 use tools::{cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues}, abstract_server::{ServerError, ErrorLayer, ErrorDetails}};
 
 #[tokio::main]
@@ -40,6 +40,16 @@ async fn main() {
 
     let results = pipeline.run().await;
 
+    let emit_json = |val: &Value| {
+        if output_format == OutputFormat::Concise {
+            println!("{}", val);
+        } else if output_format == OutputFormat::Pretty {
+            if let Ok(pretty) = to_string_pretty(val) {
+                println!("{}", pretty);
+            }
+        }
+    };
+
     std::process::exit(match results {
         Ok(PipelineValues::Void) => {
             println!("Void result.");
@@ -68,14 +78,12 @@ async fn main() {
         }
         Ok(PipelineValues::SymbolCrossrefInfoList(sl)) => {
             for symbol_info in sl.symbol_crossref_infos {
-                if output_format == OutputFormat::Concise {
-                    println!("{}", symbol_info.crossref_info);
-                } else if output_format == OutputFormat::Pretty {
-                    if let Ok(pretty) = to_string_pretty(&symbol_info.crossref_info) {
-                        println!("{}", pretty);
-                    }
-                }
+                emit_json(&symbol_info.crossref_info);
             }
+            0
+        }
+        Ok(PipelineValues::SymbolGraphCollection(sgc)) => {
+            emit_json(&sgc.to_json());
             0
         }
         Ok(PipelineValues::HtmlExcerpts(he)) => {
@@ -90,25 +98,13 @@ async fn main() {
         Ok(PipelineValues::JsonRecords(jr)) => {
             for file_records in jr.by_file {
                 for value in file_records.records {
-                    if output_format == OutputFormat::Concise {
-                        println!("{}", value);
-                    } else if output_format == OutputFormat::Pretty {
-                        if let Ok(pretty) = to_string_pretty(&value) {
-                            println!("{}", pretty);
-                        }
-                    }
+                    emit_json(&value);
                 }
             }
             0
         }
         Ok(PipelineValues::JsonValue(jv)) => {
-            if output_format == OutputFormat::Concise {
-                println!("{}", jv.value);
-            } else if output_format == OutputFormat::Pretty {
-                if let Ok(pretty) = to_string_pretty(&jv.value) {
-                    println!("{}", pretty);
-                }
-            }
+            emit_json(&jv.value);
             0
         }
         Err(err) => {

@@ -100,6 +100,9 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                                 .collect::<Value>());
                             insta::assert_json_snapshot!(crossref_json);
                         }
+                        Ok(PipelineValues::SymbolGraphCollection(sgc)) => {
+                            insta::assert_json_snapshot!(sgc.to_json());
+                        }
                         Ok(PipelineValues::HtmlExcerpts(he)) => {
                             let mut aggr_str = String::new();
                             for file_excerpts in he.by_file {

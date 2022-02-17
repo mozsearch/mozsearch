@@ -41,6 +41,9 @@ pub enum ErrorLayer {
     /// The error seems to be related to the indexed data in question rather
     /// than the server, like the data was not indexed.
     DataLayer,
+    /// Our data structure doesn't work like it's supposed to and we don't want
+    /// to panic, so we return this instead.
+    RuntimeInvariantViolation,
     /// We're not sure if it was a server issue or a data issue.
     UnknownLayer,
 }

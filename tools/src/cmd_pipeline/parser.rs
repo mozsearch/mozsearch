@@ -8,6 +8,7 @@ use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
 use super::cmd_search_identifiers::SearchIdentifiers;
 use super::cmd_show_html::ShowHtml;
+use super::cmd_traverse::Traverse;
 
 arg_enum! {
     #[derive(Debug, PartialEq)]
@@ -50,4 +51,5 @@ pub enum Command {
     Query(Query),
     SearchIdentifiers(SearchIdentifiers),
     ShowHtml(ShowHtml),
+    Traverse(Traverse),
 }
