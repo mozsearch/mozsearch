@@ -1,0 +1,28 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
+    "loc": "24:24-33",
+    "kind": "idl",
+    "target": 1,
+    "pretty": "testOctet"
+  },
+  {
+    "loc": "24:24-33",
+    "syntax": "idl",
+    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_,#testOctet",
+    "pretty": "IDL method testOctet",
+    "source": 1
+  },
+  {
+    "sym": "#testOctet",
+    "loc": "24:24-33",
+    "kind": "idl",
+    "target": 1,
+    "pretty": "testOctet"
+  }
+]

@@ -117,8 +117,18 @@ def log_into(instance):
         print('Using %s as identity keyfile' % privkey_file)
         identity_args = ['-i', privkey_file]
 
+    # Disable host key checking and the pollution of the user's own known host keys.
+    # The rationale is:
+    # - These server keys are basically ephemeral.
+    # - Before this change, we already didn't bother verifying that the ssh keys
+    #   were as expected.
+    # Good next steps would be:
+    # - Use the AWS API to find out the server's ssh key and create a transient
+    #   known hosts file that's pre-populated and that we can use.
+    hostkey_args = ["-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no"]
+
     print('Connecting to', instance.public_ip_address)
-    p = subprocess.Popen(['ssh'] + identity_args + ['ubuntu@' + instance.public_ip_address])
+    p = subprocess.Popen(['ssh'] + hostkey_args + identity_args + ['ubuntu@' + instance.public_ip_address])
     p.wait()
 
     if sec_changed:

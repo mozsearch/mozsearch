@@ -7,6 +7,7 @@ import xpidl
 import os.path
 import json
 import re
+import sys
 
 def find_line_column(text, token, pos):
     while text[pos : pos + len(token)] != token:
@@ -100,6 +101,7 @@ def handle_interface(analysis, iface):
     j = {
         'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
         'source': 1,
+        'syntax': 'idl',
         'pretty': 'IDL class %s' % iface.name,
         'sym': mangled + ('' if iface.attributes.scriptable else ',#' + iface.name),
     }
@@ -110,6 +112,7 @@ def handle_interface(analysis, iface):
         'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
         'target': 1,
         'kind': 'idl',
+        'pretty': iface.name,
         'sym': mangled,
     }
     print(json.dumps(j))
@@ -120,6 +123,7 @@ def handle_interface(analysis, iface):
             'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
             'target': 1,
             'kind': 'idl',
+            'pretty': iface.name,
             'sym': '#' + iface.name,
         }
         print(json.dumps(j))
@@ -132,6 +136,7 @@ def handle_interface(analysis, iface):
         j = {
             'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.base)),
             'source': 1,
+            'syntax': 'idl',
             'pretty': 'IDL class %s' % iface.base,
             'sym': mangled + ',#' + iface.base,
         }
@@ -152,6 +157,7 @@ def handle_interface(analysis, iface):
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
+                'pretty': m.name,
                 'sym': mangled,
             }
             print(json.dumps(j))
@@ -160,6 +166,7 @@ def handle_interface(analysis, iface):
             j = {
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
+                'syntax': 'idl',
                 'pretty': 'IDL method %s' % m.name,
                 'sym': mangled + ('' if m.noscript else ',#' + m.name),
             }
@@ -171,6 +178,7 @@ def handle_interface(analysis, iface):
                     'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
+                    'pretty': m.name,
                     'sym': '#' + m.name,
                 }
                 print(json.dumps(j))
@@ -182,6 +190,7 @@ def handle_interface(analysis, iface):
                     'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
+                    'pretty': m.name,
                     'sym': '#' + m.name,
                 }
                 print(json.dumps(j))
@@ -193,6 +202,7 @@ def handle_interface(analysis, iface):
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
+                'pretty': m.name,
                 'sym': mangled_getter,
             }
             print(json.dumps(j))
@@ -205,6 +215,7 @@ def handle_interface(analysis, iface):
                     'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
+                    'pretty': m.name,
                     'sym': mangled_setter,
                 }
                 print(json.dumps(j))
@@ -218,6 +229,7 @@ def handle_interface(analysis, iface):
             j = {
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
+                'syntax': 'idl',
                 'pretty': 'IDL attribute %s' % m.name,
                 'sym': sym,
             }
@@ -231,6 +243,7 @@ def handle_interface(analysis, iface):
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
+                'pretty': m.name,
                 'sym': '#' + m.name,
             }
             print(json.dumps(j))
@@ -239,6 +252,7 @@ def handle_interface(analysis, iface):
             j = {
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
+                'syntax': 'idl',
                 'pretty': 'IDL constant %s' % m.name,
                 'sym': '#' + m.name,
             }
@@ -272,6 +286,9 @@ if analysis:
         print('Syntax error in IDL', fname, file=sys.stderr)
         raise e
         sys.exit(1)
+    print('XPIDL: Parsed', fname, 'into', len(r.productions), 'productions', file=sys.stderr)
     for p in r.productions:
         if isinstance(p, xpidl.Interface):
             handle_interface(analysis.get(p.name, {}), p)
+else:
+    print('XPIDL: No C++ analysis data found for', fname, file=sys.stderr)
