@@ -188,7 +188,7 @@ impl CrossrefLookupMap {
 
         let brace_offset = unsafe { usize::from_str_radix(str::from_utf8_unchecked(&payload[1..space_pos]), 16).map_err(|_| make_crossref_data_error(sym))? };
         let length_with_newline = unsafe { usize::from_str_radix(str::from_utf8_unchecked(&payload[space_pos+1..]), 16).map_err(|_| make_crossref_data_error(sym))? };
-        
+
         let extra_bytes: &[u8] = unsafe { self.extra_mm.as_slice() };
         return Ok(from_slice(&extra_bytes[brace_offset..brace_offset + length_with_newline - 1])?);
     }
