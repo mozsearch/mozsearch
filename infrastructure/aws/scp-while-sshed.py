@@ -52,8 +52,11 @@ def scp_from(instance, file_on_host, local_target):
         print('Using %s as identity keyfile' % privkey_file)
         identity_args = ['-i', privkey_file]
 
+    # see rationale in ssh.py
+    hostkey_args = ["-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no"]
+
     print('Connecting to', instance.public_ip_address)
-    p = subprocess.Popen(['scp'] + identity_args + ['ubuntu@' + instance.public_ip_address + ':' + file_on_host, local_target])
+    p = subprocess.Popen(['scp'] + hostkey_args + identity_args + ['ubuntu@' + instance.public_ip_address + ':' + file_on_host, local_target])
     p.wait()
 
     sys.exit(p.returncode)

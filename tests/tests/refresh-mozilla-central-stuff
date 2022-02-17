@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# This scripts pull down interesting build byproducts from mozilla-central
+# searchfox runs that we want to have available (and checked into the tests
+# repo) so that we can have as much testing fidelity as possible in this repo,
+# but without creating maintenance hassles where we try and replicate the
+# mozilla-central build system or parts of it.
+#
+# File handling:
+# - Source files (which are source files in mozilla-central) get reflected into
+#   `files` here to be source files we check in.
+# - Generated files get checked in under `mc-generated` here and will be copied
+#   into `$OBJDIR` by `build`.
+# - Analysis files get checked in under `mc-analysis` here and will be copied
+#   into the `$INDEX_ROOT/analysis` by `build`.  These are the analysis files
+#   for the generated files above, so the mapping is the same.
+#
+# How we get the data:
+# - We copy it from a running searchfox web-server that has the mozilla-central
+#   data we need.  We need data that's in the `objdir` and currently searchfox
+#   doesn't directly expose that data to the web.
+# - Note that we gzip up all the analysis files, so we need to grab the `.gz`
+#   version and then un-gzip them.
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: $0 <webserver instance id you're already sshed into>"
+    echo " In another shell, run ssh.py <instance-id> first to modify security"
+    echo " permissions, then run this script."
+    echo " "
+    echo " e.g.: $0 i-0000000000"
+    exit 1
+fi
+SERVER_ID=$1
+
+SSH_SCRIPT=$(dirname $0)/../../infrastructure/aws/scp-while-sshed.py
+TEST_REPO_FILES=$(dirname $0)/files
+TEST_SAVED_GENERATED_FILES=$(dirname $0)/mc-generated
+TEST_SAVED_ANALYSIS_FILES=$(dirname $0)/mc-analysis
+
+REMOTE_MC_BASE=index/mozilla-central
+
+# Maps source file relative path to target directory (sans filename)
+declare -A SOURCE_FILES
+SOURCE_FILES=(
+  [xpcom/base/nsISupports.idl]=xpidl/
+  [xpcom/base/nsrootidl.idl]=xpidl/
+  [js/xpconnect/tests/idl/xpctest_params.idl]=xpidl/
+)
+
+# Maps generated/analysis file relative path to target directory (sans filename)
+declare -A GENERATED_FILES
+# Note that at least the C++ header files are hard-coded to be assumed reside in
+# dist/include.
+GENERATED_FILES=(
+  [dist/include/xpctest_params.h]=dist/include
+  [dist/xpcrs/bt/xpctest_params.rs]=dist/xpcrs/bt
+  [dist/xpcrs/rt/xpctest_params.rs]=dist/xpcrs/rt
+)
+
+set -x # Show commands from here on out as the scp command is not usefully chatty.
+
+## Source Files
+for src_file in "${!SOURCE_FILES[@]}"; do
+  targ_dir=${SOURCE_FILES[$src_file]}
+  mkdir -p ${TEST_REPO_FILES}/${targ_dir}
+  $SSH_SCRIPT "$1" "${REMOTE_MC_BASE}/git/${src_file}" ${TEST_REPO_FILES}/${targ_dir}
+done
+
+## Generated Files from objdir
+for gen_file in "${!GENERATED_FILES[@]}"; do
+  targ_dir=${GENERATED_FILES[$gen_file]}
+  mkdir -p ${TEST_SAVED_GENERATED_FILES}/${targ_dir}
+  $SSH_SCRIPT "$1" "${REMOTE_MC_BASE}/objdir/${gen_file}" ${TEST_SAVED_GENERATED_FILES}/${targ_dir}
+done
+
+## Analysis data derived from the generated files.
+#
+# Note that these files are likely to be zero-length.
+for gen_file in "${!GENERATED_FILES[@]}"; do
+  targ_dir=${GENERATED_FILES[$gen_file]}
+  mkdir -p ${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}
+  $SSH_SCRIPT "$1" "${REMOTE_MC_BASE}/analysis/__GENERATED__/${gen_file}.gz" ${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}
+  gunzip -f "${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}/$(basename $gen_file).gz"
+done
