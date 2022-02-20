@@ -699,7 +699,7 @@ class ChannelHelper:
 class ChannelCommand:
     '''
     Shallow exposure of the ChannelHelper logic on the command line.  The intent
-    is that the ChannelHelper can be used direclty by other scripts, so there
+    is that the ChannelHelper can be used directly by other scripts, so there
     should be no meaningful application logic here, just parsing and glue.
     '''
     def __init__(self):
