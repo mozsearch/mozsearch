@@ -219,7 +219,7 @@ https://chat.mozilla.org/
 - Push your changes to your mozsearch branch and your mozsearch-mozilla branch,
   if appropriate.
   - It's usually a good idea to explicitly make sure you've saved all your
-    buffers, that `git status` shows no uncommited changes, that
+    buffers, that `git status` shows no uncommitted changes, that
     `make build-test-repo` runs successfully, and that
     `git push -f REMOTE BRANCH` says all the commits are already there.
 - Pick what "channel" you are going to use.  Generally, the right answer is the
