@@ -276,7 +276,7 @@ fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, d
 ///   node in the tree structure is an object with one of the following forms,
 ///   with the root having type "dir":
 ///   - { type: "dir", contents } where:
-///     - "contents": An object directionary whose keys are filenames and value
+///     - "contents": An object dictionary whose keys are filenames and value
 ///        nodes.
 ///   - { type: "file", component, testInfo } where:
 ///     - "component": Value is the numeric bugzilla component to be looked up.
