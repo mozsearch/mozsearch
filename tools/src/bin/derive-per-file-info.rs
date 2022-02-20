@@ -145,7 +145,7 @@ fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, d
 ///    metadata appropriate for directory listings and search results that match
 ///    the file.
 /// 2. `INDEX_ROOT/detailed-per-file-info/PATH`: A per-file JSON file that
-///    containts detailed per-file data from a number of sources that is either
+///    contains detailed per-file data from a number of sources that is either
 ///    very large or specific to the contents of the file.  For example, code
 ///    coverage data is O(number of lines * number of distinctly tracked
 ///    scenarios).
