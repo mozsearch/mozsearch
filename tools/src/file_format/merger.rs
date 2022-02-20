@@ -25,7 +25,7 @@ pub struct HashedStructured {
 /// merge the records and write them to the provided writer.
 ///
 /// This logic was extracted out from `merge-analyses.rs` for the purpose of
-/// being able to test its logic through the introduction of `cmd_merge_ananlyses`.
+/// being able to test its logic through the introduction of `cmd_merge_analyses`.
 ///
 /// The logic could almost certainly be further unified into the `cmd_pipeline`
 /// data model, with callers potentially altered to use searchfox-tool and
