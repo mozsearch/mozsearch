@@ -161,7 +161,7 @@ Note that you will need to do a couple things for this to work right:
 - You need to make sure any changes you've made to the searchfox repository are
   committed to git.  `output-file.rs` depends on the blame repository having
   lines that match up exactly with the state of the source files checked out
-  from git or it can panic because of accesing beyond the end of vectors.  (The
+  from git or it can panic because of accessing beyond the end of vectors.  (The
   blame data will also be wrong.)
 - You need to make sure the blame repository has been updated.  The Makefile
   will take care of this for you, but if you're running `indexer-run.sh`
