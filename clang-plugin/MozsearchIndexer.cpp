@@ -650,7 +650,7 @@ public:
 
         // Write any results from Info.Output that are lexicographically
         // smaller than OldLine (read from the existing file), but make sure
-        // to skip duplicates. Keep advacing NewLinesIter until we reach an
+        // to skip duplicates. Keep advancing NewLinesIter until we reach an
         // entry that is lexicographically greater than OldLine.
         for (; NewLinesIter != Info.Output.end(); NewLinesIter++) {
           if (*NewLinesIter > OldLine) {
