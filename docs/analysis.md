@@ -323,7 +323,7 @@ Attributes added/updated by cross-referencing:
 - `subclasses`: Derived from `supers`.
   - `pretty`
   - `sym`
-- `overridenBy`: Derived from `overrides`.
+- `overriddenBy`: Derived from `overrides`.
   - `pretty`
   - `sym`
 - `srcsym`: May exist in the record, also propagated from `idl` implKind
