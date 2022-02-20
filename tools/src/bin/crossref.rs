@@ -36,7 +36,7 @@ struct SearchResult {
     // and store specific file offsets that could be directly mapped/seeked, but
     // between effective caching of dynamic search results and good experiences
     // with lol_html, it seems like we will soon be able to just excerpt the
-    // statically produced HTML effeciciently enough through dynamic HTML
+    // statically produced HTML efficiently enough through dynamic HTML
     // filtering.
     #[serde(
         rename = "peekRange",
