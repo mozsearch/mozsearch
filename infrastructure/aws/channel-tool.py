@@ -533,7 +533,7 @@ class ChannelHelper:
 
         channel = all_channels.get(name, None)
         if channel is None:
-            print('[red]No such channnel[/red]:', name)
+            print('[red]No such channel[/red]:', name)
             return HelperResult(NO_SUCH_CHANNEL)
 
         lbArn = channel.get('loadBalancerArn', None)
@@ -583,7 +583,7 @@ class ChannelHelper:
         all_channels = self.determine_channels()
         channel = all_channels.get(name, None)
         if channel is None:
-            print('[red]No such channnel[/red]:', name)
+            print('[red]No such channel[/red]:', name)
             return HelperResult(NO_SUCH_CHANNEL)
 
         ## Dump non-channel-specific context
