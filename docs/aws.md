@@ -296,7 +296,7 @@ this is handled specially within parts of the Mozsearch codebase.
 Once you've created a new target group, you can kick off an indexer
 and/or set up a lambda task for this channel using your desired
 config file. The only other step required is to modify the `release-lb`
-load balancer to direct requests for those new repos to the appopriate
+load balancer to direct requests for those new repos to the appropriate
 target group. Do this by selecting the `release-lb` load balancer in
 the AWS EC2 console, going to the listeners tab, and editing the rules.
 Note that you need to edit the rules for both HTTP and HTTPS manually.
