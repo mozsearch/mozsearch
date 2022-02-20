@@ -18,7 +18,7 @@ anything related to variables.
 
 ## Error Handling
 
-We use the following intialization stanza in all bash scripts at the top:
+We use the following initialization stanza in all bash scripts at the top:
 ```bash
 set -x # Show commands
 set -eu # Errors/undefined vars are fatal
