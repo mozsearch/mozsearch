@@ -416,7 +416,7 @@ more automation is put in place.
    - Go to the snapshots pane (under "Elastic Block Store" heading in the EC2
      console.
    - Select all the snapshots
-   - From the actions menu, selecte delete.
+   - From the actions menu, select delete.
    - Confirm the deletion as requested
    - This will fail to delete some snapshots (because they are currently in
      use by some AMI) and delete all the unused ones.
