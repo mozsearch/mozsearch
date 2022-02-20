@@ -316,7 +316,7 @@ mark {
  * big the search box would actually be without involving JS.
  *
  * So our solution is to use flexbox to create a non-scrolling fixed-header,
- * alotting the remaining space to a scrolling region.
+ * allotting the remaining space to a scrolling region.
  */
 
 html {
