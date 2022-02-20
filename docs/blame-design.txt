@@ -17,7 +17,7 @@ given file, I think. A larger file might have ~2000 commits to it.
 Getting the blame is easier with --incremental. It shows what's actually going on.
 
 What if I just compute the blame for every revision of the file
-simulataneously? Then users could just move a slider to decide which
+simultaneously? Then users could just move a slider to decide which
 rev they're interested in, and the results would be immediate.
 I'd have to store more data, potentially, but it doesn't seem like
 that much in total. And maybe I could compress it somehow.
