@@ -324,7 +324,7 @@ fn test_interpolate_coverage() {
             vec![-1, 1, -1, 1, -1],
             vec![-1, 1, -2, 1, -1]
         ],
-        // don't interpolate if the whole file is uncoveredj
+        // don't interpolate if the whole file is uncovered
         vec![
             vec![-1, -1, -1, -1, -1],
             vec![-1, -1, -1, -1, -1]
