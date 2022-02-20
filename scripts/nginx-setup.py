@@ -22,7 +22,7 @@ import subprocess
 import six
 
 config_fname = sys.argv[1]
-# doc_root will usually be /home/unbutu/docroot and will hold files like:
+# doc_root will usually be /home/ubuntu/docroot and will hold files like:
 # - status.txt: A file written by the web-servers that the web-server triggering
 #   process polls in order to know when the web-server is up and the load
 #   balancers can be redirected at.
