@@ -20,7 +20,7 @@ set -o pipefail # Check all commands in a pipeline
 #       "ProductName" : "Unknown Device",
 #       "SerialNumber" : "AWS143416FC5A55CA413",
 #       "UsedBytes" : 300000000000,
-#       "MaximiumLBA" : 585937500,
+#       "MaximumLBA" : 585937500,
 #       "PhysicalSize" : 300000000000,
 #       "SectorSize" : 512
 #     },
@@ -32,7 +32,7 @@ set -o pipefail # Check all commands in a pipeline
 #       "ProductName" : "Unknown Device",
 #       "SerialNumber" : "vol0222cf21e3b3dfbc4",
 #       "UsedBytes" : 0,
-#       "MaximiumLBA" : 16777216,
+#       "MaximumLBA" : 16777216,
 #       "PhysicalSize" : 8589934592,
 #       "SectorSize" : 512
 #     }
