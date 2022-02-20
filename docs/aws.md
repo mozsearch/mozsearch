@@ -21,7 +21,7 @@ So there will be one indexer instance processing the repos in
 another instance processing the repos in
 [config2.json](https://github.com/mozsearch/mozsearch-mozilla/blob/master/config2.json),
 etc. The indexing instances have an extra Elastic Block Store volume attached
-where the index will be stored. The following paragraps explain the
+where the index will be stored. The following paragraphs explain the
 lifecycle of a single indexer and its web server; the lifecycle applies
 to each indexer instance.
 
