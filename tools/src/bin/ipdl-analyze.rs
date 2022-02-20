@@ -299,7 +299,7 @@ fn main() {
             // just work out.  In our objdirs, the install process generates symlinks back to the
             // original source location which makes the indexer's life easy.  And the symlinks
             // at least disappear by the time the webserver gets the merged objdir.  It's only
-            // truly generated files that stick aroudn (and get labeled as generated).
+            // truly generated files that stick around (and get labeled as generated).
             //
             // In any event, the approach I'm taking here is to load up the contents of the
             // `repo-files` list and create a map from the filename to the (source) path.  If
