@@ -435,7 +435,7 @@ private:
     // In order to accomplish this, we keep alphanumeric chars, underscores,
     // and slashes, and replace everything else with an "@xx" hex encoding.
     // The majority of path characters are letters and slashes which don't get
-    // encoded, so that satisifies (1). Since "@" characters in the unsanitized
+    // encoded, so that satisfies (1). Since "@" characters in the unsanitized
     // path get encoded, there should be no "@" characters in the sanitized path
     // that got preserved from the unsanitized input, so that should satisfy (2).
     // And (3) was done by trial-and-error. Note in particular the dot (.)
