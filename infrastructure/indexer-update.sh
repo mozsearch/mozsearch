@@ -27,7 +27,7 @@ set -o pipefail # Check all commands in a pipeline
 # that are sometimes missing. If they are missing, `rustup update` will try
 # to use a previous nightly instead that does have the components, which means
 # we end up with a slightly older rustc. Using rustc from a few days ago is
-# usualy fine, but in cases where we hit ICEs that have been fixed upstream,
+# usually fine, but in cases where we hit ICEs that have been fixed upstream,
 # we want the very latest rustc to get the fix. Removing these components also
 # reduces download time during `rustup update`.
 #
