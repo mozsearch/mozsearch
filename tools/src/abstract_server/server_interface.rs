@@ -83,7 +83,7 @@ pub enum ServerError {
 /// The primary goal is for our tests to verify both our on-disk representations
 /// and that these are exposed to searchfox users correctly.  It's also our hope
 /// that this can be used by searchfox contributors to investigate problems and
-/// how things currently work more efficiently and enjoyably than manualy doing
+/// how things currently work more efficiently and enjoyably than manually doing
 /// so.
 ///
 /// ## Runtime Assumptions
