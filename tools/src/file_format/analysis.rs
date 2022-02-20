@@ -193,7 +193,7 @@ pub struct StructuredFieldInfo {
 /// JSON-formatted string.  It's fine to promote things out of the payload into the struct as
 /// needed.
 ///
-/// Structured records are merged by choosing one platform rep to be the canoncial variant and
+/// Structured records are merged by choosing one platform rep to be the canonical variant and
 /// embedding the other variants observed under a `variants` attribute.  See `analysis.md` and
 /// `merge-analyses.rs` for more details.
 #[derive(Debug, Serialize, Deserialize)]
