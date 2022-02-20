@@ -455,7 +455,7 @@ fn build_blame_tree(
                 write!(import_stream, "data {}\n", blame_bytes.len()).unwrap();
                 import_stream.write(blame_bytes).unwrap();
                 // We skip the optional trailing LF character here since in practice it
-                // wasn't particuarly useful for debugging. Also the blame blobs we write
+                // wasn't particularly useful for debugging. Also the blame blobs we write
                 // here always have a trailing LF anyway.
             }
             Some(ObjectType::Commit) => {
