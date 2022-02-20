@@ -316,7 +316,7 @@ class SearchResults(object):
                 paths = list(self.compiled[pathkind][qkind].keys())
                 paths.sort()
                 for path in paths:
-                    # see `compile_resulte docs for line_modifier above.
+                    # see `compile_result` docs for line_modifier above.
                     (lines, line_modifier) = self.compiled[pathkind][qkind][path]
                     lines.sort(key=lambda l: l['lno'])
                     lines_out = []
