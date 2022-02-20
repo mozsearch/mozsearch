@@ -433,7 +433,7 @@ tr.after-context-line + tr.before-context-line {
   white-space: pre;
 }
 .result-head td {
-  padding-top: 0.3rem; /* Additional padding to visually seperate results.*/
+  padding-top: 0.3rem; /* Additional padding to visually separate results.*/
   padding-bottom: 0;
 }
 .result-head td.left-column {
