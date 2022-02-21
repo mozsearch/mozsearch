@@ -419,7 +419,7 @@ B* b;
 b->f(); // Z
 ```
 
-We will generate generate a source record at the line marked Z with
+We will generate a source record at the line marked Z with
 one symbol, for `A::f`. At line Y, we generate a target record for
 `C::f` that has symbols for `C::f` and `A::f`. Consequently, searching
 at line Z will find `C::f`. However, it's not actually possible for
