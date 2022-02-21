@@ -208,7 +208,7 @@ fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, d
 ///         `if (os == "win"): https://bugzilla.mozilla.org/show_bug.cgi?id=NNN`
 ///         under a "disabled" mochitest ini-format header would result in
 ///         `["os == \"win\"\n", "https://bugzilla.mozilla.org/show_bug.cgi?id=NNN"]
-///         and a line line the following directly under the test name
+///         and a line like the following directly under the test name
 ///         `disabled: https://bugzilla.mozilla.org/show_bug.cgi?id=NNN` gives
 ///         `[null, "https://bugzilla.mozilla.org/show_bug.cgi?id=NNN"]`.
 ///         - It appears the bug URL's can just be straight bug numbers or
