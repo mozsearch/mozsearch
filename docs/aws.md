@@ -169,7 +169,7 @@ The AWS Lambda task uses a cron-style scheduler to run once a day.
 
 ### Automated-ish Updates
 
-If you you just want to update the existing daily lambda jobs for release1,
+If you just want to update the existing daily lambda jobs for release1,
 release2, and release4, you can:
 
 - Inside the vagrant VM:
