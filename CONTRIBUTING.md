@@ -4,7 +4,7 @@
 
 Please file bugs in
 [Bugzilla](https://bugzilla.mozilla.org/enter_bug.cgi?product=Webtools&component=Searchfox).
-We do not accept bug reports on Github (and the issues tab is disabled
+We do not accept bug reports on GitHub (and the issues tab is disabled
 for this reason).
 
 ## Submitting patches
