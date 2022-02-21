@@ -49,7 +49,7 @@ url = "2.2.2"
 # which is the fix for https://github.com/anderslanglands/ustr/issues/20
 # in order for our BTreeMap orderings in crossref.rs to be right.
 # I'm using my branch with fixed tests for the repo/revision since I won't
-# delete the the repo.  And once the crate is updated, we can switch back to
+# delete the repo.  And once the crate is updated, we can switch back to
 # a variant of:
 # ustr = { version = "0.8.1", features = ["serialization"] }
 ustr = { git = "https://github.com/asutherland/ustr", rev = "e87cb1584a1142486514d323bc7c18406cfe4806", features = ["serialization"] }

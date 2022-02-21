@@ -717,7 +717,7 @@ fn main() {
 
     let mut import_helper = start_fast_import(&blame_repo);
 
-    // Tracks completion count and serves as the basis for the the mark <idnum>
+    // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
     let mut rev_done = 0;
 

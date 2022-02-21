@@ -180,7 +180,7 @@ let Analyzer = {
   /**
    * Used to derive the "context" property for target records.  Whenever
    * `symbolTableStack`, `nameForThis`, or `className` are modified, the name
-   * (possibly falsey) that is being used for the the thing is pushed.  When
+   * (possibly falsey) that is being used for the thing is pushed.  When
    * traversing an ObjectExpression or ObjectPattern, the key is also pushed.
    * (Object "dictionaries" like `{ a: { b: 1 } }` create a name hierarchy for
    * "a.b" but do not create lexical scopes on their own.)
