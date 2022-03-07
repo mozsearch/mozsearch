@@ -1,0 +1,24 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+
+---
+[
+  {
+    "loc": "00006:10-19",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "uint32_t",
+    "pretty": "function nsIXPCTestParams::TestOctet",
+    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
+  },
+  {
+    "loc": "00006:10-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "nsIXPCTestParams::TestOctet",
+    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
+    "context": "consume_xpidl",
+    "contextsym": "_Z13consume_xpidlP16nsIXPCTestParams"
+  }
+]

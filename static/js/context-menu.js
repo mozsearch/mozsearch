@@ -49,10 +49,23 @@ var ContextMenu = new (class ContextMenu {
       // Comes from the generated page.
       let [jumps, searches] = ANALYSIS_DATA[index];
 
-      for (let { sym, pretty } of jumps) {
+      for (let { sym, pretty, path } of jumps) {
+        let href;
+        // `path` is new and will not exist on older trees, so to ease the
+        // transition, let's handle it not existing for now.
+        // TODO: start assuming path is present.
+        //
+        // See https://bugzilla.mozilla.org/show_bug.cgi?id=1748959 for some
+        // discussion on the trade-offs of direct links versus the indirect CGI
+        // lookup.
+        if (path) {
+          href = `/${tree}/source/${path}`;
+        } else {
+          href = `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`;
+        }
         menuItems.push({
           html: this.fmt("Go to definition of _", pretty),
-          href: `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`,
+          href,
           icon: "search",
         });
       }

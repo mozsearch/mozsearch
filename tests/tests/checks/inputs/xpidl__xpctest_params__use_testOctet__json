@@ -1,0 +1,1 @@
+filter-analysis xpidl_cpp_consumer.cpp -i "nsIXPCTestParams::TestOctet"
