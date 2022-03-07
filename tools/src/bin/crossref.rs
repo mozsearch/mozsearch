@@ -301,6 +301,11 @@ fn main() {
     // mess up.
     let mut xref_ext_offset: usize = 0;
 
+    // For the "jumps" (go to definition), favor IDL definitions over binding
+    // implementation decisions.  This mechanism will likely be overhauled by
+    // bug 1727789 but until that time, let's do better.
+    let jump_precedences = vec![AnalysisKind::Idl, AnalysisKind::Def];
+
     for (id, id_data) in table {
         let mut kindmap = Map::new();
         for (kind, kind_data) in &id_data {
@@ -370,18 +375,24 @@ fn main() {
             xref_out.write_all(inline_line.as_bytes()).unwrap();
         }
 
-        if id_data.contains_key(&AnalysisKind::Def) {
-            let defs = id_data.get(&AnalysisKind::Def).unwrap();
-            if defs.len() == 1 {
-                for (path, results) in defs {
-                    if results.len() == 1 {
-                        let mut v = Vec::new();
-                        v.push(json!(id));
-                        v.push(json!(path));
-                        v.push(json!(results[0].lineno));
-                        let pretty = pretty_table.get(&id).unwrap();
-                        v.push(json!(pretty));
-                        jumps.push(json!(v));
+        'outer: for jump_kind in jump_precedences.iter() {
+            if id_data.contains_key(jump_kind) {
+                let defs = id_data.get(jump_kind).unwrap();
+                if defs.len() == 1 {
+                    for (path, results) in defs {
+                        if results.len() == 1 {
+                            let mut v = Vec::new();
+                            v.push(json!(id));
+                            v.push(json!(path));
+                            v.push(json!(results[0].lineno));
+                            let pretty = pretty_table.get(&id).unwrap();
+                            v.push(json!(pretty));
+                            jumps.push(json!(v));
+
+                            // Stop considering other jump precedences if we've
+                            // emitted a jump.
+                            break 'outer;
+                        }
                     }
                 }
             }

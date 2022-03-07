@@ -248,6 +248,7 @@ pub fn format_code(
                         json!({
                             "sym": sym,
                             "pretty": jump.pretty,
+                            "path": format!("{}#{}", jump.path, jump.lineno),
                         })
                     );
                 }

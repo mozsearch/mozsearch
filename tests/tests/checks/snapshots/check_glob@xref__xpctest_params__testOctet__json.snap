@@ -5,6 +5,23 @@ expression: crossref_json
 ---
 [
   {
+    "uses": [
+      {
+        "path": "xpidl_cpp_consumer.cpp",
+        "lines": [
+          {
+            "lno": 6,
+            "bounds": [
+              8,
+              17
+            ],
+            "line": "params->TestOctet(1, &b, &out);",
+            "context": "consume_xpidl",
+            "contextsym": "_Z13consume_xpidlP16nsIXPCTestParams"
+          }
+        ]
+      }
+    ],
     "defs": [
       {
         "path": "__GENERATED__/dist/include/xpctest_params.h",
