@@ -93,54 +93,53 @@ def setter_name(attr):
         return 'Set' + attr.binaryname
     return 'Set' + attr.name[0].capitalize() + attr.name[1:]
 
+def emit_record(o):
+    print(json.dumps(o))
+
 def handle_interface(analysis, iface):
     (lineno, colno) = find_line_column(text, iface.name, iface.location._lexpos)
     mangled = 'T_' + iface.name
 
     # Source
-    j = {
+    emit_record({
         'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
         'source': 1,
         'syntax': 'idl',
         'pretty': 'IDL class %s' % iface.name,
         'sym': mangled + ('' if iface.attributes.scriptable else ',#' + iface.name),
-    }
-    print(json.dumps(j))
+    })
 
     # C++ target
-    j = {
+    emit_record({
         'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
         'target': 1,
         'kind': 'idl',
         'pretty': iface.name,
         'sym': mangled,
-    }
-    print(json.dumps(j))
+    })
 
     if iface.attributes.scriptable:
         # JS target
-        j = {
+        emit_record({
             'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
             'target': 1,
             'kind': 'idl',
             'pretty': iface.name,
             'sym': '#' + iface.name,
-        }
-        print(json.dumps(j))
+        })
 
     if iface.base:
         (lineno, colno) = find_line_column(text, iface.base, iface.location._lexpos)
         mangled = 'T_' + iface.base
 
         # Base source
-        j = {
+        emit_record({
             'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.base)),
             'source': 1,
             'syntax': 'idl',
             'pretty': 'IDL class %s' % iface.base,
             'sym': mangled + ',#' + iface.base,
-        }
-        print(json.dumps(j))
+        })
 
     #print p.name
     #print 'BASE', p.base
@@ -153,72 +152,66 @@ def handle_interface(analysis, iface):
         if isinstance(m, xpidl.Method):
             mangled = analysis[method_name(m)]
             # C++ target
-            j = {
+            emit_record({
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
                 'pretty': m.name,
                 'sym': mangled,
-            }
-            print(json.dumps(j))
+            })
 
             # Source
-            j = {
+            emit_record({
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
                 'syntax': 'idl',
                 'pretty': 'IDL method %s' % m.name,
                 'sym': mangled + ('' if m.noscript else ',#' + m.name),
-            }
-            print(json.dumps(j))
+            })
 
             if not m.noscript:
                 # JS target
-                j = {
+                emit_record({
                     'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
                     'pretty': m.name,
                     'sym': '#' + m.name,
-                }
-                print(json.dumps(j))
+                })
 
         elif isinstance(m, xpidl.Attribute):
             if not m.noscript:
                 # JS target
-                j = {
+                emit_record({
                     'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
                     'pretty': m.name,
                     'sym': '#' + m.name,
-                }
-                print(json.dumps(j))
+                })
 
             mangled_getter = analysis[getter_name(m)]
 
             # C++ target (getter)
-            j = {
+            emit_record({
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
                 'pretty': m.name,
                 'sym': mangled_getter,
-            }
-            print(json.dumps(j))
+            })
 
             if not m.readonly:
                 mangled_setter = analysis[setter_name(m)]
 
                 # C++ target (setter)
-                j = {
+                emit_record({
                     'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                     'target': 1,
                     'kind': 'idl',
                     'pretty': m.name,
                     'sym': mangled_setter,
-                }
-                print(json.dumps(j))
+                })
 
             # Source
             sym = mangled_getter
@@ -226,37 +219,34 @@ def handle_interface(analysis, iface):
                 sym += ',' + mangled_setter
             if not m.noscript:
                 sym += ',#' + m.name
-            j = {
+            emit_record({
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
                 'syntax': 'idl',
                 'pretty': 'IDL attribute %s' % m.name,
                 'sym': sym,
-            }
-            print(json.dumps(j))
+            })
 
         elif isinstance(m, xpidl.ConstMember):
             # No C++ support until clang-plugin supports it.
 
             # JS target
-            j = {
+            emit_record({
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'target': 1,
                 'kind': 'idl',
                 'pretty': m.name,
                 'sym': '#' + m.name,
-            }
-            print(json.dumps(j))
+            })
 
             # JS source
-            j = {
+            emit_record({
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
                 'syntax': 'idl',
                 'pretty': 'IDL constant %s' % m.name,
                 'sym': '#' + m.name,
-            }
-            print(json.dumps(j))
+            })
 
 indexRoot = sys.argv[1]
 fname = sys.argv[2]
