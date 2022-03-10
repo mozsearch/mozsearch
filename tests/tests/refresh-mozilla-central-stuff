@@ -45,9 +45,15 @@ REMOTE_MC_BASE=index/mozilla-central
 # Maps source file relative path to target directory (sans filename)
 declare -A SOURCE_FILES
 SOURCE_FILES=(
-  [xpcom/base/nsISupports.idl]=xpidl/
-  [xpcom/base/nsrootidl.idl]=xpidl/
+  # Note that we do add some core helper files back after processing the below
+  # into GENERATED_FILES
+  [js/xpconnect/tests/idl/xpctest_attributes.idl]=xpidl/
+  [js/xpconnect/tests/idl/xpctest_bug809674.idl]=xpidl/
+  [js/xpconnect/tests/idl/xpctest_cenums.idl]=xpidl/
+  [js/xpconnect/tests/idl/xpctest_interfaces.idl]=xpidl/
   [js/xpconnect/tests/idl/xpctest_params.idl]=xpidl/
+  [js/xpconnect/tests/idl/xpctest_returncode.idl]=xpidl/
+  [js/xpconnect/tests/idl/xpctest_utils.idl]=xpidl/
 )
 
 # Maps generated/analysis file relative path to target directory (sans filename)
@@ -55,10 +61,25 @@ declare -A GENERATED_FILES
 # Note that at least the C++ header files are hard-coded to be assumed reside in
 # dist/include.
 GENERATED_FILES=(
-  [dist/include/xpctest_params.h]=dist/include
-  [dist/xpcrs/bt/xpctest_params.rs]=dist/xpcrs/bt
-  [dist/xpcrs/rt/xpctest_params.rs]=dist/xpcrs/rt
+  # Now automatically derived below!  But if you wanted manual stuff:
+  #[dist/include/xpctest_params.h]=dist/include
+  #[dist/xpcrs/bt/xpctest_params.rs]=dist/xpcrs/bt
+  #[dist/xpcrs/rt/xpctest_params.rs]=dist/xpcrs/rt
 )
+# Derive
+for src_file in "${!SOURCE_FILES[@]}"; do
+  filename=$(basename $src_file)
+  GENERATED_FILES["dist/include/${filename%.idl}.h"]=dist/include
+  GENERATED_FILES["dist/xpcrs/bt/${filename%.idl}.rs"]=dist/xpcrs/bt
+  GENERATED_FILES["dist/xpcrs/rt/${filename%.idl}.rs"]=dist/xpcrs/rt
+done
+
+# These are files we want the source for but absolutely do not want the actual
+# generated header files for because they increase the set of stubs we need.
+# That said, feel free to consider adding them back to the initial SOURCE_FILES
+# mapping.
+SOURCE_FILES[xpcom/base/nsISupports.idl]=xpidl/
+SOURCE_FILES[xpcom/base/nsrootidl.idl]=xpidl/
 
 set -x # Show commands from here on out as the scp command is not usefully chatty.
 
