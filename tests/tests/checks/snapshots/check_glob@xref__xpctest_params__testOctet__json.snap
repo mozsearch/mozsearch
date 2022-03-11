@@ -10,7 +10,7 @@ expression: crossref_json
         "path": "xpidl_cpp_consumer.cpp",
         "lines": [
           {
-            "lno": 6,
+            "lno": 7,
             "bounds": [
               8,
               17

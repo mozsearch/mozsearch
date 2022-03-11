@@ -5,7 +5,7 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00006:10-19",
+    "loc": "00007:10-19",
     "source": 1,
     "syntax": "use,function",
     "type": "uint32_t",
@@ -13,7 +13,7 @@ expression: "&json_results"
     "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
   },
   {
-    "loc": "00006:10-19",
+    "loc": "00007:10-19",
     "target": 1,
     "kind": "use",
     "pretty": "nsIXPCTestParams::TestOctet",
