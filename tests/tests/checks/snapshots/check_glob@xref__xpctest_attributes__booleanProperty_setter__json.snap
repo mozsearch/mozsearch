@@ -1,0 +1,79 @@
+---
+source: tests/test_check_insta.rs
+expression: crossref_json
+
+---
+[
+  {
+    "uses": [
+      {
+        "path": "xpidl_cpp_consumer.cpp",
+        "lines": [
+          {
+            "lno": 16,
+            "bounds": [
+              7,
+              25
+            ],
+            "line": "attrs->SetBooleanProperty(string_was_too_hard);",
+            "context": "consume_attr",
+            "contextsym": "_Z12consume_attrP25nsIXPCTestObjectReadWrite"
+          }
+        ]
+      }
+    ],
+    "defs": [
+      {
+        "path": "__GENERATED__/dist/include/xpctest_attributes.h",
+        "lines": [
+          {
+            "lno": 123,
+            "bounds": [
+              33,
+              51
+            ],
+            "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD SetBooleanProperty(bool aBooleanProperty) = 0;",
+            "context": "nsIXPCTestObjectReadWrite",
+            "contextsym": "T_nsIXPCTestObjectReadWrite"
+          }
+        ]
+      }
+    ],
+    "idl": [
+      {
+        "path": "xpidl/xpctest_attributes.idl",
+        "lines": [
+          {
+            "lno": 27,
+            "bounds": [
+              18,
+              33
+            ],
+            "line": "attribute boolean booleanProperty;",
+            "context": "",
+            "contextsym": ""
+          }
+        ]
+      }
+    ],
+    "callees": [],
+    "meta": {
+      "structured": 1,
+      "pretty": "nsIXPCTestObjectReadWrite::SetBooleanProperty",
+      "sym": "_ZN25nsIXPCTestObjectReadWrite18SetBooleanPropertyEb",
+      "kind": "method",
+      "parentsym": "T_nsIXPCTestObjectReadWrite",
+      "implKind": "",
+      "sizeBytes": null,
+      "supers": [],
+      "methods": [],
+      "fields": [],
+      "overrides": [],
+      "props": [
+        "instance",
+        "virtual",
+        "user"
+      ]
+    }
+  }
+]

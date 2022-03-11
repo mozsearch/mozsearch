@@ -6,6 +6,9 @@
 // No attempt is currently made to actually resemble the real nsISupports
 // infrastructure!
 
+#ifndef nsISupports_h__
+#define nsISupports_h__
+
 #include <stdint.h>
 
 #define NS_NO_VTABLE
@@ -27,3 +30,7 @@ class nsIID;
 
 template<class E>
 class RefPtr {};
+
+struct PRTime;
+
+#endif // nsISupports_h__
