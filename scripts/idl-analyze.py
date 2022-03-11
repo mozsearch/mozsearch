@@ -93,8 +93,24 @@ def setter_name(attr):
         return 'Set' + attr.binaryname
     return 'Set' + attr.name[0].capitalize() + attr.name[1:]
 
-def emit_record(o):
-    print(json.dumps(o))
+def emit_record(o, variations=None):
+    '''Emit a single record or a number of optional variations of a record.
+
+    If no variations are provided, the base object is emitted as JSON.
+
+    If a variations array is provided, any non-None entries are applied to the
+    base dictionary and emitted as JSON.
+    '''
+    if variations is None:
+        print(json.dumps(o))
+        return
+
+    for mods in variations:
+        if mods is None:
+            continue
+        cur = o.copy()
+        cur.update(mods)
+        print(json.dumps(cur))
 
 def handle_interface(analysis, iface):
     (lineno, colno) = find_line_column(text, iface.name, iface.location._lexpos)
@@ -105,9 +121,19 @@ def handle_interface(analysis, iface):
         'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
         'source': 1,
         'syntax': 'idl',
-        'pretty': 'IDL class %s' % iface.name,
-        'sym': mangled + ('' if iface.attributes.scriptable else ',#' + iface.name),
-    })
+    },
+    [
+        {
+            'pretty': 'IDL C++ class %s' % iface.name,
+            'sym': mangled,
+        },
+        # We always emit this second one even if not scriptable in the interests
+        # of a consistent UI, but this is arbitrary and may want to change.
+        {
+            'pretty': 'IDL class %s' % iface.name,
+            'sym': mangled + (',#' + iface.name if iface.attributes.scriptable else ''),
+        },
+    ])
 
     # C++ target
     emit_record({
@@ -137,9 +163,17 @@ def handle_interface(analysis, iface):
             'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.base)),
             'source': 1,
             'syntax': 'idl',
-            'pretty': 'IDL class %s' % iface.base,
-            'sym': mangled + ',#' + iface.base,
-        })
+        },
+        [
+            {
+                'pretty': 'IDL C++ class %s' % iface.base,
+                'sym': mangled,
+            },
+            {
+                'pretty': 'IDL class %s' % iface.base,
+                'sym': mangled + ',#' + iface.base,
+            },
+        ])
 
     #print p.name
     #print 'BASE', p.base
@@ -165,9 +199,19 @@ def handle_interface(analysis, iface):
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
                 'syntax': 'idl',
-                'pretty': 'IDL method %s' % m.name,
-                'sym': mangled + ('' if m.noscript else ',#' + m.name),
-            })
+            },
+            [
+                {
+                    'pretty': 'IDL C++ method %s' % m.name,
+                    'sym': mangled,
+                },
+                # We always emit this second one even if not scriptable in the interests
+                # of a consistent UI, but this is arbitrary and may want to change.
+                {
+                    'pretty': 'IDL method %s' % m.name,
+                    'sym': mangled + ('' if m.noscript else ',#' + m.name),
+                },
+            ])
 
             if not m.noscript:
                 # JS target
@@ -223,9 +267,21 @@ def handle_interface(analysis, iface):
                 'loc': '%d:%d-%d' % (lineno, colno, colno + len(m.name)),
                 'source': 1,
                 'syntax': 'idl',
-                'pretty': 'IDL attribute %s' % m.name,
-                'sym': sym,
-            })
+            },
+            [
+                {
+                    'pretty': 'IDL C++ getter for %s' % m.name,
+                    'sym': mangled_getter,
+                },
+                {
+                    'pretty': 'IDL C++ setter for %s' % m.name,
+                    'sym': mangled_setter,
+                } if not m.readonly else None,
+                {
+                    'pretty': 'IDL attribute %s' % m.name,
+                    'sym': sym,
+                },
+            ])
 
         elif isinstance(m, xpidl.ConstMember):
             # No C++ support until clang-plugin supports it.

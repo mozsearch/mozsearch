@@ -7,7 +7,7 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="24"></div>
-  <code role="cell" class="source-line">  <span class="syn_reserved" >octet</span>                 <span class="syn_def" data-symbols="_ZN16nsIXPCTestParams9TestOctetEhPhS0_,#testOctet" data-i="3" >testOctet</span>(<span class="syn_reserved" >in</span> <span class="syn_reserved" >octet</span> a, <span class="syn_reserved" >inout</span> <span class="syn_reserved" >octet</span> b);
+  <code role="cell" class="source-line">  <span class="syn_reserved" >octet</span>                 <span class="syn_def syn_def" data-symbols="_ZN16nsIXPCTestParams9TestOctetEhPhS0_,_ZN16nsIXPCTestParams9TestOctetEhPhS0_,#testOctet" data-i="3" >testOctet</span>(<span class="syn_reserved" >in</span> <span class="syn_reserved" >octet</span> a, <span class="syn_reserved" >inout</span> <span class="syn_reserved" >octet</span> b);
 </code>
 </div>
 
