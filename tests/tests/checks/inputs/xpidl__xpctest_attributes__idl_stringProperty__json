@@ -1,0 +1,1 @@
+filter-analysis xpidl/xpctest_attributes.idl -k idl -i "stringProperty"
