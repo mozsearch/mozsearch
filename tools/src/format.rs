@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 use crate::blame;
@@ -375,7 +375,6 @@ pub fn format_file_data(
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     coverage: &Option<Vec<i32>>,
     writer: &mut dyn Write,
-    mut diff_cache: Option<&mut git_ops::TreeDiffCache>,
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
@@ -440,13 +439,6 @@ pub fn format_file_data(
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    // Keep a cache of the "previous blame" computation across all
-    // lines in the file. If we do encounter a changeset that we
-    // want to ignore, chances are many lines will have that same
-    // changeset as the more recent blame, and so they will all do
-    // the same computation needlessly without this cache.
-    let mut prev_blame_cache = git_ops::PrevBlameCache::new();
-
     // Map blame revisions to consecutive integer identifiers so that our aria
     // labels for screen readers can have a more human friendly identifier than
     // (some portion of) the git hash.
@@ -499,82 +491,15 @@ pub fn format_file_data(
 
             // These store the final data we ship to the front-end.
             // Each of these is a comma-separated list with one element
-            // for each blame entry.
-            let mut revs = blame_line.rev.to_string();
-            let mut filespecs = blame_line.path.to_string();
-            let mut blame_linenos = blame_line.lineno.to_string();
+            // for each blame entry. Currently they only contain one
+            // element ever, since the blame-skipping implementation wasn't
+            // very good and was removed.
+            let revs = blame_line.rev.to_string();
+            let filespecs = blame_line.path.to_string();
+            let blame_linenos = blame_line.lineno.to_string();
 
             let human_id =
                 blame_hash_to_human_id.entry(revs.clone()).or_insert_with(|| { let id = next_human_id; next_human_id += 1; id } );
-
-            if let Some(ref git) = tree_config.git {
-                // These are the inputs to the find_prev_blame operation,
-                // updated per iteration of the loop.
-                let mut cur_rev = blame_line.rev.to_string();
-                let mut cur_path = PathBuf::from(if blame_line.is_path_unchanged() { path } else { blame_line.path.as_ref() });
-                // See bug 1670395 - if the filename has a colon in it, this code won't work properly,
-                // and we might fail to parse blame_line.lineno as a u32. Guard against that case until
-                // we have a proper fix, by skipping the blame-skip loop if cur_lineno is an Err value.
-                let mut cur_lineno = blame_line.lineno.parse::<u32>();
-
-                let mut max_ignored_allowed = 5; // chosen arbitrarily
-                while cur_lineno.is_ok() && git.should_ignore_for_blame(&cur_rev) {
-                    if max_ignored_allowed == 0 {
-                        // Push an empty entry on the end to indicate we hit the
-                        // limit, but the last entry was still ignored
-                        revs.push_str(",");
-                        filespecs.push_str(",");
-                        blame_linenos.push_str(",");
-                        break;
-                    }
-                    max_ignored_allowed -= 1;
-
-                    let (prev_blame_line, prev_path) = match git_ops::find_prev_blame(
-                        git,
-                        &cur_rev,
-                        &cur_path,
-                        cur_lineno.unwrap(),
-                        &mut prev_blame_cache,
-                        diff_cache.as_mut().map(|c| &mut **c),
-                    ) {
-                        Ok(prev) => prev,
-                        Err(e) => {
-                            // This can happen for many legitimate reasons, so
-                            // handle it gracefully
-                            info!("Unable to find prev blame: {:?}", e);
-                            break;
-                        }
-                    };
-
-                    let prev_line = blame::LineData::deserialize(&prev_blame_line);
-
-                    revs.push_str(",");
-                    revs.push_str(prev_line.rev.as_ref());
-                    filespecs.push_str(",");
-                    filespecs.push_str(match (prev_line.is_path_unchanged(), prev_line.path.as_ref(), &prev_path, &cur_path) {
-                        // file didn't move
-                        (true, _, prev, cur) if prev == cur => "%",
-                        // file moved
-                        (true, _, prev, _) => prev.to_str().unwrap(),
-                        // file moved, then moved back
-                        (false, prevprev, _, cur) if Path::new(prevprev) == *cur => "%",
-                        // file moved and moved again
-                        (false, prevprev, _, _) => prevprev,
-                    });
-
-                    blame_linenos.push_str(",");
-                    blame_linenos.push_str(prev_line.lineno.as_ref());
-
-                    // Update inputs to find_prev_blame for the next iteration
-                    cur_rev = prev_line.rev.to_string();
-                    cur_path = if prev_line.is_path_unchanged() {
-                        prev_path
-                    } else {
-                        PathBuf::from(prev_line.path.as_ref())
-                    };
-                    cur_lineno = prev_line.lineno.parse::<u32>();
-                }
-            }
 
             let same_rev_as_last = last_revs.map_or(false, |last| last == revs);
             let color = if same_rev_as_last {
@@ -821,7 +746,6 @@ pub fn format_path(
         &analysis,
         &None,
         writer,
-        None,
     )
 }
 

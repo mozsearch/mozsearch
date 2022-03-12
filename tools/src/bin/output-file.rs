@@ -21,7 +21,6 @@ use tools::describe;
 use tools::file_format::analysis::{read_analysis, read_jumps, read_source};
 use tools::find_source_file;
 use tools::format::format_file_data;
-use tools::git_ops;
 use tools::languages;
 
 use tools::output::{InfoBox, PanelItem, PanelSection, F};
@@ -446,7 +445,6 @@ fn main() {
     extension_mapping.insert("hpp", ("source", vec!["cpp", "cc", "cxx"]));
     extension_mapping.insert("hxx", ("source", vec!["cpp", "cc", "cxx"]));
 
-    let mut diff_cache = git_ops::TreeDiffCache::new();
     for path in fname_args {
         println!("File {}", path);
 
@@ -873,7 +871,6 @@ fn main() {
             &analysis,
             &per_file_info.coverage,
             &mut writer,
-            Some(&mut diff_cache),
         )
         .unwrap();
 
