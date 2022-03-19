@@ -22,6 +22,7 @@ ipdl_parser = { path = "./ipdl_parser" }
 itertools = "0.7.11"
 jemalloc-sys = "0.3.2"
 jemallocator = "0.3.2"
+json-structural-diff = "0.1.0"
 lazy_static = "1.1"
 linkify = "0.2.0"
 log = "0.4.0"
