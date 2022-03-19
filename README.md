@@ -337,13 +337,17 @@ blame repository is used to generate HTML for the blame strip.
 
 ## More background
 
-* [Index Directory Contents](docs/index-directory-contents.md)
-* [Blame caching](docs/blame.md)
-* [Analysis](docs/analysis.md)
-* [Cross-referencing](docs/crossref.md)
-* [HTML output](docs/output.md)
-* [Testing](docs/testing-checks.md)
-* [Web serving](docs/web-server.md)
-* [Deploying to AWS](docs/aws.md)
-* [Adding new repos](docs/newrepo.md)
-* [Bash scripting cheatsheet](docs/bash-scripting-cheatsheet.md)
+* Production Reference
+  * [Adding new repos](docs/newrepo.md)
+  * [AWS Production Infrastructure Details and Runbooks](docs/aws.md)
+* Implementation Documentation
+  * [Analysis](docs/analysis.md)
+  * [Blame caching](docs/blame.md)
+  * [Cross-referencing](docs/crossref.md)
+  * [Index Directory Contents](docs/index-directory-contents.md)
+  * [HTML output](docs/output.md)
+  * [Testing](docs/testing-checks.md)
+  * [Web serving](docs/web-server.md)
+* Cheatsheets
+  * [Bash scripting cheatsheet](docs/bash-scripting-cheatsheet.md)
+  * [searchfox-tool cookbook](docs/searchfox-tool-cookbook.md)

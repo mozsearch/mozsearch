@@ -32,18 +32,13 @@ combined with comments and discussion in the
 ### Normalizations
 
 Production repositories will inherently change over time.  In particular,
-production blame and coverage data will continually change.  To this end, the
-testing mechanism's HTML output currently elides blame and coverage data for
-both production cases (good) and our "tests" repo (less good).
-
-#### Future Work
-
-We will likely need to do additional development to make the normalizations
-production-only and more extensive to potentially allow for changes in line
-numbers.  It's not clear if this change in behavior should be something that
-happens automatically by the presence of an environment variable or if the
-production checks should use explicit searchfox-tool commands/arguments
-introduced to support this.
+production blame and coverage data will continually change.  To this end, we
+have implemented a `prod-filter` command that is used in our production checks
+in order to:
+- Strip .cov-strip elements.
+- Strip .blame-strip elements.
+- Replace line numbers with N
+- Replace data-i values with "NORM".
 
 ## Purpose of the Checks
 
