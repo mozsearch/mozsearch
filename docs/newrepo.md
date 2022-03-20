@@ -57,7 +57,8 @@ infrastructure/aws/upload.py ./glean.tar searchfox.repositories glean.tar
 infrastructure/aws/upload.py ./glean-blame.tar searchfox.repositories glean-blame.tar
 ```
 
-Equivalently, you can do it with the aws CLI tool, making sure to set the permissions:
+The above commands don't provide progress output. You can equivalently do the upload with
+the aws CLI tool, which does provide progress output. Make sure to set the permissions:
 ```
 cd $MOZSEARCH
 aws s3 cp ./glean.tar s3://searchfox.repositories/glean.tar --acl public-read
@@ -89,9 +90,10 @@ and then modify the `config.json` file with an entry for new repo. A basic one m
     }
 ```
 
-A couple things to note:
+A few things to note:
 * The `codesearch_port` should be unique in the file, so increment by one compared to whatever the last entry in the file is.
 * Watch your commas! This is JSON, so the last entry should not be followed by a comma.
+* If the repo contains git submodules, you need to set `walk_submodules` to `False`. Otherwise the codesearch text indexing tool will attempt to index submodules and fail.
 
 You also need to create a folder for your repo, with the `setup`, `build`, `upload`, and `find-repo-files` scripts. You can
 look at the existing folders for other repos for inspiration. Copy-pasting from something like the `glean` repo will probably
