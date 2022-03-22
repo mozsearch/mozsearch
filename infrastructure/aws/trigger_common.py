@@ -91,8 +91,8 @@ class TriggerCommandBase:
 
     cd ~ubuntu
     {extra_commands}
-    sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
-    sudo -i -u ubuntu mozsearch/infrastructure/aws/main.sh {core_script} {max_runtime_hours} "{branch}" "{channel}" {extra_args}
+    sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
+    sudo -i -u ubuntu {cmd_env_vars} mozsearch/infrastructure/aws/main.sh {core_script} {max_runtime_hours} "{branch}" "{channel}" {extra_args}
     '''.format(
         core_script=self.core_script,
         max_runtime_hours=self.max_runtime_hours,
@@ -100,6 +100,7 @@ class TriggerCommandBase:
         channel=args.channel,
         mozsearch_repo=args.mozsearch_repo,
         config_repo=args.config_repo,
+        cmd_env_vars=" ".join(args.env_vars),
         extra_commands=extra_commands,
         extra_args=extra_args
         )
