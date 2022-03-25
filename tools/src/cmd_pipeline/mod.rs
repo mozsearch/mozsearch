@@ -8,6 +8,7 @@ pub mod symbol_graph;
 
 mod cmd_crossref_lookup;
 mod cmd_filter_analysis;
+mod cmd_graph;
 mod cmd_merge_analyses;
 mod cmd_prod_filter;
 mod cmd_query;

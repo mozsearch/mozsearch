@@ -1,20 +1,33 @@
 use async_trait::async_trait;
+use clap::arg_enum;
 use structopt::StructOpt;
 
-use super::interface::{
-    PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolList,
-};
+use graphviz_rust::cmd::{CommandArg, Format};
+use graphviz_rust::exec;
+use graphviz_rust::printer::{DotPrinter, PrinterContext};
+
+use super::interface::{FileBlob, PipelineCommand, PipelineValues};
 
 use crate::abstract_server::{AbstractServer, Result};
+
+arg_enum! {
+    #[derive(Debug, PartialEq)]
+    pub enum GraphFormat {
+        // Raw dot syntax without any layout performed.
+        RawDot,
+        SVG,
+        PNG,
+        // Dot with layout information.
+        Dot,
+    }
+}
 
 /// Render a received graph into a dot, svg, or json-wrapped-svg which also
 /// includes embedded crossref information.
 #[derive(Debug, StructOpt)]
 pub struct Graph {
-    /// Explicit symbols to lookup.
-    symbols: Vec<String>,
-    // TODO: It might make sense to provide a way to filter the looked up data
-    // by kind, although that could of course be its own command too.
+    #[structopt(long, short, possible_values = &GraphFormat::variants(), case_insensitive = true, default_value = "svg")]
+    pub format: GraphFormat,
 }
 
 /// ## Graph Implementation Thoughts / Rationale ##
@@ -55,7 +68,7 @@ pub struct Graph {
 ///   significant helper modules that potentially in turn call other non-boring
 ///   methods.
 /// - Cross-module function calls to non-core-infrastructure modules.  In IDB
-///   this would mean Quota Manager and mozStorage are both moduleles that
+///   this would mean Quota Manager and mozStorage are both modules that
 ///   involve core application-domain logic.
 /// - Cross-module function calls to "boring" core-infrastructure modules.  For
 ///   example, the fancy branch elides all calls to smart pointers and XPCOM
@@ -94,19 +107,11 @@ pub struct GraphCommand {
 impl PipelineCommand for GraphCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        _server: &Box<dyn AbstractServer + Send + Sync>,
         input: PipelineValues,
     ) -> Result<PipelineValues> {
-        // XXX this is still just crossref-lookup cut-and-pasted
-        let symbol_list = match input {
-            PipelineValues::SymbolList(sl) => sl,
-            // Right now we're assuming that we're the first command in the
-            // pipeline so that we would have no inputs if someone wants to use
-            // arguments...
-            PipelineValues::Void => SymbolList {
-                symbols: self.args.symbols.clone(),
-                from_identifiers: None,
-            },
+        let graphs = match input {
+            PipelineValues::SymbolGraphCollection(sgc) => sgc,
             // TODO: Figure out a better way to handle a nonsensical pipeline
             // configuration / usage.
             _ => {
@@ -114,19 +119,27 @@ impl PipelineCommand for GraphCommand {
             }
         };
 
-        let mut symbol_crossref_infos = vec![];
-        for symbol in symbol_list.symbols {
-            let info = server.crossref_lookup(&symbol).await?;
-            symbol_crossref_infos.push(SymbolCrossrefInfo {
-                symbol,
-                crossref_info: info,
-            });
+        let dot_graph = graphs.graph_to_graphviz(graphs.graphs.len() - 1);
+        if self.args.format == GraphFormat::RawDot {
+            let raw_dot_str = dot_graph.print(&mut PrinterContext::default());
+            return Ok(PipelineValues::FileBlob(FileBlob {
+                mime_type: "text/x-dot".to_string(),
+                contents: raw_dot_str.as_bytes().to_vec(),
+            }));
         }
-
-        Ok(PipelineValues::SymbolCrossrefInfoList(
-            SymbolCrossrefInfoList {
-                symbol_crossref_infos,
-            },
-        ))
+        let (format, mime_type) = match self.args.format {
+            GraphFormat::SVG => (Format::Svg, "image/svg+xml".to_string()),
+            GraphFormat::PNG => (Format::Png, "image/png".to_string()),
+            _ => (Format::Dot, "text/x-dot".to_string()),
+        };
+        let graph_contents = exec(
+            dot_graph,
+            &mut PrinterContext::default(),
+            vec![CommandArg::Format(format)],
+        )?.as_bytes().to_vec();
+        Ok(PipelineValues::FileBlob(FileBlob {
+            mime_type,
+            contents: graph_contents,
+        }))
     }
 }

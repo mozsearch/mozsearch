@@ -37,6 +37,7 @@ pub enum PipelineValues {
     JsonValue(JsonValue),
     JsonRecords(JsonRecords),
     HtmlExcerpts(HtmlExcerpts),
+    FileBlob(FileBlob),
     Void,
 }
 
@@ -114,6 +115,11 @@ pub struct HtmlExcerptsByFile {
 
 pub struct HtmlExcerpts {
     pub by_file: Vec<HtmlExcerptsByFile>,
+}
+
+pub struct FileBlob {
+    pub mime_type: String,
+    pub contents: Vec<u8>,
 }
 
 #[async_trait]

@@ -8,7 +8,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand, cmd_crossref_lookup::CrossrefLookupCommand, cmd_search_identifiers::SearchIdentifiersCommand};
+use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand, cmd_crossref_lookup::CrossrefLookupCommand, cmd_search_identifiers::SearchIdentifiersCommand, cmd_graph::GraphCommand};
 use super::cmd_query::QueryCommand;
 use super::cmd_show_html::ShowHtmlCommand;
 use super::cmd_traverse::TraverseCommand;
@@ -70,6 +70,10 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
 
             Command::FilterAnalysis(fa) => {
                 commands.push(Box::new(FilterAnalysisCommand { args: fa }));
+            }
+
+            Command::Graph(g) => {
+                commands.push(Box::new(GraphCommand { args: g }));
             }
 
             Command::MergeAnalyses(ma) => {

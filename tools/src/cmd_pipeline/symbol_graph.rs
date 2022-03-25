@@ -1,12 +1,14 @@
-use std::collections::{HashMap, BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use dot_generator::*;
+use dot_structures::*;
 use petgraph::{
     graph::{DefaultIx, NodeIndex},
-    Directed, Graph,
+    Directed, Graph as PetGraph,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
-use crate::abstract_server::{Result, AbstractServer, ServerError, ErrorDetails, ErrorLayer};
+use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
 /**
 Graph abstraction for symbols built on top of petgraph.
@@ -72,21 +74,28 @@ pub struct DerivedSymbolInfo {
 }
 
 pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
-  match semantic_kind {
-    "function" => true,
-    "method" => true,
-    _ => false,
-  }
+    match semantic_kind {
+        "function" => true,
+        "method" => true,
+        _ => false,
+    }
 }
 
 impl DerivedSymbolInfo {
-  pub fn is_callable(&self) -> bool {
-    let is_callable = match self.crossref_info.pointer("/meta/kind") {
-        Some(Value::String(sem_kind)) => semantic_kind_is_callable(sem_kind),
-        _ => false,
-    };
-    return is_callable;
-  }
+    pub fn is_callable(&self) -> bool {
+        let is_callable = match self.crossref_info.pointer("/meta/kind") {
+            Some(Value::String(sem_kind)) => semantic_kind_is_callable(sem_kind),
+            _ => false,
+        };
+        return is_callable;
+    }
+
+    pub fn get_pretty(&self) -> String {
+        match self.crossref_info.pointer("/meta/pretty") {
+            Some(Value::String(pretty)) => pretty.clone(),
+            _ => self.symbol.clone(),
+        }
+    }
 }
 
 impl DerivedSymbolInfo {
@@ -147,13 +156,47 @@ impl SymbolGraphCollection {
 
             edges.insert(
                 format!("{}-{}", source_sym, target_sym),
-                json!({ "from": source_sym, "to": target_sym }));
+                json!({ "from": source_sym, "to": target_sym }),
+            );
         }
 
         json!({
             "nodes": nodes.into_iter().collect::<Vec<String>>(),
             "edges": edges.into_values().collect::<Value>(),
         })
+    }
+
+    /// Convert the graph with the given index to a graphviz rep.
+    pub fn graph_to_graphviz(&self, graph_idx: usize) -> Graph {
+        let mut dot_graph = graph!(di "");
+
+        let graph = match self.graphs.get(graph_idx) {
+            Some(g) => g,
+            None => return dot_graph,
+        };
+
+        let mut nodes = BTreeSet::new();
+        for (source_id, target_id) in graph.list_edges() {
+            let source_info = self.node_set.get(&source_id);
+            let source_sym = source_info.symbol.clone();
+            if nodes.insert(source_sym.clone()) {
+                dot_graph.add_stmt(stmt!(
+                    node!(esc source_sym.clone(); attr!("label", esc source_info.get_pretty()))
+                ));
+            }
+
+            let target_info = self.node_set.get(&target_id);
+            let target_sym = target_info.symbol.clone();
+            if nodes.insert(target_sym.clone()) {
+                dot_graph.add_stmt(stmt!(
+                    node!(esc target_sym.clone(); attr!("label", esc target_info.get_pretty()))
+                ));
+            }
+
+            dot_graph.add_stmt(stmt!(edge!(node_id!(&source_sym) => node_id!(&target_sym))));
+        }
+
+        dot_graph
     }
 
     pub fn to_json(&self) -> Value {
@@ -172,7 +215,7 @@ impl SymbolGraphCollection {
 /// A graph whose nodes are symbols from a `SymbolGraphNodeSet`.
 pub struct NamedSymbolGraph {
     pub name: String,
-    graph: Graph<u32, (), Directed>,
+    graph: PetGraph<u32, (), Directed>,
     /// Maps SymbolGraphNodeId values to NodeIndex values when the node is
     /// present in the graph.  Exclusively used by ensure_node and it's likely
     /// this could be improved to more directly use NodeIndex.
@@ -185,14 +228,14 @@ impl NamedSymbolGraph {
     pub fn new(name: String) -> Self {
         NamedSymbolGraph {
             name,
-            graph: Graph::new(),
+            graph: PetGraph::new(),
             node_id_to_ix: HashMap::new(),
             node_ix_to_id: HashMap::new(),
         }
     }
 
     pub fn containts_node(&self, sym_id: SymbolGraphNodeId) -> bool {
-      self.node_id_to_ix.contains_key(&sym_id.0)
+        self.node_id_to_ix.contains_key(&sym_id.0)
     }
 
     fn ensure_node(&mut self, sym_id: SymbolGraphNodeId) -> NodeIndex {
@@ -216,8 +259,14 @@ impl NamedSymbolGraph {
     pub fn list_edges(&self) -> Vec<(SymbolGraphNodeId, SymbolGraphNodeId)> {
         let mut id_edges = vec![];
         for edge in self.graph.raw_edges() {
-            let source_id = self.node_ix_to_id.get(&(edge.source().index() as u32)).unwrap();
-            let target_id = self.node_ix_to_id.get(&(edge.target().index() as u32)).unwrap();
+            let source_id = self
+                .node_ix_to_id
+                .get(&(edge.source().index() as u32))
+                .unwrap();
+            let target_id = self
+                .node_ix_to_id
+                .get(&(edge.target().index() as u32))
+                .unwrap();
             id_edges.push((SymbolGraphNodeId(*source_id), SymbolGraphNodeId(*target_id)));
         }
         id_edges
@@ -268,18 +317,30 @@ impl SymbolGraphNodeSet {
     }
 
     /// Add a symbol and return the unwrapped data that lookup_symbol would have provided.
-    pub fn add_symbol(&mut self, sym_info: DerivedSymbolInfo) -> (SymbolGraphNodeId, &DerivedSymbolInfo) {
+    pub fn add_symbol(
+        &mut self,
+        sym_info: DerivedSymbolInfo,
+    ) -> (SymbolGraphNodeId, &DerivedSymbolInfo) {
         let index = self.symbol_crossref_infos.len();
         let symbol = sym_info.symbol.clone();
         self.symbol_crossref_infos.push(sym_info);
-        self.symbol_to_index_map
-            .insert(symbol, index as u32);
-        (SymbolGraphNodeId(index as u32), self.symbol_crossref_infos.get(index).unwrap())
+        self.symbol_to_index_map.insert(symbol, index as u32);
+        (
+            SymbolGraphNodeId(index as u32),
+            self.symbol_crossref_infos.get(index).unwrap(),
+        )
     }
 
-    pub async fn ensure_symbol(&mut self, sym: &str, server: &Box<dyn AbstractServer + Send + Sync>) -> Result<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
+    pub async fn ensure_symbol(
+        &mut self,
+        sym: &str,
+        server: &Box<dyn AbstractServer + Send + Sync>,
+    ) -> Result<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {
-            let sym_info = self.symbol_crossref_infos.get(*index as usize).ok_or_else(make_data_invariant_err)?;
+            let sym_info = self
+                .symbol_crossref_infos
+                .get(*index as usize)
+                .ok_or_else(make_data_invariant_err)?;
             return Ok((SymbolGraphNodeId(*index), sym_info));
         }
 

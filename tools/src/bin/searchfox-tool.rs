@@ -1,7 +1,13 @@
-use std::env::args_os;
+use std::{
+    env::args_os,
+    io::{self, Write},
+};
 
 use serde_json::{to_string_pretty, Value};
-use tools::{cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues}, abstract_server::{ServerError, ErrorLayer, ErrorDetails}};
+use tools::{
+    abstract_server::{ErrorDetails, ErrorLayer, ServerError},
+    cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues},
+};
 
 #[tokio::main]
 async fn main() {
@@ -12,16 +18,22 @@ async fn main() {
     // We're expecting a single argument
     if os_args.len() == 1 {
         println!("!!! NOTE !!!");
-        println!("This command expects a single argument that it can parse up; quote in your shell.");
+        println!(
+            "This command expects a single argument that it can parse up; quote in your shell."
+        );
         println!("Example: `searchfox-tool 'cmd1 --arg | cmd2 --arg | cmd3'");
         println!("");
-        println!("The built-in help will work, but the arg parser gets invoked once for each pipe.");
+        println!(
+            "The built-in help will work, but the arg parser gets invoked once for each pipe."
+        );
         println!("---");
 
         os_args.push("--help".to_string())
-    } else if os_args.len() > 2{
+    } else if os_args.len() > 2 {
         println!("!!! TOO MANY ARGS !!!");
-        println!("This command expects a single argument that it can parse up; quote in your shell.");
+        println!(
+            "This command expects a single argument that it can parse up; quote in your shell."
+        );
         println!("Example: `searchfox-tool 'cmd1 --arg | cmd2 --arg | cmd3'");
         println!("^^^");
         std::process::exit(2);
@@ -29,7 +41,10 @@ async fn main() {
 
     let (pipeline, output_format) = match build_pipeline(&os_args[0], &os_args[1]) {
         Ok(pipeline) => pipeline,
-        Err(ServerError::StickyProblem(ErrorDetails { layer: ErrorLayer::BadInput, message })) => {
+        Err(ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::BadInput,
+            message,
+        })) => {
             println!("{}", message);
             std::process::exit(1);
         }
@@ -93,6 +108,10 @@ async fn main() {
                     println!("{}", str);
                 }
             }
+            0
+        }
+        Ok(PipelineValues::FileBlob(fb)) => {
+            let _ = io::stdout().write_all(&fb.contents);
             0
         }
         Ok(PipelineValues::JsonRecords(jr)) => {

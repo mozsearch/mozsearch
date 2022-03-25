@@ -116,6 +116,9 @@ if [ ! -d livegrep ]; then
   rm -rf .cache/bazel
 fi
 
+# graphviz for diagramming
+sudo apt-get install -y graphviz
+
 # Install AWS scripts and command-line tool.
 #
 # awscli can get credentials via `Ec2InstanceMetadata` which will give it the

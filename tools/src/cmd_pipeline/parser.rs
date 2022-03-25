@@ -3,6 +3,7 @@ use structopt::StructOpt;
 
 use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_filter_analysis::FilterAnalysis;
+use super::cmd_graph::Graph;
 use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
@@ -46,6 +47,7 @@ pub struct ToolOpts {
 pub enum Command {
     CrossrefLookup(CrossrefLookup),
     FilterAnalysis(FilterAnalysis),
+    Graph(Graph),
     MergeAnalyses(MergeAnalyses),
     ProductionFilter(ProductionFilter),
     Query(Query),
