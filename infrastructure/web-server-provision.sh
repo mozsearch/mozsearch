@@ -82,6 +82,9 @@ SITEDIR=$(python3 -m site --user-site)
 mkdir -p "$SITEDIR"
 echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 
+# graphviz for diagramming
+sudo apt-get install -y graphviz
+
 # Install AWS scripts and command-line tool.
 #
 # Note that we don't run the web server with an IAM role so the `aws` tool won't

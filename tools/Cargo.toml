@@ -9,10 +9,13 @@ async-stream = "0.3.2"
 async-trait = "0.1.50"
 chrono = "0.2"
 clap = "2"
+dot-generator = "0.2.0"
+dot-structures = "0.1.0"
 env_logger = "0.7.1"
 flate2 = { version = "1", features = ["tokio"] }
 futures-core = "0.3.17"
 getopts = "0.2.19"
+graphviz-rust = "0.2.0"
 git2 = "0.13.20"
 hyper = "0.10"
 insta = { version = "1.7.1", features = ["glob"] }

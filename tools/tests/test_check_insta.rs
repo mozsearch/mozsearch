@@ -1,3 +1,5 @@
+use std::str;
+
 use serde_json::{json, Value};
 use tokio::fs::{read_dir, read_to_string};
 use tools::{
@@ -111,6 +113,9 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                                 }
                             }
                             insta::assert_snapshot!(&aggr_str);
+                        }
+                        Ok(PipelineValues::FileBlob(fb)) => {
+                            insta::assert_snapshot!(str::from_utf8(&fb.contents).unwrap_or("ERROR"));
                         }
                         Ok(PipelineValues::JsonRecords(jr)) => {
                             let mut json_results = vec![];
