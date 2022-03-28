@@ -288,7 +288,7 @@ var Sticky = new (class Sticky {
     const jitter = 6;
 
     function extractLineNumberFromElem(elem) {
-      if (!elem.classList.contains("line-number")) {
+      if (!elem || !elem.classList.contains("line-number")) {
         return null;
       }
       let num = parseInt(elem.dataset.lineNumber, 10);
@@ -306,10 +306,8 @@ var Sticky = new (class Sticky {
      * transition from stuck elements to partially-scrolled source lines.  It
      * means the current set of lines are all stuck.
      *
-     * If we do find a line-number, then we have to look at the actual line
-     * number.  If it's consecutive with the previous line, then it means the
-     * previous line AND this line are both not stuck, and we should return
-     * what we had exclusive of the previous line.
+     * If we do find a line-number, then we look at the displacement vs. the
+     * statically-positioned ancestor, to detect which ones are stuck.
      */
     function walkLinesAndGetLines() {
       let offset = 6;
@@ -349,16 +347,19 @@ var Sticky = new (class Sticky {
           break;
         }
 
-        let lineNum = parseInt(elem.dataset.lineNumber, 10);
-
-        let expectedLineNum = sanityCheckLineNum - MAX_NESTING + iLine;
-        if (lineNum !== expectedLineNum) {
-          // the line-number's parent is the source-line-with-number
-          sourceLines.push(elem.parentElement);
-        } else {
+        let parentElem = elem.parentElement;
+        if (!parentElem.classList.contains("nesting-sticky-line")) {
           break;
         }
 
+        // We're stuck if the sticky element is further down from its parent's
+        // static position.
+        if (parentElem.offsetTop <= parentElem.parentElement.offsetTop) {
+          break;
+        }
+
+        // the line-number's parent is the source-line-with-number
+        sourceLines.push(parentElem);
         offset += lineHeight;
       }
 
