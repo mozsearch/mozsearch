@@ -15,6 +15,7 @@ extern crate jemalloc_sys;
 extern crate jemallocator;
 extern crate liquid;
 extern crate malloc_size_of;
+extern crate query_parser;
 extern crate serde;
 extern crate serde_json;
 extern crate structopt;
@@ -23,8 +24,10 @@ extern crate tracing;
 extern crate tracing_subscriber;
 
 pub mod abstract_server;
-pub mod file_format;
 pub mod cmd_pipeline;
+pub mod file_format;
+pub mod query;
+pub mod templating;
 
 pub mod blame;
 pub mod config;
@@ -35,7 +38,6 @@ pub mod glob_helper;
 pub mod languages;
 pub mod links;
 pub mod output;
-pub mod templating;
 pub mod tokenize;
 
 #[global_allocator]

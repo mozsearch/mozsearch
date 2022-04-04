@@ -73,3 +73,10 @@ were due to aggregating based on the path first.)
 ```
 searchfox-tool 'query "new xmlhttpreques" | query --diff --normalize --dictify "new xmlhttprequest"'
 ```
+
+### Graphing Test Server contents
+
+From inside the VM:
+```
+./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --format=svg' > /vagrant/pretty.svg
+```

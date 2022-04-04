@@ -2,7 +2,7 @@ use std::{
     env::args_os,
 };
 
-use serde_json::{to_string_pretty, Value};
+use serde_json::{to_string_pretty, Value, to_value};
 use tools::{
     abstract_server::{ErrorDetails, ErrorLayer, ServerError},
     cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues},
@@ -106,6 +106,14 @@ async fn main() {
             emit_json(&sgc.to_json());
             0
         }
+        Ok(PipelineValues::StructuredResultsBundle(srb)) => {
+            emit_json(&to_value(srb).unwrap());
+            0
+        }
+        Ok(PipelineValues::FlattenedResultsBundle(frb)) => {
+            emit_json(&to_value(frb).unwrap());
+            0
+        }
         Ok(PipelineValues::HtmlExcerpts(he)) => {
             for file_excerpts in he.by_file {
                 //println!("HTML excerpts from: {}", file_excerpts.file);
@@ -129,6 +137,10 @@ async fn main() {
         }
         Ok(PipelineValues::JsonValue(jv)) => {
             emit_json(&jv.value);
+            0
+        }
+        Ok(PipelineValues::TextMatches(tm)) => {
+            emit_json(&to_value(tm).unwrap());
             0
         }
         Err(err) => {
