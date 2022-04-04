@@ -210,13 +210,16 @@ for repo in config['trees']:
     location('/%(repo)s/sorch', ['proxy_pass http://localhost:8000;'])
     location('/%(repo)s/define', ['proxy_pass http://localhost:8000;'])
 
-    # Handled by Rust web-server.
+    # Handled by Rust `web-server.rs`.
     location('/%(repo)s/diff', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/commit', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/rev', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/hgrev', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/complete', ['proxy_pass http://localhost:8001;'])
     location('/%(repo)s/commit-info', ['proxy_pass http://localhost:8001;'])
+
+    # Handled by Rust `pipeline-server.rs`
+    location('/%(repo)s/query', ['proxy_pass http://localhost:8002;'])
 
     del fmt['repo']
     del fmt['head']

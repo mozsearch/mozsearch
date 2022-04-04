@@ -39,7 +39,10 @@ pub enum PipelineValues {
     SymbolGraphCollection(SymbolGraphCollection),
     JsonValue(JsonValue),
     JsonRecords(JsonRecords),
+    TextMatches(TextMatches),
     HtmlExcerpts(HtmlExcerpts),
+    StructuredResultsBundle(StructuredResultsBundle),
+    FlattenedResultsBundle(FlattenedResultsBundle),
     TextFile(TextFile),
     Void,
 }
@@ -74,7 +77,82 @@ pub struct SymbolCrossrefInfoList {
     pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
 }
 
+/// Livegrep/codesearch bounds
+#[derive(Serialize)]
+pub struct TextBounds {
+    pub start: u32,
+    pub end_exclusive: u32,
+}
 
+/// Livegrep/codesearch line hit results
+#[derive(Serialize)]
+pub struct TextMatchInFile {
+    pub line_num: u32,
+    pub bounds: TextBounds,
+    pub line_str: String,
+}
+
+#[derive(Serialize)]
+pub struct TextMatchesByFile {
+    pub file: String,
+    pub matches: Vec<TextMatchInFile>,
+}
+
+/// Livegrep/codesearch text search results clustered by file.
+#[derive(Serialize)]
+pub struct TextMatches {
+    pub by_file: Vec<TextMatchesByFile>,
+}
+
+/// A mixture of file names (paths), SymbolCrossrefInfo instances, and text
+/// matches by file.  This gets compiled into a `FlattenedResultsBundle` by the
+/// `compile-results` pipeline command.
+#[derive(Serialize)]
+pub struct StructuredResultsBundle {
+    pub file_names: Vec<String>,
+    pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
+    pub text_matches_by_file: Vec<TextMatchesByFile>,
+}
+
+/// router.py-style mozsearch compiled results that has top-level path-kind
+/// (normal/test/generated) result clusters, where each cluster has file names /
+/// paths and line hits grouped by symbol-with-kind and by file name/path
+/// beneath that.
+///
+/// Line results can contain raw source text or HTML-rendered excerpts if
+/// augmented by the `show-html` command.
+#[derive(Serialize)]
+pub struct FlattenedResultsBundle {
+    pub path_kind_results: Vec<FlattenedPathKindGroupResults>,
+    pub content_type: String,
+}
+
+#[derive(Serialize)]
+pub struct FlattenedPathKindGroupResults {
+    pub path_kind: String,
+    pub file_names: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct FlattenedKindGroupResults {
+    pub pretty: String,
+    pub symbols: Option<Vec<String>>,
+    pub kind: String,
+    pub by_file: Vec<FlattenedResultsByFile>,
+}
+
+#[derive(Serialize)]
+pub struct FlattenedResultsByFile {
+    pub file: String,
+    pub line_spans: Vec<FlattenedLineSpan>,
+}
+
+/// Represents a range of lines in a file.
+#[derive(Serialize)]
+pub struct FlattenedLineSpan {
+    pub line_range: (u32, u32),
+    pub contents: String,
+}
 
 /// JSON records are raw analysis records from a single file (for now)
 #[derive(Serialize)]
@@ -135,6 +213,8 @@ pub struct TextFile {
     pub contents: String,
 }
 
+/// A command that takes a single input and produces a single output.  At the
+/// start of the pipeline, the input may be ignored / expected to be void.
 #[async_trait]
 pub trait PipelineCommand : Debug {
     async fn execute(
@@ -144,10 +224,47 @@ pub trait PipelineCommand : Debug {
     ) -> Result<PipelineValues>;
 }
 
+/// A command that takes multiple inputs and produces a single output.
+/// XXX speculative while implementing parallel processing.
+#[async_trait]
+pub trait PipelineJunctionCommand : Debug {
+    async fn execute(
+        &self,
+        server: &Box<dyn AbstractServer + Send + Sync>,
+        input: Vec<PipelineValues>,
+    ) -> Result<PipelineValues>;
+}
+
+/// A linear pipeline sequence.
 pub struct ServerPipeline {
     pub server_kind: String,
     pub server: Box<dyn AbstractServer + Send + Sync>,
     pub commands: Vec<Box<dyn PipelineCommand>>,
+}
+
+pub struct NamedPipeline {
+    /// Previous pipeline's output to consume.
+    pub input_name: Option<String>,
+    pub output_name: String,
+    pub commands: Vec<Box<dyn PipelineCommand>>,
+}
+
+pub struct JunctionInvocation {
+    pub input_names: Vec<String>,
+    pub output_name: String,
+    pub command: Box<dyn PipelineJunctionCommand>,
+}
+
+pub struct ParallelPipelines {
+    pub pipelines: Vec<NamedPipeline>,
+    pub junctions: Vec<JunctionInvocation>,
+}
+
+///
+pub struct ServerPipelineGraph {
+    pub server_kind: String,
+    pub server: Box<dyn AbstractServer + Send + Sync>,
+    pub pipelines: Vec<ParallelPipelines>,
 }
 
 impl ServerPipeline {
@@ -173,6 +290,16 @@ impl ServerPipeline {
                 trace!(output_json = %value_str);
             }
         }
+
+        Ok(cur_values)
+    }
+}
+
+impl ServerPipelineGraph {
+    pub async fn run(&self, traced: bool) -> Result<PipelineValues> {
+        let mut cur_values = PipelineValues::Void;
+
+        // XXX impl
 
         Ok(cur_values)
     }
