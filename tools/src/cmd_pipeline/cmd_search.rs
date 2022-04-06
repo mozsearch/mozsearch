@@ -8,11 +8,11 @@ use crate::{
     abstract_server::{AbstractServer, Result},
 };
 
-/// Run a traditional searchfox query against the web server.  This will turn
+/// Run a traditional searchfox search against the web server.  This will turn
 /// into a no-op when run against a local index at this time, but in the future
 /// may be able to spin up the necessary pieces.
 #[derive(Debug, StructOpt)]
-pub struct Query {
+pub struct Search {
   /// Query string
   query: String,
 
@@ -35,8 +35,8 @@ pub struct Query {
 }
 
 
-pub struct QueryCommand {
-  pub args: Query,
+pub struct SearchCommand {
+  pub args: Search,
 }
 
 /// Recursively transforms JSON values, removing any "bounds" value it finds
@@ -103,7 +103,7 @@ fn dictify_root(mut val: Value) -> Value {
 }
 
 #[async_trait]
-impl PipelineCommand for QueryCommand {
+impl PipelineCommand for SearchCommand {
     async fn execute(
         &self,
         server: &Box<dyn AbstractServer + Send + Sync>,
