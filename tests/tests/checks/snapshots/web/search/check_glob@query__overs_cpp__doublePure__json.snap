@@ -1,0 +1,86 @@
+---
+source: tests/test_check_insta.rs
+expression: "&jv.value"
+---
+{
+  "normal": {
+    "Definitions (DoubleBase::doublePure)": [
+      {
+        "path": "overs.cpp",
+        "lines": [
+          {
+            "lno": 9,
+            "bounds": [
+              13,
+              23
+            ],
+            "line": "virtual void doublePure() = 0;",
+            "context": "DoubleBase",
+            "contextsym": "T_DoubleBase",
+            "peekRange": "9-9"
+          }
+        ]
+      }
+    ],
+    "Overridden By (DoubleBase::doublePure)": [
+      {
+        "path": "overs.cpp",
+        "lines": [
+          {
+            "lno": 15,
+            "bounds": [
+              5,
+              15
+            ],
+            "line": "void doublePure() override {",
+            "context": "DoubleSubOne",
+            "contextsym": "T_DoubleSubOne",
+            "peekRange": "15-15",
+            "upsearch": "symbol:_ZN12DoubleSubOne10doublePureEv"
+          },
+          {
+            "lno": 23,
+            "bounds": [
+              5,
+              15
+            ],
+            "line": "void doublePure() override {",
+            "context": "DoubleSubTwo",
+            "contextsym": "T_DoubleSubTwo",
+            "peekRange": "23-23",
+            "upsearch": "symbol:_ZN12DoubleSubTwo10doublePureEv"
+          }
+        ]
+      }
+    ],
+    "Uses (DoubleBase::doublePure)": [
+      {
+        "path": "overs.cpp",
+        "lines": [
+          {
+            "lno": 64,
+            "bounds": [
+              8,
+              18
+            ],
+            "line": "subOne->doublePure();",
+            "context": "generateDoubleUses",
+            "contextsym": "_Z18generateDoubleUsesv"
+          },
+          {
+            "lno": 65,
+            "bounds": [
+              8,
+              18
+            ],
+            "line": "subTwo->doublePure();",
+            "context": "generateDoubleUses",
+            "contextsym": "_Z18generateDoubleUsesv"
+          }
+        ]
+      }
+    ]
+  },
+  "*title*": "DoubleBase::doublePure",
+  "*timedout*": false
+}

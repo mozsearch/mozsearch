@@ -1,0 +1,58 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00024:6-19",
+    "structured": 1,
+    "pretty": "GlobalContext",
+    "sym": "T_GlobalContext",
+    "kind": "class",
+    "sizeBytes": 1,
+    "supers": [],
+    "methods": [
+      {
+        "pretty": "GlobalContext::decideBooleanTrait",
+        "sym": "_ZN13GlobalContext18decideBooleanTraitEv",
+        "props": [
+          "static",
+          "user"
+        ]
+      },
+      {
+        "pretty": "GlobalContext::decideEnigmaticAnimalBooleanTrait",
+        "sym": "_ZN13GlobalContext33decideEnigmaticAnimalBooleanTraitEv",
+        "props": [
+          "static",
+          "user"
+        ]
+      },
+      {
+        "pretty": "GlobalContext::decideCatBooleanTrait",
+        "sym": "_ZN13GlobalContext21decideCatBooleanTraitEv",
+        "props": [
+          "static",
+          "user"
+        ]
+      },
+      {
+        "pretty": "GlobalContext::decideBestFriendBooleanTrait",
+        "sym": "_ZN13GlobalContext28decideBestFriendBooleanTraitEv",
+        "props": [
+          "static",
+          "user"
+        ]
+      },
+      {
+        "pretty": "GlobalContext::decideDogBooleanTrait",
+        "sym": "_ZN13GlobalContext21decideDogBooleanTraitEv",
+        "props": [
+          "static",
+          "user"
+        ]
+      }
+    ],
+    "fields": []
+  }
+]

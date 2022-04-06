@@ -27,6 +27,7 @@ pub mod config;
 pub mod describe;
 pub mod format;
 pub mod git_ops;
+pub mod glob_helper;
 pub mod languages;
 pub mod links;
 pub mod output;

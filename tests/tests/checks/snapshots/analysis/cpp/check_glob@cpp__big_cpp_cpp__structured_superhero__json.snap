@@ -1,0 +1,83 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00188:6-15",
+    "structured": 1,
+    "pretty": "outerNS::Superhero",
+    "sym": "T_outerNS::Superhero",
+    "kind": "class",
+    "sizeBytes": 16,
+    "supers": [
+      {
+        "pretty": "outerNS::Human",
+        "sym": "T_outerNS::Human",
+        "props": []
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "outerNS::Superhero::Superhero",
+        "sym": "_ZN7outerNS9SuperheroC1Ev",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::Superhero::takeDamage",
+        "sym": "_ZN7outerNS9Superhero10takeDamageEi",
+        "props": [
+          "instance",
+          "virtual",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::Superhero::operator=",
+        "sym": "_ZN7outerNS9SuperheroaSERKS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Superhero::operator=",
+        "sym": "_ZN7outerNS9SuperheroaSEOS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Superhero::~Superhero",
+        "sym": "_ZN7outerNS9SuperheroD1Ev",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Superhero::Superhero",
+        "sym": "_ZN7outerNS9SuperheroC1ERKS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      },
+      {
+        "pretty": "outerNS::Superhero::Superhero",
+        "sym": "_ZN7outerNS9SuperheroC1EOS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      }
+    ],
+    "fields": []
+  }
+]

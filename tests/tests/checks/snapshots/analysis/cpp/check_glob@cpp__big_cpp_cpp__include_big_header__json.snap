@@ -1,0 +1,20 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00020:9-23",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file big_header.h",
+    "sym": "FILE_big_header@2Eh"
+  },
+  {
+    "loc": "00020:9-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "big_header.h",
+    "sym": "FILE_big_header@2Eh"
+  }
+]
