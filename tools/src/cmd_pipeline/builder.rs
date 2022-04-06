@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand, cmd_crossref_lookup::CrossrefLookupCommand, cmd_search_identifiers::SearchIdentifiersCommand, cmd_graph::GraphCommand};
-use super::cmd_query::QueryCommand;
+use super::cmd_search::SearchCommand;
 use super::cmd_show_html::ShowHtmlCommand;
 use super::cmd_traverse::TraverseCommand;
 
@@ -84,8 +84,8 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
                 commands.push(Box::new(ProductionFilterCommand { args: pf }))
             }
 
-            Command::Query(q) => {
-                commands.push(Box::new(QueryCommand { args: q }))
+            Command::Search(q) => {
+                commands.push(Box::new(SearchCommand { args: q }))
             }
 
             Command::SearchIdentifiers(si) => {
