@@ -1,0 +1,127 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00221:6-14",
+    "structured": 1,
+    "pretty": "outerNS::OuterCat",
+    "sym": "T_outerNS::OuterCat",
+    "kind": "class",
+    "sizeBytes": 16,
+    "supers": [
+      {
+        "pretty": "outerNS::Thing",
+        "sym": "T_outerNS::Thing",
+        "props": []
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "outerNS::OuterCat::OuterCat",
+        "sym": "_ZN7outerNS8OuterCatC1Ebb",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::isFriendlyCat",
+        "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
+        "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
+        "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::meet",
+        "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::meet",
+        "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::shred",
+        "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::destroy",
+        "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::operator=",
+        "sym": "_ZN7outerNS8OuterCataSERKS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::operator=",
+        "sym": "_ZN7outerNS8OuterCataSEOS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::~OuterCat",
+        "sym": "_ZN7outerNS8OuterCatD1Ev",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      }
+    ],
+    "fields": [
+      {
+        "pretty": "outerNS::OuterCat::mIsFriendly",
+        "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+        "type": "_Bool",
+        "offsetBytes": 13,
+        "sizeBytes": 1
+      },
+      {
+        "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+        "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+        "type": "_Bool",
+        "offsetBytes": 14,
+        "sizeBytes": 1
+      }
+    ]
+  }
+]

@@ -1,14 +1,14 @@
 use std::str;
 
 use serde_json::{json, Value};
-use tokio::fs::{read_dir, read_to_string};
+use tokio::fs::{read_to_string, create_dir_all};
 use tools::{
     abstract_server::ServerError,
-    cmd_pipeline::{build_pipeline, PipelineValues},
+    cmd_pipeline::{build_pipeline, PipelineValues}, glob_helper::block_in_place_glob_tree,
 };
 
 /// Glob-style insta test where we process all of the searchfox-tool command
-/// lines in TREE/checks/inputs and output the results of those pipelines to
+/// lines under TREE/checks/inputs and output the results of those pipelines to
 /// TREE/checks/snapshots using `insta` which provides diff functionality.
 ///
 /// This very dubiously currently relies on having an environment variable
@@ -30,34 +30,21 @@ use tools::{
 async fn test_check_glob() -> Result<(), std::io::Error> {
     if let Ok(check_root) = std::env::var("CHECK_ROOT") {
         let input_path = format!("{}/inputs", check_root);
-        let snapshot_path = format!("{}/snapshots", check_root);
+        let snapshot_root_path = format!("{}/snapshots", check_root);
 
         let mut settings = insta::Settings::clone_current();
-        settings.set_snapshot_path(snapshot_path);
         settings.set_prepend_module_to_snapshot(false);
 
-        // ## Figure out the list of input files and sort them.
-        let mut dir = read_dir(input_path).await?;
-        let mut input_names = Vec::new();
+        // ## Figure out the list of input files
+        let input_names = block_in_place_glob_tree(&input_path, "**/*");
 
-        while let Some(child) = dir.next_entry().await? {
-            if child.metadata().await?.is_file() {
-                input_names.push(
-                    child
-                        .path()
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string(),
-                );
-            }
-        }
-
-        for input_name in input_names {
-            let input_path = format!("{}/inputs/{}", check_root, input_name);
+        for (rel_path, filename) in input_names {
+            let input_path = format!("{}/inputs/{}{}", check_root, rel_path, filename);
             settings.set_input_file(&input_path);
-            settings.set_snapshot_suffix(input_name);
+            let snapshot_path = format!("{}/{}", snapshot_root_path, rel_path);
+            create_dir_all(snapshot_path.clone()).await?;
+            settings.set_snapshot_path(snapshot_path);
+            settings.set_snapshot_suffix(filename);
 
             settings
                 .bind_async(async {
@@ -72,6 +59,8 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                     };
                     let results = pipeline.run().await;
 
+                    // TODO: In theory we should perhaps block_in_place here, but also it doesn't
+                    // matter.
                     match results {
                         Ok(PipelineValues::Void) => {
                             insta::assert_snapshot!("void");

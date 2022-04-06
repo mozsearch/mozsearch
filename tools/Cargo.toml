@@ -17,8 +17,9 @@ futures-core = "0.3.17"
 getopts = "0.2.19"
 graphviz-rust = "0.2.0"
 git2 = "0.13.20"
+globset = "0.4.8"
 hyper = "0.10"
-insta = { version = "1.7.1", features = ["glob"] }
+insta = { version = "1.14.0" }
 ipdl_parser = { path = "./ipdl_parser" }
 # asuth picked this version because our Cargo.lock already had 0.7.11 for our
 # rls-analysis dep.
@@ -58,6 +59,7 @@ url = "2.2.2"
 # a variant of:
 # ustr = { version = "0.8.1", features = ["serialization"] }
 ustr = { git = "https://github.com/asutherland/ustr", rev = "e87cb1584a1142486514d323bc7c18406cfe4806", features = ["serialization"] }
+walkdir = "2.3.2"
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production

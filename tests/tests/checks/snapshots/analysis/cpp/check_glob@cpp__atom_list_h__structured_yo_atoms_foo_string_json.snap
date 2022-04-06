@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00004:0-7",
+    "structured": 1,
+    "pretty": "YoAtoms::Foo_string",
+    "sym": "F_<T_YoAtoms>_Foo_string",
+    "kind": "field",
+    "parentsym": "T_YoAtoms"
+  }
+]

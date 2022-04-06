@@ -35,9 +35,12 @@ check-test-repo:
 	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
 
 # Target that:
-# - Runs the check script in a special mode that lets the tests run without
+# - Runs the check scripts in a special mode that lets the tests run without
 #   failing, instead generating the revised expectations for anything that has
 #   changed.
+#   - We need to re-run `indexer-run.sh` too because it embeds the disk check
+#     inside `mkindex.sh`.  Arguably maybe we want to fix web-server-check.sh
+#     to perhaps help run the indexer check.
 # - Runs the `cargo insta review` command which has a cool interactive UI that
 #   shows any differences.
 #
@@ -49,6 +52,7 @@ check-test-repo:
 #
 # Depends on `cargo install cargo-insta`.
 review-test-repo:
+	INSTA_FORCE_PASS=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 	INSTA_FORCE_PASS=1 /vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"

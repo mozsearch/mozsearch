@@ -1,0 +1,10 @@
+---
+source: tests/test_check_insta.rs
+expression: json!(pairs)
+---
+[
+  {
+    "sym": "T_outerNS::Thing",
+    "id": "outerNS::Thing"
+  }
+]
