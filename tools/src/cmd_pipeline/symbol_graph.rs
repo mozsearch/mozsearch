@@ -6,6 +6,8 @@ use petgraph::{
     graph::{DefaultIx, NodeIndex},
     Directed, Graph as PetGraph,
 };
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -112,6 +114,23 @@ impl DerivedSymbolInfo {
 pub struct SymbolGraphCollection {
     pub node_set: SymbolGraphNodeSet,
     pub graphs: Vec<NamedSymbolGraph>,
+}
+
+impl Serialize for SymbolGraphCollection {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut graphs = vec![];
+        for i in 0..self.graphs.len() {
+            graphs.push(self.graph_to_json(i));
+        }
+
+        let mut sgc = serializer.serialize_struct("SymbolGraphCollection", 2)?;
+        sgc.serialize_field("symbol_metas", &self.symbols_meta_to_json())?;
+        sgc.serialize_field("graphs", &graphs)?;
+        sgc.end()
+    }
 }
 
 impl SymbolGraphCollection {

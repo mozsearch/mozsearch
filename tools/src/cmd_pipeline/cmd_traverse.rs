@@ -36,6 +36,7 @@ pub struct Traverse {
     edge: String,
 }
 
+#[derive(Debug)]
 pub struct TraverseCommand {
     pub args: Traverse,
 }

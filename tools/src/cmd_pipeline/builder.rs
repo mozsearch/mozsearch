@@ -1,4 +1,5 @@
 use crate::{cmd_pipeline::{PipelineCommand, cmd_prod_filter::ProductionFilterCommand}, structopt::StructOpt};
+use tracing::{trace, trace_span};
 use url::Url;
 
 use crate::{
@@ -23,6 +24,9 @@ use super::interface::ServerPipeline;
 /// these sub-commands to the structopt parsing `from_iter` method, taking care
 /// to stuff our binary name into the first arg.
 pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, OutputFormat)> {
+    let span = trace_span!("build_pipeline", arg_str);
+    let _span_guard = span.enter();
+
     let all_args = match shell_words::split(arg_str) {
         Ok(parsed) => parsed,
         Err(err) => {
@@ -33,6 +37,7 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         }
     };
 
+    let mut server_kind = "none";
     let mut server = None;
     let mut output_format = None;
     let mut first_time = true;
@@ -55,13 +60,15 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         //println!("Pipeline segment: {:?}", opts);
 
         if first_time {
-            server = match Url::parse(&opts.server) {
-                Ok(url) => Some(make_remote_server(url, &opts.tree)?),
-                Err(_) => Some(make_local_server(&opts.server, &opts.tree)?),
+            (server_kind, server) = match Url::parse(&opts.server) {
+                Ok(url) => ("remote", Some(make_remote_server(url, &opts.tree)?)),
+                Err(_) => ("local", Some(make_local_server(&opts.server, &opts.tree)?)),
             };
             output_format = Some(opts.output_format);
             first_time = false;
         }
+
+        trace!(cmd = ?opts.cmd);
 
         match opts.cmd {
             Command::CrossrefLookup(cl) => {
@@ -104,6 +111,7 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
 
     Ok((
         ServerPipeline {
+            server_kind: server_kind.to_string(),
             server: server.unwrap(),
             commands,
         },

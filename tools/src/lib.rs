@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
 extern crate log;
 extern crate clap;
 extern crate chrono;
 extern crate git2;
+extern crate include_dir;
 #[macro_use]
 extern crate itertools;
 extern crate linkify;
@@ -13,10 +13,14 @@ extern crate regex;
 extern crate malloc_size_of_derive;
 extern crate jemalloc_sys;
 extern crate jemallocator;
+extern crate liquid;
 extern crate malloc_size_of;
 extern crate serde;
 extern crate serde_json;
 extern crate structopt;
+#[macro_use]
+extern crate tracing;
+extern crate tracing_subscriber;
 
 pub mod abstract_server;
 pub mod file_format;
@@ -31,6 +35,7 @@ pub mod glob_helper;
 pub mod languages;
 pub mod links;
 pub mod output;
+pub mod templating;
 pub mod tokenize;
 
 #[global_allocator]
