@@ -26,6 +26,7 @@ pub struct FilterAnalysis {
     query_opts: SymbolicQueryOpts,
 }
 
+#[derive(Debug)]
 pub struct FilterAnalysisCommand {
     pub args: FilterAnalysis,
 }

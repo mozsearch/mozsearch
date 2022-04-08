@@ -24,6 +24,7 @@ pub struct MergeAnalyses {
 
 /// Command brought into existence to test the analysis-merging logic of
 /// `merge-analyses.rs`.
+#[derive(Debug)]
 pub struct MergeAnalysesCommand {
     pub args: MergeAnalyses,
 }

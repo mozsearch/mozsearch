@@ -19,6 +19,7 @@ graphviz-rust = "0.2.0"
 git2 = "0.13.20"
 globset = "0.4.8"
 hyper = "0.10"
+include_dir = "0.7.2"
 insta = { version = "1.14.0" }
 ipdl_parser = { path = "./ipdl_parser" }
 # asuth picked this version because our Cargo.lock already had 0.7.11 for our
@@ -29,6 +30,8 @@ jemallocator = "0.3.2"
 json-structural-diff = "0.1.0"
 lazy_static = "1.1"
 linkify = "0.2.0"
+liquid = "0.26.0"
+liquid-core = "0.26.0"
 log = "0.4.0"
 lol_html = { git = "https://github.com/cloudflare/lol-html", rev = "8860fa455db627a5c227d014e1cecbe1832eb0ed" }
 malloc_size_of = { path = "./malloc_size_of" }
@@ -50,6 +53,8 @@ serde_repr = "0.1"
 structopt = "0.3"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util"] }
 tokio-stream = "0.1.8"
+tracing = "0.1.32"
+tracing-subscriber = { version = "0.3.10", features = ["std", "env-filter", "fmt", "local-time", "registry", "json"] }
 url = "2.2.2"
 # We need https://github.com/anderslanglands/ustr/pull/21
 # which is the fix for https://github.com/anderslanglands/ustr/issues/20

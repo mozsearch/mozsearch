@@ -1,6 +1,5 @@
 use std::{
     env::args_os,
-    io::{self, Write},
 };
 
 use serde_json::{to_string_pretty, Value};
@@ -53,7 +52,7 @@ async fn main() {
         }
     };
 
-    let results = pipeline.run().await;
+    let results = pipeline.run(false).await;
 
     let emit_json = |val: &Value| {
         if output_format == OutputFormat::Concise {
@@ -110,8 +109,8 @@ async fn main() {
             }
             0
         }
-        Ok(PipelineValues::FileBlob(fb)) => {
-            let _ = io::stdout().write_all(&fb.contents);
+        Ok(PipelineValues::TextFile(fb)) => {
+            println!("{}", fb.contents);
             0
         }
         Ok(PipelineValues::JsonRecords(jr)) => {

@@ -17,6 +17,8 @@ pub struct CrossrefLookup {
     // by kind, although that could of course be its own command too.
 }
 
+
+#[derive(Debug)]
 pub struct CrossrefLookupCommand {
     pub args: CrossrefLookup,
 }

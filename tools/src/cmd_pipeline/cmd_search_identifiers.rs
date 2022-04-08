@@ -24,6 +24,7 @@ pub struct SearchIdentifiers {
     limit: usize,
 }
 
+#[derive(Debug)]
 pub struct SearchIdentifiersCommand {
     pub args: SearchIdentifiers,
 }

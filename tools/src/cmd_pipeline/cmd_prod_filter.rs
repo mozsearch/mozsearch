@@ -21,6 +21,7 @@ use crate::{
 #[derive(Debug, StructOpt)]
 pub struct ProductionFilter {}
 
+#[derive(Debug)]
 pub struct ProductionFilterCommand {
     pub args: ProductionFilter,
 }

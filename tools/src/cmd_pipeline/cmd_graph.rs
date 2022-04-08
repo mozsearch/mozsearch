@@ -6,7 +6,7 @@ use graphviz_rust::cmd::{CommandArg, Format};
 use graphviz_rust::exec;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
 
-use super::interface::{FileBlob, PipelineCommand, PipelineValues};
+use super::interface::{TextFile, PipelineCommand, PipelineValues};
 
 use crate::abstract_server::{AbstractServer, Result};
 
@@ -99,6 +99,7 @@ pub struct Graph {
 /// traversal might instead be focused on a work limit heuristic based on rough
 /// order-of-magnitude weight adjustments.
 ///
+#[derive(Debug)]
 pub struct GraphCommand {
     pub args: Graph,
 }
@@ -122,9 +123,9 @@ impl PipelineCommand for GraphCommand {
         let dot_graph = graphs.graph_to_graphviz(graphs.graphs.len() - 1);
         if self.args.format == GraphFormat::RawDot {
             let raw_dot_str = dot_graph.print(&mut PrinterContext::default());
-            return Ok(PipelineValues::FileBlob(FileBlob {
+            return Ok(PipelineValues::TextFile(TextFile {
                 mime_type: "text/x-dot".to_string(),
-                contents: raw_dot_str.as_bytes().to_vec(),
+                contents: raw_dot_str,
             }));
         }
         let (format, mime_type) = match self.args.format {
@@ -136,8 +137,8 @@ impl PipelineCommand for GraphCommand {
             dot_graph,
             &mut PrinterContext::default(),
             vec![CommandArg::Format(format)],
-        )?.as_bytes().to_vec();
-        Ok(PipelineValues::FileBlob(FileBlob {
+        )?;
+        Ok(PipelineValues::TextFile(TextFile {
             mime_type,
             contents: graph_contents,
         }))

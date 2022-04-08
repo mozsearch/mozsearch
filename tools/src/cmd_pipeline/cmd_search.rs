@@ -35,6 +35,7 @@ pub struct Search {
 }
 
 
+#[derive(Debug)]
 pub struct SearchCommand {
   pub args: Search,
 }
