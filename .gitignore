@@ -1,5 +1,6 @@
 *~
 .vagrant
+.vscode
 fastcgi/obj
 ./temp-index
 *.o
@@ -14,4 +15,5 @@ paths
 env
 repos
 /index
+/config
 addons
