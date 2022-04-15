@@ -135,7 +135,7 @@ if [ ! -d git-cinnabar ]; then
   # Need mercurial to prevent cinnabar from spewing warnings.
   # python2.7 is also currently needed, but was installed above.
   sudo apt-get install -y mercurial
-  CINNABAR_REVISION=3d660ba817f1042644aab1b0370afbb9b2bf4528
+  CINNABAR_REVISION=release
   git clone https://github.com/glandium/git-cinnabar
   pushd git-cinnabar
     git checkout $CINNABAR_REVISION
