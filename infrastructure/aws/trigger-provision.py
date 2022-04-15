@@ -33,10 +33,12 @@ cat > ~ubuntu/provision.sh <<"FINAL"
 {script}
 FINAL
 
-chmod +x ~ubuntu/provision.sh
-sudo -i -u ubuntu ~ubuntu/provision.sh > ~ubuntu/provision.log 2>&1
 AWS_ROOT=~ubuntu/mozsearch/infrastructure/aws
 DEST_EMAIL="searchfox-aws@mozilla.com"
+chmod +x ~ubuntu/provision.sh
+# NOTE! The exit code from the call to provision.sh below is load-bearing,
+# please do not add any statements between it and the `if` below it!
+sudo -i -u ubuntu ~ubuntu/provision.sh > ~ubuntu/provision.log 2>&1
 if [[ $? -ne 0 ]]; then
   # In the event of failure it's possible we don't have AWS commands, so
   # schedule our shutdown, which should STOP our EC2 instance, leaving the log
