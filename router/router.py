@@ -64,7 +64,8 @@ def merge_defs_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
     it can know to generate a search link for each specific type.
     '''
     # Do not do anything if there's too many results!
-    if len(symbol_names) >= 50:
+    # This was previously 50 but nsIAsyncInputStream has 60 subclasses.
+    if len(symbol_names) >= 100:
         return
 
     aggr_defs = []
