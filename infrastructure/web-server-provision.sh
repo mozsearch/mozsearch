@@ -10,8 +10,11 @@ sudo apt-get install -y git
 git config --global pull.ff only
 
 # we have git, so let's check out mozsearch now so we can have our email sending
-# script in case of an error.
-git clone -b master https://github.com/mozsearch/mozsearch mozsearch
+# script in case of an error.  (For the VM the dir may already exist thanks to
+# us having already provisioned the indexer.)
+if [ ! -d mozsearch ]; then
+  git clone -b master https://github.com/mozsearch/mozsearch mozsearch
+fi
 
 # the base image we're building against is inherently not up-to-date (new base
 # images are released only monthly), so let's be consistently up-to-date.
