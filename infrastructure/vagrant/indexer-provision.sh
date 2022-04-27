@@ -13,6 +13,12 @@ if [ -f $HOME/.provisioned ]; then
 fi
 git -C /vagrant log -1 > $HOME/.provisioned
 
+# Bug 1766697:
+# Compensate for UID/GID mis-matches that freak out git after
+# https://github.blog/2022-04-12-git-security-vulnerability-announced/.
+# We could alternately fix the problem by involving vagrant-bindfs.
+git config --global --add safe.directory /vagrant
+
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js
 wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
