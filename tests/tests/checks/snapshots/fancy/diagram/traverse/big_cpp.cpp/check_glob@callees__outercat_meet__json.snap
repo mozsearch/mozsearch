@@ -447,6 +447,29 @@ expression: sgc.to_json()
         "instance",
         "user"
       ]
+    },
+    "_ZN7outerNS9Superhero10takeDamageEi": {
+      "structured": 1,
+      "pretty": "outerNS::Superhero::takeDamage",
+      "sym": "_ZN7outerNS9Superhero10takeDamageEi",
+      "kind": "method",
+      "parentsym": "T_outerNS::Superhero",
+      "implKind": "",
+      "sizeBytes": null,
+      "supers": [],
+      "methods": [],
+      "fields": [],
+      "overrides": [
+        {
+          "pretty": "outerNS::Thing::takeDamage",
+          "sym": "_ZN7outerNS5Thing10takeDamageEi"
+        }
+      ],
+      "props": [
+        "instance",
+        "virtual",
+        "user"
+      ]
     }
   },
   "graphs": [
@@ -460,7 +483,8 @@ expression: sgc.to_json()
         "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
         "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
         "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
-        "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+        "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+        "_ZN7outerNS9Superhero10takeDamageEi"
       ],
       "edges": [
         {
@@ -498,6 +522,10 @@ expression: sgc.to_json()
         {
           "from": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
           "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+        },
+        {
+          "from": "_ZN7outerNS9Superhero10takeDamageEi",
+          "to": "_ZN7outerNS5Thing10takeDamageEi"
         }
       ]
     }

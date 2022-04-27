@@ -3,8 +3,10 @@ use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
 use std::io::Read;
+use std::time::{Instant};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+use tracing::trace;
 
 use super::server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
@@ -111,10 +113,17 @@ impl AbstractServer for LocalIndex {
     }
 
     async fn crossref_lookup(&self, symbol: &str) -> Result<Value> {
-        match &self.crossref_lookup_map {
+        let now = Instant::now();
+        let result = match &self.crossref_lookup_map {
             Some(crossref) => crossref.lookup(symbol),
             None => Ok(Value::Null),
-        }
+        };
+        trace!(
+            duration_us = now.elapsed().as_micros() as u64,
+            "crossref_lookup: {}",
+            symbol
+        );
+        result
     }
 
     async fn search_identifiers(
@@ -124,6 +133,7 @@ impl AbstractServer for LocalIndex {
         ignore_case: bool,
         match_limit: usize,
     ) -> Result<Vec<(String, String)>> {
+        let now = Instant::now();
         let mut results = vec![];
         for ir in self
             .ident_map
@@ -131,6 +141,11 @@ impl AbstractServer for LocalIndex {
         {
             results.push((ir.symbol, ir.id));
         }
+        trace!(
+            duration_us = now.elapsed().as_micros() as u64,
+            "search_identifiers: {}",
+            needle
+        );
         Ok(results)
     }
 

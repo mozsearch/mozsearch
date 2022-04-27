@@ -42,6 +42,13 @@ searchfox-tool 'query --help'
 
 ## Cookbook Proper
 
+### Graphing on a web-server shell
+
+```
+~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
+--tree=mozilla-central search-identifiers mozilla::GetContentWin32kLockdownEnabled | crossref-lookup | traverse --edge=uses --max-depth=9 | graph --format=svg'
+```
+
 ### Diffing Query Results
 
 While investigating aspects of queries that hit limits because of non-intuitive
