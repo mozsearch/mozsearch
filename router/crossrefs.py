@@ -120,8 +120,10 @@ def bisect_for_payload(mm, search_sym):
                 # as well stop.
                 return None
             # Halve count and also subtract off the parts of the identifier line
-            # and payload line we're skipping.
-            count -= step + (pos - first)
+            # and payload line we're skipping.  `first` is now effectively
+            # `original_first + step + value_length` whereas `pos` is still
+            # `original_first + step`.  So `first - pos` = `value_length`
+            count -= step + (first - pos)
         else:
             ## Bisect first half
             # Halve count and subtract off the part of the identifier line that

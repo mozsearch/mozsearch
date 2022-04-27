@@ -111,6 +111,8 @@ impl CrossrefLookupMap {
     // payload line which may be either inline JSON or external offsets to be
     // retrieved from another map.
     fn bisect_for_payload(&self, search_sym: &[u8]) -> &[u8] {
+        // We are always looking at a byte-range window within the mmap that is
+        // a slice with bounds [0, mmap_end).
         let mut first = 0;
         let mmap_end = self.inline_mm.len();
         let bytes: &[u8] = unsafe { self.inline_mm.as_slice() };
@@ -118,7 +120,14 @@ impl CrossrefLookupMap {
 
         while count > 0 {
             let step = count / 2;
-            let pos = first + step;
+            let mut pos = first + step;
+            // Our range is currently [first, first + count), and we have chosen
+            // a sample point `pos` that's the midpoint of the range.
+            //
+            // Because we take care to always adjust the byte-range window we
+            // are looking at to eliminate both the key and value lines, we can
+            // be certain that `pos` will not somehow fall within a line of text
+            // we have already looked at.
 
             let (line_sym, line_start, line_end) = self.get_id_line(pos);
 
@@ -132,19 +141,35 @@ impl CrossrefLookupMap {
                 return &bytes[payload_start..payload_end];
             } else if line_sym < search_sym {
                 // ## Bisect latter half
-                // We might as well exclude the payload line we're skipping as well.
-                // Because payload lines are intentionally limited during the
-                // creation of `crossref`, we know this should fault an acceptable
-                // number of pages which may have already been pre-fetched.
-                while first < mmap_end && bytes[first] != NEWLINE {
-                    first += 1;
+                // The line we found was less than our needle, so the answer is
+                // in the second half of our current range of [first, first + count).
+                // The second half of the range is [pos, first + count), but
+                // this also includes at least some of our payload line, and we
+                // want to skip that.  (Actually need, by our rules.)
+                //
+                // If `pos` was in an id line, then `line_end` will be greater
+                // than `pos` and we should use `line_end + 1` because it's
+                // already pointing at a newline.  If `pos` is greater, then it
+                // must be in the value line.
+                if pos <= line_end {
+                    pos = line_end + 1
+                }
+
+                // Now scan forward until we find the newline ending the value.
+                while pos < mmap_end && bytes[pos] != NEWLINE {
+                    pos += 1;
                 }
                 // move past the newline
-                first += 1;
+                pos += 1;
 
-                // Halve count and also subtract off the parts of the identifier line
-                // and payload line we're skipping.
-                count -= step + (pos - first)
+                // Our new range now wants to be [pos, first + count).
+                // We want to halve the count, but we also want to compensate
+                // for the extra data to skip.  `pos` is effectively
+                // `first + step + value_length` so subtracting off `first` from
+                // `pos` gets us the step plus the extra length.
+                count -= pos - first;
+                // And now we want to be starting from the `pos`.
+                first = pos;
             } else {
                 // ## Bisect first half
                 // Halve count and subtract off the part of the identifier line that

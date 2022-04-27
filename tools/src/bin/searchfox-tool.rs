@@ -7,9 +7,15 @@ use tools::{
     abstract_server::{ErrorDetails, ErrorLayer, ServerError},
     cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues},
 };
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
+
     let mut os_args: Vec<String> = args_os()
         .map(|os| os.into_string().unwrap_or("".to_string()))
         .collect();
