@@ -6,6 +6,7 @@ use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_graph::Graph;
 use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_prod_filter::ProductionFilter;
+use super::cmd_query::Query;
 use super::cmd_search::Search;
 use super::cmd_search_identifiers::SearchIdentifiers;
 use super::cmd_show_html::ShowHtml;
@@ -50,6 +51,7 @@ pub enum Command {
     Graph(Graph),
     MergeAnalyses(MergeAnalyses),
     ProductionFilter(ProductionFilter),
+    Query(Query),
     Search(Search),
     SearchIdentifiers(SearchIdentifiers),
     ShowHtml(ShowHtml),

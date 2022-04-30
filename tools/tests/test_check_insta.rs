@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, TryLockError},
 };
 
-use serde_json::{from_str, json, Value};
+use serde_json::{from_str, json, Value, to_value};
 use tokio::fs::{create_dir_all, read_to_string, write};
 use tools::{
     abstract_server::ServerError,
@@ -187,6 +187,12 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         Ok(PipelineValues::SymbolGraphCollection(sgc)) => {
                             insta::assert_json_snapshot!(sgc.to_json());
                         }
+                        Ok(PipelineValues::StructuredResultsBundle(srb)) => {
+                            insta::assert_json_snapshot!(&to_value(srb).unwrap());
+                        }
+                        Ok(PipelineValues::FlattenedResultsBundle(frb)) => {
+                            insta::assert_json_snapshot!(&to_value(frb).unwrap());
+                        }
                         Ok(PipelineValues::HtmlExcerpts(he)) => {
                             let mut aggr_str = String::new();
                             for file_excerpts in he.by_file {
@@ -209,6 +215,9 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         }
                         Ok(PipelineValues::JsonValue(jv)) => {
                             insta::assert_json_snapshot!(&jv.value);
+                        }
+                        Ok(PipelineValues::TextMatches(tm)) => {
+                            insta::assert_json_snapshot!(&to_value(tm).unwrap());
                         }
                         Err(ServerError::Unsupported) => {
                             // We're intentionally skipping doing anything here.
