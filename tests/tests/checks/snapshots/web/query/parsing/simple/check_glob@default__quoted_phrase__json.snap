@@ -1,0 +1,38 @@
+---
+source: tests/test_check_insta.rs
+expression: "&jv.value"
+---
+{
+  "groups": {
+    "file-search": {
+      "segments": [
+        {
+          "command": "search-files",
+          "args": [
+            "foo bar"
+          ]
+        }
+      ]
+    },
+    "semantic-search": {
+      "segments": [
+        {
+          "command": "search-identifiers",
+          "args": [
+            "foo bar"
+          ]
+        }
+      ]
+    },
+    "text-search": {
+      "segments": [
+        {
+          "command": "search-text",
+          "args": [
+            "--re='foo bar'"
+          ]
+        }
+      ]
+    }
+  }
+}

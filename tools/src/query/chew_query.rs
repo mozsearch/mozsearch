@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use query_parser::parse;
-use serde::Deserialize;
+use query_parser::{parse, TermValue};
+use serde::{Deserialize, Serialize};
 use toml::value::Table;
 
 use crate::abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError};
@@ -44,8 +44,8 @@ lazy_static! {
     static ref QUERY_CORE: QueryConfig = toml::from_str(include_str!("query_core.toml")).unwrap();
 }
 
-#[derive(Default)]
-struct QueryPipelineGroupBuilder {
+#[derive(Default, Serialize)]
+pub struct QueryPipelineGroupBuilder {
     pub groups: BTreeMap<String, PipelineGroup>,
 }
 
@@ -147,23 +147,31 @@ impl QueryPipelineGroupBuilder {
 	}
 }
 
-#[derive(Default)]
-struct PipelineGroup {
+#[derive(Default, Serialize)]
+pub struct PipelineGroup {
     pub segments: Vec<PipelineSegment>,
 }
 
-#[derive(Default)]
-struct PipelineSegment {
+#[derive(Default, Serialize)]
+pub struct PipelineSegment {
     pub command: String,
     pub args: Vec<String>,
 }
 
-pub fn chew_query(full_arg_str: &str) {
+pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     let mut builder = QueryPipelineGroupBuilder::default();
     let q = parse(full_arg_str);
     for term in q.terms {
-        if let Some(key) = term.key {
-        } else {
+        match term.value {
+            TermValue::Simple(value) => {
+                if let Some(key) = term.key {
+                    builder.ingest_term(&key, &value)?;
+                } else {
+                    builder.ingest_term("default", &value)?;
+                }
+            }
         }
     }
+
+    Ok(builder)
 }
