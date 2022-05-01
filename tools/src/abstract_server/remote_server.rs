@@ -3,7 +3,7 @@ use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
 use url::{ParseError, Url};
 
-use super::server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use super::{server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, TextMatches};
 
 /// reqwest won't return an error for an unhappy status code itself; someone
 /// would need to call `Response::error_from_status`, so for now we'll generally
@@ -122,6 +122,16 @@ impl AbstractServer for RemoteServer {
         Err(ServerError::Unsupported)
     }
 
+    async fn search_text(
+        &self,
+        _pattern: &str,
+        _fold_case: bool,
+        _path: &str,
+        _limit: usize,
+    ) -> Result<TextMatches> {
+        // It's not clear we ever want to implement this.
+        Err(ServerError::Unsupported)
+    }
 
     async fn perform_query(&self, q: &str) -> Result<Value> {
         let mut url = self.search_url.clone();

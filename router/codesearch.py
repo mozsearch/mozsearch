@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 from __future__ import absolute_import
+import json
 import sys
 import socket
 import os
@@ -79,8 +82,12 @@ def daemonize(args):
 
     os.execvp(args[0], args)
 
+def stop_codesearch(data):
+    log('Stopping codesearch on port %d', data['codesearch_port'])
+    os.system("pkill -f '^codesearch.+localhost:%d '" % (data['codesearch_port']))
+
 def startup_codesearch(data):
-    log('Starting codesearch')
+    log('Starting codesearch on port %d', data['codesearch_port'])
 
     args = ['codesearch', '-grpc', 'localhost:' + str(data['codesearch_port']),
             '--noreuseport',
@@ -88,7 +95,31 @@ def startup_codesearch(data):
             '-max_matches', '1000', '-timeout', '10000', '-context_lines', '0']
 
     daemonize(args)
-    time.sleep(5)
+    # Sleep a teeny bit to let the server have some exclusive time to spin up
+    # before any siblings start to race it.
+    time.sleep(0.1)
+
+def try_info_request(host, port):
+    infoq = livegrep_pb2.InfoRequest()
+
+    channel = grpc.insecure_channel('{0}:{1}'.format(host, port))
+    grpc_stub = livegrep_pb2_grpc.CodeSearchStub(channel)
+    result = grpc_stub.Info(infoq) # maybe add a timeout arg here?
+    channel.close()
+
+def wait_for_codesearch(data, max_tries=200):
+    '''Wait for the codesearch server to become available/responsive.'''
+
+    tries = 0
+    while tries < max_tries:
+        tries += 1
+        try:
+            try_info_request('localhost', data['codesearch_port'])
+            break
+        except Exception as e:
+            # sleep a little to give the server time to make progress
+            time.sleep(0.1)
+    log('Server on port %d found alive after %d tries', data['codesearch_port'], tries)
 
 def search(pattern, fold_case, path, tree_name, context_lines):
     data = tree_data[tree_name]
@@ -104,6 +135,7 @@ def search(pattern, fold_case, path, tree_name, context_lines):
 
         # If the exception indicated a connection failure, try to restart the server and search
         # again.
+        stop_codesearch(data)
         startup_codesearch(data)
         try:
             return do_search('localhost', data['codesearch_port'], pattern, fold_case, path, context_lines)
@@ -113,10 +145,12 @@ def search(pattern, fold_case, path, tree_name, context_lines):
             return ([], False)
 
 
-def load(config):
+def load(config, stop=True, start=True, only_tree_name=None):
     global tree_data
     tree_data = {}
     for tree_name in config['trees']:
+        if only_tree_name and tree_name != only_tree_name:
+            continue
         tree_data[tree_name] = {
             'codesearch_path': config['trees'][tree_name]['codesearch_path'],
             'codesearch_port': config['trees'][tree_name]['codesearch_port'],
@@ -126,4 +160,26 @@ def load(config):
         # race condition where search() can get invoked multiple times in quick
         # succession by separate queries, resulting in the daemon getting started
         # multiple times.
-        startup_codesearch(tree_data[tree_name])
+        if stop:
+            stop_codesearch(tree_data[tree_name])
+        if start:
+            startup_codesearch(tree_data[tree_name])
+            wait_for_codesearch(tree_data[tree_name])
+
+if __name__ == '__main__':
+    '''(Re)start or stop all the codesearch instances for the given config file.
+
+    Usage:
+    codesearch.py CONFIG.JSON start [only_tree_name]
+    codesearch.py CONFIG.JSON stop [only_tree_name]
+    '''
+    stop = True
+    start = True
+    only_tree_name = None
+    if sys.argv[2] == 'stop':
+        start = False
+    if len(sys.argv) > 3:
+        only_tree_name = sys.argv[3]
+
+    config = json.load(open(sys.argv[1]))
+    load(config, stop=stop, start=start, only_tree_name=only_tree_name)

@@ -57,6 +57,9 @@ sudo apt-get install -y nginx
 # Install pkg-config (needed for Rust's OpenSSL wrappers)
 sudo apt-get install -y pkg-config
 
+# rust gRPC via tonic/tonic-build and prost-build needs cmake
+sudo apt-get install -y cmake
+
 # Install Rust. We need rust nightly to build rls-data.
 if [ ! -d $HOME/.cargo ]; then
   curl https://sh.rustup.rs -sSf | sh -s -- -y
