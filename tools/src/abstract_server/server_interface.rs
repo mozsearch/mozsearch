@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use futures_core::stream::BoxStream;
+use serde::Serialize;
 use serde_json::Value;
 
 pub type Result<T> = std::result::Result<T, ServerError>;
@@ -80,6 +81,33 @@ pub enum ServerError {
     Unsupported,
 }
 
+/// Livegrep/codesearch bounds
+#[derive(Serialize)]
+pub struct TextBounds {
+    pub start: i32,
+    pub end_exclusive: i32,
+}
+
+/// Livegrep/codesearch line hit results
+#[derive(Serialize)]
+pub struct TextMatchInFile {
+    pub line_num: u32,
+    pub bounds: TextBounds,
+    pub line_str: String,
+}
+
+#[derive(Serialize)]
+pub struct TextMatchesByFile {
+    pub file: String,
+    pub matches: Vec<TextMatchInFile>,
+}
+
+/// Livegrep/codesearch text search results clustered by file.
+#[derive(Serialize)]
+pub struct TextMatches {
+    pub by_file: Vec<TextMatchesByFile>,
+}
+
 /// Unified exposure for interacting with a local Searchfox index on disk or
 /// a remote searchfox server over HTTPS talking to the web-server.
 ///
@@ -137,7 +165,26 @@ pub trait AbstractServer {
     /// a needle of "Foo", this will match "Food" and "Fool" but not
     /// "Food::Pizza" or "Food.Pizza" because `:` and `.` are considered
     /// indications of hierarchy traversal.
-    async fn search_identifiers(&self, needle: &str, exact_match: bool, ignore_case: bool, match_limit: usize) -> Result<Vec<(String, String)>>;
+    async fn search_identifiers(
+        &self,
+        needle: &str,
+        exact_match: bool,
+        ignore_case: bool,
+        match_limit: usize,
+    ) -> Result<Vec<(String, String)>>;
+
+    /// Given an re2 search pattern and additional config info, run a
+    /// livegrep codesearch against an already-running codesearch server.  In
+    /// the future while our rust code may be responsible for starting the
+    /// codesearch server and keeping it running, for now that responsibility
+    /// continues to fall to the `router.py` webserver using `codesearch.py`.
+    async fn search_text(
+        &self,
+        pattern: &str,
+        fold_case: bool,
+        path: &str,
+        limit: usize,
+    ) -> Result<TextMatches>;
 
     async fn perform_query(&self, q: &str) -> Result<Value>;
 }

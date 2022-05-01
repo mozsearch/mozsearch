@@ -94,6 +94,9 @@ sudo apt-get install -y zlib1g-dev
 # Install pkg-config (needed for Rust's OpenSSL wrappers)
 sudo apt-get install -y pkg-config
 
+# rust gRPC via tonic/tonic-build and prost-build needs cmake
+sudo apt-get install -y cmake
+
 # Install python2 and six (needed for cinnabar and idl-analyze.py)
 sudo apt-get install -y python2.7 python-six
 

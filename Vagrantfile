@@ -24,6 +24,6 @@ Vagrant.configure("2") do |config|
     override.vm.synced_folder './', '/vagrant', type: 'nfs', nfs_udp: false, accessmode: "squash", mount_options: ['local_lock=all']
 
     v.memory = 10000
-    v.cpus = 4
+    v.cpus = 8
   end
 end

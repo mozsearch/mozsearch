@@ -78,7 +78,15 @@ $MOZSEARCH_PATH/scripts/compress-outputs.sh
 date
 
 # Check the resulting index for correctness, but there's no webserver so the
-# 4th argument needs to be empty.
+# 4th argument needs to be empty.  We now also need the livegrep server to be
+# available, so start that first.
+$MOZSEARCH_PATH/router/codesearch.py $CONFIG_FILE start $TREE_NAME
 $MOZSEARCH_PATH/scripts/check-index.sh $CONFIG_FILE $TREE_NAME "filesystem" ""
+
+# And we want to stop it after.  It's possible if we errored above that it will
+# still be hanging around, but codesearch.py always stops an existing server
+# first, so we're not really concerned about this affecting a re-run of the
+# indexing process.
+$MOZSEARCH_PATH/router/codesearch.py $CONFIG_FILE stop $TREE_NAME
 
 date

@@ -9,6 +9,7 @@ use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
 use super::cmd_search::Search;
 use super::cmd_search_identifiers::SearchIdentifiers;
+use super::cmd_search_text::SearchText;
 use super::cmd_show_html::ShowHtml;
 use super::cmd_traverse::Traverse;
 
@@ -54,6 +55,7 @@ pub enum Command {
     Query(Query),
     Search(Search),
     SearchIdentifiers(SearchIdentifiers),
+    SearchText(SearchText),
     ShowHtml(ShowHtml),
     Traverse(Traverse),
 }

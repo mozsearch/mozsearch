@@ -74,6 +74,12 @@ were due to aggregating based on the path first.)
 searchfox-tool 'query "new xmlhttpreques" | query --diff --normalize --dictify "new xmlhttprequest"'
 ```
 
+### Test Server Text Search
+```
+RUST_LOG=trace ./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests search-text searchfox'
+```
+
+
 ### Graphing Test Server contents
 
 From inside the VM:

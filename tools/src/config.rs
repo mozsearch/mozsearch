@@ -23,6 +23,8 @@ pub struct TreeConfigPaths {
     pub ccov_root: Option<String>,
     pub wpt_root: Option<String>,
     pub github_repo: Option<String>,
+    pub codesearch_path: String,
+    pub codesearch_port: u32,
 }
 
 #[derive(MallocSizeOf)]

@@ -1,4 +1,4 @@
-use crate::{cmd_pipeline::{PipelineCommand, cmd_prod_filter::ProductionFilterCommand, cmd_query::QueryCommand}, structopt::StructOpt};
+use crate::{cmd_pipeline::{PipelineCommand, cmd_prod_filter::ProductionFilterCommand, cmd_query::QueryCommand, cmd_search_text::SearchTextCommand}, structopt::StructOpt};
 use tracing::{trace, trace_span};
 use url::Url;
 
@@ -102,6 +102,10 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
             Command::SearchIdentifiers(si) => {
                 commands.push(Box::new(SearchIdentifiersCommand { args: si }))
             },
+
+            Command::SearchText(st) => {
+                commands.push(Box::new(SearchTextCommand { args: st }))
+            }
 
             Command::ShowHtml(sh) => {
                 commands.push(Box::new(ShowHtmlCommand { args: sh }));

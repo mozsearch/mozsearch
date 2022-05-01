@@ -6,6 +6,7 @@ use std::{collections::{HashSet}, fmt::Debug};
 use structopt::StructOpt;
 use tracing::{trace, trace_span};
 
+use crate::abstract_server::{TextMatches, TextMatchesByFile};
 pub use crate::abstract_server::{AbstractServer, Result};
 
 use super::symbol_graph::SymbolGraphCollection;
@@ -75,33 +76,6 @@ pub struct SymbolCrossrefInfo {
 #[derive(Serialize)]
 pub struct SymbolCrossrefInfoList {
     pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
-}
-
-/// Livegrep/codesearch bounds
-#[derive(Serialize)]
-pub struct TextBounds {
-    pub start: u32,
-    pub end_exclusive: u32,
-}
-
-/// Livegrep/codesearch line hit results
-#[derive(Serialize)]
-pub struct TextMatchInFile {
-    pub line_num: u32,
-    pub bounds: TextBounds,
-    pub line_str: String,
-}
-
-#[derive(Serialize)]
-pub struct TextMatchesByFile {
-    pub file: String,
-    pub matches: Vec<TextMatchInFile>,
-}
-
-/// Livegrep/codesearch text search results clustered by file.
-#[derive(Serialize)]
-pub struct TextMatches {
-    pub by_file: Vec<TextMatchesByFile>,
 }
 
 /// A mixture of file names (paths), SymbolCrossrefInfo instances, and text
@@ -296,8 +270,8 @@ impl ServerPipeline {
 }
 
 impl ServerPipelineGraph {
-    pub async fn run(&self, traced: bool) -> Result<PipelineValues> {
-        let mut cur_values = PipelineValues::Void;
+    pub async fn run(&self, _traced: bool) -> Result<PipelineValues> {
+        let cur_values = PipelineValues::Void;
 
         // XXX impl
 

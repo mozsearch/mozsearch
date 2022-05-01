@@ -2,21 +2,56 @@ use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
+use std::collections::BTreeMap;
 use std::io::Read;
-use std::time::{Instant};
+use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tracing::trace;
 
-use super::server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use super::server_interface::{
+    AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextBounds, TextMatchInFile,
+};
+use super::{TextMatches, TextMatchesByFile};
 
 use crate::config::{load, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 
+pub mod livegrep {
+    tonic::include_proto!("_");
+}
+
+use livegrep::code_search_client::CodeSearchClient;
+use livegrep::Query;
+
 /// IO errors amount to a 404 for our purposes which means a sticky problem.
 impl From<std::io::Error> for ServerError {
     fn from(err: std::io::Error) -> ServerError {
+        ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::ServerLayer,
+            message: err.to_string(),
+        })
+    }
+}
+
+impl From<tonic::Status> for ServerError {
+    fn from(status: tonic::Status) -> ServerError {
+        // There are gRPC codes accessible via code() but for now, especially
+        // since we lack the ability to restart the server, it seems safe to
+        // assume any problem will not magically fix itself.
+        ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::ServerLayer,
+            message: status.to_string(),
+        })
+    }
+}
+
+impl From<tonic::transport::Error> for ServerError {
+    fn from(err: tonic::transport::Error) -> ServerError {
+        // There are gRPC codes accessible via code() but for now, especially
+        // since we lack the ability to restart the server, it seems safe to
+        // assume any problem will not magically fix itself.
         ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::ServerLayer,
             message: err.to_string(),
@@ -147,6 +182,69 @@ impl AbstractServer for LocalIndex {
             needle
         );
         Ok(results)
+    }
+
+    async fn search_text(
+        &self,
+        pattern: &str,
+        fold_case: bool,
+        path: &str,
+        limit: usize,
+    ) -> Result<TextMatches> {
+        let now = Instant::now();
+
+        let endpoint = format!("http://localhost:{}", self.config_paths.codesearch_port);
+        trace!("search_text: connecting to {}", endpoint);
+        let mut client = CodeSearchClient::connect(endpoint).await?;
+
+        let query = tonic::Request::new(Query {
+            line: pattern.into(),
+            file: path.into(),
+            repo: "".into(),
+            tags: "".into(),
+            fold_case,
+            not_file: "".into(),
+            not_repo: "".into(),
+            not_tags: "".into(),
+            // 0 falls back to the default, I believe.
+            max_matches: limit as i32,
+            filename_only: false,
+            // 0 should pick the default of 0.
+            context_lines: 0,
+        });
+        trace!("search_text: connected, issuing query: {}", pattern);
+        let response = client.search(query).await?.into_inner();
+
+        trace!(
+            duration_us = now.elapsed().as_micros() as u64,
+            "search_text: query completed: {}",
+            pattern
+        );
+
+        let mut by_file: BTreeMap<String, TextMatchesByFile> = BTreeMap::new();
+        for result in response.results {
+            let left = result.bounds.as_ref().map_or(0, |b| b.left);
+            let right = result.bounds.as_ref().map_or(0, |b| b.right);
+            by_file
+                .entry(result.path.to_string())
+                .or_insert_with(|| TextMatchesByFile {
+                    file: result.path.to_string(),
+                    matches: vec![],
+                })
+                .matches
+                .push(TextMatchInFile {
+                    line_num: result.line_number as u32,
+                    bounds: TextBounds {
+                        start: left,
+                        end_exclusive: right,
+                    },
+                    line_str: result.line,
+                });
+        }
+
+        Ok(TextMatches {
+            by_file: by_file.into_values().collect(),
+        })
     }
 
     async fn perform_query(&self, _q: &str) -> Result<Value> {

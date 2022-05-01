@@ -14,6 +14,7 @@ mod cmd_prod_filter;
 mod cmd_query;
 mod cmd_search;
 mod cmd_search_identifiers;
+mod cmd_search_text;
 mod cmd_show_html;
 mod cmd_traverse;
 

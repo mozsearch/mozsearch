@@ -1,3 +1,7 @@
 [submodule "tools/ipdl_parser"]
 	path = tools/ipdl_parser
 	url = https://github.com/mozsearch/ipdl_parser/
+[submodule "deps/livegrep"]
+	path = deps/livegrep
+	url = https://github.com/mozsearch/livegrep
+	branch = mozsearch-version5
