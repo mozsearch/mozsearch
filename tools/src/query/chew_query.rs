@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
     iter::FromIterator,
 };
 
@@ -105,9 +105,16 @@ lazy_static! {
 }
 
 #[derive(Default, Serialize)]
+pub struct PipelinePhase {
+    pub groups: Vec<Vec<String>>,
+    pub junctions: Vec<String>,
+}
+
+#[derive(Default, Serialize)]
 pub struct QueryPipelineGroupBuilder {
     pub groups: BTreeMap<String, PipelineGroup>,
     pub junctions: BTreeMap<String, JunctionNode>,
+    pub phases: Vec<PipelinePhase>,
 }
 
 fn apply_transforms(user_val: String, transforms: &Vec<String>) -> String {
@@ -232,7 +239,10 @@ pub struct PipelineSegment {
 
 pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     let mut builder = QueryPipelineGroupBuilder::default();
+    // ## 1: Parse the Query
     let q = parse(full_arg_str);
+
+    // ## 2: Ingest / process the terms
     for term in q.terms {
         match term.value {
             TermValue::Simple(value) => {
@@ -245,12 +255,21 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
         }
     }
 
+    // ## 3: Process group rules to build the graph suggested by the terms above
     let mut unprocessed_groups: VecDeque<String> = builder.groups.keys().cloned().collect();
     let mut unprocessed_junctions: VecDeque<String> = VecDeque::new();
     // The set of groups without an input which means they should go in the
     // first `ParallelPipelines` instance.  We remove groups from this set as we
     // determine that they are actually depdendent on some earlier pipeline.
     let mut root_groups = BTreeSet::from_iter(unprocessed_groups.iter().cloned());
+    // For phase 4 it's useful for us to be able to map an input to the set of
+    // groups that consume it.  This is important because the group/junction
+    // names effectively exist in a separate namespace from the inputs/outputs
+    // where the name of a group will usually be the name of its output.  This
+    // probably isn't strictly necessary if we did more in this pass, but this
+    // is all fairly complicated and I do hope having the in-between
+    // representations is helpful for the explanations we generate, etc.
+    let mut inputs_to_names = HashMap::new();
 
     while !unprocessed_groups.is_empty() || !unprocessed_junctions.is_empty() {
         let mut next_group: Option<String> = None;
@@ -296,8 +315,12 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                     .or_insert_with(|| PipelineGroup::default()),
             ) {
                 group.input = use_input;
-                if group.input.is_some() {
+                if let Some(input_name) = &group.input {
                     root_groups.remove(&group_name);
+                    inputs_to_names
+                        .entry(input_name.clone())
+                        .or_insert_with(|| vec![])
+                        .push(group_name.clone());
                 }
                 // group.output will be set and next/junction will be processed
                 // in the 1st phase of the loop above; we're just ensuring the
@@ -322,7 +345,12 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                     .or_insert_with(|| JunctionNode::default()),
                 use_input,
             ) {
+                inputs_to_names
+                    .entry(input.clone())
+                    .or_insert_with(|| vec![])
+                    .push(junction_name.clone());
                 junction.inputs.push(input);
+
                 // junction.output will be set and next will be processed in the
                 // 1st phase of the loop above; we're just ensuring the junction
                 // exists and adding the "input" to the list.
@@ -336,6 +364,173 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 }
             }
         }
+    }
+
+    // ## 4: Walk the graph to build parallel pipelines
+    //
+    // We want to accumulate linear chains of groups until they hit a junction
+    // or terminate with a "result" output.  Once we've hit all junctions, then
+    // we want to flush those chains and the junctions they hit as a phase.
+    // Then we want to restart the cycle with the outputs of the junctions until
+    // we are left with a single "result" output.
+    //
+    // The primary interesting case for is a scenario like the following:
+    //   g-a1 - g-a4 -\
+    //   g-a2 - g-a5 --- j1 ----- j2
+    //   g-a3 - g-a6 -/        /
+    //                        /
+    //   g-b1 - g-b2 - g-b3 -/
+    //
+    // The specific characteristic of note here is that we have a chain of
+    // groups that reaches a junction that itself depends on the output of
+    // another junction; whether there are groups in between or not doesn't
+    // entirely matter but both cases should work.
+    //
+    // Our execution semantics dictate that all junctions in a phase run in
+    // parallel, which means the data-dependency in j2 means that j2 must be in
+    // a second phase and j1 in the first.  We can schedule the g-bN nodes in
+    // either phase and have things be valid, but we do prefer to do all work as
+    // early as possible.  (Note that this does force j1 to wait for g-bN,
+    // currently, but this is also just a hypothetical scenario and our goal is
+    // to just have a high probability of things working at this point.)
+    //
+    // Our algorithm is then to maintain 2 key state structures beyond our
+    // `cur_phase` that we build incrementally for the current phase:
+    // 1. `next_groups`: the set of groups we know we need to investigate next
+    //    for this phase, initialized with the content of `root_groups`.  This
+    //    is expressed as VecDeque of tuples of (group name, index in the
+    //    PipelinePhase::groups array to place this group in).
+    // 2. `pending_junctions`: a map from the junction names that groups have
+    //    arrived at so far to the number of other groups we are waiting to
+    //    arrive at this node.  The value is initialized to the length of the
+    //    `JunctionInvocation::input_names` and decremented for each group that
+    //    arrives at the junction.
+    //
+    // Starting from the initial `next_groups` population of `root_groups`, we
+    // iteratively consume that deque, looking up the names to find out if they
+    // are groups or junctions (which live in the same namespace).  If it's a
+    // group, we add the current group to the appropriate
+    // `PipelinePhase::groups` vec slot and push the output's name onto
+    // `next_groups` including that vec slot.  If it was a junction, we
+    // ensure there's an entry in `pending_junctions` for the junction and
+    // decrement its waiting count for the current group.  If the the junction's
+    // waiting count reaches 0, we push it onto the `PipelinePhase::junctions`
+    // vec.  We continue this process until we run out of `next_groups`.
+    //
+    // Once we have no more `next_groups`, we traverse the list of junctions in
+    // the current phase, use those to populate `next_groups`.  Note that
+    // "result" is a magic group name for the terminal node (which will also
+    // have impacted the logic above) and which will not go into `next_groups`.
+    // We then flush the current phase.  If there are `next_groups`, we repeat
+    // the loop with a new phase, otherwise we're done.
+
+    let mut next_groups: VecDeque<(String, Option<usize>)> =
+        root_groups.into_iter().map(|x| (x, None)).collect();
+    let mut pending_junctions = BTreeMap::new();
+    let mut seen = HashSet::new();
+
+    // Control flow structure:
+    //
+    // Each pass through the outer loop creates a new PipelinePhase and pushes
+    // it into the list of phases.  Each inner loop fully processes the set of
+    // `next_groups` which accumulate into the current phase, and when the inner
+    // loop completes it looks for any groups that the junctions in that phase
+    // produces.
+    while next_groups.len() > 0 {
+        let mut cur_phase = PipelinePhase::default();
+        while let Some((thing_name, group_slot)) = next_groups.pop_front() {
+            if let Some(group) = builder.groups.get(&thing_name) {
+                // Check if we've processed this group before.  We can't do this
+                // suppression check on adding things to `next_groups` because
+                // we could be adding a junction, which absolutely can be
+                // arrived at multiple times.
+                if !seen.insert(thing_name.clone()) {
+                    return Err(ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::ConfigLayer,
+                        message: format!("pipeline loop: group {} used multiple times", thing_name),
+                    }));
+                }
+
+                // This is a group, put it in the current phase.
+                let next_group_slot = match group_slot {
+                    Some(slot) => {
+                        cur_phase.groups[slot].push(thing_name.clone());
+                        Some(slot)
+                    }
+                    None => {
+                        let slot = cur_phase.groups.len();
+                        cur_phase.groups.push(vec![thing_name.clone()]);
+                        Some(slot)
+                    }
+                };
+
+                // Figure out what's next for this group
+                if let Some(next_input) = &group.output {
+                    if next_input.as_str() == "result" {
+                        // result is a terminal output and so there's nothing to do.
+                    } else {
+                        for next_group in inputs_to_names.get(next_input).ok_or_else(|| {
+                            ServerError::StickyProblem(ErrorDetails {
+                                layer: ErrorLayer::ConfigLayer,
+                                message: format!(
+                                    "group {} output {} is never consumed",
+                                    thing_name, next_input,
+                                ),
+                            })
+                        })? {
+                            next_groups.push_back((next_group.clone(), next_group_slot));
+                        }
+                    }
+                }
+            } else if let Some(junction) = builder.junctions.get(&thing_name) {
+                let waiting_count = pending_junctions
+                    .entry(thing_name.clone())
+                    .or_insert_with(|| junction.inputs.len());
+                *waiting_count -= 1;
+
+                if *waiting_count == 0 {
+                    cur_phase.junctions.push(thing_name.clone());
+                    pending_junctions.remove(&thing_name);
+                }
+            }
+        }
+
+        for junction_name in cur_phase.junctions.iter() {
+            // Both of these Some()s should probably use ok_or_else to error,
+            // as these should absolutely exist.
+            if let Some(junction) = builder.junctions.get(junction_name) {
+                // Complain if this isn't the first time we've processed this
+                // junction as it does indicate some kind of loop.
+                if !seen.insert(junction_name.clone()) {
+                    return Err(ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::ConfigLayer,
+                        message: format!(
+                            "pipeline loop: junction {} used multiple times",
+                            junction_name
+                        ),
+                    }));
+                }
+
+                if let Some(output) = &junction.output {
+                    if output.as_str() == "result" {
+                        // result is a terminal output and there's nothing to do
+                    } else {
+                        for next_group in inputs_to_names.get(output).ok_or_else(|| {
+                            ServerError::StickyProblem(ErrorDetails {
+                                layer: ErrorLayer::ConfigLayer,
+                                message: format!(
+                                    "junction {} output {} is never consumed",
+                                    junction_name, output,
+                                ),
+                            })
+                        })? {
+                            next_groups.push_back((next_group.clone(), None));
+                        }
+                    }
+                }
+            }
+        }
+        builder.phases.push(cur_phase);
     }
 
     Ok(builder)

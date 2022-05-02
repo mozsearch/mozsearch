@@ -211,6 +211,10 @@ impl PipelineCommand for TraverseCommand {
                     // of the hit fields.  We really just care about the
                     // contextsym.
                     "uses" => {
+                        // We may see a use edge multiple times so we want to suppress it,
+                        // but we don't want to use `considered` for this because that would
+                        // hide cycles in the graph!
+                        let mut use_considered = HashSet::new();
                         for path_hits in sym_edges {
                             let hits = path_hits["lines"].as_array().ok_or_else(bad_data)?;
                             for source in hits {
@@ -225,12 +229,13 @@ impl PipelineCommand for TraverseCommand {
                                     sym_node_set.ensure_symbol(&source_sym, server).await?;
 
                                 if source_info.is_callable() {
-                                    if depth < max_depth && considered.insert(source_info.symbol.clone()) {
-                                        // There may be multiple hits, so the edge adding must be
-                                        // conditional.
+                                    // Only process this given use edge once.
+                                    if use_considered.insert(source_info.symbol.clone()) {
                                         graph.add_edge(source_id, sym_id.clone());
-                                        trace!(sym = source_sym, "scheduling uses");
-                                        to_traverse.push((source_info.symbol.clone(), depth + 1));
+                                        if depth < max_depth && considered.insert(source_info.symbol.clone()) {
+                                            trace!(sym = source_sym, "scheduling uses");
+                                            to_traverse.push((source_info.symbol.clone(), depth + 1));
+                                        }
                                     }
                                 }
                             }

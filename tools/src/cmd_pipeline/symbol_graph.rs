@@ -133,6 +133,10 @@ impl Serialize for SymbolGraphCollection {
     }
 }
 
+fn escaped_node_id(id: &str) -> NodeId {
+    NodeId(Id::Escaped(format!("\"{}\"", id)), None)
+}
+
 impl SymbolGraphCollection {
     /// Return a sorted Object mapping from symbol identifiers to their meta, if
     /// available.  We sort the symbols for stability for testing purposes and
@@ -212,7 +216,12 @@ impl SymbolGraphCollection {
                 ));
             }
 
-            dot_graph.add_stmt(stmt!(edge!(node_id!(&source_sym) => node_id!(&target_sym))));
+            // node_id!'s macro_rules currently can't handle an `esc` prefix, so
+            // we create the structs via a hand-rolled `escaped_node_id` that
+            // replicates what the equivalent macros would do.
+            dot_graph.add_stmt(stmt!(
+                edge!(escaped_node_id(&source_sym) => escaped_node_id(&target_sym))
+            ));
         }
 
         dot_graph
