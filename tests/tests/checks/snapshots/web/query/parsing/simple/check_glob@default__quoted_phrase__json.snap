@@ -69,5 +69,31 @@ expression: "&jv.value"
       "output": "compiled",
       "depth": 0
     }
-  }
+  },
+  "phases": [
+    {
+      "groups": [
+        [
+          "file-search"
+        ],
+        [
+          "semantic-search"
+        ],
+        [
+          "text-search"
+        ]
+      ],
+      "junctions": [
+        "compile"
+      ]
+    },
+    {
+      "groups": [
+        [
+          "display"
+        ]
+      ],
+      "junctions": []
+    }
+  ]
 }

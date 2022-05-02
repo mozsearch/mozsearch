@@ -36,6 +36,9 @@ pub enum ErrorLayer {
     /// (Our "insta" checks of course help avoid such problems becoming serious
     /// silent errors, as they would/should not be quieted.)
     BadInput,
+    /// The problem seems to involve configuration data, for example in the
+    /// query to pipeline mappings.
+    ConfigLayer,
     /// The error seems to involve server logic, so it may or may not be an issue
     /// with the underlying data.
     ServerLayer,

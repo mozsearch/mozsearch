@@ -115,6 +115,10 @@ expression: sgc.to_json()
           "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
         },
         {
+          "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+          "to": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+        },
+        {
           "from": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
           "to": "_ZN7outerNS5Thing10takeDamageEi"
         },
