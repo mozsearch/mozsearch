@@ -22,6 +22,7 @@ STATUS_FILE="${SERVER_ROOT}/docroot/status.txt"
 pkill codesearch || true
 pkill -f router/router.py || true
 pkill -f tools/target/release/web-server || true
+pkill -f tools/target/release/pipeline-server || true
 
 sleep 1
 
@@ -29,6 +30,10 @@ nohup $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/
 
 export RUST_BACKTRACE=1
 nohup $MOZSEARCH_PATH/tools/target/release/web-server $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &
+
+# Note that we do not currently wait for the pipeline-server and it does not
+# write to the STATUS_FILE.
+nohup $MOZSEARCH_PATH/tools/target/release/pipeline-server $CONFIG_FILE > $SERVER_ROOT/pipeline-server.log 2> $SERVER_ROOT/pipeline-server.err < /dev/null &
 
 # If WAIT was passed, wait until the servers report they loaded.
 if [[ ${4:-} = "WAIT" ]]; then

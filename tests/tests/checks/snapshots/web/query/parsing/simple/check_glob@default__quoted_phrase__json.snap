@@ -4,7 +4,19 @@ expression: "&jv.value"
 ---
 {
   "groups": {
+    "display": {
+      "input": "compiled",
+      "segments": [
+        {
+          "command": "show-html",
+          "args": []
+        }
+      ],
+      "output": "result",
+      "depth": 0
+    },
     "file-search": {
+      "input": null,
       "segments": [
         {
           "command": "search-files",
@@ -12,9 +24,12 @@ expression: "&jv.value"
             "foo bar"
           ]
         }
-      ]
+      ],
+      "output": "file-search",
+      "depth": 0
     },
     "semantic-search": {
+      "input": null,
       "segments": [
         {
           "command": "search-identifiers",
@@ -22,9 +37,12 @@ expression: "&jv.value"
             "foo bar"
           ]
         }
-      ]
+      ],
+      "output": "semantic-search",
+      "depth": 0
     },
     "text-search": {
+      "input": null,
       "segments": [
         {
           "command": "search-text",
@@ -32,7 +50,24 @@ expression: "&jv.value"
             "--re='foo bar'"
           ]
         }
-      ]
+      ],
+      "output": "text-search",
+      "depth": 0
+    }
+  },
+  "junctions": {
+    "compile": {
+      "inputs": [
+        "file-search",
+        "semantic-search",
+        "text-search"
+      ],
+      "command": {
+        "command": "compile-results",
+        "args": []
+      },
+      "output": "compiled",
+      "depth": 0
     }
   }
 }

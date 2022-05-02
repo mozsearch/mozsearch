@@ -14,7 +14,7 @@ use super::cmd_show_html::ShowHtml;
 use super::cmd_traverse::Traverse;
 
 arg_enum! {
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum OutputFormat {
         // Pretty-printed JSON.
         Pretty,

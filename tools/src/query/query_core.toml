@@ -70,3 +70,25 @@ args.add_sym = "$0"
 [[term.text.expand]]
 term = "re"
 transforms = ["regexp_escape"]
+
+[group.file-search]
+output = "file-search"
+junction = "compile"
+
+[group.semantic-search]
+output = "semantic-search"
+junction = "compile"
+
+[group.text-search]
+output = "text-search"
+junction = "compile"
+
+[junction.compile]
+command = "compile-results"
+output = "compiled"
+next = "display"
+
+[group.display]
+output = "result"
+[[group.display.commands]]
+command = "show-html"
