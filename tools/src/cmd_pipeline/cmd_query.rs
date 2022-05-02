@@ -35,6 +35,11 @@ impl PipelineCommand for QueryCommand {
     ) -> Result<PipelineValues> {
         let pipeline_plan = chew_query(&self.args.query)?;
 
+        if self.args.dump_pipeline {
+            return Ok(PipelineValues::JsonValue(JsonValue { value: to_value(pipeline_plan)? }));
+        }
+
+        // XXX same as dump_pipeline for now...
         Ok(PipelineValues::JsonValue(JsonValue { value: to_value(pipeline_plan)? }))
     }
 }

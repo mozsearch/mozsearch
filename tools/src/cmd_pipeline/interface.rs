@@ -216,6 +216,10 @@ pub struct ServerPipeline {
     pub commands: Vec<Box<dyn PipelineCommand>>,
 }
 
+/// A linear pipeline sequence that potentially runs in parallel with other
+/// named pipelines in a `ParallelPipelines` node which can be one in a sequence
+/// of `ParallelPipelines` in a `ServerpipelineGraph`.  Inputs and outputs are
+/// consumed from and added to a global dictionary.
 pub struct NamedPipeline {
     /// Previous pipeline's output to consume.
     pub input_name: Option<String>,
@@ -223,6 +227,10 @@ pub struct NamedPipeline {
     pub commands: Vec<Box<dyn PipelineCommand>>,
 }
 
+/// Consumes one or more inputs from the `NamedPipeline`s that ran prior to it
+/// in the same `ParallelPipelines` node or possibly an earlier
+/// `ParallelPipelines` node, producting a new output.  Inputs and outputs are
+/// consumed from and added to a global dictionary.
 pub struct JunctionInvocation {
     pub input_names: Vec<String>,
     pub output_name: String,
