@@ -78,19 +78,19 @@ if [ ! -d livegrep ]; then
   popd
   # Remove ~2G of build artifacts that we don't need anymore
   rm -rf .cache/bazel
-fi
 
-# Install gRPC python libs and generate the python modules to communicate with the codesearch server
-sudo pip3 install grpcio grpcio-tools
-mkdir livegrep-grpc3
-python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
-python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
-touch livegrep-grpc3/src/__init__.py
-touch livegrep-grpc3/src/proto/__init__.py
-# Add the generated modules to the python path
-SITEDIR=$(python3 -m site --user-site)
-mkdir -p "$SITEDIR"
-echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
+  # Install gRPC python libs and generate the python modules to communicate with the codesearch server
+  sudo pip3 install grpcio grpcio-tools
+  mkdir livegrep-grpc3
+  python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
+  python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
+  touch livegrep-grpc3/src/__init__.py
+  touch livegrep-grpc3/src/proto/__init__.py
+  # Add the generated modules to the python path
+  SITEDIR=$(python3 -m site --user-site)
+  mkdir -p "$SITEDIR"
+  echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
+fi
 
 # graphviz for diagramming
 sudo apt-get install -y graphviz
