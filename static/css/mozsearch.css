@@ -8,13 +8,6 @@
 }
 
 /**
- * normalize - Improve readability when focused and also mouse hovered in all browsers.
- */
-a:active,
-a:hover {
-  outline: 0;
-}
-/**
  * normalize - Remove most spacing between table cells.
  */
 table {
@@ -167,15 +160,50 @@ table {
 body {
   margin: 0;
 }
-h4 {
-  margin: 0 0 0.5rem 0;
-}
-a:any-link {
-  color: inherit;
+
+/* Link styling */
+a {
+  color: var(--link-color);
   text-decoration: none;
 }
+
 a:hover {
+  color: var(--link-hover-color);
   text-decoration: underline;
+}
+
+/* Some links look like list items */
+.panel section a,
+.context-menu a,
+.folder-content a {
+  text-decoration: none;
+  color: unset;
+}
+
+/* .folder-content is handled with the whole row getting hover styles, so it doesn't need this. */
+.panel section a:is(:hover, :focus),
+.context-menu a:is(:hover, :focus) {
+  background-color: var(--list-hover-background);
+  color: var(--list-hover-color);
+  outline: none;
+}
+
+/* Others look more seamless (they only show underlines when hovered) */
+.file a,
+.results tr:where(:not(.result-head)) a {
+  color: unset;
+}
+
+/* Some links always show underlines, but use the underlying text color */
+#revision a,
+.info-box a,
+.blame-popup a {
+  color: unset;
+  text-decoration: underline;
+}
+
+h4 {
+  margin: 0 0 0.5rem 0;
 }
 caption {
   text-align: left;
@@ -212,8 +240,7 @@ table.folder-content tr:nth-child(even) {
   background-color: var(--table-even-row-background);
 }
 table.folder-content tbody tr:hover,
-table tbody tr:hover,
-.context-menu a:hover {
+table tbody tr:hover {
   background-color: var(--list-hover-background);
   color: var(--list-hover-color);
 }
@@ -225,7 +252,6 @@ table.folder-content a {
   padding-top: 0.5em;
   padding-right: 0.5em;
   padding-bottom: 0.5em;
-  text-decoration: none;
 }
 table td {
   padding: 0.5em;
@@ -439,9 +465,6 @@ tr.after-context-line + tr.before-context-line {
 .result-head td.left-column {
   padding-right: 0.2rem; /* Moves the icon closer to the path by reducing the padding.*/
 }
-.result-head a {
-  display: inline;
-}
 
 .result-context {
   font-style: italic;
@@ -510,7 +533,6 @@ tr.after-context-line + tr.before-context-line {
 }
 .context-menu a {
   display: block;
-  text-decoration: none;
 }
 .content {
   padding: 1rem 2rem;
@@ -528,21 +550,6 @@ tr.after-context-line + tr.before-context-line {
   margin: 0;
   padding: 1rem;
   text-align: left;
-}
-
-/* Link styling */
-.breadcrumbs a:any-link,
-.result-head a:any-link {
-  color: var(--link-color);
-}
-.breadcrumbs a:hover,
-.result-head a:hover {
-  color: var(--link-hover-color);
-}
-.breadcrumbs a:focus,
-.result-head a:focus {
-  color: var(--link-hover-color);
-  text-decoration: none;
 }
 
 /* Footer */
@@ -616,14 +623,6 @@ tr.after-context-line + tr.before-context-line {
   display: inline-block;
   width: 100%;
 }
-.panel section a:is(:hover, :focus) {
-  background-color: var(--list-hover-background);
-  color: var(--list-hover-color);
-  text-decoration: none;
-}
-.panel section a:focus {
-  text-decoration: underline;
-}
 
 /* Info Boxes */
 .info-box {
@@ -643,12 +642,8 @@ tr.after-context-line + tr.before-context-line {
   background-color: var(--info-box-info-background);
 }
 .info-box ul {
-  padding-inline-start: 20px !important;
+  padding-inline-start: 20px;
   margin: 0;
-}
-/* make it obvious that links in the info box are links */
-.info-box a {
-  text-decoration: underline !important;
 }
 .info-box .test-skip-info {
   font-family: monospace;
@@ -688,9 +683,6 @@ span[data-symbols].hovered {
 }
 .intro td[yes]::before {
   content: "\2713";
-}
-.intro td a {
-  text-decoration: underline;
 }
 
 /* ## Line number goto ##
@@ -757,12 +749,8 @@ span[data-symbols].hovered {
   z-index: 200;
   cursor: auto;
 }
-.blame-popup a {
-  text-decoration: underline;
-  cursor: pointer;
-}
 .deemphasize {
-  color: GrayText !important;
+  color: GrayText;
 }
 .minus-line {
   background-color: var(--diff-minus-line-background);
@@ -829,10 +817,6 @@ input::placeholder {
 #revision {
   padding-top: 0.2rem;
   color: var(--revision-text-color);
-}
-#revision a {
-  text-decoration: underline;
-  cursor: pointer;
 }
 .v-flex-container {
   display: flex;
