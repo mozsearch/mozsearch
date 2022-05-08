@@ -5,6 +5,7 @@ pub mod builder;
 pub mod interface;
 pub mod parser;
 pub mod symbol_graph;
+pub mod transforms;
 
 mod cmd_crossref_lookup;
 mod cmd_filter_analysis;
@@ -13,6 +14,7 @@ mod cmd_merge_analyses;
 mod cmd_prod_filter;
 mod cmd_query;
 mod cmd_search;
+mod cmd_search_files;
 mod cmd_search_identifiers;
 mod cmd_search_text;
 mod cmd_show_html;

@@ -40,6 +40,7 @@ pub enum PipelineValues {
     SymbolGraphCollection(SymbolGraphCollection),
     JsonValue(JsonValue),
     JsonRecords(JsonRecords),
+    FileMatches(FileMatches),
     TextMatches(TextMatches),
     HtmlExcerpts(HtmlExcerpts),
     StructuredResultsBundle(StructuredResultsBundle),
@@ -126,6 +127,23 @@ pub struct FlattenedResultsByFile {
 pub struct FlattenedLineSpan {
     pub line_range: (u32, u32),
     pub contents: String,
+}
+
+/// This currently boring struct exists so that we have a place to put metadata
+/// about files that can ride-along with the name.  However, it could end up
+/// that we want to just treat files as a special type of symbol, in which case
+/// maybe we don't put that info here and let later stages look it up
+/// themselves?  Optionally, maybe this ends up being an optional serde_json
+/// Value (where Some(null) means it had no data and None means we haven't
+/// looked).
+#[derive(Serialize)]
+pub struct FileMatch {
+    pub path: String,
+}
+
+#[derive(Serialize)]
+pub struct FileMatches {
+    pub file_matches: Vec<FileMatch>,
 }
 
 /// JSON records are raw analysis records from a single file (for now)

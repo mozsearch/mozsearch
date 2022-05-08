@@ -38,6 +38,9 @@ args.exact_match = false
 
 
 [term.pathre]
+[[term.pathre.group.file-search]]
+command = "search-files"
+args.pathre = "$0"
 [[term.pathre.group.semantic-search]]
 command = "filter-crossref"
 args.pathre = "$0"
@@ -51,7 +54,7 @@ alias = "path"
 [term.path]
 [[term.path.expand]]
 term = "pathre"
-transforms = ["regexp_escape"]
+transforms = ["path_glob"]
 
 [term.re]
 [[term.re.group.text-search]]
