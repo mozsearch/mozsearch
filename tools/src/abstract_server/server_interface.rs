@@ -15,6 +15,19 @@ impl From<serde_json::Error> for ServerError {
     }
 }
 
+// RegExps that are part of our code will be unwrap()ed inline to panic in
+// tests, and config file regexps should have their errors handled inline,
+// leaving us able to assume (and transform) any remaining regexp errors as
+// relating to user input.
+impl From<regex::Error> for ServerError {
+    fn from(err: regex::Error) -> ServerError {
+        ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::BadInput,
+            message: format!("bad regexp: {}", err.to_string()),
+        })
+    }
+}
+
 /// Express whether the error seems to be happening in the server or the data.
 #[derive(Debug)]
 pub enum ErrorLayer {
@@ -158,6 +171,31 @@ pub trait AbstractServer {
     /// Retrieve the JSON contents of the crossref database for the given
     /// symbol.
     async fn crossref_lookup(&self, symbol: &str) -> Result<Value>;
+
+    /// Search the list of all files using a (potentially empty) regexp string
+    /// and optionally enforcing a limit.  The underlying list of files should
+    /// be equivalent to the union of the `repo-files` and `objdir-files`
+    /// listings.
+    ///
+    /// This call's structure was chosen for consistency with the other search
+    /// calls but it potentially could be reasonable to instead just have a
+    /// primitive that allows the caller to request the file listings from the
+    /// index dir root.  Symmetry broke in favor of this seeming like a more
+    /// useful API that is decoupled from file formats.  Also, because it
+    /// probably makes sense that file metadata lookup might want to be random
+    /// access like `crossref_lookup` or that we might even just use
+    /// `crossref_lookup` with the file path mangled into a searchfox internal
+    /// symbol (like we've already started to do for C++ includes).
+    ///
+    /// It could also make sense for this API to eventually be more powerful and
+    /// to support non-path constraints like tests being enabled/disabled/etc.
+    /// but that would benefit from performing an analysis of filters we could
+    /// feasibly provide and that people agree would be useful.
+    ///
+    /// Note that this will initially be local-only and whether it makes sense
+    /// as a remote API really hinges on a rationale for not just remoting
+    /// the new "query" mechanism.
+    async fn search_files(&self, pathre: &str, limit: usize) -> Result<Vec<String>>;
 
     /// Given an identifier (prefix), return pairs of matching identifiers and
     /// symbols that correspond to those identifiers.

@@ -117,6 +117,11 @@ impl AbstractServer for RemoteServer {
         Err(ServerError::Unsupported)
     }
 
+    async fn search_files(&self, _pathre: &str, _limit: usize) -> Result<Vec<String>> {
+        // Not yet; see interface comment.
+        Err(ServerError::Unsupported)
+    }
+
     async fn search_identifiers(&self, _needle: &str, _exact_match: bool, _ignore_case: bool, _match_limit: usize) -> Result<Vec<(String, String)>> {
         // Same rationale as crossref_lookup.
         Err(ServerError::Unsupported)

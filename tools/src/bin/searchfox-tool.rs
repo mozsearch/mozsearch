@@ -139,6 +139,10 @@ async fn main() {
             emit_json(&jv.value);
             0
         }
+        Ok(PipelineValues::FileMatches(fm)) => {
+            emit_json(&to_value(fm).unwrap());
+            0
+        }
         Ok(PipelineValues::TextMatches(tm)) => {
             emit_json(&to_value(tm).unwrap());
             0

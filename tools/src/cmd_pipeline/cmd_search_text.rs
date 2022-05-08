@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use structopt::StructOpt;
 
-use super::interface::{PipelineCommand, PipelineValues};
+use super::{interface::{PipelineCommand, PipelineValues}, transforms::path_glob_transform};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
@@ -59,7 +59,7 @@ impl PipelineCommand for SearchTextCommand {
         let pathre_pattern = if let Some(pathre) = &self.args.pathre {
             pathre.clone()
         } else if let Some(path) = &self.args.path {
-            regex::escape(path)
+            path_glob_transform(path)
         } else {
             "".to_string()
         };

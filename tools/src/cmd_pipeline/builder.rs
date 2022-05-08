@@ -1,4 +1,11 @@
-use crate::{cmd_pipeline::{PipelineCommand, cmd_prod_filter::ProductionFilterCommand, cmd_query::QueryCommand, cmd_search_text::SearchTextCommand}, structopt::StructOpt, query::chew_query::QueryPipelineGroupBuilder};
+use crate::{
+    cmd_pipeline::{
+        cmd_prod_filter::ProductionFilterCommand, cmd_query::QueryCommand,
+        cmd_search_text::SearchTextCommand, PipelineCommand,
+    },
+    query::chew_query::QueryPipelineGroupBuilder,
+    structopt::StructOpt,
+};
 use tracing::{trace, trace_span};
 use url::Url;
 
@@ -9,61 +16,44 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_filter_analysis::FilterAnalysisCommand, cmd_merge_analyses::MergeAnalysesCommand, cmd_crossref_lookup::CrossrefLookupCommand, cmd_search_identifiers::SearchIdentifiersCommand, cmd_graph::GraphCommand, interface::ServerPipelineGraph};
-use super::cmd_search::SearchCommand;
+use super::{cmd_search::SearchCommand, cmd_search_files::SearchFilesCommand};
 use super::cmd_show_html::ShowHtmlCommand;
 use super::cmd_traverse::TraverseCommand;
+use super::{
+    cmd_crossref_lookup::CrossrefLookupCommand, cmd_filter_analysis::FilterAnalysisCommand,
+    cmd_graph::GraphCommand, cmd_merge_analyses::MergeAnalysesCommand,
+    cmd_search_identifiers::SearchIdentifiersCommand, interface::ServerPipelineGraph,
+};
 
 use super::interface::ServerPipeline;
 
 pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand>> {
     match opts.cmd {
-        Command::CrossrefLookup(cl) => {
-            Ok(Box::new(CrossrefLookupCommand { args: cl }))
-        }
+        Command::CrossrefLookup(cl) => Ok(Box::new(CrossrefLookupCommand { args: cl })),
 
-        Command::FilterAnalysis(fa) => {
-            Ok(Box::new(FilterAnalysisCommand { args: fa }))
-        }
+        Command::FilterAnalysis(fa) => Ok(Box::new(FilterAnalysisCommand { args: fa })),
 
-        Command::Graph(g) => {
-            Ok(Box::new(GraphCommand { args: g }))
-        }
+        Command::Graph(g) => Ok(Box::new(GraphCommand { args: g })),
 
-        Command::MergeAnalyses(ma) => {
-            Ok(Box::new(MergeAnalysesCommand{ args: ma }))
-        }
+        Command::MergeAnalyses(ma) => Ok(Box::new(MergeAnalysesCommand { args: ma })),
 
-        Command::ProductionFilter(pf) => {
-            Ok(Box::new(ProductionFilterCommand { args: pf }))
-        }
+        Command::ProductionFilter(pf) => Ok(Box::new(ProductionFilterCommand { args: pf })),
 
-        Command::Query(q) => {
-            Ok(Box::new(QueryCommand { args: q }))
-        }
+        Command::Query(q) => Ok(Box::new(QueryCommand { args: q })),
 
-        Command::Search(q) => {
-            Ok(Box::new(SearchCommand { args: q }))
-        }
+        Command::Search(q) => Ok(Box::new(SearchCommand { args: q })),
 
-        Command::SearchIdentifiers(si) => {
-            Ok(Box::new(SearchIdentifiersCommand { args: si }))
-        },
+        Command::SearchFiles(sf) => Ok(Box::new(SearchFilesCommand { args: sf })),
 
-        Command::SearchText(st) => {
-            Ok(Box::new(SearchTextCommand { args: st }))
-        }
+        Command::SearchIdentifiers(si) => Ok(Box::new(SearchIdentifiersCommand { args: si })),
 
-        Command::ShowHtml(sh) => {
-            Ok(Box::new(ShowHtmlCommand { args: sh }))
-        }
+        Command::SearchText(st) => Ok(Box::new(SearchTextCommand { args: st })),
 
-        Command::Traverse(t) => {
-            Ok(Box::new(TraverseCommand { args: t }))
-        }
+        Command::ShowHtml(sh) => Ok(Box::new(ShowHtmlCommand { args: sh })),
+
+        Command::Traverse(t) => Ok(Box::new(TraverseCommand { args: t })),
     }
 }
-
 
 /// Build a command pipeline from a shell-y string where we use pipe boundaries
 /// to delineate the separate pipeline steps.
@@ -120,7 +110,6 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         trace!(cmd = ?opts.cmd);
         commands.push(fab_command_from_opts(opts)?);
     }
-
 
     Ok((
         ServerPipeline {

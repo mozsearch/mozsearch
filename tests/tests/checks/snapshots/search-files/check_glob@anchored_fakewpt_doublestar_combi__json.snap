@@ -1,0 +1,26 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(fm).unwrap()"
+---
+{
+  "file_matches": [
+    {
+      "path": "fake-wpt/meta/fake-standard/test_ima_disabled_wpt.js.ini"
+    },
+    {
+      "path": "fake-wpt/meta/fake-standard/test_ima_sad_subtests_wpt.js.ini"
+    },
+    {
+      "path": "fake-wpt/meta/fake-standard/test_ima_weird_meta_wpt.js.ini"
+    },
+    {
+      "path": "fake-wpt/tests/fake-standard/test_ima_disabled_wpt.js"
+    },
+    {
+      "path": "fake-wpt/tests/fake-standard/test_ima_sad_subtests_wpt.js"
+    },
+    {
+      "path": "fake-wpt/tests/fake-standard/test_ima_weird_meta_wpt.js"
+    }
+  ]
+}

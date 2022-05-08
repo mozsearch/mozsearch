@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
+use regex::Regex;
 use serde_json::{from_str, Value};
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -159,6 +160,38 @@ impl AbstractServer for LocalIndex {
             symbol
         );
         result
+    }
+
+    async fn search_files(&self, pathre: &str, limit: usize) -> Result<Vec<String>> {
+        let re_path = Regex::new(pathre)?;
+
+        let repo_files_path = format!("{}/repo-files", self.config_paths.index_path,);
+        let objdir_files_path = format!("{}/objdir-files", self.config_paths.index_path,);
+
+        let mut f_repo = File::open(repo_files_path).await?;
+        let mut s_repo = String::new();
+        f_repo.read_to_string(&mut s_repo).await?;
+
+        let mut f_objdir = File::open(objdir_files_path).await?;
+        let mut s_objdir = String::new();
+        f_objdir.read_to_string(&mut s_objdir).await?;
+
+        let mut matching_paths: Vec<String> = s_repo
+            .lines()
+            .filter(|s| re_path.is_match(s))
+            .map(|s| s.to_string())
+            .collect();
+
+        let mut objdir_paths: Vec<String> = s_objdir
+            .lines()
+            .filter(|s| re_path.is_match(s))
+            .map(|s| s.to_string())
+            .collect();
+        matching_paths.append(&mut objdir_paths);
+
+        matching_paths.truncate(limit);
+
+        Ok(matching_paths)
     }
 
     async fn search_identifiers(

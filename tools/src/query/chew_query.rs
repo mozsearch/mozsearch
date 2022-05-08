@@ -7,7 +7,7 @@ use query_parser::{parse, TermValue};
 use serde::{Deserialize, Serialize};
 use toml::value::Table;
 
-use crate::abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::{abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError}, cmd_pipeline::transforms::path_glob_transform};
 
 /*
   Queries are translated into pipelines in the following steps:
@@ -122,6 +122,7 @@ fn apply_transforms(user_val: String, transforms: &Vec<String>) -> String {
     for transform in transforms.iter() {
         val = match transform.as_str() {
             "regexp_escape" => regex::escape(&val),
+            "path_glob" => path_glob_transform(&val),
             _ => val,
         }
     }

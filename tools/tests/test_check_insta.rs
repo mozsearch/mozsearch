@@ -216,6 +216,9 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         Ok(PipelineValues::JsonValue(jv)) => {
                             insta::assert_json_snapshot!(&jv.value);
                         }
+                        Ok(PipelineValues::FileMatches(fm)) => {
+                            insta::assert_json_snapshot!(&to_value(fm).unwrap());
+                        }
                         Ok(PipelineValues::TextMatches(tm)) => {
                             insta::assert_json_snapshot!(&to_value(tm).unwrap());
                         }

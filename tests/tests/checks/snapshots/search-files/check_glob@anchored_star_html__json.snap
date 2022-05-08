@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(fm).unwrap()"
+---
+{
+  "file_matches": [
+    {
+      "path": "bug1446220_unicode.html"
+    },
+    {
+      "path": "test_DOMWindowCreated_chromeonly.html"
+    }
+  ]
+}
