@@ -16,7 +16,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_search::SearchCommand, cmd_search_files::SearchFilesCommand};
+use super::{cmd_search::SearchCommand, cmd_search_files::SearchFilesCommand, cmd_crossref_expand::CrossrefExpandCommand};
 use super::cmd_show_html::ShowHtmlCommand;
 use super::cmd_traverse::TraverseCommand;
 use super::{
@@ -29,6 +29,8 @@ use super::interface::ServerPipeline;
 
 pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand>> {
     match opts.cmd {
+        Command::CrossrefExpand(ce) => Ok(Box::new(CrossrefExpandCommand { args: ce })),
+
         Command::CrossrefLookup(cl) => Ok(Box::new(CrossrefLookupCommand { args: cl })),
 
         Command::FilterAnalysis(fa) => Ok(Box::new(FilterAnalysisCommand { args: fa })),

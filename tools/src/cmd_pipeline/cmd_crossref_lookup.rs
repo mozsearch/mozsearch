@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use structopt::StructOpt;
 
 use super::interface::{
-    PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolList,
+    PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolList, SymbolWithContext, SymbolQuality, SymbolRelation,
 };
 
-use crate::abstract_server::{AbstractServer, Result};
+use crate::abstract_server::{AbstractServer, Result, ServerError, ErrorDetails, ErrorLayer};
 
 /// Return the crossref data for one or more symbols received via pipeline or as
 /// explicit arguments.
@@ -36,22 +36,31 @@ impl PipelineCommand for CrossrefLookupCommand {
             // pipeline so that we would have no inputs if someone wants to use
             // arguments...
             PipelineValues::Void => SymbolList {
-                symbols: self.args.symbols.clone(),
-                from_identifiers: None,
+                symbols: self.args.symbols.iter().map(|sym| {
+                    SymbolWithContext {
+                        symbol: sym.clone(),
+                        quality: SymbolQuality::ExplicitSymbol,
+                        from_identifier: None,
+                    }
+                }).collect(),
             },
-            // TODO: Figure out a better way to handle a nonsensical pipeline
-            // configuration / usage.
             _ => {
-                return Ok(PipelineValues::Void);
+                return Err(ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::ConfigLayer,
+                    message: "crossref-lookup needs a Void or SymbolList".to_string(),
+                }));
             }
         };
 
         let mut symbol_crossref_infos = vec![];
-        for symbol in symbol_list.symbols {
-            let info = server.crossref_lookup(&symbol).await?;
+        for sym_ctx in symbol_list.symbols {
+            let info = server.crossref_lookup(&sym_ctx.symbol).await?;
             symbol_crossref_infos.push(SymbolCrossrefInfo {
-                symbol,
+                symbol: sym_ctx.symbol,
                 crossref_info: info,
+                relation: SymbolRelation::Queried,
+                quality: sym_ctx.quality,
+                overloads_hit: vec![],
             });
         }
 

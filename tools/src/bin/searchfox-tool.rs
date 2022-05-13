@@ -82,18 +82,7 @@ async fn main() {
             0
         }
         Ok(PipelineValues::SymbolList(sl)) => {
-            match sl.from_identifiers {
-                Some(identifiers) => {
-                    for (sym, ident) in sl.symbols.iter().zip(identifiers.iter()) {
-                        println!("{} from {}", sym, ident);
-                    }
-                }
-                None => {
-                    for sym in sl.symbols {
-                        println!("{}", sym);
-                    }
-                }
-            }
+            emit_json(&to_value(sl).unwrap());
             0
         }
         Ok(PipelineValues::SymbolCrossrefInfoList(sl)) => {

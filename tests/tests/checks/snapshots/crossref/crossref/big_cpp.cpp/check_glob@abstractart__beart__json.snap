@@ -1,47 +1,55 @@
 ---
 source: tests/test_check_insta.rs
-expression: crossref_json
+expression: "&to_value(scil).unwrap()"
 ---
-[
-  {
-    "defs": [
-      {
-        "path": "big_cpp.cpp",
-        "lines": [
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "_ZN7outerNS11AbstractArt5beArtEv",
+      "crossref_info": {
+        "defs": [
           {
-            "lno": 424,
-            "bounds": [
-              13,
-              18
-            ],
-            "line": "virtual void beArt() = 0;",
-            "context": "outerNS::AbstractArt",
-            "contextsym": "T_outerNS::AbstractArt",
-            "peekRange": "422-424"
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 424,
+                "bounds": [
+                  13,
+                  18
+                ],
+                "line": "virtual void beArt() = 0;",
+                "context": "outerNS::AbstractArt",
+                "contextsym": "T_outerNS::AbstractArt",
+                "peekRange": "422-424"
+              }
+            ]
           }
-        ]
-      }
-    ],
-    "meta": {
-      "structured": 1,
-      "pretty": "outerNS::AbstractArt::beArt",
-      "sym": "_ZN7outerNS11AbstractArt5beArtEv",
-      "kind": "method",
-      "parentsym": "T_outerNS::AbstractArt",
-      "implKind": "",
-      "sizeBytes": null,
-      "supers": [],
-      "methods": [],
-      "fields": [],
-      "overrides": [],
-      "props": [
-        "instance",
-        "virtual",
-        "user"
-      ],
-      "overriddenBy": [
-        "_ZN7outerNS12PracticalArt5beArtEv"
-      ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::AbstractArt::beArt",
+          "sym": "_ZN7outerNS11AbstractArt5beArtEv",
+          "kind": "method",
+          "parentsym": "T_outerNS::AbstractArt",
+          "implKind": "",
+          "sizeBytes": null,
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [
+            "instance",
+            "virtual",
+            "user"
+          ],
+          "overriddenBy": [
+            "_ZN7outerNS12PracticalArt5beArtEv"
+          ]
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
     }
-  }
-]
+  ]
+}
