@@ -1,6 +1,7 @@
 use clap::arg_enum;
 use structopt::StructOpt;
 
+use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_graph::Graph;
@@ -48,6 +49,7 @@ pub struct ToolOpts {
 
 #[derive(Debug, StructOpt)]
 pub enum Command {
+    CrossrefExpand(CrossrefExpand),
     CrossrefLookup(CrossrefLookup),
     FilterAnalysis(FilterAnalysis),
     Graph(Graph),

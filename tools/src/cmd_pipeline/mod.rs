@@ -7,6 +7,8 @@ pub mod parser;
 pub mod symbol_graph;
 pub mod transforms;
 
+mod cmd_compile_results;
+mod cmd_crossref_expand;
 mod cmd_crossref_lookup;
 mod cmd_filter_analysis;
 mod cmd_graph;

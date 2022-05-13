@@ -161,28 +161,14 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         Ok(PipelineValues::IdentifierList(il)) => {
                             insta::assert_json_snapshot!(json!(il.identifiers));
                         }
-                        Ok(PipelineValues::SymbolList(sl)) => match sl.from_identifiers {
-                            Some(identifiers) => {
-                                let mut pairs = vec![];
-                                for (sym, ident) in sl.symbols.iter().zip(identifiers.iter()) {
-                                    pairs.push(json!({
-                                        "sym": sym,
-                                        "id": ident,
-                                    }));
-                                }
-                                insta::assert_json_snapshot!(json!(pairs));
-                            }
-                            None => {
-                                insta::assert_json_snapshot!(json!(sl.symbols));
-                            }
-                        },
-                        Ok(PipelineValues::SymbolCrossrefInfoList(sl)) => {
-                            let crossref_json = json!(sl
-                                .symbol_crossref_infos
-                                .into_iter()
-                                .map(|sci| sci.crossref_info)
-                                .collect::<Value>());
-                            insta::assert_json_snapshot!(crossref_json);
+                        Ok(PipelineValues::SymbolList(sl)) => {
+                            insta::assert_json_snapshot!(&to_value(sl).unwrap());
+                        }
+                        Ok(PipelineValues::SymbolCrossrefInfoList(scil)) => {
+                            // We used to previously just turn this into a list of
+                            // just the crossref values, but we now have important
+                            // metadata.
+                            insta::assert_json_snapshot!(&to_value(scil).unwrap());
                         }
                         Ok(PipelineValues::SymbolGraphCollection(sgc)) => {
                             insta::assert_json_snapshot!(sgc.to_json());

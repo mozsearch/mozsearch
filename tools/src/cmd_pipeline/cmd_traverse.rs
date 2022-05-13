@@ -56,10 +56,11 @@ impl PipelineCommand for TraverseCommand {
         let max_depth = self.args.max_depth;
         let cil = match input {
             PipelineValues::SymbolCrossrefInfoList(cil) => cil,
-            // TODO: Figure out a better way to handle a nonsensical pipeline
-            // configuration / usage.
             _ => {
-                return Ok(PipelineValues::Void);
+                return Err(ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::ConfigLayer,
+                    message: "traverse needs a CrossrefInfoList".to_string(),
+                }));
             }
         };
 

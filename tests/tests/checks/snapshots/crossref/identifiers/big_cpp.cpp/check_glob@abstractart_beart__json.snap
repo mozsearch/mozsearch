@@ -1,10 +1,13 @@
 ---
 source: tests/test_check_insta.rs
-expression: json!(pairs)
+expression: "&to_value(sl).unwrap()"
 ---
-[
-  {
-    "sym": "_ZN7outerNS11AbstractArt5beArtEv",
-    "id": "outerNS::AbstractArt::beArt"
-  }
-]
+{
+  "symbols": [
+    {
+      "symbol": "_ZN7outerNS11AbstractArt5beArtEv",
+      "quality": "ExactIdentifier",
+      "from_identifier": "outerNS::AbstractArt::beArt"
+    }
+  ]
+}

@@ -1,0 +1,1109 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "T_outerNS::OuterCat",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 221,
+                "bounds": [
+                  6,
+                  14
+                ],
+                "line": "class OuterCat : Thing {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "221-221"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "field",
+            "pretty": "outerNS::OuterCat::mIsFriendly",
+            "sym": "F_<T_outerNS::OuterCat>_mIsFriendly"
+          },
+          {
+            "kind": "field",
+            "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+            "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly"
+          },
+          {
+            "kind": "class",
+            "pretty": "outerNS::Thing",
+            "sym": "T_outerNS::Thing"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::OuterCat",
+          "sym": "T_outerNS::OuterCat",
+          "kind": "class",
+          "implKind": "",
+          "sizeBytes": 16,
+          "supers": [
+            {
+              "pretty": "outerNS::Thing",
+              "sym": "T_outerNS::Thing",
+              "props": []
+            }
+          ],
+          "methods": [
+            {
+              "pretty": "outerNS::OuterCat::OuterCat",
+              "sym": "_ZN7outerNS8OuterCatC1Ebb",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::isFriendlyCat",
+              "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
+              "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
+              "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::meet",
+              "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::meet",
+              "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::shred",
+              "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::destroy",
+              "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::operator=",
+              "sym": "_ZN7outerNS8OuterCataSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::operator=",
+              "sym": "_ZN7outerNS8OuterCataSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::~OuterCat",
+              "sym": "_ZN7outerNS8OuterCatD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "pretty": "outerNS::OuterCat::mIsFriendly",
+              "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+              "type": "_Bool",
+              "typesym": "",
+              "offsetBytes": 13,
+              "bitPositions": null,
+              "sizeBytes": 1
+            },
+            {
+              "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+              "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+              "type": "_Bool",
+              "typesym": "",
+              "offsetBytes": 14,
+              "bitPositions": null,
+              "sizeBytes": 1
+            }
+          ],
+          "overrides": [],
+          "props": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "T_outerNS::Thing",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 166,
+                "bounds": [
+                  5,
+                  10
+                ],
+                "line": "void Thing::ignore() {",
+                "context": "outerNS::Thing::ignore",
+                "contextsym": "_ZN7outerNS5Thing6ignoreEv"
+              },
+              {
+                "lno": 179,
+                "bounds": [
+                  20,
+                  25
+                ],
+                "line": "class Human: public Thing {",
+                "context": "outerNS::Human",
+                "contextsym": "T_outerNS::Human"
+              },
+              {
+                "lno": 183,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": ": Thing(HUMAN_HP) {",
+                "context": "outerNS::Human::Human",
+                "contextsym": "_ZN7outerNS5HumanC1Ev"
+              },
+              {
+                "lno": 205,
+                "bounds": [
+                  21,
+                  26
+                ],
+                "line": "class Couch : public Thing {",
+                "context": "outerNS::Couch",
+                "contextsym": "T_outerNS::Couch"
+              },
+              {
+                "lno": 209,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": ": Thing (couchHP) {",
+                "context": "outerNS::Couch::Couch",
+                "contextsym": "_ZN7outerNS5CouchC1Ei"
+              },
+              {
+                "lno": 221,
+                "bounds": [
+                  17,
+                  22
+                ],
+                "line": "class OuterCat : Thing {",
+                "context": "outerNS::OuterCat",
+                "contextsym": "T_outerNS::OuterCat"
+              },
+              {
+                "lno": 258,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": ": Thing(9 * HUMAN_HP)",
+                "context": "outerNS::OuterCat::OuterCat",
+                "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
+              },
+              {
+                "lno": 390,
+                "bounds": [
+                  11,
+                  16
+                ],
+                "line": "void shred(Thing &thing) {",
+                "context": "outerNS::OuterCat::shred",
+                "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+              },
+              {
+                "lno": 397,
+                "bounds": [
+                  13,
+                  18
+                ],
+                "line": "void destroy(Thing &thing) {",
+                "context": "outerNS::OuterCat::destroy",
+                "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+              },
+              {
+                "lno": 417,
+                "bounds": [
+                  27,
+                  32
+                ],
+                "line": "class AbstractArt : public Thing {",
+                "context": "outerNS::AbstractArt",
+                "contextsym": "T_outerNS::AbstractArt"
+              },
+              {
+                "lno": 420,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": ": Thing(ART_HP) {}",
+                "context": "outerNS::AbstractArt::AbstractArt",
+                "contextsym": "_ZN7outerNS11AbstractArtC1Ev"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 135,
+                "bounds": [
+                  6,
+                  11
+                ],
+                "line": "class Thing {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "135-135"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "field",
+            "pretty": "outerNS::Thing::mDefunct",
+            "sym": "F_<T_outerNS::Thing>_mDefunct"
+          },
+          {
+            "kind": "field",
+            "pretty": "outerNS::Thing::mHP",
+            "sym": "F_<T_outerNS::Thing>_mHP"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::Thing",
+          "sym": "T_outerNS::Thing",
+          "kind": "class",
+          "implKind": "",
+          "sizeBytes": 16,
+          "supers": [],
+          "methods": [
+            {
+              "pretty": "outerNS::Thing::Thing",
+              "sym": "_ZN7outerNS5ThingC1Ei",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::ignore",
+              "sym": "_ZN7outerNS5Thing6ignoreEv",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::takeDamage",
+              "sym": "_ZN7outerNS5Thing10takeDamageEi",
+              "props": [
+                "instance",
+                "virtual",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::operator=",
+              "sym": "_ZN7outerNS5ThingaSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::operator=",
+              "sym": "_ZN7outerNS5ThingaSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::~Thing",
+              "sym": "_ZN7outerNS5ThingD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::Thing",
+              "sym": "_ZN7outerNS5ThingC1ERKS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::Thing",
+              "sym": "_ZN7outerNS5ThingC1EOS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "pretty": "outerNS::Thing::mHP",
+              "sym": "F_<T_outerNS::Thing>_mHP",
+              "type": "int",
+              "typesym": "",
+              "offsetBytes": 8,
+              "bitPositions": null,
+              "sizeBytes": 4
+            },
+            {
+              "pretty": "outerNS::Thing::mDefunct",
+              "sym": "F_<T_outerNS::Thing>_mDefunct",
+              "type": "_Bool",
+              "typesym": "",
+              "offsetBytes": 12,
+              "bitPositions": null,
+              "sizeBytes": 1
+            }
+          ],
+          "overrides": [],
+          "props": [],
+          "subclasses": [
+            "T_outerNS::Human",
+            "T_outerNS::Couch",
+            "T_outerNS::OuterCat",
+            "T_outerNS::AbstractArt"
+          ]
+        }
+      },
+      "relation": {
+        "SuperclassOf": [
+          "T_outerNS::OuterCat",
+          1
+        ]
+      },
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "T_outerNS::Human",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 188,
+                "bounds": [
+                  25,
+                  30
+                ],
+                "line": "class Superhero : public Human {",
+                "context": "outerNS::Superhero",
+                "contextsym": "T_outerNS::Superhero"
+              },
+              {
+                "lno": 192,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": ": Human() {",
+                "context": "outerNS::Superhero::Superhero",
+                "contextsym": "_ZN7outerNS9SuperheroC1Ev"
+              },
+              {
+                "lno": 213,
+                "bounds": [
+                  0,
+                  5
+                ],
+                "line": "Human bob;",
+                "context": "outerNS::Couch::Couch",
+                "contextsym": "_ZN7outerNS5CouchC1Ei"
+              },
+              {
+                "lno": 214,
+                "bounds": [
+                  16,
+                  21
+                ],
+                "line": "WhatsYourVector<Human> goodReferenceRight(&bob);",
+                "context": "outerNS::Couch::Couch",
+                "contextsym": "_ZN7outerNS5CouchC1Ei"
+              },
+              {
+                "lno": 340,
+                "bounds": [
+                  10,
+                  15
+                ],
+                "line": "void meet(Human &human) {",
+                "context": "outerNS::OuterCat::meet",
+                "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 179,
+                "bounds": [
+                  6,
+                  11
+                ],
+                "line": "class Human: public Thing {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "179-179"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "class",
+            "pretty": "outerNS::Thing",
+            "sym": "T_outerNS::Thing"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::Human",
+          "sym": "T_outerNS::Human",
+          "kind": "class",
+          "implKind": "",
+          "sizeBytes": 16,
+          "supers": [
+            {
+              "pretty": "outerNS::Thing",
+              "sym": "T_outerNS::Thing",
+              "props": []
+            }
+          ],
+          "methods": [
+            {
+              "pretty": "outerNS::Human::Human",
+              "sym": "_ZN7outerNS5HumanC1Ev",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Human::operator=",
+              "sym": "_ZN7outerNS5HumanaSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Human::operator=",
+              "sym": "_ZN7outerNS5HumanaSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Human::~Human",
+              "sym": "_ZN7outerNS5HumanD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Human::Human",
+              "sym": "_ZN7outerNS5HumanC1ERKS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            },
+            {
+              "pretty": "outerNS::Human::Human",
+              "sym": "_ZN7outerNS5HumanC1EOS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            }
+          ],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "subclasses": [
+            "T_outerNS::Superhero"
+          ]
+        }
+      },
+      "relation": {
+        "CousinClassOf": [
+          "T_outerNS::OuterCat",
+          2
+        ]
+      },
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "T_outerNS::Couch",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 351,
+                "bounds": [
+                  10,
+                  15
+                ],
+                "line": "void meet(Couch &couch) {",
+                "context": "outerNS::OuterCat::meet",
+                "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 205,
+                "bounds": [
+                  6,
+                  11
+                ],
+                "line": "class Couch : public Thing {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "205-205"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "class",
+            "pretty": "outerNS::Thing",
+            "sym": "T_outerNS::Thing"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::Couch",
+          "sym": "T_outerNS::Couch",
+          "kind": "class",
+          "implKind": "",
+          "sizeBytes": 16,
+          "supers": [
+            {
+              "pretty": "outerNS::Thing",
+              "sym": "T_outerNS::Thing",
+              "props": []
+            }
+          ],
+          "methods": [
+            {
+              "pretty": "outerNS::Couch::Couch",
+              "sym": "_ZN7outerNS5CouchC1Ei",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Couch::operator=",
+              "sym": "_ZN7outerNS5CouchaSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Couch::operator=",
+              "sym": "_ZN7outerNS5CouchaSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Couch::~Couch",
+              "sym": "_ZN7outerNS5CouchD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            }
+          ],
+          "fields": [],
+          "overrides": [],
+          "props": []
+        }
+      },
+      "relation": {
+        "CousinClassOf": [
+          "T_outerNS::OuterCat",
+          2
+        ]
+      },
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "T_outerNS::AbstractArt",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 427,
+                "bounds": [
+                  28,
+                  39
+                ],
+                "line": "class PracticalArt : public AbstractArt {",
+                "context": "outerNS::PracticalArt",
+                "contextsym": "T_outerNS::PracticalArt"
+              },
+              {
+                "lno": 430,
+                "bounds": [
+                  2,
+                  13
+                ],
+                "line": ": AbstractArt() {}",
+                "context": "outerNS::PracticalArt::PracticalArt",
+                "contextsym": "_ZN7outerNS12PracticalArtC1Ev"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 417,
+                "bounds": [
+                  6,
+                  17
+                ],
+                "line": "class AbstractArt : public Thing {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "417-417"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "class",
+            "pretty": "outerNS::Thing",
+            "sym": "T_outerNS::Thing"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::AbstractArt",
+          "sym": "T_outerNS::AbstractArt",
+          "kind": "class",
+          "implKind": "",
+          "sizeBytes": 16,
+          "supers": [
+            {
+              "pretty": "outerNS::Thing",
+              "sym": "T_outerNS::Thing",
+              "props": []
+            }
+          ],
+          "methods": [
+            {
+              "pretty": "outerNS::AbstractArt::AbstractArt",
+              "sym": "_ZN7outerNS11AbstractArtC1Ev",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::AbstractArt::beArt",
+              "sym": "_ZN7outerNS11AbstractArt5beArtEv",
+              "props": [
+                "instance",
+                "virtual",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::AbstractArt::operator=",
+              "sym": "_ZN7outerNS11AbstractArtaSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::AbstractArt::operator=",
+              "sym": "_ZN7outerNS11AbstractArtaSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::AbstractArt::~AbstractArt",
+              "sym": "_ZN7outerNS11AbstractArtD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::AbstractArt::AbstractArt",
+              "sym": "_ZN7outerNS11AbstractArtC1ERKS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            },
+            {
+              "pretty": "outerNS::AbstractArt::AbstractArt",
+              "sym": "_ZN7outerNS11AbstractArtC1EOS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            }
+          ],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "subclasses": [
+            "T_outerNS::PracticalArt"
+          ]
+        }
+      },
+      "relation": {
+        "CousinClassOf": [
+          "T_outerNS::OuterCat",
+          2
+        ]
+      },
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "T_outerNS::Superhero",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 210,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "Superhero superBob;",
+                "context": "outerNS::Couch::Couch",
+                "contextsym": "_ZN7outerNS5CouchC1Ei"
+              },
+              {
+                "lno": 211,
+                "bounds": [
+                  16,
+                  25
+                ],
+                "line": "WhatsYourVector<Superhero> victor(&superBob);",
+                "context": "outerNS::Couch::Couch",
+                "contextsym": "_ZN7outerNS5CouchC1Ei"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 188,
+                "bounds": [
+                  6,
+                  15
+                ],
+                "line": "class Superhero : public Human {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "188-188"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "class",
+            "pretty": "outerNS::Human",
+            "sym": "T_outerNS::Human"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::Superhero",
+          "sym": "T_outerNS::Superhero",
+          "kind": "class",
+          "implKind": "",
+          "sizeBytes": 16,
+          "supers": [
+            {
+              "pretty": "outerNS::Human",
+              "sym": "T_outerNS::Human",
+              "props": []
+            }
+          ],
+          "methods": [
+            {
+              "pretty": "outerNS::Superhero::Superhero",
+              "sym": "_ZN7outerNS9SuperheroC1Ev",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Superhero::takeDamage",
+              "sym": "_ZN7outerNS9Superhero10takeDamageEi",
+              "props": [
+                "instance",
+                "virtual",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Superhero::operator=",
+              "sym": "_ZN7outerNS9SuperheroaSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Superhero::operator=",
+              "sym": "_ZN7outerNS9SuperheroaSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Superhero::~Superhero",
+              "sym": "_ZN7outerNS9SuperheroD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::Superhero::Superhero",
+              "sym": "_ZN7outerNS9SuperheroC1ERKS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            },
+            {
+              "pretty": "outerNS::Superhero::Superhero",
+              "sym": "_ZN7outerNS9SuperheroC1EOS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ]
+            }
+          ],
+          "fields": [],
+          "overrides": [],
+          "props": []
+        }
+      },
+      "relation": {
+        "CousinClassOf": [
+          "T_outerNS::OuterCat",
+          3
+        ]
+      },
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "T_outerNS::PracticalArt",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "lines": [
+              {
+                "lno": 427,
+                "bounds": [
+                  6,
+                  18
+                ],
+                "line": "class PracticalArt : public AbstractArt {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "427-427"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "class",
+            "pretty": "outerNS::AbstractArt",
+            "sym": "T_outerNS::AbstractArt"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::PracticalArt",
+          "sym": "T_outerNS::PracticalArt",
+          "kind": "class",
+          "implKind": "",
+          "sizeBytes": 16,
+          "supers": [
+            {
+              "pretty": "outerNS::AbstractArt",
+              "sym": "T_outerNS::AbstractArt",
+              "props": []
+            }
+          ],
+          "methods": [
+            {
+              "pretty": "outerNS::PracticalArt::PracticalArt",
+              "sym": "_ZN7outerNS12PracticalArtC1Ev",
+              "props": [
+                "instance",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::PracticalArt::beArt",
+              "sym": "_ZN7outerNS12PracticalArt5beArtEv",
+              "props": [
+                "instance",
+                "virtual",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::PracticalArt::operator=",
+              "sym": "_ZN7outerNS12PracticalArtaSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::PracticalArt::operator=",
+              "sym": "_ZN7outerNS12PracticalArtaSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::PracticalArt::~PracticalArt",
+              "sym": "_ZN7outerNS12PracticalArtD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            }
+          ],
+          "fields": [],
+          "overrides": [],
+          "props": []
+        }
+      },
+      "relation": {
+        "CousinClassOf": [
+          "T_outerNS::OuterCat",
+          3
+        ]
+      },
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ]
+}

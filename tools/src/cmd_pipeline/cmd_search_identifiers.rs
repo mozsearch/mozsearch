@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use structopt::StructOpt;
 
-use super::interface::{IdentifierList, PipelineCommand, PipelineValues, SymbolList};
+use super::interface::{
+    IdentifierList, PipelineCommand, PipelineValues, SymbolList, SymbolQuality, SymbolWithContext,
+};
 
 use crate::abstract_server::{AbstractServer, Result};
 
@@ -51,8 +53,7 @@ impl PipelineCommand for SearchIdentifiersCommand {
             }
         };
 
-        let mut symbols: Vec<String> = vec![];
-        let mut from_identifiers: Vec<String> = vec![];
+        let mut symbols: Vec<SymbolWithContext> = vec![];
         for id in identifier_list.identifiers {
             for (sym, from_ident) in server
                 .search_identifiers(
@@ -63,14 +64,22 @@ impl PipelineCommand for SearchIdentifiersCommand {
                 )
                 .await?
             {
-                symbols.push(sym);
-                from_identifiers.push(from_ident);
+                let quality = match (&self.args.exact_match, id == from_ident, &id, &from_ident) {
+                    (true, _, _, _) => SymbolQuality::ExplicitIdentifier,
+                    (false, true, _, _) => SymbolQuality::ExactIdentifier,
+                    (_, _, searched, result) => SymbolQuality::IdentifierPrefix(
+                        searched.len() as u32,
+                        (result.len() - searched.len()) as u32,
+                    ),
+                };
+                symbols.push(SymbolWithContext {
+                    symbol: sym,
+                    quality,
+                    from_identifier: Some(from_ident),
+                });
             }
         }
 
-        Ok(PipelineValues::SymbolList(SymbolList {
-            symbols,
-            from_identifiers: Some(from_identifiers),
-        }))
+        Ok(PipelineValues::SymbolList(SymbolList { symbols }))
     }
 }

@@ -55,15 +55,115 @@ pub struct IdentifierList {
     pub identifiers: Vec<String>,
 }
 
+#[derive(Serialize)]
+pub struct SymbolWithContext {
+    pub symbol: String,
+    pub quality: SymbolQuality,
+    pub from_identifier: Option<String>,
+}
+
 /// A list of (searchfox) symbols.
 #[derive(Serialize)]
 pub struct SymbolList {
-    pub symbols: Vec<String>,
-    /// If present, these correspond to the identifiers that give us the
-    /// symbols.  This is used in cases where an non-exact_match identifier
-    /// search is performed and so we may not actually know what the identifiers
-    /// actually were.
-    pub from_identifiers: Option<Vec<String>>,
+    pub symbols: Vec<SymbolWithContext>,
+}
+
+/// Metadata about how we got to this symbol from the root query.  Intended to
+/// help in clustering and/or results ordering.
+#[derive(Clone, Serialize)]
+pub enum SymbolRelation {
+    /// The symbol was directly queried for.
+    Queried,
+    /// This symbol is an override of the payload symbol (and was added via that
+    /// symbol by following the "overriddenBy" downward edges).  The u32 is the
+    /// distance.
+    OverrideOf(String, u32),
+    /// This symbol was overridden by the payload symbol (and was added via that
+    /// symbol by following the "overrides" upward edges).  The u32 is the
+    /// distance.
+    OverriddenBy(String, u32),
+    /// This symbol is in the same root override set of the payload symbol (and
+    /// was added by following that symbol's "overrides" upward edges and then
+    /// "overriddenBy" downward edges), but is a cousin rather than an ancestor
+    /// or descendant in the graph.  The u32 is the number of steps to get to
+    /// the common ancestor.
+    CousinOverrideOf(String, u32),
+    /// This symbol is a subclass of the payload symbol (and was added via that
+    /// symbol by following the "subclasses" downward edges).  The u32 is the
+    /// distance.
+    SubclassOf(String, u32),
+    /// This symbol is a superclass of the payload symbol (and was added via
+    /// that symbol by following the "supers" upward edges).  The u32 is the
+    /// distance.
+    SuperclassOf(String, u32),
+    /// This symbol is a cousin class of the payload symbol (and was added via
+    /// that symbol by following the "supers" upward edges and then "subclasses"
+    /// downward edges) with a distance indicating the number of steps to get to
+    /// the common ancestor.
+    CousinClassOf(String, u32),
+}
+
+/// Metadata about how likely we think it is that the user was actually looking
+/// for this symbol; primarily intended to capture whether or not we got to this
+/// symbol by prefix search on an identifier and how much was guessed so that we
+/// can scale any speculative effort appropriately, especially during
+/// incremental search.
+#[derive(Clone, Serialize)]
+pub enum SymbolQuality {
+    /// The symbol was explicitly specified and not the result of identifier
+    /// lookup.
+    ExplicitSymbol,
+    /// The identifier was explicitly specified without prefix search enabled.
+    ExplicitIdentifier,
+    /// We did identifier search and the identifier was an exact match, but this
+    /// was done in a context where we prefix search is also performed and
+    /// expected.  The difference from `ExplicitIdentifier` here is that it can
+    /// make sense to be more limited in automatically expanding the scope of
+    /// results.
+    ExactIdentifier,
+    /// We did identifier search and the prefix matched; the values are how many
+    /// characters matched and how many additional characters are in the
+    /// identifier beyond the match point.  The latter number should always be
+    /// at least 1, as 0 would make this `ExactIdentifier`.
+    IdentifierPrefix(u32, u32),
+}
+
+///
+#[derive(Clone, Serialize)]
+pub enum OverloadKind {
+    /// There's just too many overrides!  This would happen for
+    /// nsISupports::AddRef for example.
+    Overrides,
+    /// There's just too many subclasses!  This would happen for nsISupports for
+    /// example.
+    Subclasses,
+}
+
+/// Information about overloads encountered when processing some aspect of a
+/// symbol.  We've had a history of being unclear when limits are hit, so the
+/// goal here is to be able to explicitly convey when we're hitting limits and
+/// ideally to make it possible for the UI to generate links that can help the
+/// user take an informed action to re-run with the limit bypassed.  (Our
+/// concern is not so much abuse as much as it is about helping provide
+/// consistently fast results as a user types a query and that the user opts in
+/// to multi-second results rather than stumbling upon them.)
+///
+/// This is not currently intended to be used for `compile-results`, but could
+/// perhaps be adapted for that.
+#[derive(Clone, Serialize)]
+pub struct OverloadInfo {
+    pub kind: OverloadKind,
+    /// How many results do we think exist?
+    pub exist: u32,
+    /// How many results did we include before giving up?  This can be zero or
+    /// otherwise less than the `limit`.
+    pub included: u32,
+    /// If this was a limit on this specific piece of data, what was the limit?
+    /// 0 means there was no local limit hit (not that there was no limit).
+    pub local_limit: u32,
+    /// If this was a limit across multiple pieces of data, what was the limit?
+    /// 0 means there was no global limit hit (not that there was no limit).
+    pub global_limit: u32,
 }
 
 /// A symbol and its cross-reference information.
@@ -71,6 +171,10 @@ pub struct SymbolList {
 pub struct SymbolCrossrefInfo {
     pub symbol: String,
     pub crossref_info: Value,
+    pub relation: SymbolRelation,
+    pub quality: SymbolQuality,
+    /// Any overloads encountered when processing this symbol.
+    pub overloads_hit: Vec<OverloadInfo>,
 }
 
 /// A list of `SymbolCrossrefInfo`s.
