@@ -6,9 +6,43 @@ var Panel = new (class Panel {
     this.content = document.getElementById("panel-content");
     this.accelEnabledCheckbox = document.getElementById("panel-accel-enable");
 
-    this.permalinkNode = this.findLink("Permalink");
-    this.logNode = this.findLink("Log");
-    this.rawNode = this.findLink("Raw");
+    this.permalinkNode = this.findItem("Permalink");
+    this.logNode = this.findItem("Log");
+    this.rawNode = this.findItem("Raw");
+
+    this.selectedLines = [];
+    this.selectionTitle = "";
+    this.markdown = {
+      "filename": {
+        node: this.findItem("Filename Link"),
+        isEnabled: () => {
+          return this.selectedLines.length > 0;
+        },
+        getText: (url, filename) => {
+          return `[${filename}](${url})`;
+        },
+      },
+      "symbol": {
+        node: this.findItem("Symbol Link"),
+        isEnabled: () => {
+          return this.selectionTitle;
+        },
+        getText: (url, filename) => {
+          const symbol = this.selectionTitle;
+          return `[${symbol}](${url})`;
+        },
+      },
+      "block": {
+        node: this.findItem("Code Block"),
+        isEnabled: () => {
+          return this.selectedLines.length > 0;
+        },
+        getText: (url, filename) => {
+          const lang = this.getLanguageFor(filename);
+          return [url, "```" + lang, ...this.formatSelectedLines(), "```"].join("\n");
+        },
+      },
+    };
 
     this.toggleButton.addEventListener("click", () => this.toggle());
     this.accelEnabledCheckbox.addEventListener("change", () => {
@@ -20,25 +54,21 @@ var Panel = new (class Panel {
     );
 
     for (let copy of this.panel.querySelectorAll(".copy")) {
-      copy.addEventListener("click", function(e) {
+      copy.addEventListener("click", e => {
         e.preventDefault();
+
+        for (const [name, { node }] of Object.entries(this.markdown)) {
+          if (copy.parentNode == node) {
+            this.copyMarkdown(name);
+            return;
+          }
+        }
 
         if (copy.hasAttribute("data-copying")) {
           return;
         }
-        copy.setAttribute("data-copying", "true");
-        navigator.clipboard.writeText(copy.parentNode.href)
-          .then(function() {
-            copy.classList.add("copied");
-            setTimeout(function() {
-              if (!copy.hasAttribute("data-copying")) {
-                copy.classList.remove("copied");
-              }
-            }, 1000);
-          })
-          .finally(function() {
-            copy.removeAttribute("data-copying");
-          });
+
+        this.copyText(copy, copy.parentNode.href);
       });
     }
 
@@ -54,6 +84,20 @@ var Panel = new (class Panel {
         );
         event.preventDefault();
       });
+    }
+
+    for (const [name, { node }] of Object.entries(this.markdown)) {
+      if (node) {
+        node.addEventListener("click", event => {
+          if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+            return;
+          }
+
+          this.copyMarkdown(name);
+          
+          event.preventDefault();
+        });
+      }
     }
 
     // If the user toggles it in a different tab, update the checkbox/state here
@@ -84,8 +128,8 @@ var Panel = new (class Panel {
     }
   }
 
-  findLink(title) {
-    return this.panel.querySelector(`a[title="${title}"]`);
+  findItem(title) {
+    return this.panel.querySelector(`.item[title="${title}"]`);
   }
 
   maybeHandleAccelerator(event) {
@@ -110,6 +154,18 @@ var Panel = new (class Panel {
         case "r":
         case "R":
           return this.rawNode;
+        case "f":
+        case "F":
+          return this.markdown.filename.node;
+          break;
+        case "s":
+        case "S":
+          return this.markdown.symbol.node;
+          break;
+        case "c":
+        case "C":
+          return this.markdown.block.node;
+          break;
       }
     })();
 
@@ -125,5 +181,132 @@ var Panel = new (class Panel {
     this.content.setAttribute("aria-hidden", hidden);
     this.content.setAttribute("aria-expanded", !hidden);
     this.icon.classList.toggle("expanded");
+  }
+
+  copyText(copy, text) {
+    copy.setAttribute("data-copying", "true");
+    navigator.clipboard.writeText(text)
+      .then(function() {
+        copy.classList.add("copied");
+        setTimeout(function() {
+          if (!copy.hasAttribute("data-copying")) {
+            copy.classList.remove("copied");
+          }
+        }, 1000);
+      })
+      .finally(function() {
+        copy.removeAttribute("data-copying");
+      });
+  }
+
+  copyMarkdown(type) {
+    const { node, getText } = this.markdown[type];
+    if (node.classList.contains("disabled")) {
+      return;
+    }
+
+    const copy = node.querySelector(".copy");
+    const url = this.permalinkNode ? this.permalinkNode.href : document.location.href;
+    const filename = new URL(url).pathname.match(/\/([^\/]+)$/)[1];
+    const text = getText(url, filename);;
+
+    this.copyText(copy, text);
+  }
+
+  getLanguageFor(filename) {
+    filename = filename.replace(/\.in$/, "");
+
+    const langs = {
+      // suffix => language
+      ".c": "c",
+      ".cc": "cpp",
+      ".configure": "python",
+      ".cpp": "cpp",
+      ".css": "css",
+      ".diff": "diff",
+      ".h": "cpp",
+      ".headers": "http",
+      ".hh": "cpp",
+      ".hpp": "cpp",
+      ".htm": "html",
+      ".html": "html",
+      ".java": "java",
+      ".js": "js",
+      ".jsm": "js",
+      ".json": "json",
+      ".jsx": "js",
+      ".m": "c",
+      ".mathml": "mathml",
+      ".md": "md",
+      ".mjs": "js",
+      ".mm": "cpp",
+      ".mozbuild": "py",
+      ".patch": "diff",
+      ".pl": "perl",
+      ".py": "python",
+      ".rs": "rust",
+      ".rst": "rest",
+      ".scss": "css",
+      ".sjs": "js",
+      ".svg": "xml",
+      ".toml": "toml",
+      ".ts": "js",
+      ".xht": "xhtml",
+      ".xhtml": "xhtml",
+      ".xml": "xml",
+      ".xul": "xul",
+      ".yaml": "yaml",
+      ".yml": "yaml",
+      "^headers^": "http",
+      "moz.build": "py",
+    };
+
+    for (const [suffix, lang] of Object.entries(langs)) {
+      if (filename.endsWith(suffix)) {
+        return lang;
+      }
+    }
+
+    return "";
+  }
+
+  formatSelectedLines() {
+    const texts = [];
+    let lastLine = -1;
+    for (const line of this.selectedLines) {
+      if (lastLine !== -1 && lastLine != line - 1) {
+        texts.push("...");
+      }
+
+      const lineElem = document.getElementById(`line-${line}`).querySelector(".source-line");
+      texts.push(lineElem.textContent.replace(/\n/g, ""));
+
+      lastLine = line;
+    }
+    return texts;
+  }
+
+  updateMarkdownState() {
+    for (const [_, { node, isEnabled }] of Object.entries(this.markdown)) {
+      if (isEnabled()) {
+        node.classList.remove("disabled");
+        node.removeAttribute("aria-disabled");
+        node.querySelector(".copy").disabled = false;
+      } else {
+        node.classList.add("disabled");
+        node.setAttribute("aria-disabled", "true");
+        node.querySelector(".copy").disabled = true;
+      }
+    }
+  }
+
+  onSelectedLineChanged(selectedLines) {
+    this.selectedLines = [...selectedLines].sort((a, b) => a - b);
+    this.updateMarkdownState();
+  }
+
+  onSelectionTitleChanged(selectionTitle) {
+    this.selectionTitle = selectionTitle;
+    this.updateMarkdownState();
   }
 })();

@@ -18,6 +18,7 @@ var DocumentTitler = new (class DocumentTitler {
 
     this.stickyTitle = null;
     this.selectionTitle = null;
+    Panel.onSelectionTitleChanged(this.selectionTitle);
   }
 
   updateTitle() {
@@ -229,6 +230,7 @@ var DocumentTitler = new (class DocumentTitler {
       this.selectionTitle =
         this._findBestPrettySymbolInSourceLineElem(sourceLine);
     }
+    Panel.onSelectionTitleChanged(this.selectionTitle);
 
     this.updateTitle();
   }
@@ -406,6 +408,7 @@ var Highlight = new (class Highlight {
     }
     this.lastSelectedLine = null;
     this.selectedLines = new Set();
+    Panel.onSelectedLineChanged(this.selectedLines);
     this.updateFromHash();
     window.addEventListener("hashchange", () => {
       this.updateFromHash();
@@ -417,11 +420,13 @@ var Highlight = new (class Highlight {
     // NOTE: The order here is intentional so that we throw above if the line
     // is not in the document.
     this.selectedLines.add(line);
+    Panel.onSelectedLineChanged(this.selectedLines);
     this.lastSelectedLine = line;
   }
 
   removeSelectedLine(line) {
     this.selectedLines.delete(line);
+    Panel.onSelectedLineChanged(this.selectedLines);
     if (this.lastSelectedLine == line) {
       this.lastSelectedLine = null;
     }

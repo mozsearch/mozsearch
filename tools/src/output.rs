@@ -372,11 +372,21 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
+                    let tag = if !item.link.is_empty() {
+                        "a"
+                    } else {
+                        "span"
+                    };
+                    let href = if !item.link.is_empty() {
+                        format!(r#" href="{}""#, item.link)
+                    } else {
+                        String::new()
+                    };
                     F::Seq(vec![
                         F::S("<li>"),
                         F::T(format!(
-                            r#"<a href="{}" title="{}" class="icon"{}>{}{}{}</a>"#,
-                            item.link, item.title, update_attr, item.title, accel, copy
+                            r#"<{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
+                            tag, href, item.title, update_attr, item.title, accel, copy, tag
                         )),
                         F::S("</li>"),
                     ])

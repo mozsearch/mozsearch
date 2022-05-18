@@ -648,6 +648,33 @@ fn main() {
             }
         }
 
+        let mut markdown_panel_items = vec![];
+        markdown_panel_items.push(PanelItem {
+            title: "Filename Link".to_owned(),
+            link: String::new(),
+            update_link_lineno: "",
+            accel_key: Some('F'),
+            copyable: true,
+        });
+        markdown_panel_items.push(PanelItem {
+            title: "Symbol Link".to_owned(),
+            link: String::new(),
+            update_link_lineno: "",
+            accel_key: Some('S'),
+            copyable: true,
+        });
+        markdown_panel_items.push(PanelItem {
+            title: "Code Block".to_owned(),
+            link: String::new(),
+            update_link_lineno: "",
+            accel_key: Some('C'),
+            copyable: true,
+        });
+        panel.push(PanelSection {
+            name: "Copy as Markdown".to_owned(),
+            items: markdown_panel_items,
+        });
+
         let mut tools_items = vec![];
         if let Some(ref hg_root) = tree_config.paths.hg_root {
             tools_items.push(PanelItem {
