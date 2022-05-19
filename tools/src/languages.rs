@@ -13,6 +13,7 @@ pub struct LanguageSpec {
     // Rust is mostly C-like, with a couple of differences.
     pub rust_tweaks: bool,
     pub cxx14_digit_separators: bool,
+    pub markdown_slug: &'static str,
 }
 
 fn make_reserved(v: &[&str]) -> HashMap<String, String> {
@@ -566,6 +567,16 @@ lazy_static! {
         c_style_comments: true,
         backtick_strings: true,
         regexp_literals: true,
+        markdown_slug: "js",
+        .. LanguageSpec::default()
+    };
+
+    static ref HTML_SPEC : LanguageSpec = LanguageSpec {
+        reserved_words: make_reserved(&*RESERVED_WORDS_JS),
+        c_style_comments: true,
+        backtick_strings: true,
+        regexp_literals: true,
+        markdown_slug: "html",
         .. LanguageSpec::default()
     };
 
@@ -574,6 +585,7 @@ lazy_static! {
         c_style_comments: true,
         c_preprocessor: true,
         cxx14_digit_separators: true,
+        markdown_slug: "cpp",
         .. LanguageSpec::default()
     };
 
@@ -605,6 +617,7 @@ lazy_static! {
         reserved_words: make_reserved(&*RESERVED_WORDS_PYTHON),
         hash_comment: true,
         triple_quote_literals: true,
+        markdown_slug: "py",
         .. LanguageSpec::default()
     };
 
@@ -613,12 +626,14 @@ lazy_static! {
         hash_comment: true, // for now, for attributes
         c_style_comments: true,
         rust_tweaks: true,
+        markdown_slug: "rust",
         .. LanguageSpec::default()
     };
 
     static ref JAVA_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_JAVA),
         c_style_comments: true,
+        markdown_slug: "java",
         .. LanguageSpec::default()
     };
 
@@ -656,7 +671,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "java" => FormatAs::FormatCLike(&*JAVA_SPEC),
         "kt" => FormatAs::FormatCLike(&*KOTLIN_SPEC),
 
-        "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&*JS_SPEC),
+        "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&*HTML_SPEC),
 
         // Keep this list in sync with the binary types list in nginx-setup.py
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"

@@ -624,7 +624,13 @@ tr.after-context-line + tr.before-context-line {
   width: 100%;
   cursor: pointer;
 }
-.panel section .item.disabled {
+.panel section button.item {
+  font: unset;
+  appearance: unset;
+  border: unset;
+  text-align: unset;
+}
+.panel section button.item[disabled] {
   opacity: 0.5;
   cursor: not-allowed;
 }

@@ -18,7 +18,7 @@ var DocumentTitler = new (class DocumentTitler {
 
     this.stickyTitle = null;
     this.selectionTitle = null;
-    Panel.onSelectedSymbolChanged(null);
+    this.selectedSymbol = null;
   }
 
   updateTitle() {
@@ -222,6 +222,7 @@ var DocumentTitler = new (class DocumentTitler {
    */
   processLineSelection(lastSelectedLine) {
     this.selectionTitle = null;
+    this.selectedSymbol = null;
     if (lastSelectedLine) {
       const selectedLine = document.getElementById(`line-${lastSelectedLine}`);
       const nestingContainer = selectedLine?.closest(".nesting-container");
@@ -229,12 +230,12 @@ var DocumentTitler = new (class DocumentTitler {
       const sourceLine = nestingLine?.querySelector(".source-line");
       const bestPretty = this._findBestPrettySymbolInSourceLineElem(sourceLine);
       this.selectionTitle = bestPretty.short;
-      Panel.onSelectedSymbolChanged(bestPretty.long);
-    } else {
-      Panel.onSelectedSymbolChanged(null);
+      this.selectedSymbol = bestPretty.long;
     }
 
     this.updateTitle();
+
+    Panel.onSelectedSymbolChanged();
   }
 })();
 
@@ -410,7 +411,6 @@ var Highlight = new (class Highlight {
     }
     this.lastSelectedLine = null;
     this.selectedLines = new Set();
-    Panel.onSelectedLineChanged(this.selectedLines);
     this.updateFromHash();
     window.addEventListener("hashchange", () => {
       this.updateFromHash();
@@ -422,17 +422,19 @@ var Highlight = new (class Highlight {
     // NOTE: The order here is intentional so that we throw above if the line
     // is not in the document.
     this.selectedLines.add(line);
-    Panel.onSelectedLineChanged(this.selectedLines);
     this.lastSelectedLine = line;
+
+    Panel.onSelectedLineChanged();
   }
 
   removeSelectedLine(line) {
     this.selectedLines.delete(line);
-    Panel.onSelectedLineChanged(this.selectedLines);
     if (this.lastSelectedLine == line) {
       this.lastSelectedLine = null;
     }
     document.getElementById("line-" + line).classList.remove("highlighted");
+
+    Panel.onSelectedLineChanged();
   }
 
   toggleSelectedLine(line) {
@@ -634,3 +636,5 @@ var Highlight = new (class Highlight {
     }
   }
 })();
+
+Panel.onSelectedLineChanged();
