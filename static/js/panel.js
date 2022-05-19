@@ -11,7 +11,7 @@ var Panel = new (class Panel {
     this.rawNode = this.findItem("Raw");
 
     this.selectedLines = [];
-    this.selectionTitle = "";
+    this.selectedSymbol = "";
     this.markdown = {
       "filename": {
         node: this.findItem("Filename Link"),
@@ -25,11 +25,10 @@ var Panel = new (class Panel {
       "symbol": {
         node: this.findItem("Symbol Link"),
         isEnabled: () => {
-          return this.selectionTitle;
+          return this.selectedSymbol;
         },
         getText: (url, filename) => {
-          const symbol = this.selectionTitle;
-          return `[${symbol}](${url})`;
+          return `[${this.selectedSymbol}](${url})`;
         },
       },
       "block": {
@@ -305,8 +304,8 @@ var Panel = new (class Panel {
     this.updateMarkdownState();
   }
 
-  onSelectionTitleChanged(selectionTitle) {
-    this.selectionTitle = selectionTitle;
+  onSelectedSymbolChanged(selectedSymbol) {
+    this.selectedSymbol = selectedSymbol;
     this.updateMarkdownState();
   }
 })();
