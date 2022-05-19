@@ -17,3 +17,4 @@ repos
 /index
 /config
 addons
+/tests/tests/checks/explanations
