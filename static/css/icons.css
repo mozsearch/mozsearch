@@ -51,6 +51,11 @@
   vertical-align: middle;
 }
 
+.panel .copy.indicator {
+  display: inline-block;
+  pointer: unset;
+}
+
 .panel .copy:hover {
   background-color: var(--button-hover-background);
 }

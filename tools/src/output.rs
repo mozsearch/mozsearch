@@ -364,20 +364,28 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
+                    let is_link = !item.link.is_empty();
                     let copy = if item.copyable {
-                        format!(
-                            r#"<button class="icon copy" title="Copy to clipboard">{}</button>"#,
-                            COPY_ICONS
-                        )
+                        if is_link {
+                            format!(
+                                r#"<button class="icon copy" title="Copy to clipboard">{}</button>"#,
+                                COPY_ICONS
+                            )
+                        } else {
+                            format!(
+                                r#"<span class="icon copy indicator">{}</span>"#,
+                                COPY_ICONS
+                            )
+                        }
                     } else {
                         String::new()
                     };
-                    let tag = if !item.link.is_empty() {
+                    let tag = if is_link {
                         "a"
                     } else {
-                        "span"
+                        "button"
                     };
-                    let href = if !item.link.is_empty() {
+                    let href = if is_link {
                         format!(r#" href="{}""#, item.link)
                     } else {
                         String::new()

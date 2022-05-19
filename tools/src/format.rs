@@ -387,6 +387,7 @@ pub fn format_file_data(
         _ => {}
     };
 
+    let slug = format_to_slug_attribute(&format);
     let (output_lines, analysis_json, sym_json) = format_code(jumps, format, path, &data, &analysis);
 
     let blame_lines = git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path);
@@ -433,8 +434,8 @@ pub fn format_file_data(
         }
     }
 
-    let f = F::Seq(vec![F::S(
-        "<div id=\"file\" class=\"file\" role=\"table\">",
+    let f = F::Seq(vec![F::T(
+        format!("<div id=\"file\" class=\"file\" role=\"table\"{}>", slug),
     )]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
@@ -595,6 +596,20 @@ pub fn format_file_data(
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
     Ok(())
+}
+
+fn format_to_slug_attribute(format: &FormatAs) -> String {
+    let slug = match format {
+        FormatAs::FormatTagLike(ref spec) => spec.markdown_slug,
+        FormatAs::FormatCLike(ref spec) => spec.markdown_slug,
+        _ => "",
+    };
+
+    if slug.is_empty() {
+        return String::new();
+    }
+
+    format!(r#" data-markdown-slug="{}""#, slug)
 }
 
 fn entry_to_blob(repo: &git2::Repository, entry: &git2::TreeEntry) -> Result<String, &'static str> {
@@ -883,6 +898,7 @@ pub fn format_diff(
     };
     let jumps: UstrMap<analysis::Jump> = UstrMap::default();
     let analysis = Vec::new();
+    let slug = format_to_slug_attribute(&format);
     let (formatted_lines, _, _) = format_code(&jumps, format, path, &new_lines, &analysis);
 
     let (header, _) = blame::commit_header(&commit)?;
@@ -937,8 +953,8 @@ pub fn format_diff(
     }];
     output::generate_panel(writer, &sections)?;
 
-    let f = F::Seq(vec![F::S(
-        "<div id=\"file\" class=\"file\" role=\"table\">",
+    let f = F::Seq(vec![F::T(
+        format!("<div id=\"file\" class=\"file\" role=\"table\"{}>", slug),
     )]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
