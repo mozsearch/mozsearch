@@ -18,7 +18,7 @@ var DocumentTitler = new (class DocumentTitler {
 
     this.stickyTitle = null;
     this.selectionTitle = null;
-    Panel.onSelectionTitleChanged(this.selectionTitle);
+    Panel.onSelectedSymbolChanged(null);
   }
 
   updateTitle() {
@@ -120,9 +120,9 @@ var DocumentTitler = new (class DocumentTitler {
    *   a `(`.
    */
   _findBestPrettySymbolInSourceLineElem(elem) {
-    let bestPretty = null;
+    let bestPretty = null, bestShortPretty = null;
     if (!elem) {
-      return bestPretty;
+      return { long: bestPretty, short: bestShortPretty };
     }
 
     const symElems = elem.querySelectorAll("[data-i]");
@@ -192,10 +192,10 @@ var DocumentTitler = new (class DocumentTitler {
       }
 
       // Shorten any namespaces.
-      bestPretty = this._shortenNamespaces(bestPretty);
+      bestShortPretty = this._shortenNamespaces(bestPretty);
     }
 
-    return bestPretty;
+    return { long: bestPretty, short: bestShortPretty };
   }
 
   /**
@@ -209,7 +209,7 @@ var DocumentTitler = new (class DocumentTitler {
       const useSticky = stickyElems[stickyElems.length - 1];
       const stickySourceLine = useSticky.querySelector(".source-line");
       this.stickyTitle =
-        this._findBestPrettySymbolInSourceLineElem(stickySourceLine);
+        this._findBestPrettySymbolInSourceLineElem(stickySourceLine).short;
     }
 
     this.updateTitle();
@@ -227,10 +227,12 @@ var DocumentTitler = new (class DocumentTitler {
       const nestingContainer = selectedLine?.closest(".nesting-container");
       const nestingLine = nestingContainer?.querySelector(".nesting-sticky-line");
       const sourceLine = nestingLine?.querySelector(".source-line");
-      this.selectionTitle =
-        this._findBestPrettySymbolInSourceLineElem(sourceLine);
+      const bestPretty = this._findBestPrettySymbolInSourceLineElem(sourceLine);
+      this.selectionTitle = bestPretty.short;
+      Panel.onSelectedSymbolChanged(bestPretty.long);
+    } else {
+      Panel.onSelectedSymbolChanged(null);
     }
-    Panel.onSelectionTitleChanged(this.selectionTitle);
 
     this.updateTitle();
   }
