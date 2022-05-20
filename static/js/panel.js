@@ -14,7 +14,7 @@ var Panel = new (class Panel {
       "filename": {
         node: this.findItem("Filename Link"),
         isEnabled: () => {
-          return Highlight?.selectedLines.size > 0;
+          return true;
         },
         getText: url => {
           const filename = new URL(url).pathname.match(/\/([^\/]+)$/)[1];
@@ -196,7 +196,7 @@ var Panel = new (class Panel {
     }
 
     const copy = node.querySelector(".copy");
-    const url = this.permalinkNode ? this.permalinkNode.href : document.location.href;
+    const url = this.permalinkNode?.href || document.location.href;
     const text = getText(url);;
 
     this.copyText(copy, text);
@@ -211,7 +211,7 @@ var Panel = new (class Panel {
       }
 
       const lineElem = document.getElementById(`line-${line}`).querySelector(".source-line");
-      texts.push(lineElem.textContent.replace(/\n/g, ""));
+      texts.push(lineElem.textContent.replace(/\n/, ""));
 
       lastLine = line;
     }
