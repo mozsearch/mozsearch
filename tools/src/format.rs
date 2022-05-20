@@ -748,7 +748,7 @@ pub fn format_path(
             name: "Revision control".to_owned(),
             items: vcs_panel_items,
         },
-        create_markdown_panel_section(),
+        create_markdown_panel_section(false),
     ];
 
     format_file_data(
@@ -767,7 +767,7 @@ pub fn format_path(
     )
 }
 
-pub fn create_markdown_panel_section() -> PanelSection {
+pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     let mut markdown_panel_items = vec![];
     markdown_panel_items.push(PanelItem {
         title: "Filename Link".to_owned(),
@@ -776,13 +776,15 @@ pub fn create_markdown_panel_section() -> PanelSection {
         accel_key: Some('F'),
         copyable: true,
     });
-    markdown_panel_items.push(PanelItem {
-        title: "Symbol Link".to_owned(),
-        link: String::new(),
-        update_link_lineno: "",
-        accel_key: Some('S'),
-        copyable: true,
-    });
+    if (add_symbol_link) {
+        markdown_panel_items.push(PanelItem {
+            title: "Symbol Link".to_owned(),
+            link: String::new(),
+            update_link_lineno: "",
+            accel_key: Some('S'),
+            copyable: true,
+        });
+    }
     markdown_panel_items.push(PanelItem {
         title: "Code Block".to_owned(),
         link: String::new(),

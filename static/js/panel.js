@@ -191,7 +191,7 @@ var Panel = new (class Panel {
 
   copyMarkdown(type) {
     const { node, getText } = this.markdown[type];
-    if (node.disabled) {
+    if (!node || node.disabled) {
       return;
     }
 
@@ -220,6 +220,9 @@ var Panel = new (class Panel {
 
   updateMarkdownState() {
     for (const [_, { node, isEnabled }] of Object.entries(this.markdown)) {
+      if (!node) {
+        continue;
+      }
       if (isEnabled()) {
         node.disabled = false;
         node.removeAttribute("aria-disabled");
