@@ -53,7 +53,7 @@
 
 .panel .copy.indicator {
   display: inline-block;
-  pointer: unset;
+  cursor: unset;
 }
 
 .panel .copy:hover {

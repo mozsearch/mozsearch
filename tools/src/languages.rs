@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct LanguageSpec {
     pub reserved_words: HashMap<String, String>,
     pub hash_comment: bool,
@@ -572,12 +572,8 @@ lazy_static! {
     };
 
     static ref HTML_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_JS),
-        c_style_comments: true,
-        backtick_strings: true,
-        regexp_literals: true,
         markdown_slug: "html",
-        .. LanguageSpec::default()
+        .. JS_SPEC.clone()
     };
 
     static ref CPP_SPEC : LanguageSpec = LanguageSpec {
