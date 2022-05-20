@@ -743,10 +743,13 @@ pub fn format_path(
             copyable: false,
         });
     }
-    let panel = vec![PanelSection {
-        name: "Revision control".to_owned(),
-        items: vcs_panel_items,
-    }];
+    let panel = vec![
+        PanelSection {
+            name: "Revision control".to_owned(),
+            items: vcs_panel_items,
+        },
+        create_markdown_panel_section(),
+    ];
 
     format_file_data(
         cfg,
@@ -762,6 +765,35 @@ pub fn format_path(
         &None,
         writer,
     )
+}
+
+pub fn create_markdown_panel_section() -> PanelSection {
+    let mut markdown_panel_items = vec![];
+    markdown_panel_items.push(PanelItem {
+        title: "Filename Link".to_owned(),
+        link: String::new(),
+        update_link_lineno: "",
+        accel_key: Some('F'),
+        copyable: true,
+    });
+    markdown_panel_items.push(PanelItem {
+        title: "Symbol Link".to_owned(),
+        link: String::new(),
+        update_link_lineno: "",
+        accel_key: Some('S'),
+        copyable: true,
+    });
+    markdown_panel_items.push(PanelItem {
+        title: "Code Block".to_owned(),
+        link: String::new(),
+        update_link_lineno: "",
+        accel_key: Some('C'),
+        copyable: true,
+    });
+    PanelSection {
+        name: "Copy as Markdown".to_owned(),
+        items: markdown_panel_items,
+    }
 }
 
 fn split_lines(s: &str) -> Vec<&str> {
