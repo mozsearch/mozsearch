@@ -648,7 +648,7 @@ fn main() {
             }
         }
 
-        panel.push(create_markdown_panel_section());
+        panel.push(create_markdown_panel_section(true));
 
         let mut tools_items = vec![];
         if let Some(ref hg_root) = tree_config.paths.hg_root {
