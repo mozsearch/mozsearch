@@ -776,7 +776,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
         accel_key: Some('F'),
         copyable: true,
     });
-    if (add_symbol_link) {
+    if add_symbol_link {
         markdown_panel_items.push(PanelItem {
             title: "Symbol Link".to_owned(),
             link: String::new(),
