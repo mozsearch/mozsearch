@@ -3,7 +3,6 @@ use crate::{
         cmd_prod_filter::ProductionFilterCommand, cmd_query::QueryCommand,
         cmd_search_text::SearchTextCommand, PipelineCommand,
     },
-    query::chew_query::QueryPipelineGroupBuilder,
     structopt::StructOpt,
 };
 use tracing::{trace, trace_span};
@@ -22,7 +21,7 @@ use super::cmd_traverse::TraverseCommand;
 use super::{
     cmd_crossref_lookup::CrossrefLookupCommand, cmd_filter_analysis::FilterAnalysisCommand,
     cmd_graph::GraphCommand, cmd_merge_analyses::MergeAnalysesCommand,
-    cmd_search_identifiers::SearchIdentifiersCommand, interface::ServerPipelineGraph,
+    cmd_search_identifiers::SearchIdentifiersCommand,
 };
 
 use super::interface::ServerPipeline;

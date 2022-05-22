@@ -173,9 +173,6 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         Ok(PipelineValues::SymbolGraphCollection(sgc)) => {
                             insta::assert_json_snapshot!(sgc.to_json());
                         }
-                        Ok(PipelineValues::StructuredResultsBundle(srb)) => {
-                            insta::assert_json_snapshot!(&to_value(srb).unwrap());
-                        }
                         Ok(PipelineValues::FlattenedResultsBundle(frb)) => {
                             insta::assert_json_snapshot!(&to_value(frb).unwrap());
                         }

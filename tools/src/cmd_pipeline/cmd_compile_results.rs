@@ -1,18 +1,658 @@
+use std::collections::{BTreeMap, HashMap};
+
 use async_trait::async_trait;
+use regex::Regex;
+use serde_json::{from_value, Value};
 use structopt::StructOpt;
 
-use super::{interface::{PipelineJunctionCommand, PipelineValues, FlattenedResultsBundle}, transforms::path_glob_transform};
+use super::interface::{
+    FileMatch, FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
+    FlattenedResultsBundle, FlattenedResultsByFile, PathKind, PipelineJunctionCommand,
+    PipelineValues, PresentationKind, ResultFacetGroup, ResultFacetKind, ResultFacetRoot,
+    SymbolCrossrefInfo, SymbolQuality, SymbolRelation,
+};
 
-use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::{
+    abstract_server::{
+        AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextMatchesByFile,
+    },
+    file_format::analysis::PathSearchResult,
+};
 
-/*
-
- */
-
+/// Process file, crossref, and fulltext search results into a classic
+/// mozsearch mixed results representation consisting of groups of results
+/// clustered by "path kind" (normal, test, generated, third party), and then
+/// by key/kind precedence (files, IDL, defs, override stuff, super/subclass
+/// stuff, assignments, uses, declarations, text matches), noting that
+/// precedences will likely change.
 #[derive(Debug, StructOpt)]
 pub struct CompileResults {
-    #[structopt(short, long, default_value = "0")]
-    limit: usize,
+    /// Maximum number of file results to list, truncating at the limit.
+    #[structopt(short, long, default_value = "2000")]
+    file_limit: usize,
+
+    /// Maximum number of result lines to limit, truncating at the limit.
+    /// Context lines don't impact this limit.
+    #[structopt(short, long, default_value = "2000")]
+    line_limit: usize,
+}
+
+/// Core result processing logic / helper data-structures most analogous to the
+/// router.py `SearchResult` class but with the inputs and outputs retaining a
+/// bit more semantic linkage the whole way.
+///
+/// ### Python SearchResult Relation
+///
+/// We retain this extra information in order to enable:
+/// - Interactive faceting of results related to override sets.  In particular,
+///   the ability to rapidly toggle on/off cousin overrides that may not be of
+///   interest.
+/// - Automatic collapsing of sections that may be useful to have present for
+///   completeness but which we believe are likely to not be something the user
+///   wants to see.
+/// - Better indication of when and where overload situations were hit and so
+///   we can generate links that will show the user what was elided by either
+///   expanding limits and/or showing the specific elided subset.
+///
+/// In particular, the python SearchResult has a concept of "qualified" results
+/// which is a means of retaining the binding between symbols and the (pretty)
+/// identifier that mapped to the symbol in identifier lookup.  SearchResult
+/// then uses that information to tuple the "kind" over the pretty identifier.
+/// (It's also the case that, historically, pre-structured-analysis landing,
+/// things like overrides would destructively be aliased to the same pretty
+/// identifier.  We no longer to this; see `CrossrefExpandCommand` for more.)
+///
+/// For our rust `SearchResults`, we inherently know the "pretty" identifier
+/// associated with a symbol from its "meta" `crossref_info` contents.  We also
+/// track how we learned about the symbol from a root symbol via its
+/// `SymbolRelation`.  Note that for presentation purposes we will continue to
+/// do all grouping based on the "pretty" identifier for now, although some day
+/// we probably will need to address the existence of overloads better, but
+/// right now overload coalescing is an important feature for cross-platform
+/// merging where we expect, for example, 32-bit ARM to have different
+/// signatures for things, etc.
+///
+/// ### Overview
+///
+/// Conceptually we build a [path kind, (kind, identifier), path] ordered
+/// hierarchy where the values are line hits and where we flatten the hierarchy
+/// by walking it in order.  In router.py, the "qkind" which tupled the kind and
+/// identifier relied on an OrderedDict and the sequence in which symbols were
+/// added.  The path kind had an explicit order and extraction was done in that
+/// order.  paths were sorted and extracted in that order.
+#[derive(Default)]
+pub struct SearchResults {
+    /// Cache mapping observed symbols to their pretty identifiers.  This
+    /// depends on us seeing root symbols of relations before their related
+    /// symbols, but that's explicitly how things are ordered.
+    pub sym_to_pretty: HashMap<String, String>,
+    /// We retain the meta information for any symbols we include our results
+    /// for the benefit of the UI for future use.  We may also end up expanding
+    /// the set of symbols-with-meta here as we address the class hierarchy, if
+    /// that doesn't end up in a separate output structure.
+    pub sym_to_meta: BTreeMap<String, Value>,
+    pub path_kind_groups: BTreeMap<PathKind, PathKindGroup>,
+}
+
+#[derive(Default)]
+pub struct PathKindGroup {
+    pub file_names: Vec<String>,
+    pub qual_kind_groups: BTreeMap<QualKindDescriptor, QualKindGroup>,
+}
+
+/// Ported version of `router.py`'s `categorize_path`'s `is_test` helper.
+fn path_is_test(path: &str) -> bool {
+    lazy_static! {
+        static ref RE_UNIT_OR_ANDROID: Regex = Regex::new("/(?:unit|androidTest)/").unwrap();
+        static ref RE_TEST: Regex = Regex::new("test").unwrap();
+        static ref RE_SLASHED_TESTS: Regex = Regex::new("/(?:test|tests|mochitest|jsapi-tests|reftests|reftest|crashtests|crashtest|googletest|gtest|gtests|imptests)/").unwrap();
+        static ref RE_TESTING_SLASH: Regex = Regex::new("testing/").unwrap();
+    }
+    // Except /unit/ and /androidTest/, all other paths contain the substring
+    // 'test', so we can exit early in case it is not present.
+    if RE_UNIT_OR_ANDROID.is_match(path) {
+        return true;
+    }
+    if !RE_TEST.is_match(path) {
+        return false;
+    }
+    return RE_SLASHED_TESTS.is_match(path) || RE_TESTING_SLASH.is_match(path);
+}
+
+fn categorize_path(path: &str) -> PathKind {
+    lazy_static! {
+        static ref RE_GENERATED: Regex = Regex::new("__GENERATED__").unwrap();
+        static ref RE_THIRD_PARTY: Regex = Regex::new("^third_party/").unwrap();
+    }
+    if RE_GENERATED.is_match(path) {
+        return PathKind::Generated;
+    } else if RE_THIRD_PARTY.is_match(path) {
+        return PathKind::ThirdParty;
+    } else if path_is_test(path) {
+        return PathKind::Test;
+    } else {
+        return PathKind::Normal;
+    }
+}
+
+/// Results for a specific kind (definition/use/etc.) for a specific pretty
+/// identifier and potentially a set of
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
+pub struct QualKindDescriptor {
+    pub kind: PresentationKind,
+    pub quality: SymbolQuality,
+    pub pretty: String,
+}
+
+pub struct QualKindGroup {
+    pub path_facet: MaybeFacetRoot,
+    pub relation_facet: MaybeFacetRoot,
+    pub path_hits: BTreeMap<String, FlattenedResultsByFile>,
+}
+
+impl QualKindGroup {
+    pub fn new() -> Self {
+        QualKindGroup {
+            path_facet: MaybeFacetRoot::new(ResultFacetKind::PathByPath),
+            relation_facet: MaybeFacetRoot::new(ResultFacetKind::SymbolByRelation),
+            path_hits: BTreeMap::new(),
+        }
+    }
+}
+
+impl SearchResults {
+    /// For each symbol we:
+    /// - Figure out what identifier this symbol should be filed under based on
+    ///   the `SymbolRelation`, and what "kinds" are applicable for line
+    ///   result inclusion.  This helps us determine the `QualKind` to use.
+    ///   - Some kinds of relations, like subclass/superclass relationships are
+    ///     not intended to have any of their crossref "kinds" used for line
+    ///     results, but instead for context which is still a TODO and maybe
+    ///     be handled by a different command or a sidecar data structure as
+    ///     part of this command.
+    /// - Figure out the quality of this identifier based on the `SymbolQuality`
+    ///   (which should be the same for all members of the same QualKind).
+    /// - Proces the relevant kinds for each symbol, processing each path and
+    ///   its associated hits.  Different paths can/will map to different
+    ///   pathkinds and this will result in different faceting sets, etc. so the
+    ///   processing here
+    ///
+    pub fn ingest_symbol(&mut self, info: SymbolCrossrefInfo) -> Result<()> {
+        // There are other ways we could get this mapping like always baking the
+        // "pretty" into the SymbolRelation or having our crossref infos be in a
+        // map, but that complicates ownership issues massively.
+        self.sym_to_pretty
+            .insert(info.symbol.clone(), info.get_pretty());
+
+        // Skip symbols that are only here for class relationship purposes.
+        let (root_sym, relation_facet) = match &info.relation {
+            SymbolRelation::SubclassOf(_, _)
+            | SymbolRelation::SuperclassOf(_, _)
+            | SymbolRelation::CousinClassOf(_, _) => {
+                return Ok(());
+            }
+            SymbolRelation::Queried => (info.symbol.clone(), "Self"),
+            SymbolRelation::OverrideOf(sym, _) => (sym.clone(), "Overriden By"),
+            SymbolRelation::OverriddenBy(sym, _) => (sym.clone(), "Overrides"),
+            SymbolRelation::CousinOverrideOf(sym, _) => (sym.clone(), "Cousin Overrides"),
+        };
+
+        let root_pretty = self
+            .sym_to_pretty
+            .get(&root_sym)
+            .ok_or_else(|| {
+                ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::RuntimeInvariantViolation,
+                    message: format!("no pretty available for root_sym {}", root_sym),
+                })
+            })?
+            .clone();
+
+        if let Value::Object(obj) = info.crossref_info {
+            // This generic traversal is currently somewhat required because we
+            // have different shapes for "meta", "callees", and everything else
+            // (the kinds).  It could make sense to normalize the schema by not
+            // having everything at the top-level.  (If doing that, it might
+            // also be worth re-thinking other aspects of storage if it lets us
+            // be lazier about parsing, etc.)
+            for (kind, val) in obj.into_iter() {
+                let pkind = match kind.as_str() {
+                    "idl" => PresentationKind::IDL,
+                    "defs" => PresentationKind::Definitions,
+                    "decls" => PresentationKind::Declarations,
+                    "assignments" => PresentationKind::Assignments,
+                    "uses" => PresentationKind::Uses,
+                    "meta" => {
+                        // We save off the meta for this symbol for the UI.
+                        self.sym_to_meta.insert(info.symbol.clone(), val);
+                        continue;
+                    }
+                    // We expect this to match:
+                    // - "callees": This is used only for call-graph stuff and is
+                    //   something a human can learn from just looking at the
+                    //   contents of a given method/symbol, etc.
+                    _ => {
+                        continue;
+                    }
+                };
+
+                let descriptor = QualKindDescriptor {
+                    kind: pkind,
+                    quality: info.quality.clone(),
+                    pretty: root_pretty.clone(),
+                };
+
+                let path_containers: Vec<PathSearchResult<String>> = from_value(val)?;
+                for path_container in path_containers {
+                    self.ingest_path_hits(
+                        &info.symbol,
+                        descriptor.clone(),
+                        relation_facet,
+                        path_container,
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn ingest_path_hits(
+        &mut self,
+        sym: &str,
+        descriptor: QualKindDescriptor,
+        relation_facet: &str,
+        path_container: PathSearchResult<String>,
+    ) {
+        let path_kind = categorize_path(&path_container.path);
+        let path_kind_group = self
+            .path_kind_groups
+            .entry(path_kind)
+            .or_insert_with(|| PathKindGroup::default());
+        let qual_kind_group = path_kind_group
+            .qual_kind_groups
+            .entry(descriptor)
+            .or_insert_with(|| QualKindGroup::new());
+
+        // ### path faceting
+        let path_sans_filename = match path_container.path.rfind('/') {
+            Some(offset) => path_container.path[0..offset + 1].to_string(),
+            None => path_container.path.clone(),
+        };
+        let mut path_pieces: Vec<String> = path_sans_filename
+            .split_inclusive('/')
+            .map(|s| String::from(s))
+            .collect();
+        // drop the filename portion.
+        path_pieces.truncate(path_pieces.len() - 1);
+        qual_kind_group
+            .path_facet
+            .place_item(path_pieces, path_sans_filename);
+
+        // ### symbol relation faceting
+        qual_kind_group
+            .relation_facet
+            .place_item(vec![relation_facet.to_string()], sym.to_string());
+
+        // ### line results
+        let file_results = qual_kind_group
+            .path_hits
+            .entry(path_container.path.clone())
+            .or_insert_with(|| FlattenedResultsByFile {
+                file: path_container.path.clone(),
+                line_spans: vec![],
+            });
+        for search_result in path_container.lines {
+            file_results.line_spans.push(FlattenedLineSpan {
+                line_range: if search_result.peek_range.is_empty() {
+                    (search_result.lineno, search_result.lineno)
+                } else {
+                    (
+                        search_result.peek_range.start_lineno,
+                        search_result.peek_range.end_lineno,
+                    )
+                },
+                contents: search_result.line,
+                context: search_result.context,
+                contextsym: search_result.contextsym,
+            });
+        }
+    }
+
+    pub fn ingest_file_match_hits(&mut self, file_matches: Vec<FileMatch>) {
+        for file_match in file_matches {
+            let path_kind = categorize_path(&file_match.path);
+            let path_kind_group = self
+                .path_kind_groups
+                .entry(path_kind)
+                .or_insert_with(|| PathKindGroup::default());
+            path_kind_group.file_names.push(file_match.path);
+        }
+    }
+
+    pub fn ingest_fulltext_hits(&mut self, matches_by_file: Vec<TextMatchesByFile>) {
+        let descriptor = QualKindDescriptor {
+            kind: PresentationKind::TextualOccurrences,
+            // The quality doesn't matter; there's only one class of text matches.
+            quality: SymbolQuality::ExplicitSymbol,
+            pretty: "".to_string(),
+        };
+
+        for file_match in matches_by_file {
+            let path = file_match.file;
+            let path_kind = categorize_path(&path);
+            let path_kind_group = self
+                .path_kind_groups
+                .entry(path_kind)
+                .or_insert_with(|| PathKindGroup::default());
+            let qual_kind_group = path_kind_group
+                .qual_kind_groups
+                .entry(descriptor.clone())
+                .or_insert_with(|| QualKindGroup::new());
+
+            // ### path faceting
+            let path_sans_filename = match path.rfind('/') {
+                Some(offset) => path[0..offset + 1].to_string(),
+                None => path.clone(),
+            };
+            let mut path_pieces: Vec<String> = path_sans_filename
+                .split_inclusive('/')
+                .map(|s| String::from(s))
+                .collect();
+            // drop the filename portion.
+            path_pieces.truncate(path_pieces.len() - 1);
+            qual_kind_group
+                .path_facet
+                .place_item(path_pieces, path_sans_filename);
+
+            // ### line results
+            let file_results = qual_kind_group
+                .path_hits
+                .entry(path.clone())
+                .or_insert_with(|| FlattenedResultsByFile {
+                    file: path.clone(),
+                    line_spans: vec![],
+                });
+            for text_match in file_match.matches {
+                file_results.line_spans.push(FlattenedLineSpan {
+                    line_range: (text_match.line_num, text_match.line_num),
+                    contents: text_match.line_str,
+                    context: "".to_string(),
+                    contextsym: "".to_string(),
+                });
+            }
+        }
+    }
+
+    pub fn compile(self, _file_limit: usize, _line_limit: usize) -> FlattenedResultsBundle {
+        let mut path_kind_results = vec![];
+        for (path_kind, pk_group) in self.path_kind_groups {
+            let mut kind_groups = vec![];
+            for (descriptor, qk_group) in pk_group.qual_kind_groups {
+                let mut facets = vec![];
+
+                if let Some(facet) = qk_group.relation_facet.compile() {
+                    facets.push(facet);
+                }
+                if let Some(facet) = qk_group.path_facet.compile() {
+                    facets.push(facet);
+                }
+
+                kind_groups.push(FlattenedKindGroupResults {
+                    kind: descriptor.kind,
+                    pretty: descriptor.pretty,
+                    facets,
+                    by_file: qk_group.path_hits.into_values().collect(),
+                });
+            }
+
+            path_kind_results.push(FlattenedPathKindGroupResults {
+                path_kind,
+                file_names: pk_group.file_names,
+                kind_groups,
+            });
+        }
+
+        FlattenedResultsBundle {
+            path_kind_results,
+            content_type: "text/plain".to_string(),
+        }
+    }
+}
+
+/// Faceting support logic; the ResultFacetKind bakes in rules.
+pub struct MaybeFacetRoot {
+    pub kind: ResultFacetKind,
+    pub root: MaybeFacetGroup,
+}
+
+impl MaybeFacetRoot {
+    pub fn new(kind: ResultFacetKind) -> MaybeFacetRoot {
+        MaybeFacetRoot {
+            kind,
+            root: MaybeFacetGroup::default(),
+        }
+    }
+
+    /// Place the value within a fully built-out hierarchy.  We don't do dynamic
+    /// hierarchy creation as things collide; instead we just create it all and
+    /// then collapse it out of existence during the `compile` phase.
+    pub fn place_item(&mut self, mut pieces: Vec<String>, value: String) {
+        pieces.reverse();
+        self.root.place_item(pieces, value);
+    }
+
+    /// Determine whether there's enough variety that faceting is appropriate,
+    /// and if so, return a fully populated `ResultFacetRoot` according to the
+    /// rules for this root's `ResultFacetKind`.
+    ///
+    /// The general algorithm here is:
+    /// - Determine if each `MaybeFacetGroup` is "sole" (just one group),
+    ///   "clumped" (has multiple sub-groups that meet the clump threshold),
+    ///   "clump-able" (has one sub-group that meets the clump threshold and the
+    ///   other groups can be clumped into an "Other" catch-all, if allowed)
+    ///   or "sparse" (has sub-groups that don't meet the clump threshold).
+    /// - A "sole" group that has a "sole" child gets merged with the child.
+    ///   This happens for path-based faceting where multiple directory segments
+    ///   may be shared in common with no deviation.
+    /// -
+    pub fn compile(self) -> Option<ResultFacetRoot> {
+        if self.root.count == 0 {
+            return None;
+        }
+
+        let (label, clump_thresh, other) = match self.kind {
+            ResultFacetKind::SymbolByRelation => ("Relation".to_string(), 0, None),
+            ResultFacetKind::PathByPath => ("Path".to_string(), 3, Some("*".to_string())),
+        };
+        let (compiled, breadth) = self.root.compile("".to_string(), clump_thresh, other);
+        if breadth > 1 {
+            return Some(ResultFacetRoot {
+                label,
+                kind: self.kind,
+                groups: compiled.nested_groups,
+            });
+        } else {
+            return None;
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct MaybeFacetGroup {
+    pub nested_groups: BTreeMap<String, MaybeFacetGroup>,
+    pub values: Vec<String>,
+    /// Count of the values stored in this group in `values` and any nested
+    /// groups.  This value will always be at least 1.
+    pub count: u32,
+}
+
+impl MaybeFacetGroup {
+    pub fn place_item(&mut self, mut reversed_pieces: Vec<String>, value: String) {
+        self.count += 1;
+        if let Some(next_piece) = reversed_pieces.pop() {
+            self.nested_groups
+                .entry(next_piece)
+                .or_insert_with(|| MaybeFacetGroup::default())
+                .place_item(reversed_pieces, value);
+        } else {
+            self.values.push(value);
+        }
+    }
+
+    pub fn flatten(mut self) -> Vec<String> {
+        for subgroup in self.nested_groups.into_values() {
+            let mut sub_flattened = subgroup.flatten();
+            self.values.append(&mut sub_flattened);
+        }
+
+        return self.values;
+    }
+
+    /// Compiles the current group, returning the compiled result and the
+    /// maximum number of nested groups known in the returned sub-tree which
+    /// we're going to call the breadth.
+    pub fn compile(
+        mut self,
+        prefix: String,
+        clump_thresh: u32,
+        other: Option<String>,
+    ) -> (ResultFacetGroup, u32) {
+        if self.nested_groups.len() == 0 {
+            // No sub-groups means we are a leaf node and should return as-is.
+            return (
+                ResultFacetGroup {
+                    label: prefix,
+                    values: self.values,
+                    nested_groups: vec![],
+                    count: self.count,
+                },
+                1,
+            );
+        } else if self.nested_groups.len() == 1 {
+            let (sole_name, sole_group) = self.nested_groups.into_iter().next().unwrap();
+            let (mut sole_compiled, breadth) =
+                sole_group.compile(prefix.clone() + &sole_name, clump_thresh, other.clone());
+
+            if self.values.len() == 0 {
+                // Collapse us into the nested group
+                return (sole_compiled, breadth);
+            }
+
+            // We have values of our own and so we either want to fold the nested
+            // group's contents into our own or retain our group and it as a
+            // nested group.
+            if breadth > 1 {
+                // There's a tree somewhere down there, so just nest.
+                return (
+                    ResultFacetGroup {
+                        label: prefix,
+                        values: self.values,
+                        nested_groups: vec![sole_compiled],
+                        count: self.count,
+                    },
+                    breadth,
+                );
+            } else {
+                // There's no tree below us, so fold its contents into us.  Note
+                // that inductively according to this heuristic, we know the
+                // sole_compiled will have no nested_groups and instead only
+                // values.
+                self.values.append(&mut sole_compiled.values);
+                return (
+                    ResultFacetGroup {
+                        label: prefix,
+                        values: self.values,
+                        nested_groups: vec![],
+                        count: self.count,
+                    },
+                    1,
+                );
+            }
+        }
+
+        // So there must be multiple nested_groups; the question is now how many
+        // meet our clump criteria.
+        let mut clump_hit_count: u32 = 0;
+        let mut clump_miss_count: u32 = 0;
+
+        for group in self.nested_groups.values() {
+            if group.count >= clump_thresh {
+                clump_hit_count += 1;
+            } else {
+                clump_miss_count += 1;
+            }
+        }
+
+        if clump_hit_count >= 2 || (clump_hit_count >= 1 && other.is_some()) {
+            let mut nested_groups = vec![];
+            let mut breadth: u32;
+
+            // Yes, we're going to materialize this group and some sub-groups.
+            if other.is_none() || clump_miss_count == 0 {
+                breadth = self.nested_groups.len() as u32;
+                // We don't need to worry about building up an "other" group.
+                for (name, group) in self.nested_groups {
+                    let (sub_compiled, sub_breadth) =
+                        group.compile(prefix.clone() + &name, clump_thresh, other.clone());
+                    nested_groups.push(sub_compiled);
+                    if sub_breadth > breadth {
+                        breadth = sub_breadth;
+                    }
+                }
+            } else {
+                let mut other_group = ResultFacetGroup {
+                    label: prefix.clone() + other.as_ref().unwrap(),
+                    values: vec![],
+                    nested_groups: vec![],
+                    count: 0,
+                };
+                breadth = clump_hit_count + 1;
+
+                for (name, group) in self.nested_groups {
+                    if group.count >= clump_thresh {
+                        let (sub_compiled, sub_breadth) =
+                            group.compile(prefix.clone() + &name, clump_thresh, other.clone());
+                        nested_groups.push(sub_compiled);
+                        if sub_breadth > breadth {
+                            breadth = sub_breadth;
+                        }
+                    } else {
+                        let mut sub_flattened = group.flatten();
+                        other_group.values.append(&mut sub_flattened);
+                    }
+                }
+                nested_groups.push(other_group);
+            }
+
+            return (
+                ResultFacetGroup {
+                    label: prefix,
+                    values: self.values,
+                    nested_groups,
+                    count: self.count,
+                },
+                breadth,
+            );
+        } else {
+            // We're not going to materialize this group; just fold everything
+            // in to ourselves.
+            for subgroup in self.nested_groups.into_values() {
+                let mut sub_flattened = subgroup.flatten();
+                self.values.append(&mut sub_flattened);
+            }
+
+            return (
+                ResultFacetGroup {
+                    label: prefix,
+                    values: self.values,
+                    nested_groups: vec![],
+                    count: self.count,
+                },
+                1,
+            );
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -24,15 +664,35 @@ pub struct CompileResultsCommand {
 impl PipelineJunctionCommand for CompileResultsCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        _server: &Box<dyn AbstractServer + Send + Sync>,
         input: Vec<PipelineValues>,
     ) -> Result<PipelineValues> {
+        let mut results = SearchResults::default();
 
-        let mut path_kind_results = vec![];
+        for pipe_value in input {
+            match pipe_value {
+                PipelineValues::FileMatches(fm) => {
+                    results.ingest_file_match_hits(fm.file_matches);
+                }
+                PipelineValues::SymbolCrossrefInfoList(scil) => {
+                    for info in scil.symbol_crossref_infos {
+                        results.ingest_symbol(info)?;
+                    }
+                }
+                PipelineValues::TextMatches(tm) => {
+                    results.ingest_fulltext_hits(tm.by_file);
+                }
+                _ => {
+                    return Err(ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::ConfigLayer,
+                        message: "compile-results got something weird".to_string(),
+                    }));
+                }
+            }
+        }
 
-        Ok(PipelineValues::FlattenedResultsBundle(FlattenedResultsBundle {
-            path_kind_results,
-            content_type: "text/plain".to_string(),
-        }))
+        let results_bundle = results.compile(self.args.file_limit, self.args.line_limit);
+
+        Ok(PipelineValues::FlattenedResultsBundle(results_bundle))
     }
 }

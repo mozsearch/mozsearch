@@ -95,10 +95,6 @@ async fn main() {
             emit_json(&sgc.to_json());
             0
         }
-        Ok(PipelineValues::StructuredResultsBundle(srb)) => {
-            emit_json(&to_value(srb).unwrap());
-            0
-        }
         Ok(PipelineValues::FlattenedResultsBundle(frb)) => {
             emit_json(&to_value(frb).unwrap());
             0
