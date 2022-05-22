@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use clap::arg_enum;
 use serde::Serialize;
 use serde_json::{to_string_pretty, Value};
-use std::{collections::{HashSet}, fmt::Debug};
+use std::{cmp::Ordering, collections::HashSet, fmt::Debug};
 use structopt::StructOpt;
 use tracing::{trace, trace_span};
 
-use crate::abstract_server::{TextMatches, TextMatchesByFile};
+use crate::abstract_server::TextMatches;
 pub use crate::abstract_server::{AbstractServer, Result};
 
 use super::symbol_graph::SymbolGraphCollection;
@@ -43,7 +43,6 @@ pub enum PipelineValues {
     FileMatches(FileMatches),
     TextMatches(TextMatches),
     HtmlExcerpts(HtmlExcerpts),
-    StructuredResultsBundle(StructuredResultsBundle),
     FlattenedResultsBundle(FlattenedResultsBundle),
     TextFile(TextFile),
     Void,
@@ -108,7 +107,7 @@ pub enum SymbolRelation {
 /// symbol by prefix search on an identifier and how much was guessed so that we
 /// can scale any speculative effort appropriately, especially during
 /// incremental search.
-#[derive(Clone, Serialize)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub enum SymbolQuality {
     /// The symbol was explicitly specified and not the result of identifier
     /// lookup.
@@ -126,6 +125,35 @@ pub enum SymbolQuality {
     /// identifier beyond the match point.  The latter number should always be
     /// at least 1, as 0 would make this `ExactIdentifier`.
     IdentifierPrefix(u32, u32),
+}
+
+impl SymbolQuality {
+    /// Compute a quality rank where lower values are higher quality / closer to
+    /// what the user typed.
+    pub fn numeric_rank(&self) -> u32 {
+        match self {
+            SymbolQuality::ExplicitSymbol => 0,
+            SymbolQuality::ExplicitIdentifier => 1,
+            SymbolQuality::ExactIdentifier => 2,
+            SymbolQuality::IdentifierPrefix(_matched, extra) => 2 + extra,
+        }
+    }
+}
+
+impl PartialOrd for SymbolQuality {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let self_rank = self.numeric_rank();
+        let other_rank = other.numeric_rank();
+        self_rank.partial_cmp(&other_rank)
+    }
+}
+
+impl Ord for SymbolQuality {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let self_rank = self.numeric_rank();
+        let other_rank = other.numeric_rank();
+        self_rank.cmp(&other_rank)
+    }
 }
 
 ///
@@ -177,20 +205,22 @@ pub struct SymbolCrossrefInfo {
     pub overloads_hit: Vec<OverloadInfo>,
 }
 
+impl SymbolCrossrefInfo {
+    /// Return the pretty identifier for this symbol from its "meta" "pretty"
+    /// field, falling back to the symbol name if we don't have a pretty name.
+    pub fn get_pretty(&self) -> String {
+        if let Some(Value::String(s)) = self.crossref_info.pointer("/meta/pretty") {
+            s.clone()
+        } else {
+            self.symbol.clone()
+        }
+    }
+}
+
 /// A list of `SymbolCrossrefInfo`s.
 #[derive(Serialize)]
 pub struct SymbolCrossrefInfoList {
     pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
-}
-
-/// A mixture of file names (paths), SymbolCrossrefInfo instances, and text
-/// matches by file.  This gets compiled into a `FlattenedResultsBundle` by the
-/// `compile-results` pipeline command.
-#[derive(Serialize)]
-pub struct StructuredResultsBundle {
-    pub file_names: Vec<String>,
-    pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
-    pub text_matches_by_file: Vec<TextMatchesByFile>,
 }
 
 /// router.py-style mozsearch compiled results that has top-level path-kind
@@ -206,17 +236,71 @@ pub struct FlattenedResultsBundle {
     pub content_type: String,
 }
 
+#[derive(PartialEq, PartialOrd, Eq, Ord, Serialize)]
+pub enum PathKind {
+    Normal,
+    ThirdParty,
+    Test,
+    Generated,
+}
+
 #[derive(Serialize)]
 pub struct FlattenedPathKindGroupResults {
-    pub path_kind: String,
+    pub path_kind: PathKind,
     pub file_names: Vec<String>,
+    pub kind_groups: Vec<FlattenedKindGroupResults>,
+}
+
+#[derive(Serialize)]
+pub enum ResultFacetKind {
+    /// We're faceting based on the relationship of symbols to the root symbol.
+    SymbolByRelation,
+    /// We're faceting based on the path of the definition for the symbol.
+    PathByPath,
+}
+
+/// A context-sensitive facet for results.  Facets are only created when
+/// multiple usefully sized groups would exist for the facet.  If there would
+/// only be a single group, or there would be N groups for N results, then the
+/// facet would not be useful and will not be emitted.
+#[derive(Serialize)]
+pub struct ResultFacetRoot {
+    /// Terse human-readable explanation of the facet for UI display.
+    pub label: String,
+    pub kind: ResultFacetKind,
+    pub groups: Vec<ResultFacetGroup>,
+}
+
+/// Hierarchical faceting group that gets nested inside a `ResultFacetRoot`.
+#[derive(Serialize)]
+pub struct ResultFacetGroup {
+    /// Terse human-readable explanation of the facet for UI display.
+    pub label: String,
+    pub values: Vec<String>,
+    pub nested_groups: Vec<ResultFacetGroup>,
+    /// The number of hits for this group, inclusive of nested groups.  This
+    /// value should be equal to the sum of all of the nested_groups' counts if
+    /// there are any nested groups.
+    pub count: u32,
+}
+
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Serialize)]
+pub enum PresentationKind {
+    // We don't give "Files" a kind because they don't look like path hit-lists.
+    IDL,
+    Definitions,
+    Declarations,
+    Assignments,
+    Uses,
+    // We do give textual occurrences a kind because they are path hit-lists.
+    TextualOccurrences,
 }
 
 #[derive(Serialize)]
 pub struct FlattenedKindGroupResults {
+    pub kind: PresentationKind,
     pub pretty: String,
-    pub symbols: Option<Vec<String>>,
-    pub kind: String,
+    pub facets: Vec<ResultFacetRoot>,
     pub by_file: Vec<FlattenedResultsByFile>,
 }
 
@@ -231,6 +315,10 @@ pub struct FlattenedResultsByFile {
 pub struct FlattenedLineSpan {
     pub line_range: (u32, u32),
     pub contents: String,
+    // context and contextsym are normalized to empty upstream of here instead
+    // of being `Option<String>` so we just maintain that for now.
+    pub context: String,
+    pub contextsym: String,
 }
 
 /// This currently boring struct exists so that we have a place to put metadata
@@ -312,7 +400,7 @@ pub struct TextFile {
 /// A command that takes a single input and produces a single output.  At the
 /// start of the pipeline, the input may be ignored / expected to be void.
 #[async_trait]
-pub trait PipelineCommand : Debug {
+pub trait PipelineCommand: Debug {
     async fn execute(
         &self,
         server: &Box<dyn AbstractServer + Send + Sync>,
@@ -323,7 +411,7 @@ pub trait PipelineCommand : Debug {
 /// A command that takes multiple inputs and produces a single output.
 /// XXX speculative while implementing parallel processing.
 #[async_trait]
-pub trait PipelineJunctionCommand : Debug {
+pub trait PipelineJunctionCommand: Debug {
     async fn execute(
         &self,
         server: &Box<dyn AbstractServer + Send + Sync>,

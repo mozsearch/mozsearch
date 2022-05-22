@@ -675,3 +675,37 @@ pub fn read_jumps(filename: &str) -> UstrMap<Jump> {
     }
     result
 }
+
+/// This is the representation format for the path-lines per-kind results we
+/// emit into the crossref database.  It is generic over `T` so that we can use
+/// T=`Ustr` for easy string-interning in crossref.rs but so that we can also
+/// deserialize the results as T=`String` in `cmd_compile_results` where we
+/// ingest this format and the manual parsing logic ends up very verbose.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SearchResult<T> {
+    #[serde(rename = "lno")]
+    pub lineno: u32,
+    pub bounds: (u32, u32),
+    pub line: T,
+    pub context: T,
+    pub contextsym: T,
+    // We used to build up "peekLines" which we excerpted from the file here, but
+    // this was never surfaced to users.  The plan at the time had been to try
+    // and store specific file offsets that could be directly mapped/seeked, but
+    // between effective caching of dynamic search results and good experiences
+    // with lol_html, it seems like we will soon be able to just excerpt the
+    // statically produced HTML efficiently enough through dynamic HTML
+    // filtering.
+    #[serde(
+        rename = "peekRange",
+        default,
+        skip_serializing_if = "LineRange::is_empty"
+    )]
+    pub peek_range: LineRange,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct PathSearchResult<T> {
+    pub path: T,
+    pub lines: Vec<SearchResult<T>>,
+}

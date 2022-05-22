@@ -9,42 +9,21 @@ use std::io::Write;
 
 extern crate env_logger;
 
-use serde::Serialize;
 use serde_json::{json, Map};
 extern crate tools;
-use tools::config;
-use tools::file_format::analysis::LineRange;
-use tools::file_format::analysis::{read_analysis, read_structured, read_target, AnalysisKind};
-use tools::find_source_file;
-use ustr::{ustr, Ustr};
+use tools::{
+    config,
+    file_format::analysis::{
+        read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
+    },
+    find_source_file,
+};
+use ustr::ustr;
 
 /// The size for a payload line (inclusive of leading indicating character and
 /// newline) at which we store it externally in `crossref-extra` instead of
 /// inline in the `crossref` file itself.
 const EXTERNAL_STORAGE_THRESHOLD: usize = 1024 * 3;
-
-#[derive(Clone, Debug, Serialize)]
-struct SearchResult {
-    #[serde(rename = "lno")]
-    lineno: u32,
-    bounds: (u32, u32),
-    line: Ustr,
-    context: Ustr,
-    contextsym: Ustr,
-    // We use to build up "peekLines" which we excerpted from the file here, but
-    // this was never surfaced to users.  The plan at the time had been to try
-    // and store specific file offsets that could be directly mapped/seeked, but
-    // between effective caching of dynamic search results and good experiences
-    // with lol_html, it seems like we will soon be able to just excerpt the
-    // statically produced HTML efficiently enough through dynamic HTML
-    // filtering.
-    #[serde(
-        rename = "peekRange",
-        default,
-        skip_serializing_if = "LineRange::is_empty"
-    )]
-    peek_range: LineRange,
-}
 
 fn split_scopes(id: &str) -> Vec<String> {
     let mut result = Vec::new();
