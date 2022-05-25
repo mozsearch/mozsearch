@@ -14,13 +14,25 @@ CONFIG_REPO=$(realpath $1)
 CONFIG_FILE=$(realpath $2)
 TREE_NAME=$3
 
+# let's put the "parallel" output in a new `diags` directory, as we're still
+# seeing really poor output-file performance in bug 1567724.
+DIAGS_DIR=$INDEX_ROOT/diags/output
+mkdir -p $DIAGS_DIR
+# clean up the directory since in the VM this can persist.
+rm -f $DIAGS_DIR/*
+
+JOBLOG_PATH=${DIAGS_DIR}/output.joblog
+# let's put all the temp files in our diagnostic dir too.
+TMPDIR_PATH=${DIAGS_DIR}
+
 # parallel args:
-# --files: Place .par files in ${TMPDIR:-/tmp} that document stdout/stderr for each run.
-# --joblog: Emit a joblog that can be used to `--resume` the previous job.  This
-# might be useful to attempt to reproduce failures without having to copy and
-# paste insanely long command lines.
+# --files: Place .par files in the ${TMPDIR_PATH} above which is now not
+#   actually a temporary directory but instead a path we save so that we can see
+#   what the output of the run was.
+# --joblog: Emit a joblog that can be used to `--resume` the previous job and
+#   also provides us with general performance runtime info
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | \
-    parallel --files --joblog ${TMPDIR:-/tmp}/output.joblog --halt 2 -X --eta \
+    parallel --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH --halt 2 -X --eta \
 	     $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
 
 HG_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].hg_root" ${CONFIG_FILE})
