@@ -150,24 +150,13 @@ fn flatten_args(user_val: &str, args: &Table) -> Vec<String> {
 }
 
 impl QueryPipelineGroupBuilder {
-    fn ensure_pipeline_step(&mut self, group_name: String, command: String, mut args: Vec<String>) {
+    fn ensure_pipeline_step(&mut self, group_name: String, command: String, args: Vec<String>) {
         let group = self
             .groups
             .entry(group_name)
             .or_insert_with(|| PipelineGroup::default());
 
-        match group
-            .segments
-            .iter_mut()
-            .rfind(|seg| seg.command == command)
-        {
-            Some(seg) => {
-                seg.args.append(&mut args);
-            }
-            None => {
-                group.segments.push(PipelineSegment { command, args });
-            }
-        }
+        group.ensure_pipeline_step(command, args);
     }
 
     pub fn ingest_term(&mut self, root_term: &str, value: &str) -> Result<()> {
@@ -222,6 +211,23 @@ pub struct PipelineGroup {
     pub segments: Vec<PipelineSegment>,
     pub output: Option<String>,
     pub depth: u32,
+}
+
+impl PipelineGroup {
+    fn ensure_pipeline_step(&mut self, command: String, mut args: Vec<String>) {
+        match self
+            .segments
+            .iter_mut()
+            .rfind(|seg| seg.command == command)
+        {
+            Some(seg) => {
+                seg.args.append(&mut args);
+            }
+            None => {
+                self.segments.push(PipelineSegment { command, args });
+            }
+        }
+    }
 }
 
 #[derive(Default, Serialize)]
@@ -331,10 +337,7 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
 
                 for cmd in &group_config.commands {
                     let flattened_args = flatten_args("", &cmd.args);
-                    group.segments.push(PipelineSegment {
-                        command: cmd.command.clone(),
-                        args: flattened_args,
-                    });
+                    group.ensure_pipeline_step(cmd.command.clone(), flattened_args);
                 }
             }
         } else if let Some(junction_name) = next_junction {

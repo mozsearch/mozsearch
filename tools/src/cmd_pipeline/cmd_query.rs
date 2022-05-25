@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::{to_value};
 use structopt::StructOpt;
 
-use super::interface::{JsonValue, PipelineCommand, PipelineValues};
+use super::{interface::{JsonValue, PipelineCommand, PipelineValues}, builder::build_pipeline_graph};
 use crate::{
     abstract_server::{AbstractServer, Result}, query::chew_query::chew_query,
 };
@@ -30,7 +30,7 @@ pub struct QueryCommand {
 impl PipelineCommand for QueryCommand {
     async fn execute(
         &self,
-        _server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &Box<dyn AbstractServer + Send + Sync>,
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let pipeline_plan = chew_query(&self.args.query)?;
@@ -39,7 +39,9 @@ impl PipelineCommand for QueryCommand {
             return Ok(PipelineValues::JsonValue(JsonValue { value: to_value(pipeline_plan)? }));
         }
 
-        // XXX same as dump_pipeline for now...
-        Ok(PipelineValues::JsonValue(JsonValue { value: to_value(pipeline_plan)? }))
+        let graph = build_pipeline_graph(server.clonify(), pipeline_plan)?;
+
+        let result = graph.run(true).await;
+        result
     }
 }

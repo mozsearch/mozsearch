@@ -1,18 +1,25 @@
 extern crate memmap;
 
-use self::memmap::{Mmap, Protection};
+use self::memmap::Mmap;
 use std::collections::HashMap;
+use std::fs::File;
 use std::str;
+use std::sync::Arc;
 
 use serde_json::{from_slice, Value};
 
-use crate::{config, abstract_server::Result, abstract_server::{ServerError, ErrorDetails, ErrorLayer}};
+use crate::{
+    abstract_server::Result,
+    abstract_server::{ErrorDetails, ErrorLayer, ServerError},
+    config,
+};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CrossrefLookupMap {
-    inline_mm: Mmap,
-    extra_mm: Mmap,
+    inline_mm: Arc<Mmap>,
+    extra_mm: Arc<Mmap>,
 }
+
 
 const SPACE: u8 = ' ' as u8;
 const NEWLINE: u8 = '\n' as u8;
@@ -32,19 +39,28 @@ fn make_crossref_data_error(sym: &str) -> ServerError {
 // adapted from `identifiers.py` as well).
 impl CrossrefLookupMap {
     pub fn new(inline_path: &str, extra_path: &str) -> Option<CrossrefLookupMap> {
-        let inline_mm = match Mmap::open_path(inline_path, Protection::Read) {
-            Ok(mmap) => mmap,
-            Err(_) => {
-                return None
+        let inline_file = File::open(inline_path).unwrap();
+        let inline_mm = unsafe {
+            match Mmap::map(&inline_file) {
+                Ok(mmap) => {
+                    Arc::new(mmap)
+                }
+                Err(_) => return None,
             }
         };
-        let extra_mm = match Mmap::open_path(extra_path, Protection::Read) {
-          Ok(mmap) => mmap,
-          Err(_) => {
-              return None
-          }
-      };
-        Some(CrossrefLookupMap { inline_mm, extra_mm })
+        let extra_file = File::open(extra_path).unwrap();
+        let extra_mm = unsafe {
+            match Mmap::map(&extra_file) {
+                Ok(mmap) => {
+                    Arc::new(mmap)
+                }
+                Err(_) => return None,
+            }
+        };
+        Some(CrossrefLookupMap {
+            inline_mm,
+            extra_mm,
+        })
     }
 
     pub fn load(config: &config::Config) -> HashMap<String, Option<CrossrefLookupMap>> {
@@ -73,7 +89,7 @@ impl CrossrefLookupMap {
     // for, etc.).
     fn get_id_line(&self, pos: usize) -> (&[u8], usize, usize) {
         let mut pos = pos;
-        let bytes: &[u8] = unsafe { self.inline_mm.as_slice() };
+        let bytes: &[u8] = self.inline_mm.as_ref();
         if bytes[pos] == NEWLINE {
             pos -= 1;
         }
@@ -104,7 +120,7 @@ impl CrossrefLookupMap {
         // end should now be pointing at the trailing newline.
 
         // Skip the leading `!`
-        (&bytes[start+1..end], start, end)
+        (&bytes[start + 1..end], start, end)
     }
 
     // Bisect the mmap to look for an exact symbol match `sym`, and returning the
@@ -115,7 +131,7 @@ impl CrossrefLookupMap {
         // a slice with bounds [0, mmap_end).
         let mut first = 0;
         let mmap_end = self.inline_mm.len();
-        let bytes: &[u8] = unsafe { self.inline_mm.as_slice() };
+        let bytes: &[u8] = self.inline_mm.as_ref();
         let mut count = mmap_end;
 
         while count > 0 {
@@ -181,10 +197,7 @@ impl CrossrefLookupMap {
         &[]
     }
 
-    pub fn lookup(
-        &self,
-        sym: &str,
-    ) -> Result<Value> {
+    pub fn lookup(&self, sym: &str) -> Result<Value> {
         let payload = self.bisect_for_payload(sym.as_bytes());
         let payload_len = payload.len();
         // Finding nothing (a miss!) is not an error and so is an in-band null.
@@ -211,10 +224,18 @@ impl CrossrefLookupMap {
             space_pos += 1;
         }
 
-        let brace_offset = unsafe { usize::from_str_radix(str::from_utf8_unchecked(&payload[1..space_pos]), 16).map_err(|_| make_crossref_data_error(sym))? };
-        let length_with_newline = unsafe { usize::from_str_radix(str::from_utf8_unchecked(&payload[space_pos+1..]), 16).map_err(|_| make_crossref_data_error(sym))? };
+        let brace_offset = unsafe {
+            usize::from_str_radix(str::from_utf8_unchecked(&payload[1..space_pos]), 16)
+                .map_err(|_| make_crossref_data_error(sym))?
+        };
+        let length_with_newline = unsafe {
+            usize::from_str_radix(str::from_utf8_unchecked(&payload[space_pos + 1..]), 16)
+                .map_err(|_| make_crossref_data_error(sym))?
+        };
 
-        let extra_bytes: &[u8] = unsafe { self.extra_mm.as_slice() };
-        return Ok(from_slice(&extra_bytes[brace_offset..brace_offset + length_with_newline - 1])?);
+        let extra_bytes: &[u8] = self.extra_mm.as_ref();
+        return Ok(from_slice(
+            &extra_bytes[brace_offset..brace_offset + length_with_newline - 1],
+        )?);
     }
 }

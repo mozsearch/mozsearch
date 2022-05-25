@@ -27,7 +27,7 @@ impl From<ParseError> for ServerError {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct RemoteServer {
     server_base_url: Url,
     tree_base_url: Url,
@@ -84,6 +84,10 @@ async fn get_json(url: Url) -> Result<reqwest::Response> {
 
 #[async_trait]
 impl AbstractServer for RemoteServer {
+    fn clonify(&self) -> Box<dyn AbstractServer + Send + Sync> {
+        Box::new(self.clone())
+    }
+
     fn translate_analysis_path(&self, _sf_path: &str) -> Result<String> {
         // Remote servers don't have local filesystem paths.
         Err(ServerError::Unsupported)

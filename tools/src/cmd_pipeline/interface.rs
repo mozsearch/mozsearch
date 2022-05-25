@@ -2,7 +2,11 @@ use async_trait::async_trait;
 use clap::arg_enum;
 use serde::Serialize;
 use serde_json::{to_string_pretty, Value};
-use std::{cmp::Ordering, collections::HashSet, fmt::Debug};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap, HashSet},
+    fmt::Debug,
+};
 use structopt::StructOpt;
 use tracing::{trace, trace_span};
 
@@ -236,6 +240,28 @@ pub struct FlattenedResultsBundle {
     pub content_type: String,
 }
 
+impl FlattenedResultsBundle {
+    pub fn compute_path_line_sets(&self, before: u32, after: u32) -> HashMap<String, HashSet<u32>> {
+        let mut path_line_sets = HashMap::new();
+        for path_kind_group in &self.path_kind_results {
+            path_kind_group.accumulate_path_line_sets(&mut path_line_sets, before, after);
+        }
+        path_line_sets
+    }
+
+    pub fn ingest_html_lines(
+        &mut self,
+        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        before: u32,
+        after: u32,
+    ) {
+        self.content_type = "text/html".to_string();
+        for path_kind_group in &mut self.path_kind_results {
+            path_kind_group.ingest_html_lines(&path_line_contents, before, after);
+        }
+    }
+}
+
 #[derive(PartialEq, PartialOrd, Eq, Ord, Serialize)]
 pub enum PathKind {
     Normal,
@@ -249,6 +275,30 @@ pub struct FlattenedPathKindGroupResults {
     pub path_kind: PathKind,
     pub file_names: Vec<String>,
     pub kind_groups: Vec<FlattenedKindGroupResults>,
+}
+
+impl FlattenedPathKindGroupResults {
+    pub fn accumulate_path_line_sets(
+        &self,
+        mut path_line_sets: &mut HashMap<String, HashSet<u32>>,
+        before: u32,
+        after: u32,
+    ) {
+        for kind_group in &self.kind_groups {
+            kind_group.accumulate_path_line_sets(&mut path_line_sets, before, after);
+        }
+    }
+
+    pub fn ingest_html_lines(
+        &mut self,
+        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        before: u32,
+        after: u32,
+    ) {
+        for kind_group in &mut self.kind_groups {
+            kind_group.ingest_html_lines(&path_line_contents, before, after);
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -304,21 +354,128 @@ pub struct FlattenedKindGroupResults {
     pub by_file: Vec<FlattenedResultsByFile>,
 }
 
+impl FlattenedKindGroupResults {
+    pub fn accumulate_path_line_sets(
+        &self,
+        mut path_line_sets: &mut HashMap<String, HashSet<u32>>,
+        before: u32,
+        after: u32,
+    ) {
+        for by_file in &self.by_file {
+            by_file.accumulate_path_line_sets(&mut path_line_sets, before, after);
+        }
+    }
+
+    pub fn ingest_html_lines(
+        &mut self,
+        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        before: u32,
+        after: u32,
+    ) {
+        for by_file in &mut self.by_file {
+            by_file.ingest_html_lines(&path_line_contents, before, after);
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct FlattenedResultsByFile {
     pub file: String,
     pub line_spans: Vec<FlattenedLineSpan>,
 }
 
+impl FlattenedResultsByFile {
+    pub fn accumulate_path_line_sets(
+        &self,
+        path_line_sets: &mut HashMap<String, HashSet<u32>>,
+        before: u32,
+        after: u32,
+    ) {
+        let line_set = path_line_sets
+            .entry(self.file.clone())
+            .or_insert_with(|| HashSet::new());
+        for span in &self.line_spans {
+            let range = span.expand_range_in_isolation(before, after);
+            for line in range.0..=range.1 {
+                line_set.insert(line);
+            }
+        }
+    }
+
+    pub fn ingest_html_lines(
+        &mut self,
+        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        before: u32,
+        after: u32,
+    ) {
+        if let Some(file_contents) = path_line_contents.get(&self.file) {
+            let mut highest_line: u32 = 0;
+            for i_span in 0..self.line_spans.len() {
+                let (mut this_start, mut this_end) =
+                    self.line_spans[i_span].expand_range_in_isolation(before, after);
+                // adjust to avoid overlapping the prior span.
+                if this_start <= highest_line {
+                    this_start = highest_line + 1;
+                }
+                // avoid bumping into the next span if there is one
+                if i_span < self.line_spans.len() - 1 {
+                    let next_start = self.line_spans[i_span + 1].line_range.0;
+                    if this_end >= next_start {
+                        this_end = next_start - 1;
+                    }
+                }
+
+                let mut lines = vec![];
+                for line in this_start..=this_end {
+                    if let Some(content) = file_contents.get(&line) {
+                        lines.push(content.as_str());
+                    }
+                }
+                // this_end was aspirational; we may have run out of lines,
+                // so use the length.
+                self.line_spans[i_span].line_range =
+                    (this_start, this_start + (lines.len() - 1) as u32);
+                self.line_spans[i_span].contents = lines.join("\n");
+
+                highest_line = this_end;
+            }
+        }
+    }
+}
+
 /// Represents a range of lines in a file.
 #[derive(Serialize)]
 pub struct FlattenedLineSpan {
+    /// Canonical line number for this span of lines; the one that should be
+    /// highlighted and the key term should be found in. 1-based line numbers.
+    pub key_line: u32,
+    /// The range of lines the core content results should include; when there's
+    /// a block comment preceding something or if the statement/expression spans
+    /// multiple lines, this could potentially be larger than just the key_line.
     pub line_range: (u32, u32),
+    /// When the FlattenedResultsBundle has a `content_type` of "text/plain"
+    /// this is expected to just be the single line of plaintext included in the
+    /// `crossref` database.  When the type is "text/html" this is expected to
+    /// be the formatted HTML output mutated into place by `ingest_html_lines`
+    /// as provided by `cmd_augment_results.rs` and in that case before/after
+    /// lines of context may be provided here but not incorporated into the
+    /// `line_range` above.
     pub contents: String,
     // context and contextsym are normalized to empty upstream of here instead
     // of being `Option<String>` so we just maintain that for now.
     pub context: String,
     pub contextsym: String,
+}
+
+impl FlattenedLineSpan {
+    /// Expand the range by before/after, ensuring we don't go below line 1 for
+    /// the start, and ignoring the fact that we potentially will expand into
+    /// adjacent spans.
+    pub fn expand_range_in_isolation(&self, before: u32, after: u32) -> (u32, u32) {
+        let start = std::cmp::max(1, self.line_range.0 as i64 - before as i64) as u32;
+        let end = self.line_range.1 + after;
+        (start, end)
+    }
 }
 
 /// This currently boring struct exists so that we have a place to put metadata
@@ -419,11 +576,11 @@ pub trait PipelineJunctionCommand: Debug {
     ) -> Result<PipelineValues>;
 }
 
-/// A linear pipeline sequence.
+/// Multiple-use linear pipeline sequence.
 pub struct ServerPipeline {
     pub server_kind: String,
     pub server: Box<dyn AbstractServer + Send + Sync>,
-    pub commands: Vec<Box<dyn PipelineCommand>>,
+    pub commands: Vec<Box<dyn PipelineCommand + Send + Sync>>,
 }
 
 /// A linear pipeline sequence that potentially runs in parallel with other
@@ -434,7 +591,38 @@ pub struct NamedPipeline {
     /// Previous pipeline's output to consume.
     pub input_name: Option<String>,
     pub output_name: String,
-    pub commands: Vec<Box<dyn PipelineCommand>>,
+    pub commands: Vec<Box<dyn PipelineCommand + Send + Sync>>,
+}
+
+impl NamedPipeline {
+    pub async fn run(
+        self,
+        server: Box<dyn AbstractServer + Send + Sync>,
+        mut cur_values: PipelineValues,
+        traced: bool,
+    ) -> Result<PipelineValues> {
+        for cmd in &self.commands {
+            let span = trace_span!("run_pipeline_step", cmd = ?cmd);
+            let _span_guard = span.enter();
+
+            match cmd.execute(&server, cur_values).await {
+                Ok(next_values) => {
+                    cur_values = next_values;
+                }
+                Err(err) => {
+                    trace!(err = ?err);
+                    return Err(err);
+                }
+            }
+
+            if traced {
+                let value_str = to_string_pretty(&cur_values).unwrap();
+                trace!(output_json = %value_str);
+            }
+        }
+
+        Ok(cur_values)
+    }
 }
 
 /// Consumes one or more inputs from the `NamedPipeline`s that ran prior to it
@@ -444,7 +632,34 @@ pub struct NamedPipeline {
 pub struct JunctionInvocation {
     pub input_names: Vec<String>,
     pub output_name: String,
-    pub command: Box<dyn PipelineJunctionCommand>,
+    pub command: Box<dyn PipelineJunctionCommand + Send + Sync>,
+}
+
+impl JunctionInvocation {
+    pub async fn run(
+        self,
+        server: Box<dyn AbstractServer + Send + Sync>,
+        input_values: Vec<PipelineValues>,
+        traced: bool,
+    ) -> Result<PipelineValues> {
+        let span = trace_span!("run junction step", junction = ?self.command);
+        let _span_guard = span.enter();
+
+        let result = match self.command.execute(&server, input_values).await {
+            Ok(res) => res,
+            Err(err) => {
+                trace!(err = ?err);
+                return Err(err);
+            }
+        };
+
+        if traced {
+            let value_str = to_string_pretty(&result).unwrap();
+            trace!(output_json = %value_str);
+        }
+
+        Ok(result)
+    }
 }
 
 pub struct ParallelPipelines {
@@ -452,9 +667,11 @@ pub struct ParallelPipelines {
     pub junctions: Vec<JunctionInvocation>,
 }
 
-///
+/// Single-use pipeline graph.  Calling `run` consumes the graph for lifetime
+/// simplicity because multiple parallel tasks are run and the borrows end up
+/// awkward.  Also, we always expect the graphs to be built dynamically for each
+/// use so we don't actually want to be able to reuse graphs at this time.
 pub struct ServerPipelineGraph {
-    pub server_kind: String,
     pub server: Box<dyn AbstractServer + Send + Sync>,
     pub pipelines: Vec<ParallelPipelines>,
 }
@@ -488,11 +705,64 @@ impl ServerPipeline {
 }
 
 impl ServerPipelineGraph {
-    pub async fn run(&self, _traced: bool) -> Result<PipelineValues> {
-        let cur_values = PipelineValues::Void;
+    pub async fn run(self, traced: bool) -> Result<PipelineValues> {
+        let mut named_values: BTreeMap<String, PipelineValues> = BTreeMap::new();
 
-        // XXX impl
+        for pipeline in self.pipelines {
+            // ## kick off all the named pipelines in parallel
+            let mut pipeline_tasks = vec![];
+            for named_pipeline in pipeline.pipelines {
+                let output = named_pipeline.output_name.clone();
+                let input = match &named_pipeline.input_name {
+                    Some(name) => {
+                        // TODO: There could be cases like for compile-results
+                        // where we would want a second pipeline to be able to
+                        // consume the same input.
+                        match named_values.remove(name) {
+                            Some(val) => val,
+                            None => PipelineValues::Void,
+                        }
+                    }
+                    None => PipelineValues::Void,
+                };
+                pipeline_tasks.push((
+                    output,
+                    tokio::spawn(named_pipeline.run(self.server.clonify(), input, traced)),
+                ));
+            }
 
-        Ok(cur_values)
+            // ## join the pipelines in sequence
+            for (output, handle) in pipeline_tasks {
+                let value = handle.await??;
+                named_values.insert(output, value);
+            }
+
+            // ## kick off junctions in parallel
+            let mut junction_tasks = vec![];
+            for junction in pipeline.junctions {
+                let output = junction.output_name.clone();
+                let mut input_values = vec![];
+                for name in &junction.input_names {
+                    input_values.push(match named_values.remove(name) {
+                        Some(val) => val,
+                        None => PipelineValues::Void,
+                    });
+                }
+                junction_tasks.push((
+                    output,
+                    tokio::spawn(junction.run(self.server.clonify(), input_values, traced)),
+                ));
+            }
+
+            for (output, handle) in junction_tasks {
+                let value = handle.await??;
+                named_values.insert(output, value);
+            }
+        }
+
+        Ok(match named_values.remove("result") {
+            Some(val) => val,
+            None => PipelineValues::Void,
+        })
     }
 }
