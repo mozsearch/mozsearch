@@ -128,7 +128,7 @@ pub fn index_blame(
     (blame_map, hg_map)
 }
 
-pub fn load(config_path: &str, need_indexes: bool) -> Config {
+pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>) -> Config {
     let config_file = File::open(config_path).unwrap();
     let mut reader = BufReader::new(&config_file);
     let mut input = String::new();
@@ -144,6 +144,12 @@ pub fn load(config_path: &str, need_indexes: bool) -> Config {
 
     let mut trees = BTreeMap::new();
     for (tree_name, tree_config) in trees_obj {
+        if let Some(only_tree_name) = only_tree {
+            if tree_name != only_tree_name {
+                continue;
+            }
+        }
+
         let paths: TreeConfigPaths = serde_json::from_value(tree_config).unwrap();
 
         let git = match (&paths.git_path, &paths.git_blame_path) {

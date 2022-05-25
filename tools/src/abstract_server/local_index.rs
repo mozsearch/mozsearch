@@ -260,7 +260,7 @@ pub fn make_local_server(
     config_path: &str,
     tree_name: &str,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
-    let mut config = load(config_path, false);
+    let mut config = load(config_path, false, Some(&tree_name));
     let tree_config = match config.trees.remove(&tree_name.to_string()) {
         Some(t) => t,
         None => {

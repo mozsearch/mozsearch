@@ -87,9 +87,9 @@ fn main() {
     env_logger::init();
     let args: Vec<_> = env::args().collect();
 
-    let cfg = config::load(&args[1], false);
-
     let tree_name = &args[2];
+    let cfg = config::load(&args[1], false, Some(&tree_name));
+
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     let filenames_file = &args[3];

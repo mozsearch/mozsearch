@@ -395,10 +395,10 @@ fn main() {
     let (base_args, fname_args) = args.split_at(3);
 
     let pre_config = Instant::now();
-    let cfg = config::load(&base_args[1], true);
+    let tree_name = &base_args[2];
+    let cfg = config::load(&base_args[1], true, Some(&tree_name));
     println!("Config file read, duration: {}us", pre_config.elapsed().as_micros() as u64);
 
-    let tree_name = &base_args[2];
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     let pre_jumps = Instant::now();
