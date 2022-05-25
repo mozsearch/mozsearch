@@ -10,6 +10,7 @@ use std::io::Read;
 use std::io::Seek;
 use std::io::Write;
 use std::path::Path;
+use std::time::Instant;
 
 extern crate env_logger;
 #[macro_use]
@@ -393,24 +394,27 @@ fn main() {
     let args: Vec<_> = env::args().collect();
     let (base_args, fname_args) = args.split_at(3);
 
+    let pre_config = Instant::now();
     let cfg = config::load(&base_args[1], true);
-    println!("Config file read");
+    println!("Config file read, duration: {}us", pre_config.elapsed().as_micros() as u64);
 
     let tree_name = &base_args[2];
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
+    let pre_jumps = Instant::now();
     let jumps_fname = format!("{}/jumps", tree_config.paths.index_path);
     //let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
     let jumps = read_jumps(&jumps_fname);
-    println!("Jumps read");
+    println!("Jumps read, duration: {}us", pre_jumps.elapsed().as_micros() as u64);
 
+    let pre_per_file = Instant::now();
     let all_file_info_fname = format!(
         "{}/concise-per-file-info.json",
         tree_config.paths.index_path
     );
     let all_file_info_data = match read_json_from_file(&all_file_info_fname) {
         Some(data) => {
-            println!("Per-file info read");
+            println!("Per-file info read, duration: {}us", pre_per_file.elapsed().as_micros() as u64);
             data
         },
         None => {
@@ -419,6 +423,7 @@ fn main() {
         }
     };
 
+    let pre_blame_prep = Instant::now();
     let (blame_commit, head_oid) = match &tree_config.git {
         &Some(ref git) => {
             let head_oid = git.repo.refname_to_id("HEAD").unwrap();
@@ -436,6 +441,8 @@ fn main() {
     let head_commit =
         head_oid.and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
 
+    println!("Blame prep done, duration: {}us", pre_blame_prep.elapsed().as_micros() as u64);
+
     let mut extension_mapping = HashMap::new();
     extension_mapping.insert("cpp", ("header", vec!["h", "hh", "hpp", "hxx"]));
     extension_mapping.insert("cc", ("header", vec!["h", "hh", "hpp", "hxx"]));
@@ -446,6 +453,7 @@ fn main() {
     extension_mapping.insert("hxx", ("source", vec!["cpp", "cc", "cxx"]));
 
     for path in fname_args {
+        let file_start = Instant::now();
         println!("File {}", path);
 
         let output_fname = format!("{}/file/{}", tree_config.paths.index_path, path);
@@ -510,14 +518,19 @@ fn main() {
             _ => {}
         };
 
+        let pre_analysis_load = Instant::now();
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &mut read_source);
+        println!("  Analysis load duration: {}us", pre_analysis_load.elapsed().as_micros() as u64);
 
+        let pre_per_file_info = Instant::now();
         let per_file_info = get_per_file_info(
             &all_file_info_data,
             path,
             &tree_config.paths.index_path);
+        println!("  Per-file info load duration: {}us", pre_per_file_info.elapsed().as_micros() as u64);
 
+        let pre_file_read = Instant::now();
         let mut input = String::new();
         match reader.read_to_string(&mut input) {
             Ok(_) => {}
@@ -535,7 +548,9 @@ fn main() {
                 }
             }
         }
+        println!("  File contents read duration: {}us", pre_file_read.elapsed().as_micros() as u64);
 
+        let pre_describe_file = Instant::now();
         if let Some(file_description) = describe::describe_file(&input, &path_wrapper, &format) {
             let description_fname =
                 format!("{}/description/{}", tree_config.paths.index_path, path);
@@ -543,6 +558,7 @@ fn main() {
             let mut desc_writer = BufWriter::new(description_file);
             write!(desc_writer, "{}", file_description).unwrap();
         }
+        println!("  File described duration: {}us", pre_describe_file.elapsed().as_micros() as u64);
 
         let extension = path_wrapper
             .extension()
@@ -860,7 +876,7 @@ fn main() {
             });
         }
 
-        format_file_data(
+        let perf_info = format_file_data(
             &cfg,
             tree_name,
             &panel,
@@ -876,6 +892,12 @@ fn main() {
         )
         .unwrap();
 
+        println!("  Format code duration: {}us", perf_info.format_code_duration_us);
+        println!("  Blame lines duration: {}us", perf_info.blame_lines_duration_us);
+        println!("  Commit info duration: {}us", perf_info.commit_info_duration_us);
+        println!("  Format mixing duration: {}us", perf_info.format_mixing_duration_us);
+
         writer.finish().unwrap();
+        println!("  Total writing duration: {}us", file_start.elapsed().as_micros() as u64);
     }
 }

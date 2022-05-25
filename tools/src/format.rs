@@ -3,6 +3,7 @@ use std::env;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
+use std::time::Instant;
 
 use crate::blame;
 use crate::file_format::analysis;
@@ -358,6 +359,14 @@ pub fn format_code(
     (output_lines, analysis_json, sym_json)
 }
 
+#[derive(Default)]
+pub struct FormatPerfInfo {
+    pub format_code_duration_us: u64,
+    pub blame_lines_duration_us: u64,
+    pub commit_info_duration_us: u64,
+    pub format_mixing_duration_us: u64,
+}
+
 /// Renders source code with blame annotations and semantic analysis data (if provided).
 /// The caller provides the panel sections.  Currently used by `output-file.rs` to statically
 /// generate the tip of whatever branch it's on with semantic analysis data, and `format_path` to
@@ -375,23 +384,30 @@ pub fn format_file_data(
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     coverage: &Option<Vec<i32>>,
     writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<FormatPerfInfo, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+
+    let mut format_perf = FormatPerfInfo::default();
 
     let format = languages::select_formatting(path);
     match format {
         FormatAs::Binary => {
             write!(writer, "Binary file").unwrap();
-            return Ok(());
+            return Ok(format_perf);
         }
         _ => {}
     };
 
     let slug = format_to_slug_attribute(&format);
+    let pre_format_code = Instant::now();
     let (output_lines, analysis_json, sym_json) = format_code(jumps, format, path, &data, &analysis);
+    format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
+    let pre_blame_lines = Instant::now();
     let blame_lines = git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path);
+    format_perf.blame_lines_duration_us = pre_blame_lines.elapsed().as_micros() as u64;
 
+    let pre_commit = Instant::now();
     let revision_owned = match commit {
         &Some(ref commit) => {
             let rev = commit.id().to_string();
@@ -404,6 +420,9 @@ pub fn format_file_data(
         Some((ref rev, ref header)) => Some((rev.as_str(), header.as_str())),
         None => None,
     };
+    format_perf.commit_info_duration_us = pre_commit.elapsed().as_micros() as u64;
+
+    let pre_format_mixing = Instant::now();
 
     let path_wrapper = Path::new(path);
     let filename = path_wrapper.file_name().unwrap().to_str().unwrap();
@@ -595,7 +614,9 @@ pub fn format_file_data(
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
-    Ok(())
+    format_perf.format_mixing_duration_us = pre_format_mixing.elapsed().as_micros() as u64;
+
+    Ok(format_perf)
 }
 
 fn format_to_slug_attribute(format: &FormatAs) -> String {
@@ -764,7 +785,7 @@ pub fn format_path(
         &analysis,
         &None,
         writer,
-    )
+    ).map(|_| ())
 }
 
 pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
