@@ -298,10 +298,10 @@ fn main() {
 
     let args: Vec<_> = env::args().collect();
 
-    let cfg = config::load(&args[1], true);
+    let tree_name = &args[2];
+    let cfg = config::load(&args[1], true, Some(&tree_name));
     println!("Config file read");
 
-    let tree_name = &args[2];
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     // ## Build empty derived info structures
