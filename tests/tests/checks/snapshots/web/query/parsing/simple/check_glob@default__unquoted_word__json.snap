@@ -8,7 +8,7 @@ expression: "&jv.value"
       "input": "compiled",
       "segments": [
         {
-          "command": "show-html",
+          "command": "augment-results",
           "args": []
         }
       ],
@@ -36,6 +36,14 @@ expression: "&jv.value"
           "args": [
             "foo"
           ]
+        },
+        {
+          "command": "crossref-lookup",
+          "args": []
+        },
+        {
+          "command": "crossref-expand",
+          "args": []
         }
       ],
       "output": "semantic-search",

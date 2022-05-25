@@ -88,7 +88,7 @@ async fn read_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct LocalIndex {
     // We only hold onto the TreeConfigPaths portion of the config because the
     // git data is not `Sync`.  Specifically, the compiler says:
@@ -103,13 +103,17 @@ struct LocalIndex {
     config_paths: TreeConfigPaths,
     tree_name: String,
     // Note: IdentMap internally handles the identifiers db not existing
-    ident_map: IdentMap,
+    ident_map: Option<IdentMap>,
     // But for crossref, it's on us.
     crossref_lookup_map: Option<CrossrefLookupMap>,
 }
 
 #[async_trait]
 impl AbstractServer for LocalIndex {
+    fn clonify(&self) -> Box<dyn AbstractServer + Send + Sync> {
+        Box::new(self.clone())
+    }
+
     fn translate_analysis_path(&self, sf_path: &str) -> Result<String> {
         Ok(format!(
             "{}/analysis/{}.gz",
@@ -201,20 +205,21 @@ impl AbstractServer for LocalIndex {
         ignore_case: bool,
         match_limit: usize,
     ) -> Result<Vec<(String, String)>> {
-        let now = Instant::now();
-        let mut results = vec![];
-        for ir in self
-            .ident_map
-            .lookup(needle, exact_match, ignore_case, match_limit)
-        {
-            results.push((ir.symbol, ir.id));
+        if let Some(ident_map) = &self.ident_map {
+            let now = Instant::now();
+            let mut results = vec![];
+            for ir in ident_map.lookup(needle, exact_match, ignore_case, match_limit) {
+                results.push((ir.symbol, ir.id));
+            }
+            trace!(
+                duration_us = now.elapsed().as_micros() as u64,
+                "search_identifiers: {}",
+                needle
+            );
+            Ok(results)
+        } else {
+            Ok(vec![])
         }
-        trace!(
-            duration_us = now.elapsed().as_micros() as u64,
-            "search_identifiers: {}",
-            needle
-        );
-        Ok(results)
     }
 
     async fn search_text(

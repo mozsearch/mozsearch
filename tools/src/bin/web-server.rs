@@ -243,9 +243,12 @@ fn handle(
         }
 
         "complete" => {
-            let ids = ident_map.get(&tree_name.to_string()).unwrap();
-            let json = ids.lookup_json(&path[2], false, false, 6);
-            WebResponse::json(json)
+            if let Some(ids) = ident_map.get(&tree_name.to_string()) {
+                let json = ids.lookup_json(&path[2], false, false, 6);
+                WebResponse::json(json)
+            } else {
+                return WebResponse::not_found();
+            }
         }
 
         _ => WebResponse::not_found(),

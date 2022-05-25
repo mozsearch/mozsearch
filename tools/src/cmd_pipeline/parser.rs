@@ -1,6 +1,8 @@
 use clap::arg_enum;
 use structopt::StructOpt;
 
+use super::cmd_augment_results::AugmentResults;
+use super::cmd_compile_results::CompileResults;
 use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_filter_analysis::FilterAnalysis;
@@ -49,6 +51,7 @@ pub struct ToolOpts {
 
 #[derive(Debug, StructOpt)]
 pub enum Command {
+    AugmentResults(AugmentResults),
     CrossrefExpand(CrossrefExpand),
     CrossrefLookup(CrossrefLookup),
     FilterAnalysis(FilterAnalysis),
@@ -62,4 +65,15 @@ pub enum Command {
     SearchText(SearchText),
     ShowHtml(ShowHtml),
     Traverse(Traverse),
+}
+
+#[derive(Debug, StructOpt)]
+pub struct JunctionOpts {
+    #[structopt(subcommand)]
+    pub cmd: JunctionCommand,
+}
+
+#[derive(Debug, StructOpt)]
+pub enum JunctionCommand {
+    CompileResults(CompileResults),
 }

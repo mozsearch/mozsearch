@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use async_trait::async_trait;
 use regex::Regex;
@@ -92,6 +92,9 @@ pub struct SearchResults {
     /// that doesn't end up in a separate output structure.
     pub sym_to_meta: BTreeMap<String, Value>,
     pub path_kind_groups: BTreeMap<PathKind, PathKindGroup>,
+    /// Every key_line gets added to this set like `{path}:{key_line}` to
+    /// suppress redundant hits on the line (from fulltext matches).
+    pub path_line_suppressions: HashSet<String>,
 }
 
 #[derive(Default)]
@@ -303,7 +306,24 @@ impl SearchResults {
                 line_spans: vec![],
             });
         for search_result in path_container.lines {
+            // Path-line suppressions exist to avoid redundant fulltext matches
+            // showing up, so we don't actually care if there already was
+            // another instance of this line already.
+            //
+            // At least, probably; obviously if it turns out we are ending up
+            // with a ton of semantic results on the same line, maybe we need to
+            // change the heuristic here to be a Map that suppresses redundant
+            // lines for the same symbol on the same line, having the map store
+            // the most recently used symbol.  (So we would have a limited
+            // memory instead of a growing set.)  Practically speaking, we'd
+            // expect this to really only happen in cases like implicit
+            // constructors or macros where a ton of actual under-the-hood code
+            // gets mapped down to a single token, but in that case we already
+            // should have merged all of those redundant same-symbols.
+            self.path_line_suppressions
+                .insert(format!("{}:{}", path_container.path, search_result.lineno));
             file_results.line_spans.push(FlattenedLineSpan {
+                key_line: search_result.lineno,
                 line_range: if search_result.peek_range.is_empty() {
                     (search_result.lineno, search_result.lineno)
                 } else {
@@ -350,21 +370,6 @@ impl SearchResults {
                 .entry(descriptor.clone())
                 .or_insert_with(|| QualKindGroup::new());
 
-            // ### path faceting
-            let path_sans_filename = match path.rfind('/') {
-                Some(offset) => path[0..offset + 1].to_string(),
-                None => path.clone(),
-            };
-            let mut path_pieces: Vec<String> = path_sans_filename
-                .split_inclusive('/')
-                .map(|s| String::from(s))
-                .collect();
-            // drop the filename portion.
-            path_pieces.truncate(path_pieces.len() - 1);
-            qual_kind_group
-                .path_facet
-                .place_item(path_pieces, path_sans_filename);
-
             // ### line results
             let file_results = qual_kind_group
                 .path_hits
@@ -374,12 +379,40 @@ impl SearchResults {
                     line_spans: vec![],
                 });
             for text_match in file_match.matches {
-                file_results.line_spans.push(FlattenedLineSpan {
-                    line_range: (text_match.line_num, text_match.line_num),
-                    contents: text_match.line_str,
-                    context: "".to_string(),
-                    contextsym: "".to_string(),
-                });
+                if self.path_line_suppressions
+                    .insert(format!("{}:{}", path, text_match.line_num)) {
+                        file_results.line_spans.push(FlattenedLineSpan {
+                            key_line: text_match.line_num,
+                            line_range: (text_match.line_num, text_match.line_num),
+                            contents: text_match.line_str,
+                            context: "".to_string(),
+                            contextsym: "".to_string(),
+                        });
+                }
+            }
+            // The suppressions could mean we don't actually need this path hit,
+            // in which case we need to remove the file results.
+            //
+            // TODO: We should potentially back out the qual_kind_group and
+            // path_kind_group here or have the `compile` step notice that the
+            // path_hits is empty and so on.
+            if file_results.line_spans.len() == 0 {
+                qual_kind_group.path_hits.remove(&path);
+            } else {
+                // ### path faceting (now that we know we're keeping the hits)
+                let path_sans_filename = match path.rfind('/') {
+                    Some(offset) => path[0..offset + 1].to_string(),
+                    None => path.clone(),
+                };
+                let mut path_pieces: Vec<String> = path_sans_filename
+                    .split_inclusive('/')
+                    .map(|s| String::from(s))
+                    .collect();
+                // drop the filename portion.
+                path_pieces.truncate(path_pieces.len() - 1);
+                qual_kind_group
+                    .path_facet
+                    .place_item(path_pieces, path_sans_filename);
             }
         }
     }
@@ -398,11 +431,19 @@ impl SearchResults {
                     facets.push(facet);
                 }
 
+                let mut by_file: Vec<FlattenedResultsByFile> =
+                    qk_group.path_hits.into_values().collect();
+                // The path_hits within each file are not guaranteed to be sorted,
+                // so we sort them now.
+                for results in by_file.iter_mut() {
+                    results.line_spans.sort_by_key(|x| x.line_range.clone());
+                }
+
                 kind_groups.push(FlattenedKindGroupResults {
                     kind: descriptor.kind,
                     pretty: descriptor.pretty,
                     facets,
-                    by_file: qk_group.path_hits.into_values().collect(),
+                    by_file,
                 });
             }
 

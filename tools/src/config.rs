@@ -12,7 +12,7 @@ use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 
 use git2::{Oid, Repository};
 
-#[derive(Debug, MallocSizeOf, Serialize, Deserialize)]
+#[derive(Clone, Debug, MallocSizeOf, Serialize, Deserialize)]
 pub struct TreeConfigPaths {
     pub index_path: String,
     pub files_path: String,

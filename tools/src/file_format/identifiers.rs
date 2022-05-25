@@ -1,13 +1,15 @@
 extern crate memmap;
 
-use self::memmap::{Mmap, Protection};
+use self::memmap::Mmap;
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::BufRead;
 use std::process::Command;
 use std::str;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{to_string};
+use serde_json::to_string;
 
 use crate::config;
 
@@ -23,9 +25,9 @@ fn uppercase(s: &[u8]) -> Vec<u8> {
     result
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct IdentMap {
-    mmap: Option<Mmap>,
+    mmap: Arc<Mmap>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -54,15 +56,27 @@ fn demangle_name(name: &str) -> String {
 }
 
 impl IdentMap {
-    pub fn new(filename: &str) -> IdentMap {
-        let mmap = match Mmap::open_path(filename, Protection::Read) {
-            Ok(mmap) => Some(mmap),
+    pub fn new(filename: &str) -> Option<IdentMap> {
+        let file = match File::open(filename) {
+            Ok(file) => { file }
             Err(e) => {
-                warn!("Failed to mmap {}: {:?}", filename, e);
-                None
+                warn!("Failed to open {}: {:?}", filename, e);
+                return None;
             }
         };
-        IdentMap { mmap }
+        unsafe {
+            match Mmap::map(&file) {
+                Ok(mmap) => {
+                    Some(IdentMap {
+                        mmap: Arc::new(mmap)
+                    })
+                }
+                Err(e) => {
+                    warn!("Failed to mmap {}: {:?}", filename, e);
+                    return None
+                }
+            }
+        }
     }
 
     pub fn load(config: &config::Config) -> HashMap<String, IdentMap> {
@@ -70,19 +84,16 @@ impl IdentMap {
         for (tree_name, tree_config) in &config.trees {
             println!("Loading identifiers {}", tree_name);
             let filename = format!("{}/identifiers", tree_config.paths.index_path);
-            let map = IdentMap::new(&filename);
-            result.insert(tree_name.clone(), map);
+            if let Some(map) = IdentMap::new(&filename) {
+                result.insert(tree_name.clone(), map);
+            }
         }
         result
     }
 
     fn get_line(&self, pos: usize) -> &[u8] {
         let mut pos = pos;
-        let mmap = match self.mmap {
-            Some(ref m) => m,
-            None => return &[],
-        };
-        let bytes: &[u8] = unsafe { mmap.as_slice() };
+        let bytes = self.mmap.as_ref();
         if bytes[pos] == '\n' as u8 {
             pos -= 1;
         }
@@ -94,7 +105,7 @@ impl IdentMap {
             start -= 1;
         }
 
-        let size = mmap.len();
+        let size = bytes.len();
         while end < size && bytes[end] != '\n' as u8 {
             end += 1;
         }
@@ -109,10 +120,7 @@ impl IdentMap {
         }
 
         let mut first = 0;
-        let mut count = match self.mmap {
-            Some(ref m) => m.len(),
-            None => return 0,
-        };
+        let mut count = self.mmap.len();
 
         while count > 0 {
             let step = count / 2;
@@ -138,16 +146,12 @@ impl IdentMap {
         ignore_case: bool,
         max_results: usize,
     ) -> Vec<IdentResult> {
-        let mmap = match self.mmap {
-            Some(ref m) => m,
-            None => return vec![],
-        };
+        let bytes = self.mmap.as_ref();
 
         let start = self.bisect(needle.as_bytes(), false);
         let end = self.bisect(needle.as_bytes(), true);
 
         let mut result = vec![];
-        let bytes: &[u8] = unsafe { mmap.as_slice() };
         let slice = &bytes[start..end];
 
         for line in slice.lines() {
@@ -158,7 +162,8 @@ impl IdentMap {
 
             {
                 let suffix = &id[needle.len()..];
-                if suffix.contains(':') || suffix.contains('.') || (exact_match && suffix.len() > 0) {
+                if suffix.contains(':') || suffix.contains('.') || (exact_match && suffix.len() > 0)
+                {
                     continue;
                 }
             }

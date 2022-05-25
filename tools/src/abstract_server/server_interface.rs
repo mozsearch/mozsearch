@@ -28,6 +28,15 @@ impl From<regex::Error> for ServerError {
     }
 }
 
+impl From<tokio::task::JoinError> for ServerError {
+    fn from(err: tokio::task::JoinError) -> ServerError {
+        ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::RuntimeInvariantViolation,
+            message: format!("task panicked?: {}", err.to_string())
+        })
+    }
+}
+
 /// Express whether the error seems to be happening in the server or the data.
 #[derive(Debug)]
 pub enum ErrorLayer {
@@ -160,6 +169,8 @@ pub struct TextMatches {
 ///
 #[async_trait]
 pub trait AbstractServer {
+    fn clonify(&self) -> Box<dyn AbstractServer + Send + Sync>;
+
     /// Convert a searchfox tree-local path into an absolute analysis path on
     /// disk.  This fundamentally only works for local indices.
     fn translate_analysis_path(&self, sf_path: &str) -> Result<String>;

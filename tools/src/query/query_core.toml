@@ -3,8 +3,9 @@ alias = "context"
 
 [term.context]
 [[term.context.group.display]]
-command = "show-html"
-args.context = "$0"
+command = "augment-results"
+args.before = "$0"
+args.after = "$0"
 
 # The default term is what gets applied to things without a term.  It can also
 # be explicitly referenced by other terms.
@@ -29,21 +30,32 @@ conflicts = ["idprefix"]
 command = "search-identifiers"
 args.positional = "$0"
 args.exact_match = true
+[[term.id.group.semantic-search]]
+command = "crossref-lookup"
+[[term.id.group.semantic-search]]
+command = "crossref-expand"
 
 [term.idprefix]
 [[term.idprefix.group.semantic-search]]
 command = "search-identifiers"
 args.positional = "$0"
 args.exact_match = false
-
+[[term.idprefix.group.semantic-search]]
+command = "crossref-lookup"
+[[term.idprefix.group.semantic-search]]
+command = "crossref-expand"
 
 [term.pathre]
 [[term.pathre.group.file-search]]
 command = "search-files"
 args.pathre = "$0"
-[[term.pathre.group.semantic-search]]
-command = "filter-crossref"
-args.pathre = "$0"
+## TODO: Implement filtering crossref output by path
+## does this really want to be its own stage, or just part of crossref-lookup?
+## I guess this may need to come after crossref-expand, so then it would want
+## to be its own command.
+#[[term.pathre.group.semantic-search]]
+#command = "filter-crossref"
+#args.pathre = "$0"
 [[term.pathre.group.text-search]]
 command = "search-text"
 args.pathre = "$0"
@@ -68,6 +80,10 @@ alias = "symbol"
 [[term.symbol.group.semantic-search]]
 command = "search-identifiers"
 args.add_sym = "$0"
+[[term.symbol.group.semantic-search]]
+command = "crossref-lookup"
+[[term.symbol.group.semantic-search]]
+command = "crossref-expand"
 
 [term.text]
 [[term.text.expand]]
@@ -94,4 +110,4 @@ next = "display"
 [group.display]
 output = "result"
 [[group.display.commands]]
-command = "show-html"
+command = "augment-results"

@@ -1,0 +1,69 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(frb).unwrap()"
+---
+{
+  "path_kind_results": [
+    {
+      "path_kind": "Normal",
+      "file_names": [],
+      "kind_groups": [
+        {
+          "kind": "Definitions",
+          "pretty": "DoubleBase::doublePure",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 9,
+                  "line_range": [
+                    9,
+                    9
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-9\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"9\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >virtual</span> <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-i=\"1\" >doublePure</span>() = 0;\n</code>\n</div>\n</div>",
+                  "context": "DoubleBase",
+                  "contextsym": "T_DoubleBase"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "Uses",
+          "pretty": "DoubleBase::doublePure",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "overs.cpp",
+              "line_spans": [
+                {
+                  "key_line": 64,
+                  "line_range": [
+                    64,
+                    64
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-64\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"64\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_20d15eb0fb5c5192_1d39c9c1356\" >subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-i=\"28\" >doublePure</span>();\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv"
+                },
+                {
+                  "key_line": 65,
+                  "line_range": [
+                    65,
+                    65
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-65\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"65\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_a1642fb0fb5c5192_94aac9c1356\" >subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\" data-i=\"29\" >doublePure</span>();\n</code>\n</div>\n",
+                  "context": "generateDoubleUses",
+                  "contextsym": "_Z18generateDoubleUsesv"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "content_type": "text/html"
+}
