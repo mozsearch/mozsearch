@@ -382,7 +382,9 @@ function populateResults(data, full, jumpToSingle) {
 
     // Hacky attempt to provide a means of providing related searches.
     if (line.upsearch) {
-      html += `<span class='result-upsearch'><a href="${makeSearchUrl(line.upsearch)}">Symbol Search This</a></span>`;
+      html += `<span class='result-upsearch'><a href="${makeSearchUrl(
+        line.upsearch
+      )}">Symbol Search This</a></span>`;
     }
 
     html += "</td>";
@@ -518,8 +520,12 @@ function populateResults(data, full, jumpToSingle) {
               let lineDelta = -line.context_before.length;
               for (const lineStr of line.context_before) {
                 html += renderSingleSearchResult(
-                  pathkind, qkind, file,
-                  { lno: line.lno + lineDelta, line: lineStr }, 'before');
+                  pathkind,
+                  qkind,
+                  file,
+                  { lno: line.lno + lineDelta, line: lineStr },
+                  "before"
+                );
                 lineDelta++;
               }
             }
@@ -528,8 +534,12 @@ function populateResults(data, full, jumpToSingle) {
               let lineDelta = 1;
               for (const lineStr of line.context_after) {
                 html += renderSingleSearchResult(
-                  pathkind, qkind, file,
-                  { lno: line.lno + lineDelta, line: lineStr }, 'after');
+                  pathkind,
+                  qkind,
+                  file,
+                  { lno: line.lno + lineDelta, line: lineStr },
+                  "after"
+                );
                 lineDelta++;
               }
             }

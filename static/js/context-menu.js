@@ -142,7 +142,7 @@ var ContextMenu = new (class ContextMenu {
       if (spaceTowardsTop > spaceTowardsBottom) {
         // Position it towards the top.
         this.menu.classList.add("bottom");
-        this.menu.style.bottom = (viewportHeight - y) + "px";
+        this.menu.style.bottom = viewportHeight - y + "px";
         this.menu.style.top = "";
         if (rect.height > spaceTowardsTop) {
           this.menu.style.maxHeight = spaceTowardsTop + "px";

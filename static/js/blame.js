@@ -113,7 +113,7 @@ var BlamePopup = new (class BlamePopup {
     // Adjust transform to ensure the popup doesn't go outside the window.
     let popupBox = this.popup.getBoundingClientRect();
     if (popupBox.bottom > window.innerHeight) {
-      top -= (popupBox.bottom - window.innerHeight);
+      top -= popupBox.bottom - window.innerHeight;
       this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     }
 
@@ -128,21 +128,21 @@ var BlamePopup = new (class BlamePopup {
     let content;
 
     if (elt.classList.contains("cov-no-data")) {
-      content =
-        `<div>There is no coverage data for this file.</div>`;
+      content = `<div>There is no coverage data for this file.</div>`;
     } else if (elt.classList.contains("cov-unknown")) {
-      content =
-        `<div>There was coverage data for this file but not for this line.</div>`;
+      content = `<div>There was coverage data for this file but not for this line.</div>`;
     } else if (elt.classList.contains("cov-interpolated")) {
-      content = `<div>This line wasn't instrumented for coverage, but we ` +
-                `interpolated coverage for this line to make it visually less `+
-                `distracting.</div>`;
+      content =
+        `<div>This line wasn't instrumented for coverage, but we ` +
+        `interpolated coverage for this line to make it visually less ` +
+        `distracting.</div>`;
     } else if (elt.classList.contains("cov-uncovered")) {
       content = `<div>This line wasn't instrumented for coverage.</div>`;
     } else {
       const hitCount = parseInt(elt.dataset.coverage, 10);
-      content = `<div>This line was hit ${hitCount} times per coverage ` +
-                `instrumentation.<div>`;
+      content =
+        `<div>This line was hit ${hitCount} times per coverage ` +
+        `instrumentation.<div>`;
     }
 
     return content;
@@ -252,8 +252,8 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       element.addEventListener("mouseleave", this);
       // Use passive listeners for touch, because these elements already
       // disable touch-panning via touch-action properties.
-      element.addEventListener("touchstart", this, {passive: true});
-      element.addEventListener("touchmove", this, {passive: true});
+      element.addEventListener("touchstart", this, { passive: true });
+      element.addEventListener("touchmove", this, { passive: true });
     }
 
     for (let element of document.querySelectorAll(".cov-strip")) {
@@ -261,8 +261,8 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       element.addEventListener("mouseleave", this);
       // Use passive listeners for touch, because these elements already
       // disable touch-panning via touch-action properties.
-      element.addEventListener("touchstart", this, {passive: true});
-      element.addEventListener("touchmove", this, {passive: true});
+      element.addEventListener("touchstart", this, { passive: true });
+      element.addEventListener("touchmove", this, { passive: true });
     }
 
     BlamePopup.popup.addEventListener("mouseenter", this);
@@ -287,8 +287,13 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       if (this.isStripElement(event.target) && event.touches.length == 1) {
         // Within those touch sequences, update the blame element to whatever is under the touch
         // point, or null if the touch point moves off the strip.
-        let elementUnderTouch = document.elementFromPoint(event.touches[0].clientX, event.touches[0].clientY);
-        BlamePopup.blameElement = this.isStripElement(elementUnderTouch) ? elementUnderTouch : null;
+        let elementUnderTouch = document.elementFromPoint(
+          event.touches[0].clientX,
+          event.touches[0].clientY
+        );
+        BlamePopup.blameElement = this.isStripElement(elementUnderTouch)
+          ? elementUnderTouch
+          : null;
       }
       return;
     }
