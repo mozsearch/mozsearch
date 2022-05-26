@@ -218,21 +218,63 @@ var Panel = new (class Panel {
   }
 
   formatSelectedLines() {
-    const texts = [];
+    const kPlaceholder = "...";
+    const lines = [];
     let lastLine = -1;
+    let commonWhitespacePrefix = null;
+
+    function computeCommonWhitespacePrefix(lineText, existingPrefix) {
+      function isWhitespace(character) {
+        return character == " " || character == "\t";
+      }
+
+      if (!lineText.length) {
+        // Empty lines don't contribute to the whitespace prefix.
+        return existingPrefix;
+      }
+
+      let min = existingPrefix
+        ? Math.min(existingPrefix.length, lineText.length)
+        : lineText.length;
+      let count = 0;
+      for (; count < min; ++count) {
+        const inPrefix = existingPrefix
+          ? existingPrefix[count] == lineText[count]
+          : isWhitespace(lineText[count]);
+        if (!inPrefix) {
+          break;
+        }
+      }
+
+      return lineText.substring(0, count);
+    }
+
     for (const line of [...Highlight.selectedLines].sort((a, b) => a - b)) {
       if (lastLine !== -1 && lastLine != line - 1) {
-        texts.push("...");
+        lines.push(kPlaceholder);
       }
 
       const lineElem = document
         .getElementById(`line-${line}`)
         .querySelector(".source-line");
-      texts.push(lineElem.textContent.replace(/\n/, ""));
-
+      const lineText = lineElem.textContent.replace(/\n/, "");
+      commonWhitespacePrefix = computeCommonWhitespacePrefix(
+        lineText,
+        commonWhitespacePrefix
+      );
+      lines.push(lineText);
       lastLine = line;
     }
-    return texts;
+
+    if (commonWhitespacePrefix?.length) {
+      for (let i = 0; i < lines.length; ++i) {
+        if (lines[i] && lines[i] != kPlaceholder) {
+          lines[i] = lines[i].substring(commonWhitespacePrefix.length);
+        }
+      }
+    }
+
+    return lines;
   }
 
   updateMarkdownState() {
