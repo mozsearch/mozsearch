@@ -120,7 +120,8 @@ var DocumentTitler = new (class DocumentTitler {
    *   a `(`.
    */
   _findBestPrettySymbolInSourceLineElem(elem) {
-    let bestPretty = null, bestShortPretty = null;
+    let bestPretty = null,
+      bestShortPretty = null;
     if (!elem) {
       return { long: bestPretty, short: bestShortPretty };
     }
@@ -138,9 +139,11 @@ var DocumentTitler = new (class DocumentTitler {
       // when we see a colon anywhere.
       let sawClass = false;
       let sawColon = false;
-      for (let prevNode = symElem.previousSibling;
-           prevNode;
-           prevNode = prevNode.previousSibling) {
+      for (
+        let prevNode = symElem.previousSibling;
+        prevNode;
+        prevNode = prevNode.previousSibling
+      ) {
         // A "(" always means stop immediately.
         if (prevNode.textContent.includes("(")) {
           break scan;
@@ -226,7 +229,9 @@ var DocumentTitler = new (class DocumentTitler {
     if (lastSelectedLine) {
       const selectedLine = document.getElementById(`line-${lastSelectedLine}`);
       const nestingContainer = selectedLine?.closest(".nesting-container");
-      const nestingLine = nestingContainer?.querySelector(".nesting-sticky-line");
+      const nestingLine = nestingContainer?.querySelector(
+        ".nesting-sticky-line"
+      );
       const sourceLine = nestingLine?.querySelector(".source-line");
       const bestPretty = this._findBestPrettySymbolInSourceLineElem(sourceLine);
       this.selectionTitle = bestPretty.short;
@@ -248,7 +253,9 @@ var Sticky = new (class Sticky {
     // Our logic can't work on our diff output because there will be line
     // number discontinuities and line numbers that are simply missing.
     let hasLineNumbers = !!document.querySelector(".line-number");
-    let isDiffView = document.getElementById("content").classList.contains("diff");
+    let isDiffView = document
+      .getElementById("content")
+      .classList.contains("diff");
     if (hasLineNumbers && !isDiffView) {
       this.scroller.addEventListener("scroll", () => this.handleScroll(), {
         passive: true,
@@ -466,7 +473,7 @@ var Highlight = new (class Highlight {
         let nestingContainer = containingLine.closest(".nesting-container");
         if (nestingContainer) {
           Sticky.scroller.scrollTop -=
-              containingLine.offsetTop - nestingContainer.offsetTop;
+            containingLine.offsetTop - nestingContainer.offsetTop;
         }
         return;
       }

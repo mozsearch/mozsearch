@@ -11,7 +11,7 @@ var Panel = new (class Panel {
     this.rawNode = this.findItem("Raw");
 
     this.markdown = {
-      "filename": {
+      filename: {
         node: this.findItem("Filename Link"),
         isEnabled: () => {
           return true;
@@ -21,7 +21,7 @@ var Panel = new (class Panel {
           return `[${filename}](${url})`;
         },
       },
-      "symbol": {
+      symbol: {
         node: this.findItem("Symbol Link"),
         isEnabled: () => {
           return DocumentTitler?.selectedSymbol;
@@ -30,7 +30,7 @@ var Panel = new (class Panel {
           return `[${DocumentTitler.selectedSymbol}](${url})`;
         },
       },
-      "block": {
+      block: {
         node: this.findItem("Code Block"),
         isEnabled: () => {
           return Highlight?.selectedLines.size > 0;
@@ -38,7 +38,9 @@ var Panel = new (class Panel {
         getText: url => {
           const file = document.getElementById("file");
           const lang = file.getAttribute("data-markdown-slug") || "";
-          return [url, "```" + lang, ...this.formatSelectedLines(), "```"].join("\n");
+          return [url, "```" + lang, ...this.formatSelectedLines(), "```"].join(
+            "\n"
+          );
         },
       },
     };
@@ -66,7 +68,13 @@ var Panel = new (class Panel {
 
     if (this.permalinkNode) {
       this.permalinkNode.addEventListener("click", event => {
-        if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        if (
+          event.defaultPrevented ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey
+        ) {
           return;
         }
         window.history.pushState(
@@ -83,12 +91,18 @@ var Panel = new (class Panel {
         continue;
       }
       node.addEventListener("click", event => {
-        if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        if (
+          event.defaultPrevented ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey
+        ) {
           return;
         }
 
         this.copyMarkdown(name);
-        
+
         event.preventDefault();
       });
     }
@@ -175,16 +189,17 @@ var Panel = new (class Panel {
 
   copyText(copy, text) {
     copy.setAttribute("data-copying", "true");
-    navigator.clipboard.writeText(text)
-      .then(function() {
+    navigator.clipboard
+      .writeText(text)
+      .then(function () {
         copy.classList.add("copied");
-        setTimeout(function() {
+        setTimeout(function () {
           if (!copy.hasAttribute("data-copying")) {
             copy.classList.remove("copied");
           }
         }, 1000);
       })
-      .finally(function() {
+      .finally(function () {
         copy.removeAttribute("data-copying");
       });
   }
@@ -197,7 +212,7 @@ var Panel = new (class Panel {
 
     const copy = node.querySelector(".copy");
     const url = this.permalinkNode?.href || document.location.href;
-    const text = getText(url);;
+    const text = getText(url);
 
     this.copyText(copy, text);
   }
@@ -210,7 +225,9 @@ var Panel = new (class Panel {
         texts.push("...");
       }
 
-      const lineElem = document.getElementById(`line-${line}`).querySelector(".source-line");
+      const lineElem = document
+        .getElementById(`line-${line}`)
+        .querySelector(".source-line");
       texts.push(lineElem.textContent.replace(/\n/, ""));
 
       lastLine = line;
