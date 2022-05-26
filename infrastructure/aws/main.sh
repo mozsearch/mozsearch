@@ -25,12 +25,9 @@ handle_error() {
         if [ -d "/mnt/index-scratch" ]; then
             mv -f /mnt/index-scratch/* /index/interrupted
         fi
-        # When GNU parallel is passed `--files` it will place the output of jobs
-        # in `.par` files in `/tmp`.  Currently only output.sh uses this, but
-        # the output is very interesting.
-        mkdir -p /index/tmp
-        cp /tmp/*.par /index/tmp || true
-        cp /tmp/*.joblog /index/tmp || true
+        # try and get a list of open files that might have caused problems
+        # unmounting /index or moving things from /mnt/index-scratch to /index.
+        lsof | grep /index
     fi
 
     # Send failure email and shut down. Release channel failures get sent to the
