@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use axum::response::{IntoResponse, Response};
+use axum::http::StatusCode;
 use futures_core::stream::BoxStream;
 use serde::Serialize;
 use serde_json::Value;
@@ -34,6 +36,13 @@ impl From<tokio::task::JoinError> for ServerError {
             layer: ErrorLayer::RuntimeInvariantViolation,
             message: format!("task panicked?: {}", err.to_string())
         })
+    }
+}
+
+impl IntoResponse for ServerError {
+    fn into_response(self) -> Response {
+        let body = format!("Error: {:#?}", self);
+        (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
     }
 }
 
