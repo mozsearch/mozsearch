@@ -15,7 +15,7 @@ use super::server_interface::{
 };
 use super::{TextMatches, TextMatchesByFile};
 
-use crate::config::{load, TreeConfigPaths};
+use crate::config::{load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 
@@ -294,21 +294,10 @@ impl AbstractServer for LocalIndex {
     }
 }
 
-pub fn make_local_server(
-    config_path: &str,
+fn fab_server(
+    tree_config: TreeConfig,
     tree_name: &str,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
-    let mut config = load(config_path, false, Some(&tree_name));
-    let tree_config = match config.trees.remove(&tree_name.to_string()) {
-        Some(t) => t,
-        None => {
-            return Err(ServerError::StickyProblem(ErrorDetails {
-                layer: ErrorLayer::BadInput,
-                message: format!("bad tree name: {}", &tree_name),
-            }))
-        }
-    };
-
     let ident_path = format!("{}/identifiers", tree_config.paths.index_path);
     let ident_map = IdentMap::new(&ident_path);
 
@@ -324,4 +313,34 @@ pub fn make_local_server(
         ident_map,
         crossref_lookup_map,
     }))
+}
+
+pub fn make_local_server(
+    config_path: &str,
+    tree_name: &str,
+) -> Result<Box<dyn AbstractServer + Send + Sync>> {
+    let mut config = load(config_path, false, Some(&tree_name));
+    let tree_config = match config.trees.remove(&tree_name.to_string()) {
+        Some(t) => t,
+        None => {
+            return Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::BadInput,
+                message: format!("bad tree name: {}", &tree_name),
+            }))
+        }
+    };
+
+    fab_server(tree_config, tree_name)
+}
+
+pub fn make_all_local_servers(
+    config_path: &str,
+) -> Result<BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>> {
+    let config = load(config_path, false, None);
+    let mut servers = BTreeMap::new();
+    for (tree_name, tree_config) in config.trees {
+        let server = fab_server(tree_config, &tree_name)?;
+        servers.insert(tree_name, server);
+    }
+    Ok(servers)
 }

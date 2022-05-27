@@ -201,7 +201,7 @@ pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>) -> C
     }
 
     Config {
-        trees: trees,
+        trees,
         mozsearch_path: mozsearch.to_owned(),
     }
 }
