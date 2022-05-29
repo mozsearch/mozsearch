@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::BufRead;
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Read;
@@ -392,12 +393,15 @@ fn main() {
     env_logger::init();
 
     let args: Vec<_> = env::args().collect();
-    let (base_args, fname_args) = args.split_at(3);
+    // TODO: refactor _fname_args out of existence; we now require paths to come via stdin.
+    let (base_args, _fname_args) = args.split_at(3);
+
+    let mut stdout = io::stdout().lock();
 
     let pre_config = Instant::now();
     let tree_name = &base_args[2];
     let cfg = config::load(&base_args[1], true, Some(&tree_name));
-    println!("Config file read, duration: {}us", pre_config.elapsed().as_micros() as u64);
+    writeln!(stdout, "Config file read, duration: {}us", pre_config.elapsed().as_micros() as u64).unwrap();
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
@@ -405,7 +409,7 @@ fn main() {
     let jumps_fname = format!("{}/jumps", tree_config.paths.index_path);
     //let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
     let jumps = read_jumps(&jumps_fname);
-    println!("Jumps read, duration: {}us", pre_jumps.elapsed().as_micros() as u64);
+    writeln!(stdout, "Jumps read, duration: {}us", pre_jumps.elapsed().as_micros() as u64).unwrap();
 
     let pre_per_file = Instant::now();
     let all_file_info_fname = format!(
@@ -414,11 +418,11 @@ fn main() {
     );
     let all_file_info_data = match read_json_from_file(&all_file_info_fname) {
         Some(data) => {
-            println!("Per-file info read, duration: {}us", pre_per_file.elapsed().as_micros() as u64);
+            writeln!(stdout, "Per-file info read, duration: {}us", pre_per_file.elapsed().as_micros() as u64).unwrap();
             data
         },
         None => {
-            println!("No concise-per-file-info.json file found");
+            writeln!(stdout, "No concise-per-file-info.json file found").unwrap();
             json::Object::new()
         }
     };
@@ -441,7 +445,7 @@ fn main() {
     let head_commit =
         head_oid.and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
 
-    println!("Blame prep done, duration: {}us", pre_blame_prep.elapsed().as_micros() as u64);
+    writeln!(stdout, "Blame prep done, duration: {}us", pre_blame_prep.elapsed().as_micros() as u64).unwrap();
 
     let mut extension_mapping = HashMap::new();
     extension_mapping.insert("cpp", ("header", vec!["h", "hh", "hpp", "hxx"]));
@@ -452,19 +456,23 @@ fn main() {
     extension_mapping.insert("hpp", ("source", vec!["cpp", "cc", "cxx"]));
     extension_mapping.insert("hxx", ("source", vec!["cpp", "cc", "cxx"]));
 
-    for path in fname_args {
+    let mut stdin = io::stdin().lock();
+
+    let mut path_buf = String::new();
+    while () == path_buf.clear() && stdin.read_line(&mut path_buf).unwrap() > 0 {
+        let path = path_buf.trim_end();
         let file_start = Instant::now();
-        println!("File {}", path);
+        writeln!(stdout, "File '{}'", path).unwrap();
 
         let output_fname = format!("{}/file/{}", tree_config.paths.index_path, path);
         let gzip_output_fname = format!("{}.gz", output_fname);
         let source_fname = find_source_file(
-            path,
+            &path,
             &tree_config.paths.files_path,
             &tree_config.paths.objdir_path,
         );
 
-        let format = languages::select_formatting(path);
+        let format = languages::select_formatting(&path);
 
         // Create a zero length output file with the normal name for nginx
         // try_files reasons... UNLESS the file we're dealing with already has
@@ -495,7 +503,7 @@ fn main() {
         let source_file = match File::open(source_fname.clone()) {
             Ok(f) => f,
             Err(_) => {
-                println!("Unable to open file");
+                writeln!(stdout, "Unable to open source file '{}'", source_fname).unwrap();
                 continue;
             }
         };
@@ -504,7 +512,7 @@ fn main() {
         let metadata = fs::symlink_metadata(path_wrapper).unwrap();
         if metadata.file_type().is_symlink() {
             let dest = fs::read_link(path_wrapper).unwrap();
-            write!(writer, "Symlink to {}", dest.to_str().unwrap()).unwrap();
+            write!(writer, "Symlink to '{}'", dest.to_str().unwrap()).unwrap();
             continue;
         }
 
@@ -521,14 +529,14 @@ fn main() {
         let pre_analysis_load = Instant::now();
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &mut read_source);
-        println!("  Analysis load duration: {}us", pre_analysis_load.elapsed().as_micros() as u64);
+        writeln!(stdout, "  Analysis load duration: {}us", pre_analysis_load.elapsed().as_micros() as u64).unwrap();
 
         let pre_per_file_info = Instant::now();
         let per_file_info = get_per_file_info(
             &all_file_info_data,
-            path,
+            &path,
             &tree_config.paths.index_path);
-        println!("  Per-file info load duration: {}us", pre_per_file_info.elapsed().as_micros() as u64);
+        writeln!(stdout, "  Per-file info load duration: {}us", pre_per_file_info.elapsed().as_micros() as u64).unwrap();
 
         let pre_file_read = Instant::now();
         let mut input = String::new();
@@ -542,13 +550,13 @@ fn main() {
                         input.push_str(&bytes.iter().map(|c| *c as char).collect::<String>());
                     }
                     Err(e) => {
-                        println!("Unable to read file: {:?}", e);
+                        writeln!(stdout, "Unable to read source file '{}': {:?}", source_fname, e).unwrap();
                         continue;
                     }
                 }
             }
         }
-        println!("  File contents read duration: {}us", pre_file_read.elapsed().as_micros() as u64);
+        writeln!(stdout, "  File contents read duration: {}us", pre_file_read.elapsed().as_micros() as u64).unwrap();
 
         let pre_describe_file = Instant::now();
         if let Some(file_description) = describe::describe_file(&input, &path_wrapper, &format) {
@@ -558,7 +566,7 @@ fn main() {
             let mut desc_writer = BufWriter::new(description_file);
             write!(desc_writer, "{}", file_description).unwrap();
         }
-        println!("  File described duration: {}us", pre_describe_file.elapsed().as_micros() as u64);
+        writeln!(stdout, "  File described duration: {}us", pre_describe_file.elapsed().as_micros() as u64).unwrap();
 
         let extension = path_wrapper
             .extension()
@@ -686,7 +694,7 @@ fn main() {
             });
         }
         if let Some(ref github) = tree_config.paths.github_repo {
-            match Path::new(path).extension().and_then(OsStr::to_str) {
+            match Path::new(&path).extension().and_then(OsStr::to_str) {
                 Some("md") | Some("rst") => {
                     tools_items.push(PanelItem {
                         title: "Rendered view".to_owned(),
@@ -883,7 +891,7 @@ fn main() {
             &info_boxes,
             &head_commit,
             &blame_commit,
-            path,
+            &path,
             input,
             &jumps,
             &analysis,
@@ -892,12 +900,13 @@ fn main() {
         )
         .unwrap();
 
-        println!("  Format code duration: {}us", perf_info.format_code_duration_us);
-        println!("  Blame lines duration: {}us", perf_info.blame_lines_duration_us);
-        println!("  Commit info duration: {}us", perf_info.commit_info_duration_us);
-        println!("  Format mixing duration: {}us", perf_info.format_mixing_duration_us);
+        writeln!(stdout, "  Format code duration: {}us", perf_info.format_code_duration_us).unwrap();
+        writeln!(stdout, "  Blame lines duration: {}us", perf_info.blame_lines_duration_us).unwrap();
+        writeln!(stdout, "  Commit info duration: {}us", perf_info.commit_info_duration_us).unwrap();
+        writeln!(stdout, "  Format mixing duration: {}us", perf_info.format_mixing_duration_us).unwrap();
 
         writer.finish().unwrap();
-        println!("  Total writing duration: {}us", file_start.elapsed().as_micros() as u64);
+        writeln!(stdout, "  Total writing duration: {}us", file_start.elapsed().as_micros() as u64).unwrap();
     }
+    writeln!(stdout, "Done writing files.").unwrap();
 }

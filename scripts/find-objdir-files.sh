@@ -8,3 +8,5 @@ pushd ${INDEX_ROOT}/analysis/__GENERATED__
 find . -type f | sed -e 's#^./#__GENERATED__/#' > ${INDEX_ROOT}/objdir-files
 find . -mindepth 1 -type d | sed -e 's#^./#__GENERATED__/#' > ${INDEX_ROOT}/objdir-dirs
 popd
+
+cat ${INDEX_ROOT}/repo-files ${INDEX_ROOT}/objdir-files > ${INDEX_ROOT}/all-files
