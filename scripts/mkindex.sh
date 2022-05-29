@@ -72,8 +72,10 @@ $MOZSEARCH_PATH/scripts/build-codesearch.py $CONFIG_FILE $TREE_NAME
 
 date
 
-# this depends on INDEX_ROOT already being available
-$MOZSEARCH_PATH/scripts/compress-outputs.sh
+# This depends on INDEX_ROOT already being available.  The script doesn't
+# actually care about CONFIG_FILE or TREE_NAME, but it's helpful to
+# `indexer-logs-analyze.sh`.
+$MOZSEARCH_PATH/scripts/compress-outputs.sh $CONFIG_FILE $TREE_NAME
 
 date
 
@@ -81,6 +83,7 @@ date
 # 4th argument needs to be empty.  We now also need the livegrep server to be
 # available, so start that first.
 $MOZSEARCH_PATH/router/codesearch.py $CONFIG_FILE start $TREE_NAME
+date
 $MOZSEARCH_PATH/scripts/check-index.sh $CONFIG_FILE $TREE_NAME "filesystem" ""
 
 # And we want to stop it after.  It's possible if we errored above that it will

@@ -26,14 +26,32 @@ JOBLOG_PATH=${DIAGS_DIR}/output.joblog
 TMPDIR_PATH=${DIAGS_DIR}
 
 # parallel args:
+# --pipepart, -a: Pass the filenames to each job on the job's stdin by chopping
+#   up the file passed via `-a`.  Compare with `--pipe` which instead divvies
+#   inside the parallel perl process and can in theory be a bottleneck.
 # --files: Place .par files in the ${TMPDIR_PATH} above which is now not
 #   actually a temporary directory but instead a path we save so that we can see
 #   what the output of the run was.
 # --joblog: Emit a joblog that can be used to `--resume` the previous job and
 #   also provides us with general performance runtime info
-cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files | \
-    parallel --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH --halt 2 -X --eta \
-	     $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME
+# --tmpdir: We specify the location of the .par files via this.
+# --block: by passing `-1` we indicate each job should get 1 block of data, with
+#   the size of the block basically being (1/nproc * file size).  A value of
+#   `-2` would give each job a block half the size and result in twice as many
+#   jobs (and therefore twice as much overhead).  The general trade-off reason
+#   you might do this is that parallel can detect when a process terminates but
+#   not when it's idle.  So to load balance, you potentially would want more
+#   jobs, but we're looking at a startup cost of ~15 seconds per process, and
+#   we can process about 2000 lines of source per 0.1 second with all 4 cores
+#   active, so that suggests we give up about 300kloc's worth of rendering for
+#   additional job, which potentially covers a lot of slop.  Also, there's a
+#   chance that as some output-file jobs complete earlier, the other jobs may
+#   then accelerate as there is reduced contention for (SSD) I/O and spare RAM
+#   may increase to allow for writes to be buffered without needing to flush,
+#   etc.
+parallel --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
+    --block -1 --halt 2 \
+    $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME -
 
 HG_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].hg_root" ${CONFIG_FILE})
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files > ${TMPDIR:-/tmp}/dirs

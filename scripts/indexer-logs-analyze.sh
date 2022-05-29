@@ -7,7 +7,7 @@ PARSE_EXPR+=' as time, script, args'
 PARSE_EXPR+=' | parseDate(time) as time'
 PARSE_EXPR+=' | split(args) on " "'
 PARSE_EXPR+=' | if(script == "find-repo-files.py" or script == "build.sh" or script=="output.sh", args[2], "") as tree'
-PARSE_EXPR+=' | if(script == "js-analyze.sh" or script == "java-analyze.sh" or script == "idl-analyze.sh" or script == "ipdl-analyze.sh" or script == "crossref.sh" or script == "build-codesearch.py" or script == "check-index.sh", args[1], tree) as tree'
+PARSE_EXPR+=' | if(script == "js-analyze.sh" or script == "java-analyze.sh" or script == "idl-analyze.sh" or script == "ipdl-analyze.sh" or script == "crossref.sh" or script == "build-codesearch.py" or script == "check-index.sh" or script == "compress-outputs.sh" or script == "check-index.sh", args[1], tree) as tree'
 
 # - Grep the log in Perl mode looking for the pattern where a "date" invocation
 #   is followed by a script invocation from mozsearch/scripts.
