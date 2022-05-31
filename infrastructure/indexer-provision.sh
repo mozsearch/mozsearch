@@ -12,7 +12,7 @@ set -o pipefail # Check all commands in a pipeline
 # Note that for the most recent LLVM/clang release (ex: right now v13), you
 # would actually want to leave this empty.  Check out https://apt.llvm.org/ for
 # the latest info in all cases.
-CLANG_SUFFIX=-11
+CLANG_SUFFIX=-14
 # Bumping the priority with each version upgrade lets running the provisioning
 # script on an already provisioned machine do the right thing alternative-wise.
 # Actually, we no longer support re-provisioning, but it's fun to increment
@@ -64,18 +64,18 @@ sudo pip3 install yq
 # dos2unix is used to normalize generated files from windows
 sudo apt-get install -y dos2unix
 
-# Livegrep (Bazel is needed for Livegrep builds, OpenJDK 8 required for bazel)
-sudo apt-get install -y unzip openjdk-8-jdk libssl-dev
-# Install Bazel 1.1.0
-if [ ! -d bazel ]; then
-  mkdir bazel
-  pushd bazel
-    # Note that bazel unzips itself so we can't just pipe it to sudo bash.
-    curl -sSfL -O https://github.com/bazelbuild/bazel/releases/download/1.1.0/bazel-1.1.0-installer-linux-x86_64.sh
-    chmod +x bazel-1.1.0-installer-linux-x86_64.sh
-    sudo ./bazel-1.1.0-installer-linux-x86_64.sh
+# Prior livegrep deps, now rust wants libssl-dev still
+sudo apt-get install -y unzip libssl-dev
+
+# Install Bazelisk to install bazel as needed.  bazezlisk is like nvm.
+if [ ! -d bazelisk ]; then
+  mkdir bazelisk
+  pushd bazelisk
+    curl -sSfL -O https://github.com/bazelbuild/bazelisk/releases/download/v1.11.0/bazelisk-linux-amd64
+    chmod +x bazelisk-linux-amd64
   popd
 fi
+BAZEL=~/bazelisk/bazelisk-linux-amd64
 
 # Clang
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -87,6 +87,7 @@ sudo apt-get install -y clang${CLANG_SUFFIX} libclang${CLANG_SUFFIX}-dev
 sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config${CLANG_SUFFIX} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/llvm-symbolizer llvm-symbolizer /usr/bin/llvm-symbolizer${CLANG_SUFFIX} ${CLANG_PRIORITY}
 
 # Install zlib.h (needed for NSS build)
 sudo apt-get install -y zlib1g-dev
@@ -118,9 +119,9 @@ cargo install cargo-insta
 
 # Install codesearch.
 if [ ! -d livegrep ]; then
-  git clone -b mozsearch-version5 https://github.com/mozsearch/livegrep
+  git clone -b mozsearch-version6 https://github.com/mozsearch/livegrep
   pushd livegrep
-    bazel build //src/tools:codesearch
+    $BAZEL build //src/tools:codesearch
     sudo install bazel-bin/src/tools/codesearch /usr/local/bin
   popd
   # Remove ~2G of build artifacts that we don't need anymore

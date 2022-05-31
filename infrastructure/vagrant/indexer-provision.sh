@@ -11,13 +11,17 @@ if [ -f $HOME/.provisioned ]; then
     cat $HOME/.provisioned
     exit 1
 fi
-git -C /vagrant log -1 > $HOME/.provisioned
-
 # Bug 1766697:
 # Compensate for UID/GID mis-matches that freak out git after
 # https://github.blog/2022-04-12-git-security-vulnerability-announced/.
 # We could alternately fix the problem by involving vagrant-bindfs.
 git config --global --add safe.directory /vagrant
+
+git -C /vagrant log -1 > $HOME/.provisioned
+
+# /home/vagrant lost the o+rx at some point, so we put it back so that nginx's
+# www-data user can read the file contents.
+chmod a+rx /home/vagrant
 
 # Install SpiderMonkey.
 rm -rf jsshell-linux-x86_64.zip js

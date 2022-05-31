@@ -1,6 +1,6 @@
 Vagrant.configure("2") do |config|
-  config.vm.box = "generic/ubuntu2004"
-  config.vm.box_version = "3.2.6"
+  config.vm.box = "generic/ubuntu2204"
+  config.vm.box_version = "4.0.0"
 
   config.vm.provision :shell, privileged: false, path: "infrastructure/vagrant/indexer-provision.sh"
   config.vm.provision :shell, privileged: false, path: "infrastructure/indexer-provision.sh"
