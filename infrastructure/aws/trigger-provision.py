@@ -115,10 +115,10 @@ aws ec2 terminate-instances --region $AWS_REGION --instance-ids $INSTANCE_ID
 # Performing lookup from https://cloud-images.ubuntu.com/locator/ec2/ by
 # searching on "20.04 us-west-2 amd64" we get:
 #
-# us-west-2	focal	20.04 LTS	amd64	hvm:ebs-ssd	20211129	ami-0892d3c7ee96c0bf7	hvm
+# us-west-2	jammy	22.04	amd64	hvm:ebs-ssd	20220506	ami-0437ae8a23be4e98b	hvm
 #
 # and then we copy the ami ID into here:
-image_id = 'ami-0892d3c7ee96c0bf7'
+image_id = 'ami-0437ae8a23be4e98b'
 
 launch_spec = {
     'ImageId': image_id,
