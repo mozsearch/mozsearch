@@ -32,7 +32,7 @@ sudo apt-get remove -y unattended-upgrades
 sudo apt-get install -y gdb python3-dbg
 
 # Other
-sudo apt-get install -y parallel unzip python3-pip
+sudo apt-get install -y parallel unzip python3-pip lz4
 
 # and we want to be able to extract stuff from json and yaml
 sudo apt-get install -y jq
