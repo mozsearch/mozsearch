@@ -6,6 +6,9 @@ set -o pipefail # Check all commands in a pipeline
 
 date
 
+# as of Ubuntu 22.04 /home/ubuntu is no longer o+rx so we need to manually do it.
+chmod a+rx ~
+
 # ## Script Ordering
 #
 # This script now gets run before the non-AWS provisioner so that we can
