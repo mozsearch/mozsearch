@@ -235,9 +235,9 @@ class SearchResults(object):
         various mochitest.ini files, etc.
         '''
         def is_test(p):
-            # Except /unit/ and /androidTest/, all other paths contain the substring 'test', so we can exit early
-            # in case it is not present.
-            if '/unit/' in p or '/androidTest/' in p:
+            # Except a few exceptions, all other paths contain the substring
+            # 'test', so we can exit early in case it is not present.
+            if '/unit/' in p or '/androidTest/' in p or p.startswith('LayoutTests/'):
                 return True
             if 'test' not in p:
                 return False
