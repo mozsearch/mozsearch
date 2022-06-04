@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="light dark">
+    <link href="/static/icons/search.png" rel="shortcut icon">
+    <title>{{title}}</title>
+
+    <link href="/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
+    <link href="/static/css/icons.css" rel="stylesheet" media="screen" />
+</head>
+
+<body>
+<div id="fixed-header">
+    <form method="get" action="/{{tree}}/query/{{preset}}" class="search-box" id="search-box">
+    <fieldset>
+        <div id="query-section">
+            <label for="query" class="query_label visually-hidden">Find</label>
+            <input type="text" name="q"  value="{{query}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" ${opt.autofocusSearch ? "autofocus" : ""}/>
+            <div class="zero-size-container">
+                <div class="bubble" id="query-bubble">
+                </div>
+            </div>
+            <section id="spinner"></section>
+        </div>
+    </fieldset>
+    <input type="submit" value="Search" class="visually-hidden" />
+    </form>
+</div>

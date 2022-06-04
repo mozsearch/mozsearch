@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use serde_json::Value;
 use structopt::StructOpt;
-use tracing::{trace};
+use tracing::trace;
 
 use super::{
     interface::{PipelineCommand, PipelineValues},
@@ -37,7 +37,7 @@ pub struct Traverse {
     #[structopt(long, short, default_value = "callees")]
     edge: String,
 
-    #[structopt(long, short, default_value = "10")]
+    #[structopt(long, short, default_value = "8")]
     max_depth: u32,
 }
 
@@ -94,8 +94,34 @@ impl PipelineCommand for TraverseCommand {
         // - We traverse the list of edges.
         while let Some((sym, depth)) = to_traverse.pop() {
             trace!(sym = %sym, depth, "processing");
-            let (sym_id, sym_info) =
-                sym_node_set.ensure_symbol(&sym, server).await?;
+            let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
+
+            // Consider "srcsym" as superseding the actual "uses" edge.
+            if self.args.edge.as_str() == "uses" {
+                if let Some(source_sym) = sym_info
+                    .crossref_info
+                    .pointer("/meta/srcsym")
+                    .unwrap_or(&Value::Null)
+                    .clone()
+                    .as_str()
+                {
+                    let (source_id, source_info) =
+                        sym_node_set.ensure_symbol(&source_sym, server).await?;
+
+                    if source_info.is_callable() {
+                        graph.add_edge(source_id, sym_id.clone());
+                        if depth < max_depth && considered.insert(source_info.symbol.clone()) {
+                            trace!(sym = source_sym, "scheduling srcsym");
+                            to_traverse.push((source_info.symbol.clone(), depth + 1));
+                        }
+                    }
+                    // We explicitly want to bypass the normal "uses" processing
+                    // because that will just get us IPC internals or something
+                    // similar.
+                    continue;
+                }
+            }
+            // TODO: we also would want to handle "targetsym" in the "callees" direction eventually.
 
             // Clone the edges now before engaging in additional borrows.
             let edges = sym_info.crossref_info[&self.args.edge].clone();
@@ -103,13 +129,17 @@ impl PipelineCommand for TraverseCommand {
             // ## Handle "overrides" and "overriddenBy"
             //
             // Currently both of these edges are directed to work with "uses"
-            // such that call trees will deeper rather than wider, but this
+            // such that call trees will be deeper rather than wider, but this
             // should be revisited and thought out more, especially as to
             // whether this should result in clusters, etc.
             //
             // Note that the logic below is highly duplicative
-            let overrides = sym_info.crossref_info.pointer("/meta/overrides").unwrap_or(&Value::Null).clone();
-            let overridden_by = sym_info.crossref_info.pointer("/meta/overriddenBy").unwrap_or(&Value::Null).clone();
+            let overrides = sym_info
+                .crossref_info
+                .pointer("/meta/overrides")
+                .unwrap_or(&Value::Null)
+                .clone();
+            //let overridden_by = sym_info.crossref_info.pointer("/meta/overriddenBy").unwrap_or(&Value::Null).clone();
 
             if let Some(sym_edges) = overrides.as_array() {
                 let bad_data = || {
@@ -148,6 +178,8 @@ impl PipelineCommand for TraverseCommand {
                 }
             }
 
+            // commented out because for "uses" we only want to walk up overrides for now.
+            /*
             if let Some(sym_edges) = overridden_by.as_array() {
                 let bad_data = || {
                     ServerError::StickyProblem(ErrorDetails {
@@ -176,6 +208,7 @@ impl PipelineCommand for TraverseCommand {
                     }
                 }
             }
+            */
 
             // ## Handle the explicit edges
             if let Some(sym_edges) = edges.as_array() {
@@ -200,7 +233,9 @@ impl PipelineCommand for TraverseCommand {
 
                             if target_info.is_callable() {
                                 graph.add_edge(sym_id.clone(), target_id);
-                                if depth < max_depth && considered.insert(target_info.symbol.clone()) {
+                                if depth < max_depth
+                                    && considered.insert(target_info.symbol.clone())
+                                {
                                     trace!(sym = target_sym, "scheduling callees");
                                     to_traverse.push((target_info.symbol.clone(), depth + 1));
                                 }
@@ -233,9 +268,12 @@ impl PipelineCommand for TraverseCommand {
                                     // Only process this given use edge once.
                                     if use_considered.insert(source_info.symbol.clone()) {
                                         graph.add_edge(source_id, sym_id.clone());
-                                        if depth < max_depth && considered.insert(source_info.symbol.clone()) {
+                                        if depth < max_depth
+                                            && considered.insert(source_info.symbol.clone())
+                                        {
                                             trace!(sym = source_sym, "scheduling uses");
-                                            to_traverse.push((source_info.symbol.clone(), depth + 1));
+                                            to_traverse
+                                                .push((source_info.symbol.clone(), depth + 1));
                                         }
                                     }
                                 }

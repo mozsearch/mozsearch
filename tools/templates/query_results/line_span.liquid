@@ -1,0 +1,10 @@
+<div class="file" role="table">
+{{ line_span.contents }}
+{%- if line_span.context -%}
+{%- if line_span.contextsym -%}
+<span class="result-context">// found in <code><a href="/{{tree}}/search?q=symbol:{{ line_span.contextsym | escape }}">{{ line_span.context }}</a></code></span>
+{%- else -%}
+<span class="result-context">// found in <code>{{ line_span.context }}</code></span>
+{%- endif -%}
+{%- endif -%}
+</div>

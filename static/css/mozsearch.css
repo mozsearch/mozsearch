@@ -202,6 +202,35 @@ a:hover {
   text-decoration: underline;
 }
 
+#content details {
+  margin-left: 2rem;
+}
+
+/* summary headings should not start a new block and should not have crazy big margins */
+details > summary > h1,
+details > summary > h2,
+details > summary > h3,
+details > summary > li > h3 {
+  display: inline-block;
+  margin: 4px 0px;
+}
+details > summary > li {
+  display: inline-block;
+  margin-left: 10px;
+}
+
+details > summary > h1 {
+  font-size: 16px;
+}
+details > summary > h2 {
+  font-size: 14px;
+}
+details > summary > h3,
+details > summary > li > h3 {
+  font-size: 12px;
+}
+
+
 h4 {
   margin: 0 0 0.5rem 0;
 }
@@ -555,8 +584,9 @@ tr.after-context-line + tr.before-context-line {
 /* Footer */
 .footer {
   color: #999;
-  font-size: 0.7rem;
-  margin: 0 0 0 1.2rem;
+  font-size: 1rem;
+  margin: 1.2rem;
+  justify-content: center;
 }
 
 /* Navigation panel */

@@ -1,0 +1,27 @@
+<details open>
+    <summary><h1>
+        {%- case pk_group.path_kind -%}
+            {%- when "Normal" -%}
+                Normal Results
+            {%- when "ThirdParty" -%}
+                Third-party code
+            {%- when "Test" -%}
+                Test files
+            {%- when "Generated" -%}
+                Generated code
+        {%- endcase -%}
+    </h1></summary>
+    {% if pk_group.file_names.length -%}
+        <details open>
+            <summary>Files</summary>
+            <li>
+            {% for path in pk_group.file_names %}
+                {% include 'path.liquid' path: path %}
+            {% endfor %}
+            </li>
+        </details>
+    {%- endif %}
+    {% for kind_group in pk_group.kind_groups %}
+    {% include 'query_results/kind_group.liquid' kind_group: kind_group, forloop: forloop %}
+    {% endfor %}
+</details>

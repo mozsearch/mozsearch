@@ -101,6 +101,12 @@ fn mangle_nested_name(ns: &[String], protocol: &str, name: &str) -> String {
 }
 
 fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a AnalysisTarget> {
+    // As a hack to deal with SendPFooConstructor having a single-arg variant
+    // that takes an args struct which just news the actor and then calls the
+    // 2-arg variant, passing the actor as the first variant, and because the
+    // 1-arg variant comes before the 2-arg variant, we return the last variant
+    // we see.  Will this cause even more problems?  Maybe!
+    let mut best_piece = None;
     for datum in analysis {
         for piece in &datum.data {
             // Inline method definitions and pure virtual method declarations
@@ -108,13 +114,12 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
             // declaration, so we need to accept both decls and defs.
             if (piece.kind == AnalysisKind::Decl || piece.kind == AnalysisKind::Def) &&
                piece.sym.contains(mangled) {
-                return Some(&piece);
+                best_piece = Some(piece);
             }
         }
     }
 
-    println!("  No analysis target found for {}", mangled);
-    return None;
+    return best_piece;
 }
 
 fn output_binding_target_data(outputf: &mut File, locstr: &str, datum: &AnalysisTarget) {
@@ -192,6 +197,8 @@ fn output_send_recv(
     let maybe_send_datum = find_analysis(send_analysis, &mangled);
     if let Some(send_datum) = maybe_send_datum {
         output_binding_target_data(outputf, &locstr, &send_datum);
+    } else {
+        println!("No analysis target found for send: {}", mangled);
     }
 
     // Depending on whether the protocol is a legacy virtual implementation or direct-call, the
@@ -213,6 +220,8 @@ fn output_send_recv(
                            .or_else(|| find_analysis(recv_analysis, &mangled_yes_p));
     if let Some(recv_datum) = maybe_recv_datum {
         output_binding_target_data(outputf, &locstr, &recv_datum);
+    } else {
+        println!("No analysis target found for recv: {} or {}", mangled_no_p, mangled_yes_p);
     }
 
     if let (Some(send_datum), Some(recv_datum)) = (maybe_send_datum, maybe_recv_datum) {

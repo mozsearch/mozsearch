@@ -37,7 +37,7 @@ linkify = "0.2.0"
 liquid = "0.26.0"
 liquid-core = "0.26.0"
 log = "0.4.0"
-lol_html = { git = "https://github.com/cloudflare/lol-html", rev = "8860fa455db627a5c227d014e1cecbe1832eb0ed" }
+lol_html = "0.3.1"
 malloc_size_of = { path = "./malloc_size_of" }
 malloc_size_of_derive = "0.1"
 memmap = { package = "memmap2", version = "0.5.3" }

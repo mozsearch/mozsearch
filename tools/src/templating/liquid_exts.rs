@@ -22,3 +22,28 @@ impl Filter for JsonFilter {
         Ok(Value::scalar(s))
     }
 }
+
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "fileext",
+    description = "Extract the file extension from a path string, defaulting to the empty string.",
+    parsed(FileExtFilter)
+)]
+
+pub struct FileExtFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "fileext"]
+struct FileExtFilter;
+
+impl Filter for FileExtFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        let s = input.to_kstr();
+        let ext = match s.rfind('.') {
+            Some(offset) => s[offset+1..].to_string(),
+            None => "".to_string()
+        };
+        Ok(Value::scalar(ext))
+    }
+}

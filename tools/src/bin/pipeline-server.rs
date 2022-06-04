@@ -1,13 +1,30 @@
-use std::{sync::Arc, env, collections::{BTreeMap, HashMap}};
+use std::{
+    collections::{BTreeMap, HashMap},
+    env,
+    sync::Arc,
+};
 
-use axum::{http::StatusCode, extract::{Path, Query}, routing::get, Router, Extension, Json, response::{IntoResponse, Response}};
-use tools::{abstract_server::{AbstractServer, make_all_local_servers, ServerError}, query::chew_query::chew_query, cmd_pipeline::builder::build_pipeline_graph};
-
+use axum::{
+    extract::{Path, Query},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response, Html},
+    routing::get,
+    Extension, Json, Router,
+};
+use liquid::Template;
+use tools::{
+    abstract_server::{make_all_local_servers, AbstractServer, ServerError},
+    cmd_pipeline::builder::build_pipeline_graph,
+    query::chew_query::chew_query,
+    templating::builder::build_and_parse_query_results,
+};
 
 async fn handle_query(
     local_servers: Extension<Arc<BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>>>,
+    templates: Extension<Arc<SomeTemplates>>,
+    headers: HeaderMap,
     Path((tree, preset)): Path<(String, String)>,
-    Query(params): Query<HashMap<String, String>>
+    Query(params): Query<HashMap<String, String>>,
 ) -> Result<Response, ServerError> {
     let server = match local_servers.get(&tree) {
         Some(s) => s,
@@ -24,7 +41,6 @@ async fn handle_query(
         Some(q) => q,
         None => {
             return Ok((StatusCode::BAD_REQUEST, "No 'q' parameter, no results!").into_response());
-
         }
     };
 
@@ -34,17 +50,45 @@ async fn handle_query(
 
     let result = graph.run(true).await?;
 
-    Ok(Json(result).into_response())
+    let accept = headers
+        .get("accept")
+        .map(|x| x.to_str().unwrap_or_else(|_| "text/html"));
+    let make_html = match accept {
+        Some("application/json") => false,
+        _ => true,
+    };
+
+    if make_html {
+        let globals = liquid::object!({
+            "results": result,
+            "query": query.clone(),
+            "preset": preset.clone(),
+            "tree": tree.clone(),
+        });
+
+        let output = templates.query_results.render(&globals)?;
+        Ok(Html(output).into_response())
+    } else {
+        Ok(Json(result).into_response())
+    }
+}
+
+struct SomeTemplates {
+    query_results: Template,
 }
 
 #[tokio::main]
 async fn main() {
     let local_servers = Arc::new(make_all_local_servers(&env::args().nth(1).unwrap()).unwrap());
+    let templates = Arc::new(SomeTemplates {
+        query_results: build_and_parse_query_results(),
+    });
 
     // build our application with a single route
     let app = Router::new()
         .route("/:tree/query/:preset", get(handle_query))
-        .layer(Extension(local_servers));
+        .layer(Extension(local_servers))
+        .layer(Extension(templates));
 
     axum::Server::bind(&"0.0.0.0:8002".parse().unwrap())
         .serve(app.into_make_service())
