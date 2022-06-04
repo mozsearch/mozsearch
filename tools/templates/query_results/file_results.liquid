@@ -1,0 +1,6 @@
+<details open>
+    <summary>{% include 'path.liquid' path: file_results.file %}</summary>
+    {% for line_span in file_results.line_spans -%}
+    {%- include 'query_results/line_span.liquid' line_span: line_span, forloop: forloop -%}
+    {%- endfor %}
+</details>

@@ -42,6 +42,37 @@ searchfox-tool 'query --help'
 
 ## Cookbook Proper
 
+### Dumping crossref info from an identifier on a web-server shell
+```
+~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
+--tree=mozilla-central search-identifiers ServiceWorkerManager::SendNotificationClickEvent | crossref-lookup'
+```
+
+```
+~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
+--tree=mozilla-central search-identifiers PClientSourceParent::SendPClientSourceOpConstructor | crossref-lookup' | jq .
+```
+
+### Dumping crossref info from a symbol on a web-server shell
+
+
+```
+~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
+--tree=mozilla-central crossref-lookup "_ZN7mozilla3dom18ClientSourceParent7StartOpEONS0_23ClientOpConstructorArgsE"' | jq .
+```
+
+### Graph traversal without rendering on a web-server shell
+
+```
+~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
+--tree=mozilla-central search-identifiers ServiceWorkerManager::SendNotificationClickEvent | crossref-lookup | traverse --edge=uses --max-depth=2' | jq .
+```
+
+```
+~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
+--tree=mozilla-central search-identifiers ClientSource::Focus | crossref-lookup | traverse --edge=uses --max-depth=4' | jq .
+```
+
 ### Graphing on a web-server shell
 
 ```

@@ -1,0 +1,25 @@
+{% include 'header_query.liquid' title: 'Query results!' %}
+<div id="scrolling">
+  <div id="content" class="content" data-no-results="No results for current query.">
+    {% for result_pair in results %}
+      {% case result_pair[0] %}
+        {% when "FlattenedResultsBundle" %}
+          {% include 'query_results/rb_root.liquid' %}
+        {% when "TextFile" %}
+          {% include 'query_results/text_file_root.liquid' %}
+        {% else %}
+          Unhandled results type {{result_pair[0]}}!
+        {% endcase %}
+      {% endfor %}
+  </div>
+
+  <!-- avoid inline JS and use data attributes instead. Hackey but hey... -->
+  <span id="data" data-root="/" data-search="/${tree}/search" data-tree="${tree}"></span>
+  <span id="state" data-offset="${stateOffset}" data-limit="${stateLimit}" data-result-count="${resultCount}" data-eof="${eof}"></span>
+
+  <script src="/static/js/search.js"></script>
+  <script src="/static/js/context-menu.js"></script>
+  <script src="/static/js/panel.js"></script>
+  <script src="/static/js/code-highlighter.js"></script>
+</div>
+{% include 'footer.liquid' %}

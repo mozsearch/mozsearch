@@ -1,6 +1,31 @@
 [term.C]
 alias = "context"
 
+# For graphing we need to build the pipeline through the traverse call but we
+# have the "graph-build" group automatically add the graphing steps.
+[term.calls-to]
+[[term.calls-to.group.graph-build]]
+command = "search-identifiers"
+args.positional = "$0"
+args.exact-match = true
+[[term.calls-to.group.graph-build]]
+command = "crossref-lookup"
+[[term.calls-to.group.graph-build]]
+command = "traverse"
+args.edge = "uses"
+
+# This includes the search and crossref-lookup stages to avoid ordering issues
+# for `depth:N calls-to:FOO` but maybe this should be handled by letting a
+# precedence be set on the depth to defer it.
+[term.depth]
+[[term.calls-to.group.graph-build]]
+command = "search-identifiers"
+[[term.calls-to.group.graph-build]]
+command = "crossref-lookup"
+[[term.depth.group.graph-build]]
+command = "traverse"
+args.max-depth = "$0"
+
 [term.context]
 [[term.context.group.display]]
 command = "augment-results"
@@ -29,7 +54,7 @@ conflicts = ["idprefix"]
 [[term.id.group.semantic-search]]
 command = "search-identifiers"
 args.positional = "$0"
-args.exact_match = true
+args.exact-match = true
 [[term.id.group.semantic-search]]
 command = "crossref-lookup"
 [[term.id.group.semantic-search]]
@@ -39,7 +64,7 @@ command = "crossref-expand"
 [[term.idprefix.group.semantic-search]]
 command = "search-identifiers"
 args.positional = "$0"
-args.exact_match = false
+args.exact-match = false
 [[term.idprefix.group.semantic-search]]
 command = "crossref-lookup"
 [[term.idprefix.group.semantic-search]]
@@ -79,7 +104,8 @@ alias = "symbol"
 [term.symbol]
 [[term.symbol.group.semantic-search]]
 command = "search-identifiers"
-args.add_sym = "$0"
+# TODO: implement this
+args.add-sym = "$0"
 [[term.symbol.group.semantic-search]]
 command = "crossref-lookup"
 [[term.symbol.group.semantic-search]]
@@ -111,3 +137,13 @@ next = "display"
 output = "result"
 [[group.display.commands]]
 command = "augment-results"
+
+[group.graph-build]
+output = "graph"
+next = "graph-render"
+
+[group.graph-render]
+output = "result"
+[[group.graph-render.commands]]
+command = "graph"
+args.format = "svg"

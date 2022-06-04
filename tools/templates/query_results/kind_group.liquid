@@ -1,0 +1,9 @@
+<details open>
+    <summary><h2>{{kind_group.kind}}{% if kind_group.pretty != empty %} ({{ kind_group.pretty }}){% endif %}</h2></summary>
+    {%- for facet in kind_group.facets -%}
+    {% include 'query_results/facet_root.liquid' facet: facet, forloop: forloop %}
+    {%- endfor -%}
+    {%- for file_results in kind_group.by_file -%}
+    {% include 'query_results/file_results.liquid' file_results: file_results, forloop: forloop %}
+    {%- endfor -%}
+</details>

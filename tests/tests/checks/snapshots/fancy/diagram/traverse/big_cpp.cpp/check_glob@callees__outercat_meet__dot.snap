@@ -18,8 +18,6 @@ digraph  {
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" 
     "_ZN7outerNS5Thing10takeDamageEi"[label="outerNS::Thing::takeDamage"]
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE" -> "_ZN7outerNS5Thing10takeDamageEi" 
-    "_ZN7outerNS9Superhero10takeDamageEi"[label="outerNS::Superhero::takeDamage"]
-    "_ZN7outerNS9Superhero10takeDamageEi" -> "_ZN7outerNS5Thing10takeDamageEi" 
     "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv" -> "_ZN7outerNS8OuterCat13isFriendlyCatEv" 
     "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv"[label="outerNS::OuterCat::isSecretlyUnfriendly"]
     "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv" -> "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv" 

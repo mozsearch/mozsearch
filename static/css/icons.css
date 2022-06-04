@@ -153,3 +153,92 @@
 .xml {
   background-image: url(/static/icons/mimetypes/xml.png);
 }
+
+.icon-bullet {
+  background-color: transparent;
+  background-repeat: no-repeat;
+  display: inline-block;
+  padding: 8px; /* Makes the container 16x16 in order to show full icon. */
+  vertical-align: text-bottom;
+}
+
+/* new bulleted list icon attempt.  This was initially an attempt to use
+   list-item which meant that background-image above couldn't be used, but now
+   it's still being retained since we don't pass the file extension through a
+   mapping phase and so it's necessary for the extension to be prefixed and to
+   allow for a fallback to unknown.
+*/
+.icon-bullet.icon-c {
+  background-image: url(/static/icons/mimetypes/c.png);
+}
+.icon-bullet.icon-conf {
+  background-image: url(/static/icons/mimetypes/conf.png);
+}
+.icon-bullet.icon-cpp {
+  background-image: url(/static/icons/mimetypes/cpp.png);
+}
+.icon-bullet.icon-cs {
+  background-image: url(/static/icons/mimetypes/cs.png);
+}
+.icon-bullet.icon-css {
+  background-image: url(/static/icons/mimetypes/css.png);
+}
+.icon-bullet.icon-diff {
+  background-image: url(/static/icons/mimetypes/diff.png);
+}
+.icon-bullet.icon-h {
+  background-image: url(/static/icons/mimetypes/h.png);
+}
+.icon-bullet.icon-html {
+  background-image: url(/static/icons/mimetypes/html.png);
+}
+.icon-bullet.icon-iso {
+  background-image: url(/static/icons/mimetypes/iso.png);
+}
+.icon-bullet.icon-image {
+  background-image: url(/static/icons/mimetypes/image.png);
+}
+.icon-bullet.icon-java {
+  background-image: url(/static/icons/mimetypes/java.png);
+}
+.icon-bullet.icon-js {
+  background-image: url(/static/icons/mimetypes/js.png);
+}
+.icon-bullet.icon-mm {
+  background-image: url(/static/icons/mimetypes/mm.png);
+}
+.icon-bullet.icon-php {
+  background-image: url(/static/icons/mimetypes/php.png);
+}
+.icon-bullet.icon-py {
+  background-image: url(/static/icons/mimetypes/py.png);
+}
+.icon-bullet.icon-rb {
+  background-image: url(/static/icons/mimetypes/rb.png);
+}
+.icon-bullet.icon-sh {
+  background-image: url(/static/icons/mimetypes/sh.png);
+}
+.icon-bullet.icon-svg {
+  background-image: url(/static/icons/mimetypes/svg.png);
+}
+.icon-bullet.icon-tex {
+  background-image: url(/static/icons/mimetypes/tex.png);
+}
+.icon-bullet.icon-txt {
+  background-image: url(/static/icons/mimetypes/txt.png);
+}
+.icon-bullet.icon-ui {
+  background-image: url(/static/icons/mimetypes/ui.png);
+}
+/* absent a more specific icon rule, assume unknown */
+.icon-bullet,
+.icon-bullet.icon-unknown {
+  background-image: url(/static/icons/mimetypes/unknown.png);
+}
+.icon-bullet.icon-vs {
+  background-image: url(/static/icons/mimetypes/vs.png);
+}
+.icon-bullet.icon-xml {
+  background-image: url(/static/icons/mimetypes/xml.png);
+}

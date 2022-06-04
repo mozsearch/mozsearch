@@ -1,0 +1,8 @@
+{% unless forloop.first %}, {% endunless -%}
+<span>{{ group.label -}}
+{%- if group.nested_groups != empty -%}
+({% for nested_group in group.nested_groups -%}
+{%- include 'query_results/facet_group.liquid' group: nested_group, forloop: forloop -%}
+{%- endfor %})
+{%- endif -%}
+</span>

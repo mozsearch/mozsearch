@@ -1,4 +1,4 @@
-use std::{cell::Cell, collections::HashMap};
+use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use async_trait::async_trait;
 use lol_html::{element, HtmlRewriter, Settings};
@@ -117,29 +117,50 @@ impl PipelineCommand for AugmentResultsCommand {
             let mut writing_line: u32 = 0;
             let cur_line = Cell::new(0u32);
             let want_cur_line = Cell::new(false);
+            let suppressing = Rc::new(Cell::new(false));
+            let nesting_suppress = suppressing.clone();
 
             let mut buf = vec![];
 
             let mut rewrite = HtmlRewriter::new(
                 Settings {
-                    element_content_handlers: vec![element!(
-                        r#"div.source-line-with-number"#,
-                        |el| {
-                            if let Some(id_str) = el.get_attribute("id") {
-                                let id_parts: Vec<&str> = id_str.split("-").collect();
-                                if id_parts.len() == 2 && id_parts[0] == "line" {
-                                    let lno = id_parts[1].parse().unwrap_or(0);
-                                    cur_line.set(lno);
-                                    want_cur_line.set(lines_to_show.contains(&lno));
-                                }
+                    element_content_handlers: vec![
+                        element!(
+                            r#"div.nesting-container"#,
+                            move |el| {
+                                nesting_suppress.set(true);
+                                let end_suppress = nesting_suppress.clone();
+                                el.on_end_tag(move |_end| {
+                                    end_suppress.set(true);
+                                    Ok(())
+                                })?;
+                                Ok(())
                             }
+                        ),
+                        element!(
+                            r#"div.source-line-with-number"#,
+                            |el| {
+                                suppressing.set(false);
+                                if let Some(id_str) = el.get_attribute("id") {
+                                    let id_parts: Vec<&str> = id_str.split("-").collect();
+                                    if id_parts.len() == 2 && id_parts[0] == "line" {
+                                        let lno = id_parts[1].parse().unwrap_or(0);
+                                        cur_line.set(lno);
+                                        want_cur_line.set(lines_to_show.contains(&lno));
+                                    }
+                                }
 
-                            Ok(())
-                        }
-                    )],
+                                Ok(())
+                            }
+                        )
+                    ],
                     ..Settings::default()
                 },
                 |c: &[u8]| {
+                    if suppressing.get() {
+                        return;
+                    }
+
                     // We were actively writing and potentially have some
                     // buffer.
                     if writing_line > 0 {

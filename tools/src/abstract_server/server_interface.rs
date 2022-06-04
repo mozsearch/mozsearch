@@ -39,6 +39,15 @@ impl From<tokio::task::JoinError> for ServerError {
     }
 }
 
+impl From<liquid::Error> for ServerError {
+    fn from(err: liquid::Error) -> ServerError {
+        ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::ConfigLayer,
+            message: format!("Liquid error: {}", err.to_string()),
+        })
+    }
+}
+
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
         let body = format!("Error: {:#?}", self);

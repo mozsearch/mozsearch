@@ -1,0 +1,7 @@
+{% if results.TextFile.mime_type == "image/svg+xml" %}
+    {{ results.TextFile.contents }}
+{% elsif results.TextFile.mime_type == "text/x-dot" %}
+<pre>{{ results.TextFile.contents }}</pre>
+{% else %}
+Unsupported MIME type: {{ results.TextFile.mime_type }}
+{% endif %}
