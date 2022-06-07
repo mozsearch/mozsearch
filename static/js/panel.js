@@ -233,7 +233,9 @@ var Panel = new (class Panel {
         return existingPrefix;
       }
 
-      let min = existingPrefix
+      // NOTE: existingPrefix === null means it's first call.
+      //       existingPrefix === "" means there's no leading whitespace.
+      let min = existingPrefix !== null
         ? Math.min(existingPrefix.length, lineText.length)
         : lineText.length;
       let count = 0;
