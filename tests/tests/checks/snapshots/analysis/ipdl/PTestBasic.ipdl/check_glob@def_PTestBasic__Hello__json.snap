@@ -1,0 +1,20 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "10:10-15",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "mozilla__ipdltest::PTestBasic::Hello",
+    "sym": "IPC_mozilla__ipdltest_PTestBasic_Hello"
+  },
+  {
+    "loc": "10:10-15",
+    "source": 1,
+    "syntax": "idl,ipc,def",
+    "pretty": "ipc mozilla__ipdltest::PTestBasic::Hello",
+    "sym": "IPC_mozilla__ipdltest_PTestBasic_Hello,_ZN7mozilla9_ipdltest16PTestBasicParent9SendHelloEv,_ZN7mozilla9_ipdltest14TestBasicChild9RecvHelloEv"
+  }
+]

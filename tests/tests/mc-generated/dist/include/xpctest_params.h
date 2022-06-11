@@ -96,7 +96,7 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestACString(const nsACString& a, nsACString& b, nsACString& _retval) = 0;
 
   /* jsval testJsval (in jsval a, inout jsval b); */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestJsval(JS::HandleValue a, JS::MutableHandleValue b, JS::MutableHandleValue _retval) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestJsval(JS::Handle<JS::Value> a, JS::MutableHandle<JS::Value> b, JS::MutableHandle<JS::Value> _retval) = 0;
 
   /* Array<short> testShortSequence (in Array<short> a, inout Array<short> b); */
   JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestShortSequence(const nsTArray<int16_t >& a, nsTArray<int16_t >& b, nsTArray<int16_t >& _retval) = 0;
@@ -190,7 +190,7 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   NS_IMETHOD TestAString(const nsAString& a, nsAString& b, nsAString& _retval) override; \
   NS_IMETHOD TestAUTF8String(const nsACString& a, nsACString& b, nsACString& _retval) override; \
   NS_IMETHOD TestACString(const nsACString& a, nsACString& b, nsACString& _retval) override; \
-  NS_IMETHOD TestJsval(JS::HandleValue a, JS::MutableHandleValue b, JS::MutableHandleValue _retval) override; \
+  NS_IMETHOD TestJsval(JS::Handle<JS::Value> a, JS::MutableHandle<JS::Value> b, JS::MutableHandle<JS::Value> _retval) override; \
   NS_IMETHOD TestShortSequence(const nsTArray<int16_t >& a, nsTArray<int16_t >& b, nsTArray<int16_t >& _retval) override; \
   NS_IMETHOD TestDoubleSequence(const nsTArray<double >& a, nsTArray<double >& b, nsTArray<double >& _retval) override; \
   NS_IMETHOD TestInterfaceSequence(const nsTArray<RefPtr<nsIXPCTestInterfaceA>>& a, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& b, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& _retval) override; \
@@ -235,7 +235,7 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   nsresult TestAString(const nsAString& a, nsAString& b, nsAString& _retval); \
   nsresult TestAUTF8String(const nsACString& a, nsACString& b, nsACString& _retval); \
   nsresult TestACString(const nsACString& a, nsACString& b, nsACString& _retval); \
-  nsresult TestJsval(JS::HandleValue a, JS::MutableHandleValue b, JS::MutableHandleValue _retval); \
+  nsresult TestJsval(JS::Handle<JS::Value> a, JS::MutableHandle<JS::Value> b, JS::MutableHandle<JS::Value> _retval); \
   nsresult TestShortSequence(const nsTArray<int16_t >& a, nsTArray<int16_t >& b, nsTArray<int16_t >& _retval); \
   nsresult TestDoubleSequence(const nsTArray<double >& a, nsTArray<double >& b, nsTArray<double >& _retval); \
   nsresult TestInterfaceSequence(const nsTArray<RefPtr<nsIXPCTestInterfaceA>>& a, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& b, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& _retval); \
@@ -279,7 +279,7 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   NS_IMETHOD TestAString(const nsAString& a, nsAString& b, nsAString& _retval) override { return _to TestAString(a, b, _retval); } \
   NS_IMETHOD TestAUTF8String(const nsACString& a, nsACString& b, nsACString& _retval) override { return _to TestAUTF8String(a, b, _retval); } \
   NS_IMETHOD TestACString(const nsACString& a, nsACString& b, nsACString& _retval) override { return _to TestACString(a, b, _retval); } \
-  NS_IMETHOD TestJsval(JS::HandleValue a, JS::MutableHandleValue b, JS::MutableHandleValue _retval) override { return _to TestJsval(a, b, _retval); } \
+  NS_IMETHOD TestJsval(JS::Handle<JS::Value> a, JS::MutableHandle<JS::Value> b, JS::MutableHandle<JS::Value> _retval) override { return _to TestJsval(a, b, _retval); } \
   NS_IMETHOD TestShortSequence(const nsTArray<int16_t >& a, nsTArray<int16_t >& b, nsTArray<int16_t >& _retval) override { return _to TestShortSequence(a, b, _retval); } \
   NS_IMETHOD TestDoubleSequence(const nsTArray<double >& a, nsTArray<double >& b, nsTArray<double >& _retval) override { return _to TestDoubleSequence(a, b, _retval); } \
   NS_IMETHOD TestInterfaceSequence(const nsTArray<RefPtr<nsIXPCTestInterfaceA>>& a, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& b, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& _retval) override { return _to TestInterfaceSequence(a, b, _retval); } \
@@ -323,7 +323,7 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   NS_IMETHOD TestAString(const nsAString& a, nsAString& b, nsAString& _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestAString(a, b, _retval); } \
   NS_IMETHOD TestAUTF8String(const nsACString& a, nsACString& b, nsACString& _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestAUTF8String(a, b, _retval); } \
   NS_IMETHOD TestACString(const nsACString& a, nsACString& b, nsACString& _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestACString(a, b, _retval); } \
-  NS_IMETHOD TestJsval(JS::HandleValue a, JS::MutableHandleValue b, JS::MutableHandleValue _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestJsval(a, b, _retval); } \
+  NS_IMETHOD TestJsval(JS::Handle<JS::Value> a, JS::MutableHandle<JS::Value> b, JS::MutableHandle<JS::Value> _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestJsval(a, b, _retval); } \
   NS_IMETHOD TestShortSequence(const nsTArray<int16_t >& a, nsTArray<int16_t >& b, nsTArray<int16_t >& _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestShortSequence(a, b, _retval); } \
   NS_IMETHOD TestDoubleSequence(const nsTArray<double >& a, nsTArray<double >& b, nsTArray<double >& _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestDoubleSequence(a, b, _retval); } \
   NS_IMETHOD TestInterfaceSequence(const nsTArray<RefPtr<nsIXPCTestInterfaceA>>& a, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& b, nsTArray<RefPtr<nsIXPCTestInterfaceA>>& _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestInterfaceSequence(a, b, _retval); } \

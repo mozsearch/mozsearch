@@ -14,7 +14,7 @@
 {"loc":"00039:45-56","target":1,"kind":"use","pretty":"nsISupports","sym":"T_nsISupports","context":"nsIXPCTestParams","contextsym":"T_nsIXPCTestParams"}
 {"loc":"00039:6-18","target":1,"kind":"use","pretty":"NS_NO_VTABLE","sym":"M_dff52e7b00becd72"}
 {"loc":"00042:2-32","target":1,"kind":"forward","pretty":"nsIXPCTestParams::COMTypeInfo","sym":"T_nsIXPCTestParams::COMTypeInfo"}
-{"loc":"00042:2-32","target":1,"kind":"use","pretty":"NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_2bc57b4443bd96e5"}
+{"loc":"00042:2-32","target":1,"kind":"use","pretty":"NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_41dd6b4443bd96e5"}
 {"loc":"00045:34-50","target":1,"kind":"use","pretty":"nsIXPCTestParams","sym":"T_nsIXPCTestParams","context":"nsIXPCTestParams","contextsym":"T_nsIXPCTestParams"}
 {"loc":"00045:8-31","target":1,"kind":"def","pretty":"nsIXPCTestParams::ScriptableInterfaceType","sym":"T_nsIXPCTestParams::ScriptableInterfaceType","context":"nsIXPCTestParams","contextsym":"T_nsIXPCTestParams"}
 {"loc":"00048:2-23","target":1,"kind":"use","pretty":"JS_HAZ_CAN_RUN_SCRIPT","sym":"M_72ac330060b9ec6c"}
@@ -98,12 +98,15 @@
 {"loc":"00096:54-64","target":1,"kind":"use","pretty":"nsACString","sym":"T_nsACString","context":"nsIXPCTestParams::TestACString","contextsym":"_ZN16nsIXPCTestParams12TestACStringERK12nsTSubstringIcERS1_S4_"}
 {"loc":"00096:69-79","target":1,"kind":"use","pretty":"nsACString","sym":"T_nsACString","context":"nsIXPCTestParams::TestACString","contextsym":"_ZN16nsIXPCTestParams12TestACStringERK12nsTSubstringIcERS1_S4_"}
 {"loc":"00096:84-94","target":1,"kind":"use","pretty":"nsACString","sym":"T_nsACString","context":"nsIXPCTestParams::TestACString","contextsym":"_ZN16nsIXPCTestParams12TestACStringERK12nsTSubstringIcERS1_S4_"}
+{"loc":"00099:106-119","target":1,"kind":"use","pretty":"JS::MutableHandle","sym":"T_JS::MutableHandle","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00099:124-129","target":1,"kind":"use","pretty":"JS::Value","sym":"T_JS::Value","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
 {"loc":"00099:2-23","target":1,"kind":"use","pretty":"JS_HAZ_CAN_RUN_SCRIPT","sym":"M_72ac330060b9ec6c"}
 {"loc":"00099:24-34","target":1,"kind":"use","pretty":"NS_IMETHOD","sym":"M_0906cf7b9c1b6074"}
 {"loc":"00099:35-44","target":1,"kind":"def","pretty":"nsIXPCTestParams::TestJsval","sym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_","context":"nsIXPCTestParams","contextsym":"T_nsIXPCTestParams"}
-{"loc":"00099:49-60","target":1,"kind":"use","pretty":"JS::HandleValue","sym":"T_JS::HandleValue","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
-{"loc":"00099:68-86","target":1,"kind":"use","pretty":"JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
-{"loc":"00099:94-112","target":1,"kind":"use","pretty":"JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00099:49-55","target":1,"kind":"use","pretty":"JS::Handle","sym":"T_JS::Handle","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00099:60-65","target":1,"kind":"use","pretty":"JS::Value","sym":"T_JS::Value","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00099:74-87","target":1,"kind":"use","pretty":"JS::MutableHandle","sym":"T_JS::MutableHandle","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00099:92-97","target":1,"kind":"use","pretty":"JS::Value","sym":"T_JS::Value","context":"nsIXPCTestParams::TestJsval","contextsym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
 {"loc":"00102:105-113","target":1,"kind":"use","pretty":"nsTArray","sym":"T_nsTArray","context":"nsIXPCTestParams::TestShortSequence","contextsym":"_ZN16nsIXPCTestParams17TestShortSequenceERK8nsTArrayIsERS1_S4_"}
 {"loc":"00102:114-121","target":1,"kind":"use","pretty":"int16_t","sym":"T_int16_t","context":"nsIXPCTestParams::TestShortSequence","contextsym":"_ZN16nsIXPCTestParams17TestShortSequenceERK8nsTArrayIsERS1_S4_"}
 {"loc":"00102:2-23","target":1,"kind":"use","pretty":"JS_HAZ_CAN_RUN_SCRIPT","sym":"M_72ac330060b9ec6c"}
@@ -281,7 +284,7 @@
 {"loc":"00172:2-31","target":1,"kind":"def","pretty":"nsIXPCTestParams::COMTypeInfo","sym":"T_nsIXPCTestParams::COMTypeInfo"}
 {"loc":"00172:2-31","target":1,"kind":"def","pretty":"nsIXPCTestParams::COMTypeInfo::kIID","sym":"_ZN16nsIXPCTestParams11COMTypeInfoIS_vE4kIIDE"}
 {"loc":"00172:2-31","target":1,"kind":"def","pretty":"nsIXPCTestParams::COMTypeInfo<nsIXPCTestParams, type-parameter-0-0>::kIID","sym":"_ZN16nsIXPCTestParams11COMTypeInfoIS_T_E4kIIDE"}
-{"loc":"00172:2-31","target":1,"kind":"use","pretty":"NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_6bd67b4443bd96e5"}
+{"loc":"00172:2-31","target":1,"kind":"use","pretty":"NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_81ee6b4443bd96e5"}
 {"loc":"00172:32-48","target":1,"kind":"use","pretty":"nsIXPCTestParams","sym":"T_nsIXPCTestParams"}
 {"loc":"00172:50-71","target":1,"kind":"use","pretty":"NS_IXPCTESTPARAMS_IID","sym":"M_e303c0c30a140fa4"}
 {"loc":"00175:8-32","target":1,"kind":"def","pretty":"NS_DECL_NSIXPCTESTPARAMS","sym":"M_34a702c30a140fa4"}
@@ -332,10 +335,13 @@
 {"loc":"00192:32-42","target":1,"kind":"use","pretty":"nsACString","sym":"T_nsACString","context":"nsXPCTestParams::TestACString","contextsym":"_ZN15nsXPCTestParams12TestACStringERK12nsTSubstringIcERS1_S4_"}
 {"loc":"00192:47-57","target":1,"kind":"use","pretty":"nsACString","sym":"T_nsACString","context":"nsXPCTestParams::TestACString","contextsym":"_ZN15nsXPCTestParams12TestACStringERK12nsTSubstringIcERS1_S4_"}
 {"loc":"00192:62-72","target":1,"kind":"use","pretty":"nsACString","sym":"T_nsACString","context":"nsXPCTestParams::TestACString","contextsym":"_ZN15nsXPCTestParams12TestACStringERK12nsTSubstringIcERS1_S4_"}
+{"loc":"00193:102-107","target":1,"kind":"use","pretty":"JS::Value","sym":"T_JS::Value","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
 {"loc":"00193:2-12","target":1,"kind":"use","pretty":"NS_IMETHOD","sym":"M_0906cf7b9c1b6074"}
-{"loc":"00193:27-38","target":1,"kind":"use","pretty":"JS::HandleValue","sym":"T_JS::HandleValue","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
-{"loc":"00193:46-64","target":1,"kind":"use","pretty":"JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
-{"loc":"00193:72-90","target":1,"kind":"use","pretty":"JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00193:27-33","target":1,"kind":"use","pretty":"JS::Handle","sym":"T_JS::Handle","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00193:38-43","target":1,"kind":"use","pretty":"JS::Value","sym":"T_JS::Value","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00193:52-65","target":1,"kind":"use","pretty":"JS::MutableHandle","sym":"T_JS::MutableHandle","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00193:70-75","target":1,"kind":"use","pretty":"JS::Value","sym":"T_JS::Value","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
+{"loc":"00193:84-97","target":1,"kind":"use","pretty":"JS::MutableHandle","sym":"T_JS::MutableHandle","context":"nsXPCTestParams::TestJsval","contextsym":"_ZN15nsXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_"}
 {"loc":"00194:2-12","target":1,"kind":"use","pretty":"NS_IMETHOD","sym":"M_0906cf7b9c1b6074"}
 {"loc":"00194:37-45","target":1,"kind":"use","pretty":"nsTArray","sym":"T_nsTArray","context":"nsXPCTestParams::TestShortSequence","contextsym":"_ZN15nsXPCTestParams17TestShortSequenceERK8nsTArrayIsERS1_S4_"}
 {"loc":"00194:46-53","target":1,"kind":"use","pretty":"int16_t","sym":"T_int16_t","context":"nsXPCTestParams::TestShortSequence","contextsym":"_ZN15nsXPCTestParams17TestShortSequenceERK8nsTArrayIsERS1_S4_"}
@@ -527,7 +533,7 @@
 {"loc":"00039:6-18","source":1,"syntax":"macro,use","pretty":"macro NS_NO_VTABLE","sym":"M_b3741e7b00becd72,M_dff52e7b00becd72"}
 {"loc":"00039:19-35","source":1,"syntax":"def,type","pretty":"type nsIXPCTestParams","sym":"T_nsIXPCTestParams","nestingRange":"39:57-170:0"}
 {"loc":"00039:45-56","source":1,"syntax":"type,use","pretty":"type nsISupports","sym":"T_nsISupports","type":"class nsISupports","typesym":"T_nsISupports"}
-{"loc":"00042:2-32","source":1,"syntax":"macro,use","pretty":"macro NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_2bc57b4443bd96e5"}
+{"loc":"00042:2-32","source":1,"syntax":"macro,use","pretty":"macro NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_41dd6b4443bd96e5"}
 {"loc":"00042:2-32","source":1,"syntax":"forward,type","pretty":"type nsIXPCTestParams::COMTypeInfo","sym":"T_nsIXPCTestParams::COMTypeInfo"}
 {"loc":"00045:8-31","source":1,"syntax":"def,type","pretty":"type nsIXPCTestParams::ScriptableInterfaceType","sym":"T_nsIXPCTestParams::ScriptableInterfaceType"}
 {"loc":"00045:34-50","source":1,"syntax":"type,use","pretty":"type nsIXPCTestParams","sym":"T_nsIXPCTestParams","type":"class nsIXPCTestParams","typesym":"T_nsIXPCTestParams"}
@@ -665,13 +671,16 @@
 {"loc":"00096:96-103","source":1,"syntax":"","pretty":"variable _retval","sym":"V_cc494773f30835ac_27a8de5a0b0d,V_c8d855e1f065d1b7_27a8de5a0b0d,V_15db43299039468c_27a8de5a0b0d,V_cb75ffdb7a578f8a_27a8de5a0b0d","no_crossref":1,"type":"nsACString &"}
 {"loc":"00099:2-23","source":1,"syntax":"macro,use","pretty":"macro JS_HAZ_CAN_RUN_SCRIPT","sym":"M_72ac330060b9ec6c"}
 {"loc":"00099:24-34","source":1,"syntax":"macro,use","pretty":"macro NS_IMETHOD","sym":"M_0906cf7b9c1b6074"}
-{"loc":"00099:35-44","source":1,"syntax":"def,function","pretty":"function nsIXPCTestParams::TestJsval","sym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_","type":"enum nsresult (JS::HandleValue, JS::MutableHandleValue, JS::MutableHandleValue)"}
-{"loc":"00099:49-60","source":1,"syntax":"type,use","pretty":"type JS::HandleValue","sym":"T_JS::HandleValue","type":"JS::HandleValue","typesym":"T_JS::Handle"}
-{"loc":"00099:61-62","source":1,"syntax":"","pretty":"variable a","sym":"V_78936773f30835ac_606b2,V_742375e1f065d1b7_606b2,V_c02663299039468c_606b2,V_77cf00eb7a578f8a_606b2","no_crossref":1,"type":"JS::HandleValue","typesym":"T_JS::Handle"}
-{"loc":"00099:68-86","source":1,"syntax":"type,use","pretty":"type JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","type":"JS::MutableHandleValue","typesym":"T_JS::MutableHandle"}
-{"loc":"00099:87-88","source":1,"syntax":"","pretty":"variable b","sym":"V_fc936773f30835ac_706b2,V_f82375e1f065d1b7_706b2,V_452663299039468c_706b2,V_fbcf00eb7a578f8a_706b2","no_crossref":1,"type":"JS::MutableHandleValue","typesym":"T_JS::MutableHandle"}
-{"loc":"00099:94-112","source":1,"syntax":"type,use","pretty":"type JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","type":"JS::MutableHandleValue","typesym":"T_JS::MutableHandle"}
-{"loc":"00099:113-120","source":1,"syntax":"","pretty":"variable _retval","sym":"V_5555d36262883c41_27a8de5a0b0d,V_5166d39e2f718ced_27a8de5a0b0d,V_a7e8209db34f6f4d_27a8de5a0b0d,V_546702e7f9a2708c_27a8de5a0b0d","no_crossref":1,"type":"JS::MutableHandleValue","typesym":"T_JS::MutableHandle"}
+{"loc":"00099:35-44","source":1,"syntax":"def,function","pretty":"function nsIXPCTestParams::TestJsval","sym":"_ZN16nsIXPCTestParams9TestJsvalEN2JS6HandleINS0_5ValueEEENS0_13MutableHandleIS2_EES5_","type":"enum nsresult (JS::Handle<JS::Value>, JS::MutableHandle<JS::Value>, JS::MutableHandle<JS::Value>)"}
+{"loc":"00099:49-55","source":1,"syntax":"type,use","pretty":"type JS::Handle","sym":"T_JS::Handle"}
+{"loc":"00099:60-65","source":1,"syntax":"type,use","pretty":"type JS::Value","sym":"T_JS::Value","type":"class JS::Value","typesym":"T_JS::Value"}
+{"loc":"00099:67-68","source":1,"syntax":"","pretty":"variable a","sym":"V_d8936773f30835ac_606b2,V_d42375e1f065d1b7_606b2,V_212663299039468c_606b2,V_d7cf00eb7a578f8a_606b2","no_crossref":1,"type":"JS::Handle<JS::Value>","typesym":"T_JS::Handle"}
+{"loc":"00099:74-87","source":1,"syntax":"type,use","pretty":"type JS::MutableHandle","sym":"T_JS::MutableHandle"}
+{"loc":"00099:92-97","source":1,"syntax":"type,use","pretty":"type JS::Value","sym":"T_JS::Value","type":"class JS::Value","typesym":"T_JS::Value"}
+{"loc":"00099:99-100","source":1,"syntax":"","pretty":"variable b","sym":"V_2f936773f30835ac_706b2,V_2b2375e1f065d1b7_706b2,V_772663299039468c_706b2,V_2ecf00eb7a578f8a_706b2","no_crossref":1,"type":"JS::MutableHandle<JS::Value>","typesym":"T_JS::MutableHandle"}
+{"loc":"00099:106-119","source":1,"syntax":"type,use","pretty":"type JS::MutableHandle","sym":"T_JS::MutableHandle"}
+{"loc":"00099:124-129","source":1,"syntax":"type,use","pretty":"type JS::Value","sym":"T_JS::Value","type":"class JS::Value","typesym":"T_JS::Value"}
+{"loc":"00099:131-138","source":1,"syntax":"","pretty":"variable _retval","sym":"V_5955d36262883c41_27a8de5a0b0d,V_5566d39e2f718ced_27a8de5a0b0d,V_abe8209db34f6f4d_27a8de5a0b0d,V_586702e7f9a2708c_27a8de5a0b0d","no_crossref":1,"type":"JS::MutableHandle<JS::Value>","typesym":"T_JS::MutableHandle"}
 {"loc":"00102:2-23","source":1,"syntax":"macro,use","pretty":"macro JS_HAZ_CAN_RUN_SCRIPT","sym":"M_72ac330060b9ec6c"}
 {"loc":"00102:24-34","source":1,"syntax":"macro,use","pretty":"macro NS_IMETHOD","sym":"M_0906cf7b9c1b6074"}
 {"loc":"00102:35-52","source":1,"syntax":"def,function","pretty":"function nsIXPCTestParams::TestShortSequence","sym":"_ZN16nsIXPCTestParams17TestShortSequenceERK8nsTArrayIsERS1_S4_","type":"enum nsresult (const nsTArray<int16_t> &, nsTArray<int16_t> &, nsTArray<int16_t> &)"}
@@ -945,7 +954,7 @@
 {"loc":"00168:35-57","source":1,"syntax":"def,function","pretty":"function nsIXPCTestParams::TestOmittedOptionalOut","sym":"_ZN16nsIXPCTestParams22TestOmittedOptionalOutEPP6nsIURI","type":"enum nsresult (class nsIURI **)"}
 {"loc":"00168:58-64","source":1,"syntax":"type,use","pretty":"type nsIURI","sym":"T_nsIURI","type":"class nsIURI","typesym":"T_nsIURI"}
 {"loc":"00168:67-71","source":1,"syntax":"","pretty":"variable aOut","sym":"V_a4c84993f30835ac_edf939c71,V_a0585702f065d1b7_edf939c71,V_fc4b45499039468c_edf939c71,V_a3f4f10c7a578f8a_edf939c71","no_crossref":1,"type":"class nsIURI **"}
-{"loc":"00172:2-31","source":1,"syntax":"macro,use","pretty":"macro NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_6bd67b4443bd96e5"}
+{"loc":"00172:2-31","source":1,"syntax":"macro,use","pretty":"macro NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_81ee6b4443bd96e5"}
 {"loc":"00172:2-31","source":1,"syntax":"def,type","pretty":"type nsIXPCTestParams::COMTypeInfo","sym":"T_nsIXPCTestParams::COMTypeInfo"}
 {"loc":"00172:2-31","source":1,"syntax":"def,variable","pretty":"variable nsIXPCTestParams::COMTypeInfo::kIID","sym":"_ZN16nsIXPCTestParams11COMTypeInfoIS_vE4kIIDE","type":"const nsIID","typesym":"T_nsID"}
 {"loc":"00172:2-31","source":1,"syntax":"decl,def,variable","pretty":"variable nsIXPCTestParams::COMTypeInfo<nsIXPCTestParams, type-parameter-0-0>::kIID","sym":"_ZN16nsIXPCTestParams11COMTypeInfoIS_T_E4kIIDE","type":"const nsIID","typesym":"T_nsID"}
@@ -1000,9 +1009,12 @@
 {"loc":"00192:47-57","source":1,"syntax":"type,use","pretty":"type nsACString","sym":"T_nsACString","type":"nsACString","typesym":"T_nsTSubstring"}
 {"loc":"00192:62-72","source":1,"syntax":"type,use","pretty":"type nsACString","sym":"T_nsACString","type":"nsACString","typesym":"T_nsTSubstring"}
 {"loc":"00193:2-12","source":1,"syntax":"macro,use","pretty":"macro NS_IMETHOD","sym":"M_0906cf7b9c1b6074"}
-{"loc":"00193:27-38","source":1,"syntax":"type,use","pretty":"type JS::HandleValue","sym":"T_JS::HandleValue","type":"JS::HandleValue","typesym":"T_JS::Handle"}
-{"loc":"00193:46-64","source":1,"syntax":"type,use","pretty":"type JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","type":"JS::MutableHandleValue","typesym":"T_JS::MutableHandle"}
-{"loc":"00193:72-90","source":1,"syntax":"type,use","pretty":"type JS::MutableHandleValue","sym":"T_JS::MutableHandleValue","type":"JS::MutableHandleValue","typesym":"T_JS::MutableHandle"}
+{"loc":"00193:27-33","source":1,"syntax":"type,use","pretty":"type JS::Handle","sym":"T_JS::Handle"}
+{"loc":"00193:38-43","source":1,"syntax":"type,use","pretty":"type JS::Value","sym":"T_JS::Value","type":"class JS::Value","typesym":"T_JS::Value"}
+{"loc":"00193:52-65","source":1,"syntax":"type,use","pretty":"type JS::MutableHandle","sym":"T_JS::MutableHandle"}
+{"loc":"00193:70-75","source":1,"syntax":"type,use","pretty":"type JS::Value","sym":"T_JS::Value","type":"class JS::Value","typesym":"T_JS::Value"}
+{"loc":"00193:84-97","source":1,"syntax":"type,use","pretty":"type JS::MutableHandle","sym":"T_JS::MutableHandle"}
+{"loc":"00193:102-107","source":1,"syntax":"type,use","pretty":"type JS::Value","sym":"T_JS::Value","type":"class JS::Value","typesym":"T_JS::Value"}
 {"loc":"00194:2-12","source":1,"syntax":"macro,use","pretty":"macro NS_IMETHOD","sym":"M_0906cf7b9c1b6074"}
 {"loc":"00194:37-45","source":1,"syntax":"type,use","pretty":"type nsTArray","sym":"T_nsTArray"}
 {"loc":"00194:46-53","source":1,"syntax":"type,use","pretty":"type int16_t","sym":"T_int16_t","type":"int16_t"}

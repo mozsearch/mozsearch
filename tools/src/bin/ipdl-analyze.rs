@@ -14,6 +14,7 @@ extern crate tools;
 
 use getopts::Options;
 
+use ipdl_parser::ast::ProtocolSide;
 use tools::file_format::analysis::{
     read_analyses, read_target, AnalysisKind, AnalysisTarget, WithLocation,
 };
@@ -124,6 +125,13 @@ fn output_binding_target_data(outputf: &mut File, locstr: &str, datum: &Analysis
     )
     .unwrap();
     write!(outputf, "\n").unwrap();
+    write!(
+        outputf,
+        r#"{{"loc": "{}", "source": 1, "syntax": "use", "pretty": "{}", "sym": "{}"}}"#,
+        locstr, datum.pretty, datum.sym
+    )
+    .unwrap();
+    write!(outputf, "\n").unwrap();
 }
 
 fn output_ipc_data(outputf: &mut File, locstr: &str, ipc_pretty: &str, ipc_sym: &str, send_datum: &AnalysisTarget, recv_datum: &AnalysisTarget) {
@@ -138,8 +146,8 @@ fn output_ipc_data(outputf: &mut File, locstr: &str, ipc_pretty: &str, ipc_sym: 
     write!(outputf, "\n").unwrap();
     write!(
         outputf,
-        r#"{{"loc": "{}", "source": 1, "syntax": "idl,ipc,def", "pretty": "ipc {}", "sym": "{}"}}"#,
-        locstr, ipc_pretty, ipc_sym
+        r#"{{"loc": "{}", "source": 1, "syntax": "idl,ipc,def", "pretty": "ipc {}", "sym": "{},{},{}"}}"#,
+        locstr, ipc_pretty, ipc_sym, send_datum.sym, recv_datum.sym
     )
     .unwrap();
     write!(outputf, "\n").unwrap();
@@ -355,8 +363,8 @@ fn main() {
 
                 let is_ctor = protocol.manages.iter().any(|e| e.id == message.name.id);
 
-                if message.direction == ast::Direction::ToChild
-                    || message.direction == ast::Direction::ToParentOrChild
+                if message.direction == ast::Direction::To(ProtocolSide::Child)
+                    || message.direction == ast::Direction::Both
                 {
                     output_send_recv(
                         &mut outputf,
@@ -371,8 +379,8 @@ fn main() {
                     );
                 }
 
-                if message.direction == ast::Direction::ToParent
-                    || message.direction == ast::Direction::ToParentOrChild
+                if message.direction == ast::Direction::To(ProtocolSide::Parent)
+                    || message.direction == ast::Direction::Both
                 {
                     output_send_recv(
                         &mut outputf,

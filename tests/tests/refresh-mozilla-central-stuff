@@ -54,14 +54,32 @@ SOURCE_FILES=(
   [js/xpconnect/tests/idl/xpctest_params.idl]=xpidl/
   [js/xpconnect/tests/idl/xpctest_returncode.idl]=xpidl/
   [js/xpconnect/tests/idl/xpctest_utils.idl]=xpidl/
+  [ipc/ipdl/test/gtest/PTestBasic.ipdl]=ipdl/
 )
+
+# Ugh, so, for some source files, we may want to just steal the analysis
+# files from the server too.  This feels more sketchy than us doing this for the
+# generated files, but it is, in fact, the same exact amount of sketchy!
+declare -A SOURCE_ANALYSIS_FILES
+SOURCE_ANALYSIS_FILES=(
+  [ipc/ipdl/test/gtest/TestBasic.cpp]=ipdl/
+  # These normally live next to TestBasic.cpp above but they get installed to
+  # this location so this is where the includes hardcode.
+  [ipc/ipdl/test/gtest/TestBasicChild.h]=mozilla/_ipdltest
+  [ipc/ipdl/test/gtest/TestBasicParent.h]=mozilla/_ipdltest
+)
+# copy these into SOURCE_FILES now.
+for src_file in "${!SOURCE_ANALYSIS_FILES[@]}"; do
+  SOURCE_FILES[$src_file]=${SOURCE_ANALYSIS_FILES[$src_file]}
+done
+
 
 # Maps generated/analysis file relative path to target directory (sans filename)
 declare -A GENERATED_FILES
 # Note that at least the C++ header files are hard-coded to be assumed reside in
 # dist/include.
 GENERATED_FILES=(
-  # Now automatically derived below!  But if you wanted manual stuff:
+  # XPIDL, IPDL Now automatically derived below!  But if you wanted manual stuff:
   #[dist/include/xpctest_params.h]=dist/include
   #[dist/xpcrs/bt/xpctest_params.rs]=dist/xpcrs/bt
   #[dist/xpcrs/rt/xpctest_params.rs]=dist/xpcrs/rt
@@ -69,9 +87,22 @@ GENERATED_FILES=(
 # Derive
 for src_file in "${!SOURCE_FILES[@]}"; do
   filename=$(basename $src_file)
-  GENERATED_FILES["dist/include/${filename%.idl}.h"]=dist/include
-  GENERATED_FILES["dist/xpcrs/bt/${filename%.idl}.rs"]=dist/xpcrs/bt
-  GENERATED_FILES["dist/xpcrs/rt/${filename%.idl}.rs"]=dist/xpcrs/rt
+  RE_IDL='\.idl$'
+  if [[ $filename =~ $RE_IDL ]]; then
+    GENERATED_FILES["dist/include/${filename%.idl}.h"]=dist/include
+    GENERATED_FILES["dist/xpcrs/bt/${filename%.idl}.rs"]=dist/xpcrs/bt
+    GENERATED_FILES["dist/xpcrs/rt/${filename%.idl}.rs"]=dist/xpcrs/rt
+  fi
+  # IPDL: This is very specific to the current gtests used.
+  RE_IPDL='\.ipdl$'
+  if [[ $filename =~ $RE_IPDL ]]; then
+    GENERATED_FILES["ipc/ipdl/${filename%.ipdl}.cpp"]=ipdl
+    GENERATED_FILES["ipc/ipdl/${filename%.ipdl}Child.cpp"]=ipdl
+    GENERATED_FILES["ipc/ipdl/${filename%.ipdl}Parent.cpp"]=ipdl
+    GENERATED_FILES["ipc/ipdl/_ipdlheaders/mozilla/_ipdltest/${filename%.ipdl}.h"]=ipc/ipdl/_ipdlheaders/mozilla/_ipdltest
+    GENERATED_FILES["ipc/ipdl/_ipdlheaders/mozilla/_ipdltest/${filename%.ipdl}Child.h"]=ipc/ipdl/_ipdlheaders/mozilla/_ipdltest
+    GENERATED_FILES["ipc/ipdl/_ipdlheaders/mozilla/_ipdltest/${filename%.ipdl}Parent.h"]=ipc/ipdl/_ipdlheaders/mozilla/_ipdltest
+  fi
 done
 
 # These are files we want the source for but absolutely do not want the actual
@@ -97,12 +128,20 @@ for gen_file in "${!GENERATED_FILES[@]}"; do
   $SSH_SCRIPT "$1" "${REMOTE_MC_BASE}/objdir/${gen_file}" ${TEST_SAVED_GENERATED_FILES}/${targ_dir}
 done
 
+## Analysis files from some of the source files
+for src_file in "${!SOURCE_ANALYSIS_FILES[@]}"; do
+  targ_dir=${SOURCE_ANALYSIS_FILES[$src_file]}
+  mkdir -p ${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}
+  $SSH_SCRIPT "$1" "${REMOTE_MC_BASE}/analysis/${src_file}.gz" ${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}
+  gunzip -f "${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}/$(basename $src_file).gz"
+done
+
 ## Analysis data derived from the generated files.
 #
 # Note that these files are likely to be zero-length.
 for gen_file in "${!GENERATED_FILES[@]}"; do
   targ_dir=${GENERATED_FILES[$gen_file]}
-  mkdir -p ${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}
-  $SSH_SCRIPT "$1" "${REMOTE_MC_BASE}/analysis/__GENERATED__/${gen_file}.gz" ${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}
-  gunzip -f "${TEST_SAVED_ANALYSIS_FILES}/${targ_dir}/$(basename $gen_file).gz"
+  mkdir -p "${TEST_SAVED_ANALYSIS_FILES}/__GENERATED__/${targ_dir}"
+  $SSH_SCRIPT "$1" "${REMOTE_MC_BASE}/analysis/__GENERATED__/${gen_file}.gz" "${TEST_SAVED_ANALYSIS_FILES}/__GENERATED__/${targ_dir}"
+  gunzip -f "${TEST_SAVED_ANALYSIS_FILES}/__GENERATED__/${targ_dir}/$(basename $gen_file).gz"
 done

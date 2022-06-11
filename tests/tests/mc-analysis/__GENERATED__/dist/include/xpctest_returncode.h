@@ -9,7 +9,7 @@
 {"loc":"00027:55-66","target":1,"kind":"use","pretty":"nsISupports","sym":"T_nsISupports","context":"nsIXPCTestReturnCodeParent","contextsym":"T_nsIXPCTestReturnCodeParent"}
 {"loc":"00027:6-18","target":1,"kind":"use","pretty":"NS_NO_VTABLE","sym":"M_dff52e7b00becd72"}
 {"loc":"00030:2-32","target":1,"kind":"forward","pretty":"nsIXPCTestReturnCodeParent::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeParent::COMTypeInfo"}
-{"loc":"00030:2-32","target":1,"kind":"use","pretty":"NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_2bc57b4443bd96e5"}
+{"loc":"00030:2-32","target":1,"kind":"use","pretty":"NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_41dd6b4443bd96e5"}
 {"loc":"00033:34-60","target":1,"kind":"use","pretty":"nsIXPCTestReturnCodeParent","sym":"T_nsIXPCTestReturnCodeParent","context":"nsIXPCTestReturnCodeParent","contextsym":"T_nsIXPCTestReturnCodeParent"}
 {"loc":"00033:8-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeParent::ScriptableInterfaceType","sym":"T_nsIXPCTestReturnCodeParent::ScriptableInterfaceType","context":"nsIXPCTestReturnCodeParent","contextsym":"T_nsIXPCTestReturnCodeParent"}
 {"loc":"00036:2-23","target":1,"kind":"use","pretty":"JS_HAZ_CAN_RUN_SCRIPT","sym":"M_72ac330060b9ec6c"}
@@ -21,7 +21,7 @@
 {"loc":"00040:2-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeParent::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeParent::COMTypeInfo"}
 {"loc":"00040:2-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeParent::COMTypeInfo::kIID","sym":"_ZN26nsIXPCTestReturnCodeParent11COMTypeInfoIS_vE4kIIDE"}
 {"loc":"00040:2-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeParent::COMTypeInfo<nsIXPCTestReturnCodeParent, type-parameter-0-0>::kIID","sym":"_ZN26nsIXPCTestReturnCodeParent11COMTypeInfoIS_T_E4kIIDE"}
-{"loc":"00040:2-31","target":1,"kind":"use","pretty":"NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_6bd67b4443bd96e5"}
+{"loc":"00040:2-31","target":1,"kind":"use","pretty":"NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_81ee6b4443bd96e5"}
 {"loc":"00040:32-58","target":1,"kind":"use","pretty":"nsIXPCTestReturnCodeParent","sym":"T_nsIXPCTestReturnCodeParent"}
 {"loc":"00040:60-91","target":1,"kind":"use","pretty":"NS_IXPCTESTRETURNCODEPARENT_IID","sym":"M_2d994b050ae794d2"}
 {"loc":"00043:8-42","target":1,"kind":"def","pretty":"NS_DECL_NSIXPCTESTRETURNCODEPARENT","sym":"M_492b5b050ae794d2"}
@@ -37,7 +37,7 @@
 {"loc":"00067:54-65","target":1,"kind":"use","pretty":"nsISupports","sym":"T_nsISupports","context":"nsIXPCTestReturnCodeChild","contextsym":"T_nsIXPCTestReturnCodeChild"}
 {"loc":"00067:6-18","target":1,"kind":"use","pretty":"NS_NO_VTABLE","sym":"M_dff52e7b00becd72"}
 {"loc":"00070:2-32","target":1,"kind":"forward","pretty":"nsIXPCTestReturnCodeChild::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeChild::COMTypeInfo"}
-{"loc":"00070:2-32","target":1,"kind":"use","pretty":"NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_2bc57b4443bd96e5"}
+{"loc":"00070:2-32","target":1,"kind":"use","pretty":"NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_41dd6b4443bd96e5"}
 {"loc":"00073:34-59","target":1,"kind":"use","pretty":"nsIXPCTestReturnCodeChild","sym":"T_nsIXPCTestReturnCodeChild","context":"nsIXPCTestReturnCodeChild","contextsym":"T_nsIXPCTestReturnCodeChild"}
 {"loc":"00073:8-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeChild::ScriptableInterfaceType","sym":"T_nsIXPCTestReturnCodeChild::ScriptableInterfaceType","context":"nsIXPCTestReturnCodeChild","contextsym":"T_nsIXPCTestReturnCodeChild"}
 {"loc":"00076:2-23","target":1,"kind":"use","pretty":"JS_HAZ_CAN_RUN_SCRIPT","sym":"M_72ac330060b9ec6c"}
@@ -53,7 +53,7 @@
 {"loc":"00087:2-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeChild::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeChild::COMTypeInfo"}
 {"loc":"00087:2-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeChild::COMTypeInfo::kIID","sym":"_ZN25nsIXPCTestReturnCodeChild11COMTypeInfoIS_vE4kIIDE"}
 {"loc":"00087:2-31","target":1,"kind":"def","pretty":"nsIXPCTestReturnCodeChild::COMTypeInfo<nsIXPCTestReturnCodeChild, type-parameter-0-0>::kIID","sym":"_ZN25nsIXPCTestReturnCodeChild11COMTypeInfoIS_T_E4kIIDE"}
-{"loc":"00087:2-31","target":1,"kind":"use","pretty":"NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_6bd67b4443bd96e5"}
+{"loc":"00087:2-31","target":1,"kind":"use","pretty":"NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_81ee6b4443bd96e5"}
 {"loc":"00087:32-57","target":1,"kind":"use","pretty":"nsIXPCTestReturnCodeChild","sym":"T_nsIXPCTestReturnCodeChild"}
 {"loc":"00087:59-89","target":1,"kind":"use","pretty":"NS_IXPCTESTRETURNCODECHILD_IID","sym":"M_65bc6b050ae794d2"}
 {"loc":"00090:8-41","target":1,"kind":"def","pretty":"NS_DECL_NSIXPCTESTRETURNCODECHILD","sym":"M_6b368b050ae794d2"}
@@ -139,7 +139,7 @@
 {"loc":"00027:6-18","source":1,"syntax":"macro,use","pretty":"macro NS_NO_VTABLE","sym":"M_b3741e7b00becd72,M_dff52e7b00becd72"}
 {"loc":"00027:19-45","source":1,"syntax":"def,type","pretty":"type nsIXPCTestReturnCodeParent","sym":"T_nsIXPCTestReturnCodeParent","nestingRange":"27:67-38:0"}
 {"loc":"00027:55-66","source":1,"syntax":"type,use","pretty":"type nsISupports","sym":"T_nsISupports","type":"class nsISupports","typesym":"T_nsISupports"}
-{"loc":"00030:2-32","source":1,"syntax":"macro,use","pretty":"macro NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_2bc57b4443bd96e5"}
+{"loc":"00030:2-32","source":1,"syntax":"macro,use","pretty":"macro NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_41dd6b4443bd96e5"}
 {"loc":"00030:2-32","source":1,"syntax":"forward,type","pretty":"type nsIXPCTestReturnCodeParent::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeParent::COMTypeInfo"}
 {"loc":"00033:8-31","source":1,"syntax":"def,type","pretty":"type nsIXPCTestReturnCodeParent::ScriptableInterfaceType","sym":"T_nsIXPCTestReturnCodeParent::ScriptableInterfaceType"}
 {"loc":"00033:34-60","source":1,"syntax":"type,use","pretty":"type nsIXPCTestReturnCodeParent","sym":"T_nsIXPCTestReturnCodeParent","type":"class nsIXPCTestReturnCodeParent","typesym":"T_nsIXPCTestReturnCodeParent"}
@@ -150,7 +150,7 @@
 {"loc":"00036:53-66","source":1,"syntax":"","pretty":"variable childBehavior","sym":"V_696d844ef966efce_9fdca1b200a22f4c,V_65f2870d9dddc57f_9fdca1b200a22f4c,V_b99b34c7c98369fd_9fdca1b200a22f4c,V_6819b576aa25976d_9fdca1b200a22f4c","no_crossref":1,"type":"int32_t"}
 {"loc":"00036:68-76","source":1,"syntax":"type,use","pretty":"type nsresult","sym":"T_nsresult","type":"enum nsresult","typesym":"T_nsresult"}
 {"loc":"00036:78-85","source":1,"syntax":"","pretty":"variable _retval","sym":"V_dd6d844ef966efce_27a8de5a0b0d,V_d9f2870d9dddc57f_27a8de5a0b0d,V_2e9b34c7c98369fd_27a8de5a0b0d,V_dc19b576aa25976d_27a8de5a0b0d","no_crossref":1,"type":"enum nsresult *"}
-{"loc":"00040:2-31","source":1,"syntax":"macro,use","pretty":"macro NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_6bd67b4443bd96e5"}
+{"loc":"00040:2-31","source":1,"syntax":"macro,use","pretty":"macro NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_81ee6b4443bd96e5"}
 {"loc":"00040:2-31","source":1,"syntax":"def,type","pretty":"type nsIXPCTestReturnCodeParent::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeParent::COMTypeInfo"}
 {"loc":"00040:2-31","source":1,"syntax":"def,variable","pretty":"variable nsIXPCTestReturnCodeParent::COMTypeInfo::kIID","sym":"_ZN26nsIXPCTestReturnCodeParent11COMTypeInfoIS_vE4kIIDE","type":"const nsIID","typesym":"T_nsID"}
 {"loc":"00040:2-31","source":1,"syntax":"decl,def,variable","pretty":"variable nsIXPCTestReturnCodeParent::COMTypeInfo<nsIXPCTestReturnCodeParent, type-parameter-0-0>::kIID","sym":"_ZN26nsIXPCTestReturnCodeParent11COMTypeInfoIS_T_E4kIIDE","type":"const nsIID","typesym":"T_nsID"}
@@ -168,7 +168,7 @@
 {"loc":"00067:6-18","source":1,"syntax":"macro,use","pretty":"macro NS_NO_VTABLE","sym":"M_b3741e7b00becd72,M_dff52e7b00becd72"}
 {"loc":"00067:19-44","source":1,"syntax":"def,type","pretty":"type nsIXPCTestReturnCodeChild","sym":"T_nsIXPCTestReturnCodeChild","nestingRange":"67:66-85:0"}
 {"loc":"00067:54-65","source":1,"syntax":"type,use","pretty":"type nsISupports","sym":"T_nsISupports","type":"class nsISupports","typesym":"T_nsISupports"}
-{"loc":"00070:2-32","source":1,"syntax":"macro,use","pretty":"macro NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_2bc57b4443bd96e5"}
+{"loc":"00070:2-32","source":1,"syntax":"macro,use","pretty":"macro NS_DECLARE_STATIC_IID_ACCESSOR","sym":"M_41dd6b4443bd96e5"}
 {"loc":"00070:2-32","source":1,"syntax":"forward,type","pretty":"type nsIXPCTestReturnCodeChild::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeChild::COMTypeInfo"}
 {"loc":"00073:8-31","source":1,"syntax":"def,type","pretty":"type nsIXPCTestReturnCodeChild::ScriptableInterfaceType","sym":"T_nsIXPCTestReturnCodeChild::ScriptableInterfaceType"}
 {"loc":"00073:34-59","source":1,"syntax":"type,use","pretty":"type nsIXPCTestReturnCodeChild","sym":"T_nsIXPCTestReturnCodeChild","type":"class nsIXPCTestReturnCodeChild","typesym":"T_nsIXPCTestReturnCodeChild"}
@@ -182,7 +182,7 @@
 {"loc":"00080:4-31","source":1,"syntax":"def,enum constant","pretty":"enum constant nsIXPCTestReturnCodeChild::CHILD_SHOULD_RETURN_SUCCESS","sym":"E_<T_60058837178539a9>_CHILD_SHOULD_RETURN_SUCCESS,E_<T_6c09fc6fa7e0bf7f>_CHILD_SHOULD_RETURN_SUCCESS,E_<T_b66608ceeb022553>_CHILD_SHOULD_RETURN_SUCCESS,E_<T_6fc67b050ae794d2>_CHILD_SHOULD_RETURN_SUCCESS","type":"enum nsIXPCTestReturnCodeChild::(unnamed at /builds/worker/workspace/obj-build/dist/include/xpctest_returncode.h:78:3)","typesym":"T_6fc67b050ae794d2"}
 {"loc":"00081:4-34","source":1,"syntax":"def,enum constant","pretty":"enum constant nsIXPCTestReturnCodeChild::CHILD_SHOULD_RETURN_RESULTCODE","sym":"E_<T_60058837178539a9>_CHILD_SHOULD_RETURN_RESULTCODE,E_<T_6c09fc6fa7e0bf7f>_CHILD_SHOULD_RETURN_RESULTCODE,E_<T_b66608ceeb022553>_CHILD_SHOULD_RETURN_RESULTCODE,E_<T_6fc67b050ae794d2>_CHILD_SHOULD_RETURN_RESULTCODE","type":"enum nsIXPCTestReturnCodeChild::(unnamed at /builds/worker/workspace/obj-build/dist/include/xpctest_returncode.h:78:3)","typesym":"T_6fc67b050ae794d2"}
 {"loc":"00082:4-33","source":1,"syntax":"def,enum constant","pretty":"enum constant nsIXPCTestReturnCodeChild::CHILD_SHOULD_NEST_RESULTCODES","sym":"E_<T_60058837178539a9>_CHILD_SHOULD_NEST_RESULTCODES,E_<T_6c09fc6fa7e0bf7f>_CHILD_SHOULD_NEST_RESULTCODES,E_<T_b66608ceeb022553>_CHILD_SHOULD_NEST_RESULTCODES,E_<T_6fc67b050ae794d2>_CHILD_SHOULD_NEST_RESULTCODES","type":"enum nsIXPCTestReturnCodeChild::(unnamed at /builds/worker/workspace/obj-build/dist/include/xpctest_returncode.h:78:3)","typesym":"T_6fc67b050ae794d2"}
-{"loc":"00087:2-31","source":1,"syntax":"macro,use","pretty":"macro NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_6bd67b4443bd96e5"}
+{"loc":"00087:2-31","source":1,"syntax":"macro,use","pretty":"macro NS_DEFINE_STATIC_IID_ACCESSOR","sym":"M_81ee6b4443bd96e5"}
 {"loc":"00087:2-31","source":1,"syntax":"def,type","pretty":"type nsIXPCTestReturnCodeChild::COMTypeInfo","sym":"T_nsIXPCTestReturnCodeChild::COMTypeInfo"}
 {"loc":"00087:2-31","source":1,"syntax":"def,variable","pretty":"variable nsIXPCTestReturnCodeChild::COMTypeInfo::kIID","sym":"_ZN25nsIXPCTestReturnCodeChild11COMTypeInfoIS_vE4kIIDE","type":"const nsIID","typesym":"T_nsID"}
 {"loc":"00087:2-31","source":1,"syntax":"decl,def,variable","pretty":"variable nsIXPCTestReturnCodeChild::COMTypeInfo<nsIXPCTestReturnCodeChild, type-parameter-0-0>::kIID","sym":"_ZN25nsIXPCTestReturnCodeChild11COMTypeInfoIS_T_E4kIIDE","type":"const nsIID","typesym":"T_nsID"}
