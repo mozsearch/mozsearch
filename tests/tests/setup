@@ -4,7 +4,13 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Create a "files" symlink in $INDEX_ROOT that links to their source tree.
+# Note that this symlink potentially creates edge-cases related to logic that
+# canonicalizes paths and thereby resolves symlinks.  So far this has only been
+# an issue with ipdl-analyze and we addressed that by running the FILES_ROOT
+# through `realpath`.  If we see more problems like this, that's probably the
+# most practical course of action, because usually the scripts just want to have
+# a prefix they can strip off and so it's just a case of making sure the prefix
+# is consistent.
 ln -s -f $CONFIG_REPO/tests/files $INDEX_ROOT
 
 # Link over the fake metadata and test file information as well.

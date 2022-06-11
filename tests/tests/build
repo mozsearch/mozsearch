@@ -23,8 +23,8 @@ cargo build
 XPIDL_SAVED_GENERATED_FILES=$MOZSEARCH_PATH/tests/tests/mc-generated
 XPIDL_SAVED_ANALYSIS_FILES=$MOZSEARCH_PATH/tests/tests/mc-analysis
 rsync -av $XPIDL_SAVED_GENERATED_FILES/ $OBJDIR
-mkdir -p $INDEX_ROOT/analysis/__GENERATED__
-rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/__GENERATED__
+mkdir -p $INDEX_ROOT/analysis/
+rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
 
 ## C++ Build Stuff
 for f in *.cpp
