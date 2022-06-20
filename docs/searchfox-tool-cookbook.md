@@ -69,8 +69,8 @@ searchfox-tool 'query --help'
 ```
 
 ```
-~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
---tree=mozilla-central search-identifiers ClientSource::Focus | crossref-lookup | traverse --edge=uses --max-depth=4' | jq .
+RUST_LOG=trace ~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json
+--tree=mozilla-central search-identifiers ClientSource::Focus | crossref-lookup | traverse --edge=uses --max-depth=4'
 ```
 
 ### Graphing on a web-server shell

@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use itertools::Itertools;
 use serde_json::Value;
 use structopt::StructOpt;
 use tracing::trace;
@@ -37,8 +38,28 @@ pub struct Traverse {
     #[structopt(long, short, default_value = "callees")]
     edge: String,
 
+    /// Maximum traversal depth.  Traversal will also be constrained by the
+    /// applicable node-limit, but is effectively breadth-first.
     #[structopt(long, short, default_value = "8")]
     max_depth: u32,
+
+    /// When enabled, the traversal will be performed with the higher
+    /// paths-between-node-limit in effect, then the roots of the initial
+    /// traversal will be used as pair-wise inputs to the all_simple_paths
+    /// petgraph algorithm to derive a new graph which will be constrained to
+    /// the normal "node-limit".
+    #[structopt(long)]
+    paths_between: bool,
+
+    /// Maximum number of nodes in a resulting graph.  When paths are involved,
+    /// we may opt to add the entirety of the path that puts the graph over the
+    /// node limit rather than omitting it.
+    #[structopt(long, default_value = "256")]
+    pub node_limit: u32,
+    /// Maximum number of nodes in a graph being built to be processed by
+    /// paths-between.
+    #[structopt(long, default_value = "2048")]
+    pub paths_between_node_limit: u32,
 }
 
 #[derive(Debug)]
@@ -72,17 +93,25 @@ impl PipelineCommand for TraverseCommand {
         // Nodes that have been scheduled to be traversed or ruled out.  A node
         // in this set should not be added to `to_traverse`.
         let mut considered = HashSet::new();
+        // Root set for paths-between use.
+        let mut root_set = vec![];
 
         // Propagate the starting symbols into the graph and queue them up for
         // traversal.
         for info in cil.symbol_crossref_infos {
             to_traverse.push((info.symbol.clone(), 0));
             considered.insert(info.symbol.clone());
-            sym_node_set.add_symbol(DerivedSymbolInfo::new(
-                &info.symbol,
-                info.crossref_info.clone(),
-            ));
+
+            let (sym_node_id, _info) =
+                sym_node_set.add_symbol(DerivedSymbolInfo::new(info.symbol, info.crossref_info));
+            root_set.push(sym_node_id);
         }
+
+        let node_limit = if self.args.paths_between {
+            self.args.node_limit
+        } else {
+            self.args.paths_between_node_limit
+        };
 
         // General operation:
         // - We pull a node to be traversed off the queue.  This ends up depth
@@ -93,6 +122,12 @@ impl PipelineCommand for TraverseCommand {
         //   values for and the new edges we discover, but it's not a concern.
         // - We traverse the list of edges.
         while let Some((sym, depth)) = to_traverse.pop() {
+            if sym_node_set.symbol_crossref_infos.len() as u32 >= node_limit {
+                trace!(sym = %sym, depth, "stopping because of node limit");
+                to_traverse.clear();
+                break;
+            };
+
             trace!(sym = %sym, depth, "processing");
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
 
@@ -285,9 +320,31 @@ impl PipelineCommand for TraverseCommand {
             }
         }
 
-        let graph_coll = SymbolGraphCollection {
-            node_set: sym_node_set,
-            graphs: vec![graph],
+        // ## Paths Between
+        let graph_coll = if self.args.paths_between {
+            // In this case, we don't want our original node set because we
+            // expect it to have an order of magnitude more data than we want
+            // in the result set.  So we build a new node set and graph.
+            let mut paths_node_set = SymbolGraphNodeSet::new();
+            let mut paths_graph = NamedSymbolGraph::new("paths".to_string());
+            for (source_node, target_node) in root_set.iter().tuple_combinations() {
+                let node_paths = graph.all_simple_paths(source_node.clone(), target_node.clone());
+                trace!(path_count = node_paths.len(), "forward paths found");
+                sym_node_set.propagate_paths(node_paths, &mut paths_graph, &mut paths_node_set);
+
+                let node_paths = graph.all_simple_paths(target_node.clone(), source_node.clone());
+                trace!(path_count = node_paths.len(), "reverse paths found");
+                sym_node_set.propagate_paths(node_paths, &mut paths_graph, &mut paths_node_set);
+            }
+            SymbolGraphCollection {
+                node_set: paths_node_set,
+                graphs: vec![paths_graph],
+            }
+        } else {
+            SymbolGraphCollection {
+                node_set: sym_node_set,
+                graphs: vec![graph],
+            }
         };
 
         Ok(PipelineValues::SymbolGraphCollection(graph_coll))

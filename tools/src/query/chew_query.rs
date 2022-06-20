@@ -214,14 +214,19 @@ pub struct PipelineGroup {
 }
 
 impl PipelineGroup {
-    fn ensure_pipeline_step(&mut self, command: String, mut args: Vec<String>) {
+    fn ensure_pipeline_step(&mut self, command: String, args: Vec<String>) {
         match self
             .segments
             .iter_mut()
             .rfind(|seg| seg.command == command)
         {
             Some(seg) => {
-                seg.args.append(&mut args);
+                for arg in args {
+                    // We de-duplicate each argument added.
+                    if !seg.args.contains(&arg) {
+                        seg.args.push(arg);
+                    }
+                }
             }
             None => {
                 self.segments.push(PipelineSegment { command, args });
