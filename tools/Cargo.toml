@@ -78,3 +78,4 @@ walkdir = "2.3.2"
 # we hit panics in production
 [profile.release]
 debug = 1
+incremental = true

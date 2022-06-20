@@ -24,7 +24,7 @@ pkill -f router/router.py || true
 pkill -f tools/target/release/web-server || true
 pkill -f tools/target/release/pipeline-server || true
 
-sleep 1
+sleep 0.1s
 
 nohup $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/router.log 2> $SERVER_ROOT/router.err < /dev/null &
 
@@ -38,6 +38,6 @@ nohup $MOZSEARCH_PATH/tools/target/release/pipeline-server $CONFIG_FILE > $SERVE
 # If WAIT was passed, wait until the servers report they loaded.
 if [[ ${4:-} = "WAIT" ]]; then
   until [[ $(grep -c loaded ${STATUS_FILE}) -eq 2 ]]; do
-    sleep 1s
+    sleep 0.1s
   done
 fi
