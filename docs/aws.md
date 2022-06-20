@@ -356,7 +356,9 @@ To re-provision the indexer AMI, run the following:
 ```
 infrastructure/aws/trigger-provision.py indexer \
   infrastructure/aws/indexer-provision.sh \
-  infrastructure/indexer-provision.sh
+  infrastructure/common-provision-pre.sh \
+  infrastructure/indexer-provision.sh \
+  infrastructure/common-provision-post.sh
 ```
 
 For web serving, use this command:
@@ -364,7 +366,9 @@ For web serving, use this command:
 ```
 infrastructure/aws/trigger-provision.py web-server \
   infrastructure/aws/web-server-provision.sh \
-  infrastructure/web-server-provision.sh
+  infrastructure/common-provision-pre.sh \
+  infrastructure/web-server-provision.sh \
+  infrastructure/common-provision-post.sh
 ```
 
 The `trigger-provision.py` script starts a new EC2 instance and uses
