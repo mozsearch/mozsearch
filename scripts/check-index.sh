@@ -20,19 +20,23 @@ CHECK_SERVER_URL=$4
 
 if [[ -d $CONFIG_REPO/$TREE_NAME/checks ]]
 then
+  # change into the test dir in order to ensure there's no confusion about
+  # whether our config.toml should be used.
+  pushd ${MOZSEARCH_PATH}/tools
   if [[ $CHECK_DISK ]]; then
     RUST_BACKTRACE=1 \
       SEARCHFOX_SERVER=${CONFIG_FILE} \
       SEARCHFOX_TREE=${TREE_NAME} \
       CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
-      cargo +nightly test --release --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
+      cargo test --release test_check_glob
   fi
   if [[ $CHECK_SERVER_URL ]]; then
     RUST_BACKTRACE=1 \
       SEARCHFOX_SERVER="$CHECK_SERVER_URL" \
       SEARCHFOX_TREE=${TREE_NAME} \
       CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
-      cargo +nightly test --release --manifest-path ${MOZSEARCH_PATH}/tools/Cargo.toml test_check_glob
+      cargo test --release test_check_glob
   fi
+  popd
   #$CONFIG_REPO/$TREE_NAME/check "$MOZSEARCH_PATH/scripts/check-helper.sh" "$CHECK_DISK" "$CHECK_SERVER_URL"
 fi

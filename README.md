@@ -66,22 +66,33 @@ firewall-cmd --permanent --add-service=rpc-bind --zone=libvirt
 firewall-cmd --permanent --add-service=mountd --zone=libvirt
 firewall-cmd --reload
 ```
-  
+
 #### OS X and Windows
+
 Note: The current Homebrew version of Vagrant is currently not able to use the most
 recent version of VirtualBox so it's recommended to install things directly via their
 installers.
 
 1. [install Vagrant](https://www.vagrantup.com/downloads.html).
-2. Visit the [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
-    follow the instructions for your OS.
- 
+2. Figure out the right virtualization option for you.
+  - OS X:
+    - Are you on an M1 mac?  Then you probably need to get a license for Parallels
+      and use it, maybe.  And then you can do `vagrant plugin install vagrant-parallels`
+      below.
+    - Maybe get a license for parallels anyways?
+    - Otherwise do the virtualbox thing below.
+  - Windows,  Visit the [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
+    follow the instructions for your OS.  You do not need and should not install
+    any extra extensions.  You only need the Open Source piece and should avoid
+    installing anything closed source or with a commercial license.
+
 Then clone Mozsearch and provision a Vagrant instance:
 ```
 git clone https://github.com/mozsearch/mozsearch
 cd mozsearch
 git submodule update --init
 
+# If using VirtualBox; if using Parallels, install `vagrant-parallels`
 vagrant plugin install vagrant-vbguest
 vagrant up
 ```
