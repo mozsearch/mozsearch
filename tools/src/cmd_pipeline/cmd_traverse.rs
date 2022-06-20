@@ -327,14 +327,25 @@ impl PipelineCommand for TraverseCommand {
             // in the result set.  So we build a new node set and graph.
             let mut paths_node_set = SymbolGraphNodeSet::new();
             let mut paths_graph = NamedSymbolGraph::new("paths".to_string());
+            let mut suppression = HashSet::new();
             for (source_node, target_node) in root_set.iter().tuple_combinations() {
                 let node_paths = graph.all_simple_paths(source_node.clone(), target_node.clone());
                 trace!(path_count = node_paths.len(), "forward paths found");
-                sym_node_set.propagate_paths(node_paths, &mut paths_graph, &mut paths_node_set);
+                sym_node_set.propagate_paths(
+                    node_paths,
+                    &mut paths_graph,
+                    &mut paths_node_set,
+                    &mut suppression,
+                );
 
                 let node_paths = graph.all_simple_paths(target_node.clone(), source_node.clone());
                 trace!(path_count = node_paths.len(), "reverse paths found");
-                sym_node_set.propagate_paths(node_paths, &mut paths_graph, &mut paths_node_set);
+                sym_node_set.propagate_paths(
+                    node_paths,
+                    &mut paths_graph,
+                    &mut paths_node_set,
+                    &mut suppression,
+                );
             }
             SymbolGraphCollection {
                 node_set: paths_node_set,
