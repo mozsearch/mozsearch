@@ -1,0 +1,100 @@
+---
+source: tests/test_check_insta.rs
+expression: sgc.to_json()
+---
+{
+  "symbol_metas": {
+    "_ZN10CallerFour9four_leftEv": {
+      "structured": 1,
+      "pretty": "CallerFour::four_left",
+      "sym": "_ZN10CallerFour9four_leftEv",
+      "kind": "method",
+      "parentsym": "T_CallerFour",
+      "implKind": "",
+      "sizeBytes": null,
+      "supers": [],
+      "methods": [],
+      "fields": [],
+      "overrides": [],
+      "props": [
+        "instance",
+        "user"
+      ]
+    },
+    "_ZN11CallerThree11three_nexusEP10CallerFour": {
+      "structured": 1,
+      "pretty": "CallerThree::three_nexus",
+      "sym": "_ZN11CallerThree11three_nexusEP10CallerFour",
+      "kind": "method",
+      "parentsym": "T_CallerThree",
+      "implKind": "",
+      "sizeBytes": null,
+      "supers": [],
+      "methods": [],
+      "fields": [],
+      "overrides": [],
+      "props": [
+        "instance",
+        "user"
+      ]
+    },
+    "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour": {
+      "structured": 1,
+      "pretty": "CallerOne::one_calls_two_right",
+      "sym": "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
+      "kind": "method",
+      "parentsym": "T_CallerOne",
+      "implKind": "",
+      "sizeBytes": null,
+      "supers": [],
+      "methods": [],
+      "fields": [],
+      "overrides": [],
+      "props": [
+        "instance",
+        "user"
+      ]
+    },
+    "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour": {
+      "structured": 1,
+      "pretty": "CallerTwo::two_right_calls_three_nexus",
+      "sym": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour",
+      "kind": "method",
+      "parentsym": "T_CallerTwo",
+      "implKind": "",
+      "sizeBytes": null,
+      "supers": [],
+      "methods": [],
+      "fields": [],
+      "overrides": [],
+      "props": [
+        "instance",
+        "user"
+      ]
+    }
+  },
+  "graphs": [
+    {
+      "nodes": [
+        "_ZN10CallerFour9four_leftEv",
+        "_ZN11CallerThree11three_nexusEP10CallerFour",
+        "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
+        "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour"
+      ],
+      "edges": [
+        {
+          "from": "_ZN11CallerThree11three_nexusEP10CallerFour",
+          "to": "_ZN10CallerFour9four_leftEv"
+        },
+        {
+          "from": "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
+          "to": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour"
+        },
+        {
+          "from": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour",
+          "to": "_ZN11CallerThree11three_nexusEP10CallerFour"
+        }
+      ]
+    }
+  ]
+}

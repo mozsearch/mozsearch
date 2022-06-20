@@ -2,7 +2,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use dot_generator::*;
 use dot_structures::*;
+use itertools::Itertools;
 use petgraph::{
+    algo::all_simple_paths,
     graph::{DefaultIx, NodeIndex},
     Directed, Graph as PetGraph,
 };
@@ -70,6 +72,7 @@ is working.
 */
 
 /// A symbol and its cross-reference information plus caching helpers.
+#[derive(Clone)]
 pub struct DerivedSymbolInfo {
     pub symbol: String,
     pub crossref_info: Value,
@@ -101,9 +104,9 @@ impl DerivedSymbolInfo {
 }
 
 impl DerivedSymbolInfo {
-    pub fn new(symbol: &str, crossref_info: Value) -> Self {
+    pub fn new(symbol: String, crossref_info: Value) -> Self {
         DerivedSymbolInfo {
-            symbol: symbol.to_string(),
+            symbol,
             crossref_info,
         }
     }
@@ -299,6 +302,26 @@ impl NamedSymbolGraph {
         }
         id_edges
     }
+
+    pub fn all_simple_paths(
+        &mut self,
+        source: SymbolGraphNodeId,
+        target: SymbolGraphNodeId,
+    ) -> Vec<Vec<SymbolGraphNodeId>> {
+        let source_ix = self.ensure_node(source);
+        let target_ix = self.ensure_node(target);
+        let paths = all_simple_paths(&self.graph, source_ix, target_ix, 0, None);
+        let node_paths = paths
+            .map(|v: Vec<_>| {
+                v.into_iter()
+                    .map(|idx| {
+                        SymbolGraphNodeId(*self.node_ix_to_id.get(&(idx.index() as u32)).unwrap())
+                    })
+                    .collect()
+            })
+            .collect();
+        node_paths
+    }
 }
 
 /// Wrapped u32 identifier for DerivedSymbolInfo nodes in a SymbolGraphNodeSet
@@ -333,6 +356,45 @@ impl SymbolGraphNodeSet {
         self.symbol_crossref_infos.get(node_id.0 as usize).unwrap()
     }
 
+    pub fn propagate_paths(
+        &self,
+        paths: Vec<Vec<SymbolGraphNodeId>>,
+        new_graph: &mut NamedSymbolGraph,
+        new_symbol_set: &mut SymbolGraphNodeSet,
+    ) {
+        for path in paths {
+            for (path_source, path_target) in path.into_iter().tuple_windows() {
+                self.propagate_edge(&path_source, &path_target, new_graph, new_symbol_set);
+            }
+        }
+    }
+
+    /// Given a pair of symbols in the current set, ensure that they exist in
+    /// the new node set and create an edge in the new graph as well.
+    pub fn propagate_edge(
+        &self,
+        source: &SymbolGraphNodeId,
+        target: &SymbolGraphNodeId,
+        new_graph: &mut NamedSymbolGraph,
+        new_symbol_set: &mut SymbolGraphNodeSet,
+    ) {
+        let new_source_node = self.propagate_sym(source, new_symbol_set);
+        let new_target_node = self.propagate_sym(target, new_symbol_set);
+        new_graph.add_edge(new_source_node, new_target_node);
+    }
+
+    fn propagate_sym(
+        &self,
+        node_id: &SymbolGraphNodeId,
+        new_symbol_set: &mut SymbolGraphNodeSet,
+    ) -> SymbolGraphNodeId {
+        let info = self.get(node_id);
+        match new_symbol_set.symbol_to_index_map.get(&info.symbol) {
+            Some(index) => SymbolGraphNodeId(*index as u32),
+            None => new_symbol_set.add_symbol(info.clone()).0,
+        }
+    }
+
     /// Look-up a symbol returning its id (for graph purposes) and its
     /// DerivedSymbolInfo (for data inspection).
     pub fn lookup_symbol(&self, symbol: &str) -> Option<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
@@ -359,9 +421,9 @@ impl SymbolGraphNodeSet {
         )
     }
 
-    pub async fn ensure_symbol(
-        &mut self,
-        sym: &str,
+    pub async fn ensure_symbol<'a>(
+        &'a mut self,
+        sym: &'a str,
         server: &Box<dyn AbstractServer + Send + Sync>,
     ) -> Result<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {
@@ -373,6 +435,6 @@ impl SymbolGraphNodeSet {
         }
 
         let info = server.crossref_lookup(&sym).await?;
-        Ok(self.add_symbol(DerivedSymbolInfo::new(&sym, info)))
+        Ok(self.add_symbol(DerivedSymbolInfo::new(sym.to_string(), info)))
     }
 }
