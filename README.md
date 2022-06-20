@@ -4,6 +4,21 @@ Mozsearch is the backend for the [Searchfox](https://searchfox.org)
 code indexing tool. Searchfox runs inside AWS, but you can develop on
 Searchfox locally using Vagrant.
 
+## Local Deps for VSCode development with rust-analyzer
+
+rust-analyzer is pretty great and works well.  You will probably have it installed
+if you've used VSCode with mozilla-central via `mach ide vscode`.  But because
+we've configured our build to use `lld` as the linker, you will need `lld` installed.
+
+On Ubuntu, you can install this via:
+```
+apt install lld
+```
+
+If you don't install `lld`, it's not the end of the world, but rust-analyzer will
+be a little unhappy and have trouble with proc macros.  We can revisit this if
+people have trouble, but the development speed-up is currently quite nice.
+
 ## Vagrant setup for local development
 
 ### Setting up the VM
