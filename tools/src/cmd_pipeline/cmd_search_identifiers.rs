@@ -22,7 +22,13 @@ pub struct SearchIdentifiers {
     #[structopt(short, long)]
     case_sensitive: bool,
 
-    #[structopt(short, long, default_value = "0")]
+    /// Minimum identifier length to search for.  The default of 3 is derived
+    /// from router.py's `is_trivial_search` heuristic requiring a length of 3,
+    /// although it was only required along one axis.
+    #[structopt(long, default_value = "3")]
+    min_length: usize,
+
+    #[structopt(short, long, default_value = "1000")]
     limit: usize,
 }
 
@@ -55,6 +61,11 @@ impl PipelineCommand for SearchIdentifiersCommand {
 
         let mut symbols: Vec<SymbolWithContext> = vec![];
         for id in identifier_list.identifiers {
+            // Skip any identifiers that are shorter than our minimum length.
+            if id.len() < self.args.min_length {
+                continue;
+            }
+
             for (sym, from_ident) in server
                 .search_identifiers(
                     &id,
