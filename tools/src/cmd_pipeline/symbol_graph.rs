@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use dot_generator::*;
 use dot_structures::*;
@@ -361,10 +361,13 @@ impl SymbolGraphNodeSet {
         paths: Vec<Vec<SymbolGraphNodeId>>,
         new_graph: &mut NamedSymbolGraph,
         new_symbol_set: &mut SymbolGraphNodeSet,
+        suppression: &mut HashSet<(u32, u32)>,
     ) {
         for path in paths {
             for (path_source, path_target) in path.into_iter().tuple_windows() {
-                self.propagate_edge(&path_source, &path_target, new_graph, new_symbol_set);
+                if suppression.insert((path_source.0, path_target.0)) {
+                    self.propagate_edge(&path_source, &path_target, new_graph, new_symbol_set);
+                }
             }
         }
     }
@@ -424,7 +427,7 @@ impl SymbolGraphNodeSet {
     pub async fn ensure_symbol<'a>(
         &'a mut self,
         sym: &'a str,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &'a Box<dyn AbstractServer + Send + Sync>,
     ) -> Result<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {
             let sym_info = self

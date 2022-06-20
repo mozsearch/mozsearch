@@ -21,6 +21,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.calls-between.group.graph-build]]
 command = "crossref-lookup"
+args.methods = true
 [[term.calls-between.group.graph-build]]
 command = "traverse"
 args.edge = "uses"

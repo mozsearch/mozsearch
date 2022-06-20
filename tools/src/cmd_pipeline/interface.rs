@@ -219,6 +219,17 @@ impl SymbolCrossrefInfo {
             self.symbol.clone()
         }
     }
+
+    pub fn get_method_symbols(&self) -> Option<Vec<String>> {
+        if let Some(Value::Array(arr)) = self.crossref_info.pointer("/meta/methods") {
+            if arr.len() == 0 {
+                return None;
+            }
+            Some(arr.iter().map(|v| v["sym"].as_str().unwrap_or("").to_string()).collect())
+        } else {
+            None
+        }
+    }
 }
 
 /// A list of `SymbolCrossrefInfo`s.
