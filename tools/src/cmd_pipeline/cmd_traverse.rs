@@ -7,7 +7,7 @@ use structopt::StructOpt;
 use tracing::trace;
 
 use super::{
-    interface::{PipelineCommand, PipelineValues},
+    interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues},
     symbol_graph::{
         DerivedSymbolInfo, NamedSymbolGraph, SymbolGraphCollection, SymbolGraphNodeSet,
     },
@@ -58,8 +58,18 @@ pub struct Traverse {
     pub node_limit: u32,
     /// Maximum number of nodes in a graph being built to be processed by
     /// paths-between.
-    #[structopt(long, default_value = "2048")]
+    #[structopt(long, default_value = "8192")]
     pub paths_between_node_limit: u32,
+
+    /// If we see "uses" with this many paths with hits, do not process any of
+    /// the uses.  This is path-centric because uses are hierarchically
+    /// clustered by path right now.
+    ///
+    /// TODO: Probably have the meta capture the total number of uses so we can
+    /// just perform a look-up without this hack.  But this hack works for
+    /// experimenting.
+    #[structopt(long, default_value = "16")]
+    pub skip_uses_at_path_count: u32,
 }
 
 #[derive(Debug)]
@@ -95,6 +105,8 @@ impl PipelineCommand for TraverseCommand {
         let mut considered = HashSet::new();
         // Root set for paths-between use.
         let mut root_set = vec![];
+
+        let mut overloads_hit = vec![];
 
         // Propagate the starting symbols into the graph and queue them up for
         // traversal.
@@ -282,6 +294,18 @@ impl PipelineCommand for TraverseCommand {
                     // of the hit fields.  We really just care about the
                     // contextsym.
                     "uses" => {
+                        // Do not process the uses if there are more paths than our skip limit.
+                        if sym_edges.len() as u32 >= self.args.skip_uses_at_path_count {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::UsesPaths,
+                                exist: sym_edges.len() as u32,
+                                included: 0,
+                                local_limit: self.args.skip_uses_at_path_count,
+                                global_limit: 0,
+                            });
+                            continue;
+                        }
+
                         // We may see a use edge multiple times so we want to suppress it,
                         // but we don't want to use `considered` for this because that would
                         // hide cycles in the graph!
@@ -350,11 +374,13 @@ impl PipelineCommand for TraverseCommand {
             SymbolGraphCollection {
                 node_set: paths_node_set,
                 graphs: vec![paths_graph],
+                overloads_hit,
             }
         } else {
             SymbolGraphCollection {
                 node_set: sym_node_set,
                 graphs: vec![graph],
+                overloads_hit,
             }
         };
 

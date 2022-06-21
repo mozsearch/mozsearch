@@ -169,6 +169,15 @@ pub enum OverloadKind {
     /// There's just too many subclasses!  This would happen for nsISupports for
     /// example.
     Subclasses,
+    /// There's just too many uses!  This happens for mozilla::Runnable::Run for
+    /// example when following the "uses" edges in traverse (and no other
+    /// heuristics prevent considering the symbol when travelling up the
+    /// override edge from the subclass).
+    ///
+    /// The Paths variant here captures that we gave up based on the number of
+    /// paths which is a temporary thing (and we should change to Uses when
+    /// correcting).
+    UsesPaths,
 }
 
 /// Information about overloads encountered when processing some aspect of a

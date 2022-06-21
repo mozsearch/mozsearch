@@ -14,6 +14,8 @@ use serde_json::{json, Value};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
+use super::interface::OverloadInfo;
+
 /**
 Graph abstraction for symbols built on top of petgraph.
 
@@ -117,6 +119,7 @@ impl DerivedSymbolInfo {
 pub struct SymbolGraphCollection {
     pub node_set: SymbolGraphNodeSet,
     pub graphs: Vec<NamedSymbolGraph>,
+    pub overloads_hit: Vec<OverloadInfo>,
 }
 
 impl Serialize for SymbolGraphCollection {
