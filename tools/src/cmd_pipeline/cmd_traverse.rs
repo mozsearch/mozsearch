@@ -136,6 +136,13 @@ impl PipelineCommand for TraverseCommand {
         while let Some((sym, depth)) = to_traverse.pop() {
             if sym_node_set.symbol_crossref_infos.len() as u32 >= node_limit {
                 trace!(sym = %sym, depth, "stopping because of node limit");
+                overloads_hit.push(OverloadInfo {
+                    kind: OverloadKind::NodeLimit,
+                    exist: to_traverse.len() as u32,
+                    included: node_limit,
+                    local_limit: 0,
+                    global_limit: node_limit,
+                });
                 to_traverse.clear();
                 break;
             };

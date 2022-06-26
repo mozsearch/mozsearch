@@ -99,6 +99,10 @@ async fn main() {
             emit_json(&to_value(frb).unwrap());
             0
         }
+        Ok(PipelineValues::GraphResultsBundle(grb)) => {
+            emit_json(&to_value(grb).unwrap());
+            0
+        }
         Ok(PipelineValues::HtmlExcerpts(he)) => {
             for file_excerpts in he.by_file {
                 //println!("HTML excerpts from: {}", file_excerpts.file);

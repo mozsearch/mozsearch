@@ -176,6 +176,9 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         Ok(PipelineValues::FlattenedResultsBundle(frb)) => {
                             insta::assert_json_snapshot!(&to_value(frb).unwrap());
                         }
+                        Ok(PipelineValues::GraphResultsBundle(grb)) => {
+                            insta::assert_json_snapshot!(&to_value(grb).unwrap());
+                        }
                         Ok(PipelineValues::HtmlExcerpts(he)) => {
                             let mut aggr_str = String::new();
                             for file_excerpts in he.by_file {

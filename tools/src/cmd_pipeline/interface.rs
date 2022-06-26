@@ -48,6 +48,7 @@ pub enum PipelineValues {
     TextMatches(TextMatches),
     HtmlExcerpts(HtmlExcerpts),
     FlattenedResultsBundle(FlattenedResultsBundle),
+    GraphResultsBundle(GraphResultsBundle),
     TextFile(TextFile),
     Void,
 }
@@ -178,6 +179,7 @@ pub enum OverloadKind {
     /// paths which is a temporary thing (and we should change to Uses when
     /// correcting).
     UsesPaths,
+    NodeLimit,
 }
 
 /// Information about overloads encountered when processing some aspect of a
@@ -496,6 +498,19 @@ impl FlattenedLineSpan {
         let end = self.line_range.1 + after;
         (start, end)
     }
+}
+
+/// Rendered graphs and associated metadata.
+#[derive(Serialize)]
+pub struct GraphResultsBundle {
+    pub graphs: Vec<RenderedGraph>,
+    pub overloads_hit: Vec<OverloadInfo>,
+    pub symbols: Value,
+}
+
+#[derive(Serialize)]
+pub struct RenderedGraph {
+    pub graph: String,
 }
 
 /// This currently boring struct exists so that we have a place to put metadata

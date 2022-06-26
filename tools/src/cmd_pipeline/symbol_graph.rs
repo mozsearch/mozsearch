@@ -197,7 +197,10 @@ impl SymbolGraphCollection {
 
     /// Convert the graph with the given index to a graphviz rep.
     pub fn graph_to_graphviz(&self, graph_idx: usize) -> Graph {
-        let mut dot_graph = graph!(di "");
+        let mut dot_graph = graph!(
+            di id!("g");
+            node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))
+        );
 
         let graph = match self.graphs.get(graph_idx) {
             Some(g) => g,
