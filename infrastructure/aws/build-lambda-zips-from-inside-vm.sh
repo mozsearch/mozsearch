@@ -25,6 +25,14 @@ $AWSDIR/build-lambda-indexer-start.sh \
   master \
   release2
 
+# create lambda-release3.zip
+$AWSDIR/build-lambda-indexer-start.sh \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
+  config3.json \
+  master \
+  release3
+
 # create lambda-release4.zip
 $AWSDIR/build-lambda-indexer-start.sh \
   https://github.com/mozsearch/mozsearch \
@@ -32,3 +40,11 @@ $AWSDIR/build-lambda-indexer-start.sh \
   config4.json \
   master \
   release4
+
+# create lambda-release5.zip
+$AWSDIR/build-lambda-indexer-start.sh \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
+  config5.json \
+  master \
+  release5

@@ -165,7 +165,11 @@ infrastructure/aws/ssh.py i-955af89
 
 ## Lambda
 
-The AWS Lambda task uses a cron-style scheduler to run once a day.
+The AWS Lambda task uses a cron-style scheduler to run once a day for all
+configN jobs except config3 which runs once a week on Saturdays (which is the
+day our scripts run maintenance, so it's the right day to pick when doing things
+less than daily).  config3 previously ran only when manually triggered but this
+resulted in both configuration bit-rot as well a
 
 ### Automated-ish Updates
 
@@ -216,7 +220,7 @@ you need.
 
 If you're setting up a new Lambda task for a new channel, select "Create Function"
 from the AWS Lambda console. Give it a name similar to the others (`start-<channel>-indexer`),
-select Python 3.8 for the Runtime, and use the existing `lambda_indexer_start_role`
+select Python 3.9 for the Runtime, and use the existing `lambda_indexer_start_role`
 for the execution role. This gives the task permissions to create indexer instances.
 Once you hit "Create function", you can use the Actions menu on the "Function code"
 section to upload the zip file. Be sure to also edit the "Basic Settings" section
