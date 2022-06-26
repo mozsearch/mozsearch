@@ -20,6 +20,7 @@ CHANNEL=$5
 
 MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/../..)
 
+rm -rf /tmp/lambda
 mkdir /tmp/lambda
 cp $MOZSEARCH_PATH/infrastructure/aws/trigger_common.py /tmp/lambda
 cp $MOZSEARCH_PATH/infrastructure/aws/trigger_indexer.py /tmp/lambda
