@@ -218,20 +218,46 @@ scroll down to the "Function code" section, and select "Upload a .zip file"
 from the Actions menu. Save your changes and that should be all that
 you need.
 
-If you're setting up a new Lambda task for a new channel, select "Create Function"
-from the AWS Lambda console. Give it a name similar to the others (`start-<channel>-indexer`),
-select Python 3.9 for the Runtime, and use the existing `lambda_indexer_start_role`
-for the execution role. This gives the task permissions to create indexer instances.
-Once you hit "Create function", you can use the Actions menu on the "Function code"
-section to upload the zip file. Be sure to also edit the "Runtime Settings" section
-of the "Code" tab to set the Handler to `lambda-indexer-start.start` (this refers to the `start`
-function in the `lambda-indexer-start.py` file inside the generated `lambda.zip`),
-and to give it a reasonable timeout (e.g. 1 minute).
-Finally, in the Designer pane at the top, you can add a trigger to control
-how the lambda task gets run. For daily cron-job style tasks, add an EventBridge
-trigger using one of the existing "everyday" rules, or create a new one as needed.
+If you're setting up a new Lambda task for a new channel:
+- Select "Create Function" from the AWS Lambda console.
+  - Give it a name similar to the others (`start-<channel>-indexer`),
+  - Select Python 3.9 for the Runtime
+  - Expand "Change default execution role" and the "Use an existing role" radio
+    button, then select the existing `lambda_indexer_start_role` for the
+    execution role. This gives the task permissions to create indexer instances.
+  - Press the "Create function" button to create the rule.
+- On the function's page (you may have to click on the newly created rule or you
+  may end up there automatically):
+  - On the "Code" tab which you should already be looking at:
+    - Click "Edit" by runtime settings and set the Handler to
+     `lambda-indexer-start.start` (this refers to the `start` function in the
+     `lambda-indexer-start.py` file inside the generated `lambda.zip`).
+    - Hit "Save" to get back to the code tab.
+  - On the "Configuration" time tab (which you will need to click on):
+    - On the "General configuration" vertical sub-tab:
+      - Click the "Edit" button for "general configuration" section so we can
+        edit the "Timeout" setting.
+      - The default timeout is 3 seconds which is way too short.  Increase that
+        to 1 minute.
+  - At the top of the UI in the "Function Overview" box you can add a cron
+    trigger by pressing the "Add trigger" button and selecting "EventBridge
+    (CloudWatch Events)" as a source from the drop-down and select one of the
+    existing "everyday" rules or create a new one as appropriate.
 
 ## Triggering indexing manually
+
+### Via the AWS UI
+
+From the Lambda UI's list of functions you can:
+- Select the function you want to run by clicking on it and bringing up its UI.
+- Click on the "Test" tab.
+- Click on the "Test Event" section's "Test" button.  If you wait about 12
+  seconds an AJAX UI should do a spinny thing and then show a green
+  "Execution result: succeeded".  If you see a failure and if it mentions a
+  timeout, then that means you probably forgot to increase the timeout from the
+  default of 3 seconds when creating the function.  Update it now!
+
+### Locally
 
 It's fairly easy to trigger an indexing job manually from your local
 computer. To do so, run the following from within the Python virtual environment:
