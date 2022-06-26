@@ -38,7 +38,7 @@ expression: "&jv.value"
         {
           "command": "graph",
           "args": [
-            "--format=svg"
+            "--format=mozsearch"
           ]
         }
       ],

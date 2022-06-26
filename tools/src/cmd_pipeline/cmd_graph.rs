@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 use clap::arg_enum;
+use regex::{self, Regex, Captures};
 use structopt::StructOpt;
 
 use graphviz_rust::cmd::{CommandArg, Format};
 use graphviz_rust::exec;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
 
-use super::interface::{TextFile, PipelineCommand, PipelineValues};
+use super::interface::{GraphResultsBundle, TextFile, PipelineCommand, PipelineValues, RenderedGraph};
 
 use crate::abstract_server::{AbstractServer, Result};
 
@@ -19,6 +20,8 @@ arg_enum! {
         PNG,
         // Dot with layout information.
         Dot,
+        // Transformed SVG accompanied by symbol metadata in a JSON structure.
+        Mozsearch
     }
 }
 
@@ -104,6 +107,15 @@ pub struct GraphCommand {
     pub args: Graph,
 }
 
+fn transform_svg(svg: &str) -> String {
+    lazy_static! {
+        static ref RE_TITLE: Regex = Regex::new(">\n<title>([^<]+)</title>").unwrap();
+    }
+    RE_TITLE.replace_all(svg, |caps: &Captures| {
+        format!(" data-symbols=\"{}\">", caps.get(1).unwrap().as_str())
+    }).to_string()
+}
+
 #[async_trait]
 impl PipelineCommand for GraphCommand {
     async fn execute(
@@ -129,7 +141,7 @@ impl PipelineCommand for GraphCommand {
             }));
         }
         let (format, mime_type) = match self.args.format {
-            GraphFormat::SVG => (Format::Svg, "image/svg+xml".to_string()),
+            GraphFormat::SVG | GraphFormat::Mozsearch => (Format::Svg, "image/svg+xml".to_string()),
             GraphFormat::PNG => (Format::Png, "image/png".to_string()),
             _ => (Format::Dot, "text/x-dot".to_string()),
         };
@@ -138,9 +150,24 @@ impl PipelineCommand for GraphCommand {
             &mut PrinterContext::default(),
             vec![CommandArg::Format(format)],
         )?;
-        Ok(PipelineValues::TextFile(TextFile {
-            mime_type,
-            contents: graph_contents,
-        }))
+        match self.args.format {
+            GraphFormat::Mozsearch => {
+                Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
+                    graphs: vec![
+                        RenderedGraph {
+                            graph: transform_svg(&graph_contents),
+                        }
+                    ],
+                    symbols: graphs.symbols_meta_to_json(),
+                    overloads_hit: graphs.overloads_hit,
+                }))
+            }
+            _ => {
+                Ok(PipelineValues::TextFile(TextFile {
+                    mime_type,
+                    contents: graph_contents,
+                }))
+            }
+        }
     }
 }

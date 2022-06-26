@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="color-scheme" content="light dark">
     <link href="/static/icons/search.png" rel="shortcut icon">
-    <title>${title}</title>
+    <title>Search: {{query | escape}}</title>
 
     <link href="/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
     <link href="/static/css/icons.css" rel="stylesheet" media="screen" />
@@ -12,11 +12,11 @@
 
 <body>
 <div id="fixed-header">
-    <form method="get" action="/${tree}/search" class="search-box" id="search-box">
+    <form method="get" action="/{{tree}}/search" class="search-box" id="search-box">
     <fieldset>
         <div id="query-section">
         <label for="query" class="query_label visually-hidden">Find</label>
-        <input type="text" name="q"  value="${query}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search ${tree}" autocomplete="off" ${opt.autofocusSearch ? "autofocus" : ""}/>
+        <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" autofocus />
         <div class="zero-size-container">
             <div class="bubble" id="query-bubble">
             </div>
@@ -25,7 +25,7 @@
         </div>
         <div id="option-section" class="v-flex-container">
         <label for="case">
-            <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" ${isCaseSensitive ? "checked" : ""}/><span class="access-key">C</span>ase-sensitive
+            <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" /><span class="access-key">C</span>ase-sensitive
         </label>
         <label for="regexp">
             <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search

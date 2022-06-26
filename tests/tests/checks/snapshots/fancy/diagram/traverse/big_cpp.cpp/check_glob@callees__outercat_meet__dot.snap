@@ -2,7 +2,8 @@
 source: tests/test_check_insta.rs
 expression: "&fb.contents"
 ---
-digraph  {
+digraph g {
+    node[shape=box,fontname="Courier New",fontsize=10]
     "_ZN7outerNS8OuterCat4meetERNS_5HumanE"[label="outerNS::OuterCat::meet"]
     "_ZN7outerNS5Thing6ignoreEv"[label="outerNS::Thing::ignore"]
     "_ZN7outerNS8OuterCat4meetERNS_5HumanE" -> "_ZN7outerNS5Thing6ignoreEv" 

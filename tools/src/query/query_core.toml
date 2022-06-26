@@ -159,4 +159,4 @@ next = "graph-render"
 output = "result"
 [[group.graph-render.commands]]
 command = "graph"
-args.format = "svg"
+args.format = "mozsearch"
