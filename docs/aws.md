@@ -169,22 +169,22 @@ The AWS Lambda task uses a cron-style scheduler to run once a day for all
 configN jobs except config3 which runs once a week on Saturdays (which is the
 day our scripts run maintenance, so it's the right day to pick when doing things
 less than daily).  config3 previously ran only when manually triggered but this
-resulted in both configuration bit-rot as well a
+resulted in both configuration bit-rot as well a tendency for config3 to be out
+of date with regard to the other indexers which cause actual visible problems
+when static resources changed.
 
 ### Automated-ish Updates
 
-If you just want to update the existing daily lambda jobs for release1,
-release2, and release4, you can:
+If you just want to update the existing daily lambda jobs for the release jobs,
+you can:
 
 - Inside the vagrant VM:
   - `cd /vagrant`
   - `./infrastructure/aws/build-lambda-zips-from-inside-vm.sh`
-    - This will produce 3 zips files in `/vagrant`:
-      - lambda-release1.zip
-      - lambda-release2.zip
-      - lambda-release4.zip
+    - This will produce 5 zips files in `/vagrant` matching `lambda-release*.zip`
 - Outside the vagrant VM where you have active credentials so that `ssh.py`
-  works, etc.:
+  works.  This will upload the zips and delete them after each successful upload
+  so there should be no zip files left over.
   - `./infrastructure/aws/upload-lambda-zips-from-outside-vm.sh`
 
 ### Lambda Details / Manual Updates
@@ -223,8 +223,8 @@ from the AWS Lambda console. Give it a name similar to the others (`start-<chann
 select Python 3.9 for the Runtime, and use the existing `lambda_indexer_start_role`
 for the execution role. This gives the task permissions to create indexer instances.
 Once you hit "Create function", you can use the Actions menu on the "Function code"
-section to upload the zip file. Be sure to also edit the "Basic Settings" section
-to set the Handler to `lambda-indexer-start.start` (this refers to the `start`
+section to upload the zip file. Be sure to also edit the "Runtime Settings" section
+of the "Code" tab to set the Handler to `lambda-indexer-start.start` (this refers to the `start`
 function in the `lambda-indexer-start.py` file inside the generated `lambda.zip`),
 and to give it a reasonable timeout (e.g. 1 minute).
 Finally, in the Designer pane at the top, you can add a trigger to control
