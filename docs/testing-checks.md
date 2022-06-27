@@ -207,4 +207,6 @@ contents to your local machine (after doing `cargo insta review` above):
 export INSTANCE=<you gotta get this from ssh.py or channel-tool.py>
 # note this assumes mozilla-central; change as appropriate
 infrastructure/aws/scp-while-sshed.py $INSTANCE 'config/mozilla-central/checks/snapshots/*' config/mozilla-central/checks/snapshots
+# if you changed any of the inputs, you'll want to run this too:
+infrastructure/aws/scp-while-sshed.py $INSTANCE 'config/mozilla-central/checks/inputs/*' config/mozilla-central/checks/inputs
 ```

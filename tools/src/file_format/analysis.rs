@@ -94,7 +94,6 @@ pub enum AnalysisKind {
     Decl,
     Forward,
     Idl,
-    IPC,
 }
 
 /// This is intended to help model the self-describing nature of analysis
@@ -187,6 +186,77 @@ pub struct StructuredFieldInfo {
     pub size_bytes: Option<u32>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BindingSlotKind {
+    /// A class that directly implements or will be subclassed.
+    Class,
+    /// For situations like XPConnect interfaces reflected into JS (and maybe
+    /// WebIDL?) where we are describing the symbol that exposes the IDL
+    /// interface into the language, but where that symbol is not directly part
+    /// of a class hierarchy.  I'm really not sure about the WebIDL case here,
+    /// and it probably will want to depend on how we end up implementing the
+    /// rest of the UX around here.  For now we will treat this like `Class`
+    /// above for most purposes, but this may enable semantic linking to try
+    /// and do XPConnect magic.
+    InterfaceName,
+    /// Callable.
+    Method,
+    /// A field/attribute/property that has JS XPIDL semantics where we only
+    /// have a single symbol name but it could correspond to a property or any
+    /// combination of a getter/setter.
+    Attribute,
+    /// An enum/const which is expected to be a value somehow.
+    Const,
+    /// An attribute for which we have a distinct symbol for a getter.
+    Getter,
+    /// An attribute for which we have a distinct symbol for a setter.
+    Setter,
+    /// An RPC/IPC send method which will have a corresponding Recv counterpart.
+    Send,
+    /// An RPC/IPC receive method which will have a corresponding Send
+    /// counterpart.
+    Recv,
+    /// Future: Pref symbol specified in a WebIDL `Pref="foo"` annotation.
+    ///
+    EnablingPref,
+    /// Future: Symbol specified in a WebIDL `Func=Class::Method` annotation.
+    EnablingFunc,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BindingSlotLang {
+    Cpp,
+    JS,
+    Rust,
+}
+
+/// The binding slot mechanism is used to describe the exclusive relationship
+/// between IDL symbols and their bindings as well as the non-exclusive
+/// support relationships like enabling functions.
+///
+/// This type is used in 2 directions:
+/// 1. From the IDL symbols via the "structured" `binding_slots` field.  In this
+///    case the origin symbol will have an `impl_kind` of "idl" and the binding
+///    slot target symbols will have non-idl values.
+/// 2. On a exclusive symbol referenced via `binding_slots`, this type is also
+///    used for the optional back-edge to the defining idl symbol.  This will
+///    not be used for support slots like enabling functions where the tentative
+///    plan is just to let the IDL file emit "uses" of the enabling func for
+///    cross-reference purposes.  In this case the structure is indicating the
+///    values which describe the relationship from the IDL symbol to the current
+///    symbol.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredBindingSlotInfo {
+    #[serde(rename = "slotKind")]
+    pub slot_kind: BindingSlotKind,
+    #[serde(rename = "slotLang")]
+    pub slot_lang: BindingSlotLang,
+    #[serde(default)]
+    pub sym: Ustr,
+}
+
 /// The structured record type extracts out the necessary information to uniquely identify the
 /// symbol and what is required for cross-referencing's establishment of hierarchy/links.  The rest
 /// of the data in the JSON payload of the record (minus these fields) is re-encoded as a
@@ -208,10 +278,8 @@ pub struct AnalysisStructured {
 
     #[serde(rename = "parentsym", skip_serializing_if = "Option::is_none")]
     pub parent_sym: Option<Ustr>,
-    #[serde(rename = "srcsym", skip_serializing_if = "Option::is_none")]
-    pub src_sym: Option<Ustr>,
-    #[serde(rename = "targetsym", skip_serializing_if = "Option::is_none")]
-    pub target_sym: Option<Ustr>,
+    #[serde(rename = "slotOwner", skip_serializing_if = "Option::is_none")]
+    pub slot_owner: Option<StructuredBindingSlotInfo>,
 
     #[serde(rename = "implKind", default)]
     pub impl_kind: Ustr,
@@ -219,6 +287,8 @@ pub struct AnalysisStructured {
     #[serde(rename = "sizeBytes")]
     pub size_bytes: Option<u32>,
 
+    #[serde(rename = "bindingSlots", default)]
+    pub binding_slots: Vec<StructuredBindingSlotInfo>,
     #[serde(default)]
     pub supers: Vec<StructuredSuperInfo>,
     #[serde(default)]
@@ -234,8 +304,8 @@ pub struct AnalysisStructured {
     #[serde(rename = "idlsym", skip_serializing_if = "Option::is_none")]
     pub idl_sym: Option<Ustr>,
     // Note: Originally these (subclasses, overriddenBy) were meant to hold
-    // { pretty, sym } when emitted (and that's how they're documented), but the
-    // current router.py assumes this symbol-only approach.
+    // { pretty, sym } for symmetry, but now the code and docs do reflect these
+    // as being symbol only.
     #[serde(rename = "subclasses", default, skip_serializing_if = "Vec::is_empty")]
     pub subclass_syms: Vec<Ustr>,
     #[serde(rename = "overriddenBy", default, skip_serializing_if = "Vec::is_empty")]

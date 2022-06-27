@@ -25,8 +25,9 @@ extern crate env_logger;
 extern crate log;
 extern crate tools;
 use crate::languages::FormatAs;
-use tools::file_format::analysis::{read_analysis, read_jumps, read_source};
+use tools::file_format::analysis::{read_analysis, read_source};
 use tools::format::{create_markdown_panel_section, format_file_data};
+use tools::file_format::crossref_lookup::CrossrefLookupMap;
 use tools::languages;
 
 use tools::output::{PanelItem, PanelSection};
@@ -73,16 +74,13 @@ fn main() {
     )
     .unwrap();
 
-    let pre_jumps = Instant::now();
-    let jumps_fname = format!("{}/jumps", tree_config.paths.index_path);
-    //let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
-    let jumps = read_jumps(&jumps_fname);
-    writeln!(
-        stdout,
-        "Jumps read, duration: {}us",
-        pre_jumps.elapsed().as_micros() as u64
-    )
-    .unwrap();
+    let jumpref_path = format!("{}/jumpref", tree_config.paths.index_path);
+    let jumpref_extra_path = format!("{}/jumpref-extra", tree_config.paths.index_path);
+
+    let pre_jumpref = Instant::now();
+    let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
+
+    writeln!(stdout, "Jumpref opened, duration: {}us", pre_jumpref.elapsed().as_micros() as u64).unwrap();
 
     let pre_lookup_map = Instant::now();
     let file_lookup_path = format!(
@@ -445,7 +443,7 @@ fn main() {
             &blame_commit,
             &path,
             input,
-            &jumps,
+            &jumpref_lookup_map,
             &analysis,
             &detailed_info.coverage_lines,
             &mut writer,

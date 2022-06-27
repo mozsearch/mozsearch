@@ -5,6 +5,62 @@ expression: "&to_value(scil).unwrap()"
 {
   "symbol_crossref_infos": [
     {
+      "symbol": "XPIDL_nsIXPCTestParams_testOctet",
+      "crossref_info": {
+        "idl": [
+          {
+            "path": "xpidl/xpctest_params.idl",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 24,
+                "bounds": [
+                  22,
+                  31
+                ],
+                "line": "octet                 testOctet(in octet a, inout octet b);",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "nsIXPCTestParams::testOctet",
+          "sym": "XPIDL_nsIXPCTestParams_testOctet",
+          "kind": "method",
+          "implKind": "idl",
+          "sizeBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "method",
+              "slotLang": "cpp",
+              "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
+            },
+            {
+              "slotKind": "method",
+              "slotLang": "js",
+              "sym": "#testOctet"
+            }
+          ],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": []
+        }
+      },
+      "relation": "Queried",
+      "quality": {
+        "IdentifierPrefix": [
+          27,
+          0
+        ]
+      },
+      "overloads_hit": []
+    },
+    {
       "symbol": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
       "crossref_info": {
         "uses": [
@@ -43,24 +99,6 @@ expression: "&to_value(scil).unwrap()"
             ]
           }
         ],
-        "idl": [
-          {
-            "path": "xpidl/xpctest_params.idl",
-            "path_kind": "Normal",
-            "lines": [
-              {
-                "lno": 24,
-                "bounds": [
-                  22,
-                  31
-                ],
-                "line": "octet                 testOctet(in octet a, inout octet b);",
-                "context": "",
-                "contextsym": ""
-              }
-            ]
-          }
-        ],
         "callees": [],
         "meta": {
           "structured": 1,
@@ -68,8 +106,14 @@ expression: "&to_value(scil).unwrap()"
           "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
           "kind": "method",
           "parentsym": "T_nsIXPCTestParams",
+          "slotOwner": {
+            "slotKind": "method",
+            "slotLang": "cpp",
+            "sym": "XPIDL_nsIXPCTestParams_testOctet"
+          },
           "implKind": "",
           "sizeBytes": null,
+          "bindingSlots": [],
           "supers": [],
           "methods": [],
           "fields": [],

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use itertools::Itertools;
-use serde_json::Value;
+use serde_json::{from_value, Value};
 use clap::Args;
 use tracing::trace;
 use ustr::ustr;
@@ -14,7 +14,10 @@ use super::{
     },
 };
 
-use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::{
+    abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
+    file_format::analysis::{BindingSlotKind, StructuredBindingSlotInfo},
+};
 
 /// Processes piped-in crossref symbol data, recursively traversing the given
 /// edges, building up a graph that also holds onto the crossref data for all
@@ -78,6 +81,37 @@ pub struct TraverseCommand {
     pub args: Traverse,
 }
 
+/// ### Theory of Operation
+///
+/// The crossref database can be thought of as a massive graph.  Each entry in
+/// the crossref database is a symbol and also a node.  The crossref entry
+/// contains references to other symbol nodes (particularly via the "meta"
+/// structured information) as well as code location nodes which also provide
+/// symbol nodes by way of their "contextsym".  (In the future we will likely
+/// also infer additional graph relationships by looking at function call
+/// arguments.)  There are other systems (ex: Kythe) which explicitly
+/// represent their data in a graph database/triple-store, but a fundamental
+/// searchfox design decision is to use a de-normalized representation and this
+/// seems to be holding up for both performance and human comprehension
+/// purposes.
+///
+/// This command is focused on efficiently deriving an interesting, useful, and
+/// comprehensible sub-graph of that massive graph.  Although the current state
+/// of implementation operates by starting from a set of nodes and enumerating
+/// and considering graph edges dynamically, we could imagine that in the future
+/// we might use some combination of pre-computation which could involve bulk /
+/// batch processing.
+///
+/// TODO continue this thought train, particularly as it relates to enumeration
+/// and consideration of edges.  A good comparison is the evolved processing we
+/// do in `cmd_crossref_expand.rs` now.  Via a helper it is able to separate the
+/// policy/domain logic from the boilerplate while also avoiding borrow
+/// problems.  It does have a simpler model where currently each node only needs
+/// to be considered at most once where the first relationship to reach a node
+/// via breadth-first search gets to define how the node is considered.  This is
+/// believed to be okay because there we're currently just trying to provide
+/// limited context for the returned symbols with a bias towards faceting,
+/// rather than big picture context.
 #[async_trait]
 impl PipelineCommand for TraverseCommand {
     async fn execute(
@@ -121,9 +155,9 @@ impl PipelineCommand for TraverseCommand {
         }
 
         let node_limit = if self.args.paths_between {
-            self.args.node_limit
-        } else {
             self.args.paths_between_node_limit
+        } else {
+            self.args.node_limit
         };
 
         // General operation:
@@ -139,6 +173,7 @@ impl PipelineCommand for TraverseCommand {
                 trace!(sym = %sym, depth, "stopping because of node limit");
                 overloads_hit.push(OverloadInfo {
                     kind: OverloadKind::NodeLimit,
+                    sym: Some(sym.to_string()),
                     exist: to_traverse.len() as u32,
                     included: node_limit,
                     local_limit: 0,
@@ -151,36 +186,54 @@ impl PipelineCommand for TraverseCommand {
             trace!(sym = %sym, depth, "processing");
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
 
-            // Consider "srcsym" as superseding the actual "uses" edge.
-            if self.args.edge.as_str() == "uses" {
-                if let Some(source_sym_str) = sym_info
-                    .crossref_info
-                    .pointer("/meta/srcsym")
-                    .unwrap_or(&Value::Null)
-                    .clone()
-                    .as_str()
-                {
-                    let source_sym = ustr(source_sym_str);
-                    let (source_id, source_info) =
-                        sym_node_set.ensure_symbol(&source_sym, server).await?;
-
-                    if source_info.is_callable() {
-                        graph.add_edge(source_id, sym_id.clone());
-                        if depth < max_depth && considered.insert(source_info.symbol.clone()) {
-                            trace!(sym = source_sym_str, "scheduling srcsym");
-                            to_traverse.push((source_info.symbol.clone(), depth + 1));
-                        }
-                    }
-                    // We explicitly want to bypass the normal "uses" processing
-                    // because that will just get us IPC internals or something
-                    // similar.
-                    continue;
-                }
-            }
-            // TODO: we also would want to handle "targetsym" in the "callees" direction eventually.
-
             // Clone the edges now before engaging in additional borrows.
             let edges = sym_info.crossref_info[&self.args.edge].clone();
+
+            let overrides = sym_info
+                .crossref_info
+                .pointer("/meta/overrides")
+                .unwrap_or(&Value::Null)
+                .clone();
+
+            // Check whether to traverse a parent binding slot relationship.
+            if let Some(val) = sym_info.crossref_info.pointer("/meta/slotOwner").cloned() {
+                let slot_owner: StructuredBindingSlotInfo = from_value(val).unwrap();
+
+                // There are a few possibilities with a binding slot.  It can be
+                // a binding type that is:
+                //
+                // 1. An IPC `Recv` where the "uses" of this method will only be
+                //    plumbing that is distracting and should be elided in favor
+                //    of showing all `Send` calls instead.
+                // 2. An XPIDL-like method implementation that can be called
+                //    through either a cross-language glue layer like XPConnect
+                //    which requires processing the slots or directly as the
+                //    implementation does not have to go through a glue layer
+                //    but can be called directly.  In this case, we do want to
+                //    process uses directly.
+                // 3. Support logic like an `EnablingPref` or `EnablingFunc` and
+                //    any use of the symbol is terminal and should not be
+                //    (erroneously) treated as somehow triggering the WebIDL
+                //    functions which it is enabling for.
+                let should_traverse = match slot_owner.slot_kind {
+                    // Enabling funcs and constants don't count as interesting
+                    // uses in either direction; they are support.
+                    BindingSlotKind::EnablingPref
+                    | BindingSlotKind::EnablingFunc
+                    | BindingSlotKind::Const => false,
+                    _ => true,
+                };
+                if should_traverse {
+                    let (idl_id, idl_info) =
+                        sym_node_set.ensure_symbol(&slot_owner.sym, server).await?;
+
+                    graph.add_edge(idl_id, sym_id.clone());
+                    if depth < max_depth && considered.insert(idl_info.symbol.clone()) {
+                        trace!(sym = idl_info.symbol.as_str(), "scheduling owner slot sym");
+                        to_traverse.push((idl_info.symbol.clone(), depth + 1));
+                    }
+                }
+            }
 
             // ## Handle "overrides" and "overriddenBy"
             //
@@ -190,11 +243,6 @@ impl PipelineCommand for TraverseCommand {
             // whether this should result in clusters, etc.
             //
             // Note that the logic below is highly duplicative
-            let overrides = sym_info
-                .crossref_info
-                .pointer("/meta/overrides")
-                .unwrap_or(&Value::Null)
-                .clone();
             //let overridden_by = sym_info.crossref_info.pointer("/meta/overriddenBy").unwrap_or(&Value::Null).clone();
 
             if let Some(sym_edges) = overrides.as_array() {
@@ -309,6 +357,7 @@ impl PipelineCommand for TraverseCommand {
                         if sym_edges.len() as u32 >= self.args.skip_uses_at_path_count {
                             overloads_hit.push(OverloadInfo {
                                 kind: OverloadKind::UsesPaths,
+                                sym: Some(sym.to_string()),
                                 exist: sym_edges.len() as u32,
                                 included: 0,
                                 local_limit: self.args.skip_uses_at_path_count,

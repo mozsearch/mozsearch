@@ -7,28 +7,14 @@ expression: "&json_results"
     "loc": "24:24-33",
     "target": 1,
     "kind": "idl",
-    "pretty": "testOctet",
-    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
+    "pretty": "nsIXPCTestParams::testOctet",
+    "sym": "XPIDL_nsIXPCTestParams_testOctet"
   },
   {
     "loc": "24:24-33",
     "source": 1,
     "syntax": "idl",
-    "pretty": "IDL C++ method testOctet",
-    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
-  },
-  {
-    "loc": "24:24-33",
-    "source": 1,
-    "syntax": "idl",
-    "pretty": "IDL method testOctet",
-    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_,#testOctet"
-  },
-  {
-    "loc": "24:24-33",
-    "target": 1,
-    "kind": "idl",
-    "pretty": "testOctet",
-    "sym": "#testOctet"
+    "pretty": "IDL method nsIXPCTestParams::testOctet",
+    "sym": "XPIDL_nsIXPCTestParams_testOctet"
   }
 ]

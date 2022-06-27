@@ -262,7 +262,7 @@ Raw record info.  These are attributes that will be found in the analysis files.
 - `pretty`: The pretty name/identifier for this structured symbol info.
 - `sym`: The searchfox symbol for this symbol.
 - `kind`: A string with one of the following values:
-  - `enum`: TODO: I don't know that this actually is a thing we emit yet?
+  - `enum`: XPIDL enums do this at least
   - `class`
   - `struct`
   - `union`
@@ -272,9 +272,7 @@ Raw record info.  These are attributes that will be found in the analysis files.
     info with the intent being that the data canonically lives on the parent
     symbol and this just provides the `parentsym` necessary to get to that info.
     But this potentially needs more thought.  TODO: Think more on this!
-  - `ipc`: An IPC function where there's a send method and a recv method.  The
-    send method will be associated via `srcsym` and the recv method via
-    `targetsym`.  TODO: clarify what happens for the IPC interface.
+  - `ipc`: An IPC function where there's a send method and a recv method.
 - `parentsym`: For methods and fields, the symbol of the record to which they
   belong.  The current intent is that this is not populated for namespace
   purposes.  (That is, for a class "Bar" in namespace "foo" with pretty name
@@ -285,14 +283,22 @@ Raw record info.  These are attributes that will be found in the analysis files.
   not currently used for any cross-referencing, it's just meta.  (And note that
   target records' `contextsym` should frequently be the same when it's not just
   a namespace.)
-- `srcsym`: For "ipc" calls, the symbol that corresponds to the send method.
-- `targetsym`: For "ipc" calls, the symbol that corresponds to the recv method.
+- `slotOwner`: For bindings/implementations of IDL, an optional
+  `StructuredBindingSlotInfo` as found in `bindingSlots` but in the opposite
+  direction and identifying the owning symbol.
 - `implKind`: Assume to be "impl" if not present.  Reasonable values:
   - `idl`: This is the semantic definition in XPIDL, IPDL, WebIDL, etc.
-  - `binding`: Ex: WebIDL binding.
+  - `binding`: Ex: WebIDL binding glue.  Auto-generated and perhaps of interest
+    but of less interst than the `idl` or the `impl`.  Note that in cases like
+    XPIDL, the binding machinery may be invisible for searchfox's context menus
+    and the like.
   - `impl`: By default, most things will be "impl".  But when WebIDL/etc. are
     involved this will be the actual implementation.
 - `sizeBytes`: Size in bytes.  Not present for method/function.
+- `bindingSlots`: For IDL definitions, an array of `StructuredBindingSlotInfo`:
+  - `slotKind`: See `BindingSlotKind`
+  - `slotLang`: See `BindingSlotLang`
+  - `sym`
 - `supers`: For class-like symbols, an array of:
   - `pretty`: The pretty name/identifier for this super.
   - `sym`: The searchfox symbol for this super.
@@ -342,12 +348,7 @@ Attributes added/updated by cross-referencing:
 - `overriddenBy`: Derived from `overrides`.
   - `pretty`
   - `sym`
-- `srcsym`: May exist in the record, also propagated from `idl` implKind
-  records.
-- `targetsym`: May exist in the record, also propagated from `idl` implKind
-  records.
-- `idlsym`: Linkaged established by `idl` implKind records from `srcsym` and
-  `targetsym` symbols to the `idl` symbol.
+
 
 Attributes optionally added by merging (see more on this below).  These will
 only be present when the structured records differed between platforms.  If

@@ -13,6 +13,7 @@ extern crate ipdl_parser;
 extern crate tools;
 
 use getopts::Options;
+use serde_json::json;
 
 use ipdl_parser::ast::ProtocolSide;
 use tools::file_format::analysis::{
@@ -122,44 +123,57 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
     return best_piece;
 }
 
-fn output_binding_target_data(outputf: &mut File, locstr: &str, datum: &AnalysisTarget) {
-    write!(
-        outputf,
-        r#"{{"loc": "{}", "target": 1, "kind": "idl", "pretty": "{}", "sym": "{}"}}"#,
-        locstr, datum.pretty, datum.sym
-    )
-    .unwrap();
-    write!(outputf, "\n").unwrap();
-    write!(
-        outputf,
-        r#"{{"loc": "{}", "source": 1, "syntax": "use", "pretty": "{}", "sym": "{}"}}"#,
-        locstr, datum.pretty, datum.sym
-    )
-    .unwrap();
-    write!(outputf, "\n").unwrap();
-}
-
 fn output_ipc_data(outputf: &mut File, locstr: &str, ipc_pretty: &str, ipc_sym: &str, send_datum: &AnalysisTarget, recv_datum: &AnalysisTarget) {
-    // It might make sense to change the kind to "ipc", but if so, we probably want to change the
-    // binding target records as well.
     write!(
         outputf,
-        r#"{{"loc": "{}", "target": 1, "kind": "idl", "pretty": "{}", "sym": "{}"}}"#,
-        locstr, ipc_pretty, ipc_sym
+        "{}",
+        json!({
+            "loc": locstr,
+            "target": 1,
+            "kind": "idl",
+            "pretty": ipc_pretty,
+            "sym": ipc_sym,
+        })
     )
     .unwrap();
     write!(outputf, "\n").unwrap();
     write!(
         outputf,
-        r#"{{"loc": "{}", "source": 1, "syntax": "idl,ipc,def", "pretty": "ipc {}", "sym": "{},{},{}"}}"#,
-        locstr, ipc_pretty, ipc_sym, send_datum.sym, recv_datum.sym
+        "{}",
+        json!({
+            "loc": locstr,
+            "source": 1,
+            "syntax": "idl,ipc,def",
+            "pretty": format!("ipc {}", ipc_pretty),
+            "sym": ipc_sym,
+        })
     )
     .unwrap();
     write!(outputf, "\n").unwrap();
     write!(
         outputf,
-        r#"{{"loc": "{}", "structured": 1, "pretty": "{}", "sym": "{}", "kind": "ipc", "implKind": "idl", "srcsym": "{}", "targetsym": "{}"}}"#,
-        locstr, ipc_pretty, ipc_sym, send_datum.sym, recv_datum.sym
+        "{}",
+        json!({
+            "loc": locstr,
+            "structured": 1,
+            "pretty": ipc_pretty,
+            "sym": ipc_sym,
+            // Note that this is different than the target record kind.
+            "kind": "ipc",
+            "implKind": "idl",
+            "bindingSlots": [
+                {
+                    "slotKind": "send",
+                    "slotLang": "cpp",
+                    "sym": send_datum.sym,
+                },
+                {
+                    "slotKind": "recv",
+                    "slotLang": "cpp",
+                    "sym": recv_datum.sym,
+                },
+            ]
+        })
     )
     .unwrap();
     write!(outputf, "\n").unwrap();
@@ -195,9 +209,7 @@ fn output_send_recv(
         &format!("{}{}{}", send_prefix, message.name.id, ctor_suffix),
     );
     let maybe_send_datum = find_analysis(send_analysis, &mangled);
-    if let Some(send_datum) = maybe_send_datum {
-        output_binding_target_data(outputf, &locstr, &send_datum);
-    } else {
+    if let None = maybe_send_datum {
         println!("No analysis target found for send: {}", mangled);
     }
 
@@ -218,9 +230,7 @@ fn output_send_recv(
     );
     let maybe_recv_datum = find_analysis(recv_analysis, &mangled_no_p)
                            .or_else(|| find_analysis(recv_analysis, &mangled_yes_p));
-    if let Some(recv_datum) = maybe_recv_datum {
-        output_binding_target_data(outputf, &locstr, &recv_datum);
-    } else {
+    if let None = maybe_recv_datum {
         println!("No analysis target found for recv: {} or {}", mangled_no_p, mangled_yes_p);
     }
 

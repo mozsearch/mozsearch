@@ -216,6 +216,16 @@ pub enum OverloadKind {
 #[derive(Clone, Serialize)]
 pub struct OverloadInfo {
     pub kind: OverloadKind,
+    /// The symbol, if any, this overload is associated with beyond the owner
+    /// of this record.  That is, if this overload is hanging off a symbol's
+    /// data structure (ex: SymbolCrossrefInfo), this field will be None unless
+    /// we are characterizing and edge to another symbol.  But if this overload
+    /// is hanging off a generic container, we may include a symbol name for
+    /// additional context.  It's possible we might report the same overload in
+    /// both places, even!  Overloads are intended as a diagnostic and for
+    /// human comprehension to know the results have been truncated; we don't
+    /// have to have a perfectly efficient data structure.
+    pub sym: Option<String>,
     /// How many results do we think exist?
     pub exist: u32,
     /// How many results did we include before giving up?  This can be zero or

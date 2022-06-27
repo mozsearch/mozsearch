@@ -6,7 +6,7 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="10"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >async</span> <span class="syn_def syn_def" data-symbols="_ZN7mozilla9_ipdltest16PTestBasicParent9SendHelloEv,_ZN7mozilla9_ipdltest14TestBasicChild9RecvHelloEv,IPC_mozilla__ipdltest_PTestBasic_Hello,_ZN7mozilla9_ipdltest16PTestBasicParent9SendHelloEv,_ZN7mozilla9_ipdltest14TestBasicChild9RecvHelloEv" data-i="0" >Hello</span>();
+  <code role="cell" class="source-line">    <span class="syn_reserved" >async</span> <span class="syn_def syn_def" data-symbols="IPC_mozilla__ipdltest_PTestBasic_Hello">Hello</span>();
 </code>
 </div>
 
