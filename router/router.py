@@ -80,7 +80,10 @@ def merge_defs_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
             aggr_defs.append(path_hit)
 
     if len(aggr_defs):
-        mix_target[as_key] = aggr_defs
+        if as_key in mix_target:
+            mix_target[as_key].extend(aggr_defs)
+        else:
+            mix_target[as_key] = aggr_defs
 
 
 def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
@@ -107,8 +110,16 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
       - We will show an "Overrides" section whose hits will be the definitions
         of the thing we are overriding and upsells "(search using this symbol)".
     - We do the same thing as the above for "Superclasses" and "Subclasses".
-    - If there will be more than 50 results, we don't attempt to show anything
-      out of concern for overwhelming the server.
+    - If there will be more than 100 results, we don't attempt to show anything
+      out of concern for overwhelming the server.  (merge_defs_from_symbols_as
+      is where the hard-coded constant lives, plus comments.)
+
+    ## New IDL binding slot support!
+
+    XPIDL and IPDL analysis have been updated to canonically emit only their own
+    `XPIDL_foo` and `IPDL_foo` symbols with the C++ bindings and send/recv pairs
+    expressed as slots.  To this end we now process the meta 'bindingSlots'
+    array property and the singular 'slotOwner' property.
     '''
     for new_name, old_name in key_remapping.items():
         if new_name in new_keyed:
@@ -135,6 +146,14 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
                 if 'subclasses' in meta:
                     # This is also a derived relationship with only the symbol.
                     merge_defs_from_symbols_as(tree_name, new_keyed, meta['subclasses'], 'Subclasses')
+                # The owner is going to be an IDL parent right now, make sure
+                # we're showing the IDL (def) as IDL.
+                if 'slotOwner' in meta:
+                    merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slowOwner']['sym']], 'IDL')
+                # If we've got an IDL symbol, show all of its related binding
+                # definitions as definitions.
+                if 'bindingSlots' in meta:
+                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['bindingSlots']], 'Definitions')
         else:
             del new_keyed['meta']
 

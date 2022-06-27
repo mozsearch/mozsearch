@@ -6,7 +6,7 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="9"></div>
-  <code role="cell" class="source-line">  <span class="syn_reserved" >virtual</span> <span class="syn_reserved" >void</span> <span class="syn_def" data-symbols="_ZN10DoubleBase10doublePureEv" data-i="1" >doublePure</span>() = 0;
+  <code role="cell" class="source-line">  <span class="syn_reserved" >virtual</span> <span class="syn_reserved" >void</span> <span class="syn_def" data-symbols="_ZN10DoubleBase10doublePureEv">doublePure</span>() = 0;
 </code>
 </div>
 

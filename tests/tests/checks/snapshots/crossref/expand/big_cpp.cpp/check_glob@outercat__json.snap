@@ -50,6 +50,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,
+          "bindingSlots": [],
           "supers": [
             {
               "pretty": "outerNS::Thing",
@@ -334,6 +335,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,
+          "bindingSlots": [],
           "supers": [],
           "methods": [
             {
@@ -537,6 +539,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,
+          "bindingSlots": [],
           "supers": [
             {
               "pretty": "outerNS::Thing",
@@ -667,6 +670,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,
+          "bindingSlots": [],
           "supers": [
             {
               "pretty": "outerNS::Thing",
@@ -786,6 +790,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,
+          "bindingSlots": [],
           "supers": [
             {
               "pretty": "outerNS::Thing",
@@ -935,6 +940,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,
+          "bindingSlots": [],
           "supers": [
             {
               "pretty": "outerNS::Human",
@@ -1053,6 +1059,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,
+          "bindingSlots": [],
           "supers": [
             {
               "pretty": "outerNS::AbstractArt",

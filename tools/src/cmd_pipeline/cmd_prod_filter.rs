@@ -57,8 +57,11 @@ fn norm_html_value(s: String) -> String {
                 Ok(())
             }
         ),
+        // As a transient thing, remove data-i entirely since this will allow us
+        // to update the production checks before landing.  This rule can be
+        // removed after we've transitioned as "data-i" should no longer exist.
         element!(r#"span[data-i]"#, |el| {
-            el.set_attribute("data-i", "NORM").unwrap();
+            el.remove_attribute("data-i");
             Ok(())
         }),
         element!(r#"div.source-line-with-number"#, |el| {

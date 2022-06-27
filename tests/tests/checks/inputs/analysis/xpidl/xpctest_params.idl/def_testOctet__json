@@ -1,1 +1,1 @@
-filter-analysis xpidl/xpctest_params.idl -k idl -i "testOctet"
+filter-analysis xpidl/xpctest_params.idl -k idl -i "nsIXPCTestParams::testOctet"

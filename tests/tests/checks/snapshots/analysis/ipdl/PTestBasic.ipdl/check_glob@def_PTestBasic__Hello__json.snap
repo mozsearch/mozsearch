@@ -15,6 +15,6 @@ expression: "&json_results"
     "source": 1,
     "syntax": "idl,ipc,def",
     "pretty": "ipc mozilla__ipdltest::PTestBasic::Hello",
-    "sym": "IPC_mozilla__ipdltest_PTestBasic_Hello,_ZN7mozilla9_ipdltest16PTestBasicParent9SendHelloEv,_ZN7mozilla9_ipdltest14TestBasicChild9RecvHelloEv"
+    "sym": "IPC_mozilla__ipdltest_PTestBasic_Hello"
   }
 ]

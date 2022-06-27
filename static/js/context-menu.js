@@ -35,42 +35,77 @@ var ContextMenu = new (class ContextMenu {
       return;
     }
 
-    if (!event.target.closest("code")) {
+    if (!event.target.closest("code") && !event.target.closest("svg")) {
       return;
     }
 
     let tree = document.getElementById("data").getAttribute("data-tree");
 
+    // Figure out the source line this click was on, if it was on any line, so
+    // that we can compare it against jump strings in order to avoid offering
+    // the option to jump to the line the user literally just clicked on.
+    let sourceLineClicked = null;
+    {
+      let sourceLineNode = event.target.closest("code");
+      let lineNumberNode = sourceLineNode?.previousElementSibling;
+      if (lineNumberNode && Router.sourcePath) {
+        sourceLineClicked = `${Router.sourcePath}#${lineNumberNode.dataset.lineNumber}`;
+      }
+    }
+
     let menuItems = [];
 
-    let index = event.target.closest("[data-i]");
-    if (index) {
-      index = index.getAttribute("data-i");
-      // Comes from the generated page.
-      let [jumps, searches] = ANALYSIS_DATA[index];
+    let symbolToken = event.target.closest("[data-symbols]");
+    if (symbolToken) {
+      let symbols = symbolToken.getAttribute("data-symbols").split(",");
 
-      for (let { sym, pretty, path } of jumps) {
-        let href;
-        // `path` is new and will not exist on older trees, so to ease the
-        // transition, let's handle it not existing for now.
-        // TODO: start assuming path is present.
-        //
-        // See https://bugzilla.mozilla.org/show_bug.cgi?id=1748959 for some
-        // discussion on the trade-offs of direct links versus the indirect CGI
-        // lookup.
-        if (path) {
-          href = `/${tree}/source/${path}`;
-        } else {
-          href = `/${tree}/define?q=${encodeURIComponent(sym)}&redirect=false`;
+      const seenSyms = new Set();
+      // For debugging/investigation purposes, expose the symbols that got
+      // clicked on on the window global.
+      const exposeSymbolsForDebugging = window.CLICKED_SYMBOLS = [];
+      for (const sym of symbols) {
+        // Avoid processing the same symbol more than once.
+        if (seenSyms.has(sym)) {
+          continue;
         }
-        menuItems.push({
-          html: this.fmt("Go to definition of _", pretty),
-          href,
-          icon: "search",
-        });
-      }
 
-      for (let { sym, pretty } of searches) {
+        const symInfo = SYM_INFO[sym];
+        if (!symInfo) {
+          continue;
+        }
+
+        // The symInfo is self-identifying via `pretty` and `sym` so we don't
+        // need to try and include any extra context.
+        exposeSymbolsForDebugging.push(symInfo);
+
+        let { pretty } = symInfo;
+
+        if (symInfo.jumps) {
+          if (symInfo.jumps.idl && symInfo.jumps.idl !== sourceLineClicked) {
+            menuItems.push({
+              html: this.fmt("Go to IDL definition of _", pretty),
+              href: `/${tree}/source/${symInfo.jumps.idl}`,
+              icon: "search",
+            });
+          }
+
+          if (symInfo.jumps.def && symInfo.jumps.def !== sourceLineClicked) {
+            menuItems.push({
+              html: this.fmt("Go to definition of _", pretty),
+              href: `/${tree}/source/${symInfo.jumps.def}`,
+              icon: "search",
+            });
+          }
+
+          if (symInfo.jumps.decl && symInfo.jumps.decl !== sourceLineClicked) {
+            menuItems.push({
+              html: this.fmt("Go to declaration of _", pretty),
+              href: `/${tree}/source/${symInfo.jumps.decl}`,
+              icon: "search",
+            });
+          }
+        }
+
         menuItems.push({
           html: this.fmt("Search for _", pretty),
           href: `/${tree}/search?q=symbol:${encodeURIComponent(
@@ -91,10 +126,9 @@ var ContextMenu = new (class ContextMenu {
       });
     }
 
-    let token = event.target.closest("[data-symbols]");
-    if (token) {
-      let symbols = token.getAttribute("data-symbols");
-      let visibleToken = token.textContent;
+    if (symbolToken) {
+      let symbols = symbolToken.getAttribute("data-symbols");
+      let visibleToken = symbolToken.textContent;
       menuItems.push({
         html: "Sticky highlight",
         href: `javascript:Hover.stickyHighlight('${symbols}', '${visibleToken}')`,

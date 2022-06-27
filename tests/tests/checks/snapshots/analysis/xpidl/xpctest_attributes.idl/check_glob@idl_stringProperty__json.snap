@@ -7,42 +7,14 @@ expression: "&json_results"
     "loc": "26:19-33",
     "target": 1,
     "kind": "idl",
-    "pretty": "stringProperty",
-    "sym": "#stringProperty"
-  },
-  {
-    "loc": "26:19-33",
-    "target": 1,
-    "kind": "idl",
-    "pretty": "stringProperty",
-    "sym": "_ZN25nsIXPCTestObjectReadWrite17GetStringPropertyEPPc"
-  },
-  {
-    "loc": "26:19-33",
-    "target": 1,
-    "kind": "idl",
-    "pretty": "stringProperty",
-    "sym": "_ZN25nsIXPCTestObjectReadWrite17SetStringPropertyEPKc"
+    "pretty": "nsIXPCTestObjectReadWrite::stringProperty",
+    "sym": "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
   },
   {
     "loc": "26:19-33",
     "source": 1,
     "syntax": "idl",
-    "pretty": "IDL C++ getter for stringProperty",
-    "sym": "_ZN25nsIXPCTestObjectReadWrite17GetStringPropertyEPPc"
-  },
-  {
-    "loc": "26:19-33",
-    "source": 1,
-    "syntax": "idl",
-    "pretty": "IDL C++ setter for stringProperty",
-    "sym": "_ZN25nsIXPCTestObjectReadWrite17SetStringPropertyEPKc"
-  },
-  {
-    "loc": "26:19-33",
-    "source": 1,
-    "syntax": "idl",
-    "pretty": "IDL attribute stringProperty",
-    "sym": "_ZN25nsIXPCTestObjectReadWrite17GetStringPropertyEPPc,_ZN25nsIXPCTestObjectReadWrite17SetStringPropertyEPKc,#stringProperty"
+    "pretty": "IDL attribute nsIXPCTestObjectReadWrite::stringProperty",
+    "sym": "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
   }
 ]

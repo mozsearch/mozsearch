@@ -6,7 +6,7 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="14"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span data-symbols="test_rust_dependency::<MyType>::do_foo" data-i="4" >do_foo</span>(<span class="syn_reserved" >self</span>) -> <span data-symbols="test_rust_dependency::MyType" data-i="5" >MyType</span> {
+  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span data-symbols="test_rust_dependency::<MyType>::do_foo">do_foo</span>(<span class="syn_reserved" >self</span>) -> <span data-symbols="test_rust_dependency::MyType">MyType</span> {
 </code>
 </div>
 

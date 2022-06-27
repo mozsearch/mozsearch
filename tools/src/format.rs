@@ -6,7 +6,7 @@ use std::process::Command;
 use std::time::Instant;
 
 use crate::blame;
-use crate::file_format::analysis;
+use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::git_ops;
 use crate::languages;
 use crate::languages::FormatAs;
@@ -14,15 +14,15 @@ use crate::links;
 use crate::tokenize;
 
 use crate::file_format::config::{GitData, Config, TreeConfig};
-use crate::file_format::analysis::{AnalysisSource, Jump, WithLocation};
+use crate::file_format::analysis::{AnalysisSource, WithLocation};
 use crate::output::{self, Options, PanelItem, PanelSection, F};
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 use git2;
-use serde_json::{json, Map, Value, to_string, to_string_pretty};
-use ustr::{Ustr, UstrMap};
+use serde_json::{json, Map, to_string, to_string_pretty};
+use ustr::{Ustr};
 
 #[derive(Debug)]
 pub struct FormattedLine {
@@ -38,12 +38,12 @@ pub struct FormattedLine {
 /// provide the metadata for the position:sticky post-processing step.  Caller is responsible
 /// for generating line numbers and any blame information.
 pub fn format_code(
-    jumps: &UstrMap<Jump>,
+    jumpref_lookup: &Option<CrossrefLookupMap>,
     format: FormatAs,
-    path: &str,
+    _path: &str,
     input: &str,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-) -> (Vec<FormattedLine>, String, String) {
+) -> (Vec<FormattedLine>, String) {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
         FormatAs::CSS => tokenize::tokenize_css(&input),
@@ -76,16 +76,12 @@ pub fn format_code(
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
 
-    // The ANALYSIS_DATA array we output into the HTML that the "data-i" values key into.  There's
-    // potentially a ton of redundant data in here.  Jumps filter out jumping to their own current
-    // line, but otherwise the entries for a given symbol will be identical every time the symbol
-    // is found.  This mechanism has been about binding DOM elements to structured JS data rather
-    // than efficiency of encoding.
-    let mut generated_json = vec![];
-    // The SYM_INFO dictionary we output into the HTML.  This is used to stash the type_pretty and
-    // type_sym information for symbols that possess it, including no_crossref symbols which won't
-    // have an entry in `generated_json` with corresponding `data-i` attr, but do possess a
-    // `data-symbols` attr (which is a more recent invention).
+    // The SYM_INFO dictionary we output into the HTML which provides the symbol
+    // information required to populate the context menu as well as providing
+    // additional metadata for the super navigation panel.  This replaces the
+    // previous ANALYSIS_DATA array which combined information from the crossref
+    // generated "jumps" file as well as "source records" at the point of each
+    // token.
     let mut generated_sym_info = BTreeMap::new();
 
     let mut last_pos = 0;
@@ -190,23 +186,35 @@ pub fn format_code(
                         nesting_stack.push(a);
                     }
 
-                    // Pass-through local symbol information that won't be available from the
-                    // cross-reference database because it was marked no_crossref.  This is only
-                    // intended to cover type information about the locals; other info like srcsym
-                    // and targetsym doesn't make sense for locals.
-                    if a.no_crossref && a.type_pretty.is_some() && a.sym.len() >= 1 &&
-                       !generated_sym_info.contains_key(&a.sym[0]) {
-                        let mut obj = Map::new();
-                        if a.get_syntax_kind().is_some() {
-                            obj.insert("syntax".to_string(),
-                                       json!(a.get_syntax_kind().unwrap().to_string()));
+                    // XXX This 0-reference thing should be abandoned.  This was an attempt to be
+                    // be more efficient in the face of cross-platform locals frequently ending up
+                    // providing us with 4 different symbol names
+                    if a.sym.len() >= 1 &&
+                        !generated_sym_info.contains_key(&a.sym[0]) {
+                        let sym = &a.sym[0];
+                        // Pass-through local symbol information that won't be available from the
+                        // cross-reference database because it was marked no_crossref.  This is only
+                        // intended to cover type information about the locals; other info like srcsym
+                        // and targetsym doesn't make sense for locals.
+                        if a.no_crossref {
+                            if let Some(type_pretty) = a.type_pretty {
+                                let mut obj = Map::new();
+                                if let Some(syntax_kind) = a.get_syntax_kind() {
+                                    obj.insert("syntax".to_string(),
+                                            json!(syntax_kind.to_string()));
+                                }
+                                obj.insert("type".to_string(),
+                                        json!(type_pretty.to_string()));
+                                if let Some(type_sym) = &a.type_sym {
+                                    obj.insert("typesym".to_string(), json!(type_sym.to_string()));
+                                }
+                                generated_sym_info.insert(sym.clone(), json!(obj));
+                            }
+                        } else if let Some(lookup) = jumpref_lookup {
+                            if let Ok(jumpref_info) = lookup.lookup(&sym) {
+                                generated_sym_info.insert(sym.clone(), jumpref_info);
+                            }
                         }
-                        obj.insert("type".to_string(),
-                                   json!(a.type_pretty.as_ref().unwrap().to_string()));
-                        if let Some(type_sym) = &a.type_sym {
-                            obj.insert("typesym".to_string(), json!(type_sym.to_string()));
-                        }
-                        generated_sym_info.insert(a.sym[0].clone(), json!(obj));
                     }
                 }
 
@@ -215,66 +223,24 @@ pub fn format_code(
                 // locals.  These will be emitted into a `data-symbols` attribute below.
                 let syms = {
                     let mut syms = String::new();
-                    for (i, sym) in d.iter().flat_map(|item| item.sym.iter()).enumerate() {
-                        if i != 0 {
+                    // Suppress including the symbol multiple times.  This was possible under the
+                    // ANALYSIS_DATA regime where "source" records mapped directly to "searches",
+                    // but this may now be moot.
+                    let mut seen_syms = Vec::new();
+                    for sym in d.iter().flat_map(|item| item.sym.iter()) {
+                        if seen_syms.contains(sym) {
+                            continue;
+                        }
+                        if seen_syms.len() > 0 {
                             syms.push_str(",");
                         }
+                        seen_syms.push(sym.clone());
                         syms.push_str(sym)
                     }
                     syms
                 };
 
-                // Filter out items marked no_crossref so we can process for search/jumps for
-                // context menus.
-                let d = d
-                    .iter()
-                    .filter(|item| !item.no_crossref)
-                    .collect::<Vec<_>>();
-
-                // map to de-duplicate jumps on path:lineno, later flattened to vec.
-                let mut menu_jumps: HashMap<String, Value> = HashMap::new();
-                for sym in d.iter().flat_map(|item| item.sym.iter()) {
-                    let jump = match jumps.get(sym) {
-                        Some(jump) => jump,
-                        None => continue,
-                    };
-
-                    if jump.path == *path && jump.lineno == cur_line as u64 {
-                        continue;
-                    }
-
-                    menu_jumps.insert(
-                        format!("{}:{}", jump.path, jump.lineno),
-                        json!({
-                            "sym": sym,
-                            "pretty": jump.pretty,
-                            "path": format!("{}#{}", jump.path, jump.lineno),
-                        })
-                    );
-                }
-
-                let items = d
-                    .iter()
-                    .map(|item| {
-                        json!({
-                            "sym": item.get_joined_syms(),
-                            "pretty": item.pretty,
-                        })
-                    })
-                    .collect::<Vec<_>>();
-
-                let menu_jumps = menu_jumps.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
-
-                let index = generated_json.len();
-                if items.len() > 0 {
-                    generated_json.push(json!(vec![
-                        json!(menu_jumps),
-                        json!(items),
-                    ]));
-                    format!("data-symbols=\"{}\" data-i=\"{}\" ", syms, index)
-                } else {
-                    format!("data-symbols=\"{}\" ", syms)
-                }
+                format!("data-symbols=\"{}\"", syms)
             }
             _ => String::new(),
         };
@@ -345,17 +311,12 @@ pub fn format_code(
         });
     }
 
-    let analysis_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
-        to_string(&json!(generated_json)).unwrap()
-    } else {
-        to_string_pretty(&json!(generated_json)).unwrap()
-    };
     let sym_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
         to_string(&json!(generated_sym_info)).unwrap()
     } else {
         to_string_pretty(&json!(generated_sym_info)).unwrap()
     };
-    (output_lines, analysis_json, sym_json)
+    (output_lines, sym_json)
 }
 
 #[derive(Default)]
@@ -379,7 +340,7 @@ pub fn format_file_data(
     blame_commit: &Option<git2::Commit>,
     path: &str,
     data: String,
-    jumps: &UstrMap<Jump>,
+    crossref_lookup_map: &Option<CrossrefLookupMap>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     coverage: &Option<Vec<i64>>,
     writer: &mut dyn Write,
@@ -399,7 +360,7 @@ pub fn format_file_data(
 
     let slug = format_to_slug_attribute(&format);
     let pre_format_code = Instant::now();
-    let (output_lines, analysis_json, sym_json) = format_code(jumps, format, path, &data, &analysis);
+    let (output_lines, sym_json) = format_code(crossref_lookup_map, format, path, &data, &analysis);
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
     let pre_blame_lines = Instant::now();
@@ -612,8 +573,7 @@ pub fn format_file_data(
 
     write!(
         writer,
-        "<script>var ANALYSIS_DATA = {}; var SYM_INFO = {};</script>\n",
-        analysis_json,
+        "<script>var SYM_INFO = {};</script>\n",
         sym_json,
     )
     .unwrap();
@@ -725,7 +685,6 @@ pub fn format_path(
         None
     };
 
-    let jumps: UstrMap<analysis::Jump> = UstrMap::default();
     let analysis = Vec::new();
 
     let hg_rev: &str = tree_config
@@ -788,7 +747,7 @@ pub fn format_path(
         &blame_commit,
         path,
         data,
-        &jumps,
+        &None,
         &analysis,
         &None,
         writer,
@@ -959,10 +918,9 @@ pub fn format_diff(
         }
         _ => {}
     };
-    let jumps: UstrMap<analysis::Jump> = UstrMap::default();
     let analysis = Vec::new();
     let slug = format_to_slug_attribute(&format);
-    let (formatted_lines, _, _) = format_code(&jumps, format, path, &new_lines, &analysis);
+    let (formatted_lines, _) = format_code(&None, format, path, &new_lines, &analysis);
 
     let (header, _) = blame::commit_header(&commit)?;
 

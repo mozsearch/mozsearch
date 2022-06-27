@@ -6,7 +6,7 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="20"></div>
-  <code role="cell" class="source-line"><span class="syn_reserved" >#include</span> <span class="syn_string" data-symbols="FILE_big_header@2Eh" data-i="0" >"big_header.h"</span>
+  <code role="cell" class="source-line"><span class="syn_reserved" >#include</span> <span class="syn_string" data-symbols="FILE_big_header@2Eh">"big_header.h"</span>
 </code>
 </div>
 

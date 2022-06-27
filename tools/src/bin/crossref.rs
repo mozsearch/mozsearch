@@ -17,6 +17,7 @@ use clap::Parser;
 use serde_json::{json, Map};
 extern crate tools;
 use tools::file_format::config;
+use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
 use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
@@ -24,6 +25,7 @@ use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
 use tools::{
     file_format::analysis::{
         read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
+        StructuredBindingSlotInfo,
     },
 };
 use ustr::Ustr;
@@ -35,6 +37,17 @@ use ustr::ustr;
 /// inline in the `crossref` file itself.
 const EXTERNAL_STORAGE_THRESHOLD: usize = 1024 * 3;
 
+/// Splits "pretty" identifiers into their scope components based on C++ style
+/// `::` delimiters, ignoring anything that looks like a template param inside
+/// (potentially nested) `<` and `>` pairs.
+///
+/// Note that although searchfox effectively understands JS-style "Foo.bar"
+/// hierarchy, this is currently accomplished via `js-analyze.js` emitting 2
+/// records: `{ pretty: "Foo", sym: "#Foo", ...}` and `{ pretty: "Foo.bar", sym:
+/// "Foo#bar", ...}`.  This approach will likely be revisited when we move to
+/// using LSIF/similar indexing, in which case this method will likely want to
+/// become language aware and we would start only emitting a single record for
+/// a single symbol.
 fn split_scopes(id: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut start = 0;
@@ -186,7 +199,8 @@ async fn main() {
     // ## Process all the analysis files
     let xref_file = format!("{}/crossref", tree_config.paths.index_path);
     let xref_ext_file = format!("{}/crossref-extra", tree_config.paths.index_path);
-    let jump_file = format!("{}/jumps", tree_config.paths.index_path);
+    let jumpref_file = format!("{}/jumpref", tree_config.paths.index_path);
+    let jumpref_ext_file = format!("{}/jumpref-extra", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
     // Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult> as the leaf
@@ -208,8 +222,6 @@ async fn main() {
     // formerly dubbed "consumes" in prototyping, but that was even more
     // confusing.  This may want to get renamed again.)
     let mut callees_table = BTreeMap::new();
-    // Not populated until phase 2 when we walk the above data-structures.
-    let mut jumps = Vec::new();
 
     // As we process the source entries and build the SourceMeta, we keep a running list of what
     // cross-SourceMeta links need to be established.  We then process this after all of the files
@@ -220,8 +232,7 @@ async fn main() {
     // Pairs of [parent method sym, overridden by sym] to add the override to the parent.
     let mut xref_link_override = Vec::new();
 
-    // Triples of [ipc sym, src src, target sym].
-    let mut xref_link_ipc = Vec::new();
+    let mut xref_link_slots = Vec::new();
 
     for path in &analysis_relative_paths {
         print!("File {}\n", path);
@@ -316,25 +327,22 @@ async fn main() {
             // definition records.
             for piece in datum.data {
                 meta_table.entry(piece.sym).or_insert_with(|| {
-                    // XXX these now either need to come from the dynamic
-                    // "extra" or the "supers"/"overrides" should be explicitly
-                    // mapped.
-                    if !piece.supers.is_empty() {
-                        for super_info in &piece.supers {
-                            xref_link_subclass.push((super_info.sym, piece.sym));
-                        }
+                    for super_info in &piece.supers {
+                        xref_link_subclass.push((super_info.sym, piece.sym));
                     }
 
-                    if !piece.overrides.is_empty() {
-                        for override_info in &piece.overrides {
-                            xref_link_override.push((override_info.sym, piece.sym));
-                        }
+                    for override_info in &piece.overrides {
+                        xref_link_override.push((override_info.sym, piece.sym));
                     }
 
-                    if let ("ipc", Some(src_sym), Some(target_sym)) =
-                        (piece.kind.as_str(), piece.src_sym, piece.target_sym)
-                    {
-                        xref_link_ipc.push((piece.sym, src_sym, target_sym));
+                    for slot_info in &piece.binding_slots {
+                        xref_link_slots.push((
+                            slot_info.sym,
+                            StructuredBindingSlotInfo {
+                                slot_kind: slot_info.slot_kind,
+                                slot_lang: slot_info.slot_lang,
+                                sym: piece.sym,
+                            }));
                     }
 
                     piece
@@ -356,21 +364,19 @@ async fn main() {
         }
     }
 
-    for (ipc_sym, src_sym, target_sym) in xref_link_ipc {
-        if let Some(src_meta) = meta_table.get_mut(&src_sym) {
-            src_meta.idl_sym = Some(ipc_sym);
-            src_meta.target_sym = Some(target_sym);
-        }
-
-        if let Some(target_meta) = meta_table.get_mut(&target_sym) {
-            target_meta.idl_sym = Some(ipc_sym);
-            target_meta.src_sym = Some(src_sym);
+    for (slotted_sym, slot_owner) in xref_link_slots {
+        if let Some(slotted) = meta_table.get_mut(&slotted_sym) {
+            slotted.slot_owner = Some(slot_owner);
         }
     }
 
-    // ## Write out the crossref database.
+    // ## Write out the crossref and jumpref databases.
     let mut xref_out = File::create(xref_file).unwrap();
     let mut xref_ext_out = File::create(xref_ext_file).unwrap();
+
+    let mut jumpref_out = File::create(jumpref_file).unwrap();
+    let mut jumpref_ext_out = File::create(jumpref_ext_file).unwrap();
+
     // We need to know offset positions in the `-extra` file.  File::tell is a
     // nightly-only experimental API as documented at
     // https://github.com/rust-lang/rust/issues/71213 which makes it preferable
@@ -381,11 +387,7 @@ async fn main() {
     // track of offsets ourselves and relying on our tests to make sure we don't
     // mess up.
     let mut xref_ext_offset: usize = 0;
-
-    // For the "jumps" (go to definition), favor IDL definitions over binding
-    // implementation decisions.  This mechanism will likely be overhauled by
-    // bug 1727789 but until that time, let's do better.
-    let jump_precedences = vec![AnalysisKind::Idl, AnalysisKind::Def];
+    let mut jumpref_ext_offset: usize = 0;
 
     // Let's only report missing concise info at most once, as for those cases
     // where we have them (ex: NSS), there's usually a lot of symbols in the
@@ -419,7 +421,6 @@ async fn main() {
                 AnalysisKind::Decl => "decls",
                 AnalysisKind::Forward => "forwards",
                 AnalysisKind::Idl => "idl",
-                AnalysisKind::IPC => "ipc",
             };
             kindmap.insert(kindstr.to_string(), json!(result));
         }
@@ -439,65 +440,73 @@ async fn main() {
             kindmap.insert("callees".to_string(), json!(callees));
         }
         // Put the metadata in there too.
+        let mut fallback_pretty = None;
         if let Some(meta) = meta_table.get(&id) {
             kindmap.insert("meta".to_string(), json!(meta));
+        } else {
+            fallback_pretty = pretty_table.get(&id);
         }
 
         let kindmap = json!(kindmap);
-        let id_line = format!("!{}\n", id);
-        let inline_line = format!(":{}\n", kindmap.to_string());
-        if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
-            // ### External storage.
-            xref_out.write_all(id_line.as_bytes()).unwrap();
-            // We write out the identifier in the extra file as well so that it
-            // can be interpreted in the same fashion.
-            xref_ext_out.write_all(id_line.as_bytes()).unwrap();
-            xref_ext_offset += id_line.len();
+        {
+            let id_line = format!("!{}\n", id);
+            let inline_line = format!(":{}\n", kindmap.to_string());
+            if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
+                // ### External storage.
+                xref_out.write_all(id_line.as_bytes()).unwrap();
+                // We write out the identifier in the extra file as well so that it
+                // can be interpreted in the same fashion.
+                xref_ext_out.write_all(id_line.as_bytes()).unwrap();
+                xref_ext_offset += id_line.len();
 
-            let ext_offset_line = format!(
-                "@{:x} {:x}\n",
-                // Skip the leading ":"
-                xref_ext_offset + 1,
-                // Subtract off the leading ":" but keep the newline.
-                inline_line.len() - 1
-            );
-            xref_out.write_all(ext_offset_line.as_bytes()).unwrap();
+                let ext_offset_line = format!(
+                    "@{:x} {:x}\n",
+                    // Skip the leading ":"
+                    xref_ext_offset + 1,
+                    // Subtract off the leading ":" but keep the newline.
+                    inline_line.len() - 1
+                );
+                xref_out.write_all(ext_offset_line.as_bytes()).unwrap();
 
-            xref_ext_out.write_all(inline_line.as_bytes()).unwrap();
-            xref_ext_offset += inline_line.len();
-        } else {
-            // ### Inline storage.
-            xref_out.write_all(id_line.as_bytes()).unwrap();
-            xref_out.write_all(inline_line.as_bytes()).unwrap();
-        }
-
-        'outer: for jump_kind in jump_precedences.iter() {
-            if id_data.contains_key(jump_kind) {
-                let defs = id_data.get(jump_kind).unwrap();
-                if defs.len() == 1 {
-                    for (path, results) in defs {
-                        if results.len() == 1 {
-                            let mut v = Vec::new();
-                            v.push(json!(id));
-                            v.push(json!(path));
-                            v.push(json!(results[0].lineno));
-                            let pretty = pretty_table.get(&id).unwrap();
-                            v.push(json!(pretty));
-                            jumps.push(json!(v));
-
-                            // Stop considering other jump precedences if we've
-                            // emitted a jump.
-                            break 'outer;
-                        }
-                    }
-                }
+                xref_ext_out.write_all(inline_line.as_bytes()).unwrap();
+                xref_ext_offset += inline_line.len();
+            } else {
+                // ### Inline storage.
+                xref_out.write_all(id_line.as_bytes()).unwrap();
+                xref_out.write_all(inline_line.as_bytes()).unwrap();
             }
         }
-    }
 
-    let mut jumpf = File::create(jump_file).unwrap();
-    for jump in jumps {
-        let _ = jumpf.write_all((jump.to_string() + "\n").as_bytes());
+        // Also write out/update the jumpref.
+        let jumpref_info = convert_crossref_value_to_sym_info_rep(kindmap, &id, fallback_pretty);
+        {
+            let id_line = format!("!{}\n", id);
+            let inline_line = format!(":{}\n", jumpref_info.to_string());
+            if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
+                // ### External storage.
+                jumpref_out.write_all(id_line.as_bytes()).unwrap();
+                // We write out the identifier in the extra file as well so that it
+                // can be interpreted in the same fashion.
+                jumpref_ext_out.write_all(id_line.as_bytes()).unwrap();
+                jumpref_ext_offset += id_line.len();
+
+                let ext_offset_line = format!(
+                    "@{:x} {:x}\n",
+                    // Skip the leading ":"
+                    jumpref_ext_offset + 1,
+                    // Subtract off the leading ":" but keep the newline.
+                    inline_line.len() - 1
+                );
+                jumpref_out.write_all(ext_offset_line.as_bytes()).unwrap();
+
+                jumpref_ext_out.write_all(inline_line.as_bytes()).unwrap();
+                jumpref_ext_offset += inline_line.len();
+            } else {
+                // ### Inline storage.
+                jumpref_out.write_all(id_line.as_bytes()).unwrap();
+                jumpref_out.write_all(inline_line.as_bytes()).unwrap();
+            }
+        }
     }
 
     let mut idf = File::create(id_file).unwrap();

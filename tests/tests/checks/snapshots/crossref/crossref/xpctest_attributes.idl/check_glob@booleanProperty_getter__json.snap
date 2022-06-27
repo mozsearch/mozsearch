@@ -43,24 +43,6 @@ expression: "&to_value(scil).unwrap()"
             ]
           }
         ],
-        "idl": [
-          {
-            "path": "xpidl/xpctest_attributes.idl",
-            "path_kind": "Normal",
-            "lines": [
-              {
-                "lno": 27,
-                "bounds": [
-                  18,
-                  33
-                ],
-                "line": "attribute boolean booleanProperty;",
-                "context": "",
-                "contextsym": ""
-              }
-            ]
-          }
-        ],
         "callees": [],
         "meta": {
           "structured": 1,
@@ -68,8 +50,14 @@ expression: "&to_value(scil).unwrap()"
           "sym": "_ZN25nsIXPCTestObjectReadWrite18GetBooleanPropertyEPb",
           "kind": "method",
           "parentsym": "T_nsIXPCTestObjectReadWrite",
+          "slotOwner": {
+            "slotKind": "getter",
+            "slotLang": "cpp",
+            "sym": "XPIDL_nsIXPCTestObjectReadWrite_booleanProperty"
+          },
           "implKind": "",
           "sizeBytes": null,
+          "bindingSlots": [],
           "supers": [],
           "methods": [],
           "fields": [],

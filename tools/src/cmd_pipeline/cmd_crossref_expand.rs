@@ -150,6 +150,11 @@ impl PipelineCommand for CrossrefExpandCommand {
                 }
             };
 
+            // Given a JSON pointer to a an array, if present, process it, transforming
+            // each array value using `xfunc` to extract the symbol.  `use_relation`
+            // specifies the resulting relationship that should be associated
+            // with the extracted symbol.  `use_limits` is the `LimitGroup` to
+            // adjust and apply.
             let mut proc_ptr =
                 |ptr: &str,
                  xfunc: &dyn Fn(&Value) -> &Value,
@@ -160,6 +165,9 @@ impl PipelineCommand for CrossrefExpandCommand {
                             if limits.local_limit > 0 && arr.len() as u32 > limits.local_limit {
                                 info.overloads_hit.push(OverloadInfo {
                                     kind: limits.kind.clone(),
+                                    // We're explicitly hanging off a symbol, so we don't need to
+                                    // encode any other symbol here.
+                                    sym: None,
                                     exist: arr.len() as u32,
                                     included: 0,
                                     local_limit: limits.local_limit,
@@ -172,6 +180,9 @@ impl PipelineCommand for CrossrefExpandCommand {
                             {
                                 info.overloads_hit.push(OverloadInfo {
                                     kind: limits.kind.clone(),
+                                    // We're explicitly hanging off a symbol, so we don't need to
+                                    // encode any other symbol here.
+                                    sym: None,
                                     exist: arr.len() as u32,
                                     included: 0,
                                     local_limit: 0,
