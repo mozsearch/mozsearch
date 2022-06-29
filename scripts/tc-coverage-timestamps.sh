@@ -76,7 +76,7 @@ while read -r sf_rev; read -r sf_taskid; do
   ARTIFACT_TASKID=$(jq -M -r '.taskId' <<< "$ARTIFACT_FINDTASK_INFO")
   # DISCLAIMER: We're hard-coding run id of 0 here, which maybe is wrong in the face of infrastructure restarts.
   # we could totally find out the right run id from "queue status" and picking the last or successful one.
-  ARTIFACT_INFO=$(taskcluster api queue listArtifacts $ARTIFACT_TASKID 0)
+  ARTIFACT_INFO=$(taskcluster api queue listLatestArtifacts $ARTIFACT_TASKID)
   # I am assuming that the coverage artifact gets exactly 2 weeks from the date of uploading.
   # https://github.com/mozilla/code-coverage/blob/de635654bd3eae18c53c52c0010a42f362a04479/bot/code_coverage_bot/hooks/repo.py#L129 tells us that's right at the current time.
   ARTIFACT_UPLOAD_DATE=$(jq -M -r '.artifacts[] | select(.name ==  "public/code-coverage-report.json") | .expires | sub("\\.[0-9]+Z$"; "Z")  | fromdate - (14 * 24 * 60 * 60) | todate' <<< "$ARTIFACT_INFO")
