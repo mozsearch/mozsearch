@@ -175,7 +175,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         F::S("</div>"),
         F::S(r#"<div id="path-section">"#),
         F::Indent(vec![
-            F::S(r#"<label for="query" class="query_label visually-hidden">Path</label>"#),
+            F::S(r#"<label for="path" class="query_label visually-hidden">Path</label>"#),
             F::S(
                 r#"<input type="text" name="path" value="" maxlength="2048" id="path" accesskey="p" title="Path" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />"#,
             ),
@@ -206,7 +206,8 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         F::S("<fieldset>"),
         F::Indent(fieldset),
         F::S("</fieldset>"),
-        F::S(r#"<input type="submit" value="Search" class="visually-hidden" />"#),
+        F::S("<!-- disabled to avoid enter-submits behavior that conflicts with JS search logic -->"),
+        F::S(r#"<input type="submit" value="Search" disabled class="visually-hidden" />"#),
         F::S(r#"<div id="revision">"#),
         F::Indent(revision),
         F::S("</div>"),
