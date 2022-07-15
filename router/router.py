@@ -379,6 +379,7 @@ class SearchResults(object):
         return r
 
 def search_files(tree_name, path):
+    t = time.time()
     pathFile = os.path.join(index_path(tree_name), 'repo-files')
     objdirFile = os.path.join(index_path(tree_name), 'objdir-files')
     try:
@@ -388,6 +389,7 @@ def search_files(tree_name, path):
         return []
     results = results.strip().split('\n')
     results = [ {'path': f, 'lines': []} for f in results ]
+    log('  search_files "%s" - %f', path, time.time() - t)
     return results[:1000]
 
 def demangle(sym):
@@ -397,6 +399,7 @@ def demangle(sym):
         return sym
 
 def identifier_search(search, tree_name, needle, complete, fold_case):
+    t = time.time()
     needle = re.sub(r'\\(.)', r'\1', needle)
 
     pieces = re.split(r'\.|::', needle)
@@ -428,6 +431,7 @@ def identifier_search(search, tree_name, needle, complete, fold_case):
 
         results = expand_keys(tree_name, crossrefs.lookup_merging(tree_name, sym))
         search.add_qualified_results(q, results, line_modifier)
+    log('  identifier_search "%s" - %f', needle, time.time() - t)
 
 def get_json_search_results(tree_name, query):
     try:
@@ -514,7 +518,9 @@ def get_json_search_results(tree_name, query):
         assert False
         results = {}
 
+    search_get_t = time.time()
     results = search.get(work_limit)
+    log('  search.get() - %f', time.time() - search_get_t)
 
     results['*title*'] = title
     results['*timedout*'] = hit_timeout
