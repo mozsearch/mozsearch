@@ -44,6 +44,7 @@ def collateMatches(matches):
     return results
 
 def do_search(host, port, pattern, fold_case, file, context_lines):
+    t = time.time()
     query = livegrep_pb2.Query(line = pattern, file = file, fold_case = fold_case,
                                context_lines = context_lines)
     log('QUERY %s', repr(query).replace('\n', ', '))
@@ -54,7 +55,7 @@ def do_search(host, port, pattern, fold_case, file, context_lines):
     channel.close()
 
     matches = collateMatches(result.results)
-    log('codesearch result with %d line matches across %d paths', len(result.results), len(matches))
+    log('  codesearch result with %d line matches across %d paths - %f', len(result.results), len(matches), time.time() - t)
     return (matches, livegrep_pb2.SearchStats.ExitReason.Name(result.stats.exit_reason) == 'TIMEOUT')
 
 def daemonize(args):
