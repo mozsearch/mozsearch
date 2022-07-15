@@ -104,7 +104,10 @@ function generate(content, opt)
         </div>
       </div>
     </fieldset>
-    <input type="submit" value="Search" class="visually-hidden" />
+    <!-- We're marking this disabled in order to avoid the user pressing enter
+         triggering the default submit behavior and conflicting with our dynamic
+         logic. -->
+    <input type="submit" value="Search" disabled class="visually-hidden" />
   </form>
 </div>
 

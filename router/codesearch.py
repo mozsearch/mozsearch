@@ -55,7 +55,9 @@ def do_search(host, port, pattern, fold_case, file, context_lines):
     channel.close()
 
     matches = collateMatches(result.results)
-    log('  codesearch result with %d line matches across %d paths - %f', len(result.results), len(matches), time.time() - t)
+    log('  codesearch result with %d line matches across %d paths - %f : %s',
+        len(result.results), len(matches), time.time() - t,
+        repr(result.stats).replace('\n', ', '))
     return (matches, livegrep_pb2.SearchStats.ExitReason.Name(result.stats.exit_reason) == 'TIMEOUT')
 
 def daemonize(args):
