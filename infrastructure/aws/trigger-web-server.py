@@ -66,7 +66,12 @@ r = ec2.run_instances(
     SecurityGroups=['web-server-secure'],
     UserData=userData,
     # t3 gets us "nitro" NVME EBS and is cheaper than t2.
-    InstanceType='t3.large',
+    #
+    # We're now upgrading from t3.large (2 cores) to t3.xlarge (4 cores) because
+    # we're seeing CPU-limited codesearch queries.  The increase from 8GiB to
+    # 16GiB is also expected to be overall good for performance as caching is
+    # arguably good for performance as well!
+    InstanceType='t3.xlarge',
     Placement={'AvailabilityZone': availability_zone},
 )
 
@@ -158,6 +163,7 @@ print('Shutting down old servers...')
 r = ec2.describe_instances(Filters=[{'Name': 'tag-key', 'Values': ['web-server']},
                                     {'Name': 'tag:channel', 'Values': [channel]}])
 terminate = []
+backups_retained = 0
 for reservation in r['Reservations']:
     for instance in reservation['Instances']:
         instanceId = instance['InstanceId']
@@ -169,10 +175,17 @@ for reservation in r['Reservations']:
         for tag in tags:
             if tag['Key'] == 'web-server':
                 t = dateutil.parser.parse(tag['Value'])
-                # Leave one old release1-channel server around so we can switch
-                # to it in an emergency.
+                # Leave old release1-channel servers around so we can switch
+                # to them in an emergency or for quick testing.
                 if channel != "release1" or datetime.now() - t >= timedelta(1.5):
                     kill = True
+                # we're starting with 2 backups for now because this is a
+                # decrease from 3, but we will move this to 1 once we're sure
+                # I didn't mess this up too much.
+                elif backups_retained >= 2:
+                    kill = True
+                else:
+                    backups_retained += 1
 
         if kill:
             terminate.append(instanceId)
