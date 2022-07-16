@@ -85,8 +85,10 @@ not work properly in a headless VM, but if you do that flow outside the VM and
 copy the resulting credentials into the VM that might work.
 
 To start, you'll need to create some AWS configuration files in your
-home directory, and set up a python3 virtual environment with some AWS-related
-packages:
+home directory, and set up a python3 venv environment with some AWS-related
+packages.  See https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
+for more on installing venv, but on ubuntu you should be able to run
+`apt install python3-venv`.
 
 ```
 # RUN THESE COMMANDS OUTSIDE THE VM!
@@ -98,7 +100,7 @@ cat > ~/.aws/config <<"THEEND"
 region = us-west-2
 THEEND
 
-virtualenv --python=python3 env
+python3 -m venv env
 source env/bin/activate
 pip install boto3 awscli rich mozilla-aws-cli-mozilla
 # Make sure that we have an up-to-date version of certifi for certificate
@@ -544,6 +546,6 @@ by running
 infrastructure/aws/terminate-indexer.py <instance-id>
 infrastructure/aws/delete-volume.py <volume-id>
 ```
-from within your local searchfox virtualenv (see the above section
+from within your local searchfox venv (see the above section
 on setting up AWS locally). The terminate-indexer.py script or the
 web console will let you know the volume ID of the volume to delete.
