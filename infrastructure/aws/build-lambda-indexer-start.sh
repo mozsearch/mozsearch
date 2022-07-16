@@ -38,8 +38,11 @@ def start(event, context):
 EOF
 
 pushd /tmp/lambda
-virtualenv --python=python3 env
+python3 -m venv env
 env/bin/pip install boto3
+# Note: The below comment may no longer apply since we've migrated from
+# virtualenv to venv, but it seems like it can't hurt, so I'm leaving it around.
+#
 # Because our virtualenv doesn't specify --no-seed/--without-pip, it may pull
 # packages from your machine into the virtualenv which can include a potentially
 # out-of-date version of certifi.  For example, on asuth's Ubuntu 20.04 machine,
