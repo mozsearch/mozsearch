@@ -22,12 +22,13 @@ PARSE_EXPR+=' body_bytes_sent, referrer, user_agent'
 PARSE_EXPR+=' | substring(repo_path, 0, 6) as maybe_search'
 PARSE_EXPR+=' | maybe_search == "search" as is_search'
 
+CACHE_CHECK='where cache_status != "-"'
 MISS_CHECK='where cache_status == "MISS"'
 
 GET_ACTION='where !is_search | parse "*/*" from repo_path as action, path'
 ONLY_SEARCH='where is_search'
 
-STATS='count, p50(request_time), p90(request_time), p95(request_time), p99(request_time)'
+STATS='count, p50(request_time), p66(request_time), p75(request_time), p90(request_time), p95(request_time), p99(request_time)'
 
 # This includes 2 lines of headers.
 SLOW_COUNT=12
@@ -37,14 +38,14 @@ SLOW_COUNT=12
 echo "### Dynamic Non-Search Request Latencies"
 echo ''
 echo '```'
-cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${GET_ACTION} | ${STATS} by action"
+cat $1 | agrind "* | ${PARSE_EXPR} | ${CACHE_CHECK} | ${GET_ACTION} | ${STATS} by action, cache_status"
 echo '```'
 
 echo ''
 echo "### Dynamic Search Request Latencies"
 echo ''
 echo '```'
-cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${ONLY_SEARCH} | ${STATS}"
+cat $1 | agrind "* | ${PARSE_EXPR} | ${CACHE_CHECK} | ${ONLY_SEARCH} | ${STATS} by cache_status"
 echo '```'
 
 
@@ -59,7 +60,7 @@ echo '```'
 #
 # So we just pipe the output through head.  Actually, we pipe it through tac
 # first so that agrind doesn't emit an error about the closed pipe.
-cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${ONLY_SEARCH} | sort by request_time desc | fields + request_time, repo_path" | tac | tac | head -n${SLOW_COUNT}
+cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${ONLY_SEARCH} | sort by request_time desc | fields + request_time, repo_path" | tac | tail -n${SLOW_COUNT} | tac
 echo '```'
 
 
@@ -74,5 +75,5 @@ echo '```'
 #
 # So we just pipe the output through head.  Actually, we pipe it through tac
 # first so that agrind doesn't emit an error about the closed pipe.
-cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${GET_ACTION} | sort by request_time desc | fields + request_time, path, action" | tac | tac | head -n${SLOW_COUNT}
+cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${GET_ACTION} | sort by request_time desc | fields + request_time, path, action" | tac | tail -n${SLOW_COUNT} | tac
 echo '```'
