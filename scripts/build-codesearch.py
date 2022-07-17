@@ -79,8 +79,23 @@ livegrep_config['fs_paths'].append({
 
 json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
 
-run(['codesearch', '/tmp/livegrep.json', '-dump_index', tree['codesearch_path'], '-index_only',
-     '-max_matches', '1000', '-line_limit', '4096'], stdin=open('/dev/null'), cwd='/tmp/dummy')
+run(['codesearch', '/tmp/livegrep.json',
+     '-dump_index', tree['codesearch_path'],
+     '-index_only',
+     '-max_matches', '1000',
+     # the default is 27 which is a chunk size of 128 MiB which was resulting in
+     # only 2 threads having work to do for very big queries, so we're scaling
+     # down by 8 (2**3) to be able to saturate 8 threads and give each thread
+     # potentially more than 1 work unit.
+     #
+     # (Although 2 work units probably isn't optimal for useful work stealing,
+     # but I don't quite understand enough about any scale benefits the chunks
+     # might have like clever SQLite style delta-encoding, so I want to avoid
+     # making too dramatic a change.  But in theory a value of 22 might be
+     # better to give each thread potentialy 8 work units where we currently
+     # only see 1.)
+     '-chunk_power', '24',
+     '-line_limit', '4096'], stdin=open('/dev/null'), cwd='/tmp/dummy')
 
 run(['rm', '-rf', '/tmp/dummy'])
 run(['rm', '-rf', '/tmp/livegrep.json'])
