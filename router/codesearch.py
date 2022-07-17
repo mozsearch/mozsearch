@@ -92,10 +92,26 @@ def stop_codesearch(data):
 def startup_codesearch(data):
     log('Starting codesearch on port %d', data['codesearch_port'])
 
+    use_threads = 4
+    try:
+        # Defined to return None if "undetermined", so we handle that but also
+        # are prepared for things to throw.
+        maybe_count = os.cpu_count()
+        # Limit us to 8 cores primarily to avoid the Vagrant VM getting too
+        # resource hungry.  We may tend to want to give it as many cores as
+        # possible for rust compilation, but our current EC2 core max is 8.
+        if maybe_count is not None:
+            use_threads = min(8, maybe_count)
+    except:
+        pass
+
     args = ['codesearch', '-grpc', 'localhost:' + str(data['codesearch_port']),
             '--noreuseport',
             '-load_index', data['codesearch_path'],
-            '-max_matches', '1000', '-timeout', '10000', '-context_lines', '0']
+            '-max_matches', '1000',
+            '-threads', f'{use_threads}',
+            '-timeout', '10000',
+            '-context_lines', '0']
 
     daemonize(args)
     # Sleep a teeny bit to let the server have some exclusive time to spin up
