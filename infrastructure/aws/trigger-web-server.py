@@ -58,6 +58,20 @@ images = ec2.describe_images(Filters=[{'Name': 'tag-key', 'Values': ['web-server
 # TODO: sort/pick the highest datestamp-y "web-server" tag Value.
 image_id = images['Images'][0]['ImageId']
 
+# t3 gets us "nitro" NVME EBS and is cheaper than t2.
+#
+# We're now upgrading from t3.large (2 cores) to t3.xlarge (4 cores) because
+# we're seeing CPU-limited codesearch queries.  The increase from 8GiB to
+# 16GiB is also expected to be overall good for performance as caching is
+# arguably good for performance as well!
+#
+# And "release1" gets 8 cores because it holds our flagship repo,
+# mozilla-central.
+if channel == 'release1':
+    instance_type = 't3.2xlarge'
+else:
+    instance_type = 't3.xlarge'
+
 r = ec2.run_instances(
     ImageId=image_id,
     MinCount=1,
@@ -65,13 +79,7 @@ r = ec2.run_instances(
     KeyName='Main Key Pair',
     SecurityGroups=['web-server-secure'],
     UserData=userData,
-    # t3 gets us "nitro" NVME EBS and is cheaper than t2.
-    #
-    # We're now upgrading from t3.large (2 cores) to t3.xlarge (4 cores) because
-    # we're seeing CPU-limited codesearch queries.  The increase from 8GiB to
-    # 16GiB is also expected to be overall good for performance as caching is
-    # arguably good for performance as well!
-    InstanceType='t3.xlarge',
+    InstanceType=instance_type,
     Placement={'AvailabilityZone': availability_zone},
 )
 
@@ -179,10 +187,16 @@ for reservation in r['Reservations']:
                 # to them in an emergency or for quick testing.
                 if channel != "release1" or datetime.now() - t >= timedelta(1.5):
                     kill = True
-                # we're starting with 2 backups for now because this is a
-                # decrease from 3, but we will move this to 1 once we're sure
-                # I didn't mess this up too much.
-                elif backups_retained >= 2:
+                # The time heuristic would catch up to 3 backups, so once we've
+                # found a recent-ish back-up to use, stop the others.  This
+                # is inherently biased by the sort order so it might be better
+                # to create a list of candidates to retain and then pick more
+                # deliberately, but this is probably fine given that in steady
+                # state we'll always be replacing an instance that was started
+                # 12 hours ago so a pathological situation is not possible
+                # unless indexers are failing a lot, but this heuristic was
+                # never meant to address that.
+                elif backups_retained >= 1:
                     kill = True
                 else:
                     backups_retained += 1
