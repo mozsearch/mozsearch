@@ -6,9 +6,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 3 ]
+if [ $# != 4 ]
 then
-    echo "usage: $0 <config-repo-path> <config-file-name> <volume-id>"
+    echo "usage: $0 <config-repo-path> <config-file-name> <volume-id> <channel>"
     exit 1
 fi
 
@@ -19,6 +19,7 @@ CONFIG_REPO=$(readlink -f $1)
 CONFIG_INPUT="$2"
 
 VOLUME_ID=$3
+CHANNEL=$4
 
 # The EBS volume will no longer be mounted at /dev/xvdf but instead at an
 # arbitrarily assigned nvme id.
@@ -83,6 +84,26 @@ sudo mount $EBS_NVME_DEV ~ubuntu/index
 NGINX_CACHE_DIR=/home/ubuntu/index/nginx-cache
 mkdir $NGINX_CACHE_DIR
 sudo chown www-data:www-data $NGINX_CACHE_DIR
+
+# release1 specific optimizations for mozilla-central to ensure we cache all of
+# the important files before starting up.  This can make the difference between
+# a 10 second search and a 3 second search.
+#
+# Note that we're only causing these to be initially cache.  vmtouch does
+# support the ability to do `-dl` (daemonize and lock pages into memory), but
+# we're not sure that we want to force these things to be cached forever.  We
+# just want to give them a good chance to already be cached into memory.  We
+# should likely run `vmtouch -v` on the backup servers manually to figure out
+# how much ends up staying cached or if we're seeing evictions.
+if [[ $CHANNEL == "release1" ]]; then
+  date
+  vmtouch -t /home/ubuntu/index/mozilla-central/crossref-extra
+  date
+  vmtouch -t /home/ubuntu/index/mozilla-central/crossref
+  date
+  vmtouch -t /home/ubuntu/index/mozilla-central/livegrep.idx
+  date
+fi
 
 $MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT index ~ hsts $NGINX_CACHE_DIR
 $MOZSEARCH_PATH/web-server-run.sh $CONFIG_REPO index ~
