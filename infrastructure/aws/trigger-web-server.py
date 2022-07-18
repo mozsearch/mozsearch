@@ -45,7 +45,7 @@ cd ~ubuntu
 touch web_server_started
 sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_input}" "{volume_id}" "{channel}"
-'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input, volume_id=volumeId, channel=channel)
+'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input, volume_id=volumeId)
 
 volumes = ec2.describe_volumes(VolumeIds=[volumeId])
 availability_zone = volumes['Volumes'][0]['AvailabilityZone']
