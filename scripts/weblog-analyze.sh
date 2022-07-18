@@ -22,6 +22,14 @@ PARSE_EXPR+=' body_bytes_sent, referrer, user_agent'
 PARSE_EXPR+=' | substring(repo_path, 0, 6) as maybe_search'
 PARSE_EXPR+=' | maybe_search == "search" as is_search'
 
+if [[ ${2:-} ]]; then
+  MAYBE_REPO_FILTER="where repo == \"$2\" | "
+  MAYBE_REPO_LABEL=" for $2"
+else
+  MAYBE_REPO_FILTER=""
+  MAYBE_REPO_LABEL=""
+fi
+
 CACHE_CHECK='where cache_status != "-"'
 MISS_CHECK='where cache_status == "MISS"'
 
@@ -35,22 +43,22 @@ SLOW_COUNT=12
 
 ## Output dynamic request latencies
 
-echo "### Dynamic Non-Search Request Latencies"
+echo "### Dynamic Non-Search Request Latencies${MAYBE_REPO_LABEL}"
 echo ''
 echo '```'
-cat $1 | agrind "* | ${PARSE_EXPR} | ${CACHE_CHECK} | ${GET_ACTION} | ${STATS} by action, cache_status"
-echo '```'
-
-echo ''
-echo "### Dynamic Search Request Latencies"
-echo ''
-echo '```'
-cat $1 | agrind "* | ${PARSE_EXPR} | ${CACHE_CHECK} | ${ONLY_SEARCH} | ${STATS} by cache_status"
+cat $1 | agrind "* | ${PARSE_EXPR} |${MAYBE_REPO_FILTER} ${CACHE_CHECK} | ${GET_ACTION} | ${STATS} by action, cache_status"
 echo '```'
 
+echo ''
+echo "### Dynamic Search Request Latencies${MAYBE_REPO_LABEL}"
+echo ''
+echo '```'
+cat $1 | agrind "* | ${PARSE_EXPR} |${MAYBE_REPO_FILTER} ${CACHE_CHECK} | ${ONLY_SEARCH} | ${STATS} by cache_status"
+echo '```'
+
 
 echo ''
-echo '### Slowest Searches'
+echo "### Slowest Searches${MAYBE_REPO_LABEL}"
 echo ''
 echo '```'
 # agrind supports a limit operator but it appears there's a buggy optimization
@@ -60,12 +68,12 @@ echo '```'
 #
 # So we just pipe the output through head.  Actually, we pipe it through tac
 # first so that agrind doesn't emit an error about the closed pipe.
-cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${ONLY_SEARCH} | sort by request_time desc | fields + request_time, repo_path" | tac | tail -n${SLOW_COUNT} | tac
+cat $1 | agrind "* | ${PARSE_EXPR} |${MAYBE_REPO_FILTER} ${MISS_CHECK} | ${ONLY_SEARCH} | sort by request_time desc | fields + request_time, repo_path" | tac | tail -n${SLOW_COUNT} | tac
 echo '```'
 
 
 echo ''
-echo '### Slowest Rev Requests'
+echo "### Slowest Rev Requests${MAYBE_REPO_LABEL}"
 echo ''
 echo '```'
 # agrind supports a limit operator but it appears there's a buggy optimization
@@ -75,5 +83,5 @@ echo '```'
 #
 # So we just pipe the output through head.  Actually, we pipe it through tac
 # first so that agrind doesn't emit an error about the closed pipe.
-cat $1 | agrind "* | ${PARSE_EXPR} | ${MISS_CHECK} | ${GET_ACTION} | sort by request_time desc | fields + request_time, path, action" | tac | tail -n${SLOW_COUNT} | tac
+cat $1 | agrind "* | ${PARSE_EXPR} |${MAYBE_REPO_FILTER} ${MISS_CHECK} | ${GET_ACTION} | sort by request_time desc | fields + request_time, path, action" | tac | tail -n${SLOW_COUNT} | tac
 echo '```'
