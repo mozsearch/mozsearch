@@ -90,7 +90,8 @@ sudo update-alternatives --install /usr/bin/lld lld /usr/bin/lld${CLANG_SUFFIX} 
 sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld${CLANG_SUFFIX} ${CLANG_PRIORITY}
 
 # Install pkg-config (needed for Rust's OpenSSL wrappers)
-sudo apt-get install -y pkg-config
+# Install vmtouch for caching files into memory
+sudo apt-get install -y pkg-config vmtouch
 
 # rust gRPC via tonic/tonic-build and prost-build needs protoc (and cmake?)
 sudo apt-get install -y cmake protobuf-compiler
