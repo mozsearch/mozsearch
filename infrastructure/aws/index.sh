@@ -18,11 +18,24 @@ CHANNEL=$2
 MOZSEARCH_REPO_URL=$3
 CONFIG_REPO_URL=$4
 CONFIG_REPO_PATH=$(readlink -f $5)
-CONFIG_INPUT="$6"
+CONFIG_FILE_NAME="$6"
 
 EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
 
+# Find the revisions we actually checked out so that we can pass these to the
+# web server because indexer and web server are a matched pair and we don't
+# randomly want it running a different revision!
+pushd mozsearch
+MOZSEARCH_REV=$(git rev-parse HEAD)
+popd
+
+pushd config
+CONFIG_REV=$(git rev-parse HEAD)
+popd
+
 echo "Branch is $BRANCH"
+echo "  mozsearch repo $MOZSEARCH_REPO_URL rev is $MOZSEARCH_REV"
+echo "  config repo $CONFIG_REPO_URL rev is $CONFIG_REV"
 echo "Channel is $CHANNEL"
 
 VOLUME_ID=$($AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
@@ -53,7 +66,7 @@ sudo mount $EBS_NVME_DEV /index
 sudo chown ubuntu.ubuntu /index
 
 # Do indexer setup locally on disk.
-$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_INPUT /mnt/index-scratch
+$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_FILE_NAME /mnt/index-scratch
 case "$CHANNEL" in
 release* )
     # Only upload files on release channels.
@@ -76,7 +89,7 @@ cp ~ubuntu/index-log /index/index-log
 sudo umount /index
 
 $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-$AWS_ROOT/trigger-web-server.py $BRANCH $CHANNEL $MOZSEARCH_REPO_URL $CONFIG_REPO_URL $CONFIG_INPUT $VOLUME_ID "$MOZSEARCH_PATH/infrastructure/web-server-check.sh" $CONFIG_REPO_PATH "/mnt/index-scratch"
+$AWS_ROOT/trigger-web-server.py $CHANNEL $MOZSEARCH_REPO_URL $MOZSEARCH_REV $CONFIG_REPO_URL $CONFIG_REV $CONFIG_FILE_NAME $VOLUME_ID "$MOZSEARCH_PATH/infrastructure/web-server-check.sh" $CONFIG_REPO_PATH "/mnt/index-scratch"
 
 case "$CHANNEL" in
 release* )
@@ -92,7 +105,7 @@ esac
 $AWS_ROOT/send-warning-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 
 gzip -k ~ubuntu/index-log
-$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "index-$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}.gz"
+$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "index-$(date -Iminutes)_${CHANNEL}_${CONFIG_FILE_NAME%.*}.gz"
 
 case "$CHANNEL" in
 release* )

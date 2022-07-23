@@ -19,24 +19,27 @@ exec &> update-log
 
 date
 
-if [ $# != 3 ]
+if [ $# != 4 ]
 then
-    echo "usage: $0 <branch> <mozsearch-repo> <config-repo>"
+    echo "usage: $0 <mozsearch-repo> <mozsearch-rev> <config-repo> <config-rev>"
     exit 1
 fi
 
-BRANCH=$1
-MOZSEARCH_REPO=$2
+MOZSEARCH_REPO=$1
+MOZSEARCH_REV=$2
 CONFIG_REPO=$3
+CONFIG_REV=$4
 
-echo Branch is $BRANCH
-echo Mozsearch repository is $MOZSEARCH_REPO
-echo Config repository is $CONFIG_REPO
+echo Mozsearch repository is $MOZSEARCH_REPO rev $MOZSEARCH_REV
+echo Config repository is $CONFIG_REPO rev $CONFIG_REV
 
 # Install mozsearch.
+# Note: This seems needlessly wasteful but I'm not going to change this while
+# changing other things.
 rm -rf mozsearch
-git clone -b $BRANCH $MOZSEARCH_REPO mozsearch
+git clone $MOZSEARCH_REPO mozsearch
 pushd mozsearch
+git checkout $MOZSEARCH_REV
 git submodule init
 git submodule update
 popd
@@ -45,7 +48,7 @@ popd
 rm -rf config
 git clone $CONFIG_REPO config
 pushd config
-git checkout $BRANCH -- || true
+git checkout $CONFIG_REV
 popd
 
 date
