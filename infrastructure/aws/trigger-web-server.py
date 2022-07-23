@@ -9,7 +9,7 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: ./trigger-web-server.py <branch> <channel> <config-repo-url> <config-input> <index-volume-id> <check-script> <config-repo-path> <working-dir>
+# Usage: ./trigger-web-server.py <channel> <mozsearch-repo-url> <mozsearch-rev> <config-repo-url> <config-rev> <config-file-name> <index-volume-id> <check-script> <config-repo-path> <working-dir>
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -23,15 +23,16 @@ import os.path
 import subprocess
 import time
 
-branch = sys.argv[1]
-channel = sys.argv[2]
-mozsearch_repo = sys.argv[3]
+channel = sys.argv[1]
+mozsearch_repo = sys.argv[2]
+mozsearch_rev = sys.argv[3]
 config_repo = sys.argv[4]
-config_input = sys.argv[5]
-volumeId = sys.argv[6]
-check_script = sys.argv[7]
-config_repo_path = sys.argv[8]
-working_dir = sys.argv[9]
+config_rev = sys.argv[5]
+config_file_name = sys.argv[6]
+volumeId = sys.argv[7]
+check_script = sys.argv[8]
+config_repo_path = sys.argv[9]
+working_dir = sys.argv[10]
 
 targetGroup = "%s-target" % channel
 
@@ -39,13 +40,13 @@ ec2_resource = boto3.resource('ec2')
 ec2 = boto3.client('ec2')
 elb = boto3.client('elbv2')
 
-userData = '''#!/usr/bin/env bash
+userData = f'''#!/usr/bin/env bash
 
 cd ~ubuntu
 touch web_server_started
-sudo -i -u ubuntu ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
-sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_input}" "{volume_id}" "{channel}"
-'''.format(branch=branch, channel=channel, mozsearch_repo=mozsearch_repo, config_repo=config_repo, config_input=config_input, volume_id=volumeId)
+sudo -i -u ubuntu ./update.sh "{mozsearch_repo}" "{mozsearch_rev}" "{config_repo}" "{config_rev}"
+sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_file_name}" "{volumeId}" "{channel}"
+'''
 
 volumes = ec2.describe_volumes(VolumeIds=[volumeId])
 availability_zone = volumes['Volumes'][0]['AvailabilityZone']
@@ -102,7 +103,7 @@ ec2.create_tags(Resources=[webServerInstanceId], Tags=[{
     'Value': channel,
 }, {
     'Key': 'cfile',
-    'Value': config_input,
+    'Value': config_file_name,
 }])
 
 print('Attaching index volume to web server instance...')
