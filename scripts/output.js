@@ -67,11 +67,11 @@ function generate(content, opt)
 <head>
   <meta charset="utf-8">
   <meta name="color-scheme" content="light dark">
-  <link href="/static/icons/search.png" rel="shortcut icon">
+  <link href="/${tree}/static/icons/search.png" rel="shortcut icon">
   <title>${title}</title>
 
-  <link href="/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
-  <link href="/static/css/icons.css" rel="stylesheet" media="screen" />
+  <link href="/${tree}/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
+  <link href="/${tree}/static/css/icons.css" rel="stylesheet" media="screen" />
 </head>
 
 <body>
@@ -122,10 +122,10 @@ function generate(content, opt)
   <span id="data" data-root="/" data-search="/${tree}/search" data-tree="${tree}"></span>
   <span id="state" data-offset="${stateOffset}" data-limit="${stateLimit}" data-result-count="${resultCount}" data-eof="${eof}"></span>
 
-  <script src="/static/js/search.js"></script>
-  <script src="/static/js/context-menu.js"></script>
-  <script src="/static/js/panel.js"></script>
-  <script src="/static/js/code-highlighter.js"></script>
+  <script src="/${tree}/static/js/search.js"></script>
+  <script src="/${tree}/static/js/context-menu.js"></script>
+  <script src="/${tree}/static/js/panel.js"></script>
+  <script src="/${tree}/static/js/code-highlighter.js"></script>
 </div>
 </body>
 </html>

@@ -128,15 +128,15 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     let css = ["mozsearch.css", "icons.css"];
     let css_tags = css.iter().map(|c| {
         F::T(format!(
-            r#"<link href="/static/css/{}" rel="stylesheet" media="screen"/>"#,
-            c
+            r#"<link href="/{}/static/css/{}" rel="stylesheet" media="screen"/>"#,
+            opt.tree_name, c
         ))
     });
 
     let mut head_seq = vec![
         F::S(r#"<meta charset="utf-8" />"#),
         F::S(r#"<meta name="color-scheme" content="light dark">"#),
-        F::S(r#"<link href="/static/icons/search.png" rel="shortcut icon">"#),
+        F::T(format!(r#"<link href="/{}/static/icons/search.png" rel="shortcut icon">"#, opt.tree_name)),
         F::T(format!("<title>{}</title>", opt.title)),
     ];
     head_seq.extend(css_tags);
@@ -279,7 +279,7 @@ pub fn generate_footer(
     ];
     let script_tags: Vec<_> = scripts
         .iter()
-        .map(|s| F::T(format!(r#"<script src="/static/js/{}"></script>"#, s)))
+        .map(|s| F::T(format!(r#"<script src="/{}/static/js/{}"></script>"#, opt.tree_name, s)))
         .collect();
 
     let f = F::Seq(vec![
