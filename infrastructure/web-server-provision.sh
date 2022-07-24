@@ -61,3 +61,19 @@ date
 THEEND
 
 chmod +x update.sh
+
+# Run the update script for a side effect of downloading the crates.io
+# dependencies ahead of time since we're seeing intermittent network problems
+# downloading crates in https://bugzilla.mozilla.org/show_bug.cgi?id=1720037.
+#
+# Note that because the update script fully deletes the mozsearch directory,
+# this really is just:
+# - Validating the image can compile and use rust and clang correctly.
+# - Caching some crates in `~/.cargo`.
+./update.sh https://github.com/mozsearch/mozsearch master https://github.com/mozsearch/mozsearch-mozilla master
+mv update-log provision-update-log-1
+
+# Run this a second time to make sure the script is actually idempotent, so we
+# don't have any surprises when the update script gets run when the VM spins up.
+./update.sh https://github.com/mozsearch/mozsearch master https://github.com/mozsearch/mozsearch-mozilla master
+mv update-log provision-update-log-2
