@@ -2,12 +2,15 @@ var Dxr = new (class Dxr {
   constructor() {
     let constants = document.getElementById("data");
 
+    // This will usually be "/"
     this.wwwRoot = constants.getAttribute("data-root");
-    this.baseUrl = location.protocol + "//" + location.host;
-    this.icons = this.wwwRoot + "/static/icons/";
-    this.views = this.wwwRoot + "/static/templates";
-    this.searchUrl = constants.getAttribute("data-search");
+    // This will look like "mozilla-central"
     this.tree = constants.getAttribute("data-tree");
+    this.baseUrl = location.protocol + "//" + location.host;
+    // This will end up "/TREE/static/icons/"
+    this.icons = this.wwwRoot + `${this.tree}/static/icons/`;
+    // This will usually be "/TREE/search"
+    this.searchUrl = constants.getAttribute("data-search");
     this.timeouts = {
       search: 300,
       // We start the history timeout after the search updates (i.e., after

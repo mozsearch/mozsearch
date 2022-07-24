@@ -1,8 +1,8 @@
 @font-face {
   font-family: "icons";
-  src: url("/static/fonts/icons.eot?#iefix2013") format("embedded-opentype"),
-    url("/static/fonts/icons.woff?2013") format("woff"),
-    url("/static/fonts/icons.ttf?2013") format("truetype");
+  src: url("../fonts/icons.eot?#iefix2013") format("embedded-opentype"),
+    url("../fonts/icons.woff?2013") format("woff"),
+    url("../fonts/icons.ttf?2013") format("truetype");
   font-weight: normal;
   font-style: normal;
 }
@@ -820,7 +820,7 @@ input::placeholder {
   padding-right: 40px;
 }
 .in-progress #spinner {
-  background: transparent url("/static/images/spinner-large.gif") 0 0 / contain
+  background: transparent url("../images/spinner-large.gif") 0 0 / contain
     no-repeat;
 }
 #spinner {
@@ -935,13 +935,13 @@ input::placeholder {
   border-width: 0 9px 9px;
 }
 .bubble.info {
-  background: white url(/static/images/info.gif) 12px 0 / 3ex no-repeat;
+  background: white url(../images/info.gif) 12px 0 / 3ex no-repeat;
 }
 .bubble.warning {
-  background: white url("/static/images/warning.gif") 10px -2px / 3.5ex no-repeat;
+  background: white url("../images/warning.gif") 10px -2px / 3.5ex no-repeat;
 }
 .bubble.error {
-  background: white url(/static/images/error.gif) 12px 0 / 3ex no-repeat;
+  background: white url(../images/error.gif) 12px 0 / 3ex no-repeat;
 }
 .zero-size-container {
   position: relative;

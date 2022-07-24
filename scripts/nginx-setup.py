@@ -55,14 +55,10 @@ binary_types = {
   'ttf xpi bcmap icns sqlite jar woff class m4s mgif otf': 'application/x-unknown',
 }
 
-fmt = {
-  'doc_root': doc_root,
-  'mozsearch_path': mozsearch_path,
-  'binary_types': " ".join((mime + " " + exts + ";") for (exts, mime) in six.iteritems(binary_types)),
-}
+binary_types_str = " ".join((mime + " " + exts + ";") for (exts, mime) in six.iteritems(binary_types))
 
 def location(route, directives):
-    print('  location %s {' % (route % fmt))
+    print(f'  location {route} {{')
 
     # Use HSTS in release - ELB sets http_x_forwarded_proto, so this
     # won't match in dev builds.  This needs to be included in all
@@ -72,7 +68,7 @@ def location(route, directives):
         print('    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;')
 
     for directive in directives:
-        print('    ' + (directive % fmt))
+        print(f'    {directive}')
         if nginx_cache_dir and 'proxy_pass' in directive:
             print('    proxy_cache sfox;')
             print('    add_header X-Cache-Status $upstream_cache_status;')
@@ -139,16 +135,20 @@ server {
 
   expires $expires;
   etag on;
-''' % fmt)
+''')
 
-location('/static', ['root %(mozsearch_path)s;'])
+# root means "/static" will be appended to the root, versus alias which doesn't.
+location('/static', [f'root {mozsearch_path};'])
 location('= /robots.txt', [
-    'root %(mozsearch_path)s/static;',
+    f'root {mozsearch_path}/static;',
     'try_files $uri =404;',
     'add_header Cache-Control "public";',
     'expires 1d;',
 ])
 
+# TODO: it's possible some of the `try_files` machinations and symlinks
+# we're using could better cleaned up by use of "alias".  The exception is
+# "source" where the "try_files" is definitely absolutely necessary.
 for repo in config['trees']:
     head_rev = None
     if 'git_path' in config['trees'][repo]:
@@ -158,21 +158,21 @@ for repo in config['trees']:
             # If this fails just leave head_rev as None and skip the optimization
             pass
 
-    fmt['repo'] = repo
-    fmt['head'] = head_rev
+    # we use alias because the we don't want the "/{repo}" portion.
+    location(f'/{repo}/static/', [f'alias {mozsearch_path}/static/;'])
 
-    location('/%(repo)s/source', [
-        'root %(doc_root)s;',
+    location(f'/{repo}/source', [
+        f'root {doc_root};',
         'try_files /file/$uri /dir/$uri/index.html =404;',
-        'types { %(binary_types)s }',
+        f'types {{ {binary_types_str} }}',
         'default_type text/html;',
         'add_header Cache-Control "must-revalidate";',
         'gzip_static always;',
         'gunzip on;',
     ])
 
-    location('/%(repo)s/raw-analysis', [
-        'root %(doc_root)s;',
+    location(f'/{repo}/raw-analysis', [
+        f'root {doc_root};',
         'try_files /raw-analysis/$uri =404;',
         'types { }',
         # I tried serving this as application/x-ndjson but then something weird
@@ -185,8 +185,8 @@ for repo in config['trees']:
         'gunzip on;',
     ])
 
-    location('/%(repo)s/file-lists', [
-        'root %(doc_root)s;',
+    location(f'/{repo}/file-lists', [
+        f'root {doc_root};',
         'try_files /file-lists/$uri =404;',
         'types { }',
         'default_type text/plain;',
@@ -197,48 +197,45 @@ for repo in config['trees']:
     # the rust web-server. This is worth it because when HEAD-rev permalinks are generated they are
     # often hit multiple times while they are still the HEAD revision.
     if head_rev is not None:
-        location('~^/%(repo)s/rev/%(head)s/(?<head_path>.+)$', [
-            'root %(doc_root)s/file/%(repo)s/source;',
+        location(f'~^/{repo}/rev/{head_rev}/(?<head_path>.+)$', [
+            f'root {doc_root}/file/{repo}/source;',
             'try_files /$head_path =404;',
-            'types { %(binary_types)s }',
+            f'types {{ {binary_types_str} }}',
             'default_type text/html;',
             'add_header Cache-Control "must-revalidate";',
         ])
 
     # Handled by router/router.py
-    location('/%(repo)s/search', ['proxy_pass http://localhost:8000;'])
-    location('/%(repo)s/sorch', ['proxy_pass http://localhost:8000;'])
-    location('/%(repo)s/define', ['proxy_pass http://localhost:8000;'])
+    location(f'/{repo}/search', ['proxy_pass http://localhost:8000;'])
+    location(f'/{repo}/sorch', ['proxy_pass http://localhost:8000;'])
+    location(f'/{repo}/define', ['proxy_pass http://localhost:8000;'])
 
     # Handled by Rust `web-server.rs`.
-    location('/%(repo)s/diff', ['proxy_pass http://localhost:8001;'])
-    location('/%(repo)s/commit', ['proxy_pass http://localhost:8001;'])
-    location('/%(repo)s/rev', ['proxy_pass http://localhost:8001;'])
-    location('/%(repo)s/hgrev', ['proxy_pass http://localhost:8001;'])
-    location('/%(repo)s/complete', ['proxy_pass http://localhost:8001;'])
-    location('/%(repo)s/commit-info', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/diff', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/commit', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/rev', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/hgrev', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/complete', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/commit-info', ['proxy_pass http://localhost:8001;'])
 
     # Handled by Rust `pipeline-server.rs`
-    location('/%(repo)s/query', ['proxy_pass http://localhost:8002;'])
-
-    del fmt['repo']
-    del fmt['head']
+    location(f'/{repo}/query', ['proxy_pass http://localhost:8002;'])
 
 
 location('= /', [
-    'root %(doc_root)s;',
+    f'root {doc_root};',
     'try_files $uri/help.html =404;',
     'add_header Cache-Control "must-revalidate";',
 ])
 
 location('= /index.html', [
-    'root %(doc_root)s;',
+    f'root {doc_root};',
     'try_files /help.html =404;',
     'add_header Cache-Control "must-revalidate";',
 ])
 
 location('= /status.txt', [
-    'root %(doc_root)s;',
+    f'root {doc_root};',
     'try_files $uri =404;',
     'add_header Cache-Control "must-revalidate";',
 ])
