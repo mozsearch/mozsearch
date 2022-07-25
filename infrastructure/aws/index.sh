@@ -86,6 +86,13 @@ echo "Indexing complete"
 # web server instance
 cp ~ubuntu/index-log /index/index-log
 
+# Because it's possible for shells to be in the "/index" dir and for this to
+# cause problems unmounting /index (:asuth has done this a lot...), terminate
+# all extant ssh sessions for our normal user as a one-off.  This does not
+# preclude logging back in.
+pkill -u ubuntu sshd
+# And then sleep a little just in case there's some cleanup time required.
+sleep 1
 sudo umount /index
 
 $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
