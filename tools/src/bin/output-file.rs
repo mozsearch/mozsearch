@@ -99,7 +99,7 @@ struct TestInfo {
 fn read_test_info_from_concise_info(concise_info: &json::Object) -> Option<TestInfo> {
     let obj = concise_info.get("testInfo")?.as_object()?;
 
-    let failed_runs = match obj.get("failed runs") {
+    let failed_runs = match obj.get("failure_count") {
         Some(json) => json.as_i64().unwrap(),
         _ => 0,
     };
@@ -759,8 +759,9 @@ fn main() {
             if test_info.failed_runs > 0 {
                 has_errors = true;
                 list_nodes.push(F::T(format!(
-                    "<li>This test failed {} times in the preceding 7 days.</li>",
-                    test_info.failed_runs
+                    r#"<li>This test failed {} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={}">quicksearch this test</a></li>"#,
+                    test_info.failed_runs,
+                    &path
                 )));
             }
 

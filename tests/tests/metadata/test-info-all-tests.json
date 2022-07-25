@@ -10,7 +10,7 @@
   "tests": {
     "Product::Component": [
       {
-        "failed runs": 0,
+        "failure_count": 0,
         "skip-if": "toolkit == 'android'",
         "skipped runs": 1569,
         "test": "test_custom_element_base.xul",
@@ -18,14 +18,14 @@
         "total runs": 5657
       },
       {
-        "failed runs": 5,
+        "failure_count": 5,
         "skipped runs": 0,
         "test": "test_DOMWindowCreated_chromeonly.html",
         "total run time, seconds": 1065.66,
         "total runs": 2146
       },
       {
-        "failed runs": 0,
+        "failure_count": 0,
         "skip-if": "(os == \"win\" && processor == \"aarch64\") || (os == \"mac\") || (os == \"linux\" && !debug)",
         "skipped runs": 890,
         "test": "test_talosconfig_browser_config.json",
@@ -36,7 +36,7 @@
     "OtherProduct::OtherComponent": [
       {
         "searchfox-test-repo-note": "this file is not actually a test but I wanted a subdir",
-        "failed runs": 0,
+        "failure_count": 0,
         "skipped runs": 0,
         "test": "test_rust_dependency/src/lib.rs",
         "total run time, seconds": 15761.67,
@@ -45,21 +45,21 @@
     ],
     "Web-Platform::Tests": [
       {
-        "failed runs": 0,
+        "failure_count": 0,
         "skipped runs": 0,
         "test": "fake-wpt/tests/fake-standard/test_ima_disabled_wpt.js",
         "total run time, seconds": 15761.67,
         "total runs": 3348
       },
       {
-        "failed runs": 0,
+        "failure_count": 0,
         "skipped runs": 0,
         "test": "fake-wpt/tests/fake-standard/test_ima_sad_subtests_wpt.js",
         "total run time, seconds": 15761.67,
         "total runs": 3348
       },
       {
-        "failed runs": 0,
+        "failure_count": 0,
         "skipped runs": 0,
         "test": "fake-wpt/tests/fake-standard/test_imaweird_meta_wpt.js",
         "total run time, seconds": 15761.67,
