@@ -178,7 +178,8 @@ fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, d
 ///   - "tests"
 /// - "tests": A dictionary whose keys are bugzilla "Product::Component" strings
 ///   and values are list of objects with the following keys:
-///   - "failed runs": Number
+///   - NEW: "failure_count": Number
+///   - OLD, from Active{Data,Record} "failed runs": Number
 ///   - "skip-if" (optional): String excerpt of the manifest's skip-if clause.
 ///   - "skipped runs": Number
 ///   - "test": Repository-relative path of the test file.
