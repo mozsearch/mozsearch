@@ -108,9 +108,19 @@ def startup_codesearch(data):
     args = ['codesearch', '-grpc', 'localhost:' + str(data['codesearch_port']),
             '--noreuseport',
             '-load_index', data['codesearch_path'],
+            # Note that because multiple threads are involved, this limit
+            # potentially will not return the same results every time it is run
+            # and that's okay.  But because of our app-level caching, it ends
+            # up that we will usually only run one exact query once.
             '-max_matches', '1000',
             '-threads', f'{use_threads}',
-            '-timeout', '10000',
+            # We set the timeout to 30 seconds up from 10 seconds because our
+            # caching policy requires our searches to be deterministic in the
+            # face of I/O slowness.  Note that this differs from the
+            # non-determinism of the "max_matches" limit which is acceptable.
+            # We do expect to have addressed this problem by ensuring the cache
+            # is fully loaded via vmtouch before serving begins in earnest.
+            '-timeout', '30000',
             '-context_lines', '0']
 
     daemonize(args)
