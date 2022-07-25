@@ -90,7 +90,11 @@ cp ~ubuntu/index-log /index/index-log
 # cause problems unmounting /index (:asuth has done this a lot...), terminate
 # all extant ssh sessions for our normal user as a one-off.  This does not
 # preclude logging back in.
-pkill -u ubuntu sshd
+#
+# pkill returns an exit status of 1 if no processes matched, so we need to make
+# sure that we don't care about the exit code as this is just a hygiene measure,
+# we don't actually expect for there to usually be sshd instances.
+pkill -u ubuntu sshd || true
 # And then sleep a little just in case there's some cleanup time required.
 sleep 1
 sudo umount /index
