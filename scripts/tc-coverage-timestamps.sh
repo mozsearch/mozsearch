@@ -40,10 +40,10 @@ typeset -A SF_REV_COMPLETED
 # like we really should be able to filter this here, but it's not jumping out at
 # me in the treeherder API.  (Maybe an integer id needs to be looked up?)
 #
-# Previously used for date: $(date -d "-14 days" -Iseconds -u)
+# Previously used for date: $(date -d "-7 days" -Iseconds -u)
 # changed because of 500 errors that went away by removing the TZ.
 
-SF_JOBS=$(coreapi action jobs list -p start_time__gt=$(date -d "-14 days" -u +"%FT%T") -p job_type_name=searchfox-linux64-searchfox/debug)
+SF_JOBS=$(coreapi action jobs list -p start_time__gt=$(date -d "-7 days" -u +"%FT%T") -p job_type_name=searchfox-linux64-searchfox/debug)
 SF_JOB_REVS=$(jq -M -r '(.job_property_names | index("push_revision")) as $idx_rev | (.job_property_names | index("task_id")) as $idx_taskid | .results[] | .[$idx_rev], .[$idx_taskid]' <<< "$SF_JOBS")
 ART_CSV=""
 # In order to be able to manipulate the array, we need to ensure that there is
@@ -80,7 +80,10 @@ while read -r sf_rev; read -r sf_taskid; do
   # I am assuming that the coverage artifact gets exactly 2 weeks from the date of uploading.
   # https://github.com/mozilla/code-coverage/blob/de635654bd3eae18c53c52c0010a42f362a04479/bot/code_coverage_bot/hooks/repo.py#L129 tells us that's right at the current time.
   ARTIFACT_UPLOAD_DATE=$(jq -M -r '.artifacts[] | select(.name ==  "public/code-coverage-report.json") | .expires | sub("\\.[0-9]+Z$"; "Z")  | fromdate - (14 * 24 * 60 * 60) | todate' <<< "$ARTIFACT_INFO")
-  echo "  - ${ARTIFACT_UPLOAD_DATE} - artifact uploaded"
+  echo "  - ${ARTIFACT_UPLOAD_DATE} - artifact uploaded from task $ARTIFACT_TASKID"
+  QUEUE_INFO=$(taskcluster api queue status $ARTIFACT_TASKID)
+  QUEUE_STATUS=$(jq -Mc '.status.runs[] | { state, reasonResolved, started, resolved }' <<< $QUEUE_INFO)
+  echo "  - artifact job statuses: $QUEUE_STATUS"
 done <<< "$SF_JOB_REVS"
 
 
