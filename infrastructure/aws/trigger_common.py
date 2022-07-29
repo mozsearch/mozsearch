@@ -79,13 +79,23 @@ class TriggerCommandBase:
         ec2 = boto3.resource('ec2')
         client = boto3.client('ec2')
 
-        running = ec2.instances.filter(Filters=[{'Name': 'tag-key', 'Values': [self.indexer_type]},
+        # Terminate any "running" or "stopped" instances.  We used to only
+        # terminate "running" instances with the theory that someone might get
+        # around to investigating the "stopped" instance, but the reality is
+        # that:
+        # - Frequently failures are one-offs that have an obvious cause in the
+        #   emailed log.  And we can provide more log context!
+        # - If someone is going to look at the problem, they can usually decide
+        #   to do that before the next indexer run.  The investigation doesn't
+        #   need to complete, the indexer just needs to be re-tagged to not look
+        #   like an indexer.  Currently this would require using the EC2 console
+        #   but this can easily be added to `channel-tool.py`.
+        instances = ec2.instances.filter(Filters=[{'Name': 'tag-key', 'Values': [self.indexer_type]},
                                             {'Name': 'tag:channel', 'Values': [args.channel]},
-                                            {'Name': 'instance-state-name', 'Values': ['running']}])
-        for instance in running:
-            print("Terminating existing running %s %s for channel %s" % (self.indexer_type, instance.instance_id, args.channel))
+                                            {'Name': 'instance-state-name', 'Values': ['running', 'stopping', 'stopped']}])
+        for instance in instances:
+            print(f"Terminating existing {instance.state['Name']} {self.indexer_type} {instance.instance_id} for channel {args.channel}")
             instance.terminate()
-
 
         user_data = '''#!/usr/bin/env bash
 
