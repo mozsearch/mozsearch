@@ -885,7 +885,7 @@ fn main() {
             });
         }
 
-        let perf_info = format_file_data(
+        match format_file_data(
             &cfg,
             tree_name,
             &panel,
@@ -898,13 +898,20 @@ fn main() {
             &analysis,
             &per_file_info.coverage,
             &mut writer,
-        )
-        .unwrap();
-
-        writeln!(stdout, "  Format code duration: {}us", perf_info.format_code_duration_us).unwrap();
-        writeln!(stdout, "  Blame lines duration: {}us", perf_info.blame_lines_duration_us).unwrap();
-        writeln!(stdout, "  Commit info duration: {}us", perf_info.commit_info_duration_us).unwrap();
-        writeln!(stdout, "  Format mixing duration: {}us", perf_info.format_mixing_duration_us).unwrap();
+        ) {
+            Ok(perf_info) => {
+                writeln!(stdout, "  Format code duration: {}us", perf_info.format_code_duration_us).unwrap();
+                writeln!(stdout, "  Blame lines duration: {}us", perf_info.blame_lines_duration_us).unwrap();
+                writeln!(stdout, "  Commit info duration: {}us", perf_info.commit_info_duration_us).unwrap();
+                writeln!(stdout, "  Format mixing duration: {}us", perf_info.format_mixing_duration_us).unwrap();
+            }
+            Err(err) => {
+                // Make sure our output log file indicates what happened.
+                writeln!(stdout, "  warning: format_file_data failed: {}", err).unwrap();
+                // Also embed the error into the output file
+                writeln!(writer, "<h3>format_file_data failed: {}</h3>", err).unwrap();
+            }
+        }
 
         writer.finish().unwrap();
         writeln!(stdout, "  Total writing duration: {}us", file_start.elapsed().as_micros() as u64).unwrap();
