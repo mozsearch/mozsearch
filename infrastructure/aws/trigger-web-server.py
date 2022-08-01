@@ -9,7 +9,9 @@
 # - Shut down any old web servers (not equal to the one I've started)
 # - Delete any old EBS index volumes
 #
-# Usage: ./trigger-web-server.py <channel> <mozsearch-repo-url> <mozsearch-rev> <config-repo-url> <config-rev> <config-file-name> <index-volume-id> <check-script> <config-repo-path> <working-dir>
+# Usage: ./trigger-web-server.py <channel> <mozsearch-repo-url> <mozsearch-rev>
+#     <config-repo-url> <config-rev> <config-file-name> <index-volume-id>
+#     <check-script> <config-repo-path> <working-dir>
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -18,6 +20,7 @@ from datetime import datetime, timedelta
 import dateutil.parser
 import boto3
 import awslib
+import json
 import os
 import os.path
 import subprocess
@@ -59,19 +62,27 @@ images = ec2.describe_images(Filters=[{'Name': 'tag-key', 'Values': ['web-server
 # TODO: sort/pick the highest datestamp-y "web-server" tag Value.
 image_id = images['Images'][0]['ImageId']
 
-# t3 gets us "nitro" NVME EBS and is cheaper than t2.
-#
-# We're now upgrading from t3.large (2 cores) to t3.xlarge (4 cores) because
-# we're seeing CPU-limited codesearch queries.  The increase from 8GiB to
-# 16GiB is also expected to be overall good for performance as caching is
-# arguably good for performance as well!
-#
-# And "release1" gets 8 cores because it holds our flagship repo,
-# mozilla-central.
-if channel == 'release1':
-    instance_type = 't3.2xlarge'
-else:
-    instance_type = 't3.xlarge'
+# Config files shouldn't be able to do whatever they want.  Instance types must
+# first be explicitly allow-listed here.
+LEGAL_INSTANCE_TYPES = ['t3.xlarge', 't3.2xlarge']
+# Our new default is the 4-core 16GiB t3.xlarge
+instance_type = 't3.xlarge'
+
+try:
+    config = json.load(open(os.path.join(config_repo_path, config_file_name)))
+    maybe_instance_type = config['instance_type']
+    if not channel.startswith('release'):
+        if maybe_instance_type != instance_type:
+            print(f'Non-release channel so using default instance type of {instance_type} instead of {maybe_instance_type}')
+        else:
+            print(f'Non-release channel using requested (default) instance type of {instance_type}')
+    elif maybe_instance_type in LEGAL_INSTANCE_TYPES:
+        instance_type = maybe_instance_type
+        print(f'Using config file instance type of: "{instance_type}"')
+    else:
+        print(f'Unknown instance type {maybe_instance_type} requested, falling back to {instance_type}')
+except Exception as e:
+    print(f'Problem figuring out instance_type from config file: {e}')
 
 r = ec2.run_instances(
     ImageId=image_id,

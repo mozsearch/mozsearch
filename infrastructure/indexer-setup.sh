@@ -30,5 +30,5 @@ do
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
     mkdir -p $INDEX_ROOT
 
-    $CONFIG_REPO/$TREE_NAME/setup
+    $CONFIG_REPO/$TREE_NAME/setup || inhibit_upload || handle_tree_error "tree setup script"
 done

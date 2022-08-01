@@ -13,7 +13,26 @@ use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use git2::{Oid, Repository};
 
 #[derive(Clone, Debug, MallocSizeOf, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TreeCaching {
+    Everything,
+    Codesearch,
+    Nothing,
+}
+
+#[derive(Clone, Debug, MallocSizeOf, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TreeErrorHandling {
+    Continue,
+    Halt,
+}
+
+
+#[derive(Clone, Debug, MallocSizeOf, Serialize, Deserialize)]
 pub struct TreeConfigPaths {
+    pub priority: u32,
+    pub on_error: TreeErrorHandling,
+    pub cache: TreeCaching,
     pub index_path: String,
     pub files_path: String,
     pub git_path: Option<String>,

@@ -57,4 +57,23 @@ $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX
 sudo mv /tmp/nginx /etc/nginx/sites-enabled/mozsearch.conf
 sudo chmod 0644 /etc/nginx/sites-enabled/mozsearch.conf
 
+# Iterate over the tree names in order of increasing priority so that we can
+# make sure that the most important (by higher priority value) trees get their
+# data cached last so if we run out of spare memory capacity, it's the less
+# important trees that get their data evicted.
+#
+# (If we wanted decreasing priority, we would `reverse` the array after sorting.)
+for TREE_NAME in $(jq -r ".trees|to_entries|sort_by(.value.priority)|.[].key" ${CONFIG_FILE})
+do
+    # source load-vars.sh to get our `cache_when_*` helpers.
+    . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+
+    # The livegrep.idx is the most important file, so it's always the last thing
+    # we cache.  These helpers also take into considerationg the "cache" setting
+    # in the tree config.
+    cache_when_everything crossref-extra
+    cache_when_everything crossref
+    cache_when_codesearch livegrep.idx
+done
+
 sudo /etc/init.d/nginx reload

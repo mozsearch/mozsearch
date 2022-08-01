@@ -20,7 +20,7 @@ CONFIG_FILE=$WORKING/config.json
 for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
-    $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME
+    $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME || handle_tree_error "mkindex.sh"
     # If we were given a permanent path, move the index results there and
     # symlink from the old location to the new location.
     if [ -n "$PERMANENT" ]
