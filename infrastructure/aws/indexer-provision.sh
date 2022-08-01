@@ -35,7 +35,13 @@ sudo pip3 install boto3 awscli rich
 
 date
 
-# Size up our root partition to 12G
+# Size up our root partition to 20G
+#
+# We will be growing from a size of 8G.  Previously we increased the indexer
+# size to 12G, but now with "wubkat" and "blinkyum" we have at least seen that
+# the extra install steps can result in us hitting the 12G limit.  The choice of
+# 20G is intended to be more than is required and we can potentially reel this
+# back in.
 #
 # To this end we need to know the volume id in order to issue an EBS resizing
 # command.  Note that the select constraint here is intended more as a check
@@ -44,7 +50,7 @@ date
 ROOT_VOL_ID=$(sudo nvme list -o json | jq --raw-output '.Devices[] | select(.PhysicalSize < 9000000000) | .SerialNumber | sub("^vol"; "vol-")')
 AWS_REGION=us-west-2
 # The size is in gigs.
-aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 12
+aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 20
 # Re: hardcoded devices: The devices should currently be stable.
 #
 # We use an until loop because it can take some time for the change to

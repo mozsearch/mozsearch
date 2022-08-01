@@ -14,4 +14,4 @@ CONFIG_REPO=$(realpath $1)
 CONFIG_FILE=$(realpath $2)
 TREE_NAME=$3
 
-$CONFIG_REPO/$TREE_NAME/build
+$CONFIG_REPO/$TREE_NAME/build || handle_tree_error "tree build script"

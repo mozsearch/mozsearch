@@ -5,6 +5,9 @@
 
   "trees": {
     "searchfox": {
+      "priority": 100,
+      "on_error": "halt",
+      "cache": "everything",
       "index_path": "$WORKING/searchfox",
       "files_path": "$MOZSEARCH_PATH",
       "objdir_path": "$WORKING/searchfox/objdir",
