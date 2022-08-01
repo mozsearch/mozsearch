@@ -26,7 +26,7 @@ do
     # If the setup script failed, indexer-setup.sh will have used the
     # `inhibit_upload` function exported by `load-vars.sh` to create an
     # `INHIBIT_UPLOAD` marker at the root of the tree.
-    if [ -f $CONFIG_REPO/$TREE_NAME/upload && ! -f $INDEX_ROOT/INHIBIT_UPLOAD ]
+    if [[ -f $CONFIG_REPO/$TREE_NAME/upload && ! -f $INDEX_ROOT/INHIBIT_UPLOAD ]]
     then
         $CONFIG_REPO/$TREE_NAME/upload || handle_tree_error "tree upload script"
     fi
