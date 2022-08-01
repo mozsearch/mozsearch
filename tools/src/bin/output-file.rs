@@ -13,6 +13,9 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
+use lazy_static::lazy_static;
+use regex::Regex;
+
 extern crate env_logger;
 #[macro_use]
 extern crate log;
@@ -35,6 +38,7 @@ extern crate flate2;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 
+// TODO: Hey, this should all have been converted to serde already!
 fn read_json_from_file(path: &str) -> Option<json::Object> {
     let components_file = File::open(path).ok()?;
     let mut reader = BufReader::new(&components_file);
@@ -70,6 +74,14 @@ fn ensure_bugzilla_url(maybe_bug: &str) -> String {
     } else {
         format!("https://bugzilla.mozilla.org/show_bug.cgi?id={}", maybe_bug)
     }
+}
+
+fn normalize_skip_if(skip_if: &str) -> String {
+    lazy_static! {
+        static ref RE_NEWLINES: Regex = Regex::new("\n+").unwrap();
+    }
+
+    RE_NEWLINES.replace_all(skip_if, " OR ").to_string()
 }
 
 /// Information about expected failures/problems for specific web platform
@@ -743,7 +755,7 @@ fn main() {
                 }
                 list_nodes.push(F::T(format!(
                     r#"<li>This test gets skipped with pattern: <span class="test-skip-info">{}</span></li>"#,
-                    skip_if
+                    normalize_skip_if(&skip_if)
                 )));
             }
 

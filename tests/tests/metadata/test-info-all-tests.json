@@ -11,7 +11,7 @@
     "Product::Component": [
       {
         "failure_count": 0,
-        "skip-if": "toolkit == 'android'",
+        "skip-if": "toolkit == 'android'\n\nverify\napple_silicon",
         "skipped runs": 1569,
         "test": "test_custom_element_base.xul",
         "total run time, seconds": 25916.85,
