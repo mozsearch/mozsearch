@@ -32,7 +32,7 @@ export -f inhibit_upload
 
 handle_tree_error() {
     local msg=$1
-    echo "warning: Tree error: $msg"
+    echo "warning: Tree '$TREE_NAME' error: $msg"
     if [[ $TREE_ON_ERROR == "continue" ]]; then
         return 0
     fi
