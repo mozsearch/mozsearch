@@ -179,6 +179,8 @@ because the for loop will tokenize things incorrectly.
 GNU parallel does use a shell in each of its invocations.  So shell parsing
 will happen both in the invocation of parallel and each of its sub-invocations.
 
+#### Quoting
+
 Passing `-q` to parallel will cause it to escape everything it passes to the
 shell.  This is necessary in cases where arguments contain characters like `;`
 which the shell will interpret and aren't automatically escaped by parallel.
@@ -193,3 +195,9 @@ preclude some shell magic).
 
 See https://www.gnu.org/software/parallel/parallel_tutorial.html#Quoting for
 more info.
+
+#### Environment Variables
+
+If we want something like an exported `RUST_BACKTRACE` to be propagated into the
+command run by parallel, we need to pass `--env RUST_BACKTRACE` or use the
+`env_parallel` helper to propagate the entire environment.

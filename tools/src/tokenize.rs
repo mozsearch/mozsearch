@@ -68,6 +68,17 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
 
     let get_char = || {
         let p = cur_pos.get();
+        // Defense in depth bailing if we would otherwise throw on chars[p]
+        // below.
+        if p == chars.len() {
+            // We return '!' in peek cases past the end for reasons that aren't
+            // immediately clear.  I've gone with a nul here because this seems
+            // less likely to result in the state machine advancing into a
+            // state that doesn't correspond with reality, but wouldn't be
+            // surprised if this turns out to have its own problems.
+            debug!("Attempted read past end");
+            return (p, '\0');
+        }
         cur_pos.set(p + 1);
         chars[p]
     };
@@ -178,10 +189,13 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 let (_, ch) = get_char();
                 if ch == '"' {
                     break;
-                } else if ch != '#' {
-                    // Not actually a Rust raw string literal. We can
-                    // run into this in macro inputs and such. Just
-                    // treat it as plain text and move on, which is
+                } else if ch != '#' || peek_pos() == string.len() {
+                    // Not actually a (valid) Rust raw string literal. We can
+                    // run into this in macro inputs or rust files that are
+                    // intentionally syntactically invalid (as can happen in the
+                    // rust tree).
+                    //
+                    // Just treat it as plain text and move on, which is
                     // better than crashing
                     tokens.push(Token {
                         start,
