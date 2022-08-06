@@ -49,8 +49,9 @@ TMPDIR_PATH=${DIAGS_DIR}
 #   then accelerate as there is reduced contention for (SSD) I/O and spare RAM
 #   may increase to allow for writes to be buffered without needing to flush,
 #   etc.
+# --env RUST_BACKTRACE: propagate the RUST_BACKTRACE environment variable.
 parallel --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
-    --block -1 --halt 2 \
+    --block -1 --halt 2 --env RUST_BACKTRACE \
     $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME -
 
 HG_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].hg_root" ${CONFIG_FILE})
