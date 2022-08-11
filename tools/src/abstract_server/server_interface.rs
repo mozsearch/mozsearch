@@ -193,9 +193,16 @@ pub trait AbstractServer {
     /// disk.  This fundamentally only works for local indices.
     fn translate_analysis_path(&self, sf_path: &str) -> Result<String>;
 
+    /// Fetch the contents of the analysis file for the given searchfox
+    /// tree-local path, decompressing if it's compressed.
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>>;
 
-    async fn fetch_html(&self, sf_path: &str) -> Result<String>;
+    /// Fetch the contents of a rendered HTML file, decompressing if it's
+    /// compressed.  If `is_file` is true, this will be from the INDEX/file
+    /// sub-tree.  If `is_file` is false, we're treating it as a directory
+    /// request and we'll fetch the relevant `index.html.gz` file from the
+    /// INDEX/dir sub-tree.
+    async fn fetch_html(&self, is_file: bool, sf_path: &str) -> Result<String>;
 
     /// Retrieve the JSON contents of the crossref database for the given
     /// symbol.

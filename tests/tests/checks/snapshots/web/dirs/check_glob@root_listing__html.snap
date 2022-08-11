@@ -1,0 +1,545 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <link href="/tests/static/icons/search.png" rel="shortcut icon">
+  <title>/ - mozsearch</title>
+
+  <link href="/tests/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
+  <link href="/tests/static/css/icons.css" rel="stylesheet" media="screen" />
+</head>
+
+<body>
+<div id="fixed-header">
+  <form method="get" action="/tests/search" class="search-box" id="search-box">
+    <fieldset>
+      <div id="query-section">
+        <label for="query" class="query_label visually-hidden">Find</label>
+        <input type="text" name="q"  value="" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search tests" autocomplete="off" />
+        <div class="zero-size-container">
+          <div class="bubble" id="query-bubble">
+          </div>
+        </div>
+        <section id="spinner"></section>
+      </div>
+      <div id="option-section" class="v-flex-container">
+        <label for="case">
+          <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" checked/><span class="access-key">C</span>ase-sensitive
+        </label>
+        <label for="regexp">
+          <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search
+        </label>
+      </div>
+      <div id="path-section">
+        <label for="path" class="query_label visually-hidden">Path</label>
+        <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />
+        <div class="zero-size-container">
+          <div class="bubble" id="path-bubble">
+          </div>
+        </div>
+      </div>
+    </fieldset>
+    <!-- We're marking this disabled in order to avoid the user pressing enter
+         triggering the default submit behavior and conflicting with our dynamic
+         logic. -->
+    <input type="submit" value="Search" disabled class="visually-hidden" />
+  </form>
+</div>
+
+<div id="scrolling">
+  <div id="content" class="content" data-no-results="No results for current query.">
+    
+  <div class="breadcrumbs">
+    <a href="/tests/source/">tests</a>
+  </div>
+
+  <table class="folder-content">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Description</th>
+        <th scope="col">Size</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td><a href="/tests/source/AddonUpdateChecker.jsm" class="icon js" style="">AddonUpdateChecker.jsm</a></td>
+          <td class="description"><a href="/tests/source/AddonUpdateChecker.jsm" title="The AddonUpdateChecker is responsible for retrieving the update information
+ from an add-on&#039;s remote update manifest.
+ ">The AddonUpdateChecker is responsible for retrieving the update information
+ from an add-on&#039;s remote update manifest.
+ </td>
+          <td><a href="/tests/source/AddonUpdateChecker.jsm">32880</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/atom_list.h" class="icon h" style="">atom_list.h</a></td>
+          <td class="description"><a href="/tests/source/atom_list.h" title=""></td>
+          <td><a href="/tests/source/atom_list.h">146</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/atom_magic.h" class="icon h" style="">atom_magic.h</a></td>
+          <td class="description"><a href="/tests/source/atom_magic.h" title="This file tries to approximate nsGkAtoms.h by operating in conjunction with
+   `atom_list.h` while also providing an example of a header file that&#039;s
+   included multiple times.  (We didn&#039;t really have coverage for this before,
+   and this is important for our merging logic.) ">This file tries to approximate nsGkAtoms.h by operating in conjunction with
+   `atom_list.h` while also providing an example of a header file that&#039;s
+   included multiple times.  (We didn&#039;t really have coverage for this before,
+   and this is important for our merging logic.) </td>
+          <td><a href="/tests/source/atom_magic.h">619</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/big_cpp.cpp" class="icon cpp" style="">big_cpp.cpp</a></td>
+          <td class="description"><a href="/tests/source/big_cpp.cpp" title="This test file attempts to create the following situations:
+ - Multiple levels of lexical scoping.
+ - Those lexical blocks are sufficiently large that it&#039;s common for the
+   block open to be off of the screen so that a &quot;position:sticky&quot; style
+   display would be appropriate.
+ - Call structures potentially look interesting if you graph them.
+ This is accomplished by:
+ - Many silly comment blocks.
+ - Tons of copy and pasting and search and replace.
+ - Panicking when trying to trying to come up with subject matter and deciding
+   that cats and dogs work.
+ - Not using templates.
+ ">This test file attempts to create the following situations:
+ - Multiple levels of lexical scoping.
+ - Those lexical blocks are sufficiently large that it&#039;s common for the
+   block open to be off of the screen so that a &quot;position:sticky&quot; style
+   display would be appropriate.
+ - Call structures potentially look interesting if you graph them.
+ This is accomplished by:
+ - Many silly comment blocks.
+ - Tons of copy and pasting and search and replace.
+ - Panicking when trying to trying to come up with subject matter and deciding
+   that cats and dogs work.
+ - Not using templates.
+ </td>
+          <td><a href="/tests/source/big_cpp.cpp">9734</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/big_header.h" class="icon h" style="">big_header.h</a></td>
+          <td class="description"><a href="/tests/source/big_header.h" title=""></td>
+          <td><a href="/tests/source/big_header.h">9508</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1432300.cpp" class="icon cpp" style="">bug1432300.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1432300.cpp" title="This simulates the code from JS::ProfilingFrameIterator::getPhysicalFrameAndEntry
+ which was highlighting incorrectly in bug 1432300 ">This simulates the code from JS::ProfilingFrameIterator::getPhysicalFrameAndEntry
+ which was highlighting incorrectly in bug 1432300 </td>
+          <td><a href="/tests/source/bug1432300.cpp">428</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1435345.cpp" class="icon cpp" style="">bug1435345.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1435345.cpp" title="Searchfox should analyze uses of operator== ">Searchfox should analyze uses of operator== </td>
+          <td><a href="/tests/source/bug1435345.cpp">271</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1446220_unicode.html" class="icon " style="">bug1446220_unicode.html</a></td>
+          <td class="description"><a href="/tests/source/bug1446220_unicode.html" title="Font family name parsing tests">Font family name parsing tests</td>
+          <td><a href="/tests/source/bug1446220_unicode.html">10485</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1449291.cpp" class="icon cpp" style="">bug1449291.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1449291.cpp" title=""></td>
+          <td><a href="/tests/source/bug1449291.cpp">729</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1588908.js" class="icon js" style="">bug1588908.js</a></td>
+          <td class="description"><a href="/tests/source/bug1588908.js" title="This tests the regexp literal arrow function from
+ BrowserTestUtils.waitForDocLoadAndStopIt, which was breaking syntax
+ highlighting in bug 1588908.
+ ">This tests the regexp literal arrow function from
+ BrowserTestUtils.waitForDocLoadAndStopIt, which was breaking syntax
+ highlighting in bug 1588908.
+ </td>
+          <td><a href="/tests/source/bug1588908.js">325</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/build.rs" class="icon " style="">build.rs</a></td>
+          <td class="description"><a href="/tests/source/build.rs" title=""></td>
+          <td><a href="/tests/source/build.rs">337</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/Cargo.lock" class="icon " style="">Cargo.lock</a></td>
+          <td class="description"><a href="/tests/source/Cargo.lock" title=""></td>
+          <td><a href="/tests/source/Cargo.lock">248</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/Cargo.toml" class="icon " style="">Cargo.toml</a></td>
+          <td class="description"><a href="/tests/source/Cargo.toml" title=""></td>
+          <td><a href="/tests/source/Cargo.toml">250</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/circle.svg" class="icon svg" style="background-image: url('null/raw-file/tip/circle.svg');">circle.svg</a></td>
+          <td class="description"><a href="/tests/source/circle.svg" title=""></td>
+          <td><a href="/tests/source/circle.svg">140</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/critters-postcard.jpg" class="icon jpg" style="background-image: url('null/raw-file/tip/critters-postcard.jpg');">critters-postcard.jpg</a></td>
+          <td class="description"><a href="/tests/source/critters-postcard.jpg" title=""></td>
+          <td><a href="/tests/source/critters-postcard.jpg">108154</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/enummacro.cpp" class="icon cpp" style="">enummacro.cpp</a></td>
+          <td class="description"><a href="/tests/source/enummacro.cpp" title=""></td>
+          <td><a href="/tests/source/enummacro.cpp">359</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/enummacro.h" class="icon h" style="">enummacro.h</a></td>
+          <td class="description"><a href="/tests/source/enummacro.h" title=""></td>
+          <td><a href="/tests/source/enummacro.h">94</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/fake-wpt" class="icon folder" style="">fake-wpt</a></td>
+          <td class="description"><a href="/tests/source/fake-wpt" title=""></td>
+          <td><a href="/tests/source/fake-wpt">2</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/GeckoApp.java" class="icon " style="">GeckoApp.java</a></td>
+          <td class="description"><a href="/tests/source/GeckoApp.java" title=""></td>
+          <td><a href="/tests/source/GeckoApp.java">104036</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gzip-colliding-file" class="icon " style="">gzip-colliding-file</a></td>
+          <td class="description"><a href="/tests/source/gzip-colliding-file" title=""></td>
+          <td><a href="/tests/source/gzip-colliding-file">125</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gzip-colliding-file.gz" class="icon " style="">gzip-colliding-file.gz</a></td>
+          <td class="description"><a href="/tests/source/gzip-colliding-file.gz" title=""></td>
+          <td><a href="/tests/source/gzip-colliding-file.gz">132</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/IGeckoEditableParent.aidl" class="icon " style="">IGeckoEditableParent.aidl</a></td>
+          <td class="description"><a href="/tests/source/IGeckoEditableParent.aidl" title=""></td>
+          <td><a href="/tests/source/IGeckoEditableParent.aidl">1425</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/implicit.cpp" class="icon cpp" style="">implicit.cpp</a></td>
+          <td class="description"><a href="/tests/source/implicit.cpp" title=""></td>
+          <td><a href="/tests/source/implicit.cpp">208</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/invalid-files" class="icon folder" style="">invalid-files</a></td>
+          <td class="description"><a href="/tests/source/invalid-files" title=""></td>
+          <td><a href="/tests/source/invalid-files">1</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/ipdl" class="icon folder" style="">ipdl</a></td>
+          <td class="description"><a href="/tests/source/ipdl" title=""></td>
+          <td><a href="/tests/source/ipdl">2</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/js" class="icon folder" style="">js</a></td>
+          <td class="description"><a href="/tests/source/js" title="This directory currently just contains stubs to get `xpctest_params.h` to be">This directory currently just contains stubs to get `xpctest_params.h` to be</td>
+          <td><a href="/tests/source/js">3</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/LightweightThemeManager.jsm" class="icon js" style="">LightweightThemeManager.jsm</a></td>
+          <td class="description"><a href="/tests/source/LightweightThemeManager.jsm" title="globals AddonManagerPrivate">globals AddonManagerPrivate</td>
+          <td><a href="/tests/source/LightweightThemeManager.jsm">25383</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/lots_of_calls.cpp" class="icon cpp" style="">lots_of_calls.cpp</a></td>
+          <td class="description"><a href="/tests/source/lots_of_calls.cpp" title=""></td>
+          <td><a href="/tests/source/lots_of_calls.cpp">1659</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/macro.cpp" class="icon cpp" style="">macro.cpp</a></td>
+          <td class="description"><a href="/tests/source/macro.cpp" title=""></td>
+          <td><a href="/tests/source/macro.cpp">66</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mobile" class="icon folder" style="">mobile</a></td>
+          <td class="description"><a href="/tests/source/mobile" title=""></td>
+          <td><a href="/tests/source/mobile">1</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mozilla" class="icon folder" style="">mozilla</a></td>
+          <td class="description"><a href="/tests/source/mozilla" title=""></td>
+          <td><a href="/tests/source/mozilla">1</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/multiline.cpp" class="icon cpp" style="">multiline.cpp</a></td>
+          <td class="description"><a href="/tests/source/multiline.cpp" title="Some documentation.
+ ">Some documentation.
+ </td>
+          <td><a href="/tests/source/multiline.cpp">331</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/nsISupports.h" class="icon h" style="">nsISupports.h</a></td>
+          <td class="description"><a href="/tests/source/nsISupports.h" title=""></td>
+          <td><a href="/tests/source/nsISupports.h">729</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/nsTArray.h" class="icon h" style="">nsTArray.h</a></td>
+          <td class="description"><a href="/tests/source/nsTArray.h" title=""></td>
+          <td><a href="/tests/source/nsTArray.h">672</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/overs.cpp" class="icon cpp" style="">overs.cpp</a></td>
+          <td class="description"><a href="/tests/source/overs.cpp" title="This file is intended to create interesting test cases for searches against
+ a base class with a limited number of overrides.
+">This file is intended to create interesting test cases for searches against
+ a base class with a limited number of overrides.
+</td>
+          <td><a href="/tests/source/overs.cpp">1535</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/README.md" class="icon " style="">README.md</a></td>
+          <td class="description"><a href="/tests/source/README.md" title="This is a README">This is a README</td>
+          <td><a href="/tests/source/README.md">342</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/simple.cpp" class="icon cpp" style="">simple.cpp</a></td>
+          <td class="description"><a href="/tests/source/simple.cpp" title=""></td>
+          <td><a href="/tests/source/simple.cpp">1941</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/simple.rs" class="icon " style="">simple.rs</a></td>
+          <td class="description"><a href="/tests/source/simple.rs" title="A grab-bug of rust code to exercise the searchfox indexer.
+   Note how this comment ends up in the file description, too!
+">A grab-bug of rust code to exercise the searchfox indexer.
+   Note how this comment ends up in the file description, too!
+</td>
+          <td><a href="/tests/source/simple.rs">1729</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/some_ini.ini" class="icon " style="">some_ini.ini</a></td>
+          <td class="description"><a href="/tests/source/some_ini.ini" title=""></td>
+          <td><a href="/tests/source/some_ini.ini">34</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/some_javascript.js" class="icon js" style="">some_javascript.js</a></td>
+          <td class="description"><a href="/tests/source/some_javascript.js" title="#priv_field_undefined;
+
+  #priv_field_num = 10;
+  ">#priv_field_undefined;
+
+  #priv_field_num = 10;
+  </td>
+          <td><a href="/tests/source/some_javascript.js">1872</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/some_python.py" class="icon py" style="">some_python.py</a></td>
+          <td class="description"><a href="/tests/source/some_python.py" title="Some absurdly long doc-comment.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+">Some absurdly long doc-comment.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+</td>
+          <td><a href="/tests/source/some_python.py">672</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/spaces  are bad.txt" class="icon " style="">spaces  are bad.txt</a></td>
+          <td class="description"><a href="/tests/source/spaces  are bad.txt" title=""></td>
+          <td><a href="/tests/source/spaces  are bad.txt">0</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/subdir" class="icon folder" style="">subdir</a></td>
+          <td class="description"><a href="/tests/source/subdir" title=""></td>
+          <td><a href="/tests/source/subdir">1</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates_nsTArray.cpp" class="icon cpp" style="">templates_nsTArray.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates_nsTArray.cpp" title=""></td>
+          <td><a href="/tests/source/templates_nsTArray.cpp">123</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates1.cpp" class="icon cpp" style="">templates1.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates1.cpp" title=""></td>
+          <td><a href="/tests/source/templates1.cpp">267</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates2.cpp" class="icon cpp" style="">templates2.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates2.cpp" title=""></td>
+          <td><a href="/tests/source/templates2.cpp">452</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates3.cpp" class="icon cpp" style="">templates3.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates3.cpp" title=""></td>
+          <td><a href="/tests/source/templates3.cpp">439</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates4.cpp" class="icon cpp" style="">templates4.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates4.cpp" title=""></td>
+          <td><a href="/tests/source/templates4.cpp">109</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates5.cpp" class="icon cpp" style="">templates5.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates5.cpp" title=""></td>
+          <td><a href="/tests/source/templates5.cpp">179</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates5.h" class="icon h" style="">templates5.h</a></td>
+          <td class="description"><a href="/tests/source/templates5.h" title=""></td>
+          <td><a href="/tests/source/templates5.h">207</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_custom_element_base.xul" class="icon " style="">test_custom_element_base.xul</a></td>
+          <td class="description"><a href="/tests/source/test_custom_element_base.xul" title=""></td>
+          <td><a href="/tests/source/test_custom_element_base.xul">14637</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" class="icon " style="">test_DOMWindowCreated_chromeonly.html</a></td>
+          <td class="description"><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" title="DOMWindowCreated not visible in content">DOMWindowCreated not visible in content</td>
+          <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html">728</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_rust_dependency" class="icon folder" style="">test_rust_dependency</a></td>
+          <td class="description"><a href="/tests/source/test_rust_dependency" title=""></td>
+          <td><a href="/tests/source/test_rust_dependency">2</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_talosconfig_browser_config.json" class="icon " style="">test_talosconfig_browser_config.json</a></td>
+          <td class="description"><a href="/tests/source/test_talosconfig_browser_config.json" title=""></td>
+          <td><a href="/tests/source/test_talosconfig_browser_config.json">3355</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/third_party" class="icon folder" style="">third_party</a></td>
+          <td class="description"><a href="/tests/source/third_party" title=""></td>
+          <td><a href="/tests/source/third_party">1</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/tiger.svg" class="icon svg" style="background-image: url('null/raw-file/tip/tiger.svg');">tiger.svg</a></td>
+          <td class="description"><a href="/tests/source/tiger.svg" title=""></td>
+          <td><a href="/tests/source/tiger.svg">68630</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/using.cpp" class="icon cpp" style="">using.cpp</a></td>
+          <td class="description"><a href="/tests/source/using.cpp" title=""></td>
+          <td><a href="/tests/source/using.cpp">245</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/xpidl" class="icon folder" style="">xpidl</a></td>
+          <td class="description"><a href="/tests/source/xpidl" title=""></td>
+          <td><a href="/tests/source/xpidl">9</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/xpidl_cpp_consumer.cpp" class="icon cpp" style="">xpidl_cpp_consumer.cpp</a></td>
+          <td class="description"><a href="/tests/source/xpidl_cpp_consumer.cpp" title=""></td>
+          <td><a href="/tests/source/xpidl_cpp_consumer.cpp">417</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/__GENERATED__" class="icon folder" style="">__GENERATED__</a></td>
+          <td class="description"><a href="/tests/source/__GENERATED__" title=""></td>
+          <td><a href="/tests/source/__GENERATED__">5</a></td>
+        </tr>
+
+    </tbody>
+  </table>
+
+  </div>
+
+  <div id="foot" class="footer">
+    This page was generated by Searchfox
+    <span>NORMALIZED</span>.
+  </div>
+
+  <!-- avoid inline JS and use data attributes instead. Hackey but hey... -->
+  <span id="data" data-root="/" data-search="/tests/search" data-tree="tests"></span>
+  <span id="state" data-offset="0" data-limit="100" data-result-count="100" data-eof="false"></span>
+
+  <script src="/tests/static/js/search.js"></script>
+  <script src="/tests/static/js/context-menu.js"></script>
+  <script src="/tests/static/js/panel.js"></script>
+  <script src="/tests/static/js/code-highlighter.js"></script>
+</div>
+</body>
+</html>
+
+

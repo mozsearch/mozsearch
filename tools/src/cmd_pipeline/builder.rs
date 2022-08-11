@@ -19,6 +19,7 @@ use crate::{
 
 use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand};
 use super::{
+    cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
     cmd_crossref_expand::CrossrefExpandCommand,
     cmd_search::SearchCommand,
@@ -38,6 +39,8 @@ use super::interface::ServerPipeline;
 pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand + Send + Sync>> {
     match opts.cmd {
         Command::AugmentResults(ar) => Ok(Box::new(AugmentResultsCommand { args: ar })),
+
+        Command::CatHtml(ch) => Ok(Box::new(CatHtmlCommand { args: ch })),
 
         Command::CrossrefExpand(ce) => Ok(Box::new(CrossrefExpandCommand { args: ce })),
 
