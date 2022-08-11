@@ -100,7 +100,17 @@ sleep 1
 sudo umount /index
 
 $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
-$AWS_ROOT/trigger-web-server.py $CHANNEL $MOZSEARCH_REPO_URL $MOZSEARCH_REV $CONFIG_REPO_URL $CONFIG_REV $CONFIG_FILE_NAME $VOLUME_ID "$MOZSEARCH_PATH/infrastructure/web-server-check.sh" $CONFIG_REPO_PATH "/mnt/index-scratch"
+$AWS_ROOT/trigger-web-server.py \
+    $CHANNEL \
+    $MOZSEARCH_REPO_URL \
+    $MOZSEARCH_REV \
+    $CONFIG_REPO_URL \
+    $CONFIG_REV \
+    $CONFIG_FILE_NAME \
+    $VOLUME_ID \
+    "$MOZSEARCH_PATH/infrastructure/web-server-check.sh" \
+    $CONFIG_REPO_PATH \
+    "/mnt/index-scratch"
 
 case "$CHANNEL" in
 release* )

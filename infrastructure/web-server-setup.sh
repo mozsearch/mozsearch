@@ -49,7 +49,7 @@ do
     if [ -z "$DEFAULT_TREE_NAME" -o "$DEFAULT_TREE_NAME" == "$TREE_NAME" ]
     then
         rm -f $DOCROOT/help.html
-        ln -s $WORKING/$TREE_NAME/help.html $DOCROOT
+        ln -s $WORKING/$TREE_NAME/templates/help.html $DOCROOT
     fi
 done
 

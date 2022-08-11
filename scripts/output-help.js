@@ -13,6 +13,6 @@ let opt = {tree: treeName,
 let body = snarf(helpFile);
 let output = generate(body, opt);
 
-let old = redirect(indexRoot + "/help.html");
+let old = redirect(indexRoot + "/templates/help.html");
 print(output);
 os.file.close(redirect(old));
