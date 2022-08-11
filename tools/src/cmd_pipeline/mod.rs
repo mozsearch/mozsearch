@@ -8,6 +8,7 @@ pub mod symbol_graph;
 pub mod transforms;
 
 mod cmd_augment_results;
+mod cmd_cat_html;
 mod cmd_compile_results;
 mod cmd_crossref_expand;
 mod cmd_crossref_lookup;

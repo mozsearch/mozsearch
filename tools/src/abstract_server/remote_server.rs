@@ -103,8 +103,15 @@ impl AbstractServer for RemoteServer {
         Ok(Box::pin(tokio_stream::iter(values?)))
     }
 
-    async fn fetch_html(&self, sf_path: &str) -> Result<String> {
-        let url = self.source_base_url.join(sf_path)?;
+    async fn fetch_html(&self, _is_file: bool, sf_path: &str) -> Result<String> {
+        // Our tree-relative paths should not start with a slash
+        let norm_path = if sf_path.starts_with('/') {
+            &sf_path[1..]
+        } else {
+            sf_path
+        };
+
+        let url = self.source_base_url.join(norm_path)?;
         let html = get(url).await?.text().await?;
         Ok(html)
     }

@@ -127,8 +127,30 @@ impl AbstractServer for LocalIndex {
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 
-    async fn fetch_html(&self, sf_path: &str) -> Result<String> {
-        let full_path = format!("{}/file/{}.gz", self.config_paths.index_path, sf_path);
+    async fn fetch_html(&self, is_file: bool, sf_path: &str) -> Result<String> {
+        let full_path = if is_file {
+            format!("{}/file/{}.gz", self.config_paths.index_path, sf_path)
+        } else {
+            // Our tree-relative paths should not start with a slash
+            let norm_path = if sf_path.starts_with('/') {
+                &sf_path[1..]
+            } else {
+                sf_path
+            };
+
+            // We want a trailing slash for directories, and the input is allowed
+            // to do either.  The exception is that for the root directory, ""
+            // is the right choice because our "no leading /" rule trumps our
+            // "yes trailing /" rule for path manipulation.
+            let norm_path = if norm_path == "" {
+                "".to_string()
+            } else if norm_path.ends_with('/') {
+                sf_path.to_string()
+            } else {
+                format!("{}/", sf_path)
+            };
+            format!("{}/dir/{}index.html.gz", self.config_paths.index_path, norm_path)
+        };
 
         // If we were dealing with uncompressed files.
         /*

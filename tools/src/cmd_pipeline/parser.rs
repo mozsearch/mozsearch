@@ -2,6 +2,7 @@ use clap::arg_enum;
 use structopt::StructOpt;
 
 use super::cmd_augment_results::AugmentResults;
+use super::cmd_cat_html::CatHtml;
 use super::cmd_compile_results::CompileResults;
 use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
@@ -52,6 +53,7 @@ pub struct ToolOpts {
 #[derive(Debug, StructOpt)]
 pub enum Command {
     AugmentResults(AugmentResults),
+    CatHtml(CatHtml),
     CrossrefExpand(CrossrefExpand),
     CrossrefLookup(CrossrefLookup),
     FilterAnalysis(FilterAnalysis),

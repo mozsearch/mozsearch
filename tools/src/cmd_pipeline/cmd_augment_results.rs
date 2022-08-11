@@ -83,7 +83,7 @@ impl PipelineCommand for AugmentResultsCommand {
             // production.  Or maybe production really wants the performance?
             // Production certainly should have the RAM for our known worst
             // case scenarios.
-            let html_str = server.fetch_html(&path).await?;
+            let html_str = server.fetch_html(true, &path).await?;
 
             let file_lines = path_line_contents
                 .entry(path.clone())
