@@ -4,7 +4,7 @@ use structopt::StructOpt;
 
 use super::interface::{PipelineCommand, PipelineValues, TextFile};
 use crate::{
-    abstract_server::{AbstractServer, Result},
+    abstract_server::{AbstractServer, HtmlFileRoot, Result},
 };
 
 /// Dump the contents of a HTML file for a (source) file or rendered directory
@@ -32,6 +32,10 @@ pub struct CatHtml {
     /// Is this a directory's HTML we want (instead of a source file)?
     #[structopt(short, long)]
     dir: bool,
+
+    /// Is this a template's HTML we want?
+    #[structopt(short, long)]
+    template: bool,
 }
 
 #[derive(Debug)]
@@ -74,7 +78,14 @@ impl PipelineCommand for CatHtmlCommand {
         server: &Box<dyn AbstractServer + Send + Sync>,
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let html_str = server.fetch_html(!self.args.dir, &self.args.file).await?;
+        let root = if self.args.dir {
+            HtmlFileRoot::FormattedDir
+        } else if self.args.template {
+            HtmlFileRoot::FormattedTemplate
+        } else {
+            HtmlFileRoot::FormattedFile
+        };
+        let html_str = server.fetch_html(root, &self.args.file).await?;
 
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: "text/html".to_string(),

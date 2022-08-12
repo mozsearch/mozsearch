@@ -6,7 +6,7 @@ use structopt::StructOpt;
 
 use super::interface::{JsonRecords, PipelineCommand, PipelineValues};
 use crate::{
-    abstract_server::{AbstractServer, Result},
+    abstract_server::{AbstractServer, Result, HtmlFileRoot},
     cmd_pipeline::interface::{HtmlExcerpts, HtmlExcerptsByFile},
 };
 
@@ -51,7 +51,7 @@ impl PipelineCommand for ShowHtmlCommand {
             // production.  Or maybe production really wants the performance?
             // Production certainly should have the RAM for our known worst
             // case scenarios.
-            let html_str = server.fetch_html(true, &fr.file).await?;
+            let html_str = server.fetch_html(HtmlFileRoot::FormattedFile, &fr.file).await?;
 
             let mut file_excerpts = vec![];
 
