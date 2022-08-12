@@ -54,6 +54,11 @@ parallel --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmp
     --block -1 --halt 2 --env RUST_BACKTRACE \
     $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME -
 
+# TOOL_CMD="search-files --limit=0 --group-by=dir | batch-render dir"
+# SEARCHFOX_SERVER=${CONFIG_FILE} \
+#     SEARCHFOX_TREE=${TREE_NAME} \
+#     $MOZSEARCH_PATH/tools/target/release/searchfox-tool $TOOL_CMD
+
 HG_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].hg_root" ${CONFIG_FILE})
 cat $INDEX_ROOT/repo-files $INDEX_ROOT/objdir-files > ${TMPDIR:-/tmp}/dirs
 js $MOZSEARCH_PATH/scripts/output-dir.js $FILES_ROOT $INDEX_ROOT "$HG_ROOT" $MOZSEARCH_PATH $OBJDIR $TREE_NAME ${TMPDIR:-/tmp}/dirs
