@@ -11,7 +11,7 @@ use tokio::io::AsyncReadExt;
 use tracing::trace;
 
 use super::server_interface::{
-    AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextBounds, TextMatchInFile,
+    AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextBounds, TextMatchInFile, HtmlFileRoot,
 };
 use super::{TextMatches, TextMatchesByFile};
 
@@ -87,6 +87,20 @@ async fn read_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
         .collect()
 }
 
+/// Helper to ensure that our path-ish use of &str's does not ever try and do
+/// something that can escape a hackily constructed path.  We probably should
+/// move to using path types more directly.
+fn validate_absoluteish_path(path: &str) -> Result<()> {
+    if path.split("/").any(|x| x == "..") {
+        Err(ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::BadInput,
+            message: "All paths must be absolute-ish".to_string()
+        }))
+    } else {
+        Ok(())
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 struct LocalIndex {
@@ -122,46 +136,68 @@ impl AbstractServer for LocalIndex {
     }
 
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
-        let full_path = format!("{}/analysis/{}.gz", self.config_paths.index_path, sf_path);
+        // We normalize off any leading "/" mainly to support our test cases
+        // being able to use "/" to indicate they're interested in a root dir.
+        let norm_path = if sf_path.starts_with('/') {
+            &sf_path[1..]
+        } else {
+            sf_path
+        };
+        // We don't want anyone trying to construct a path that escapes the
+        // sub-tree.
+        validate_absoluteish_path(norm_path)?;
+        let full_path = format!("{}/analysis/{}.gz", self.config_paths.index_path, norm_path);
         let values = read_gzipped_ndjson_from_file(&full_path).await?;
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 
-    async fn fetch_html(&self, is_file: bool, sf_path: &str) -> Result<String> {
-        let full_path = if is_file {
-            format!("{}/file/{}.gz", self.config_paths.index_path, sf_path)
+    async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {
+        // We normalize off any leading "/" mainly to support our test cases
+        // being able to use "/" to indicate they're interested in a root dir.
+        let norm_path = if sf_path.starts_with('/') {
+            &sf_path[1..]
         } else {
-            // Our tree-relative paths should not start with a slash
-            let norm_path = if sf_path.starts_with('/') {
-                &sf_path[1..]
-            } else {
-                sf_path
-            };
+            sf_path
+        };
+        // We don't want anyone trying to construct a path that escapes the
+        // sub-tree.
+        validate_absoluteish_path(norm_path)?;
+        let (full_path, is_gzipped) = match root {
+            HtmlFileRoot::FormattedFile => {
+                (format!("{}/file/{}.gz", self.config_paths.index_path, norm_path), true)
+            }
+            HtmlFileRoot::FormattedDir => {
+                // Our tree-relative paths should not start with a slash
 
-            // We want a trailing slash for directories, and the input is allowed
-            // to do either.  The exception is that for the root directory, ""
-            // is the right choice because our "no leading /" rule trumps our
-            // "yes trailing /" rule for path manipulation.
-            let norm_path = if norm_path == "" {
-                "".to_string()
-            } else if norm_path.ends_with('/') {
-                sf_path.to_string()
-            } else {
-                format!("{}/", sf_path)
-            };
-            format!("{}/dir/{}index.html.gz", self.config_paths.index_path, norm_path)
+                // We want a trailing slash for directories, and the input is allowed
+                // to do either.  The exception is that for the root directory, ""
+                // is the right choice because our "no leading /" rule trumps our
+                // "yes trailing /" rule for path manipulation.
+                let norm_path = if norm_path == "" {
+                    "".to_string()
+                } else if norm_path.ends_with('/') {
+                    norm_path.to_string()
+                } else {
+                    format!("{}/", norm_path)
+                };
+                (format!("{}/dir/{}index.html.gz", self.config_paths.index_path, norm_path), true)
+            }
+            HtmlFileRoot::FormattedTemplate => {
+                (format!("{}/templates/{}", self.config_paths.index_path, norm_path), false)
+            }
         };
 
-        // If we were dealing with uncompressed files.
-        /*
-        let mut f = File::open(full_path).await?;
-        let mut raw_str = String::new();
-        f.read_to_string(&mut raw_str).await?;
-        */
+        if !is_gzipped {
+            let mut f = File::open(full_path).await?;
+            let mut raw_str = String::new();
+            f.read_to_string(&mut raw_str).await?;
+            return Ok(raw_str);
+        }
 
         let mut f = File::open(full_path).await?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer).await?;
+
 
         // When we want to go async here,
         // https://github.com/rust-lang/flate2-rs/pull/214 suggests that we want

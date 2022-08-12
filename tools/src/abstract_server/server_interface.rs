@@ -55,6 +55,19 @@ impl IntoResponse for ServerError {
     }
 }
 
+/// `fetch_html` needs to fetch from a number of parallel directories in the
+/// index directory, and this enum maps to those directories.
+#[derive(Debug, Eq, PartialEq)]
+
+pub enum HtmlFileRoot {
+    /// `INDEX_ROOT/file` root, unified remotely.
+    FormattedFile,
+    /// `INDEX_ROOT/dir` root for local, unified remotely.
+    FormattedDir,
+    /// `INDEX_ROOT/templates` root for local, not available remotely.
+    FormattedTemplate,
+}
+
 /// Express whether the error seems to be happening in the server or the data.
 #[derive(Debug)]
 pub enum ErrorLayer {
@@ -202,7 +215,7 @@ pub trait AbstractServer {
     /// sub-tree.  If `is_file` is false, we're treating it as a directory
     /// request and we'll fetch the relevant `index.html.gz` file from the
     /// INDEX/dir sub-tree.
-    async fn fetch_html(&self, is_file: bool, sf_path: &str) -> Result<String>;
+    async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String>;
 
     /// Retrieve the JSON contents of the crossref database for the given
     /// symbol.

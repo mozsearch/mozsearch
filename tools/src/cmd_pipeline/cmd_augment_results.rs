@@ -5,7 +5,7 @@ use lol_html::{element, HtmlRewriter, Settings};
 use structopt::StructOpt;
 
 use super::interface::{PipelineCommand, PipelineValues};
-use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, HtmlFileRoot};
 
 /// Augment a FlattenedResultsBundle by scraping the rendered HTML output files
 /// for lines of interest plus any context, plus applying any predicates that
@@ -83,7 +83,7 @@ impl PipelineCommand for AugmentResultsCommand {
             // production.  Or maybe production really wants the performance?
             // Production certainly should have the RAM for our known worst
             // case scenarios.
-            let html_str = server.fetch_html(true, &path).await?;
+            let html_str = server.fetch_html(HtmlFileRoot::FormattedFile, &path).await?;
 
             let file_lines = path_line_contents
                 .entry(path.clone())

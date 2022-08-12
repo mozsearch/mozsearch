@@ -3,7 +3,7 @@ use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
 use url::{ParseError, Url};
 
-use super::{server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, TextMatches};
+use super::{server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, TextMatches, HtmlFileRoot};
 
 /// reqwest won't return an error for an unhappy status code itself; someone
 /// would need to call `Response::error_from_status`, so for now we'll generally
@@ -103,13 +103,22 @@ impl AbstractServer for RemoteServer {
         Ok(Box::pin(tokio_stream::iter(values?)))
     }
 
-    async fn fetch_html(&self, _is_file: bool, sf_path: &str) -> Result<String> {
+    async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {
+        // We don't have access to raw templates, so just call that unsupported.
+        // Note that we could special-case for "help.html" here since it does
+        // get explicitly exposed as "index.html", but it's also fine to only
+        // validate this for local files.
+        if root == HtmlFileRoot::FormattedTemplate {
+            return Err(ServerError::Unsupported);
+        }
         // Our tree-relative paths should not start with a slash
         let norm_path = if sf_path.starts_with('/') {
             &sf_path[1..]
         } else {
             sf_path
         };
+        // We don't both caring about the presence of ".." here because we don't
+        // have any security-ish things to worry about for a public web server.
 
         let url = self.source_base_url.join(norm_path)?;
         let html = get(url).await?.text().await?;
