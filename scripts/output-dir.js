@@ -44,7 +44,8 @@ function FileInfo(path)
   this.path = path;
   this.size = 0;
   try {
-    this.description = snarf(descriptionPath(path));
+    const jsonDesc = JSON.parse(snarf(descriptionPath(path)));
+    this.description = jsonDesc.description;
   } catch (e) {
     // No description file
     this.description = "";
