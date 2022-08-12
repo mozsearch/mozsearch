@@ -15,6 +15,8 @@ use std::time::Instant;
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde_json::to_writer;
+use tools::file_format::per_file_info::derive_description;
 use tools::file_format::per_file_info::get_per_file_info;
 use tools::file_format::per_file_info::read_json_from_file;
 
@@ -227,12 +229,13 @@ fn main() {
         writeln!(stdout, "  File contents read duration: {}us", pre_file_read.elapsed().as_micros() as u64).unwrap();
 
         let pre_describe_file = Instant::now();
-        if let Some(file_description) = describe::describe_file(&input, &path_wrapper, &format) {
+        if let Some(str_description) = describe::describe_file(&input, &path_wrapper, &format) {
             let description_fname =
                 format!("{}/description/{}", tree_config.paths.index_path, path);
             let description_file = File::create(description_fname).unwrap();
-            let mut desc_writer = BufWriter::new(description_file);
-            write!(desc_writer, "{}", file_description).unwrap();
+            let desc_writer = BufWriter::new(description_file);
+            let file_description = derive_description(str_description, &metadata, &per_file_info);
+            to_writer(desc_writer, &file_description).unwrap();
         }
         writeln!(stdout, "  File described duration: {}us", pre_describe_file.elapsed().as_micros() as u64).unwrap();
 

@@ -1,9 +1,10 @@
-use std::fs::File;
+use std::fs::{File, Metadata};
 use std::io::BufReader;
 
 extern crate rustc_serialize;
 use rustc_serialize::json;
 use rustc_serialize::json::Json;
+use serde::{Deserialize, Serialize};
 
 // TODO: Hey, this should all have been converted to serde already!
 pub fn read_json_from_file(path: &str) -> Option<json::Object> {
@@ -34,6 +35,8 @@ pub fn get_bugzilla_component<'a>(
 
 /// Information about expected failures/problems for specific web platform
 /// tests.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+
 pub struct WPTExpectationInfo {
     /// The condition strings and related bugs that disable this test in its
     /// entirety.
@@ -44,6 +47,7 @@ pub struct WPTExpectationInfo {
 
 /// Information from `test-info-all-tests.json` which knows about files that the
 /// test manifests know about.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestInfo {
     pub failed_runs: i64,
     pub skip_if: Option<String>,
@@ -142,7 +146,10 @@ pub struct PerFileInfo {
     pub coverage: Option<Vec<i32>>,
 }
 
-pub fn get_concise_file_info<'a>(all_concise_info: &'a json::Object, path: &str) -> Option<&'a json::Object> {
+pub fn get_concise_file_info<'a>(
+    all_concise_info: &'a json::Object,
+    path: &str,
+) -> Option<&'a json::Object> {
     let mut cur_obj = all_concise_info.get("root")?.as_object()?;
 
     for path_component in path.split('/') {
@@ -156,11 +163,7 @@ pub fn get_concise_file_info<'a>(all_concise_info: &'a json::Object, path: &str)
 }
 
 pub fn read_detailed_file_info(path: &str, index_path: &str) -> Option<json::Object> {
-    let detailed_file_info_fname = format!(
-        "{}/detailed-per-file-info/{}",
-        index_path,
-        path
-    );
+    let detailed_file_info_fname = format!("{}/detailed-per-file-info/{}", index_path, path);
     read_json_from_file(&detailed_file_info_fname)
 }
 
@@ -261,83 +264,81 @@ pub fn interpolate_coverage(mut raw: Vec<i32>) -> Vec<i32> {
 fn test_interpolate_coverage() {
     let cases = vec![
         // empty
-        vec![
-            vec![],
-            vec![]
-        ],
+        vec![vec![], vec![]],
         // interpolate a hit between two hits
-        vec![
-            vec![1, -1, 1],
-            vec![1, -2, 1]
-        ],
+        vec![vec![1, -1, 1], vec![1, -2, 1]],
         // interpolate a miss between two misses
-        vec![
-            vec![0, -1, 0],
-            vec![0, -3, 0]
-        ],
+        vec![vec![0, -1, 0], vec![0, -3, 0]],
         // interpolate a hit if there's a hit on either side
-        vec![
-            vec![1, -1, 0, -1, 1],
-            vec![1, -2, 0, -2, 1]
-        ],
+        vec![vec![1, -1, 0, -1, 1], vec![1, -2, 0, -2, 1]],
         // don't interpolate ends
-        vec![
-            vec![-1, 1, -1, 1, -1],
-            vec![-1, 1, -2, 1, -1]
-        ],
+        vec![vec![-1, 1, -1, 1, -1], vec![-1, 1, -2, 1, -1]],
         // don't interpolate if the whole file is uncovered
-        vec![
-            vec![-1, -1, -1, -1, -1],
-            vec![-1, -1, -1, -1, -1]
-        ],
+        vec![vec![-1, -1, -1, -1, -1], vec![-1, -1, -1, -1, -1]],
         // combine all of the above (except for whole file), single interp each.
         vec![
             vec![-1, -1, 0, -1, 0, -1, 1, -1, 1, -1, 1, -1, 0, -1],
-            vec![-1, -1, 0, -3, 0, -2, 1, -2, 1, -2, 1, -2, 0, -1]
+            vec![-1, -1, 0, -3, 0, -2, 1, -2, 1, -2, 1, -2, 0, -1],
         ],
         // now double the length of the interpolation runs
         vec![
-            vec![-1, -1, 0, -1, -1, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, -1],
-            vec![-1, -1, 0, -3, -3, 0, -2, -2, 1, -2, -2, 1, -2, -2, 1, -2, -2, 0, -1]
+            vec![
+                -1, -1, 0, -1, -1, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, -1,
+            ],
+            vec![
+                -1, -1, 0, -3, -3, 0, -2, -2, 1, -2, -2, 1, -2, -2, 1, -2, -2, 0, -1,
+            ],
         ],
         // now triple!
         vec![
-            vec![-1, -1, 0, -1, -1, -1, 0, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1, 0, -1],
-            vec![-1, -1, 0, -3, -3, -3, 0, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2, 0, -1]
+            vec![
+                -1, -1, 0, -1, -1, -1, 0, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1,
+                0, -1,
+            ],
+            vec![
+                -1, -1, 0, -3, -3, -3, 0, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2,
+                0, -1,
+            ],
         ],
         // add some runs of non-interpolated values to make sure we don't randomly clobber data.
         vec![
-            vec![1, 2, 4, -1, 8, 16, 32, -1, -1, 64, 0, 0, -1, 0, 128, 256, -1, 512],
-            vec![1, 2, 4, -2, 8, 16, 32, -2, -2, 64, 0, 0, -3, 0, 128, 256, -2, 512]
+            vec![
+                1, 2, 4, -1, 8, 16, 32, -1, -1, 64, 0, 0, -1, 0, 128, 256, -1, 512,
+            ],
+            vec![
+                1, 2, 4, -2, 8, 16, 32, -2, -2, 64, 0, 0, -3, 0, 128, 256, -2, 512,
+            ],
         ],
     ];
 
     for pair in cases {
-        assert_eq!(
-            interpolate_coverage(pair[0].clone()),
-            pair[1]
-        );
+        assert_eq!(interpolate_coverage(pair[0].clone()), pair[1]);
     }
-
 }
 
 /// Extract any per-file info from the concise info aggregate object plus
 /// anything in the individual detailed file if it exists.
-pub fn get_per_file_info(all_concise_info: &json::Object, path: &str, index_path: &str) -> PerFileInfo {
+pub fn get_per_file_info(
+    all_concise_info: &json::Object,
+    path: &str,
+    index_path: &str,
+) -> PerFileInfo {
     let (bugzilla_component, test_info) = match get_concise_file_info(all_concise_info, path) {
         Some(concise_info) => (
             get_bugzilla_component(all_concise_info, concise_info),
-            read_test_info_from_concise_info(concise_info)
+            read_test_info_from_concise_info(concise_info),
         ),
         None => (None, None),
     };
 
     let coverage = match read_detailed_file_info(path, index_path) {
-        Some(mut detailed_obj) => {
-            match detailed_obj.remove("lineCoverage") {
-                Some(Json::Array(arr)) => Some(interpolate_coverage(arr.iter().map(|x| x.as_i64().unwrap_or(-1) as i32).collect())),
-                _ => None,
-            }
+        Some(mut detailed_obj) => match detailed_obj.remove("lineCoverage") {
+            Some(Json::Array(arr)) => Some(interpolate_coverage(
+                arr.iter()
+                    .map(|x| x.as_i64().unwrap_or(-1) as i32)
+                    .collect(),
+            )),
+            _ => None,
         },
         None => None,
     };
@@ -346,5 +347,28 @@ pub fn get_per_file_info(all_concise_info: &json::Object, path: &str, index_path
         bugzilla_component,
         test_info,
         coverage,
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileDescription {
+    pub description: String,
+    pub is_dir: bool,
+    pub file_size: u64,
+    pub bugzilla_component: Option<(String, String)>,
+    pub test_info: Option<TestInfo>,
+}
+
+pub fn derive_description(
+    str_desc: String,
+    metadata: &Metadata,
+    per_file_info: &PerFileInfo,
+) -> FileDescription {
+    FileDescription {
+        description: str_desc,
+        is_dir: metadata.is_dir(),
+        file_size: metadata.len(),
+        bugzilla_component: per_file_info.bugzilla_component.clone(),
+        test_info: per_file_info.test_info.clone(),
     }
 }
