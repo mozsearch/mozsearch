@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter};
 
 extern crate env_logger;
 #[macro_use]
@@ -9,35 +9,47 @@ extern crate log;
 extern crate tools;
 use tools::config;
 
-extern crate rustc_serialize;
-use rustc_serialize::json;
-use rustc_serialize::json::{Json, ToJson};
+use serde_json::{from_reader, json, to_writer, Map, Value};
 
-fn read_json_from_file(path: &str) -> Option<json::Object> {
-    let file = File::open(path).ok()?;
-    let mut reader = BufReader::new(&file);
-    Json::from_reader(&mut reader).ok()?.into_object()
+fn read_json_from_file(path: &str) -> Option<Value> {
+    let components_file = File::open(path).ok()?;
+    let mut reader = BufReader::new(&components_file);
+    from_reader(&mut reader).ok()?
 }
 
-fn write_json_to_file(val: Json, path: &str) -> Option<()> {
+fn write_json_to_file(val: Value, path: &str) -> Option<()> {
     let file = File::create(path).ok()?;
-    let mut writer = BufWriter::new(file);
-    write!(&mut writer, "{}", val).ok()?;
+    let writer = BufWriter::new(file);
+    to_writer(writer, &val).ok()?;
     Some(())
 }
+
+// NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE
+//
+// This file was originally written to do JSON processing using rustc_serialize
+// and has now been converted to use of serde_json with some idiom updates, but
+// in general this file could probably benefit from converting to explicit
+// serialize/deserialze to native types given how much boilerplate there still
+// is for processing.  While care would need to be taken to make sure to have
+// "extra" slots like:
+// ```
+// #[serde(flatten)]
+// pub extra: Map<String, Value>,
+// ```
+// to hold any newly-added fields so functionality doesn't break when new data
+// is added, it seems clear that this would would result in significantly more
+// readable code that people would probably be more willing to touch.
+//
+// NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE
 
 /// Helper to set the provided `key` to the provided `value` in the per-file for
 /// the provided `path`, creating intermediary type="dir" nodes as we go.
 ///
 /// This does not know how to set meta-info on directories at this time but can
 /// be generalized in the future.
-fn store_in_file_value(concise_info: &mut json::Object, path: &str, key: &str, val: Json) {
-    let mut dir_obj: &mut json::Object = concise_info
-        .get_mut("root")
-        .unwrap()
-        .as_object_mut()
-        .unwrap()
-        .get_mut("contents")
+fn store_in_file_value(concise_info: &mut Value, path: &str, key: &str, val: Value) {
+    let mut dir_obj: &mut Map<String, Value> = concise_info
+        .pointer_mut("/root/contents")
         .unwrap()
         .as_object_mut()
         .unwrap();
@@ -49,37 +61,43 @@ fn store_in_file_value(concise_info: &mut json::Object, path: &str, key: &str, v
         let next_val = dir_obj
             .entry(path_component.to_string())
             .or_insert_with(|| {
-                let mut child = BTreeMap::new();
-                child.insert("type".to_string(), "dir".to_string().to_json());
-                child.insert("contents".to_string(), Json::Object(json::Object::new()));
-                Json::Object(child)
+                json!({
+                    "type": "dir",
+                    "contents": {},
+                })
             });
         dir_obj = next_val
-            .as_object_mut()
-            .unwrap()
-            .get_mut("contents")
+            .pointer_mut("/contents")
             .unwrap()
             .as_object_mut()
             .unwrap();
     }
 
     let file_val = dir_obj.entry(file_part.to_string()).or_insert_with(|| {
-        let mut child = BTreeMap::new();
-        child.insert("type".to_string(), "file".to_string().to_json());
-        Json::Object(child)
+        json!({
+            "type": "file"
+        })
     });
     let file_obj = file_val.as_object_mut().unwrap();
     file_obj.insert(key.to_string(), val);
 }
 
-fn store_details_in_file_value(detailed_per_file_info: &mut BTreeMap<String, json::Object>, path: &str, key: &str, val: Json) {
-    let file_obj = detailed_per_file_info.entry(path.to_string()).or_insert_with(|| {
-        let mut obj = BTreeMap::new();
-        // We always want the JSON file to self-identify itself.
-        obj.insert("path".to_string(), path.to_string().to_json());
-        obj
-    });
-    file_obj.insert(key.to_string(), val);
+fn store_details_in_file_value(
+    detailed_per_file_info: &mut BTreeMap<String, Value>,
+    path: &str,
+    key: &str,
+    val: Value,
+) {
+    let file_obj = detailed_per_file_info
+        .entry(path.to_string())
+        .or_insert_with(|| {
+            // We always want the JSON file to self-identify itself.
+            json!({ "path": path })
+        });
+    file_obj
+        .as_object_mut()
+        .unwrap()
+        .insert(key.to_string(), val);
 }
 
 /// Recursive helper to traverse the bugzilla component "paths" hierarchy and
@@ -90,7 +108,10 @@ fn store_details_in_file_value(detailed_per_file_info: &mut BTreeMap<String, jso
 ///   which is a bugzilla components index.
 /// - `concise_node`: This will always be a { type: 'dir', contents }
 ///   concise_info node.
-fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, concise_node: &mut json::Object) {
+fn traverse_and_store_bugzilla_map(
+    bz_dir: &Map<String, Value>,
+    concise_node: &mut Map<String, Value>,
+) {
     // We never actually want to be altering the metadata of the current
     // all_node, so just immediately access its contents.
     let concise_contents = concise_node
@@ -101,34 +122,46 @@ fn traverse_and_store_bugzilla_map(bz_dir: &json::Object, concise_node: &mut jso
     for (filename, value) in bz_dir {
         if value.is_object() {
             // Objects mean the child is a directory as well.
-            let concise_child = concise_contents.entry(filename.to_string()).or_insert_with(|| {
-                let mut child = BTreeMap::new();
-                child.insert("type".to_string(), "dir".to_string().to_json());
-                child.insert("contents".to_string(), Json::Object(json::Object::new()));
-                Json::Object(child)
-            });
+            let concise_child = concise_contents
+                .entry(filename.to_string())
+                .or_insert_with(|| {
+                    json!({
+                        "type": "dir",
+                        "contents": {},
+                    })
+                });
             traverse_and_store_bugzilla_map(
                 value.as_object().unwrap(),
                 concise_child.as_object_mut().unwrap(),
             );
         } else {
             // It's a number and therefore a file.
-            let concise_child = concise_contents.entry(filename.to_string()).or_insert_with(|| {
-                let mut child = BTreeMap::new();
-                child.insert("type".to_string(), "file".to_string().to_json());
-                Json::Object(child)
-            });
+            let concise_child = concise_contents
+                .entry(filename.to_string())
+                .or_insert_with(|| {
+                    json!({
+                        "type": "file"
+                    })
+                });
             let child_obj = concise_child.as_object_mut().unwrap();
             child_obj.insert("component".to_string(), value.clone());
         }
     }
 }
 
-
 /// Recursive helper to traverse the code coverage hierarchy.
-fn traverse_and_store_coverage(cov_node: &mut json::Object, path_so_far: &str, detailed_per_file_info: &mut BTreeMap<String, json::Object>) {
+fn traverse_and_store_coverage(
+    cov_node: &mut Map<String, Value>,
+    path_so_far: &str,
+    detailed_per_file_info: &mut BTreeMap<String, Value>,
+) {
     if let Some(coverage) = cov_node.remove("coverage") {
-        store_details_in_file_value(detailed_per_file_info, path_so_far, &"lineCoverage", coverage);
+        store_details_in_file_value(
+            detailed_per_file_info,
+            path_so_far,
+            &"lineCoverage",
+            coverage,
+        );
     }
     if let Some(children) = cov_node.get_mut("children") {
         for (filename, child_json) in children.as_object_mut().unwrap() {
@@ -308,26 +341,24 @@ fn main() {
     // ## Build empty derived info structures
     // The single JSON object that holds concise info for all files and is
     // written out to `concise-per-file-info.json`.
-    let mut concise_info: json::Object = BTreeMap::new();
-    {
-        let contents = json::Object::new();
-        let mut root = json::Object::new();
-        root.insert("type".to_string(), "dir".to_string().to_json());
-        root.insert("contents".to_string(), Json::Object(contents));
-        concise_info.insert("root".to_string(), Json::Object(root));
-    }
+    let mut concise_info = json!({
+        "root": {
+            "type": "dir",
+            "contents": {},
+        }
+    });
 
     // A map from path to the specific per-file JSON object that will be written
     // out into a separate file for each source/analysis file.
-    let mut detailed_per_file_info = BTreeMap::new();
+    let mut detailed_per_file_info: BTreeMap<String, Value> = BTreeMap::new();
 
     // ## Load bugzilla data and merge it in to the derived info structure
     let bugzilla_fname = format!("{}/bugzilla-components.json", tree_config.paths.index_path);
     let bugzilla_data = read_json_from_file(&bugzilla_fname);
-    if let Some(mut data) = bugzilla_data {
+    if let Some(Value::Object(mut data)) = bugzilla_data {
         info!("Bugzilla components read");
 
-        concise_info.insert(
+        concise_info.as_object_mut().unwrap().insert(
             "bugzilla-components".to_string(),
             data.remove("components").unwrap(),
         );
@@ -335,7 +366,11 @@ fn main() {
         if let Some(bz_root) = data.get("paths") {
             traverse_and_store_bugzilla_map(
                 bz_root.as_object().unwrap(),
-                concise_info.get_mut("root").unwrap().as_object_mut().unwrap(),
+                concise_info
+                    .get_mut("root")
+                    .unwrap()
+                    .as_object_mut()
+                    .unwrap(),
             );
         }
     } else {
@@ -345,26 +380,26 @@ fn main() {
     // ## Load test info and merge it in to the derived info structure
     let test_info_fname = format!("{}/test-info-all-tests.json", tree_config.paths.index_path);
     let test_info_data = read_json_from_file(&test_info_fname);
-    if let Some(mut data) = test_info_data {
+    if let Some(Value::Object(mut data)) = test_info_data {
         info!("Test info data read");
 
-        if let Some(Json::Object(tests_obj)) = data.remove("tests") {
+        if let Some(Value::Object(tests_obj)) = data.remove("tests") {
             for (_, component_tests_value) in tests_obj.into_iter() {
-                if let Json::Array(tests_arr) = component_tests_value {
+                if let Value::Array(tests_arr) = component_tests_value {
                     for test_info_value in tests_arr.into_iter() {
                         let mut test_info_obj = match test_info_value {
-                            Json::Object(obj) => obj,
+                            Value::Object(obj) => obj,
                             _ => panic!("Test value should be an object."),
                         };
                         let test_path = match test_info_obj.remove("test") {
-                            Some(Json::String(str)) => str,
+                            Some(Value::String(str)) => str,
                             _ => panic!("Test `test` field should be present and a string."),
                         };
                         store_in_file_value(
                             &mut concise_info,
                             &test_path,
                             "testInfo",
-                            Json::Object(test_info_obj),
+                            json!(test_info_obj),
                         );
                     }
                 }
@@ -377,38 +412,43 @@ fn main() {
     // ## Load WPT meta info and merge it in to the derived info structure
     let wpt_info_fname = format!("{}/wpt-metadata-summary.json", tree_config.paths.index_path);
     let wpt_info_data = read_json_from_file(&wpt_info_fname);
-    if let (Some(wpt_root), Some(data)) = (tree_config.paths.wpt_root.clone(), wpt_info_data) {
+    if let (Some(wpt_root), Some(Value::Object(data))) =
+        (tree_config.paths.wpt_root.clone(), wpt_info_data)
+    {
         info!("WPT info read");
 
         for (dir_path, dir_info) in data.into_iter() {
-            // Process only the tests info.  There may be some notable stuff
-            // here at the directory's `__dir__.ini` level, but we're not doing
-            // anything with it yet.
-            if let Some(Json::Object(tests_obj)) = dir_info.into_object().unwrap().remove("_tests")
-            {
-                for (test_filename, test_info) in tests_obj.into_iter() {
-                    let mut propagate = BTreeMap::new();
-                    // Process "disabled" which indicates there were file-level
-                    // failure disablings.
+            if let Value::Object(mut dir_info_obj) = dir_info {
+                // Process only the tests info.  There may be some notable stuff
+                // here at the directory's `__dir__.ini` level, but we're not doing
+                // anything with it yet.
+                if let Some(Value::Object(tests_obj)) = dir_info_obj.remove("_tests") {
+                    for (test_filename, test_info) in tests_obj.into_iter() {
+                        let mut propagate = BTreeMap::new();
+                        // Process "disabled" which indicates there were file-level
+                        // failure disablings.
 
-                    let mut test_obj = test_info.into_object().unwrap();
-                    if let Some(conditions) = test_obj.remove("disabled") {
-                        propagate.insert("disabled".to_string(), conditions);
+                        if let Value::Object(mut test_obj) = test_info {
+                            if let Some(conditions) = test_obj.remove("disabled") {
+                                propagate.insert("disabled".to_string(), conditions);
+                            }
+
+                            if let Some(Value::Object(subtests_obj)) = test_obj.remove("_subtests")
+                            {
+                                propagate.insert(
+                                    "subtests_with_conditions".to_string(),
+                                    json!(subtests_obj.len()),
+                                );
+                            }
+
+                            store_in_file_value(
+                                &mut concise_info,
+                                &format!("{}/tests/{}/{}", wpt_root, dir_path, test_filename),
+                                "wptInfo",
+                                json!(propagate),
+                            );
+                        }
                     }
-
-                    if let Some(Json::Object(subtests_obj)) = test_obj.remove("_subtests") {
-                        propagate.insert(
-                            "subtests_with_conditions".to_string(),
-                            Json::U64(subtests_obj.len() as u64),
-                        );
-                    }
-
-                    store_in_file_value(
-                        &mut concise_info,
-                        &format!("{}/tests/{}/{}", wpt_root, dir_path, test_filename),
-                        "wptInfo",
-                        Json::Object(propagate),
-                    );
                 }
             }
         }
@@ -418,7 +458,7 @@ fn main() {
 
     let coverage_info_fname = format!("{}/code-coverage-report.json", tree_config.paths.index_path);
     let coverage_info_data = read_json_from_file(&coverage_info_fname);
-    if let Some(mut cov_root) = coverage_info_data {
+    if let Some(Value::Object(mut cov_root)) = coverage_info_data {
         traverse_and_store_coverage(&mut cov_root, "", &mut detailed_per_file_info);
     }
 
@@ -428,7 +468,7 @@ fn main() {
         "{}/concise-per-file-info.json",
         tree_config.paths.index_path
     );
-    if write_json_to_file(Json::Object(concise_info), &output_fname).is_some() {
+    if write_json_to_file(json!(concise_info), &output_fname).is_some() {
         info!("Per-file info written to disk");
     } else {
         warn!("Unable to write per-file info to disk");
@@ -438,8 +478,7 @@ fn main() {
     for (path, json_obj) in detailed_per_file_info.into_iter() {
         let detailed_fname = format!(
             "{}/detailed-per-file-info/{}",
-            tree_config.paths.index_path,
-            path
+            tree_config.paths.index_path, path
         );
         // We haven't actually bothered to create this directory tree anywhere,
         // and we expect to be sparsely populating it, so just do the mkdir -p
@@ -447,6 +486,6 @@ fn main() {
         let detailed_path = std::path::Path::new(&detailed_fname);
         std::fs::create_dir_all(detailed_path.parent().unwrap()).unwrap();
 
-        write_json_to_file(Json::Object(json_obj), &detailed_fname);
+        write_json_to_file(json_obj, &detailed_fname);
     }
 }
