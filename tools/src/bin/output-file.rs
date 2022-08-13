@@ -15,6 +15,7 @@ use std::time::Instant;
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde_json::json;
 use serde_json::to_writer;
 use tools::file_format::per_file_info::derive_description;
 use tools::file_format::per_file_info::get_per_file_info;
@@ -32,9 +33,6 @@ use tools::format::{format_file_data, create_markdown_panel_section};
 use tools::languages;
 
 use tools::output::{InfoBox, PanelItem, PanelSection, F};
-
-extern crate rustc_serialize;
-use rustc_serialize::json;
 
 extern crate flate2;
 use flate2::Compression;
@@ -93,7 +91,7 @@ fn main() {
         },
         None => {
             writeln!(stdout, "No concise-per-file-info.json file found").unwrap();
-            json::Object::new()
+            json!({})
         }
     };
 

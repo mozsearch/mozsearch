@@ -1,16 +1,13 @@
 use std::fs::{File, Metadata};
 use std::io::BufReader;
 
-extern crate rustc_serialize;
-use rustc_serialize::json;
-use rustc_serialize::json::Json;
 use serde::{Deserialize, Serialize};
+use serde_json::{from_reader, Map, Value};
 
-// TODO: Hey, this should all have been converted to serde already!
-pub fn read_json_from_file(path: &str) -> Option<json::Object> {
+pub fn read_json_from_file(path: &str) -> Option<Value> {
     let components_file = File::open(path).ok()?;
     let mut reader = BufReader::new(&components_file);
-    json::Json::from_reader(&mut reader).ok()?.into_object()
+    from_reader(&mut reader).ok()?
 }
 
 /// For a given path, looks up the bugzilla product and component and
@@ -18,8 +15,8 @@ pub fn read_json_from_file(path: &str) -> Option<json::Object> {
 /// comes from https://searchfox.org/mozilla-central/rev/47edbd91c43db6229cf32d1fc4bae9b325b9e2d0/python/mozbuild/mozbuild/frontend/mach_commands.py#209-223,243
 /// and is fairly straightforward.
 pub fn get_bugzilla_component<'a>(
-    all_info: &'a json::Object,
-    per_file_info: &'a json::Object,
+    all_info: &'a Value,
+    per_file_info: &'a Map<String, Value>,
 ) -> Option<(String, String)> {
     let component_id = per_file_info.get("component")?.as_i64()?.to_string();
     let mut result_iter = all_info
@@ -28,8 +25,8 @@ pub fn get_bugzilla_component<'a>(
         .get(&component_id)?
         .as_array()?
         .iter();
-    let product = result_iter.next()?.as_string()?;
-    let component = result_iter.next()?.as_string()?;
+    let product = result_iter.next()?.as_str()?;
+    let component = result_iter.next()?.as_str()?;
     Some((product.to_string(), component.to_string()))
 }
 
@@ -60,7 +57,7 @@ pub struct TestInfo {
     pub wpt_expectation_info: Option<WPTExpectationInfo>,
 }
 
-pub fn read_test_info_from_concise_info(concise_info: &json::Object) -> Option<TestInfo> {
+pub fn read_test_info_from_concise_info(concise_info: &Map<String, Value>) -> Option<TestInfo> {
     let obj = concise_info.get("testInfo")?.as_object()?;
 
     let failed_runs = match obj.get("failure_count") {
@@ -68,7 +65,7 @@ pub fn read_test_info_from_concise_info(concise_info: &json::Object) -> Option<T
         _ => 0,
     };
     let skip_if = match obj.get("skip-if") {
-        Some(json) => Some(json.as_string().unwrap().to_string()),
+        Some(json) => Some(json.as_str().unwrap().to_string()),
         _ => None,
     };
     let skipped_runs = match obj.get("skipped runs") {
@@ -85,9 +82,9 @@ pub fn read_test_info_from_concise_info(concise_info: &json::Object) -> Option<T
     };
 
     let wpt_expectation_info = match concise_info.get("wptInfo") {
-        Some(Json::Object(obj)) => {
+        Some(Value::Object(obj)) => {
             let disabling_conditions = match obj.get("disabled") {
-                Some(Json::Array(arr)) => arr
+                Some(Value::Array(arr)) => arr
                     .iter()
                     .filter_map(|cond| {
                         // cond itself should be a 2-element array where the first
@@ -95,10 +92,10 @@ pub fn read_test_info_from_concise_info(concise_info: &json::Object) -> Option<T
                         // the bug link.
                         match cond.as_array().unwrap_or(&vec![]).as_slice() {
                             // null means there was no condition, it's always disabled.
-                            [Json::Null, Json::String(b)] => {
+                            [Value::Null, Value::String(b)] => {
                                 Some(("ALWAYS".to_string(), b.to_string()))
                             }
-                            [Json::String(a), Json::String(b)] => {
+                            [Value::String(a), Value::String(b)] => {
                                 Some((a.to_string(), b.to_string()))
                             }
                             // I guess this is just covering up our failures?  I'm
@@ -147,9 +144,9 @@ pub struct PerFileInfo {
 }
 
 pub fn get_concise_file_info<'a>(
-    all_concise_info: &'a json::Object,
+    all_concise_info: &'a Value,
     path: &str,
-) -> Option<&'a json::Object> {
+) -> Option<&'a Map<String, Value>> {
     let mut cur_obj = all_concise_info.get("root")?.as_object()?;
 
     for path_component in path.split('/') {
@@ -162,7 +159,7 @@ pub fn get_concise_file_info<'a>(
     Some(cur_obj)
 }
 
-pub fn read_detailed_file_info(path: &str, index_path: &str) -> Option<json::Object> {
+pub fn read_detailed_file_info(path: &str, index_path: &str) -> Option<Value> {
     let detailed_file_info_fname = format!("{}/detailed-per-file-info/{}", index_path, path);
     read_json_from_file(&detailed_file_info_fname)
 }
@@ -318,11 +315,7 @@ fn test_interpolate_coverage() {
 
 /// Extract any per-file info from the concise info aggregate object plus
 /// anything in the individual detailed file if it exists.
-pub fn get_per_file_info(
-    all_concise_info: &json::Object,
-    path: &str,
-    index_path: &str,
-) -> PerFileInfo {
+pub fn get_per_file_info(all_concise_info: &Value, path: &str, index_path: &str) -> PerFileInfo {
     let (bugzilla_component, test_info) = match get_concise_file_info(all_concise_info, path) {
         Some(concise_info) => (
             get_bugzilla_component(all_concise_info, concise_info),
@@ -332,15 +325,15 @@ pub fn get_per_file_info(
     };
 
     let coverage = match read_detailed_file_info(path, index_path) {
-        Some(mut detailed_obj) => match detailed_obj.remove("lineCoverage") {
-            Some(Json::Array(arr)) => Some(interpolate_coverage(
+        Some(Value::Object(mut detailed_obj)) => match detailed_obj.remove("lineCoverage") {
+            Some(Value::Array(arr)) => Some(interpolate_coverage(
                 arr.iter()
                     .map(|x| x.as_i64().unwrap_or(-1) as i32)
                     .collect(),
             )),
             _ => None,
         },
-        None => None,
+        _ => None,
     };
 
     PerFileInfo {
