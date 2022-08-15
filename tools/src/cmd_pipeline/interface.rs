@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use clap::arg_enum;
+use clap::{Args, ValueEnum};
 use serde::Serialize;
 use serde_json::{to_string_pretty, Value};
 use std::{
@@ -7,7 +7,6 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
 };
-use structopt::StructOpt;
 use tracing::{trace, trace_span};
 
 use crate::abstract_server::TextMatches;
@@ -15,23 +14,31 @@ pub use crate::abstract_server::{AbstractServer, Result};
 
 use super::symbol_graph::SymbolGraphCollection;
 
-arg_enum! {
-  #[derive(Debug, PartialEq)]
-  pub enum RecordType {
-      Source,
-      Target,
-      Structured,
-  }
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum RecordType {
+    Source,
+    Target,
+    Structured,
 }
 
-#[derive(Debug, StructOpt)]
+impl RecordType {
+    pub fn name(&self) -> &'static str {
+        match self {
+            RecordType::Source => "source",
+            RecordType::Target => "target",
+            RecordType::Structured => "structured",
+        }
+    }
+}
+
+#[derive(Debug, Args)]
 pub struct SymbolicQueryOpts {
     /// Exact symbol match
-    #[structopt(short)]
+    #[clap(short, value_parser)]
     pub symbol: Option<String>,
 
     /// Exact identifier match
-    #[structopt(short)]
+    #[clap(short, value_parser)]
     pub identifier: Option<String>,
 }
 

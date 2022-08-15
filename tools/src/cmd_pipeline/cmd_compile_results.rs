@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use async_trait::async_trait;
 use regex::Regex;
 use serde_json::{from_value, Value};
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{
     FileMatch, FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
@@ -25,15 +25,15 @@ use crate::{
 /// by key/kind precedence (files, IDL, defs, override stuff, super/subclass
 /// stuff, assignments, uses, declarations, text matches), noting that
 /// precedences will likely change.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct CompileResults {
     /// Maximum number of file results to list, truncating at the limit.
-    #[structopt(short, long, default_value = "2000")]
+    #[clap(short, long, value_parser, default_value = "2000")]
     file_limit: usize,
 
     /// Maximum number of result lines to limit, truncating at the limit.
     /// Context lines don't impact this limit.
-    #[structopt(short, long, default_value = "2000")]
+    #[clap(short, long, value_parser, default_value = "2000")]
     line_limit: usize,
 }
 

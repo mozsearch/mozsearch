@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use structopt::StructOpt;
+use clap::Args;
 
 use super::{interface::{PipelineCommand, PipelineValues}, transforms::path_glob_transform};
 
@@ -7,29 +7,30 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 
 /// Perform a fulltext search against our livegrep/codesearch server over gRPC.
 /// This is local-only at this time.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct SearchText {
     /// Text to search for; this will be regexp escaped.
+    #[clap(value_parser)]
     text: Option<String>,
 
     /// Search for a regular expression.  This can't be used if `text` is used.
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     re: Option<String>,
 
     /// Constrain matching path patterns with a non-regexp path constraint that
     /// will be escaped into a regexp.
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     path: Option<String>,
 
     /// Constrain matching path patterns with a regexp.
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     pathre: Option<String>,
 
     /// Should this be case-sensitive?  By default we are case-insensitive.
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     case_sensitive: bool,
 
-    #[structopt(short, long, default_value = "0")]
+    #[clap(short, long, value_parser, default_value = "0")]
     limit: usize,
 }
 

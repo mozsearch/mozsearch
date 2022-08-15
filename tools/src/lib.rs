@@ -18,7 +18,6 @@ extern crate malloc_size_of;
 extern crate query_parser;
 extern crate serde;
 extern crate serde_json;
-extern crate structopt;
 #[macro_use]
 extern crate tracing;
 extern crate tracing_subscriber;

@@ -2,7 +2,7 @@ use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use async_trait::async_trait;
 use lol_html::{element, HtmlRewriter, Settings};
-use structopt::StructOpt;
+use clap::StructOpt;
 
 use super::interface::{PipelineCommand, PipelineValues};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, HtmlFileRoot};
@@ -35,11 +35,11 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 #[derive(Debug, StructOpt)]
 pub struct AugmentResults {
     /// Lines of context before a hit.
-    #[structopt(short, long, default_value = "0")]
+    #[structopt(short, long, value_parser, default_value = "0")]
     before: u32,
 
     /// Lines of context after a hit.
-    #[structopt(short, long, default_value = "0")]
+    #[structopt(short, long, value_parser, default_value = "0")]
     after: u32,
 }
 

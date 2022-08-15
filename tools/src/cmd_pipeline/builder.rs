@@ -1,3 +1,5 @@
+use clap::Parser;
+
 use crate::{
     abstract_server::AbstractServer,
     cmd_pipeline::{
@@ -5,7 +7,6 @@ use crate::{
         cmd_search_text::SearchTextCommand, interface::JunctionInvocation, PipelineCommand,
     },
     query::chew_query::QueryPipelineGroupBuilder,
-    structopt::StructOpt,
 };
 use tracing::{trace, trace_span};
 use url::Url;
@@ -110,7 +111,7 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         let mut fake_args = vec![bin_name.to_string()];
         fake_args.extend(arg_slices.iter().cloned());
 
-        let opts = match ToolOpts::from_iter_safe(fake_args) {
+        let opts = match ToolOpts::try_parse_from(fake_args) {
             Ok(opts) => opts,
             Err(err) => {
                 return Err(ServerError::StickyProblem(ErrorDetails {
@@ -178,7 +179,7 @@ pub fn build_pipeline_graph(
                             .chain(&segment.args)
                             .cloned()
                             .collect();
-                    let opts = match ToolOpts::from_iter_safe(full_args) {
+                    let opts = match ToolOpts::try_parse_from(full_args) {
                         Ok(opts) => opts,
                         Err(err) => {
                             return Err(ServerError::StickyProblem(ErrorDetails {
@@ -229,7 +230,7 @@ pub fn build_pipeline_graph(
             .chain(&junction_info.command.args)
             .cloned()
             .collect();
-            let opts = match JunctionOpts::from_iter_safe(full_args) {
+            let opts = match JunctionOpts::try_parse_from(full_args) {
                 Ok(opts) => opts,
                 Err(err) => {
                     return Err(ServerError::StickyProblem(ErrorDetails {

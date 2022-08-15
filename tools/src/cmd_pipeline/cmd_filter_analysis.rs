@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use structopt::StructOpt;
+use clap::Args;
 use tokio_stream::StreamExt;
 
 use super::interface::{
@@ -11,18 +11,19 @@ use crate::{
 };
 
 /// Filter the contents of a single analysis file.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct FilterAnalysis {
     /// Tree-relative analysis file path
+    #[clap(value_parser)]
     file: String,
 
-    #[structopt(long, short, possible_values = &RecordType::variants(), case_insensitive = true)]
+    #[clap(long, short, value_parser, value_enum)]
     record_type: Option<Vec<RecordType>>,
 
-    #[structopt(long, short)]
+    #[clap(long, short, value_parser)]
     kind: Option<String>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     query_opts: SymbolicQueryOpts,
 }
 
@@ -51,7 +52,7 @@ impl PipelineCommand for FilterAnalysisCommand {
                 // "source", "target", or "structured" so check for the
                 // stringified version of the enum value.
                 for rt in record_types {
-                    if val.get(rt.to_string().to_lowercase()).is_some() {
+                    if val.get(rt.name()).is_some() {
                         return true;
                     }
                 }

@@ -5,7 +5,7 @@ use lol_html::{
 };
 use regex::Regex;
 use serde_json::Value;
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{
     JsonRecords, JsonRecordsByFile, JsonValue, PipelineCommand, PipelineValues,
@@ -18,7 +18,7 @@ use crate::{
 /// Normalize HTML or JSON records for production environment checks so that
 /// details like line numbers or `data-i` indexes that are subject to churn
 /// due to changes elsewhere in the file are normalized to "NORM".
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct ProductionFilter {}
 
 #[derive(Debug)]

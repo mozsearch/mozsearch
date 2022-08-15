@@ -12,7 +12,7 @@ async-stream = "0.3.2"
 async-trait = "0.1.50"
 axum = "0.5.3"
 chrono = "0.2"
-clap = "2"
+clap = { version = "3.0", features = ["cargo", "derive", "env"] }
 dot-generator = "0.2.0"
 dot-structures = "0.1.0"
 env_logger = "0.7.1"
@@ -55,7 +55,6 @@ shell-words = "1.0.0"
 serde = { version = "1.0.130", features = ["derive", "rc", "std"] }
 serde_json = { version = "1.0.67", features = ["preserve_order"] }
 serde_repr = "0.1"
-structopt = "0.3"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util"] }
 tokio-stream = "0.1.8"
 toml = "0.5.9"

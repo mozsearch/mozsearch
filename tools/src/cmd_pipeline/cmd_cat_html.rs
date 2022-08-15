@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use lol_html::{element, rewrite_str, RewriteStrSettings, html_content::ContentType};
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{PipelineCommand, PipelineValues, TextFile};
 use crate::{
@@ -24,17 +24,18 @@ use crate::{
 ///
 /// Differs from show-html which is about excerpting source lines and which has
 /// a separate "prod-filter" helper for production "checks".
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct CatHtml {
     /// Tree-relative source file path or directory.
+    #[clap(value_parser)]
     file: String,
 
     /// Is this a directory's HTML we want (instead of a source file)?
-    #[structopt(short, long)]
+    #[clap(short, long, action)]
     dir: bool,
 
     /// Is this a template's HTML we want?
-    #[structopt(short, long)]
+    #[clap(short, long, action)]
     template: bool,
 }
 

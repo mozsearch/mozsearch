@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc};
 
 use async_trait::async_trait;
 use lol_html::{element, HtmlRewriter, Settings};
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{JsonRecords, PipelineCommand, PipelineValues};
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
 /// be driven by command-line use-cases; in particular, the experience of
 /// evolving a more targeted query.  Having to modify a command up-stream should
 /// be considered undesirable.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct ShowHtml {}
 
 #[derive(Debug)]

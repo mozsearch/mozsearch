@@ -1,5 +1,4 @@
 extern crate clap;
-extern crate structopt;
 
 pub mod builder;
 pub mod interface;

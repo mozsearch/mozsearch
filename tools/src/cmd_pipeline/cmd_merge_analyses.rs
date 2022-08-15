@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use serde_json::{from_str, Value};
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{
     JsonRecords, PipelineCommand, PipelineValues,
@@ -12,13 +12,14 @@ use crate::{
 };
 
 /// Merge analysis files from different build configs into one analysis file.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct MergeAnalyses {
     /// Tree-relative analysis file paths
+    #[clap(value_parser)]
     files: Vec<String>,
 
     /// The list of platforms to claim the files came from.
-    #[structopt(long, short)]
+    #[clap(long, short, value_parser)]
     platforms: Vec<String>,
 }
 

@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate clap;
 extern crate env_logger;
 #[macro_use]
@@ -9,15 +8,19 @@ extern crate tools;
 
 use crate::data::GlobalCrateId;
 use crate::data::{DefKind, ImplKind};
+use clap::Parser;
 use rls_analysis::{AnalysisHost, AnalysisLoader, SearchDirectory};
 use serde_json::to_string;
-use ustr::ustr;
 use std::collections::{BTreeSet, HashMap};
 use std::fs::{self, File};
 use std::io;
 use std::io::{BufRead, BufReader, Read, Seek};
 use std::path::{Path, PathBuf};
-use tools::file_format::analysis::{AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, SourceRange, SourceTag, TargetTag, WithLocation};
+use tools::file_format::analysis::{
+    AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, SourceRange, SourceTag,
+    TargetTag, WithLocation,
+};
+use ustr::ustr;
 
 /// A global definition id in a crate.
 ///
@@ -750,43 +753,43 @@ fn analyze_crate(analysis: &data::Analysis, defs: &Defs, tree_info: &TreeInfo) {
     }
 }
 
-fn main() {
-    use clap::Arg;
-    env_logger::init();
-    let matches = app_from_crate!()
-        .args_from_usage(
-            "<src>       'Points to the source root (FILES_ROOT)'
-             <output>    'Points to the directory where searchfox metadata should go (ANALYSIS_ROOT)'
-             <generated> 'Points to the generated source files root (GENERATED)'",
-        )
-        .arg(
-            Arg::with_name("input")
-                .required(false)
-                .multiple(true)
-                .help("rustc analysis directories"),
-        )
-        .get_matches();
+#[derive(Parser)]
+struct RustIndexerCli {
+    /// Points to the source root (FILES_ROOT)
+    #[clap(value_parser)]
+    src: PathBuf,
 
-    let srcdir = Path::new(matches.value_of("src").unwrap());
-    let out_analysis_dir = Path::new(matches.value_of("output").unwrap());
-    let generated = Path::new(matches.value_of("generated").unwrap());
+    /// Points to the directory where searchfox metadata should go (ANALYSIS_ROOT)
+    #[clap(value_parser)]
+    output: PathBuf,
+
+    /// Points to the generated source files root (GENERATED)
+    #[clap(value_parser)]
+    generated: PathBuf,
+
+    /// rustc analysis directories
+    #[clap(value_parser)]
+    inputs: Vec<PathBuf>,
+}
+
+fn main() {
+    env_logger::init();
+
+    let cli = RustIndexerCli::parse();
 
     let tree_info = TreeInfo {
-        srcdir,
-        out_analysis_dir,
-        generated,
+        srcdir: &cli.src,
+        out_analysis_dir: &cli.output,
+        generated: &cli.generated,
         generated_friendly: &PathBuf::from("__GENERATED__"),
     };
 
     info!("Tree info: {:?}", tree_info);
 
-    let input_dirs = match matches.values_of("input") {
-        Some(inputs) => inputs.map(PathBuf::from).collect(),
-        None => vec![],
-    };
-    let loader = Loader::new(input_dirs);
+    let loader = Loader::new(cli.inputs);
 
-    let crates = rls_analysis::read_analysis_from_files(&loader, Default::default(), &[] as &[&str]);
+    let crates =
+        rls_analysis::read_analysis_from_files(&loader, Default::default(), &[] as &[&str]);
 
     info!(
         "Crates: {:?}",
