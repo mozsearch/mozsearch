@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use serde_json::{to_value};
-use structopt::StructOpt;
+use clap::Args;
 
 use super::{interface::{JsonValue, PipelineCommand, PipelineValues}, builder::build_pipeline_graph};
 use crate::{
     abstract_server::{AbstractServer, Result}, query::chew_query::chew_query,
 };
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct BatchRender {
     /// Preconfigured rendering task.  This could be an enum or sub-command, but
     /// for now we're just going for strings.

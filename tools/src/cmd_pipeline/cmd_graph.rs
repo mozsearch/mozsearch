@@ -1,35 +1,34 @@
 use async_trait::async_trait;
-use clap::arg_enum;
-use regex::{self, Regex, Captures};
-use structopt::StructOpt;
+use clap::{Args, ValueEnum};
+use regex::{self, Captures, Regex};
 
 use graphviz_rust::cmd::{CommandArg, Format};
 use graphviz_rust::exec;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
 
-use super::interface::{GraphResultsBundle, TextFile, PipelineCommand, PipelineValues, RenderedGraph};
+use super::interface::{
+    GraphResultsBundle, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
+};
 
 use crate::abstract_server::{AbstractServer, Result};
 
-arg_enum! {
-    #[derive(Debug, PartialEq)]
-    pub enum GraphFormat {
-        // Raw dot syntax without any layout performed.
-        RawDot,
-        SVG,
-        PNG,
-        // Dot with layout information.
-        Dot,
-        // Transformed SVG accompanied by symbol metadata in a JSON structure.
-        Mozsearch
-    }
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum GraphFormat {
+    // Raw dot syntax without any layout performed.
+    RawDot,
+    SVG,
+    PNG,
+    // Dot with layout information.
+    Dot,
+    // Transformed SVG accompanied by symbol metadata in a JSON structure.
+    Mozsearch,
 }
 
 /// Render a received graph into a dot, svg, or json-wrapped-svg which also
 /// includes embedded crossref information.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct Graph {
-    #[structopt(long, short, possible_values = &GraphFormat::variants(), case_insensitive = true, default_value = "svg")]
+    #[clap(long, short, value_parser, value_enum, default_value = "svg")]
     pub format: GraphFormat,
 }
 
@@ -111,9 +110,11 @@ fn transform_svg(svg: &str) -> String {
     lazy_static! {
         static ref RE_TITLE: Regex = Regex::new(">\n<title>([^<]+)</title>").unwrap();
     }
-    RE_TITLE.replace_all(svg, |caps: &Captures| {
-        format!(" data-symbols=\"{}\">", caps.get(1).unwrap().as_str())
-    }).to_string()
+    RE_TITLE
+        .replace_all(svg, |caps: &Captures| {
+            format!(" data-symbols=\"{}\">", caps.get(1).unwrap().as_str())
+        })
+        .to_string()
 }
 
 #[async_trait]
@@ -151,23 +152,17 @@ impl PipelineCommand for GraphCommand {
             vec![CommandArg::Format(format)],
         )?;
         match self.args.format {
-            GraphFormat::Mozsearch => {
-                Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
-                    graphs: vec![
-                        RenderedGraph {
-                            graph: transform_svg(&graph_contents),
-                        }
-                    ],
-                    symbols: graphs.symbols_meta_to_json(),
-                    overloads_hit: graphs.overloads_hit,
-                }))
-            }
-            _ => {
-                Ok(PipelineValues::TextFile(TextFile {
-                    mime_type,
-                    contents: graph_contents,
-                }))
-            }
+            GraphFormat::Mozsearch => Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
+                graphs: vec![RenderedGraph {
+                    graph: transform_svg(&graph_contents),
+                }],
+                symbols: graphs.symbols_meta_to_json(),
+                overloads_hit: graphs.overloads_hit,
+            })),
+            _ => Ok(PipelineValues::TextFile(TextFile {
+                mime_type,
+                contents: graph_contents,
+            })),
         }
     }
 }

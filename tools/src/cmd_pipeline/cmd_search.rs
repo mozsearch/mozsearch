@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use json_structural_diff::JsonDiff;
 use serde_json::{json, Map, Value};
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{JsonValue, PipelineCommand, PipelineValues};
 use crate::abstract_server::{AbstractServer, Result};
@@ -9,26 +9,27 @@ use crate::abstract_server::{AbstractServer, Result};
 /// Run a traditional searchfox search against the web server.  This will turn
 /// into a no-op when run against a local index at this time, but in the future
 /// may be able to spin up the necessary pieces.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct Search {
     /// Query string
+    #[clap(value_parser)]
     query: String,
 
     /// Diff the results of this query against the previous command's output,
     /// producing diff output.
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     diff: bool,
 
     /// Normalize "bounds" out of existence because they can differ when using
     /// different query strings.
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     normalize: bool,
 
     /// Convert arrays of "path"-keyed objects to a dict whose keys are the "path"
     /// values and the value is still the same value, including "path".  This is
     /// meant to make the diff option more friendly in cases where ordering is not
     /// a concern.
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     dictify: bool,
 }
 

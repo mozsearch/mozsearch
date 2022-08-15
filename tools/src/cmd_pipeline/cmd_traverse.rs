@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 use itertools::Itertools;
 use serde_json::Value;
-use structopt::StructOpt;
+use clap::Args;
 use tracing::trace;
 
 use super::{
@@ -18,7 +18,7 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 /// Processes piped-in crossref symbol data, recursively traversing the given
 /// edges, building up a graph that also holds onto the crossref data for all
 /// traversed symbols.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct Traverse {
     /// The edge to traverse, currently "uses" or "callees".
     ///
@@ -35,12 +35,12 @@ pub struct Traverse {
     ///
     /// The fancy prototype previously did but we don't do yet:
     /// - Ignores edges to nodes that are 'boring' as determined by hardcoded
-    #[structopt(long, short, default_value = "callees")]
+    #[clap(long, short, value_parser, default_value = "callees")]
     edge: String,
 
     /// Maximum traversal depth.  Traversal will also be constrained by the
     /// applicable node-limit, but is effectively breadth-first.
-    #[structopt(long, short, default_value = "8")]
+    #[clap(long, short, value_parser, default_value = "8")]
     max_depth: u32,
 
     /// When enabled, the traversal will be performed with the higher
@@ -48,17 +48,17 @@ pub struct Traverse {
     /// traversal will be used as pair-wise inputs to the all_simple_paths
     /// petgraph algorithm to derive a new graph which will be constrained to
     /// the normal "node-limit".
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     paths_between: bool,
 
     /// Maximum number of nodes in a resulting graph.  When paths are involved,
     /// we may opt to add the entirety of the path that puts the graph over the
     /// node limit rather than omitting it.
-    #[structopt(long, default_value = "256")]
+    #[clap(long, value_parser, default_value = "256")]
     pub node_limit: u32,
     /// Maximum number of nodes in a graph being built to be processed by
     /// paths-between.
-    #[structopt(long, default_value = "8192")]
+    #[clap(long, value_parser, default_value = "8192")]
     pub paths_between_node_limit: u32,
 
     /// If we see "uses" with this many paths with hits, do not process any of
@@ -68,7 +68,7 @@ pub struct Traverse {
     /// TODO: Probably have the meta capture the total number of uses so we can
     /// just perform a look-up without this hack.  But this hack works for
     /// experimenting.
-    #[structopt(long, default_value = "16")]
+    #[clap(long, value_parser, default_value = "16")]
     pub skip_uses_at_path_count: u32,
 }
 

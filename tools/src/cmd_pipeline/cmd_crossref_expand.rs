@@ -2,7 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 use async_trait::async_trait;
 use serde_json::Value;
-use structopt::StructOpt;
+use clap::Args;
 use tracing::{trace};
 
 use super::interface::{
@@ -16,16 +16,16 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 /// relationships like override set membership.  This is fundamentally entwined
 /// with what information we want to present in search results and how we want
 /// to present it.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct CrossrefExpand {
-    #[structopt(long, default_value = "100")]
+    #[clap(long, value_parser, default_value = "100")]
     pub subclass_local_limit: u32,
-    #[structopt(long, default_value = "400")]
+    #[clap(long, value_parser, default_value = "400")]
     pub subclass_global_limit: u32,
 
-    #[structopt(long, default_value = "100")]
+    #[clap(long, value_parser, default_value = "100")]
     pub override_local_limit: u32,
-    #[structopt(long, default_value = "400")]
+    #[clap(long, value_parser, default_value = "400")]
     pub override_global_limit: u32,
 }
 

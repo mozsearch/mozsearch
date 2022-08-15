@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{
     IdentifierList, PipelineCommand, PipelineValues, SymbolList, SymbolQuality, SymbolWithContext,
@@ -9,26 +9,27 @@ use crate::abstract_server::{AbstractServer, Result};
 
 /// Return the crossref data for one or more symbols received via pipeline or as
 /// explicit arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct SearchIdentifiers {
     /// Explicit identifiers to search.
+    #[clap(value_parser)]
     identifiers: Vec<String>,
 
     /// Should this be an exact-match?  By default we do a prefix search.
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     exact_match: bool,
 
     /// Should this be case-sensitive?  By default we are case-insensitive.
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     case_sensitive: bool,
 
     /// Minimum identifier length to search for.  The default of 3 is derived
     /// from router.py's `is_trivial_search` heuristic requiring a length of 3,
     /// although it was only required along one axis.
-    #[structopt(long, default_value = "3")]
+    #[clap(long, value_parser, default_value = "3")]
     min_length: usize,
 
-    #[structopt(short, long, default_value = "1000")]
+    #[clap(short, long, value_parser, default_value = "1000")]
     limit: usize,
 }
 

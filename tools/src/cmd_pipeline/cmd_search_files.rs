@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use structopt::StructOpt;
+use clap::Args;
 
 use super::{
     interface::{PipelineCommand, PipelineValues, FileMatches, FileMatch},
@@ -10,16 +10,17 @@ use crate::abstract_server::{AbstractServer, Result};
 
 /// Perform a fulltext search against our livegrep/codesearch server over gRPC.
 /// This is local-only at this time.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct SearchFiles {
     /// Path to search for; this will be searchfox glob-transformed.
+    #[clap(value_parser)]
     path: Option<String>,
 
     /// Constrain matching path patterns with a regexp.
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     pathre: Option<String>,
 
-    #[structopt(short, long, default_value = "1000")]
+    #[clap(short, long, value_parser, default_value = "1000")]
     limit: usize,
 }
 

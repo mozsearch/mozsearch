@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use structopt::StructOpt;
+use clap::Args;
 
 use super::interface::{
     PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolList, SymbolWithContext, SymbolQuality, SymbolRelation,
@@ -9,16 +9,17 @@ use crate::abstract_server::{AbstractServer, Result, ServerError, ErrorDetails, 
 
 /// Return the crossref data for one or more symbols received via pipeline or as
 /// explicit arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct CrossrefLookup {
     /// Explicit symbols to lookup.
+    #[clap(value_parser)]
     symbols: Vec<String>,
     // TODO: It might make sense to provide a way to filter the looked up data
     // by kind, although that could of course be its own command too.
 
     /// If the looked up symbol turns out to be a class with methods, instead of
     /// adding the class to the set, add its methods.
-    #[structopt(long)]
+    #[clap(long, action)]
     methods: bool,
 }
 

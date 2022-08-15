@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use serde_json::{to_value};
-use structopt::StructOpt;
+use clap::Args;
 
 use super::{interface::{JsonValue, PipelineCommand, PipelineValues}, builder::build_pipeline_graph};
 use crate::{
@@ -10,13 +10,14 @@ use crate::{
 /// Run a new-style `query-parser` `term:value` query parse against the local
 /// index.  Remote server is currently a no-op, but when supported the entire
 /// query will be run on the server (because we want to test the server).
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct Query {
     /// Query string
+    #[clap(value_parser)]
     query: String,
 
     /// Output the constructed pipeline instead of running the pipeline.
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     dump_pipeline: bool,
 }
 

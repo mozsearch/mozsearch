@@ -1,5 +1,4 @@
-use clap::arg_enum;
-use structopt::StructOpt;
+use clap::{Parser, Subcommand, ValueEnum};
 
 use super::cmd_augment_results::AugmentResults;
 use super::cmd_cat_html::CatHtml;
@@ -18,39 +17,49 @@ use super::cmd_search_text::SearchText;
 use super::cmd_show_html::ShowHtml;
 use super::cmd_traverse::Traverse;
 
-arg_enum! {
-    #[derive(Clone, Debug, PartialEq)]
-    pub enum OutputFormat {
-        // Pretty-printed JSON.
-        Pretty,
-        // Un-pretty-printed JSON.
-        Concise,
-    }
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum OutputFormat {
+    // Pretty-printed JSON.
+    Pretty,
+    // Un-pretty-printed JSON.
+    Concise,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct ToolOpts {
     /// URL of the server to query or the path to the root of the index tree if
     /// using local data.
-    #[structopt(
+    #[clap(
         long,
+        value_parser,
         default_value = "https://searchfox.org/",
         env = "SEARCHFOX_SERVER"
     )]
     pub server: String,
 
     /// The name of the indexed tree to use.
-    #[structopt(long, default_value = "mozilla-central", env = "SEARCHFOX_TREE")]
+    #[clap(
+        long,
+        value_parser,
+        default_value = "mozilla-central",
+        env = "SEARCHFOX_TREE"
+    )]
     pub tree: String,
 
-    #[structopt(long, short, possible_values = &OutputFormat::variants(), case_insensitive = true, default_value = "concise")]
+    #[clap(
+        long,
+        short,
+        value_parser,
+        value_enum,
+        default_value = "concise"
+    )]
     pub output_format: OutputFormat,
 
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub cmd: Command,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
     AugmentResults(AugmentResults),
     CatHtml(CatHtml),
@@ -69,13 +78,13 @@ pub enum Command {
     Traverse(Traverse),
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct JunctionOpts {
     #[structopt(subcommand)]
     pub cmd: JunctionCommand,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum JunctionCommand {
     CompileResults(CompileResults),
 }
