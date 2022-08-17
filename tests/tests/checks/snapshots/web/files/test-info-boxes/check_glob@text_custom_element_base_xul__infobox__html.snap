@@ -1,0 +1,16 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<section class="info-boxes" id="info-boxes-container">
+  <section class="info-box info-box-warning">
+    <h4>Test Info: Warnings</h4>
+    <div>
+      <ul>
+        <li>This test gets skipped with pattern: <span class="test-skip-info">toolkit == 'android' OR verify OR apple_silicon</span></li>
+        <li>This test was skipped 1569 times in the preceding 7 days.</li>
+        <li>This test ran 4088 times in the preceding 7 days with an average run time of 6.34 secs.</li>
+      </ul>
+    </div>
+  </section>
+</section>

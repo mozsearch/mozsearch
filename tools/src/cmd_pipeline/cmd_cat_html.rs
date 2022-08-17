@@ -1,5 +1,6 @@
+use std::{cell::Cell, rc::Rc};
 use async_trait::async_trait;
-use lol_html::{element, rewrite_str, RewriteStrSettings, html_content::ContentType};
+use lol_html::{element, rewrite_str, HtmlRewriter, RewriteStrSettings, Settings, html_content::ContentType};
 use clap::Args;
 
 use super::interface::{PipelineCommand, PipelineValues, TextFile};
@@ -37,6 +38,11 @@ pub struct CatHtml {
     /// Is this a template's HTML we want?
     #[clap(short, long, action)]
     template: bool,
+
+    /// Use a CSS selector to limit the returned portion of the document.  This
+    /// can be useful to focus a test and make diffs easier to understand.
+    #[clap(short, long, value_parser)]
+    select: Option<String>,
 }
 
 #[derive(Debug)]
@@ -71,6 +77,60 @@ fn norm_html_file(s: String) -> String {
     .unwrap()
 }
 
+fn extract_html_snippet(html_str: String, selector: &str) -> String {
+    let mut excerpts = vec![];
+
+    let suppressing = Rc::new(Cell::new(true));
+    let sink_suppressing = suppressing.clone();
+
+    let mut buf = vec![];
+
+    let synthetic_closing = Rc::new(Cell::new(None));
+    let sink_closing = synthetic_closing.clone();
+
+    let mut rewrite = HtmlRewriter::new(
+        Settings {
+            element_content_handlers: vec![
+                element!(
+                    selector,
+                    move |el| {
+                        suppressing.set(false);
+                        let end_suppress = suppressing.clone();
+                        let end_closing = synthetic_closing.clone();
+                        el.on_end_tag(move |end| {
+                            end_closing.set(Some(format!("</{}>", end.name())));
+                            end_suppress.set(true);
+                            Ok(())
+                        })?;
+                        Ok(())
+                    }
+                ),
+            ],
+            ..Settings::default()
+        },
+        |c: &[u8]| {
+            if sink_suppressing.get() {
+                if let Some(closing) = sink_closing.take() {
+                    buf.extend_from_slice(closing.as_bytes());
+                }
+                // Flush if this was apparently a transition from accumulating
+                // into our buffer.
+                if buf.len() > 0 {
+                    excerpts.push(String::from_utf8_lossy(&buf).to_string());
+                    buf.clear();
+                }
+                return;
+            }
+
+            buf.extend_from_slice(c);
+        },
+    );
+
+    rewrite.write(html_str.as_bytes()).unwrap();
+    rewrite.end().unwrap();
+
+    excerpts.join("\n")
+}
 
 #[async_trait]
 impl PipelineCommand for CatHtmlCommand {
@@ -86,7 +146,11 @@ impl PipelineCommand for CatHtmlCommand {
         } else {
             HtmlFileRoot::FormattedFile
         };
-        let html_str = server.fetch_html(root, &self.args.file).await?;
+        let mut html_str = server.fetch_html(root, &self.args.file).await?;
+
+        if let Some(selector) = &self.args.select {
+            html_str = extract_html_snippet(html_str, selector);
+        }
 
         Ok(PipelineValues::TextFile(TextFile {
             mime_type: "text/html".to_string(),
