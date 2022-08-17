@@ -482,7 +482,7 @@ pub fn generate_info_boxes(
                     F::Indent(info_box.body_nodes.clone()),
                     F::S("</div>"),
                 ]),
-                F::S("</div>"),
+                F::S("</section>"),
             ])
         })
         .collect::<Vec<_>>();
