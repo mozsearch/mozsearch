@@ -153,7 +153,7 @@ for repo in config['trees']:
     head_rev = None
     if 'git_path' in config['trees'][repo]:
         try:
-            head_rev = subprocess.check_output(['git', '--git-dir', config['trees'][repo]['git_path'] + '/.git', 'rev-parse', 'HEAD']).strip()
+            head_rev = subprocess.check_output(['git', '--git-dir', config['trees'][repo]['git_path'] + '/.git', 'rev-parse', 'HEAD'], text=True).strip()
         except subprocess.CalledProcessError:
             # If this fails just leave head_rev as None and skip the optimization
             pass
