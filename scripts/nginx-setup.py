@@ -203,6 +203,8 @@ for repo in config['trees']:
             f'types {{ {binary_types_str} }}',
             'default_type text/html;',
             'add_header Cache-Control "must-revalidate";',
+            'gzip_static always;',
+            'gunzip on;',
         ])
 
     # Handled by router/router.py
