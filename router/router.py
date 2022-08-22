@@ -229,10 +229,9 @@ class SearchResults(object):
         Given a path, decide whether it's "normal"/"test"/"generated".  These
         are the 3 top-level groups by which results are categorized.
 
-        These are hardcoded heuristics that probably could be better defined
-        in the `config.json` metadata, with a means for trees like gecko to be
-        able to leverage in-tree build meta-information like moz.build and the
-        various mochitest.ini files, etc.
+        These hard-coded heuristics will continue to exist for this "search"
+        endpoint but are being obsoleted in favor of the definitions processed
+        by `repo_data_ingestion.rs`.
         '''
         def is_test(p):
             # Except a few exceptions, all other paths contain the substring
