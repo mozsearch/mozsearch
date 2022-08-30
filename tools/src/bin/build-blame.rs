@@ -484,7 +484,13 @@ fn build_blame_tree(
                         None => None,
                         Some(tree) => tree
                             .get_name(entry_name)
-                            .map(|e| e.to_object(git_repo).unwrap())
+                            // In the case where a git submodule has been removed
+                            // and replaced by a regular file/directory in the
+                            // same commit, we expect to_object to fail, and in
+                            // that case we just want to treat it as None, so
+                            // we use ok() instead of unwrap() which we
+                            // previously used.
+                            .and_then(|e| e.to_object(git_repo).ok())
                             .and_then(|o| o.into_tree().ok()),
                     };
                     parent_subtrees.push(parent_subtree);
