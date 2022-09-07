@@ -16,10 +16,12 @@ pub struct LanguageSpec {
     pub markdown_slug: &'static str,
 }
 
+pub const SYN_RESERVED_CLASS: &'static str = "class=\"syn_reserved\" ";
+
 fn make_reserved(v: &[&str]) -> HashMap<String, String> {
     let mut reserved_words = HashMap::new();
     for word in v {
-        reserved_words.insert(word.to_string(), "class=\"syn_reserved\" ".to_string());
+        reserved_words.insert(word.to_string(), SYN_RESERVED_CLASS.into());
     }
     reserved_words
 }
@@ -644,6 +646,7 @@ lazy_static! {
 pub enum FormatAs {
     FormatCLike(&'static LanguageSpec),
     FormatTagLike(&'static LanguageSpec),
+    CSS,
     Plain,
     Binary,
 }
@@ -668,6 +671,8 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "kt" => FormatAs::FormatCLike(&*KOTLIN_SPEC),
 
         "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&*HTML_SPEC),
+
+        "css" => FormatAs::CSS,
 
         // Keep this list in sync with the binary types list in nginx-setup.py
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
