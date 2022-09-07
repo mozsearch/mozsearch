@@ -2,7 +2,7 @@ use std::cell::Cell;
 
 use crate::languages::LanguageSpec;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
     PlainText,
     Punctuation,
@@ -27,6 +27,120 @@ fn is_whitespace(ch: char) -> bool {
     ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
 
+pub fn tokenize_css(string: &str) -> Vec<Token> {
+    fn tokenize_css_block(input: &mut cssparser::Parser, raw_input: &str, tokens: &mut Vec<Token>) {
+        use cssparser::Token::*;
+        let reserved = crate::languages::SYN_RESERVED_CLASS;
+        let mut start = input.position().byte_index();
+        while let Ok(token) = input.next_including_whitespace_and_comments().cloned() {
+            let mut has_block = false;
+            let kind = match token {
+                Ident(..) => {
+                    // Poor heuristic to try to find property names.
+                    let state = input.state();
+                    let colon_and_space_follows =
+                        matches!(input.next_including_whitespace_and_comments(), Ok(&Colon))
+                            && matches!(
+                                input.next_including_whitespace_and_comments(),
+                                Ok(&WhiteSpace(..))
+                            );
+                    input.reset(&state);
+                    TokenKind::Identifier(if colon_and_space_follows {
+                        Some(reserved.into())
+                    } else {
+                        None
+                    })
+                }
+                AtKeyword(..) => TokenKind::Identifier(Some(reserved.into())),
+                IDHash(..) | Hash(..) => TokenKind::Identifier(None),
+                QuotedString(..) => TokenKind::StringLiteral,
+                Colon | Semicolon | Comma | IncludeMatch | DashMatch | PrefixMatch
+                | SuffixMatch | SubstringMatch | CloseParenthesis | CloseSquareBracket
+                | CloseCurlyBracket | Delim(..) => TokenKind::Punctuation,
+                BadUrl(..)
+                | BadString(..)
+                | UnquotedUrl(..)
+                | Number { .. }
+                | Percentage { .. }
+                | Dimension { .. }
+                | WhiteSpace(..) => TokenKind::PlainText,
+                CDO | CDC | Comment(..) => TokenKind::Comment,
+                Function(..) => {
+                    has_block = true;
+                    TokenKind::Identifier(None)
+                }
+                ParenthesisBlock | SquareBracketBlock | CurlyBracketBlock => {
+                    has_block = true;
+                    TokenKind::Punctuation
+                }
+            };
+
+            fn push_tokens(
+                raw_input: &str,
+                start: usize,
+                end: usize,
+                kind: &TokenKind,
+                tokens: &mut Vec<Token>,
+            ) {
+                if start == end {
+                    return;
+                }
+                // tokens shouldn't span across lines
+                let mut span_start = start;
+                for span in raw_input[start..end].split('\n') {
+                    let span_end = span_start + span.len();
+                    if span_start != span_end {
+                        tokens.push(Token {
+                            start: span_start,
+                            end: span_end,
+                            kind: kind.clone(),
+                        });
+                    }
+                    let newline_needed = span_start + span.len() != end;
+                    span_start = span_end;
+                    if newline_needed {
+                        tokens.push(Token {
+                            start: span_start,
+                            end: span_start + 1,
+                            kind: TokenKind::Newline,
+                        });
+                        span_start += 1;
+                    }
+                }
+            }
+
+            if has_block {
+                let mut block_start = start;
+                let mut block_end = start;
+                let mut block_tokens = vec![];
+                let _: Result<(), cssparser::ParseError<()>> = input.parse_nested_block(|input| {
+                    block_start = input.position().byte_index();
+                    tokenize_css_block(input, raw_input, &mut block_tokens);
+                    block_end = input.position().byte_index();
+                    Ok(())
+                });
+                push_tokens(raw_input, start, block_start, &kind, tokens);
+                tokens.extend(block_tokens.into_iter());
+                let end = input.position().byte_index();
+                push_tokens(raw_input, block_end, end, &kind, tokens);
+                start = end;
+            } else {
+                let end = input.position().byte_index();
+                push_tokens(raw_input, start, end, &kind, tokens);
+                start = end;
+            }
+        }
+    }
+
+    let mut input = cssparser::ParserInput::new(string);
+    let mut input = cssparser::Parser::new(&mut input);
+    let mut tokens = vec![];
+
+    tokenize_css_block(&mut input, string, &mut tokens);
+
+    tokens
+}
+
 pub fn tokenize_plain(string: &str) -> Vec<Token> {
     let lines = string.split('\n');
     let mut tokens = Vec::new();
@@ -34,7 +148,7 @@ pub fn tokenize_plain(string: &str) -> Vec<Token> {
     for line in lines {
         if line.len() > 0 {
             tokens.push(Token {
-                start: start,
+                start,
                 end: start + line.len(),
                 kind: TokenKind::PlainText,
             });
@@ -44,7 +158,7 @@ pub fn tokenize_plain(string: &str) -> Vec<Token> {
             break;
         }
         tokens.push(Token {
-            start: start,
+            start,
             end: start + 1,
             kind: TokenKind::Newline,
         });
@@ -125,7 +239,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
         let nl = peek_pos() - 1;
         if start != nl {
             tokens.push(Token {
-                start: start,
+                start,
                 end: nl,
                 kind: cur_tok_kind,
             });
@@ -234,7 +348,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 break;
             }
             tokens.push(Token {
-                start: start,
+                start,
                 end: peek_pos(),
                 kind: TokenKind::StringLiteral,
             });
@@ -295,7 +409,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             }
 
             tokens.push(Token {
-                start: start,
+                start,
                 end: peek_pos(),
                 kind: TokenKind::StringLiteral,
             });
@@ -307,21 +421,17 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             }
 
             let word = string[start..peek_pos()].to_string();
-            let class = if spec.reserved_words.contains_key(&word) {
-                Some(spec.reserved_words.get(&word).unwrap().clone())
-            } else {
-                None
-            };
+            let class = spec.reserved_words.get(&word).cloned();
 
             tokens.push(Token {
-                start: start,
+                start,
                 end: peek_pos(),
                 kind: TokenKind::Identifier(class),
             });
             next_token_maybe_regexp_literal = word == "return";
         } else if ch == '\n' {
             tokens.push(Token {
-                start: start,
+                start,
                 end: peek_pos(),
                 kind: TokenKind::Newline,
             });
@@ -331,7 +441,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             loop {
                 if peek_pos() == string.len() {
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Comment,
                     });
@@ -345,7 +455,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             }
             let nl = peek_pos() - 1;
             tokens.push(Token {
-                start: start,
+                start,
                 end: nl,
                 kind: TokenKind::Comment,
             });
@@ -365,14 +475,10 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             }
 
             let word = "#".to_owned() + &string[id_start..peek_pos()];
-            let class = if spec.reserved_words.contains_key(&word) {
-                Some(spec.reserved_words.get(&word).unwrap().clone())
-            } else {
-                None
-            };
+            let class = spec.reserved_words.get(&word).cloned();
 
             tokens.push(Token {
-                start: start,
+                start,
                 end: peek_pos(),
                 kind: TokenKind::Identifier(class),
             });
@@ -406,7 +512,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 }
                 get_char();
                 tokens.push(Token {
-                    start: start,
+                    start,
                     end: peek_pos(),
                     kind: TokenKind::Comment,
                 });
@@ -415,7 +521,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 loop {
                     if peek_pos() == string.len() {
                         tokens.push(Token {
-                            start: start,
+                            start,
                             end: peek_pos(),
                             kind: TokenKind::Comment,
                         });
@@ -429,7 +535,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 }
                 let nl = peek_pos() - 1;
                 tokens.push(Token {
-                    start: start,
+                    start,
                     end: nl,
                     kind: TokenKind::Comment,
                 });
@@ -459,14 +565,14 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                     }
                 }
                 tokens.push(Token {
-                    start: start,
+                    start,
                     end: peek_pos(),
                     kind: TokenKind::RegularExpressionLiteral,
                 });
                 next_token_maybe_regexp_literal = true;
             } else {
                 tokens.push(Token {
-                    start: start,
+                    start,
                     end: peek_pos(),
                     kind: TokenKind::Punctuation,
                 });
@@ -500,7 +606,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             }
             if peek_pos() != start {
                 tokens.push(Token {
-                    start: start,
+                    start,
                     end: peek_pos(),
                     kind: TokenKind::StringLiteral,
                 });
@@ -519,7 +625,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             if spec.rust_tweaks && ch == '\'' && peek_char() != '\\' && peek_char2() != '\'' {
                 // Push the lonely quote.
                 tokens.push(Token {
-                    start: start,
+                    start,
                     end: start + 1,
                     kind: TokenKind::Punctuation,
                 });
@@ -565,14 +671,14 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 }
             }
             tokens.push(Token {
-                start: start,
+                start,
                 end: peek_pos(),
                 kind: TokenKind::StringLiteral,
             });
             next_token_maybe_regexp_literal = false;
         } else {
             tokens.push(Token {
-                start: start,
+                start,
                 end: peek_pos(),
                 kind: TokenKind::Punctuation,
             });
@@ -696,14 +802,14 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         let _ = get_char(); // A
                         let _ = get_char(); // [
                         tokens.push(Token {
-                            start: start,
+                            start,
                             end: peek_pos(),
                             kind: TokenKind::Punctuation,
                         });
                         tag_state = TagState::TagCDATA(peek_pos());
                     } else if peek_ahead("!DOCTYPE") || peek_ahead("!doctype") {
                         tokens.push(Token {
-                            start: start,
+                            start,
                             end: peek_pos(),
                             kind: TokenKind::Punctuation,
                         });
@@ -722,7 +828,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         });
                     }
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Newline,
                     });
@@ -764,7 +870,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         tag_state = TagState::EndStartTag(start);
                     } else {
                         tokens.push(Token {
-                            start: start,
+                            start,
                             end: peek_pos(),
                             kind: punctuation_kind(ch),
                         });
@@ -785,7 +891,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                 } else if ch == '>' {
                     tag_state = TagState::TagNone(peek_pos());
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: punctuation_kind(ch),
                     });
@@ -793,7 +899,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     tag_state = TagState::EndStartTag(start);
                 } else if is_whitespace(ch) {
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: punctuation_kind(ch),
                     });
@@ -810,7 +916,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         tag_state = TagState::EndStartTag(start);
                     } else {
                         tokens.push(Token {
-                            start: start,
+                            start,
                             end: peek_pos(),
                             kind: punctuation_kind(ch),
                         });
@@ -831,14 +937,14 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                 if ch == '=' {
                     tag_state = TagState::TagAttrEq;
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: punctuation_kind(ch),
                     });
                 } else if ch == '>' {
                     tag_state = TagState::TagNone(peek_pos());
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: punctuation_kind(ch),
                     });
@@ -846,7 +952,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     tag_state = TagState::EndStartTag(start);
                 } else if is_whitespace(ch) {
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: punctuation_kind(ch),
                     });
@@ -856,13 +962,13 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                 if ch == '"' || ch == '\'' {
                     tag_state = TagState::TagAttrValue(ch, peek_pos());
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Punctuation,
                     });
                 } else if is_whitespace(ch) {
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: punctuation_kind(ch),
                     });
@@ -879,7 +985,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         kind: TokenKind::StringLiteral,
                     });
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Punctuation,
                     });
@@ -890,7 +996,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         kind: TokenKind::StringLiteral,
                     });
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Newline,
                     });
@@ -907,7 +1013,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     if ch == '>' {
                         tag_state = TagState::TagNone(peek_pos());
                         tokens.push(Token {
-                            start: start,
+                            start,
                             end: peek_pos(),
                             kind: punctuation_kind(ch),
                         });
@@ -916,7 +1022,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     } else if is_whitespace(ch) {
                         tag_state = TagState::TagAfterId;
                         tokens.push(Token {
-                            start: start,
+                            start,
                             end: peek_pos(),
                             kind: punctuation_kind(ch),
                         });
@@ -932,7 +1038,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         kind: TokenKind::EndTagName,
                     });
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: punctuation_kind(ch),
                     });
@@ -954,7 +1060,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     return tokenize_plain(string);
                 }
                 tokens.push(Token {
-                    start: start,
+                    start,
                     end: peek_pos(),
                     kind: punctuation_kind(ch),
                 });
@@ -992,7 +1098,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         });
                     }
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Newline,
                     });
@@ -1016,7 +1122,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         kind: TokenKind::Comment,
                     });
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Newline,
                     });
@@ -1038,7 +1144,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         kind: TokenKind::Comment,
                     });
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Newline,
                     });
@@ -1054,13 +1160,13 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     tag_state = TagState::TagNone(start);
                 } else if ch == '<' {
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Punctuation,
                     });
                 } else if ch == '\n' {
                     tokens.push(Token {
-                        start: start,
+                        start,
                         end: peek_pos(),
                         kind: TokenKind::Newline,
                     });
@@ -1226,8 +1332,11 @@ mod tests {
     }
 
     fn check_tokens(s: &str, expected: &[(&str, TokenKind)], spec: &LanguageSpec) {
-        let s_owned = s.to_owned();
-        let toks = tokenize_c_like(&s_owned, spec);
+        let toks = tokenize_c_like(&s, spec);
+        check_tokens_match(s, &toks, expected);
+    }
+
+    fn check_tokens_match(s: &str, toks: &[Token], expected: &[(&str, TokenKind)]) {
         assert_eq!(
             toks.len(),
             expected.len(),
@@ -1235,9 +1344,15 @@ mod tests {
         );
 
         for (a, b) in toks.iter().zip(expected.iter()) {
-            assert_eq!(&s_owned[a.start..a.end], b.0, "token strings should match");
+            assert_eq!(&s[a.start..a.end], b.0, "token strings should match");
             assert_eq!(a.kind, b.1, "token types should match");
         }
+    }
+
+    fn check_css_tokens(s: &str, expected: &[(&str, TokenKind)]) {
+        let toks = tokenize_css(s);
+        println!("{:#?}", toks);
+        check_tokens_match(s, &toks, expected);
     }
 
     #[test]
@@ -1538,6 +1653,32 @@ mod tests {
                 TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())),
             )],
             &cpp_spec,
+        );
+    }
+
+    #[test]
+    fn test_css() {
+        check_css_tokens(
+            ".foo { bar: baz}\n#bar{}",
+            &[
+                (".", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                (" ", TokenKind::PlainText),
+                ("{", TokenKind::Punctuation),
+                (" ", TokenKind::PlainText),
+                (
+                    "bar",
+                    TokenKind::Identifier(Some(crate::languages::SYN_RESERVED_CLASS.into())),
+                ),
+                (":", TokenKind::Punctuation),
+                (" ", TokenKind::PlainText),
+                ("baz", TokenKind::Identifier(None)),
+                ("}", TokenKind::Punctuation),
+                ("\n", TokenKind::Newline),
+                ("#bar", TokenKind::Identifier(None)),
+                ("{", TokenKind::Punctuation),
+                ("}", TokenKind::Punctuation),
+            ],
         );
     }
 }

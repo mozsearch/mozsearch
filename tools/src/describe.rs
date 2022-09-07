@@ -19,6 +19,7 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
     // DXR also does a search for "filename: <description>" which I've never seen in any file so
     // I'm omitting that here. We can add it if needed.
     match format {
+        FormatAs::CSS => describe_from_c_comment(substr),
         FormatAs::FormatTagLike(_) => describe_html(substr),
         FormatAs::FormatCLike(ref spec) => {
             if spec.rust_tweaks {
