@@ -292,7 +292,8 @@ let Analyzer = {
   parse(text, filename, line) {
     let ast;
     try {
-      ast = Reflect.parse(text, {loc: true, source: filename, line});
+      let target = filename.endsWith(".mjs") ? "module" : "script";
+      ast = Reflect.parse(text, {loc: true, source: filename, line, target});
 
       let parsedLines = text.split('\n');
 
