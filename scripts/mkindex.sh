@@ -47,9 +47,9 @@ date
 
 export RUST_LOG=info
 
-# Do not run rust analysis if it was already analyzed by the build script, as
-# mozsearch-mozilla's `shared/process-tc-artifacts.sh` does.
 if [[ ! -f $OBJDIR/rust-analyzed ]]; then
+  # Do not run rust analysis if it was already analyzed by the build script, as
+  # mozsearch-mozilla's `shared/process-tc-artifacts.sh` does.
   date
   $MOZSEARCH_PATH/scripts/rust-analyze.sh \
     "$CONFIG_FILE" \
