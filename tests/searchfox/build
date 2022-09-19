@@ -3,3 +3,8 @@
 set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
+
+# Build the scip index for our tools repo into the objdir.
+rust-analyzer scip tools
+mkdir -p $OBJDIR/tools
+mv index.scip $OBJDIR/tools/rust.scip

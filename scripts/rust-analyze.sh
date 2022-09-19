@@ -34,23 +34,30 @@ GENERATED_SRC=$4
 SF_ANALYSIS_OUT=$5
 
 if [ -d "$RUST_ANALYSIS_IN" ]; then
-  ANALYSIS_DIRS="$(find $RUST_ANALYSIS_IN -type d -name save-analysis)"
-  if [ "x$ANALYSIS_DIRS" = "x" ]; then
-    exit 0 # Nothing to analyze really.
+  INPUTS="$(find $RUST_ANALYSIS_IN -type d -name save-analysis)"
+  SCIP_FLAGS=""
+  if [ "x$INPUTS" = "x" ]; then
+    INPUTS="$(find $RUST_ANALYSIS_IN -type f -name rust.scip)"
+    SCIP_FLAGS="--scip --scip-prefix $RUST_ANALYSIS_IN"
+  else
+    # Rust stdlib files use `analysis` directories instead of `save-analysis`, so
+    # even though they live under the same root, it needs a separate find pass
+    # because the above will not have found them.
+    #
+    # Note that we also only expect a rustlib in gecko indexing jobs.
+    if [ -d "$RUST_ANALYSIS_IN/rustlib" ]; then
+      INPUTS="$INPUTS $(find $RUST_ANALYSIS_IN/rustlib -type d -name analysis)"
+    fi
   fi
 
-  # Rust stdlib files use `analysis` directories instead of `save-analysis`, so
-  # even though they live under the same root, it needs a separate find pass
-  # because the above will not have found them.
-  #
-  # Note that we also only expect a rustlib in gecko indexing jobs.
-  if [ -d "$RUST_ANALYSIS_IN/rustlib" ]; then
-    ANALYSIS_DIRS="$ANALYSIS_DIRS $(find $RUST_ANALYSIS_IN/rustlib -type d -name analysis)"
+  if [ "x$INPUTS" = "x" ]; then
+    exit 0 # Nothing to analyze really
   fi
 
   $MOZSEARCH_PATH/tools/target/release/rust-indexer \
     "$FILES_ROOT" \
     "$SF_ANALYSIS_OUT" \
     "$GENERATED_SRC" \
-    $ANALYSIS_DIRS
+    $SCIP_FLAGS \
+    $INPUTS
 fi
