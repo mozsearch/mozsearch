@@ -76,4 +76,7 @@ do
     cache_when_codesearch livegrep.idx
 done
 
+# Under docker nginx might not be running, in which case we need to start it,
+# but only if we don't see existing processes.
+pgrep nginx || sudo /etc/init.d/nginx start
 sudo /etc/init.d/nginx reload

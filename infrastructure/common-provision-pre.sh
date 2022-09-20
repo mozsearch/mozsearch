@@ -23,8 +23,9 @@ CLANG_PRIORITY=412
 UBUNTU_RELEASE=$(lsb_release -cs)
 
 sudo apt-get update
-# necessary for apt-add-repository to exist
-sudo apt-get install -y software-properties-common
+# software-properties-common: necessary for apt-add-repository to exist
+# gettext-base: necessary for `envsubst` to exist
+sudo apt-get install -y software-properties-common gettext-base rsync
 
 sudo add-apt-repository -y ppa:git-core/ppa    # For latest git
 sudo apt-get update
