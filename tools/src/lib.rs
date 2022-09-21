@@ -9,12 +9,7 @@ extern crate include_dir;
 extern crate itertools;
 extern crate linkify;
 extern crate regex;
-#[macro_use]
-extern crate malloc_size_of_derive;
-extern crate jemalloc_sys;
-extern crate jemallocator;
 extern crate liquid;
-extern crate malloc_size_of;
 extern crate query_parser;
 extern crate serde;
 extern crate serde_json;
@@ -38,9 +33,6 @@ pub mod languages;
 pub mod links;
 pub mod output;
 pub mod tokenize;
-
-#[global_allocator]
-static A: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 pub fn find_source_file(path: &str, files_root: &str, objdir: &str) -> String {
     if path.starts_with("__GENERATED__") {
