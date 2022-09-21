@@ -1,2 +1,17 @@
 [build]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+# This was suggested by
+# https://nnethercote.github.io/perf-book/compile-times.html and made a very
+# large difference, but creates complications because it also ends up as a
+# dependency for rust-analyzer operating outside our VM/container, so we are
+# disabling this for now.  We are leaving the lld provisioning mechanism in case
+# it becomes easier to conditionally use this in the future without creating
+# frustrating experiences.
+#
+# For example, per the docs on this file at
+# https://doc.rust-lang.org/cargo/reference/config.html we could place this file
+# inside the VM/container at `~/.cargo/config.toml`.
+#
+# TODO: evaluate doing the above and whether it creates any complications where
+# rust-analyzer is running outside the VM/container without the setting while
+# inside the VM/container we're running with it.
+#rustflags = ["-C", "link-arg=-fuse-ld=lld"]
