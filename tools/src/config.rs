@@ -7,12 +7,9 @@ use std::str;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value};
 
-use jemalloc_sys;
-use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
-
 use git2::{Oid, Repository};
 
-#[derive(Clone, Debug, MallocSizeOf, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TreeCaching {
     Everything,
@@ -20,7 +17,7 @@ pub enum TreeCaching {
     Nothing,
 }
 
-#[derive(Clone, Debug, MallocSizeOf, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TreeErrorHandling {
     Continue,
@@ -28,7 +25,7 @@ pub enum TreeErrorHandling {
 }
 
 
-#[derive(Clone, Debug, MallocSizeOf, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TreeConfigPaths {
     pub priority: u32,
     pub on_error: TreeErrorHandling,
@@ -46,7 +43,6 @@ pub struct TreeConfigPaths {
     pub codesearch_port: u32,
 }
 
-#[derive(MallocSizeOf)]
 pub struct GitData {
     pub repo: Repository,
     pub blame_repo: Option<Repository>,
@@ -59,46 +55,14 @@ pub struct GitData {
     pub blame_ignore: BlameIgnoreList,
 }
 
-#[derive(MallocSizeOf)]
 pub struct TreeConfig {
     pub paths: TreeConfigPaths,
     pub git: Option<GitData>,
 }
 
-#[derive(MallocSizeOf)]
 pub struct Config {
     pub trees: BTreeMap<String, TreeConfig>,
     pub mozsearch_path: String,
-}
-
-use std::os::raw::c_void;
-pub unsafe extern "C" fn usable_size(ptr: *const c_void) -> usize {
-    jemalloc_sys::malloc_usable_size(ptr as *const _)
-}
-
-impl Config {
-    pub fn describe_mem_usage(&self) -> String {
-        let mut ops = MallocSizeOfOps::new(usable_size, None, None);
-        let mut pieces = vec![format!("Config: {} bytes", self.size_of(&mut ops))];
-        for (tree_name, tree) in &self.trees {
-            pieces.push(format!(
-                "  Tree: {} = {} bytes",
-                tree_name,
-                tree.size_of(&mut ops)
-            ));
-            if let Some(data) = &tree.git {
-                pieces.push(format!(
-                    "    blame_map = {} bytes",
-                    data.blame_map.size_of(&mut ops)
-                ));
-                pieces.push(format!(
-                    "    hg_map    = {} bytes",
-                    data.hg_map.size_of(&mut ops)
-                ));
-            }
-        }
-        pieces.join("\n")
-    }
 }
 
 pub fn get_git(tree_config: &TreeConfig) -> Result<&GitData, &'static str> {
@@ -225,12 +189,11 @@ pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>) -> C
     }
 }
 
-#[derive(Hash, Eq, MallocSizeOf, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug)]
 struct MailmapKey(Option<String>, Option<String>);
 
 /// Mapping from names and emails to replace to the real names and emails for
 /// these authors.
-#[derive(MallocSizeOf)]
 pub struct Mailmap {
     /// Map from old name and email to real name and email
     entries: HashMap<MailmapKey, MailmapKey>,
@@ -348,7 +311,7 @@ impl Mailmap {
     }
 }
 
-#[derive(Default, MallocSizeOf)]
+#[derive(Default)]
 pub struct BlameIgnoreList {
     entries: HashSet<String>,
 }

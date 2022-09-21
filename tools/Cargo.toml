@@ -30,8 +30,6 @@ ipdl_parser = { path = "./ipdl_parser" }
 # asuth picked this version because our Cargo.lock already had 0.7.11 for our
 # rls-analysis dep.
 itertools = "0.7.11"
-jemalloc-sys = "0.3.2"
-jemallocator = "0.3.2"
 json-structural-diff = "0.1.0"
 lazy_static = "1.1"
 linkify = "0.2.0"
@@ -39,8 +37,6 @@ liquid = "0.26.0"
 liquid-core = "0.26.0"
 log = "0.4.0"
 lol_html = "0.3.1"
-malloc_size_of = { path = "./malloc_size_of" }
-malloc_size_of_derive = "0.1"
 memmap = { package = "memmap2", version = "0.5.3" }
 num_cpus = "1"
 petgraph = "0.6.0"
