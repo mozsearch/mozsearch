@@ -17,7 +17,7 @@ use std::thread;
 
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::blame::LineData;
-use tools::config::index_blame;
+use tools::file_format::config::index_blame;
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     write!(helper.stdin.as_mut().unwrap(), "{}\n", git_oid).unwrap();

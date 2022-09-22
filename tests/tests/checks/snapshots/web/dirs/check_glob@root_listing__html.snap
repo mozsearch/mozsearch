@@ -213,12 +213,6 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
-          <td><a href="/tests/source/fake-wpt" class="icon folder" style="">fake-wpt</a></td>
-          <td class="description"><a href="/tests/source/fake-wpt" title=""></td>
-          <td><a href="/tests/source/fake-wpt">2</a></td>
-        </tr>
-
-        <tr>
           <td><a href="/tests/source/GeckoApp.java" class="icon " style="">GeckoApp.java</a></td>
           <td class="description"><a href="/tests/source/GeckoApp.java" title=""></td>
           <td><a href="/tests/source/GeckoApp.java">104036</a></td>
@@ -240,6 +234,12 @@ expression: "&fb.contents"
           <td><a href="/tests/source/IGeckoEditableParent.aidl" class="icon " style="">IGeckoEditableParent.aidl</a></td>
           <td class="description"><a href="/tests/source/IGeckoEditableParent.aidl" title=""></td>
           <td><a href="/tests/source/IGeckoEditableParent.aidl">1425</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/ignored-js" class="icon folder" style="">ignored-js</a></td>
+          <td class="description"><a href="/tests/source/ignored-js" title=""></td>
+          <td><a href="/tests/source/ignored-js">5</a></td>
         </tr>
 
         <tr>
@@ -433,7 +433,7 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/subdir" class="icon folder" style="">subdir</a></td>
           <td class="description"><a href="/tests/source/subdir" title=""></td>
-          <td><a href="/tests/source/subdir">1</a></td>
+          <td><a href="/tests/source/subdir">2</a></td>
         </tr>
 
         <tr>
@@ -503,6 +503,12 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td><a href="/tests/source/testing" class="icon folder" style="">testing</a></td>
+          <td class="description"><a href="/tests/source/testing" title=""></td>
+          <td><a href="/tests/source/testing">1</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/third_party" class="icon folder" style="">third_party</a></td>
           <td class="description"><a href="/tests/source/third_party" title=""></td>
           <td><a href="/tests/source/third_party">1</a></td>
@@ -530,6 +536,12 @@ Spread over multiple lines.
           <td><a href="/tests/source/xpidl_cpp_consumer.cpp" class="icon cpp" style="">xpidl_cpp_consumer.cpp</a></td>
           <td class="description"><a href="/tests/source/xpidl_cpp_consumer.cpp" title=""></td>
           <td><a href="/tests/source/xpidl_cpp_consumer.cpp">417</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/.eslintignore" class="icon " style="">.eslintignore</a></td>
+          <td class="description"><a href="/tests/source/.eslintignore" title=""></td>
+          <td><a href="/tests/source/.eslintignore">236</a></td>
         </tr>
 
         <tr>

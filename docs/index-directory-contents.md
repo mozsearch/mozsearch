@@ -59,10 +59,14 @@ Directories:
   `router.py` can inline the JSON search results from a query.
 
 Files:
+- `all-dirs`: `repo-dirs` and `objdir-dirs` concatenated together by
+  `find-objdir-files.sh` after deriving `objdir-dirs`.  Exists for the benefit
+  of crossref for now.
 - `all-files`: `repo-files` and `objdir-files` concatenated together by
-  `find-objdir-files.sh` after deriving `objdir-files`.  This exists so that
-  `output.sh` can use `--pipe-part` which needs a real file on disk rather than
-  a pipe from dynamically `cat`-ing the source files.
+  `find-objdir-files.sh` and shuffled after deriving `objdir-files`.  This
+  exists so that `output.sh` can use `--pipe-part` which needs a real file on
+  disk rather than a pipe from dynamically `cat`-ing the source files.  Also now
+  the crossref script consumes this file.
 - `analysis-dirs-*.list`: `find -type d` for each per-platform analysis
   directory.  Produced by the per-platform `process-tc-artifacts.sh` script and
   concatenated into the unified list by `process-gecko-analysis.sh`.  The

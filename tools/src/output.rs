@@ -315,6 +315,7 @@ pub struct PanelItem {
 pub struct PanelSection {
     pub name: String,
     pub items: Vec<PanelItem>,
+    pub raw_items: Vec<String>,
 }
 
 static COPY_ICONS: &str = r##"
@@ -402,10 +403,15 @@ pub fn generate_panel(
                 })
                 .collect::<Vec<_>>();
 
+            let raw_items = section.raw_items.iter().map(|raw_item| {
+                F::T(raw_item.to_string())
+            }).collect::<Vec<_>>();
+
             F::Seq(vec![
                 F::T(format!("<h4>{}</h4>", section.name)),
                 F::S("<ul>"),
                 F::Seq(items),
+                F::Seq(raw_items),
                 F::S("</ul>"),
             ])
         })
@@ -428,69 +434,6 @@ pub fn generate_panel(
             F::S("</section>"),
         ]),
         F::S("</div>"),
-    ]);
-
-    generate_formatted(writer, &f, 0)?;
-
-    Ok(())
-}
-
-/// InfoBoxes live in the scrolling content area above the bread-crumbs and
-/// house contextual information about the file that is also (possibly)
-/// presented in the file listing.  In the future, InfoBoxes may also be emitted
-/// in directory listings.
-///
-/// The intent is to provide ambient information about files like:
-/// - Hey, this test file you're looking at is disabled and never runs.
-/// - Hey, this test file you're looking at fails intermittently and here are
-///   links to the bugs on it!
-///
-/// And directory listings might contain content like:
-/// - There's a README file for this directory but you'll have to scroll down
-///   to see it, or click here!  (For cases where the directory listing is known
-///   to be long relative to page size.  Could involve hip media queries/dynamic
-///   CSS if instantaneous.)
-/// - Hey, a bunch of test files in this directory are disabled!
-///
-pub struct InfoBox {
-    /// The heading / name of the info box that will be wrapped by an <h> tag
-    /// without escaping.
-    pub heading_html: String,
-    /// Infobox contents that will be placed in a <div> or similar without
-    /// escaping.
-    pub body_nodes: Vec<F>,
-    pub box_kind: String,
-}
-
-/// Generate HTML for the provided info-boxes and write it to the provided
-/// writer.  This is expected to be called once per document.
-pub fn generate_info_boxes(
-    writer: &mut dyn Write,
-    info_boxes: &[InfoBox],
-) -> Result<(), &'static str> {
-    let info_boxes = info_boxes
-        .into_iter()
-        .map(|info_box| {
-            F::Seq(vec![
-                F::T(format!(
-                    r#"<section class="info-box info-box-{}">"#,
-                    info_box.box_kind
-                )),
-                F::Indent(vec![
-                    F::T(format!("<h4>{}</h4>", info_box.heading_html)),
-                    F::S("<div>"),
-                    F::Indent(info_box.body_nodes.clone()),
-                    F::S("</div>"),
-                ]),
-                F::S("</section>"),
-            ])
-        })
-        .collect::<Vec<_>>();
-
-    let f = F::Seq(vec![
-        F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
-        F::Indent(vec![F::Seq(info_boxes)]),
-        F::S("</section>"),
     ]);
 
     generate_formatted(writer, &f, 0)?;

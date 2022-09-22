@@ -5,6 +5,7 @@ use itertools::Itertools;
 use serde_json::Value;
 use clap::Args;
 use tracing::trace;
+use ustr::ustr;
 
 use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues},
@@ -152,20 +153,21 @@ impl PipelineCommand for TraverseCommand {
 
             // Consider "srcsym" as superseding the actual "uses" edge.
             if self.args.edge.as_str() == "uses" {
-                if let Some(source_sym) = sym_info
+                if let Some(source_sym_str) = sym_info
                     .crossref_info
                     .pointer("/meta/srcsym")
                     .unwrap_or(&Value::Null)
                     .clone()
                     .as_str()
                 {
+                    let source_sym = ustr(source_sym_str);
                     let (source_id, source_info) =
                         sym_node_set.ensure_symbol(&source_sym, server).await?;
 
                     if source_info.is_callable() {
                         graph.add_edge(source_id, sym_id.clone());
                         if depth < max_depth && considered.insert(source_info.symbol.clone()) {
-                            trace!(sym = source_sym, "scheduling srcsym");
+                            trace!(sym = source_sym_str, "scheduling srcsym");
                             to_traverse.push((source_info.symbol.clone(), depth + 1));
                         }
                     }
@@ -205,7 +207,8 @@ impl PipelineCommand for TraverseCommand {
 
                 for target in sym_edges {
                     // overrides is { sym, pretty }
-                    let target_sym = target["sym"].as_str().ok_or_else(bad_data)?;
+                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
+                    let target_sym = ustr(target_sym_str);
 
                     let (target_id, target_info) =
                         sym_node_set.ensure_symbol(&target_sym, server).await?;
@@ -224,7 +227,7 @@ impl PipelineCommand for TraverseCommand {
                             // checking the definition of equivalence class. ;)
                             graph.add_edge(target_id, sym_id.clone());
                             if depth < max_depth {
-                                trace!(sym = target_sym, "scheduling overrides");
+                                trace!(sym = target_sym_str, "scheduling overrides");
                                 to_traverse.push((target_info.symbol.clone(), depth + 1));
                             }
                         }
@@ -279,7 +282,8 @@ impl PipelineCommand for TraverseCommand {
                     // most other edges which are path hit-lists.
                     "callees" => {
                         for target in sym_edges {
-                            let target_sym = target["sym"].as_str().ok_or_else(bad_data)?;
+                            let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
+                            let target_sym = ustr(target_sym_str);
                             //let target_kind = target["kind"].as_str().ok_or_else(bad_data)?;
 
                             let (target_id, target_info) =
@@ -290,7 +294,7 @@ impl PipelineCommand for TraverseCommand {
                                 if depth < max_depth
                                     && considered.insert(target_info.symbol.clone())
                                 {
-                                    trace!(sym = target_sym, "scheduling callees");
+                                    trace!(sym = target_sym_str, "scheduling callees");
                                     to_traverse.push((target_info.symbol.clone(), depth + 1));
                                 }
                             }
@@ -320,12 +324,13 @@ impl PipelineCommand for TraverseCommand {
                         for path_hits in sym_edges {
                             let hits = path_hits["lines"].as_array().ok_or_else(bad_data)?;
                             for source in hits {
-                                let source_sym = source["contextsym"].as_str().unwrap_or("");
+                                let source_sym_str = source["contextsym"].as_str().unwrap_or("");
                                 //let source_kind = source["kind"].as_str().ok_or_else(bad_data)?;
 
-                                if source_sym.is_empty() {
+                                if source_sym_str.is_empty() {
                                     continue;
                                 }
+                                let source_sym = ustr(source_sym_str);
 
                                 let (source_id, source_info) =
                                     sym_node_set.ensure_symbol(&source_sym, server).await?;
@@ -337,7 +342,7 @@ impl PipelineCommand for TraverseCommand {
                                         if depth < max_depth
                                             && considered.insert(source_info.symbol.clone())
                                         {
-                                            trace!(sym = source_sym, "scheduling uses");
+                                            trace!(sym = source_sym_str, "scheduling uses");
                                             to_traverse
                                                 .push((source_info.symbol.clone(), depth + 1));
                                         }

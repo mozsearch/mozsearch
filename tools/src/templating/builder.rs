@@ -3,7 +3,7 @@ use std::borrow;
 use include_dir::{include_dir, Dir};
 use liquid::Template;
 
-use super::{JsonFilterParser, liquid_exts::FileExtFilterParser};
+use super::liquid_exts::{CompactPathlikeFilterParser, FileExtFilterParser, JsonFilterParser, StripPrefixOrEmptyFilterParser, EnsureBugUrlFilterParser};
 
 static TEMPLATE_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
@@ -29,13 +29,16 @@ impl liquid::partials::PartialSource for StaticTemplateSource {
 
 pub fn build_and_parse(s: &str) -> Template {
     liquid::ParserBuilder::with_stdlib()
-        .filter(JsonFilterParser)
+        .filter(CompactPathlikeFilterParser)
+        .filter(EnsureBugUrlFilterParser)
         .filter(FileExtFilterParser)
+        .filter(JsonFilterParser)
+        .filter(StripPrefixOrEmptyFilterParser)
         .partials(liquid::partials::LazyCompiler::<StaticTemplateSource>::empty())
         .build()
-        .unwrap()
+        .expect("Problem building the liquid template")
         .parse(s)
-        .unwrap()
+        .expect("Problem parsing the liquid template")
 }
 
 pub fn build_and_parse_pipeline_explainer() -> Template {

@@ -2,8 +2,9 @@ use async_trait::async_trait;
 use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
 use url::{ParseError, Url};
+use ustr::Ustr;
 
-use super::{server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, TextMatches, HtmlFileRoot};
+use super::{server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, FileMatches}, TextMatches, HtmlFileRoot};
 
 /// reqwest won't return an error for an unhappy status code itself; someone
 /// would need to call `Response::error_from_status`, so for now we'll generally
@@ -137,12 +138,12 @@ impl AbstractServer for RemoteServer {
         Err(ServerError::Unsupported)
     }
 
-    async fn search_files(&self, _pathre: &str, _limit: usize) -> Result<Vec<String>> {
+    async fn search_files(&self, _pathre: &str, _limit: usize) -> Result<FileMatches> {
         // Not yet; see interface comment.
         Err(ServerError::Unsupported)
     }
 
-    async fn search_identifiers(&self, _needle: &str, _exact_match: bool, _ignore_case: bool, _match_limit: usize) -> Result<Vec<(String, String)>> {
+    async fn search_identifiers(&self, _needle: &str, _exact_match: bool, _ignore_case: bool, _match_limit: usize) -> Result<Vec<(Ustr, Ustr)>> {
         // Same rationale as crossref_lookup.
         Err(ServerError::Unsupported)
     }

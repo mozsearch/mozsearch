@@ -1,0 +1,3 @@
+# Let's check that our .eslintignore processing worked out by
+# snapshotting the metadata.
+search-files "ignored-js/"

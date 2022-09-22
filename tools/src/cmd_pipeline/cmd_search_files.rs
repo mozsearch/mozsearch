@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use clap::Args;
 
 use super::{
-    interface::{PipelineCommand, PipelineValues, FileMatches, FileMatch},
+    interface::{PipelineCommand, PipelineValues},
     transforms::path_glob_transform,
 };
 
@@ -48,12 +48,6 @@ impl PipelineCommand for SearchFilesCommand {
             .search_files(&pathre_pattern, self.args.limit)
             .await?;
 
-        Ok(PipelineValues::FileMatches(FileMatches {
-            file_matches: matches.into_iter().map(|path| {
-                FileMatch {
-                    path
-                }
-            }).collect()
-        }))
+        Ok(PipelineValues::FileMatches(matches))
     }
 }

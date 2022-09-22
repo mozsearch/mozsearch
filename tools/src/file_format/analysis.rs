@@ -692,13 +692,13 @@ pub fn read_jumps(filename: &str) -> UstrMap<Jump> {
 /// deserialize the results as T=`String` in `cmd_compile_results` where we
 /// ingest this format and the manual parsing logic ends up very verbose.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SearchResult<T> {
+pub struct SearchResult {
     #[serde(rename = "lno")]
     pub lineno: u32,
     pub bounds: (u32, u32),
-    pub line: T,
-    pub context: T,
-    pub contextsym: T,
+    pub line: String,
+    pub context: Ustr,
+    pub contextsym: Ustr,
     // We used to build up "peekLines" which we excerpted from the file here, but
     // this was never surfaced to users.  The plan at the time had been to try
     // and store specific file offsets that could be directly mapped/seeked, but
@@ -715,7 +715,8 @@ pub struct SearchResult<T> {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct PathSearchResult<T> {
-    pub path: T,
-    pub lines: Vec<SearchResult<T>>,
+pub struct PathSearchResult {
+    pub path: Ustr,
+    pub path_kind: Ustr,
+    pub lines: Vec<SearchResult>,
 }

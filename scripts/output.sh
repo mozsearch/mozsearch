@@ -50,9 +50,11 @@ TMPDIR_PATH=${DIAGS_DIR}
 #   may increase to allow for writes to be buffered without needing to flush,
 #   etc.
 # --env RUST_BACKTRACE: propagate the RUST_BACKTRACE environment variable.
+# "2>&1": If we don't do this, `--files` seems to just eat the stderr output
+#   which is obviously suboptimal.
 parallel --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
     --block -1 --halt 2 --env RUST_BACKTRACE \
-    $MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME -
+    "$MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME - 2>&1"
 
 # TOOL_CMD="search-files --limit=0 --group-by=dir | batch-render dir"
 # SEARCHFOX_SERVER=${CONFIG_FILE} \

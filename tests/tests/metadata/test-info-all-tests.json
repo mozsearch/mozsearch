@@ -12,58 +12,37 @@
       {
         "failure_count": 0,
         "skip-if": "toolkit == 'android'\n\nverify\napple_silicon",
-        "skipped runs": 1569,
-        "test": "test_custom_element_base.xul",
-        "total run time, seconds": 25916.85,
-        "total runs": 5657
+        "test": "test_custom_element_base.xul"
       },
       {
         "failure_count": 5,
-        "skipped runs": 0,
-        "test": "test_DOMWindowCreated_chromeonly.html",
-        "total run time, seconds": 1065.66,
-        "total runs": 2146
+        "test": "test_DOMWindowCreated_chromeonly.html"
       },
       {
         "failure_count": 0,
         "skip-if": "(os == \"win\" && processor == \"aarch64\") || (os == \"mac\") || (os == \"linux\" && !debug)",
-        "skipped runs": 890,
-        "test": "test_talosconfig_browser_config.json",
-        "total run time, seconds": 3877.57,
-        "total runs": 2646
+        "test": "test_talosconfig_browser_config.json"
       }
     ],
     "OtherProduct::OtherComponent": [
       {
         "searchfox-test-repo-note": "this file is not actually a test but I wanted a subdir",
         "failure_count": 0,
-        "skipped runs": 0,
-        "test": "test_rust_dependency/src/lib.rs",
-        "total run time, seconds": 15761.67,
-        "total runs": 3348
+        "test": "test_rust_dependency/src/lib.rs"
       }
     ],
     "Web-Platform::Tests": [
       {
         "failure_count": 0,
-        "skipped runs": 0,
-        "test": "fake-wpt/tests/fake-standard/test_ima_disabled_wpt.js",
-        "total run time, seconds": 15761.67,
-        "total runs": 3348
+        "test": "testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js"
       },
       {
         "failure_count": 0,
-        "skipped runs": 0,
-        "test": "fake-wpt/tests/fake-standard/test_ima_sad_subtests_wpt.js",
-        "total run time, seconds": 15761.67,
-        "total runs": 3348
+        "test": "testing/web-platform/tests/fake-standard/test_ima_sad_subtests_wpt.js"
       },
       {
         "failure_count": 0,
-        "skipped runs": 0,
-        "test": "fake-wpt/tests/fake-standard/test_imaweird_meta_wpt.js",
-        "total run time, seconds": 15761.67,
-        "total runs": 3348
+        "test": "testing/web-platform/tests/fake-standard/test_ima_weird_meta_wpt.js"
       }
     ]
   }

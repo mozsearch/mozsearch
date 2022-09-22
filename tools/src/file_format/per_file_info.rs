@@ -1,33 +1,83 @@
-use std::fs::{File, Metadata};
-use std::io::BufReader;
+use std::fs::{File};
+use std::io::{BufReader};
+use std::sync::Arc;
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, Map, Value};
+use ustr::{Ustr, UstrMap, existing_ustr};
 
-pub fn read_json_from_file(path: &str) -> Option<Value> {
-    let components_file = File::open(path).ok()?;
-    let mut reader = BufReader::new(&components_file);
-    from_reader(&mut reader).ok()?
+use crate::abstract_server::{FileMatch, FileMatches, Result};
+
+use super::repo_data_ingestion::{ConcisePerFileInfo, DetailedPerFileInfo};
+
+/// Provides access to (concise) per-file info via a pre-loaded copy of
+/// `concise-per-file-info.json` and any derived indices.  This exact same
+/// information is also available inside the crossref database as
+/// `FILE_`-prefixed symbols.
+///
+/// The reasons to favor using this implementation (or growing this
+/// implementation):
+/// - Searching for a subset of files in the tree, including using additional
+///   constraints that can be pre-computed.
+///   - The crate https://github.com/lun3x/multi_index_map has tentatively
+///     been identified as a way to aid in precomputation.
+/// - Up-front file I/O and object allocation versus crossref-lookup which
+///   loads/allocates JSON each time.  This data is able to be shared immutably.
+#[derive(Clone, Debug)]
+pub struct FileLookupMap {
+    // We are able to safely use a UstrMap here because we ensure that in cases
+    // where we're dealing with non-Ustr values that we do not create new Ustrs
+    // for paths that do not exist through use of `existing_ustr`.
+    concise_per_file: Arc<UstrMap<ConcisePerFileInfo<Ustr>>>,
 }
 
-/// For a given path, looks up the bugzilla product and component and
-/// returns it in a tuple if it could be found. The JSON data format
-/// comes from https://searchfox.org/mozilla-central/rev/47edbd91c43db6229cf32d1fc4bae9b325b9e2d0/python/mozbuild/mozbuild/frontend/mach_commands.py#209-223,243
-/// and is fairly straightforward.
-pub fn get_bugzilla_component<'a>(
-    all_info: &'a Value,
-    per_file_info: &'a Map<String, Value>,
-) -> Option<(String, String)> {
-    let component_id = per_file_info.get("component")?.as_i64()?.to_string();
-    let mut result_iter = all_info
-        .get("bugzilla-components")?
-        .as_object()?
-        .get(&component_id)?
-        .as_array()?
-        .iter();
-    let product = result_iter.next()?.as_str()?;
-    let component = result_iter.next()?.as_str()?;
-    Some((product.to_string(), component.to_string()))
+impl FileLookupMap {
+    pub fn new(concise_file_path: &str) -> Self {
+        let components_file = File::open(concise_file_path).unwrap();
+        let mut reader = BufReader::new(&components_file);
+        let map: UstrMap<ConcisePerFileInfo<Ustr>> = from_reader(&mut reader).unwrap();
+        FileLookupMap { concise_per_file: Arc::new(map) }
+    }
+
+    /// File lookup for when you have an existing Ustr; under no circumstances
+    /// should you mint a new Ustr for a potential path from content.  If that's
+    /// what you have, use `lookup_file_from_str` if it's a one-off, or use
+    /// `existing_ustr` if you will be using the path multiple times.
+    ///
+    /// The general concern is to avoid interning a bunch of incorrect query
+    /// strings.
+    pub fn lookup_file_from_ustr(&self, path_ustr: &Ustr) -> Option<&ConcisePerFileInfo<Ustr>> {
+        self.concise_per_file.get(&path_ustr)
+    }
+
+    /// File lookup when we don't have a Ustr already available; this is
+    /// the appropriate call-site to use if you have a web-sourced potential
+    /// path string which could be wrong (and therefore should not be interned).
+    pub fn lookup_file_from_str(&self, path: &str) -> Option<&ConcisePerFileInfo<Ustr>> {
+        if let Some(path_ustr) = existing_ustr(path) {
+            self.concise_per_file.get(&path_ustr)
+        } else {
+            None
+        }
+    }
+
+    /// Search the list of files by applying a regexp to the paths.
+    pub fn search_files(&self, pathre: &str, limit: usize) -> Result<FileMatches> {
+        let re_path = Regex::new(pathre)?;
+        let mut matches: Vec<FileMatch> = self.concise_per_file.iter()
+            .filter(|v| re_path.is_match(v.0))
+            .map(|v| {
+                FileMatch {
+                    path: v.0.clone(),
+                    concise: v.1.clone(),
+                }
+            }).take(limit).collect();
+        matches.sort_unstable_by_key(|x| x.path);
+        Ok(FileMatches {
+            file_matches: matches,
+        })
+    }
 }
 
 /// Information about expected failures/problems for specific web platform
@@ -57,83 +107,6 @@ pub struct TestInfo {
     pub wpt_expectation_info: Option<WPTExpectationInfo>,
 }
 
-pub fn read_test_info_from_concise_info(concise_info: &Map<String, Value>) -> Option<TestInfo> {
-    let obj = concise_info.get("testInfo")?.as_object()?;
-
-    let failed_runs = match obj.get("failure_count") {
-        Some(json) => json.as_i64().unwrap(),
-        _ => 0,
-    };
-    let skip_if = match obj.get("skip-if") {
-        Some(json) => Some(json.as_str().unwrap().to_string()),
-        _ => None,
-    };
-    let skipped_runs = match obj.get("skipped runs") {
-        Some(json) => json.as_i64().unwrap(),
-        _ => 0,
-    };
-    let total_run_time_secs = match obj.get("total run time, seconds") {
-        Some(json) => json.as_f64().unwrap(),
-        _ => 0.0,
-    };
-    let total_runs = match obj.get("total runs") {
-        Some(json) => json.as_i64().unwrap(),
-        _ => 0,
-    };
-
-    let wpt_expectation_info = match concise_info.get("wptInfo") {
-        Some(Value::Object(obj)) => {
-            let disabling_conditions = match obj.get("disabled") {
-                Some(Value::Array(arr)) => arr
-                    .iter()
-                    .filter_map(|cond| {
-                        // cond itself should be a 2-element array where the first
-                        // element is a null or the condition string and the 2nd is
-                        // the bug link.
-                        match cond.as_array().unwrap_or(&vec![]).as_slice() {
-                            // null means there was no condition, it's always disabled.
-                            [Value::Null, Value::String(b)] => {
-                                Some(("ALWAYS".to_string(), b.to_string()))
-                            }
-                            [Value::String(a), Value::String(b)] => {
-                                Some((a.to_string(), b.to_string()))
-                            }
-                            // I guess this is just covering up our failures?  I'm
-                            // sorta tired of this patch though, so... cover up our
-                            // failures.
-                            _ => {
-                                warn!("Unhandled disabled condition JSON branch! {:?}", cond);
-                                None
-                            }
-                        }
-                    })
-                    .collect(),
-                _ => vec![],
-            };
-
-            let disabled_subtests_count = match obj.get("subtests_with_conditions") {
-                Some(json) => json.as_i64().unwrap(),
-                _ => 0,
-            };
-
-            Some(WPTExpectationInfo {
-                disabling_conditions,
-                disabled_subtests_count,
-            })
-        }
-        _ => None,
-    };
-
-    Some(TestInfo {
-        failed_runs,
-        skip_if,
-        skipped_runs,
-        total_run_time_secs,
-        unskipped_runs: total_runs - skipped_runs,
-        wpt_expectation_info,
-    })
-}
-
 /// Per-file info derived from the concise and detailed info for a given file.
 /// Everything in here is optional data, but this structure will be available
 /// for every file to simplify control-flow.
@@ -159,209 +132,9 @@ pub fn get_concise_file_info<'a>(
     Some(cur_obj)
 }
 
-pub fn read_detailed_file_info(path: &str, index_path: &str) -> Option<Value> {
-    let detailed_file_info_fname = format!("{}/detailed-per-file-info/{}", index_path, path);
-    read_json_from_file(&detailed_file_info_fname)
-}
-
-/// Interpolate coverage hits/misses for lines that didn't have coverage data,
-/// as indicated by a -1.
-///
-/// Given coverage data where values are either -1 indicating no coverage or are
-/// a coverage value >= 0, replace the -1 values with explicit interpolated hit
-/// miss values:
-/// * `-3`: Interpolated miss.
-/// * `-2`: Interpolated hit.
-///
-/// The choice of using these additional values is because this might be
-/// something that the upstream generator of the coverage data might do in the
-/// future, and it already uses -1 as a magic value.
-///
-/// The goal of this interpolation is to minimize visual noise in the coverage
-/// data.  Transitions to and from the uncovered (-1) state are informative but
-/// are distracting and limit the ability to use preattentive processing
-/// (see https://www.csc2.ncsu.edu/faculty/healey/PP/) to pick the more relevant
-/// transitions between covered/uncovered.
-///
-/// It's straightforward to interpolate hits when there's an uncovered gap
-/// between hits and likewise miss when there's an uncovered gap between misses.
-/// The interesting questions are:
-/// - What to do the start and end of the file.
-/// - What to do when the uncovered gap is between a hit and a miss.  Extra
-///   information about the AST or nesting contexts might help
-///
-/// Our arbitrary decisions here are:
-/// - Leave the starts and ends of file uncovered.  This is more realistic but
-///   at the cost of this realism making it less obvious that interpolation is
-///   present in the rest of the file, potentially leading to bad inferences.
-///   - We attempt to mitigate this by making sure the hover information makes
-///     it clear when interpolation is at play so if someone looks into what's
-///     going on they at least aren't misled for too long.
-/// - Maximally interpolate hits over misses.  Our goal is that people's eyes
-///   are drawn to misses.  This interpolation strategy makes sure that the
-///   start and end of a run of misses are lines that are explicitly detected
-///   as misses.
-///
-pub fn interpolate_coverage(mut raw: Vec<i32>) -> Vec<i32> {
-    // We don't interpolate at the start or end of files, so start with already
-    // having a valid -1 interpolation value.
-    let mut have_interp_val = true;
-    let mut interp_val = -1;
-    // This value will never be used because we set have_interp_val to true
-    // above which means we won't calculate an interpretation with this value.
-    let mut last_noninterp_val = -1;
-    for i in 0..raw.len() {
-        let val = raw[i];
-        // If we have a valid coverage value (=0 is miss, >0 is hit) then leave
-        // the value as is, remember this value for interpolation and note that
-        // we'll need to compute our next interpolation value.
-        if val >= 0 {
-            last_noninterp_val = val;
-            have_interp_val = false;
-            continue;
-        }
-        // Not a valid value, so we need to interpolate.
-
-        // Did we already calculate our interpolation value?  If so, keep using
-        // it.  (Note that at the start of the file we start our overwriting -1
-        // with -1.)
-        if have_interp_val {
-            raw[i] = interp_val;
-            continue;
-        }
-
-        // Check the next lines until we find a value that's >= 0.  If we don't
-        // find any, then our end-of-file logic wants us to maintain a -1, so
-        // configure for that base-case.
-        have_interp_val = true;
-        interp_val = -1;
-        for j in (i + 1)..raw.len() {
-            let next_val = raw[j];
-            if next_val == -1 {
-                continue;
-            }
-            // We've found a value which means that both last_noninterp_val and
-            // next_val are >= 0.  (last_noninterp_val can never be -1 because
-            // we start the loop with have_interp_val=true.)
-
-            // Favor hits over misses (see func doc block for rationale).
-            if next_val > 0 || last_noninterp_val > 0 {
-                interp_val = -2;
-            } else {
-                interp_val = -3;
-            }
-            break;
-        }
-        raw[i] = interp_val;
-    }
-    raw
-}
-
-#[test]
-fn test_interpolate_coverage() {
-    let cases = vec![
-        // empty
-        vec![vec![], vec![]],
-        // interpolate a hit between two hits
-        vec![vec![1, -1, 1], vec![1, -2, 1]],
-        // interpolate a miss between two misses
-        vec![vec![0, -1, 0], vec![0, -3, 0]],
-        // interpolate a hit if there's a hit on either side
-        vec![vec![1, -1, 0, -1, 1], vec![1, -2, 0, -2, 1]],
-        // don't interpolate ends
-        vec![vec![-1, 1, -1, 1, -1], vec![-1, 1, -2, 1, -1]],
-        // don't interpolate if the whole file is uncovered
-        vec![vec![-1, -1, -1, -1, -1], vec![-1, -1, -1, -1, -1]],
-        // combine all of the above (except for whole file), single interp each.
-        vec![
-            vec![-1, -1, 0, -1, 0, -1, 1, -1, 1, -1, 1, -1, 0, -1],
-            vec![-1, -1, 0, -3, 0, -2, 1, -2, 1, -2, 1, -2, 0, -1],
-        ],
-        // now double the length of the interpolation runs
-        vec![
-            vec![
-                -1, -1, 0, -1, -1, 0, -1, -1, 1, -1, -1, 1, -1, -1, 1, -1, -1, 0, -1,
-            ],
-            vec![
-                -1, -1, 0, -3, -3, 0, -2, -2, 1, -2, -2, 1, -2, -2, 1, -2, -2, 0, -1,
-            ],
-        ],
-        // now triple!
-        vec![
-            vec![
-                -1, -1, 0, -1, -1, -1, 0, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1, 1, -1, -1, -1,
-                0, -1,
-            ],
-            vec![
-                -1, -1, 0, -3, -3, -3, 0, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2, 1, -2, -2, -2,
-                0, -1,
-            ],
-        ],
-        // add some runs of non-interpolated values to make sure we don't randomly clobber data.
-        vec![
-            vec![
-                1, 2, 4, -1, 8, 16, 32, -1, -1, 64, 0, 0, -1, 0, 128, 256, -1, 512,
-            ],
-            vec![
-                1, 2, 4, -2, 8, 16, 32, -2, -2, 64, 0, 0, -3, 0, 128, 256, -2, 512,
-            ],
-        ],
-    ];
-
-    for pair in cases {
-        assert_eq!(interpolate_coverage(pair[0].clone()), pair[1]);
-    }
-}
-
-/// Extract any per-file info from the concise info aggregate object plus
-/// anything in the individual detailed file if it exists.
-pub fn get_per_file_info(all_concise_info: &Value, path: &str, index_path: &str) -> PerFileInfo {
-    let (bugzilla_component, test_info) = match get_concise_file_info(all_concise_info, path) {
-        Some(concise_info) => (
-            get_bugzilla_component(all_concise_info, concise_info),
-            read_test_info_from_concise_info(concise_info),
-        ),
-        None => (None, None),
-    };
-
-    let coverage = match read_detailed_file_info(path, index_path) {
-        Some(Value::Object(mut detailed_obj)) => match detailed_obj.remove("lineCoverage") {
-            Some(Value::Array(arr)) => Some(interpolate_coverage(
-                arr.iter()
-                    .map(|x| x.as_i64().unwrap_or(-1) as i32)
-                    .collect(),
-            )),
-            _ => None,
-        },
-        _ => None,
-    };
-
-    PerFileInfo {
-        bugzilla_component,
-        test_info,
-        coverage,
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FileDescription {
-    pub description: String,
-    pub is_dir: bool,
-    pub file_size: u64,
-    pub bugzilla_component: Option<(String, String)>,
-    pub test_info: Option<TestInfo>,
-}
-
-pub fn derive_description(
-    str_desc: String,
-    metadata: &Metadata,
-    per_file_info: &PerFileInfo,
-) -> FileDescription {
-    FileDescription {
-        description: str_desc,
-        is_dir: metadata.is_dir(),
-        file_size: metadata.len(),
-        bugzilla_component: per_file_info.bugzilla_component.clone(),
-        test_info: per_file_info.test_info.clone(),
-    }
+pub fn read_detailed_file_info(path: &str, index_path: &str) -> Option<DetailedPerFileInfo> {
+    let json_fname = format!("{}/detailed-per-file-info/{}", index_path, path);
+    let json_file = File::open(json_fname).ok()?;
+    let mut reader = BufReader::new(&json_file);
+    from_reader(&mut reader).ok()
 }

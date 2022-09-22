@@ -117,6 +117,22 @@ index of the field starting from 0.
 * For enumeration constants, the symbol is
 `F_<${enum_symbol}>_${constant_name}`.
 
+* For files (for includes), the symbol prefix is `FILE_` and the following
+  normalization rules apply.  See `mangleFile` in `MozsearchIndexer.cpp` for
+  more rationale,
+  - Any character that is not alphanumeric, `_` or `/` gets uppercase hex
+    escaped with a prefix of `@`.  So "path/foo.h" becomes `FILE_path/foo@2Eh`.
+  - Generated files get an extra prefix of `${PLATFORM}@` is addition to the
+    `__GENERATED__/` path prefix.  So for the example of "path/foo.h" if it were
+    generated on windows, the symbol would be
+    `FILE_windows@__GENERATED__/path/foo@2Eh`.
+    - The platform prefix is reusing the logic from `mangleLocation` which was
+      intended to avoid hash collisions for things that aren't equivalent, but
+      this probably could be re-thought to factor in types and whether
+      merge-analyses ends up merging things.  Right now it creates diverging
+      symbols that potentially don't need to diverge.
+
+
 Note that in some cases, the symbol for a C++ identifier might vary from one
 platform to another. For example, a function signature that includes `uint64_t`
 produces a different mangled name on macOS and Linux. In such cases, if

@@ -1,0 +1,13 @@
+{%- if config.wpt_root != empty -%}
+{%- capture wpt_rel_path %}{{ path | strip_prefix_or_empty: "testing/web-platform/tests/" }}{% endcapture -%}
+{%- if wpt_rel_path != empty -%}
+{% capture wpt_fyi_link %}https://wpt.fyi/results/{{ wpt_rel_path }}{% endcapture %}
+{%- include "panel.liquid"
+    title: "Web Platform Tests Dashboard",
+    link: wpt_fyi_link,
+    update_link_lineno: "",
+    accel_key: "",
+    copyable: true,
+-%}
+{%- endif -%}
+{%- endif -%}

@@ -5,6 +5,6 @@ mod server_interface;
 pub use local_index::{make_all_local_servers, make_local_server};
 pub use remote_server::make_remote_server;
 pub use server_interface::{
-    AbstractServer, ErrorDetails, ErrorLayer, HtmlFileRoot, Result, ServerError, TextMatches,
-    TextMatchesByFile,
+    AbstractServer, ErrorDetails, ErrorLayer, FileMatch, FileMatches, HtmlFileRoot, Result,
+    ServerError, TextMatches, TextMatchesByFile,
 };

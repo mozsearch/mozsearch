@@ -3107,8 +3107,9 @@ dependencies = [
 
 [[package]]
 name = "ustr"
-version = "0.8.1"
-source = "git+https://github.com/asutherland/ustr?rev=e87cb1584a1142486514d323bc7c18406cfe4806#e87cb1584a1142486514d323bc7c18406cfe4806"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "371436099f2980de56dc385b615696d3eabbdac9649a72b85f9d75f68474fa9c"
 dependencies = [
  "ahash",
  "byteorder",

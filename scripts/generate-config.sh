@@ -19,5 +19,6 @@ WORKING=$(readlink -f $3)
 CONFIG_FILE=$WORKING/config.json
 
 export MOZSEARCH_PATH
+export CONFIG_REPO
 export WORKING
 envsubst < $CONFIG_REPO/$CONFIG_INPUT > $CONFIG_FILE

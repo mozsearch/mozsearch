@@ -1,5 +1,6 @@
 {
   "mozsearch_path": "$MOZSEARCH_PATH",
+  "config_repo": "$CONFIG_REPO",
 
   "default_tree": "searchfox",
 

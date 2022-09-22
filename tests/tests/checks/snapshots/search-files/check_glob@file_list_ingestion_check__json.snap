@@ -1,0 +1,76 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(fm).unwrap()"
+---
+{
+  "file_matches": [
+    {
+      "path": "ignored-js/doublestar-ignored/ignored-by-doublestar.js",
+      "concise": {
+        "path_kind": "Normal",
+        "file_size": 70,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [
+          "eslint-ignored"
+        ],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
+      "path": "ignored-js/explicit-ignored.js",
+      "concise": {
+        "path_kind": "Normal",
+        "file_size": 56,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [
+          "eslint-ignored"
+        ],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
+      "path": "ignored-js/not-ignored-after-reinclusion.js",
+      "concise": {
+        "path_kind": "Normal",
+        "file_size": 82,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
+      "path": "ignored-js/reignored-after-reinclusion.js",
+      "concise": {
+        "path_kind": "Normal",
+        "file_size": 61,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [
+          "eslint-ignored"
+        ],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
+      "path": "ignored-js/wildcard-ignored.js",
+      "concise": {
+        "path_kind": "Normal",
+        "file_size": 54,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [
+          "eslint-ignored"
+        ],
+        "description": null,
+        "info": {}
+      }
+    }
+  ]
+}

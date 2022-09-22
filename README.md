@@ -376,4 +376,5 @@ blame repository is used to generate HTML for the blame strip.
   * [Web serving](docs/web-server.md)
 * Cheatsheets
   * [Bash scripting cheatsheet](docs/bash-scripting-cheatsheet.md)
+  * [Liquid templating cheatsheet](docs/liquid-templating-cheatsheet.md)
   * [searchfox-tool cookbook](docs/searchfox-tool-cookbook.md)

@@ -19,7 +19,7 @@ use hyper::status::StatusCode;
 use hyper::uri;
 
 use tools::blame;
-use tools::config;
+use tools::file_format::config;
 use tools::file_format::identifiers::IdentMap;
 use tools::format;
 use tools::git_ops;
@@ -165,7 +165,7 @@ fn handle(
 
         "hgrev" => {
             let tree_config = &cfg.trees[*tree_name];
-            let git_path = match config::get_git_path(tree_config) {
+            let git_path = match tree_config.get_git_path() {
                 Ok(git_path) => git_path,
                 Err(_) => return WebResponse::not_found(),
             };

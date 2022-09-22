@@ -1,0 +1,27 @@
+{%- if link != empty -%}
+    {%- assign tag = "a" -%}
+    {%- capture tag_extra %} href="{{ link }}"{% endcapture -%}
+{%- else -%}
+    {%- assign tag = "button" -%}
+    {%- assign tag_extra = "" -%}
+{%- endif -%}
+    {%- assign accel = "" -%}
+<li>
+    <{{tag}} title="{{ title }}" class="icon item"{{ tag_extra }}>
+        {{ title }}
+        {%- if accel_key != empty -%}
+            <span class="accel">{{ accel_key }}</span>"
+        {%- endif -%}
+        {%- if copyable -%}
+            {%- if link != empty -%}
+                <button class="icon copy" title="Copy to clipboard">
+                    {%- include "svg_icons/copy_icons.liquid" -%}
+                </button>
+            {%- else -%}
+                <span class="icon copy indicator">
+                    {%- include "svg_icons/copy_icons.liquid" -%}
+                </span>
+            {%- endif -%}
+        {%- endif -%}
+    </{{tag}}>
+</li>

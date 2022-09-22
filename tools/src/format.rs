@@ -13,9 +13,9 @@ use crate::languages::FormatAs;
 use crate::links;
 use crate::tokenize;
 
-use crate::config::GitData;
+use crate::file_format::config::{GitData, Config, TreeConfig};
 use crate::file_format::analysis::{AnalysisSource, Jump, WithLocation};
-use crate::output::{self, InfoBox, Options, PanelItem, PanelSection, F};
+use crate::output::{self, Options, PanelItem, PanelSection, F};
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
@@ -23,8 +23,6 @@ use chrono::offset::fixed::FixedOffset;
 use git2;
 use serde_json::{json, Map, Value, to_string, to_string_pretty};
 use ustr::{Ustr, UstrMap};
-
-use crate::config;
 
 #[derive(Debug)]
 pub struct FormattedLine {
@@ -373,17 +371,17 @@ pub struct FormatPerfInfo {
 /// generate the tip of whatever branch it's on with semantic analysis data, and `format_path` to
 /// dynamically generate the contents of a file without semantic analysis data.
 pub fn format_file_data(
-    cfg: &config::Config,
+    cfg: &Config,
     tree_name: &str,
     panel: &[PanelSection],
-    info_boxes: &[InfoBox],
+    info_boxes: String,
     commit: &Option<git2::Commit>,
     blame_commit: &Option<git2::Commit>,
     path: &str,
     data: String,
     jumps: &UstrMap<Jump>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-    coverage: &Option<Vec<i32>>,
+    coverage: &Option<Vec<i64>>,
     writer: &mut dyn Write,
 ) -> Result<FormatPerfInfo, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
@@ -443,7 +441,14 @@ pub fn format_file_data(
 
     output::generate_panel(writer, panel)?;
 
-    output::generate_info_boxes(writer, info_boxes)?;
+    let info_boxes_container = F::Seq(vec![
+        F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
+        F::Indent(vec![
+            F::T(info_boxes),
+        ]),
+        F::S("</section>"),
+    ]);
+    output::generate_formatted(writer, &info_boxes_container, 0)?;
 
     if let Some(ext) = path_wrapper.extension() {
         if ext.to_str().unwrap() == "svg" {
@@ -651,7 +656,7 @@ fn entry_to_blob(repo: &git2::Repository, entry: &git2::TreeEntry) -> Result<Str
 /// semantic analysis data available.  Used by the "rev" display and the "diff" mechanism when
 /// there aren't actually any changes in the diff.
 pub fn format_path(
-    cfg: &config::Config,
+    cfg: &Config,
     tree_name: &str,
     rev: &str,
     path: &str,
@@ -659,7 +664,7 @@ pub fn format_path(
 ) -> Result<(), &'static str> {
     // Get the file data.
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
-    let git = config::get_git(tree_config)?;
+    let git = tree_config.get_git()?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.into_commit().map_err(|_| "Bad revision")?;
     let commit_tree = commit.tree().map_err(|_| "Bad revision")?;
@@ -769,6 +774,7 @@ pub fn format_path(
         PanelSection {
             name: "Revision control".to_owned(),
             items: vcs_panel_items,
+            raw_items: vec![],
         },
         create_markdown_panel_section(false),
     ];
@@ -777,7 +783,7 @@ pub fn format_path(
         cfg,
         tree_name,
         &panel,
-        &vec![],
+        "".to_string(),
         &Some(commit),
         &blame_commit,
         path,
@@ -817,6 +823,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     PanelSection {
         name: "Copy as Markdown".to_owned(),
         items: markdown_panel_items,
+        raw_items: vec![],
     }
 }
 
@@ -831,7 +838,7 @@ fn split_lines(s: &str) -> Vec<&str> {
 /// Dynamically renders a specific diff with blame annotations but without any semantic analysis
 /// data available.
 pub fn format_diff(
-    cfg: &config::Config,
+    cfg: &Config,
     tree_name: &str,
     rev: &str,
     path: &str,
@@ -839,7 +846,7 @@ pub fn format_diff(
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
-    let git_path = config::get_git_path(tree_config)?;
+    let git_path = tree_config.get_git_path()?;
     let output = Command::new("/usr/bin/git")
         .arg("diff-tree")
         .arg("-p")
@@ -864,7 +871,7 @@ pub fn format_diff(
         return format_path(cfg, tree_name, rev, path, writer);
     }
 
-    let git = config::get_git(tree_config)?;
+    let git = tree_config.get_git()?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
 
@@ -1006,6 +1013,7 @@ pub fn format_diff(
     let sections = vec![PanelSection {
         name: "Revision control".to_owned(),
         items: vcs_panel_items,
+        raw_items: vec![],
     }];
     output::generate_panel(writer, &sections)?;
 
@@ -1107,7 +1115,7 @@ pub fn format_diff(
 
 fn generate_commit_info(
     tree_name: &str,
-    tree_config: &config::TreeConfig,
+    tree_config: &TreeConfig,
     writer: &mut dyn Write,
     commit: &git2::Commit,
 ) -> Result<(), &'static str> {
@@ -1134,7 +1142,7 @@ fn generate_commit_info(
         })
         .collect::<Vec<_>>();
 
-    let git = config::get_git(tree_config)?;
+    let git = tree_config.get_git()?;
     let hg = match git.hg_map.get(&commit.id()) {
         Some(hg_id) => {
             let hg_link = format!(
@@ -1191,7 +1199,7 @@ fn generate_commit_info(
 
     output::generate_formatted(writer, &f, 0)?;
 
-    let git_path = config::get_git_path(tree_config)?;
+    let git_path = tree_config.get_git_path()?;
     let output = Command::new("/usr/bin/git")
         .arg("show")
         .arg("--cc")
@@ -1238,14 +1246,14 @@ fn generate_commit_info(
 }
 
 pub fn format_commit(
-    cfg: &config::Config,
+    cfg: &Config,
     tree_name: &str,
     rev: &str,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
-    let git = config::get_git(tree_config)?;
+    let git = tree_config.get_git()?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
 
