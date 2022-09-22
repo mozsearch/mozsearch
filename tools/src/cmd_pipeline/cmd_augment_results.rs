@@ -3,6 +3,7 @@ use std::{cell::Cell, collections::HashMap, rc::Rc};
 use async_trait::async_trait;
 use lol_html::{element, HtmlRewriter, Settings};
 use clap::StructOpt;
+use ustr::UstrMap;
 
 use super::interface::{PipelineCommand, PipelineValues};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, HtmlFileRoot};
@@ -73,7 +74,7 @@ impl PipelineCommand for AugmentResultsCommand {
         // - Don't wanna have this experimental thing steal all the resources
         //   from the non-experimental router.py and web-server.rs yet!
 
-        let mut path_line_contents: HashMap<String, HashMap<u32, String>> = HashMap::new();
+        let mut path_line_contents: UstrMap<HashMap<u32, String>> = UstrMap::default();
 
         for (path, lines_to_show) in
             results.compute_path_line_sets(self.args.before, self.args.after)

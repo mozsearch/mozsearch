@@ -1,23 +1,28 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
-use std::env;
+use std::fs;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
 
 extern crate env_logger;
+#[macro_use]
+extern crate log;
 
+extern crate clap;
+use clap::Parser;
 use serde_json::{json, Map};
 extern crate tools;
+use tools::file_format::config;
+use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::{
-    config,
     file_format::analysis::{
         read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
     },
-    find_source_file,
 };
+use ustr::Ustr;
 use ustr::ustr;
 
 /// The size for a payload line (inclusive of leading indicating character and
@@ -47,13 +52,34 @@ fn split_scopes(id: &str) -> Vec<String> {
     return result;
 }
 
+#[derive(Parser)]
+struct CrossrefCli {
+    /// Path to the variable-expanded config file
+    #[clap(value_parser)]
+    config_file: String,
+
+    /// The tree in the config file we're cross-referencing
+    #[clap(value_parser)]
+    tree_name: String,
+
+    /// Path to the file containing a list of all of the known analysis files to
+    /// ingest.  This is expected to be a subset of the contents of
+    /// INDEX_ROOT/all-files which will be located using the config_file and
+    /// tree_name.
+    #[clap(value_parser)]
+    analysis_files_list_path: String,
+}
+
 /// Process all analysis files, deriving the `crossref`, `jumps`, and `identifiers` output files.
 /// See https://github.com/mozsearch/mozsearch/blob/master/docs/crossref.md for high-level
 /// documentation on how this works (locally, `docs/crossref.md`).
 ///
 /// ## Implementation
-/// There are 2 phases of processing:
-/// 1. The analysis files are read, populating `table`, `pretty_table`, `id_table`, and
+/// There are 3 phases of processing:
+/// 1. Repo data ingestion aggregates any per-file information (bugzilla component
+///    mappings, test information) and performs file-level classifications like
+///    pre-computing a path_kind for every file.
+/// 2. The analysis files are read, populating `table`, `pretty_table`, `id_table`, and
 ///    `meta_table` incrementally.  Primary cross-reference information comes from target records,
 ///    but the file is also processed for source records in order to populate `meta_table` with
 ///    meta-information about the symbol.
@@ -64,19 +90,49 @@ fn split_scopes(id: &str) -> Vec<String> {
 /// we use string interning so that all long-lived strings are reference-counted interned strings.
 fn main() {
     env_logger::init();
-    let args: Vec<_> = env::args().collect();
 
-    let tree_name = &args[2];
-    let cfg = config::load(&args[1], false, Some(&tree_name));
+    let cli = CrossrefCli::parse();
+
+    let tree_name = &cli.tree_name;
+    let cfg = config::load(&cli.config_file, false, Some(&tree_name));
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
-    let filenames_file = &args[3];
+    let analysis_filenames_file = &cli.analysis_files_list_path;
 
-    let file_paths: Vec<String> = BufReader::new(File::open(filenames_file).unwrap())
+    // This is just the list of analysis files.
+    let analysis_relative_paths: Vec<Ustr> = BufReader::new(File::open(analysis_filenames_file).unwrap())
         .lines()
-        .map(|x| x.unwrap())
+        .map(|x| ustr(&x.unwrap()))
         .collect();
+
+    let all_files_list_path = format!("{}/all-files", tree_config.paths.index_path);
+    let all_files_paths: Vec<Ustr> = fs::read_to_string(all_files_list_path)
+        .unwrap()
+        .lines()
+        .map(|x| ustr(&x))
+        .collect();
+
+    // ## Ingest Repo-Wide Information
+    let per_file_info_toml_str = cfg.read_tree_config_file_with_default("per-file-info.toml").unwrap();
+    let mut ingestion = RepoIngestion::new(&per_file_info_toml_str).expect("Your per-file-info.toml file has issues");
+    ingestion.ingest_file_list_and_apply_heuristics(&all_files_paths, tree_config);
+
+    ingestion.ingest_files(|root: &str, file: &str| {
+        cfg.maybe_read_file_from_given_root(&cli.tree_name, root, file)
+    }).unwrap();
+
+    // After this point we will only have the concise information populated.
+    // We're doing this to minimize our peak memory usage here, but if we find
+    // that we actually want to add more data to the per-file detailed
+    // information, we should probably evaluate what's happening in practice.
+    // While we can always load the detailed information back in as we iterate
+    // through the analysis files we consume, for now we're only storing the
+    // coverage info and it might be reasonable to not bother writing out the
+    // detailed files until the end when we write out the concise file.
+    ingestion.state.write_out_and_drop_detailed_file_info(&tree_config.paths.index_path);
+
+    // ## Process all the analysis files
     let xref_file = format!("{}/crossref", tree_config.paths.index_path);
     let xref_ext_file = format!("{}/crossref-extra", tree_config.paths.index_path);
     let jump_file = format!("{}/jumps", tree_config.paths.index_path);
@@ -116,7 +172,7 @@ fn main() {
     // Triples of [ipc sym, src src, target sym].
     let mut xref_link_ipc = Vec::new();
 
-    for path in &file_paths {
+    for path in &analysis_relative_paths {
         print!("File {}\n", path);
 
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
@@ -126,11 +182,7 @@ fn main() {
         // the `line` for each result.  In the future this could move to
         // dynamic extraction that uses the `peek_range` if available and this
         // line if it's not.
-        let source_fname = find_source_file(
-            path,
-            &tree_config.paths.files_path,
-            &tree_config.paths.objdir_path,
-        );
+        let source_fname = tree_config.find_source_file(path);
         let source_file = match File::open(source_fname.clone()) {
             Ok(f) => f,
             Err(_) => {
@@ -164,8 +216,7 @@ fn main() {
             for piece in datum.data {
                 let t1 = table.entry(piece.sym).or_insert(BTreeMap::new());
                 let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
-                let p: &str = &path;
-                let t3 = t2.entry(p).or_insert(Vec::new());
+                let t3 = t2.entry(path.clone()).or_insert(Vec::new());
                 let lineno = (datum.loc.lineno - 1) as usize;
                 if lineno >= lines.len() {
                     print!("Bad line number in file {} (line {})\n", path, lineno);
@@ -191,7 +242,7 @@ fn main() {
                 t3.push(SearchResult {
                     lineno: datum.loc.lineno,
                     bounds: (datum.loc.col_start - offset, datum.loc.col_end - offset),
-                    line: ustr(&line),
+                    line,
                     context: piece.context,
                     contextsym: piece.contextsym,
                     peek_range: piece.peek_range,
@@ -290,10 +341,18 @@ fn main() {
         for (kind, kind_data) in &id_data {
             let mut result = Vec::new();
             for (path, results) in kind_data {
-                result.push(json!({
-                    "path": path,
-                    "lines": results,
-                }));
+                if let Some(concise_info) = ingestion.state.concise_per_file.get(path) {
+                    result.push(json!({
+                        "path": path,
+                        "path_kind": concise_info.path_kind,
+                        "lines": results,
+                    }));
+                } else {
+                    // NSS seems to have an issue with auto-generated files we
+                    // don't know about, so this can't be a warning because it's
+                    // too spammy.
+                    info!("Missing concise info for path '{}'", path);
+                }
             }
             let kindstr = match *kind {
                 AnalysisKind::Use => "uses",
@@ -398,4 +457,6 @@ fn main() {
             }
         }
     }
+
+    ingestion.state.write_out_concise_file_info(&tree_config.paths.index_path);
 }

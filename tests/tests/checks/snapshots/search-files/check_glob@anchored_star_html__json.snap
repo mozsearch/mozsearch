@@ -5,10 +5,33 @@ expression: "&to_value(fm).unwrap()"
 {
   "file_matches": [
     {
-      "path": "bug1446220_unicode.html"
+      "path": "bug1446220_unicode.html",
+      "concise": {
+        "path_kind": "Normal",
+        "file_size": 10485,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "Font family name parsing tests",
+        "info": {}
+      }
     },
     {
-      "path": "test_DOMWindowCreated_chromeonly.html"
+      "path": "test_DOMWindowCreated_chromeonly.html",
+      "concise": {
+        "path_kind": "Normal",
+        "file_size": 728,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "DOMWindowCreated not visible in content",
+        "info": {
+          "test": {
+            "failure_count": 5,
+            "skip_if": null
+          }
+        }
+      }
     }
   ]
 }

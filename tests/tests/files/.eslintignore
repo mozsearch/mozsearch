@@ -1,0 +1,8 @@
+# I am a comment line
+ignored-js/explicit-ignored.js
+# The things this match will be re-included.
+ignored-js/*reinclusion*
+ignored-js/*wildcard*
+!ignored-js/*reinclusion*
+ignored-js/reignored-after-reinclusion.js
+**/doublestar-ignored/

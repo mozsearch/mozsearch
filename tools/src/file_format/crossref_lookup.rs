@@ -11,8 +11,9 @@ use serde_json::{from_slice, Value};
 use crate::{
     abstract_server::Result,
     abstract_server::{ErrorDetails, ErrorLayer, ServerError},
-    config,
 };
+
+use super::config::Config;
 
 #[derive(Clone, Debug)]
 pub struct CrossrefLookupMap {
@@ -63,7 +64,7 @@ impl CrossrefLookupMap {
         })
     }
 
-    pub fn load(config: &config::Config) -> HashMap<String, Option<CrossrefLookupMap>> {
+    pub fn load(config: &Config) -> HashMap<String, Option<CrossrefLookupMap>> {
         let mut result = HashMap::new();
         for (tree_name, tree_config) in &config.trees {
             println!("Loading crossref {}", tree_name);

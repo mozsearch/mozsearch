@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use clap::Args;
 use tracing::{trace};
+use ustr::ustr;
 
 use super::interface::{
     OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolCrossrefInfo,
@@ -183,9 +184,10 @@ impl PipelineCommand for CrossrefExpandCommand {
                         trace!(edge=ptr, count=arr.len(), "considering");
                         for wrapped in arr.iter() {
                             if let Value::String(sym) = xfunc(wrapped) {
-                                if considered.insert(sym.clone()) {
+                                let usym = ustr(sym);
+                                if considered.insert(usym.clone()) {
                                     to_traverse.push_back((
-                                        sym.clone(),
+                                        usym.clone(),
                                         use_relation.clone(),
                                         info.quality.clone(),
                                         None,
@@ -307,6 +309,7 @@ impl PipelineCommand for CrossrefExpandCommand {
         Ok(PipelineValues::SymbolCrossrefInfoList(
             SymbolCrossrefInfoList {
                 symbol_crossref_infos: expanded,
+                unknown_symbols: vec![],
             },
         ))
     }

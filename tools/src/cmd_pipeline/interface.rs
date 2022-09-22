@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use serde::Serialize;
 use serde_json::{to_string_pretty, Value};
+use ustr::{Ustr, ustr, UstrMap};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
@@ -9,7 +10,7 @@ use std::{
 };
 use tracing::{trace, trace_span};
 
-use crate::abstract_server::TextMatches;
+use crate::abstract_server::{FileMatches, TextMatches};
 pub use crate::abstract_server::{AbstractServer, Result};
 
 use super::symbol_graph::SymbolGraphCollection;
@@ -63,14 +64,14 @@ pub enum PipelineValues {
 /// A list of (searchfox) identifiers.
 #[derive(Serialize)]
 pub struct IdentifierList {
-    pub identifiers: Vec<String>,
+    pub identifiers: Vec<Ustr>,
 }
 
 #[derive(Serialize)]
 pub struct SymbolWithContext {
-    pub symbol: String,
+    pub symbol: Ustr,
     pub quality: SymbolQuality,
-    pub from_identifier: Option<String>,
+    pub from_identifier: Option<Ustr>,
 }
 
 /// A list of (searchfox) symbols.
@@ -88,30 +89,30 @@ pub enum SymbolRelation {
     /// This symbol is an override of the payload symbol (and was added via that
     /// symbol by following the "overriddenBy" downward edges).  The u32 is the
     /// distance.
-    OverrideOf(String, u32),
+    OverrideOf(Ustr, u32),
     /// This symbol was overridden by the payload symbol (and was added via that
     /// symbol by following the "overrides" upward edges).  The u32 is the
     /// distance.
-    OverriddenBy(String, u32),
+    OverriddenBy(Ustr, u32),
     /// This symbol is in the same root override set of the payload symbol (and
     /// was added by following that symbol's "overrides" upward edges and then
     /// "overriddenBy" downward edges), but is a cousin rather than an ancestor
     /// or descendant in the graph.  The u32 is the number of steps to get to
     /// the common ancestor.
-    CousinOverrideOf(String, u32),
+    CousinOverrideOf(Ustr, u32),
     /// This symbol is a subclass of the payload symbol (and was added via that
     /// symbol by following the "subclasses" downward edges).  The u32 is the
     /// distance.
-    SubclassOf(String, u32),
+    SubclassOf(Ustr, u32),
     /// This symbol is a superclass of the payload symbol (and was added via
     /// that symbol by following the "supers" upward edges).  The u32 is the
     /// distance.
-    SuperclassOf(String, u32),
+    SuperclassOf(Ustr, u32),
     /// This symbol is a cousin class of the payload symbol (and was added via
     /// that symbol by following the "supers" upward edges and then "subclasses"
     /// downward edges) with a distance indicating the number of steps to get to
     /// the common ancestor.
-    CousinClassOf(String, u32),
+    CousinClassOf(Ustr, u32),
 }
 
 /// Metadata about how likely we think it is that the user was actually looking
@@ -219,7 +220,7 @@ pub struct OverloadInfo {
 /// A symbol and its cross-reference information.
 #[derive(Serialize)]
 pub struct SymbolCrossrefInfo {
-    pub symbol: String,
+    pub symbol: Ustr,
     pub crossref_info: Value,
     pub relation: SymbolRelation,
     pub quality: SymbolQuality,
@@ -230,30 +231,32 @@ pub struct SymbolCrossrefInfo {
 impl SymbolCrossrefInfo {
     /// Return the pretty identifier for this symbol from its "meta" "pretty"
     /// field, falling back to the symbol name if we don't have a pretty name.
-    pub fn get_pretty(&self) -> String {
+    pub fn get_pretty(&self) -> Ustr {
         if let Some(Value::String(s)) = self.crossref_info.pointer("/meta/pretty") {
-            s.clone()
+            ustr(s)
         } else {
             self.symbol.clone()
         }
     }
 
-    pub fn get_method_symbols(&self) -> Option<Vec<String>> {
+    pub fn get_method_symbols(&self) -> Option<Vec<Ustr>> {
         if let Some(Value::Array(arr)) = self.crossref_info.pointer("/meta/methods") {
             if arr.len() == 0 {
                 return None;
             }
-            Some(arr.iter().map(|v| v["sym"].as_str().unwrap_or("").to_string()).collect())
+            Some(arr.iter().map(|v| ustr(v["sym"].as_str().unwrap_or(""))).collect())
         } else {
             None
         }
     }
 }
 
-/// A list of `SymbolCrossrefInfo`s.
+/// A list of `SymbolCrossrefInfo`s plus a list of any unknown symbols provided
+/// to the input.
 #[derive(Serialize)]
 pub struct SymbolCrossrefInfoList {
     pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
+    pub unknown_symbols: Vec<String>,
 }
 
 /// router.py-style mozsearch compiled results that has top-level path-kind
@@ -270,8 +273,8 @@ pub struct FlattenedResultsBundle {
 }
 
 impl FlattenedResultsBundle {
-    pub fn compute_path_line_sets(&self, before: u32, after: u32) -> HashMap<String, HashSet<u32>> {
-        let mut path_line_sets = HashMap::new();
+    pub fn compute_path_line_sets(&self, before: u32, after: u32) -> UstrMap<HashSet<u32>> {
+        let mut path_line_sets = UstrMap::default();
         for path_kind_group in &self.path_kind_results {
             path_kind_group.accumulate_path_line_sets(&mut path_line_sets, before, after);
         }
@@ -280,7 +283,7 @@ impl FlattenedResultsBundle {
 
     pub fn ingest_html_lines(
         &mut self,
-        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        path_line_contents: &UstrMap<HashMap<u32, String>>,
         before: u32,
         after: u32,
     ) {
@@ -291,25 +294,17 @@ impl FlattenedResultsBundle {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Eq, Ord, Serialize)]
-pub enum PathKind {
-    Normal,
-    ThirdParty,
-    Test,
-    Generated,
-}
-
 #[derive(Serialize)]
 pub struct FlattenedPathKindGroupResults {
-    pub path_kind: PathKind,
-    pub file_names: Vec<String>,
+    pub path_kind: Ustr,
+    pub file_names: Vec<Ustr>,
     pub kind_groups: Vec<FlattenedKindGroupResults>,
 }
 
 impl FlattenedPathKindGroupResults {
     pub fn accumulate_path_line_sets(
         &self,
-        mut path_line_sets: &mut HashMap<String, HashSet<u32>>,
+        mut path_line_sets: &mut UstrMap<HashSet<u32>>,
         before: u32,
         after: u32,
     ) {
@@ -320,7 +315,7 @@ impl FlattenedPathKindGroupResults {
 
     pub fn ingest_html_lines(
         &mut self,
-        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        path_line_contents: &UstrMap<HashMap<u32, String>>,
         before: u32,
         after: u32,
     ) {
@@ -355,7 +350,7 @@ pub struct ResultFacetRoot {
 pub struct ResultFacetGroup {
     /// Terse human-readable explanation of the facet for UI display.
     pub label: String,
-    pub values: Vec<String>,
+    pub values: Vec<Ustr>,
     pub nested_groups: Vec<ResultFacetGroup>,
     /// The number of hits for this group, inclusive of nested groups.  This
     /// value should be equal to the sum of all of the nested_groups' counts if
@@ -378,7 +373,7 @@ pub enum PresentationKind {
 #[derive(Serialize)]
 pub struct FlattenedKindGroupResults {
     pub kind: PresentationKind,
-    pub pretty: String,
+    pub pretty: Ustr,
     pub facets: Vec<ResultFacetRoot>,
     pub by_file: Vec<FlattenedResultsByFile>,
 }
@@ -386,7 +381,7 @@ pub struct FlattenedKindGroupResults {
 impl FlattenedKindGroupResults {
     pub fn accumulate_path_line_sets(
         &self,
-        mut path_line_sets: &mut HashMap<String, HashSet<u32>>,
+        mut path_line_sets: &mut UstrMap<HashSet<u32>>,
         before: u32,
         after: u32,
     ) {
@@ -397,7 +392,7 @@ impl FlattenedKindGroupResults {
 
     pub fn ingest_html_lines(
         &mut self,
-        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        path_line_contents: &UstrMap<HashMap<u32, String>>,
         before: u32,
         after: u32,
     ) {
@@ -409,14 +404,14 @@ impl FlattenedKindGroupResults {
 
 #[derive(Serialize)]
 pub struct FlattenedResultsByFile {
-    pub file: String,
+    pub file: Ustr,
     pub line_spans: Vec<FlattenedLineSpan>,
 }
 
 impl FlattenedResultsByFile {
     pub fn accumulate_path_line_sets(
         &self,
-        path_line_sets: &mut HashMap<String, HashSet<u32>>,
+        path_line_sets: &mut UstrMap<HashSet<u32>>,
         before: u32,
         after: u32,
     ) {
@@ -433,7 +428,7 @@ impl FlattenedResultsByFile {
 
     pub fn ingest_html_lines(
         &mut self,
-        path_line_contents: &HashMap<String, HashMap<u32, String>>,
+        path_line_contents: &UstrMap<HashMap<u32, String>>,
         before: u32,
         after: u32,
     ) {
@@ -492,8 +487,8 @@ pub struct FlattenedLineSpan {
     pub contents: String,
     // context and contextsym are normalized to empty upstream of here instead
     // of being `Option<String>` so we just maintain that for now.
-    pub context: String,
-    pub contextsym: String,
+    pub context: Ustr,
+    pub contextsym: Ustr,
 }
 
 impl FlattenedLineSpan {
@@ -518,23 +513,6 @@ pub struct GraphResultsBundle {
 #[derive(Serialize)]
 pub struct RenderedGraph {
     pub graph: String,
-}
-
-/// This currently boring struct exists so that we have a place to put metadata
-/// about files that can ride-along with the name.  However, it could end up
-/// that we want to just treat files as a special type of symbol, in which case
-/// maybe we don't put that info here and let later stages look it up
-/// themselves?  Optionally, maybe this ends up being an optional serde_json
-/// Value (where Some(null) means it had no data and None means we haven't
-/// looked).
-#[derive(Serialize)]
-pub struct FileMatch {
-    pub path: String,
-}
-
-#[derive(Serialize)]
-pub struct FileMatches {
-    pub file_matches: Vec<FileMatch>,
 }
 
 /// JSON records are raw analysis records from a single file (for now)

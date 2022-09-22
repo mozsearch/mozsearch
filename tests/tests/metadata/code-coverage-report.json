@@ -24,6 +24,19 @@
         -1, 1, -1, 1, -1, 2, -1, 0, -1, 1,
         -1, 2, -1
       ]
+    },
+    "subdir": {
+      "comment": "This is necessary to test derived file info creation.",
+      "name": "subdir",
+      "children": {
+        "valid_cpp_file_with_coverage.cpp": {
+          "comment": "yes, this has coverage",
+          "name": "valid_cpp_file_with_coverage.cpp",
+          "coverage": [
+            -1, -1, 10, 10, -1, -1
+          ]
+        }
+      }
     }
   }
 }

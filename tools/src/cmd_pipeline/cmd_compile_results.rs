@@ -1,20 +1,20 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use async_trait::async_trait;
-use regex::Regex;
 use serde_json::{from_value, Value};
 use clap::Args;
+use ustr::{UstrMap, Ustr, ustr};
 
 use super::interface::{
-    FileMatch, FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
-    FlattenedResultsBundle, FlattenedResultsByFile, PathKind, PipelineJunctionCommand,
+    FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
+    FlattenedResultsBundle, FlattenedResultsByFile, PipelineJunctionCommand,
     PipelineValues, PresentationKind, ResultFacetGroup, ResultFacetKind, ResultFacetRoot,
     SymbolCrossrefInfo, SymbolQuality, SymbolRelation,
 };
 
 use crate::{
     abstract_server::{
-        AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextMatchesByFile,
+        AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextMatchesByFile, FileMatch,
     },
     file_format::analysis::PathSearchResult,
 };
@@ -85,13 +85,13 @@ pub struct SearchResults {
     /// Cache mapping observed symbols to their pretty identifiers.  This
     /// depends on us seeing root symbols of relations before their related
     /// symbols, but that's explicitly how things are ordered.
-    pub sym_to_pretty: HashMap<String, String>,
+    pub sym_to_pretty: UstrMap<Ustr>,
     /// We retain the meta information for any symbols we include our results
     /// for the benefit of the UI for future use.  We may also end up expanding
     /// the set of symbols-with-meta here as we address the class hierarchy, if
     /// that doesn't end up in a separate output structure.
-    pub sym_to_meta: BTreeMap<String, Value>,
-    pub path_kind_groups: BTreeMap<PathKind, PathKindGroup>,
+    pub sym_to_meta: UstrMap<Value>,
+    pub path_kind_groups: UstrMap<PathKindGroup>,
     /// Every key_line gets added to this set like `{path}:{key_line}` to
     /// suppress redundant hits on the line (from fulltext matches).
     pub path_line_suppressions: HashSet<String>,
@@ -99,43 +99,8 @@ pub struct SearchResults {
 
 #[derive(Default)]
 pub struct PathKindGroup {
-    pub file_names: Vec<String>,
+    pub file_names: Vec<Ustr>,
     pub qual_kind_groups: BTreeMap<QualKindDescriptor, QualKindGroup>,
-}
-
-/// Ported version of `router.py`'s `categorize_path`'s `is_test` helper.
-fn path_is_test(path: &str) -> bool {
-    lazy_static! {
-        static ref RE_UNIT_OR_ANDROID: Regex = Regex::new("/(?:unit|androidTest)/").unwrap();
-        static ref RE_TEST: Regex = Regex::new("test").unwrap();
-        static ref RE_SLASHED_TESTS: Regex = Regex::new("/(?:test|tests|mochitest|jsapi-tests|reftests|reftest|crashtests|crashtest|googletest|gtest|gtests|imptests)/").unwrap();
-        static ref RE_TESTING_SLASH: Regex = Regex::new("testing/").unwrap();
-    }
-    // Except /unit/ and /androidTest/, all other paths contain the substring
-    // 'test', so we can exit early in case it is not present.
-    if RE_UNIT_OR_ANDROID.is_match(path) {
-        return true;
-    }
-    if !RE_TEST.is_match(path) {
-        return false;
-    }
-    return RE_SLASHED_TESTS.is_match(path) || RE_TESTING_SLASH.is_match(path);
-}
-
-fn categorize_path(path: &str) -> PathKind {
-    lazy_static! {
-        static ref RE_GENERATED: Regex = Regex::new("__GENERATED__").unwrap();
-        static ref RE_THIRD_PARTY: Regex = Regex::new("^third_party/").unwrap();
-    }
-    if RE_GENERATED.is_match(path) {
-        return PathKind::Generated;
-    } else if RE_THIRD_PARTY.is_match(path) {
-        return PathKind::ThirdParty;
-    } else if path_is_test(path) {
-        return PathKind::Test;
-    } else {
-        return PathKind::Normal;
-    }
 }
 
 /// Results for a specific kind (definition/use/etc.) for a specific pretty
@@ -144,13 +109,13 @@ fn categorize_path(path: &str) -> PathKind {
 pub struct QualKindDescriptor {
     pub kind: PresentationKind,
     pub quality: SymbolQuality,
-    pub pretty: String,
+    pub pretty: Ustr,
 }
 
 pub struct QualKindGroup {
     pub path_facet: MaybeFacetRoot,
     pub relation_facet: MaybeFacetRoot,
-    pub path_hits: BTreeMap<String, FlattenedResultsByFile>,
+    pub path_hits: BTreeMap<Ustr, FlattenedResultsByFile>,
 }
 
 impl QualKindGroup {
@@ -181,6 +146,13 @@ impl SearchResults {
     ///   processing here
     ///
     pub fn ingest_symbol(&mut self, info: SymbolCrossrefInfo) -> Result<()> {
+        lazy_static! {
+            static ref SELF: Ustr = ustr("Self");
+            static ref OVERRIDDEN_BY: Ustr = ustr("Overriden By");
+            static ref OVERRIDES: Ustr = ustr("Overrides");
+            static ref COUSIN_OVERRIDES: Ustr = ustr("Cousin Overrides");
+        }
+
         // There are other ways we could get this mapping like always baking the
         // "pretty" into the SymbolRelation or having our crossref infos be in a
         // map, but that complicates ownership issues massively.
@@ -188,16 +160,16 @@ impl SearchResults {
             .insert(info.symbol.clone(), info.get_pretty());
 
         // Skip symbols that are only here for class relationship purposes.
-        let (root_sym, relation_facet) = match &info.relation {
+        let (root_sym, relation_facet): (Ustr, &'static Ustr) = match &info.relation {
             SymbolRelation::SubclassOf(_, _)
             | SymbolRelation::SuperclassOf(_, _)
             | SymbolRelation::CousinClassOf(_, _) => {
                 return Ok(());
             }
-            SymbolRelation::Queried => (info.symbol.clone(), "Self"),
-            SymbolRelation::OverrideOf(sym, _) => (sym.clone(), "Overriden By"),
-            SymbolRelation::OverriddenBy(sym, _) => (sym.clone(), "Overrides"),
-            SymbolRelation::CousinOverrideOf(sym, _) => (sym.clone(), "Cousin Overrides"),
+            SymbolRelation::Queried => (info.symbol.clone(), &SELF),
+            SymbolRelation::OverrideOf(sym, _) => (sym.clone(), &OVERRIDDEN_BY),
+            SymbolRelation::OverriddenBy(sym, _) => (sym.clone(), &OVERRIDES),
+            SymbolRelation::CousinOverrideOf(sym, _) => (sym.clone(), &COUSIN_OVERRIDES),
         };
 
         let root_pretty = self
@@ -245,7 +217,7 @@ impl SearchResults {
                     pretty: root_pretty.clone(),
                 };
 
-                let path_containers: Vec<PathSearchResult<String>> = from_value(val)?;
+                let path_containers: Vec<PathSearchResult> = from_value(val)?;
                 for path_container in path_containers {
                     self.ingest_path_hits(
                         &info.symbol,
@@ -262,15 +234,14 @@ impl SearchResults {
 
     fn ingest_path_hits(
         &mut self,
-        sym: &str,
+        sym: &Ustr,
         descriptor: QualKindDescriptor,
-        relation_facet: &str,
-        path_container: PathSearchResult<String>,
+        relation_facet: &Ustr,
+        path_container: PathSearchResult,
     ) {
-        let path_kind = categorize_path(&path_container.path);
         let path_kind_group = self
             .path_kind_groups
-            .entry(path_kind)
+            .entry(path_container.path_kind)
             .or_insert_with(|| PathKindGroup::default());
         let qual_kind_group = path_kind_group
             .qual_kind_groups
@@ -279,12 +250,12 @@ impl SearchResults {
 
         // ### path faceting
         let path_sans_filename = match path_container.path.rfind('/') {
-            Some(offset) => path_container.path[0..offset + 1].to_string(),
+            Some(offset) => ustr(&path_container.path[0..offset + 1]),
             None => path_container.path.clone(),
         };
-        let mut path_pieces: Vec<String> = path_sans_filename
+        let mut path_pieces: Vec<Ustr> = path_sans_filename
             .split_inclusive('/')
-            .map(|s| String::from(s))
+            .map(|s| ustr(s))
             .collect();
         // drop the filename portion.
         path_pieces.truncate(path_pieces.len() - 1);
@@ -295,7 +266,7 @@ impl SearchResults {
         // ### symbol relation faceting
         qual_kind_group
             .relation_facet
-            .place_item(vec![relation_facet.to_string()], sym.to_string());
+            .place_item(vec![relation_facet.clone()], sym.clone());
 
         // ### line results
         let file_results = qual_kind_group
@@ -341,10 +312,9 @@ impl SearchResults {
 
     pub fn ingest_file_match_hits(&mut self, file_matches: Vec<FileMatch>) {
         for file_match in file_matches {
-            let path_kind = categorize_path(&file_match.path);
             let path_kind_group = self
                 .path_kind_groups
-                .entry(path_kind)
+                .entry(file_match.concise.path_kind.clone())
                 .or_insert_with(|| PathKindGroup::default());
             path_kind_group.file_names.push(file_match.path);
         }
@@ -355,15 +325,14 @@ impl SearchResults {
             kind: PresentationKind::TextualOccurrences,
             // The quality doesn't matter; there's only one class of text matches.
             quality: SymbolQuality::ExplicitSymbol,
-            pretty: "".to_string(),
+            pretty: ustr(""),
         };
 
         for file_match in matches_by_file {
             let path = file_match.file;
-            let path_kind = categorize_path(&path);
             let path_kind_group = self
                 .path_kind_groups
-                .entry(path_kind)
+                .entry(file_match.path_kind)
                 .or_insert_with(|| PathKindGroup::default());
             let qual_kind_group = path_kind_group
                 .qual_kind_groups
@@ -385,8 +354,8 @@ impl SearchResults {
                             key_line: text_match.line_num,
                             line_range: (text_match.line_num, text_match.line_num),
                             contents: text_match.line_str,
-                            context: "".to_string(),
-                            contextsym: "".to_string(),
+                            context: ustr(""),
+                            contextsym: ustr(""),
                         });
                 }
             }
@@ -401,12 +370,12 @@ impl SearchResults {
             } else {
                 // ### path faceting (now that we know we're keeping the hits)
                 let path_sans_filename = match path.rfind('/') {
-                    Some(offset) => path[0..offset + 1].to_string(),
+                    Some(offset) => ustr(&path[0..offset + 1]),
                     None => path.clone(),
                 };
-                let mut path_pieces: Vec<String> = path_sans_filename
+                let mut path_pieces: Vec<Ustr> = path_sans_filename
                     .split_inclusive('/')
-                    .map(|s| String::from(s))
+                    .map(|s| ustr(s))
                     .collect();
                 // drop the filename portion.
                 path_pieces.truncate(path_pieces.len() - 1);
@@ -478,7 +447,7 @@ impl MaybeFacetRoot {
     /// Place the value within a fully built-out hierarchy.  We don't do dynamic
     /// hierarchy creation as things collide; instead we just create it all and
     /// then collapse it out of existence during the `compile` phase.
-    pub fn place_item(&mut self, mut pieces: Vec<String>, value: String) {
+    pub fn place_item(&mut self, mut pieces: Vec<Ustr>, value: Ustr) {
         pieces.reverse();
         self.root.place_item(pieces, value);
     }
@@ -521,15 +490,15 @@ impl MaybeFacetRoot {
 
 #[derive(Default)]
 pub struct MaybeFacetGroup {
-    pub nested_groups: BTreeMap<String, MaybeFacetGroup>,
-    pub values: Vec<String>,
+    pub nested_groups: BTreeMap<Ustr, MaybeFacetGroup>,
+    pub values: Vec<Ustr>,
     /// Count of the values stored in this group in `values` and any nested
     /// groups.  This value will always be at least 1.
     pub count: u32,
 }
 
 impl MaybeFacetGroup {
-    pub fn place_item(&mut self, mut reversed_pieces: Vec<String>, value: String) {
+    pub fn place_item(&mut self, mut reversed_pieces: Vec<Ustr>, value: Ustr) {
         self.count += 1;
         if let Some(next_piece) = reversed_pieces.pop() {
             self.nested_groups
@@ -541,7 +510,7 @@ impl MaybeFacetGroup {
         }
     }
 
-    pub fn flatten(mut self) -> Vec<String> {
+    pub fn flatten(mut self) -> Vec<Ustr> {
         for subgroup in self.nested_groups.into_values() {
             let mut sub_flattened = subgroup.flatten();
             self.values.append(&mut sub_flattened);

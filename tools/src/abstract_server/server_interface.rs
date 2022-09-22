@@ -4,6 +4,9 @@ use axum::http::StatusCode;
 use futures_core::stream::BoxStream;
 use serde::Serialize;
 use serde_json::Value;
+use ustr::Ustr;
+
+use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
@@ -149,12 +152,14 @@ pub struct TextBounds {
 pub struct TextMatchInFile {
     pub line_num: u32,
     pub bounds: TextBounds,
+    // This will vary a lot and so can never be a Ustr.
     pub line_str: String,
 }
 
 #[derive(Serialize)]
 pub struct TextMatchesByFile {
-    pub file: String,
+    pub file: Ustr,
+    pub path_kind: Ustr,
     pub matches: Vec<TextMatchInFile>,
 }
 
@@ -162,6 +167,17 @@ pub struct TextMatchesByFile {
 #[derive(Serialize)]
 pub struct TextMatches {
     pub by_file: Vec<TextMatchesByFile>,
+}
+
+#[derive(Serialize)]
+pub struct FileMatch {
+    pub path: Ustr,
+    pub concise: ConcisePerFileInfo<Ustr>,
+}
+
+#[derive(Serialize)]
+pub struct FileMatches {
+    pub file_matches: Vec<FileMatch>,
 }
 
 /// Unified exposure for interacting with a local Searchfox index on disk or
@@ -244,7 +260,7 @@ pub trait AbstractServer {
     /// Note that this will initially be local-only and whether it makes sense
     /// as a remote API really hinges on a rationale for not just remoting
     /// the new "query" mechanism.
-    async fn search_files(&self, pathre: &str, limit: usize) -> Result<Vec<String>>;
+    async fn search_files(&self, pathre: &str, limit: usize) -> Result<FileMatches>;
 
     /// Given an identifier (prefix), return pairs of matching identifiers and
     /// symbols that correspond to those identifiers.
@@ -261,7 +277,7 @@ pub trait AbstractServer {
         exact_match: bool,
         ignore_case: bool,
         match_limit: usize,
-    ) -> Result<Vec<(String, String)>>;
+    ) -> Result<Vec<(Ustr, Ustr)>>;
 
     /// Given an re2 search pattern and additional config info, run a
     /// livegrep codesearch against an already-running codesearch server.  In

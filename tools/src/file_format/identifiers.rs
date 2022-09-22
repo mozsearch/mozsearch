@@ -7,11 +7,12 @@ use std::io::BufRead;
 use std::process::Command;
 use std::str;
 use std::sync::Arc;
+use ustr::{ustr, Ustr};
 
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 
-use crate::config;
+use super::config::Config;
 
 fn uppercase(s: &[u8]) -> Vec<u8> {
     let mut result = vec![];
@@ -32,10 +33,13 @@ pub struct IdentMap {
 
 #[derive(Serialize, Deserialize)]
 pub struct IdentResult {
-    pub id: String,
-    pub symbol: String,
+    pub id: Ustr,
+    pub symbol: Ustr,
 }
 
+// TODO: switch to https://crates.io/crates/cpp_demangle which is probably what
+// pernosco uses (based on khuey being an owner) and so for consistency purposes
+// is probably the right call.
 fn demangle_name(name: &str) -> String {
     let output = Command::new("c++filt")
         .arg("--no-params")
@@ -79,7 +83,7 @@ impl IdentMap {
         }
     }
 
-    pub fn load(config: &config::Config) -> HashMap<String, IdentMap> {
+    pub fn load(config: &Config) -> HashMap<String, IdentMap> {
         let mut result = HashMap::new();
         for (tree_name, tree_config) in &config.trees {
             println!("Loading identifiers {}", tree_name);
@@ -177,8 +181,8 @@ impl IdentMap {
             }
 
             result.push(IdentResult {
-                id: id,
-                symbol: symbol.to_string(),
+                id: ustr(&id),
+                symbol: ustr(symbol),
             });
             if result.len() == max_results {
                 break;

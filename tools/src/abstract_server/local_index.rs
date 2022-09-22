@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
-use regex::Regex;
 use serde_json::{from_str, Value};
+use ustr::{ustr, Ustr};
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::time::Instant;
@@ -11,13 +11,14 @@ use tokio::io::AsyncReadExt;
 use tracing::trace;
 
 use super::server_interface::{
-    AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextBounds, TextMatchInFile, HtmlFileRoot,
+    AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextBounds, TextMatchInFile, HtmlFileRoot, FileMatches,
 };
 use super::{TextMatches, TextMatchesByFile};
 
-use crate::config::{load, TreeConfig, TreeConfigPaths};
+use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
+use crate::file_format::per_file_info::FileLookupMap;
 
 pub mod livegrep {
     tonic::include_proto!("_");
@@ -120,6 +121,7 @@ struct LocalIndex {
     ident_map: Option<IdentMap>,
     // But for crossref, it's on us.
     crossref_lookup_map: Option<CrossrefLookupMap>,
+    file_lookup_map: FileLookupMap,
 }
 
 #[async_trait]
@@ -224,36 +226,8 @@ impl AbstractServer for LocalIndex {
         result
     }
 
-    async fn search_files(&self, pathre: &str, limit: usize) -> Result<Vec<String>> {
-        let re_path = Regex::new(pathre)?;
-
-        let repo_files_path = format!("{}/repo-files", self.config_paths.index_path,);
-        let objdir_files_path = format!("{}/objdir-files", self.config_paths.index_path,);
-
-        let mut f_repo = File::open(repo_files_path).await?;
-        let mut s_repo = String::new();
-        f_repo.read_to_string(&mut s_repo).await?;
-
-        let mut f_objdir = File::open(objdir_files_path).await?;
-        let mut s_objdir = String::new();
-        f_objdir.read_to_string(&mut s_objdir).await?;
-
-        let mut matching_paths: Vec<String> = s_repo
-            .lines()
-            .filter(|s| re_path.is_match(s))
-            .map(|s| s.to_string())
-            .collect();
-
-        let mut objdir_paths: Vec<String> = s_objdir
-            .lines()
-            .filter(|s| re_path.is_match(s))
-            .map(|s| s.to_string())
-            .collect();
-        matching_paths.append(&mut objdir_paths);
-
-        matching_paths.truncate(limit);
-
-        Ok(matching_paths)
+    async fn search_files(&self, pathre: &str, limit: usize) -> Result<FileMatches> {
+        self.file_lookup_map.search_files(pathre, limit)
     }
 
     async fn search_identifiers(
@@ -262,7 +236,7 @@ impl AbstractServer for LocalIndex {
         exact_match: bool,
         ignore_case: bool,
         match_limit: usize,
-    ) -> Result<Vec<(String, String)>> {
+    ) -> Result<Vec<(Ustr, Ustr)>> {
         if let Some(ident_map) = &self.ident_map {
             let now = Instant::now();
             let mut results = vec![];
@@ -323,9 +297,14 @@ impl AbstractServer for LocalIndex {
             let right = result.bounds.as_ref().map_or(0, |b| b.right);
             by_file
                 .entry(result.path.to_string())
-                .or_insert_with(|| TextMatchesByFile {
-                    file: result.path.to_string(),
-                    matches: vec![],
+                .or_insert_with(|| {
+                    let path = ustr(&result.path);
+                    let path_kind = self.file_lookup_map.lookup_file_from_ustr(&path).map_or_else(|| ustr(""), |fi| fi.path_kind.clone());
+                    TextMatchesByFile {
+                        file: path,
+                        path_kind,
+                        matches: vec![],
+                    }
                 })
                 .matches
                 .push(TextMatchInFile {
@@ -364,12 +343,17 @@ fn fab_server(
 
     let crossref_lookup_map = CrossrefLookupMap::new(&crossref_path, &crossref_extra_path);
 
+    let file_lookup_path = format!("{}/concise-per-file-info.json", tree_config.paths.index_path);
+
+    let file_lookup_map = FileLookupMap::new(&file_lookup_path);
+
     Ok(Box::new(LocalIndex {
         // We don't need the blame_map and hg_map (yet)
         config_paths: tree_config.paths,
         tree_name: tree_name.to_string(),
         ident_map,
         crossref_lookup_map,
+        file_lookup_map,
     }))
 }
 

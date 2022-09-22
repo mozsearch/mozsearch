@@ -10,6 +10,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 221,
@@ -180,6 +181,7 @@ expression: "&to_value(scil).unwrap()"
         "uses": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 166,
@@ -297,6 +299,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 135,
@@ -446,6 +449,7 @@ expression: "&to_value(scil).unwrap()"
         "uses": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 188,
@@ -503,6 +507,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 179,
@@ -614,6 +619,7 @@ expression: "&to_value(scil).unwrap()"
         "uses": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 351,
@@ -631,6 +637,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 205,
@@ -721,6 +728,7 @@ expression: "&to_value(scil).unwrap()"
         "uses": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 427,
@@ -748,6 +756,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 417,
@@ -868,6 +877,7 @@ expression: "&to_value(scil).unwrap()"
         "uses": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 210,
@@ -895,6 +905,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 188,
@@ -1012,6 +1023,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 427,
@@ -1105,5 +1117,6 @@ expression: "&to_value(scil).unwrap()"
       "quality": "ExactIdentifier",
       "overloads_hit": []
     }
-  ]
+  ],
+  "unknown_symbols": []
 }

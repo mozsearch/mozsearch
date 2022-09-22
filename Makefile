@@ -17,13 +17,13 @@ build-clang-plugin: check-in-vagrant
 	$(MAKE) -C clang-plugin
 
 # This can be built outside the vagrant instance too
-# We specify "--tests" in order to minimize rebuilding required when we invoke
+# We specify "--all-targets" in order to minimize rebuilding required when we invoke
 # `cargo test` to validate the build.
 build-rust-tools:
-	cd tools && rustup run nightly cargo build --release --all-targets
+	cd tools && cargo build --release --all-targets
 
 test-rust-tools:
-	cd tools && rustup run nightly cargo test --release --verbose
+	cd tools && cargo test --release --verbose
 
 build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/index

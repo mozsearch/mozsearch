@@ -2,6 +2,9 @@ use linkify::{LinkFinder, LinkKind};
 use regex::Regex;
 use std::borrow::Cow;
 
+/// Turn anything that looks like a link into an actual `<a href>` link using
+/// the `linkify` crate and in-between those links use `linkify_bug_number` to
+/// convert
 pub fn linkify_comment(s: String) -> String {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Url]);

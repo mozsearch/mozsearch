@@ -1,23 +1,58 @@
 {
   "components": {
     "0": [
-      "Nope",
-      "Double Nope"
+      "Core",
+      "Big"
     ],
     "1": [
-      "Webtools",
-      "Searchfox"
+      "Core",
+      "Simple"
+    ],
+    "2": [
+      "Atoms",
+      "General"
+    ],
+    "3": [
+      "Data",
+      "Images: SVG"
+    ],
+    "4": [
+      "Data",
+      "Text Files: Markdown"
+    ],
+    "5": [
+      "Core",
+      "Templates"
+    ],
+    "6": [
+      "Core",
+      "XPCOM"
     ]
   },
   "paths": {
-    "big_header.h": 1,
-    "big_cpp.cpp": 1,
+    "README.md": 4,
+    "atom_list.h": 2,
+    "atom_magic.h": 2,
+    "big_header.h": 0,
+    "big_cpp.cpp": 0,
+    "circle.svg": 3,
+    "overs.cpp": 1,
     "simple.cpp": 1,
     "simple.rs": 1,
+    "templates1.cpp": 5,
+    "templates2.cpp": 5,
+    "templates3.cpp": 5,
+    "templates4.cpp": 5,
+    "templates5.cpp": 5,
+    "templates5.h": 5,
+    "templates_nsTArray.cpp": 5,
     "test_rust_dependency": {
       "src": {
         "lib.rs": 1
       }
-    }
+    },
+    "tiger.svg": 3,
+    "using.cpp": 1,
+    "xpidl_cpp_consumer.cpp": 6
   }
 }

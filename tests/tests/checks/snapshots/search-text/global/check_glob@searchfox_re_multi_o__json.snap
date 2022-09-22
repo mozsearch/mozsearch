@@ -6,6 +6,7 @@ expression: "&to_value(tm).unwrap()"
   "by_file": [
     {
       "file": "README.md",
+      "path_kind": "Normal",
       "matches": [
         {
           "line_num": 6,
@@ -35,6 +36,7 @@ expression: "&to_value(tm).unwrap()"
     },
     {
       "file": "bug1435345.cpp",
+      "path_kind": "Normal",
       "matches": [
         {
           "line_num": 1,
@@ -48,6 +50,7 @@ expression: "&to_value(tm).unwrap()"
     },
     {
       "file": "simple.rs",
+      "path_kind": "Normal",
       "matches": [
         {
           "line_num": 7,

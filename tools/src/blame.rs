@@ -1,4 +1,4 @@
-use crate::config;
+use crate::file_format::config::Config;
 use crate::links;
 
 use git2;
@@ -23,12 +23,12 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
 }
 
 pub fn get_commit_info(
-    cfg: &config::Config,
+    cfg: &Config,
     tree_name: &str,
     revs: &str,
 ) -> Result<String, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
-    let git = config::get_git(tree_config)?;
+    let git = tree_config.get_git()?;
     let mut infos = vec![];
     for rev in revs.split(',') {
         let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;

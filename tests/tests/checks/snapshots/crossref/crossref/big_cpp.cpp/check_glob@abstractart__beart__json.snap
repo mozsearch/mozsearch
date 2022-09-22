@@ -10,6 +10,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 424,
@@ -51,5 +52,6 @@ expression: "&to_value(scil).unwrap()"
       "quality": "ExactIdentifier",
       "overloads_hit": []
     }
-  ]
+  ],
+  "unknown_symbols": []
 }

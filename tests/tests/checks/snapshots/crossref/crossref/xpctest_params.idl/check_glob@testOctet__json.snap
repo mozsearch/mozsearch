@@ -10,6 +10,7 @@ expression: "&to_value(scil).unwrap()"
         "uses": [
           {
             "path": "xpidl_cpp_consumer.cpp",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 7,
@@ -27,6 +28,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "__GENERATED__/dist/include/xpctest_params.h",
+            "path_kind": "Generated code",
             "lines": [
               {
                 "lno": 51,
@@ -44,6 +46,7 @@ expression: "&to_value(scil).unwrap()"
         "idl": [
           {
             "path": "xpidl/xpctest_params.idl",
+            "path_kind": "Normal",
             "lines": [
               {
                 "lno": 24,
@@ -82,5 +85,6 @@ expression: "&to_value(scil).unwrap()"
       "quality": "ExactIdentifier",
       "overloads_hit": []
     }
-  ]
+  ],
+  "unknown_symbols": []
 }

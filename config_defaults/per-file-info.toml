@@ -1,0 +1,256 @@
+# ## Path Kind Mapping
+[pathkind.normal]
+name = "Normal"
+default = true
+decision_order = 0
+sort_order = 0
+
+[pathkind.generated]
+name = "Generated code"
+decision_order = 3
+sort_order = 3
+
+[pathkind.generated.heuristics]
+path_prefixes = [
+    "__GENERATED__/",
+]
+
+[pathkind.test]
+name = "Test files"
+decision_order = 2
+sort_order = 2
+
+[pathkind.test.heuristics]
+dir_names = [
+    "androidTest",
+    "crashtest",
+    "crashtests",
+    "googletest",
+    "gtest",
+    "gtests",
+    "imptests",
+    "jsapi-tests",
+    "mochitest",
+    "reftest",
+    "reftests",
+    "test",
+    "tests",
+    "unit",
+]
+dir_suffixes = [
+    "testing",
+]
+path_prefixes = [
+    "LayoutTests/",
+]
+
+[pathkind.third_party]
+name = "Third-party code"
+priority = 2
+decision_order = 1
+sort_order = 1
+
+[pathkind.third_party.heuristics]
+path_prefixes = [
+    "third_party/",
+]
+
+
+# ## Input Files
+
+# ### .eslintignore
+#
+# This is a proof-of-concept for deriving a file label from an in-tree listing.
+# In order to decrease the false-positive rate of the glob mechanism, I've added
+# a pre-filtering mechanism by file extension that I've hard-coded here, but
+# better approaches would obviously involve options like:
+# - Have searchfox have a more first class idea of file types available at this
+#   moment.  (Right now there are a few ad-hoc hard-coded places.)
+# - Actually be reading some kind of eslint output results here that tell us
+#   what got linted and what files were ignored rather than having this
+#   mechanism attempt to replace what's going on.
+[textfile.".eslintignore"]
+source = [{ root = "files", file = ".eslintignore" }]
+# We filter the list of files we apply the file list to according to these file
+# extensions to avoid marking files eslint would not normally consider as
+# ignored like markdown files, etc.  (Should HTML files be included here too?)
+#
+# To reiterate the above, this mechanism here is intended to be a hack and a
+# better idea would be to process eslint output, etc. but this is just a baby
+# step here.
+filter_input_ext = ["js", "mjs", "jsx", "cjs", "jsm", "sjs"]
+format = "file-list"
+# This is saying add a tag "eslint-ignored" to every file that seems to have
+# matched the ignore list glob and that wasn't explicitly reincluded via `!`.
+apply_tag = "eslint-ignored"
+
+[textfile."data-review-required.list"]
+source = [
+    # I made this file up, it doesn't exist yet, but the idea is that if someone
+    # made it exist, we'd use it over our hard-coded list!  We can rename this.
+    { root = "files", file = "toolkit/components/telemetry/docs/collection/review-required.list" },
+    # Although we're expecting this file to be symlinked into each repo, for
+    # this hard-coded path we try and use the explicit shared directory for
+    # slightly more sanity.
+    { root = "config_repo", file = "shared/mc-data-review-required.list" },
+]
+format = "file-glob-list"
+apply_tag = "data-review-required"
+
+# ### bugzilla-components.json
+#
+# Paths are stored via recursive nesting.
+#
+# - "components": A dictionary mapping from stringified numeric values to list
+#   tuples of the form [product, component].
+# - "paths": A tree where internal nodes are dictionaries corresponding to
+#   directories.  Each key is a filename and each value is either another
+#   directory dictionary or a non-stringified number corresponding to an entry
+#   in the `components` top-level dictionary.
+[jsonfile."bugzilla-components.json"]
+source = [{ root = "index", file = "bugzilla-components.json" }]
+
+[jsonfile."bugzilla-components.json".ingestion]
+root = "/paths"
+nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
+value_lookup = "/components"
+
+[jsonfile."bugzilla-components.json".concise]
+bugzilla_component.pointer = ""
+subsystem.liquid = '{{ value[0] }}/{{ value[1] | replace: "&", "" | replace: ":", "/" | compact_pathlike }}'
+
+# ### code-coverage-report.json
+#
+# Hierarchical file where the root node corresponds to the root of the source
+# tree.  Paths are stored via recursive nesting.
+#
+# Each node can contain the following keys:
+# - "children": An object whose keys are file/directory names and whose values
+#   are nodes of the self-same type.
+# - "coverage": An array where each entry corresponds to a line of the source
+#   file with `-1` indicating an uninstrumented line, `0` indicating an
+#   instrumented line with no coverage hits, and any positive integers
+#   indicating a line with that number of hits.
+# - "coveragePercent": Coverage percent in the node and all its children as a
+#   floating point value in the range [0, 100] to 2 decimal places.  For a
+#   file this is for the file and for a directory this is the average over all
+#   of its children.
+# - "linesCovered": The number of coverage lines in the node and all its
+#   children which are `> 0`.  So for a file this is derived from its
+#   "coverage" and for a directory this is the sum of the value in all of its
+#   children.
+# - "linesMissed": The number of lines in the node and all its children which
+#   are `0`.
+# - "linesTotal": The number of lines in the node and all its children which
+#   aren't `-1` AKA are `>= 0`.  Should be the same as adding up
+#   `linesCovered` and `linesMissed`.  There is no summary value for the
+#   number of lines that report `-1` because they're presumed to be whitespace
+#   or comments or whatever.
+# - "name": The same name that is the key that matches this value in its
+#   parent's "children" dictionary.  In the case of the root node this is "".
+#
+# Currently only the "coverage" data is used, going in the detailed per-file
+# storage, but it would make a lot of sense to save off the aggregate info
+# in the summary file.
+[jsonfile."code-coverage-report.json"]
+source = [{ root = "index", file = "code-coverage-report.json" }]
+
+[jsonfile."code-coverage-report.json".ingestion]
+root = ""
+nesting = "hierarchical-dict-explicit-key"
+nesting_key = "children"
+
+[jsonfile."code-coverage-report.json".detailed]
+coverage_lines.pointer = "/coverage"
+
+# ### test-info-all-tests.json
+#
+# Paths are flat, with only a single level of clustering by bugzilla
+# component.
+#
+# - "description": A string which conveys the date range and tree that this
+#   data corresponds to.
+# - "summary": A dictionary with the following keys:
+#   - "components"
+#   - "failed tests"
+#   - "manifests"
+#   - "skipped tests"
+#   - "tests"
+# - "tests": A dictionary whose keys are bugzilla "Product::Component" strings
+#   and values are list of objects with the following keys:
+#   - NEW: "failure_count": Number
+#   - OLD, from Active{Data,Record} "failed runs": Number
+#   - "skip-if" (optional): String excerpt of the manifest's skip-if clause.
+#   - "skipped runs": Number
+#   - "test": Repository-relative path of the test file.
+#   - "total run time, seconds": Floating point number.
+#   - "total runs": Number
+[jsonfile."test-info-all-tests.json"]
+source = [{ root = "index", file = "test-info-all-tests.json" }]
+
+[jsonfile."test-info-all-tests.json".ingestion]
+root = "/tests"
+# The keys in the "tests" dict are stringified bugzilla "product::component"
+# reps, but that grouping is irrelevant to us.
+nesting = "boring-dict-of-arrays"
+# The "test" key in each array is a full path to the test
+nesting_key = "test"
+
+[jsonfile."test-info-all-tests.json".concise.info.test.object]
+skip_if.pointer = "/skip-if"
+failure_count.pointer = "/failure_count"
+
+
+# ### WPT wpt-metadata-summary.json
+#
+# Paths are flat with only a single level of directory clustering.
+#
+# Consult
+# https://searchfox.org/mozilla-central/source/testing/web-platform/tests/tools/wptrunner/wptrunner/manifestexpected.py
+# for detailed info about the schema.
+#
+# - [directory]: A WPT-root (testing/web-platform/tests) string identifying a
+#   directory containing tests.  Value is an object.
+#   - "bug": Corresponds to a `bug: NNN` line in a meta-dir `__dir__.ini` file
+#     with value payload `[null, "NNN"]`.
+#   - "lsan-allowed": Corresponds to a `__dir__.ini`
+#     `lsan-allowed: [Alloc, Create, ...]` line and results in `["Alloc",
+#     "Create", ...]`.
+#   - "_tests": An object whose keys are test file names.
+#     - [test file name]: Value is an object which may contain any of the
+#       following keys:
+#       - "disabled": An array of 2-tuple arrays, where each 2-tuple is of the
+#         form [if-predicate contents, bug URL].  So the line
+#         `if (os == "win"): https://bugzilla.mozilla.org/show_bug.cgi?id=NNN`
+#         under a "disabled" mochitest ini-format header would result in
+#         `["os == \"win\"\n", "https://bugzilla.mozilla.org/show_bug.cgi?id=NNN"]
+#         and a line like the following directly under the test name
+#         `disabled: https://bugzilla.mozilla.org/show_bug.cgi?id=NNN` gives
+#         `[null, "https://bugzilla.mozilla.org/show_bug.cgi?id=NNN"]`.
+#         - It appears the bug URL's can just be straight bug numbers or
+#           string bug aliases.
+#       - "_subtests":
+#         - [assertion string]: Payload is an object with optional keys:
+#           - "intermittent": An array of nested tuples of the form
+#             [condition clause, [ expected values ]].  For example, given
+#             `if (processor == "x86") and debug: ["PASS", "FAIL"]` indented
+#             beneath an `expected:` header results in
+#             `["(processor == \"x86\") and debug\n", ["PASS", "FAIL"]]`.
+#             - If this key is not present, then it appears this corresponds
+#               to an ini entry of `expected: FAIL`, which would be equivalent
+#               to `[null, ["FAIL"]]` I guess.
+#       - "max-asserts": [condition?, max-asserts value]
+[jsonfile."wpt-metadata-summary.json"]
+source = [{ root = "index", file = "wpt-metadata-summary.json" }]
+
+[jsonfile."wpt-metadata-summary.json".ingestion]
+root = ""
+nesting = "flat-dir-dict-files-are-keys"
+# The dict of tests keyed by their filename is nested under "_tests".  There is
+# some
+nesting_key = "_tests"
+
+[jsonfile."wpt-metadata-summary.json".concise.info.wpt.object]
+disabling_conditions.pointer = "/disabled"
+disabled_subtests_count.pointer = "/subtests"
+disabled_subtests_count.aggregation = "length"

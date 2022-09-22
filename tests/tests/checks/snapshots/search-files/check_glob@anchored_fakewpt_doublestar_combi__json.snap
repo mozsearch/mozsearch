@@ -5,22 +5,91 @@ expression: "&to_value(fm).unwrap()"
 {
   "file_matches": [
     {
-      "path": "fake-wpt/meta/fake-standard/test_ima_disabled_wpt.js.ini"
+      "path": "testing/web-platform/meta/fake-standard/test_ima_disabled_wpt.js.ini",
+      "concise": {
+        "path_kind": "Test files",
+        "file_size": 133,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
     },
     {
-      "path": "fake-wpt/meta/fake-standard/test_ima_sad_subtests_wpt.js.ini"
+      "path": "testing/web-platform/meta/fake-standard/test_ima_sad_subtests_wpt.js.ini",
+      "concise": {
+        "path_kind": "Test files",
+        "file_size": 133,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
     },
     {
-      "path": "fake-wpt/meta/fake-standard/test_ima_weird_meta_wpt.js.ini"
+      "path": "testing/web-platform/meta/fake-standard/test_ima_weird_meta_wpt.js.ini",
+      "concise": {
+        "path_kind": "Test files",
+        "file_size": 133,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
     },
     {
-      "path": "fake-wpt/tests/fake-standard/test_ima_disabled_wpt.js"
+      "path": "testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js",
+      "concise": {
+        "path_kind": "Test files",
+        "file_size": 43,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {
+          "test": {
+            "failure_count": 0,
+            "skip_if": null
+          }
+        }
+      }
     },
     {
-      "path": "fake-wpt/tests/fake-standard/test_ima_sad_subtests_wpt.js"
+      "path": "testing/web-platform/tests/fake-standard/test_ima_sad_subtests_wpt.js",
+      "concise": {
+        "path_kind": "Test files",
+        "file_size": 43,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {
+          "test": {
+            "failure_count": 0,
+            "skip_if": null
+          }
+        }
+      }
     },
     {
-      "path": "fake-wpt/tests/fake-standard/test_ima_weird_meta_wpt.js"
+      "path": "testing/web-platform/tests/fake-standard/test_ima_weird_meta_wpt.js",
+      "concise": {
+        "path_kind": "Test files",
+        "file_size": 43,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {
+          "test": {
+            "failure_count": 0,
+            "skip_if": null
+          }
+        }
+      }
     }
   ]
 }

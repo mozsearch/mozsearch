@@ -1,11 +1,10 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::File;
+use std::fs::{File, self};
 use std::io::BufReader;
 use std::io::Read;
 use std::str;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value};
 
 use git2::{Oid, Repository};
 
@@ -20,26 +19,65 @@ pub enum TreeCaching {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TreeErrorHandling {
+    /// Keep going, don't stop the indexing process.
     Continue,
+    /// Generate an error and stop the indexing process.
     Halt,
 }
 
+/// Schema for the config.json files for loading; used to derive the actual
+/// `Config` instance which also ends up including things like git info.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ConfigJson {
+    pub mozsearch_path: String,
+    pub config_repo: String,
+    /// What tree is the default for purposes of choosing which tree gets
+    /// searched when viewing the root index page (which is derived from
+    /// help.html).
+    pub default_tree: Option<String>,
+    /// What type of EC2 instance type to use for the web-server when it's spun
+    /// up.
+    pub instance_type: Option<String>,
+    pub trees: BTreeMap<String, TreeConfigPaths>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TreeConfigPaths {
+    /// Tree priority; higher numbers mean more important.  Used to control the
+    /// order in which we apply the `cache` directive.
     pub priority: u32,
     pub on_error: TreeErrorHandling,
     pub cache: TreeCaching,
+    /// Absolute path to the root of the tree's index, INDEX_ROOT.
     pub index_path: String,
+    /// Absolute path to the root of the checked out source tree which should be
+    /// a sub-directory of the `index_path`.
     pub files_path: String,
+    /// Absolute path to where the `.git` sub-directory can be located; this
+    /// should certainly be the same as `files_path`, and this will be a thing
+    /// even if the canonical revision control system is mercurial.
     pub git_path: Option<String>,
+    /// Absolute path to where the blame repo is which should be a sub-directory
+    /// of the `index_path`.
     pub git_blame_path: Option<String>,
+    /// Absolute path to where generated files can be found, and which will then
+    /// be mapped into `"__GENERATED__"`.  This will usually be a sub-directory
+    /// of the `index_path` but exceptions could be possible.
     pub objdir_path: String,
+    /// If this is actually a mercurial repo, the URL of the hg server, no
+    /// trailing `/`.
     pub hg_root: Option<String>,
+    /// Coverage server URL.
     pub ccov_root: Option<String>,
+    /// Relative path within the source tree that's really a WPT root.
     pub wpt_root: Option<String>,
+    /// If this is actually a git repo hosted on github, its URL.  If the repo
+    /// isn't github, we'll need to learn other URL mapping support.
     pub github_repo: Option<String>,
+    /// Absolute path to where we store the livegrep index.
     pub codesearch_path: String,
+    /// Manually allocated port number to host the livegrep server on, starting
+    /// from 8081 why not.
     pub codesearch_port: u32,
 }
 
@@ -60,22 +98,79 @@ pub struct TreeConfig {
     pub git: Option<GitData>,
 }
 
-pub struct Config {
-    pub trees: BTreeMap<String, TreeConfig>,
-    pub mozsearch_path: String,
-}
+impl TreeConfig {
+    pub fn get_git(&self) -> Result<&GitData, &'static str> {
+        match &self.git {
+            &Some(ref git) => Ok(git),
+            &None => Err("History data unavailable"),
+        }
+    }
 
-pub fn get_git(tree_config: &TreeConfig) -> Result<&GitData, &'static str> {
-    match &tree_config.git {
-        &Some(ref git) => Ok(git),
-        &None => Err("History data unavailable"),
+    pub fn get_git_path(&self) -> Result<&str, &'static str> {
+        match &self.paths.git_path {
+            &Some(ref git_path) => Ok(git_path),
+            &None => Err("History data unavailable"),
+        }
+    }
+
+    pub fn find_source_file(&self, path: &str) -> String {
+        if path.starts_with("__GENERATED__") {
+            return path.replace("__GENERATED__", &self.paths.objdir_path);
+        }
+        format!("{}/{}", &self.paths.files_path, path)
     }
 }
 
-pub fn get_git_path(tree_config: &TreeConfig) -> Result<&str, &'static str> {
-    match &tree_config.paths.git_path {
-        &Some(ref git_path) => Ok(git_path),
-        &None => Err("History data unavailable"),
+pub struct Config {
+    pub trees: BTreeMap<String, TreeConfig>,
+    pub mozsearch_path: String,
+    pub config_repo_path: String,
+}
+
+impl Config {
+    /// Synchronously read the contents of a file in the given tree's config
+    /// directory, falling back to `MOZSEARCH/config_defaults/FILENAME` if
+    /// available.
+    pub fn read_tree_config_file_with_default(&self, filename: &str) -> Result<String, &'static str> {
+        let repo_specific_path = format!("{}/{}", self.config_repo_path, filename);
+        if let Ok(data_str) = std::fs::read_to_string(repo_specific_path) {
+            return Ok(data_str);
+        }
+        let default_path = format!("{}/config_defaults/{}", self.mozsearch_path, filename);
+        if let Ok(data_str) = std::fs::read_to_string(default_path) {
+            return Ok(data_str);
+        }
+        Err("Unable to read the requested file")
+    }
+
+    /// Synchronously attempt to locate and read the contents of the given file
+    /// at the given root using the given tree as context.  Documentation on the
+    /// roots can be found on `SourceDescriptor`.
+    pub fn maybe_read_file_from_given_root(&self, tree: &str, root: &str, file: &str) -> Result<Option<String>, &'static str> {
+        let tree = self.trees.get(tree).unwrap();
+
+        let path_root = match root {
+            "config_repo" => &self.config_repo_path,
+            "files" => &tree.paths.files_path,
+            "index" => &tree.paths.index_path,
+            "mozsearch" => &self.mozsearch_path,
+            "objdir" => &tree.paths.objdir_path,
+            _ => {
+                return Err("invalid root specified");
+            }
+        };
+
+        let full_path = format!("{}/{}", path_root, file);
+        match fs::metadata(&full_path) {
+            Ok(_) => match fs::read_to_string(full_path) {
+                Ok(str) => Ok(Some(str)),
+                // We should maybe convert to our server Result error or at least
+                // dynamic strings, but for these static strings, let's have fun
+                // with how useless this is!
+                _ => Err("some kind of read error I guess"),
+            }
+            _ => Ok(None),
+        }
     }
 }
 
@@ -116,24 +211,15 @@ pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>) -> C
     let mut reader = BufReader::new(&config_file);
     let mut input = String::new();
     reader.read_to_string(&mut input).unwrap();
-    let config: Value = serde_json::from_str(&input).unwrap();
-
-    let mut obj = config.as_object().unwrap().clone();
-
-    let mozsearch_json = obj.remove("mozsearch_path").unwrap();
-    let mozsearch = mozsearch_json.as_str().unwrap();
-
-    let trees_obj = obj.get("trees").unwrap().as_object().unwrap().clone();
+    let config: ConfigJson = serde_json::from_str(&input).unwrap();
 
     let mut trees = BTreeMap::new();
-    for (tree_name, tree_config) in trees_obj {
+    for (tree_name, paths) in config.trees {
         if let Some(only_tree_name) = only_tree {
             if tree_name != only_tree_name {
                 continue;
             }
         }
-
-        let paths: TreeConfigPaths = serde_json::from_value(tree_config).unwrap();
 
         let git = match (&paths.git_path, &paths.git_blame_path) {
             (&Some(ref git_path), &Some(ref git_blame_path)) => {
@@ -185,7 +271,8 @@ pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>) -> C
 
     Config {
         trees,
-        mozsearch_path: mozsearch.to_owned(),
+        mozsearch_path: config.mozsearch_path,
+        config_repo_path: config.config_repo,
     }
 }
 

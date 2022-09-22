@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use clap::Args;
 
 use super::interface::{
-    IdentifierList, PipelineCommand, PipelineValues, SymbolList, SymbolQuality, SymbolWithContext,
+    PipelineCommand, PipelineValues, SymbolList, SymbolQuality, SymbolWithContext,
 };
 
 use crate::abstract_server::{AbstractServer, Result};
@@ -45,14 +45,16 @@ impl PipelineCommand for SearchIdentifiersCommand {
         server: &Box<dyn AbstractServer + Send + Sync>,
         input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let identifier_list = match input {
-            PipelineValues::IdentifierList(il) => il,
+        let identifier_list: Vec<String> = match input {
+            PipelineValues::IdentifierList(il) => il
+                .identifiers
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
             // Right now we're assuming that we're the first command in the
             // pipeline so that we would have no inputs if someone wants to use
             // arguments...
-            PipelineValues::Void => IdentifierList {
-                identifiers: self.args.identifiers.clone(),
-            },
+            PipelineValues::Void => self.args.identifiers.clone(),
             // TODO: Figure out a better way to handle a nonsensical pipeline
             // configuration / usage.
             _ => {
@@ -61,7 +63,7 @@ impl PipelineCommand for SearchIdentifiersCommand {
         };
 
         let mut symbols: Vec<SymbolWithContext> = vec![];
-        for id in identifier_list.identifiers {
+        for id in identifier_list {
             // Skip any identifiers that are shorter than our minimum length.
             if id.len() < self.args.min_length {
                 continue;
@@ -76,7 +78,12 @@ impl PipelineCommand for SearchIdentifiersCommand {
                 )
                 .await?
             {
-                let quality = match (&self.args.exact_match, id == from_ident, &id, &from_ident) {
+                let quality = match (
+                    &self.args.exact_match,
+                    id.as_str() == from_ident.as_str(),
+                    &id,
+                    &from_ident,
+                ) {
                     (true, _, _, _) => SymbolQuality::ExplicitIdentifier,
                     (false, true, _, _) => SymbolQuality::ExactIdentifier,
                     (_, _, searched, result) => SymbolQuality::IdentifierPrefix(

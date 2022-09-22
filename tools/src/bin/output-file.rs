@@ -13,49 +13,25 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
-use lazy_static::lazy_static;
-use regex::Regex;
-use serde_json::json;
-use serde_json::to_writer;
-use tools::file_format::per_file_info::derive_description;
-use tools::file_format::per_file_info::get_per_file_info;
-use tools::file_format::per_file_info::read_json_from_file;
+use tools::file_format::config;
+use tools::file_format::per_file_info::read_detailed_file_info;
+use tools::file_format::per_file_info::FileLookupMap;
+use tools::templating::builder::build_and_parse;
+use ustr::ustr;
 
 extern crate env_logger;
 extern crate log;
 extern crate tools;
 use crate::languages::FormatAs;
-use tools::config;
-use tools::describe;
 use tools::file_format::analysis::{read_analysis, read_jumps, read_source};
-use tools::find_source_file;
-use tools::format::{format_file_data, create_markdown_panel_section};
+use tools::format::{create_markdown_panel_section, format_file_data};
 use tools::languages;
 
-use tools::output::{InfoBox, PanelItem, PanelSection, F};
+use tools::output::{PanelItem, PanelSection};
 
 extern crate flate2;
-use flate2::Compression;
 use flate2::write::GzEncoder;
-
-/// Some fields support free-form indications of what bug is present.  This
-/// could be a bug number or a bug URL.  For simplicity we pass-through things
-/// that look like http URLs and prepend the bug id for everything else.
-fn ensure_bugzilla_url(maybe_bug: &str) -> String {
-    if maybe_bug.starts_with("http") {
-        maybe_bug.to_string()
-    } else {
-        format!("https://bugzilla.mozilla.org/show_bug.cgi?id={}", maybe_bug)
-    }
-}
-
-fn normalize_skip_if(skip_if: &str) -> String {
-    lazy_static! {
-        static ref RE_NEWLINES: Regex = Regex::new("\n+").unwrap();
-    }
-
-    RE_NEWLINES.replace_all(skip_if, " OR ").to_string()
-}
+use flate2::Compression;
 
 fn main() {
     env_logger::init();
@@ -69,31 +45,52 @@ fn main() {
     let pre_config = Instant::now();
     let tree_name = &base_args[2];
     let cfg = config::load(&base_args[1], true, Some(&tree_name));
-    writeln!(stdout, "Config file read, duration: {}us", pre_config.elapsed().as_micros() as u64).unwrap();
+    writeln!(
+        stdout,
+        "Config file read, duration: {}us",
+        pre_config.elapsed().as_micros() as u64
+    )
+    .unwrap();
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
+
+    let pre_templates = Instant::now();
+    let source_file_info_boxes_liquid_str = cfg
+        .read_tree_config_file_with_default("source_file_info_boxes.liquid")
+        .unwrap();
+    let source_file_info_boxes_template = build_and_parse(&source_file_info_boxes_liquid_str);
+    let source_file_other_tools_panel_liquid_str = cfg
+        .read_tree_config_file_with_default("source_file_other_tools_panels.liquid")
+        .unwrap();
+    let source_file_other_tools_panel_template =
+        build_and_parse(&source_file_other_tools_panel_liquid_str);
+    writeln!(
+        stdout,
+        "Tree templates read, duration: {}us",
+        pre_templates.elapsed().as_micros() as u64
+    )
+    .unwrap();
 
     let pre_jumps = Instant::now();
     let jumps_fname = format!("{}/jumps", tree_config.paths.index_path);
     //let jumps : std::collections::HashMap<String, tools::analysis::Jump> = std::collections::HashMap::new();
     let jumps = read_jumps(&jumps_fname);
-    writeln!(stdout, "Jumps read, duration: {}us", pre_jumps.elapsed().as_micros() as u64).unwrap();
+    writeln!(
+        stdout,
+        "Jumps read, duration: {}us",
+        pre_jumps.elapsed().as_micros() as u64
+    )
+    .unwrap();
 
-    let pre_per_file = Instant::now();
-    let all_file_info_fname = format!(
-        "{}/concise-per-file-info.json",
-        tree_config.paths.index_path
-    );
-    let all_file_info_data = match read_json_from_file(&all_file_info_fname) {
-        Some(data) => {
-            writeln!(stdout, "Per-file info read, duration: {}us", pre_per_file.elapsed().as_micros() as u64).unwrap();
-            data
-        },
-        None => {
-            writeln!(stdout, "No concise-per-file-info.json file found").unwrap();
-            json!({})
-        }
-    };
+    let pre_lookup_map = Instant::now();
+    let file_lookup_path = format!("{}/concise-per-file-info.json", tree_config.paths.index_path);
+    let file_lookup_map = FileLookupMap::new(&file_lookup_path);
+    writeln!(
+        stdout,
+        "FileLookupMap loadded, duration: {}us",
+        pre_lookup_map.elapsed().as_micros() as u64
+    )
+    .unwrap();
 
     let pre_blame_prep = Instant::now();
     let (blame_commit, head_oid) = match &tree_config.git {
@@ -113,7 +110,12 @@ fn main() {
     let head_commit =
         head_oid.and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
 
-    writeln!(stdout, "Blame prep done, duration: {}us", pre_blame_prep.elapsed().as_micros() as u64).unwrap();
+    writeln!(
+        stdout,
+        "Blame prep done, duration: {}us",
+        pre_blame_prep.elapsed().as_micros() as u64
+    )
+    .unwrap();
 
     let mut extension_mapping = HashMap::new();
     extension_mapping.insert("cpp", ("header", vec!["h", "hh", "hpp", "hxx"]));
@@ -128,17 +130,13 @@ fn main() {
 
     let mut path_buf = String::new();
     while () == path_buf.clear() && stdin.read_line(&mut path_buf).unwrap() > 0 {
-        let path = path_buf.trim_end();
+        let path = ustr(path_buf.trim_end());
         let file_start = Instant::now();
         writeln!(stdout, "File '{}'", path).unwrap();
 
         let output_fname = format!("{}/file/{}", tree_config.paths.index_path, path);
         let gzip_output_fname = format!("{}.gz", output_fname);
-        let source_fname = find_source_file(
-            &path,
-            &tree_config.paths.files_path,
-            &tree_config.paths.objdir_path,
-        );
+        let source_fname = tree_config.find_source_file(&path);
 
         let format = languages::select_formatting(&path);
 
@@ -162,7 +160,7 @@ fn main() {
         // Robots or non-lazy humans are welcome to contribute better fixes for
         // this and will be showered with praise.
         if !output_fname.ends_with(".gz") {
-          File::create(output_fname).unwrap();
+            File::create(output_fname).unwrap();
         }
         let output_file = File::create(gzip_output_fname).unwrap();
         let raw_writer = BufWriter::new(output_file);
@@ -197,14 +195,22 @@ fn main() {
         let pre_analysis_load = Instant::now();
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let analysis = read_analysis(&analysis_fname, &mut read_source);
-        writeln!(stdout, "  Analysis load duration: {}us", pre_analysis_load.elapsed().as_micros() as u64).unwrap();
+        writeln!(
+            stdout,
+            "  Analysis load duration: {}us",
+            pre_analysis_load.elapsed().as_micros() as u64
+        )
+        .unwrap();
 
         let pre_per_file_info = Instant::now();
-        let per_file_info = get_per_file_info(
-            &all_file_info_data,
-            &path,
-            &tree_config.paths.index_path);
-        writeln!(stdout, "  Per-file info load duration: {}us", pre_per_file_info.elapsed().as_micros() as u64).unwrap();
+        let concise_info = file_lookup_map.lookup_file_from_ustr(&path).unwrap();
+        let detailed_info = read_detailed_file_info(&path, &tree_config.paths.index_path).unwrap();
+        writeln!(
+            stdout,
+            "  Per-file info load duration: {}us",
+            pre_per_file_info.elapsed().as_micros() as u64
+        )
+        .unwrap();
 
         let pre_file_read = Instant::now();
         let mut input = String::new();
@@ -218,24 +224,23 @@ fn main() {
                         input.push_str(&bytes.iter().map(|c| *c as char).collect::<String>());
                     }
                     Err(e) => {
-                        writeln!(stdout, "Unable to read source file '{}': {:?}", source_fname, e).unwrap();
+                        writeln!(
+                            stdout,
+                            "Unable to read source file '{}': {:?}",
+                            source_fname, e
+                        )
+                        .unwrap();
                         continue;
                     }
                 }
             }
         }
-        writeln!(stdout, "  File contents read duration: {}us", pre_file_read.elapsed().as_micros() as u64).unwrap();
-
-        let pre_describe_file = Instant::now();
-        if let Some(str_description) = describe::describe_file(&input, &path_wrapper, &format) {
-            let description_fname =
-                format!("{}/description/{}", tree_config.paths.index_path, path);
-            let description_file = File::create(description_fname).unwrap();
-            let desc_writer = BufWriter::new(description_file);
-            let file_description = derive_description(str_description, &metadata, &per_file_info);
-            to_writer(desc_writer, &file_description).unwrap();
-        }
-        writeln!(stdout, "  File described duration: {}us", pre_describe_file.elapsed().as_micros() as u64).unwrap();
+        writeln!(
+            stdout,
+            "  File contents read duration: {}us",
+            pre_file_read.elapsed().as_micros() as u64
+        )
+        .unwrap();
 
         let extension = path_wrapper
             .extension()
@@ -263,7 +268,6 @@ fn main() {
         };
 
         let mut panel = vec![];
-        let mut info_boxes = vec![];
 
         let mut source_panel_items = vec![];
         if let Some((other_desc, other_path)) = show_header {
@@ -277,7 +281,7 @@ fn main() {
         };
 
         if !path.contains("__GENERATED__") {
-            if let Some((product, component)) = per_file_info.bugzilla_component {
+            if let Some((product, component)) = concise_info.bugzilla_component {
                 source_panel_items.push(PanelItem {
                     title: format!("File a bug in {} :: {}", product, component),
                     link: format!(
@@ -296,6 +300,7 @@ fn main() {
             panel.push(PanelSection {
                 name: "Source code".to_owned(),
                 items: source_panel_items,
+                raw_items: vec![],
             });
         };
 
@@ -337,6 +342,7 @@ fn main() {
                 panel.push(PanelSection {
                     name: "Revision control".to_owned(),
                     items: vcs_panel_items,
+                    raw_items: vec![],
                 });
             }
         }
@@ -363,7 +369,7 @@ fn main() {
             });
         }
         if let Some(ref github) = tree_config.paths.github_repo {
-            match Path::new(&path).extension().and_then(OsStr::to_str) {
+            match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
                 Some("md") | Some("rst") => {
                     tools_items.push(PanelItem {
                         title: "Rendered view".to_owned(),
@@ -381,176 +387,34 @@ fn main() {
                 _ => (),
             };
         }
-        // Defer pushing "Other Tools" until after the test processing so that
-        // we can add a wpt.fyi link as appropriate.
 
-        if let Some(test_info) = per_file_info.test_info {
-            let mut list_nodes: Vec<F> = vec![];
+        let liquid_globals = liquid::object!({
+            "path": &path,
+            // Propagate config settings that aren't absolute paths.  We do some
+            // renaming here compared to `TreeConfigPaths` for clarity.
+            "config": {
+                "coverage_url": &tree_config.paths.ccov_root.as_deref().unwrap_or(""),
+                "github_repo_url": &tree_config.paths.github_repo.as_deref().unwrap_or(""),
+                "hg_repo_url": &tree_config.paths.hg_root.as_deref().unwrap_or(""),
+                "wpt_root": &tree_config.paths.wpt_root.as_deref().unwrap_or(""),
+            },
+            "concise": &concise_info,
+            "detailed": &detailed_info,
+        });
+        let source_file_info_boxes = source_file_info_boxes_template
+            .render(&liquid_globals)
+            .unwrap();
+        let source_file_other_tools_panels = source_file_other_tools_panel_template
+            .render(&liquid_globals)
+            .unwrap()
+            .trim()
+            .to_string();
 
-            let mut has_quieted_warnings = false;
-            let mut has_warnings = false;
-            let mut has_errors = false;
-
-            // TODO: Add commas to numbers.  This is a localization issue, but
-            // we're also hard-coding English in here so my pragmatic solution
-            // is to punt.  https://crates.io/crates/fluent is the most correct
-            // (Mozilla project) answer but... I think we're still planning to
-            // hard-code en-US/en-CA.
-
-            if let Some(skip_if) = test_info.skip_if {
-                // Don't be as dramatic about the fission case because there are
-                // frequently test cases that intentionally cover the fission
-                // and non-fission cases AND the fission team has been VERY
-                // proactive about tracking and fixing these issues, so there's
-                // no need to be loud about it.
-                if skip_if.eq_ignore_ascii_case("fission")
-                    || skip_if.eq_ignore_ascii_case("!fission")
-                {
-                    has_quieted_warnings = true;
-                } else {
-                    has_warnings = true;
-                }
-                list_nodes.push(F::T(format!(
-                    r#"<li>This test gets skipped with pattern: <span class="test-skip-info">{}</span></li>"#,
-                    normalize_skip_if(&skip_if)
-                )));
-            }
-
-            if test_info.skipped_runs > 0 {
-                // We leave the warning logic to the skip_if check because it
-                // can avoid escalating the "!fission" case.
-                list_nodes.push(F::T(format!(
-                    "<li>This test was skipped {} times in the preceding 7 days.</li>",
-                    test_info.skipped_runs
-                )));
-            }
-
-            if test_info.failed_runs > 0 {
-                has_errors = true;
-                list_nodes.push(F::T(format!(
-                    r#"<li>This test failed {} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={}">quicksearch this test</a></li>"#,
-                    test_info.failed_runs,
-                    &path
-                )));
-            }
-
-            // ### WPT cases (happens regardless of existence of meta .ini)
-            if let Some(wpt_root) = &tree_config.paths.wpt_root {
-                let wpt_test_root = format!("{}/tests/", wpt_root);
-                if let Some(wpt_test_path) = path.strip_prefix(&wpt_test_root) {
-                    tools_items.push(PanelItem {
-                        title: "Web Platform Tests Dashboard".to_owned(),
-                        link: format!("https://wpt.fyi/results/{}", wpt_test_path),
-                        update_link_lineno: "",
-                        accel_key: None,
-                        copyable: true,
-                    });
-                }
-            }
-
-            // ### WPT Expectation Info (only happens when there's a meta .ini)
-            if let Some(wpt_info) = test_info.wpt_expectation_info {
-                // Meta files do not exist for good reasons, this counts as a
-                // warning.
-                has_warnings = true;
-
-                // The existence of this structure means that a meta file
-                // exists, and we know that the first incidence of /tests/
-                // when replaced with /meta/ is that path.  We don't need to
-                // bother with strip_prefix and rebuilding paths, although if we
-                // were creating URLs to services, we would want that.
-                let meta_ini_path = path.replacen("/tests/", "/meta/", 1);
-                let meta_url = format!(
-                    // The .ini extension gets appended onto the path, retaining
-                    // the existing file extension.
-                    r#"/{}/source/{}.ini"#,
-                    tree_name,
-                    meta_ini_path,
-                );
-
-                // Track whether we emitted something with the meta URL.
-                let mut linked_meta = false;
-
-                if wpt_info.disabling_conditions.len() > 0 {
-                    linked_meta = true;
-                    list_nodes.push(F::Seq(vec![
-                        F::S("<li>"),
-                        F::Indent(vec![
-                            F::T(format!(
-                                r#"This test has a <a href="{}">WPT meta file</a> that disables it given conditions:"#,
-                                meta_url
-                            )),
-                            F::S("<ul>"),
-                            F::Indent(wpt_info.disabling_conditions.iter().map(|(cond, bug)| {
-                                F::T(format!(
-                                    r#"<li><span class="test-skip-info">{}</span>&nbsp; : <a href="{}">{}</a></li>"#,
-                                    // The condition text can embed newlines at the end.
-                                    cond.trim(),
-                                    ensure_bugzilla_url(bug),
-                                    bug,
-                                ))
-                            }).collect()),
-                            F::S("</ul>"),
-                        ]),
-                        F::S("</li>"),
-                    ]));
-                }
-
-                if wpt_info.disabled_subtests_count > 0 {
-                    linked_meta = true;
-                    list_nodes.push(F::T(format!(
-                        r#"<li>This test has a <a href="{}">WPT meta file</a> that expects {} subtest issues."#,
-                        meta_url,
-                        wpt_info.disabled_subtests_count,
-                    )));
-                }
-
-                // If we didn't emit bullets above that have the link, then emit a vague message
-                // with the link.
-                if !linked_meta {
-                    list_nodes.push(F::T(format!(
-                        r#"<li>This test has a <a href="{}">WPT meta file</a> for some reason."#,
-                        meta_url,
-                    )));
-                }
-            }
-
-            if test_info.unskipped_runs > 0 {
-                list_nodes.push(F::T(format!(
-                    "<li>This test ran {} times in the preceding 7 days with an average run time of {:.2} secs.</li>",
-                    test_info.unskipped_runs,
-                    test_info.total_run_time_secs / (test_info.unskipped_runs as f64),
-                )));
-            }
-
-            // box_kind is used for styling, currently naive red-green
-            // color-blindness unfriendly background colors, but hopefully with
-            // distinct shape icon badges in the future.  (The fancy branch has
-            // icons available.)
-            //
-            // heading_html changes in parallel for screen readers and to
-            // address the red-green color-blindness issue above.
-            let (heading_html, box_kind) = if has_errors {
-                ("Test Info: Errors", "error")
-            } else if has_warnings {
-                ("Test Info: Warnings", "warning")
-            } else if has_quieted_warnings {
-                ("Test Info: FYI", "info")
-            } else {
-                ("Test Info:", "info")
-            };
-
-            info_boxes.push(InfoBox {
-                heading_html: heading_html.to_string(),
-                body_nodes: vec![F::S("<ul>"), F::Indent(list_nodes), F::S("</ul>")],
-                box_kind: box_kind.to_string(),
-            });
-        }
-
-        if !tools_items.is_empty() {
+        if !tools_items.is_empty() || !source_file_other_tools_panels.is_empty() {
             panel.push(PanelSection {
                 name: "Other Tools".to_owned(),
                 items: tools_items,
+                raw_items: vec![source_file_other_tools_panels],
             });
         }
 
@@ -558,21 +422,41 @@ fn main() {
             &cfg,
             tree_name,
             &panel,
-            &info_boxes,
+            source_file_info_boxes,
             &head_commit,
             &blame_commit,
             &path,
             input,
             &jumps,
             &analysis,
-            &per_file_info.coverage,
+            &detailed_info.coverage_lines,
             &mut writer,
         ) {
             Ok(perf_info) => {
-                writeln!(stdout, "  Format code duration: {}us", perf_info.format_code_duration_us).unwrap();
-                writeln!(stdout, "  Blame lines duration: {}us", perf_info.blame_lines_duration_us).unwrap();
-                writeln!(stdout, "  Commit info duration: {}us", perf_info.commit_info_duration_us).unwrap();
-                writeln!(stdout, "  Format mixing duration: {}us", perf_info.format_mixing_duration_us).unwrap();
+                writeln!(
+                    stdout,
+                    "  Format code duration: {}us",
+                    perf_info.format_code_duration_us
+                )
+                .unwrap();
+                writeln!(
+                    stdout,
+                    "  Blame lines duration: {}us",
+                    perf_info.blame_lines_duration_us
+                )
+                .unwrap();
+                writeln!(
+                    stdout,
+                    "  Commit info duration: {}us",
+                    perf_info.commit_info_duration_us
+                )
+                .unwrap();
+                writeln!(
+                    stdout,
+                    "  Format mixing duration: {}us",
+                    perf_info.format_mixing_duration_us
+                )
+                .unwrap();
             }
             Err(err) => {
                 // Make sure our output log file indicates what happened.
@@ -583,7 +467,12 @@ fn main() {
         }
 
         writer.finish().unwrap();
-        writeln!(stdout, "  Total writing duration: {}us", file_start.elapsed().as_micros() as u64).unwrap();
+        writeln!(
+            stdout,
+            "  Total writing duration: {}us",
+            file_start.elapsed().as_micros() as u64
+        )
+        .unwrap();
     }
     writeln!(stdout, "Done writing files.").unwrap();
 }

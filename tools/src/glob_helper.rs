@@ -1,6 +1,6 @@
 /*
 This file combines the synchronous gold-standards of
-https://crates.io/crates/globset and https://crates.io/crates/walkdir (both of
+https://crates.io/crates/globset and https://crates.io/crates/walkdir (both
 from the ripgrep author) to perform filtered tree enumeration and wraps them
 with a call to tokio::block_in_place to avoid gumming up the scheduling works.
 
@@ -9,7 +9,7 @@ the `test_check_insta`mechanism, but it could also make sense to be used for
 other purposes.  It's also possible the crates ecosystem will gain a popular
 crate we can just use directly.
 
-Note that although the web UI has a mechanism to search know files, that
+Note that although the web UI has a mechanism to search known files, that
 currently is based on shelling out to grep to filter `repo-files` and
 `objdir-files`, not actually perform a filesystem traversal and we want to keep
 that as filtering pre-canned data, not as a filesystem traversal.

@@ -11,6 +11,7 @@ use petgraph::{
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
+use ustr::{Ustr, ustr, UstrMap};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
@@ -76,7 +77,7 @@ is working.
 /// A symbol and its cross-reference information plus caching helpers.
 #[derive(Clone)]
 pub struct DerivedSymbolInfo {
-    pub symbol: String,
+    pub symbol: Ustr,
     pub crossref_info: Value,
 }
 
@@ -97,16 +98,16 @@ impl DerivedSymbolInfo {
         return is_callable;
     }
 
-    pub fn get_pretty(&self) -> String {
+    pub fn get_pretty(&self) -> Ustr {
         match self.crossref_info.pointer("/meta/pretty") {
-            Some(Value::String(pretty)) => pretty.clone(),
+            Some(Value::String(pretty)) => ustr(pretty),
             _ => self.symbol.clone(),
         }
     }
 }
 
 impl DerivedSymbolInfo {
-    pub fn new(symbol: String, crossref_info: Value) -> Self {
+    pub fn new(symbol: Ustr, crossref_info: Value) -> Self {
         DerivedSymbolInfo {
             symbol,
             crossref_info,
@@ -190,7 +191,7 @@ impl SymbolGraphCollection {
         }
 
         json!({
-            "nodes": nodes.into_iter().collect::<Vec<String>>(),
+            "nodes": nodes.into_iter().collect::<Vec<Ustr>>(),
             "edges": edges.into_values().collect::<Value>(),
         })
     }
@@ -338,7 +339,7 @@ pub struct SymbolGraphNodeId(u32);
 
 pub struct SymbolGraphNodeSet {
     pub symbol_crossref_infos: Vec<DerivedSymbolInfo>,
-    pub symbol_to_index_map: BTreeMap<String, u32>,
+    pub symbol_to_index_map: UstrMap<u32>,
 }
 
 fn make_data_invariant_err() -> ServerError {
@@ -352,7 +353,7 @@ impl SymbolGraphNodeSet {
     pub fn new() -> Self {
         SymbolGraphNodeSet {
             symbol_crossref_infos: vec![],
-            symbol_to_index_map: BTreeMap::new(),
+            symbol_to_index_map: UstrMap::default(),
         }
     }
 
@@ -406,7 +407,7 @@ impl SymbolGraphNodeSet {
 
     /// Look-up a symbol returning its id (for graph purposes) and its
     /// DerivedSymbolInfo (for data inspection).
-    pub fn lookup_symbol(&self, symbol: &str) -> Option<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
+    pub fn lookup_symbol(&self, symbol: &Ustr) -> Option<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(symbol) {
             let sym_info = self.symbol_crossref_infos.get(*index as usize);
             sym_info.map(|info| (SymbolGraphNodeId(*index), info))
@@ -432,7 +433,7 @@ impl SymbolGraphNodeSet {
 
     pub async fn ensure_symbol<'a>(
         &'a mut self,
-        sym: &'a str,
+        sym: &'a Ustr,
         server: &'a Box<dyn AbstractServer + Send + Sync>,
     ) -> Result<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {
@@ -444,6 +445,6 @@ impl SymbolGraphNodeSet {
         }
 
         let info = server.crossref_lookup(&sym).await?;
-        Ok(self.add_symbol(DerivedSymbolInfo::new(sym.to_string(), info)))
+        Ok(self.add_symbol(DerivedSymbolInfo::new(sym.clone(), info)))
     }
 }
