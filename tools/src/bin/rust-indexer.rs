@@ -498,7 +498,7 @@ fn analyze_file(
     let local_source_path = searchfox_path_to_local_path(searchfox_path, tree_info);
 
     if !local_source_path.exists() {
-        warn!(
+        info!(
             "Skipping nonexistent source file with searchfox path '{}' which mapped to local path '{}'",
             searchfox_path.display(),
             local_source_path.display()
@@ -743,7 +743,7 @@ fn analyze_crate(analysis: &data::Analysis, defs: &Defs, tree_info: &TreeInfo) {
         // This will be the case for libraries built with cargo that have paths
         // that have prefixes that look like "/cargo/registry/src/github.com-".
         if searchfox_path.is_absolute() {
-            warn!(
+            info!(
                 "Skipping absolute analysis path {}",
                 searchfox_path.display()
             );

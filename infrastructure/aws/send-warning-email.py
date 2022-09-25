@@ -13,7 +13,7 @@ warning_limit = "50"
 
 try:
     # The regex here intentionally matches any `warn!` logger output from rust code
-    warnings = subprocess.check_output(["grep", "-B16", "-i", "-m", warning_limit, "^[[:space:]]*warn", "/home/ubuntu/index-log"])
+    warnings = subprocess.check_output(["grep", "-B16", "-i", "-m", warning_limit, "-P", "^([ ]*|\\[\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z )warn", "/home/ubuntu/index-log"])
 except subprocess.CalledProcessError:
     # grep found no matches, so no need to send this email
     sys.exit(0)
