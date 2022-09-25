@@ -1,0 +1,1 @@
+filter-analysis imported-module.mjs -k def -i ModuleClass.#error

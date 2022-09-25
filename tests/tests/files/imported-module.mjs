@@ -9,6 +9,9 @@ export function moduleFunc(moduleFuncArg1) {
 }
 
 export class ModuleClass {
+    // Our preprocessor logic should not freak out about this.
+    #error = null;
+
     constructor() {
         this.moduleClassField = 1;
     }

@@ -1255,6 +1255,20 @@ let Analyzer = {
   },
 };
 
+// Helper for preprocessor directives so that JS assignments like `#error =`
+// won't match.  All of this is obviously optimized for clarity/not messing up
+// regexps, as we could combine most of the preproccesing checks into very few
+// super-regexps.
+function startsWithNoEquals(subjectString, checkString) {
+  if (!subjectString.startsWith(checkString)) {
+    return false;
+  }
+  if (subjectString.substring(checkString.length).trimStart()[0] === "=") {
+    return false;
+  }
+  return true;
+}
+
 function preprocess(filename, comment)
 {
   // Set the filename so that logError can downgrade any errors/warnings to INFO
@@ -1287,13 +1301,13 @@ function preprocess(filename, comment)
       line = line.replace(/@(\w+)@/, "''");
     }
     let tline = line.trim();
-    if (tline.startsWith("#ifdef ") || tline.startsWith("#ifndef ") || tline.startsWith("#if ")) {
+    if (startsWithNoEquals(tline, "#ifdef ") || startsWithNoEquals(tline, "#ifndef ") || startsWithNoEquals(tline, "#if ")) {
       preprocessedLines.push(comment(tline));
       branches.push(branches[branches.length-1]);
     } else if (tline.startsWith("#else") ||
-               tline.startsWith("#elif ") ||
-               tline.startsWith("#elifdef ") ||
-               tline.startsWith("#elifndef ")) {
+               startsWithNoEquals(tline, "#elif ") ||
+               startsWithNoEquals(tline, "#elifdef ") ||
+               startsWithNoEquals(tline, "#elifndef ")) {
       preprocessedLines.push(comment(tline));
       branches.pop();
       branches.push(false);
@@ -1302,7 +1316,7 @@ function preprocess(filename, comment)
       branches.pop();
     } else if (!branches[branches.length-1]) {
       preprocessedLines.push(comment(tline));
-    } else if (tline.startsWith("#include ") || tline.startsWith("#includesubst ")) {
+    } else if (startsWithNoEquals(tline, "#include ") || startsWithNoEquals(tline, "#includesubst ")) {
       // Mark that we used an include so we know this file may experience parse
       // errors which should be downgraded to INFO from WARN.
       gIncludeUsed = true;
@@ -1321,15 +1335,15 @@ function preprocess(filename, comment)
       substitution = true;
       // require whitespace after the filter to avoid catching variable names
       // like `#filterLogins`.
-    } else if (tline.startsWith("#filter ") || tline.startsWith("#unfilter ")) {
+    } else if (startsWithNoEquals(tline, "#filter ") || startsWithNoEquals(tline, "#unfilter ")) {
       preprocessedLines.push(comment(tline));
-    } else if (tline.startsWith("#expand ")) {
+    } else if (startsWithNoEquals(tline, "#expand ")) {
       preprocessedLines.push(line.substring(String("#expand ").length));
-    } else if (tline.startsWith("#literal ")) {
+    } else if (startsWithNoEquals(tline, "#literal ")) {
         preprocessedLines.push(line.substring(String("#literal ").length));
-    } else if (tline.startsWith("#define ") ||
-               tline.startsWith("#undef ") ||
-               tline.startsWith("#error ")) {
+    } else if (startsWithNoEquals(tline, "#define ") ||
+               startsWithNoEquals(tline, "#undef ") ||
+               startsWithNoEquals(tline, "#error ")) {
       preprocessedLines.push(comment(tline));
     } else {
       preprocessedLines.push(line);
