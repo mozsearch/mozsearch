@@ -1,0 +1,21 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "5:6-21",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property rootModuleConst",
+    "sym": "#rootModuleConst"
+  },
+  {
+    "loc": "5:6-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "rootModuleConst",
+    "sym": "#rootModuleConst",
+    "context": ""
+  }
+]

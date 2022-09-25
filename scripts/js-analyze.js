@@ -3,7 +3,11 @@ let localFile, fileIndex, mozSearchRoot;
 
 function logError(msg)
 {
-  printErr("ERROR " + msg + "\n");
+  // This gets to be a warning so the searchfox warning script will report it.
+  //
+  // This means we may end up needing to add a bunch of tree-specific
+  // exclusions, which is probably fine.
+  printErr("WARN " + msg + "\n");
 }
 
 function SymbolTable()
@@ -292,7 +296,21 @@ let Analyzer = {
   parse(text, filename, line) {
     let ast;
     try {
-      ast = Reflect.parse(text, {loc: true, source: filename, line});
+      let target = filename.endsWith(".mjs") ? "module" : "script";
+      try {
+        ast = Reflect.parse(text, { loc: true, source: filename, line, target });
+      } catch (ex) {
+        // If we were trying to parse something as script and it had an import,
+        // attempt to re-parse it as a module.
+        if (ex.message.includes("import declarations may only appear") &&
+            target === "script") {
+          target = "module";
+          ast = Reflect.parse(text, { loc: true, source: filename, line, target });
+        } else {
+          // just re-throw because it didn't seem to be an import error.
+          throw ex;
+        }
+      }
 
       let parsedLines = text.split('\n');
 
@@ -662,6 +680,58 @@ let Analyzer = {
 
     case "StaticClassBlock": {
       this.statement(stmt.body);
+      break;
+    }
+
+    // HEY HEY HEY HEY HEY
+    //
+    // ALL THE MODULE STUFF BELOW IS LARGELY NO-OPs EXCEPT FOR EXPORT TRAVERSALS
+    //
+    // This is not particularly useful!  If someone wants to enhance this
+    // current implementation, that's great!  For now the stubbing is being done
+    // so that we can at least index module JS files without exploding.
+    //
+    // The short-to-medium-term plan is
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1740290 once
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1761287 lands.
+
+    // Is this even a thing?
+    case "ModuleRequest": {
+      break;
+    }
+
+    case "ImportAssertion": {
+      break;
+    }
+
+    case "ImportDeclaration": {
+      break;
+    }
+
+    // These may only be under the ImportDeclaration's specifiers?
+    case "ImportSpecifier": {
+      break;
+    }
+
+    case "ImportNamespaceSpecifier": {
+      break;
+    }
+
+    case "ExportDeclaration": {
+      this.statement(stmt.declaration);
+      break;
+    }
+
+    // these 3 may only exist under the ExportDeclaration's "specifiers"?
+    case "ExportSpecifier": {
+      break;
+    }
+
+    case "ExportNamespaceSpecifier": {
+      break;
+    }
+
+    case "ExportBatchSpecifier": {
       break;
     }
 
@@ -1090,7 +1160,11 @@ function analyzeJS(filename)
 
   let ast = Analyzer.parse(text, filename, 1);
   if (ast) {
-    Analyzer.program(ast);
+    try {
+      Analyzer.program(ast);
+    } catch (ex) {
+      logError(`In ${filename}, got: ${ex}`);
+    }
   }
 }
 

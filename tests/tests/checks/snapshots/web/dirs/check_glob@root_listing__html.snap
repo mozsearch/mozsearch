@@ -249,6 +249,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/imported-module.mjs" class="icon " style="">imported-module.mjs</a></td>
+          <td class="description"><a href="/tests/source/imported-module.mjs" title=""></td>
+          <td><a href="/tests/source/imported-module.mjs">318</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/invalid-files" class="icon folder" style="">invalid-files</a></td>
           <td class="description"><a href="/tests/source/invalid-files" title=""></td>
           <td><a href="/tests/source/invalid-files">1</a></td>
@@ -330,6 +336,18 @@ expression: "&fb.contents"
           <td><a href="/tests/source/README.md" class="icon " style="">README.md</a></td>
           <td class="description"><a href="/tests/source/README.md" title="This is a README">This is a README</td>
           <td><a href="/tests/source/README.md">342</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/root-module.mjs" class="icon " style="">root-module.mjs</a></td>
+          <td class="description"><a href="/tests/source/root-module.mjs" title=""></td>
+          <td><a href="/tests/source/root-module.mjs">231</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/secret-madjewel.js" class="icon js" style="">secret-madjewel.js</a></td>
+          <td class="description"><a href="/tests/source/secret-madjewel.js" title=""></td>
+          <td><a href="/tests/source/secret-madjewel.js">361</a></td>
         </tr>
 
         <tr>
