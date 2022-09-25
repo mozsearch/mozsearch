@@ -1,13 +1,36 @@
 let nextSymId = 0;
 let localFile, fileIndex, mozSearchRoot;
 
+const ERROR_INTERVENTIONS = [
+  {
+    includes: "expected expression, got '<':",
+    severity: "INFO",
+    prepend: "React detected, downgrading to info: ",
+  }
+];
+
 function logError(msg)
 {
-  // This gets to be a warning so the searchfox warning script will report it.
+  // We log "errors" as warnings so the searchfox warning script will report it.
+  let severity = "WARN";
+
+  // But we also have some heuristics defined above that let us downgrade
+  // expected problems to INFO.  Ideally these would be logged as diagnostic
+  // records as proposed at https://bugzilla.mozilla.org/show_bug.cgi?id=1789515
+  // but our expected migration to scip-typescript means it's probably not worth
+  // it at this time, or at least not until we have the rest of the
+  // diagnostic analysis record mechanism implemented.
+  for (const intervention of ERROR_INTERVENTIONS) {
+    if (msg.includes(intervention.includes)) {
+      severity = intervention.severity;
+      msg = intervention.prepend + msg;
+    }
+  }
+
   //
   // This means we may end up needing to add a bunch of tree-specific
   // exclusions, which is probably fine.
-  printErr("WARN " + msg + "\n");
+  printErr(`${severity} ${msg}\n`);
 }
 
 function SymbolTable()
