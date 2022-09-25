@@ -538,7 +538,17 @@ pub fn read_analyses<T>(
         let file = match File::open(filename) {
             Ok(f) => f,
             Err(_) => {
-                warn!("Error trying to open analysis file [{}]", filename);
+                // TODO: This should be a warning again or have more explicit
+                // propagation of this case to callers.  This was reduced from
+                // a warning because we have a bunch of cases from
+                // mozsearch-mozilla/shared/collapse-generated-files.sh being
+                // invoked on "analysis-*/etc" expansions that don't match and
+                // so are passed through directly because we're not using
+                // "shopt -s nullglob" there.  Also crossref seems to sometimes
+                // end up trying to ingest files that aren't there?  Both of
+                // these things should be addressed if we want to turn this back
+                // into a warning.
+                info!("Error trying to open analysis file [{}]", filename);
                 continue;
             }
         };

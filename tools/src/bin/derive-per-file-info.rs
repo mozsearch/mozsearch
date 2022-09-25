@@ -374,7 +374,7 @@ fn main() {
             );
         }
     } else {
-        warn!("No bugzilla-components.json file found");
+        info!("No bugzilla-components.json file found");
     }
 
     // ## Load test info and merge it in to the derived info structure
@@ -406,7 +406,7 @@ fn main() {
             }
         }
     } else {
-        warn!("No test-info-all-tests.json file found");
+        info!("No test-info-all-tests.json file found");
     }
 
     // ## Load WPT meta info and merge it in to the derived info structure
@@ -453,7 +453,7 @@ fn main() {
             }
         }
     } else {
-        warn!("No wpt-metadata-summary.json file found");
+        info!("No wpt-metadata-summary.json file found");
     }
 
     let coverage_info_fname = format!("{}/code-coverage-report.json", tree_config.paths.index_path);
