@@ -1,11 +1,18 @@
 let nextSymId = 0;
 let localFile, fileIndex, mozSearchRoot;
 
+let gFilename = "";
+
 const ERROR_INTERVENTIONS = [
   {
     includes: "expected expression, got '<':",
     severity: "INFO",
     prepend: "React detected, downgrading to info: ",
+  },
+  {
+    include: "import assertions are not currently supported",
+    severity: "INFO",
+    prepend: "Not yet supported, so downgraded to info:"
   }
 ];
 
@@ -23,6 +30,14 @@ function logError(msg, severity = "WARN")
       severity = intervention.severity;
       msg = intervention.prepend + msg;
     }
+  }
+
+  // JS engines love to have test cases that intentionally have syntax errors
+  // in them.  To this end, we downgrade any such file to an info.  This
+  // undoubtedly will catch
+  if (gFilename && gFilename.includes("error")) {
+    severity = "INFO";
+    msg = `Downgrading warning to info because filename includes error: ${msg}`;
   }
 
   //
@@ -324,7 +339,10 @@ let Analyzer = {
         // If we were trying to parse something as script and it had an import,
         // attempt to re-parse it as a module.
         if ((ex.message.includes("import declarations may only appear") ||
-             ex.message.includes("export declarations may only appear")) &&
+             ex.message.includes("export declarations may only appear") ||
+             // await is valid at the top-level in modules, so re-parse as a
+             // module in this case too
+             ex.message.includes("await is only valid in")) &&
             target === "script") {
           target = "module";
           ast = Reflect.parse(text, { loc: true, source: filename, line, target });
@@ -1134,6 +1152,10 @@ let Analyzer = {
 
 function preprocess(filename, comment)
 {
+  // Set the filename so that logError can downgrade any errors/warnings to INFO
+  // if the filename has the word "error" in it.
+  gFilename = filename;
+
   let text;
   try {
     text = snarf(filename);
