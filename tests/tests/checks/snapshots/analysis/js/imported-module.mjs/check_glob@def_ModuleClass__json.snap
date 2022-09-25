@@ -9,7 +9,7 @@ expression: "&json_results"
     "syntax": "def,prop",
     "pretty": "property ModuleClass",
     "sym": "#ModuleClass",
-    "nestingRange": "11:25-15:0"
+    "nestingRange": "11:25-18:0"
   },
   {
     "loc": "11:13-24",

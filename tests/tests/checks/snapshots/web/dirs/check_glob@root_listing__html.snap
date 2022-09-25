@@ -251,7 +251,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/imported-module.mjs" class="icon " style="">imported-module.mjs</a></td>
           <td class="description"><a href="/tests/source/imported-module.mjs" title=""></td>
-          <td><a href="/tests/source/imported-module.mjs">318</a></td>
+          <td><a href="/tests/source/imported-module.mjs">401</a></td>
         </tr>
 
         <tr>
