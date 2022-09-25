@@ -9,11 +9,9 @@ const ERROR_INTERVENTIONS = [
   }
 ];
 
-function logError(msg)
+// We log "errors" as warnings so the searchfox warning script will report it.
+function logError(msg, severity = "WARN")
 {
-  // We log "errors" as warnings so the searchfox warning script will report it.
-  let severity = "WARN";
-
   // But we also have some heuristics defined above that let us downgrade
   // expected problems to INFO.  Ideally these would be logged as diagnostic
   // records as proposed at https://bugzilla.mozilla.org/show_bug.cgi?id=1789515
@@ -742,7 +740,24 @@ let Analyzer = {
     }
 
     case "ExportDeclaration": {
-      this.statement(stmt.declaration);
+      // Useful debugging for investigation if you want:
+      //printErr(`seeing export: ${JSON.stringify(stmt, null, 2)}\n`);
+
+      // Ignore default exports because they exist in an expression context for
+      // sure.  We frequently see both identifiers and call expresssions.  And
+      // I know from experience they effectively can't serve as a dec statement
+      // that contributes to the local namespace.  (They can serve as a decl
+      // for whoever imports them, but we don't support that on the import side,
+      // so there isn't much point.)
+      if (!stmt.isDefault && stmt.declaration) {
+        // Let's also wrap this in a catch which we log as a warning so we can
+        // keep going.
+        try {
+          this.statement(stmt.declaration);
+        } catch (ex) {
+          logError(`Weirdness processing export, ignoring: ${ex}`);
+        }
+      }
       break;
     }
 
