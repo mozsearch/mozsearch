@@ -1,7 +1,10 @@
 let nextSymId = 0;
 let localFile, fileIndex, mozSearchRoot;
 
+// Filename for logError to use heuristics to downgrade errors/warnings.
 let gFilename = "";
+// Was there an `#include` present which should downgrade errors/warnings?
+let gIncludeUsed = false;
 
 const ERROR_INTERVENTIONS = [
   {
@@ -40,6 +43,16 @@ function logError(msg)
   if (gFilename && gFilename.includes("error")) {
     severity = "INFO";
     msg = `Downgrading warning to info because filename includes error: ${msg}`;
+  }
+
+  // https://searchfox.org/mozilla-central/source/browser/components/enterprisepolicies/schemas/schema.jsm
+  // is an example of a file that does `const schema =` and then the next line
+  // is an include and since we don't actually include things, things can break.
+  // An enhancement would be accepted to try and do better, but this can't be a
+  // supported feature at this time without a maintainer for it.
+  if (gIncludeUsed) {
+    severity = "INFO";
+    msg = `Downgrading warning to info because #include was used: ${msg}`;
   }
 
   //
@@ -1156,6 +1169,7 @@ function preprocess(filename, comment)
   // Set the filename so that logError can downgrade any errors/warnings to INFO
   // if the filename has the word "error" in it.
   gFilename = filename;
+  gIncludeUsed = false;
 
   let text;
   try {
@@ -1174,13 +1188,13 @@ function preprocess(filename, comment)
       line = line.replace(/@(\w+)@/, "''");
     }
     let tline = line.trim();
-    if (tline.startsWith("#ifdef") || tline.startsWith("#ifndef") || tline.startsWith("#if ")) {
+    if (tline.startsWith("#ifdef ") || tline.startsWith("#ifndef ") || tline.startsWith("#if ")) {
       preprocessedLines.push(comment(tline));
       branches.push(branches[branches.length-1]);
     } else if (tline.startsWith("#else") ||
-               tline.startsWith("#elif") ||
-               tline.startsWith("#elifdef") ||
-               tline.startsWith("#elifndef")) {
+               tline.startsWith("#elif ") ||
+               tline.startsWith("#elifdef ") ||
+               tline.startsWith("#elifndef ")) {
       preprocessedLines.push(comment(tline));
       branches.pop();
       branches.push(false);
@@ -1189,7 +1203,11 @@ function preprocess(filename, comment)
       branches.pop();
     } else if (!branches[branches.length-1]) {
       preprocessedLines.push(comment(tline));
-    } else if (tline.startsWith("#include") || tline.startsWith("#includesubst")) {
+    } else if (tline.startsWith("#include ") || tline.startsWith("#includesubst ")) {
+      // Mark that we used an include so we know this file may experience parse
+      // errors which should be downgraded to INFO from WARN.
+      gIncludeUsed = true;
+
       /*
       let match = tline.match(/#include "?([A-Za-z0-9_.-]+)"?/);
       if (!match) {
@@ -1202,15 +1220,17 @@ function preprocess(filename, comment)
     } else if (tline.startsWith("#filter substitution")) {
       preprocessedLines.push(comment(tline));
       substitution = true;
-    } else if (tline.startsWith("#filter") || tline.startsWith("#unfilter")) {
+      // require whitespace after the filter to avoid catching variable names
+      // like `#filterLogins`.
+    } else if (tline.startsWith("#filter ") || tline.startsWith("#unfilter ")) {
       preprocessedLines.push(comment(tline));
-    } else if (tline.startsWith("#expand")) {
+    } else if (tline.startsWith("#expand ")) {
       preprocessedLines.push(line.substring(String("#expand ").length));
-    } else if (tline.startsWith("#literal")) {
+    } else if (tline.startsWith("#literal ")) {
         preprocessedLines.push(line.substring(String("#literal ").length));
-    } else if (tline.startsWith("#define") ||
-               tline.startsWith("#undef") ||
-               tline.startsWith("#error")) {
+    } else if (tline.startsWith("#define ") ||
+               tline.startsWith("#undef ") ||
+               tline.startsWith("#error ")) {
       preprocessedLines.push(comment(tline));
     } else {
       preprocessedLines.push(line);
