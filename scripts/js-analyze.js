@@ -1127,7 +1127,7 @@ function preprocess(filename, comment)
       branches.pop();
     } else if (!branches[branches.length-1]) {
       preprocessedLines.push(comment(tline));
-    } else if (tline.startsWith("#include")) {
+    } else if (tline.startsWith("#include") || tline.startsWith("#includesubst")) {
       /*
       let match = tline.match(/#include "?([A-Za-z0-9_.-]+)"?/);
       if (!match) {
@@ -1140,11 +1140,15 @@ function preprocess(filename, comment)
     } else if (tline.startsWith("#filter substitution")) {
       preprocessedLines.push(comment(tline));
       substitution = true;
-    } else if (tline.startsWith("#filter")) {
+    } else if (tline.startsWith("#filter") || tline.startsWith("#unfilter")) {
       preprocessedLines.push(comment(tline));
     } else if (tline.startsWith("#expand")) {
       preprocessedLines.push(line.substring(String("#expand ").length));
-    } else if (tline.startsWith("#")) {
+    } else if (tline.startsWith("#literal")) {
+        preprocessedLines.push(line.substring(String("#literal ").length));
+    } else if (tline.startsWith("#define") ||
+               tline.startsWith("#undef") ||
+               tline.startsWith("#error")) {
       preprocessedLines.push(comment(tline));
     } else {
       preprocessedLines.push(line);
