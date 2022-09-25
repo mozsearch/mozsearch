@@ -1197,6 +1197,14 @@ function preprocess(filename, comment)
   let text;
   try {
     text = snarf(filename);
+
+    // There are a few `.js` files in the tree that use `#` as a comment for a
+    // preprocessed file for the MPL and this is not helpful.  One is also a
+    // mozconfig.  Just no-op the file.
+    // https://searchfox.org/mozilla-central/search?q=path%3A.js%20%23%20This%20Source%20Code%20Form%20is%20subject%20to%20the%20terms%20of%20the%20Mozilla%20Public&path=
+    if (text.startsWith("# This Source Code Form is subject to the terms of the Mozilla Public")) {
+      text = "";
+    }
   } catch (e) {
     text = "";
   }
