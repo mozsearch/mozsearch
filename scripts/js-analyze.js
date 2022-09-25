@@ -16,9 +16,11 @@ const ERROR_INTERVENTIONS = [
   }
 ];
 
-// We log "errors" as warnings so the searchfox warning script will report it.
-function logError(msg, severity = "WARN")
+function logError(msg)
 {
+  // We log "errors" as warnings so the searchfox warning script will report it.
+  let severity = "WARN";
+
   // But we also have some heuristics defined above that let us downgrade
   // expected problems to INFO.  Ideally these would be logged as diagnostic
   // records as proposed at https://bugzilla.mozilla.org/show_bug.cgi?id=1789515
@@ -371,8 +373,7 @@ let Analyzer = {
       }
 
     } catch (e) {
-      logError(`Unable to parse JS file ${filename}:${line}.`);
-      logError(`because ${e}: ${e.fileName}:${e.lineNumber}`);
+      logError(`Unable to parse JS file ${filename}:${line} because ${e}: ${e.fileName}:${e.lineNumber}`);
       return null;
     }
     return ast;
