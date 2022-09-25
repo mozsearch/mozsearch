@@ -302,7 +302,8 @@ let Analyzer = {
       } catch (ex) {
         // If we were trying to parse something as script and it had an import,
         // attempt to re-parse it as a module.
-        if (ex.message.includes("import declarations may only appear") &&
+        if ((ex.message.includes("import declarations may only appear") ||
+             ex.message.includes("export declarations may only appear")) &&
             target === "script") {
           target = "module";
           ast = Reflect.parse(text, { loc: true, source: filename, line, target });
