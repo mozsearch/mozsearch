@@ -19,6 +19,30 @@ const ERROR_INTERVENTIONS = [
   }
 ];
 
+const FILENAME_INTERVENTIONS = [
+  {
+    includes: "error",
+    severity: "INFO",
+    // JS engines love to have test cases that intentionally have syntax errors
+    // in them.  To this end, we downgrade any such file to an info.  This
+    // undoubtedly will catch some false positives but the warning mechanism
+    // is about systemic issues in analysis, so we'd expect to have reports from
+    // files without "error" in the name too if it's a huge issue.
+    prepend: "Downgrading warning to info because filename includes error: ",
+  },
+  {
+    // Session Store has some JSON files with .js extensions.  .eslintignore
+    // does already know about them, but until my work on file ingestion lands
+    // we lack an easy way to filter the JS ingestion set.
+    //
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1792369 was filed to track
+    // fixing that and we can remove this once it's fixed.
+    includes: "sessionstore", // be resistant to directory hierarchy changes
+    severity: "INFO",
+    prepend: "Could be a JSON file:",
+  },
+]
+
 function logError(msg)
 {
   // We log "errors" as warnings so the searchfox warning script will report it.
@@ -37,12 +61,11 @@ function logError(msg)
     }
   }
 
-  // JS engines love to have test cases that intentionally have syntax errors
-  // in them.  To this end, we downgrade any such file to an info.  This
-  // undoubtedly will catch
-  if (gFilename && gFilename.includes("error")) {
-    severity = "INFO";
-    msg = `Downgrading warning to info because filename includes error: ${msg}`;
+  for (const intervention of FILENAME_INTERVENTIONS) {
+    if (gFilename?.includes(intervention.includes)) {
+      severity = intervention.severity;
+      msg = intervention.prepend + msg;
+    }
   }
 
   // https://searchfox.org/mozilla-central/source/browser/components/enterprisepolicies/schemas/schema.jsm
