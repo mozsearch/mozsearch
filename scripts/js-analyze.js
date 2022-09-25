@@ -65,7 +65,12 @@ const FILENAME_INTERVENTIONS = [
     //
     // Argh, there's actually the following too:
     // https://searchfox.org/mozilla-central/source/testing/talos/talos/startup_test/sessionrestore/profile-manywindows/sessionstore.js
-    includes_list: ["sessionstore"], // be resistant to directory hierarchy changes
+    //
+    // Okay, also adding "json" for
+    // `dom/tests/mochitest/ajax/jquery/test/data/json_obj.js` which reports a
+    // `SyntaxError: unexpected token: ':'` which could jointly be considered
+    // but there may be other variations.
+    includes_list: ["sessionstore", "json"], // be resistant to directory hierarchy changes
     severity: "INFO",
     prepend: "Could be a JSON file:",
   },
@@ -79,7 +84,9 @@ const FILENAME_INTERVENTIONS = [
   {
     // "devtools/client/shared/vendor/jszip.js" is a UMD that makes things
     // angry and it's believable we could have a bunch of these.
-    includes_list: ["vendor"],
+    //
+    // also: third_party/libwebrtc/tools/grit/grit/testdata/test_js.js
+    includes_list: ["vendor", "third_party"],
     severity: "INFO",
     prepend: "Vendored files can be weird: ",
   },
@@ -88,9 +95,21 @@ const FILENAME_INTERVENTIONS = [
     // https://searchfox.org/mozilla-central/source/testing/condprofile/condprof/tests/profile/user.js
     // there's also things like `channel-prefs.js`, so I've decided not to
     // include a slash before either of these.
-    includes_list: ["user.js", "prefs.js"],
+    //
+    // Also explicitly excluding the libpref tree for
+    // `modules/libpref/test/unit/data/testParser.js`.
+    //
+    // Also mozprofile has `prefs_with_comments.js` and could gain others.
+    includes_list: ["user.js", "prefs.js", "/libpref/", "/mozprofile/"],
     severity: "INFO",
     prepend: "Prefs files can be weird: ",
+  },
+  {
+    // `js/src/devtools/rootAnalysis/build.js` is a new thing but it was also
+    // a case where a mozconfig had a .js syntax.
+    includes_list: ["/rootAnalysis/"],
+    severity: "INFO",
+    prepend: "rootAnalysis does some weird custom stuff: "
   },
   {
     // There are ton of things that are clearly templating under
@@ -105,6 +124,41 @@ const FILENAME_INTERVENTIONS = [
     severity: "INFO",
     prepend: "May be a linting test case: ",
   },
+  {
+    // testing/mochitest/MochiKit/Controls.js:578 is missing a close paren
+    includes_list: ['/MochiKit/'],
+    severity: "INFO",
+    prepend: "Legacy weird MochiKit stuff: ",
+  },
+  // testing/web-platform/meta/screen-wake-lock/wakelock-insecure-context.any.js
+  // is an example of a file where a typo left off the ".ini" suffix.  There's
+  // never going to be any actual JS under the meta dir.
+  {
+    includes_list: ["testing/web-platform/meta/"],
+    severity: "INFO",
+    prepend: "Someone forgot to add an .ini suffix: ",
+  },
+  {
+    // .sub.js is an explicit WPT (idiom?) thing but there are permutations so
+    // we need to just detect on `.sub.`, like `.sub.window.js`, and
+    // `.sub.h2.any.js`.
+
+    // `testing/web-platform/tests/cors/support.js` is also using the
+    // replacement mechanism but doesn't follow the idiom.
+    includes_list: [".sub.", "/support.js"],
+    severity: "INFO",
+    prepend: "Substitution JS files are usually not legal JS on their own: ",
+  },
+  // testing/web-platform/tests/html/semantics/scripting-1/the-script-element/import-assertions/dynamic-import-with-assertion-argument.any.js
+  // is an example where we get a `missing ) after argument list` instead of the
+  // explicit lack of support error.
+  // There are also some other cases under "/json-module/" where "json" seems to
+  // save us.
+  {
+    includes_list: ["/import-assertions/"],
+    severity: "INFO",
+    prepend: "Import assertions not yet supported and may parse weird: ",
+  }
 ];
 
 function logError(msg)
@@ -448,7 +502,8 @@ let Analyzer = {
              ex.message.includes("export declarations may only appear") ||
              // await is valid at the top-level in modules, so re-parse as a
              // module in this case too
-             ex.message.includes("await is only valid in")) &&
+             ex.message.includes("await is only valid in") ||
+             ex.message.includes("import.meta may only appear in a module")) &&
             target === "script") {
           target = "module";
           ast = Reflect.parse(text, { loc: true, source: filename, line, target });
