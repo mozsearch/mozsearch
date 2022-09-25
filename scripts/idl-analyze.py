@@ -318,13 +318,7 @@ for l in lines:
     linebreaks.append(cur)
 
 if analysis:
-    # compatibility before and after bug 1633156
-    import inspect
-    initMethod = [obj for (name, obj) in inspect.getmembers(xpidl.IDLParser) if name == '__init__'][0]
-    if 'outputdir' in inspect.getargspec(initMethod).args:
-        p = xpidl.IDLParser(outputdir='/tmp')
-    else:
-        p = xpidl.IDLParser()
+    p = xpidl.IDLParser()
 
     try:
         r = p.parse(text, filename=fname)
