@@ -10,25 +10,50 @@ const ERROR_INTERVENTIONS = [
   {
     includes: "expected expression, got '<':",
     severity: "INFO",
-    prepend: "React detected, downgrading to info: ",
+    prepend: "React detected: ",
   },
   {
-    include: "import assertions are not currently supported",
+    includes: "import assertions are not currently supported",
     severity: "INFO",
-    prepend: "Not yet supported, so downgraded to info:"
+    prepend: "Not yet supported: "
+  },
+  {
+    includes: "illegal character",
+    severity: "INFO",
+    prepend: "Illegal characters are probably intentional: "
+  },
+  {
+    includes: "invalid escape sequence:",
+    severity: "INFO",
+    prepend: "Invalid escapes are probably intentional: "
+  },
+  {
+    includes: "missing ; after for-loop condition",
+    severity: "INFO",
+    prepend: "Wacky test idiom?: "
+  },
+  {
+    includes: "expected expression, got '%'",
+    severity: "INFO",
+    prepend: "Probable WPT interpolation mechanism: "
   }
 ];
 
+// Note that once we can process .eslintignore most of these can go away because
+// the heroic work of people like :Standard8 making eslint work means that we
+// don't need hacky heuristics like this.
 const FILENAME_INTERVENTIONS = [
   {
-    includes: "error",
+    // "dromaeo" is from:
+    // https://searchfox.org/mozilla-central/source/testing/talos/talos/tests/dromaeo/test-tail.js
+    includes_list: ["error", "fixture", "bad", "syntax", "invalid", "dromaeo"],
     severity: "INFO",
     // JS engines love to have test cases that intentionally have syntax errors
     // in them.  To this end, we downgrade any such file to an info.  This
     // undoubtedly will catch some false positives but the warning mechanism
     // is about systemic issues in analysis, so we'd expect to have reports from
-    // files without "error" in the name too if it's a huge issue.
-    prepend: "Downgrading warning to info because filename includes error: ",
+    // files that don't get caught by this too in that case.
+    prepend: "It may intentionally be illegal JS: ",
   },
   {
     // Session Store has some JSON files with .js extensions.  .eslintignore
@@ -37,11 +62,50 @@ const FILENAME_INTERVENTIONS = [
     //
     // https://bugzilla.mozilla.org/show_bug.cgi?id=1792369 was filed to track
     // fixing that and we can remove this once it's fixed.
-    includes: "sessionstore", // be resistant to directory hierarchy changes
+    //
+    // Argh, there's actually the following too:
+    // https://searchfox.org/mozilla-central/source/testing/talos/talos/startup_test/sessionrestore/profile-manywindows/sessionstore.js
+    includes_list: ["sessionstore"], // be resistant to directory hierarchy changes
     severity: "INFO",
     prepend: "Could be a JSON file:",
   },
-]
+  // mozbuild has some weird JS looking files that are not JS:
+  // https://searchfox.org/mozilla-central/search?q=python%2Fmozbuild%2Fmozbuild%2Ftest%2Fbackend%2Fdata%2Fbuild%2Fbar.js&path=
+  {
+    includes_list: ["mozbuild"],
+    severity: "INFO",
+    prepend: "mozbuild has weird files: ",
+  },
+  {
+    // "devtools/client/shared/vendor/jszip.js" is a UMD that makes things
+    // angry and it's believable we could have a bunch of these.
+    includes_list: ["vendor"],
+    severity: "INFO",
+    prepend: "Vendored files can be weird: ",
+  },
+  {
+    // pref files can be weird / annoying, ex:
+    // https://searchfox.org/mozilla-central/source/testing/condprofile/condprof/tests/profile/user.js
+    // there's also things like `channel-prefs.js`, so I've decided not to
+    // include a slash before either of these.
+    includes_list: ["user.js", "prefs.js"],
+    severity: "INFO",
+    prepend: "Prefs files can be weird: ",
+  },
+  {
+    // There are ton of things that are clearly templating under
+    // toolkit/components/uniffi-bindgen-gecko-js/src/templates
+    includes_list: ["template"],
+    severity: "INFO",
+    prepend: "May be templated JS: "
+  },
+  {
+    // there are a bunch of things that make us sad under tools/lint/test/files/
+    includes_list: ["lint"],
+    severity: "INFO",
+    prepend: "May be a linting test case: ",
+  },
+];
 
 function logError(msg)
 {
@@ -57,14 +121,18 @@ function logError(msg)
   for (const intervention of ERROR_INTERVENTIONS) {
     if (msg.includes(intervention.includes)) {
       severity = intervention.severity;
-      msg = intervention.prepend + msg;
+      msg = "Downgrading warning to info because: " + intervention.prepend + msg;
+      break;
     }
   }
 
-  for (const intervention of FILENAME_INTERVENTIONS) {
-    if (gFilename?.includes(intervention.includes)) {
-      severity = intervention.severity;
-      msg = intervention.prepend + msg;
+  outer: for (const intervention of FILENAME_INTERVENTIONS) {
+    for (const include_entry of intervention.includes_list) {
+      if (gFilename?.toLowerCase().includes(include_entry)) {
+        severity = intervention.severity;
+        msg = "Downgrading warning to info because: " + intervention.prepend + msg;
+        break outer;
+      }
     }
   }
 
