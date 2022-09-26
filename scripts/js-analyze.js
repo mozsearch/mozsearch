@@ -42,6 +42,8 @@ const ERROR_INTERVENTIONS = [
 // Note that once we can process .eslintignore most of these can go away because
 // the heroic work of people like :Standard8 making eslint work means that we
 // don't need hacky heuristics like this.
+//
+// Note: ALL INCLUDES MUST BE LOWERCASED because that's what we match against.
 const FILENAME_INTERVENTIONS = [
   {
     // "dromaeo" is from:
@@ -107,7 +109,7 @@ const FILENAME_INTERVENTIONS = [
   {
     // `js/src/devtools/rootAnalysis/build.js` is a new thing but it was also
     // a case where a mozconfig had a .js syntax.
-    includes_list: ["/rootAnalysis/"],
+    includes_list: ["/rootanalysis/"], // lowercased to match the subject
     severity: "INFO",
     prepend: "rootAnalysis does some weird custom stuff: "
   },
@@ -126,7 +128,7 @@ const FILENAME_INTERVENTIONS = [
   },
   {
     // testing/mochitest/MochiKit/Controls.js:578 is missing a close paren
-    includes_list: ['/MochiKit/'],
+    includes_list: ['/mochikit/'], // lowecased to match the subject
     severity: "INFO",
     prepend: "Legacy weird MochiKit stuff: ",
   },
