@@ -5,6 +5,8 @@ let localFile, fileIndex, mozSearchRoot;
 let gFilename = "";
 // Was there an `#include` present which should downgrade errors/warnings?
 let gIncludeUsed = false;
+// Was the first character of the file `{`?
+let gCouldBeJson = false;
 
 const ERROR_INTERVENTIONS = [
   {
@@ -72,9 +74,13 @@ const FILENAME_INTERVENTIONS = [
     // `dom/tests/mochitest/ajax/jquery/test/data/json_obj.js` which reports a
     // `SyntaxError: unexpected token: ':'` which could jointly be considered
     // but there may be other variations.
+    //
+    // Note: I've now added the gCouldBeJson mechanism which could perhaps moot
+    // the need for this intervention, but I'm out of time for the day and don't
+    // want to experiment with this at the risk of re-introducing warnings.
     includes_list: ["sessionstore", "json"], // be resistant to directory hierarchy changes
     severity: "INFO",
-    prepend: "Could be a JSON file:",
+    prepend: "Could be a JSON file based on the name: ",
   },
   // mozbuild has some weird JS looking files that are not JS:
   // https://searchfox.org/mozilla-central/search?q=python%2Fmozbuild%2Fmozbuild%2Ftest%2Fbackend%2Fdata%2Fbuild%2Fbar.js&path=
@@ -102,7 +108,10 @@ const FILENAME_INTERVENTIONS = [
     // `modules/libpref/test/unit/data/testParser.js`.
     //
     // Also mozprofile has `prefs_with_comments.js` and could gain others.
-    includes_list: ["user.js", "prefs.js", "/libpref/", "/mozprofile/"],
+    //
+    // https://searchfox.org/l10n/source/tn/mail/all-l10n.js is an l10n example
+    // of a pref file; there are others like `firefox-l10n.js`.
+    includes_list: ["user.js", "prefs.js", "/libpref/", "/mozprofile/", "-l10n.js"],
     severity: "INFO",
     prepend: "Prefs files can be weird: ",
   },
@@ -160,7 +169,14 @@ const FILENAME_INTERVENTIONS = [
     includes_list: ["/import-assertions/"],
     severity: "INFO",
     prepend: "Import assertions not yet supported and may parse weird: ",
-  }
+  },
+  {
+    // There's a bunch of syntax errors in suite code; this should ideally be
+    // handled via a repo settings.
+    includes_list: ["/comm-central/git/suite/"],
+    severity: "INFO",
+    prepend: "Unmaintained code: "
+  },
 ];
 
 function logError(msg)
@@ -197,9 +213,13 @@ function logError(msg)
   // is an include and since we don't actually include things, things can break.
   // An enhancement would be accepted to try and do better, but this can't be a
   // supported feature at this time without a maintainer for it.
-  if (gIncludeUsed) {
+  if (severity === "WARN" && gIncludeUsed) {
     severity = "INFO";
     msg = `Downgrading warning to info because #include was used: ${msg}`;
+  }
+  if (severity === "WARN" && gCouldBeJson && msg.includes("SyntaxError: unexpected token")) {
+    severity = "INFO";
+    msg = `Downgrading warning to info because file could be JSON because it starts with '{': ${msg}`;
   }
 
   //
@@ -1332,6 +1352,7 @@ function preprocess(filename, comment)
   // if the filename has the word "error" in it.
   gFilename = filename;
   gIncludeUsed = false;
+  gCouldBeJson = false;
 
   let text;
   try {
@@ -1341,11 +1362,18 @@ function preprocess(filename, comment)
     // preprocessed file for the MPL and this is not helpful.  One is also a
     // mozconfig.  Just no-op the file.
     // https://searchfox.org/mozilla-central/search?q=path%3A.js%20%23%20This%20Source%20Code%20Form%20is%20subject%20to%20the%20terms%20of%20the%20Mozilla%20Public&path=
-    if (text.startsWith("# This Source Code Form is subject to the terms of the Mozilla Public")) {
+    // okay, also l10n (which is also getting a file constraint"):
+    // https://searchfox.org/l10n/source/tn/mail/all-l10n.js
+    if (text.startsWith("# This Source Code Form is subject to the terms of the Mozilla Public") ||
+        text.startsWith("# ***** BEGIN LICENSE BLOCK *****")) {
       text = "";
     }
   } catch (e) {
     text = "";
+  }
+
+  if (text.startsWith("{")) {
+    gCouldBeJson = true;
   }
 
   let substitution = false;
