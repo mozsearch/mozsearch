@@ -50,7 +50,9 @@ const FILENAME_INTERVENTIONS = [
   {
     // "dromaeo" is from:
     // https://searchfox.org/mozilla-central/source/testing/talos/talos/tests/dromaeo/test-tail.js
-    includes_list: ["error", "fixture", "bad", "syntax", "invalid", "dromaeo"],
+    //
+    // "JSTests" is wubkat.
+    includes_list: ["error", "fixture", "bad", "syntax", "invalid", "dromaeo", "/JSTests/"],
     severity: "INFO",
     // JS engines love to have test cases that intentionally have syntax errors
     // in them.  To this end, we downgrade any such file to an info.  This
@@ -172,10 +174,25 @@ const FILENAME_INTERVENTIONS = [
   },
   {
     // There's a bunch of syntax errors in suite code; this should ideally be
-    // handled via a repo settings.
-    includes_list: ["/comm-central/git/suite/"],
+    // handled via a repo settings.  I had made this specific to comm-central
+    // at first but we have ESR versions we index too, so this is now more
+    // general.
+    includes_list: ["/suite/"],
     severity: "INFO",
     prepend: "Unmaintained code: "
+  },
+  {
+    // https://searchfox.org/mozilla-vpn-client/source/glean/org/mozilla/Glean/glean.js
+    // is apparently a QML js file that uses a weird ".import" and ".pragma"
+    // syntax that's not legit JS, obviously.
+    includes_list: ["glean.js"],
+    severity: "INFO",
+    prepend: "May be weird QML file: "
+  },
+  {
+    includes_list: ["/puppeteer/"],
+    severity: "INFO",
+    prepend: "Puppeteer has weird JS in old m-c trees: "
   },
 ];
 
