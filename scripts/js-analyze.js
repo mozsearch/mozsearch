@@ -10,12 +10,12 @@ let gCouldBeJson = false;
 
 const ERROR_INTERVENTIONS = [
   {
-    includes: "expected expression, got '<':",
+    includes: "expected expression, got '<': ",
     severity: "INFO",
     prepend: "React detected: ",
   },
   {
-    includes: "import assertions are not currently supported",
+    includes: "import assertions are not currently supported: ",
     severity: "INFO",
     prepend: "Not yet supported: "
   },
@@ -30,7 +30,7 @@ const ERROR_INTERVENTIONS = [
     prepend: "Invalid escapes are probably intentional: "
   },
   {
-    includes: "missing ; after for-loop condition",
+    includes: "missing ; after for-loop condition: ",
     severity: "INFO",
     prepend: "Wacky test idiom?: "
   },
@@ -38,7 +38,20 @@ const ERROR_INTERVENTIONS = [
     includes: "expected expression, got '%'",
     severity: "INFO",
     prepend: "Probable WPT interpolation mechanism: "
-  }
+  },
+  // This happened on `import("./basic.css", { assert: { type: "css" } })` in
+  // a WPT only in esr91 where it seems like dynamic import is hard-coded to
+  // not know about the second optional args right now.  However, we do seem to
+  // be implementing the assertions, so this could go away.
+  //
+  // That said, this type of problem in the JS code is not something searchfox
+  // can do anything about, especially if our parser is mad, so this is
+  // reasonable to downgrade in general.
+  {
+    includes: "missing ) after argument list",
+    severity: "INFO",
+    prepend: "(unsupported) import assertions can parse this way: "
+  },
 ];
 
 // Note that once we can process .eslintignore most of these can go away because
