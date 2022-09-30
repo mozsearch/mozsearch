@@ -65,7 +65,7 @@ const FILENAME_INTERVENTIONS = [
     // https://searchfox.org/mozilla-central/source/testing/talos/talos/tests/dromaeo/test-tail.js
     //
     // "JSTests" is wubkat.
-    includes_list: ["error", "fixture", "bad", "syntax", "invalid", "dromaeo", "/JSTests/"],
+    includes_list: ["error", "fixture", "bad", "syntax", "invalid", "dromaeo", "/jstests/"],
     severity: "INFO",
     // JS engines love to have test cases that intentionally have syntax errors
     // in them.  To this end, we downgrade any such file to an info.  This
