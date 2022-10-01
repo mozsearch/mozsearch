@@ -128,7 +128,7 @@ const FILENAME_INTERVENTIONS = [
     //
     // https://searchfox.org/l10n/source/tn/mail/all-l10n.js is an l10n example
     // of a pref file; there are others like `firefox-l10n.js`.
-    includes_list: ["user.js", "prefs.js", "/libpref/", "/mozprofile/", "-l10n.js"],
+    includes_list: ["user.js", "prefs.js", "firefox.js", "/libpref/", "/mozprofile/", "-l10n.js"],
     severity: "INFO",
     prepend: "Prefs files can be weird: ",
   },
@@ -208,6 +208,14 @@ const FILENAME_INTERVENTIONS = [
     includes_list: ["/puppeteer/"],
     severity: "INFO",
     prepend: "Puppeteer has weird JS in old m-c trees: "
+  },
+  {
+    // mozilla-central proper provides the coverage we need, whereas we have an
+    // ever-growing list of ESR JS code that never gets updated.  These are
+    // being added for config3 which is home to our oldest ESR code.
+    includes_list: ["/mozilla-esr", "/comm-esr"],
+    severity: "INFO",
+    prepend: "ESR failsafe: "
   },
   {
     // We still have a lot of wubkat warnings.  The is a bulk silencing, but
