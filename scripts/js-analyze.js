@@ -1,6 +1,8 @@
 let nextSymId = 0;
 let localFile, fileIndex, mozSearchRoot;
 
+// The parsing mode we're currently using.
+let gParsedAs = "script";
 // Filename for logError to use heuristics to downgrade errors/warnings.
 let gFilename = "";
 // Was there an `#include` present which should downgrade errors/warnings?
@@ -207,6 +209,23 @@ const FILENAME_INTERVENTIONS = [
     severity: "INFO",
     prepend: "Puppeteer has weird JS in old m-c trees: "
   },
+  {
+    // We still have a lot of wubkat warnings.  The is a bulk silencing, but
+    // patches would be accepted to eliminate this in conjunction with the
+    // addition of more specific interventions.
+    //
+    // I'm not adding more interventions for this right now due to:
+    // - time limitations
+    // - the potential for .eslintignore hook-up to perhaps moot all of these
+    //   interventions
+    // - our plan to replace this file with scip-typescript; our reason for
+    //   logging any warnings here is to make sure we don't have coverage gaps,
+    //   but when we move to scip-typescript, the quality assurance comes from
+    //   scip-typescript itself, not us.
+    includes_list: ["/wubkat/"],
+    severity: "INFO",
+    prepend: "Wubkat failsafe: "
+  }
 ];
 
 function logError(msg)
@@ -252,10 +271,9 @@ function logError(msg)
     msg = `Downgrading warning to info because file could be JSON because it starts with '{': ${msg}`;
   }
 
-  //
   // This means we may end up needing to add a bunch of tree-specific
   // exclusions, which is probably fine.
-  printErr(`${severity} ${msg}\n`);
+  printErr(`${severity} when parsing as '${gParsedAs}': ${msg}\n`);
 }
 
 function SymbolTable()
@@ -544,9 +562,9 @@ let Analyzer = {
   parse(text, filename, line) {
     let ast;
     try {
-      let target = filename.endsWith(".mjs") ? "module" : "script";
+      gParsedAs = filename.endsWith(".mjs") ? "module" : "script";
       try {
-        ast = Reflect.parse(text, { loc: true, source: filename, line, target });
+        ast = Reflect.parse(text, { loc: true, source: filename, line, target: gParsedAs });
       } catch (ex) {
         // If we were trying to parse something as script and it had an import,
         // attempt to re-parse it as a module.
@@ -556,9 +574,9 @@ let Analyzer = {
              // module in this case too
              ex.message.includes("await is only valid in") ||
              ex.message.includes("import.meta may only appear in a module")) &&
-            target === "script") {
-          target = "module";
-          ast = Reflect.parse(text, { loc: true, source: filename, line, target });
+            gParsedAs === "script") {
+          gParsedAs = "module";
+          ast = Reflect.parse(text, { loc: true, source: filename, line, target: gParsedAs });
         } else {
           // just re-throw because it didn't seem to be an import error.
           throw ex;
