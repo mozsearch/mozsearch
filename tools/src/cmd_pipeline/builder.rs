@@ -18,7 +18,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand};
+use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -40,6 +40,8 @@ use super::interface::ServerPipeline;
 pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand + Send + Sync>> {
     match opts.cmd {
         Command::AugmentResults(ar) => Ok(Box::new(AugmentResultsCommand { args: ar })),
+
+        Command::BatchRender(br) => Ok(Box::new(BatchRenderCommand { args: br })),
 
         Command::CatHtml(ch) => Ok(Box::new(CatHtmlCommand { args: ch })),
 

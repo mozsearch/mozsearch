@@ -8,6 +8,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "testing/web-platform/meta/fake-standard/test_ima_disabled_wpt.js.ini",
       "concise": {
         "path_kind": "Test files",
+        "is_dir": false,
         "file_size": 133,
         "bugzilla_component": null,
         "subsystem": null,
@@ -20,6 +21,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "testing/web-platform/meta/fake-standard/test_ima_sad_subtests_wpt.js.ini",
       "concise": {
         "path_kind": "Test files",
+        "is_dir": false,
         "file_size": 133,
         "bugzilla_component": null,
         "subsystem": null,
@@ -32,6 +34,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "testing/web-platform/meta/fake-standard/test_ima_weird_meta_wpt.js.ini",
       "concise": {
         "path_kind": "Test files",
+        "is_dir": false,
         "file_size": 133,
         "bugzilla_component": null,
         "subsystem": null,
@@ -44,6 +47,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js",
       "concise": {
         "path_kind": "Test files",
+        "is_dir": false,
         "file_size": 43,
         "bugzilla_component": null,
         "subsystem": null,
@@ -51,8 +55,23 @@ expression: "&to_value(fm).unwrap()"
         "description": null,
         "info": {
           "test": {
-            "failure_count": 0,
-            "skip_if": null
+            "failure_count": 0
+          },
+          "wpt": {
+            "disabling_conditions": [
+              [
+                null,
+                "12345"
+              ],
+              [
+                "os == \"win\"\n",
+                "https://bugzilla.mozilla.org/show_bug.cgi?id=234567"
+              ],
+              [
+                "os == \"linux\"\n",
+                "https://bugzilla.mozilla.org/234567"
+              ]
+            ]
           }
         }
       }
@@ -61,6 +80,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "testing/web-platform/tests/fake-standard/test_ima_sad_subtests_wpt.js",
       "concise": {
         "path_kind": "Test files",
+        "is_dir": false,
         "file_size": 43,
         "bugzilla_component": null,
         "subsystem": null,
@@ -68,8 +88,10 @@ expression: "&to_value(fm).unwrap()"
         "description": null,
         "info": {
           "test": {
-            "failure_count": 0,
-            "skip_if": null
+            "failure_count": 0
+          },
+          "wpt": {
+            "disabled_subtests_count": 3
           }
         }
       }
@@ -78,6 +100,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "testing/web-platform/tests/fake-standard/test_ima_weird_meta_wpt.js",
       "concise": {
         "path_kind": "Test files",
+        "is_dir": false,
         "file_size": 43,
         "bugzilla_component": null,
         "subsystem": null,
@@ -85,9 +108,9 @@ expression: "&to_value(fm).unwrap()"
         "description": null,
         "info": {
           "test": {
-            "failure_count": 0,
-            "skip_if": null
-          }
+            "failure_count": 0
+          },
+          "wpt": {}
         }
       }
     }

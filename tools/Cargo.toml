@@ -29,9 +29,10 @@ insta = { version = "1.14.0" }
 ipdl_parser = { path = "./ipdl_parser" }
 # asuth picked this version because our Cargo.lock already had 0.7.11 for our
 # rls-analysis dep.
-itertools = "0.7.11"
+itertools = "0.10"
 json-structural-diff = "0.1.0"
 lazy_static = "1.1"
+lexical-sort = "0.3"
 linkify = "0.2.0"
 liquid = "0.26.0"
 liquid-core = "0.26.0"

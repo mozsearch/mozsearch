@@ -1,5 +1,5 @@
 /* icons */
-.icon.folder {
+.icon.folder, .icon-folder {
   background: transparent url(../icons/mimetypes/folder.png) 0.5em 7px
     no-repeat;
   padding: 0.5em 0.5em 0.5em 30px; /* 30px = 16px icon + 7px padding above + a little more whitespace */
@@ -168,77 +168,77 @@
    mapping phase and so it's necessary for the extension to be prefixed and to
    allow for a fallback to unknown.
 */
-.icon-bullet.icon-c {
+.icon-c {
   background-image: url(../icons/mimetypes/c.png);
 }
-.icon-bullet.icon-conf {
+.icon-conf {
   background-image: url(../icons/mimetypes/conf.png);
 }
-.icon-bullet.icon-cpp {
+.icon-cpp {
   background-image: url(../icons/mimetypes/cpp.png);
 }
-.icon-bullet.icon-cs {
+.icon-cs {
   background-image: url(../icons/mimetypes/cs.png);
 }
-.icon-bullet.icon-css {
+.icon-css {
   background-image: url(../icons/mimetypes/css.png);
 }
-.icon-bullet.icon-diff {
+.icon-diff {
   background-image: url(../icons/mimetypes/diff.png);
 }
-.icon-bullet.icon-h {
+.icon-h {
   background-image: url(../icons/mimetypes/h.png);
 }
-.icon-bullet.icon-html {
+.icon-html {
   background-image: url(../icons/mimetypes/html.png);
 }
-.icon-bullet.icon-iso {
+.icon-iso {
   background-image: url(../icons/mimetypes/iso.png);
 }
-.icon-bullet.icon-image {
+.icon-image {
   background-image: url(../icons/mimetypes/image.png);
 }
-.icon-bullet.icon-java {
+.icon-java {
   background-image: url(../icons/mimetypes/java.png);
 }
-.icon-bullet.icon-js {
+.icon-js, .icon-jsm, .icon-mjs {
   background-image: url(../icons/mimetypes/js.png);
 }
-.icon-bullet.icon-mm {
+.icon-mm {
   background-image: url(../icons/mimetypes/mm.png);
 }
-.icon-bullet.icon-php {
+.icon-php {
   background-image: url(../icons/mimetypes/php.png);
 }
-.icon-bullet.icon-py {
+.icon-py {
   background-image: url(../icons/mimetypes/py.png);
 }
-.icon-bullet.icon-rb {
+.icon-rb {
   background-image: url(../icons/mimetypes/rb.png);
 }
-.icon-bullet.icon-sh {
+.icon-sh {
   background-image: url(../icons/mimetypes/sh.png);
 }
-.icon-bullet.icon-svg {
+.icon-svg {
   background-image: url(../icons/mimetypes/svg.png);
 }
-.icon-bullet.icon-tex {
+.icon-tex {
   background-image: url(../icons/mimetypes/tex.png);
 }
-.icon-bullet.icon-txt {
+.icon-txt {
   background-image: url(../icons/mimetypes/txt.png);
 }
-.icon-bullet.icon-ui {
+.icon-ui {
   background-image: url(../icons/mimetypes/ui.png);
 }
 /* absent a more specific icon rule, assume unknown */
 .icon-bullet,
-.icon-bullet.icon-unknown {
+.icon-unknown {
   background-image: url(../icons/mimetypes/unknown.png);
 }
-.icon-bullet.icon-vs {
+.icon-vs {
   background-image: url(../icons/mimetypes/vs.png);
 }
-.icon-bullet.icon-xml {
+.icon-xml {
   background-image: url(../icons/mimetypes/xml.png);
 }

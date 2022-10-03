@@ -8,6 +8,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "bug1446220_unicode.html",
       "concise": {
         "path_kind": "Normal",
+        "is_dir": false,
         "file_size": 10485,
         "bugzilla_component": null,
         "subsystem": null,
@@ -20,6 +21,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "mobile/androidTest/asserts/inputs.html",
       "concise": {
         "path_kind": "Test files",
+        "is_dir": false,
         "file_size": 845,
         "bugzilla_component": null,
         "subsystem": null,
@@ -32,6 +34,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "test_DOMWindowCreated_chromeonly.html",
       "concise": {
         "path_kind": "Normal",
+        "is_dir": false,
         "file_size": 728,
         "bugzilla_component": null,
         "subsystem": null,
@@ -39,8 +42,7 @@ expression: "&to_value(fm).unwrap()"
         "description": "DOMWindowCreated not visible in content",
         "info": {
           "test": {
-            "failure_count": 5,
-            "skip_if": null
+            "failure_count": 5
           }
         }
       }

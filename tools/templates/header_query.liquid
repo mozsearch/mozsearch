@@ -1,31 +1,36 @@
-<!DOCTYPE html>
+{%- if autofocus -%}
+  {%- assign maybe_autofocus = "autofocus " -%}
+{%- else -%}
+  {%- assign maybe_autofocus = "" -%}
+{%- endif -%}
+  <!DOCTYPE html>
 <html lang="en-US">
 <head>
-    <meta charset="utf-8">
-    <meta name="color-scheme" content="light dark">
-    <link href="/{{tree}}/static/icons/search.png" rel="shortcut icon">
-    <title>Q: {{query | escape}}</title>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <link href="/{{tree}}/static/icons/search.png" rel="shortcut icon">
+  <title>{{ title }}</title>
 
-    <link href="/{{tree}}/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
-    <link href="/{{tree}}/static/css/icons.css" rel="stylesheet" media="screen" />
+  <link href="/{{tree}}/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
+  <link href="/{{tree}}/static/css/icons.css" rel="stylesheet" media="screen" />
 </head>
 
 <body>
 <div id="fixed-header">
-    <form method="get" action="/{{tree}}/query/{{preset}}" class="search-box" id="search-box">
-    <fieldset>
-        <div id="query-section">
-            <label for="query" class="query_label visually-hidden">Find</label>
-            <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" autofocus />
-            <div class="zero-size-container">
-                <div class="bubble" id="query-bubble">
-                </div>
-            </div>
-            <section id="spinner"></section>
+  <form method="get" action="/{{tree}}/query/{{preset}}" class="search-box" id="search-box">
+  <fieldset>
+    <div id="query-section">
+      <label for="query" class="query_label visually-hidden">Find</label>
+      <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" {{ maybe_autofocus }}/>
+      <div class="zero-size-container">
+        <div class="bubble" id="query-bubble">
         </div>
-    </fieldset>
-    <!-- We currently depend on the default submit behavior for Query so we do
-         not mark this disabled like we do for "search" -->
-    <input type="submit" value="Search" class="visually-hidden" />
-    </form>
+      </div>
+      <section id="spinner"></section>
+    </div>
+  </fieldset>
+  <!-- We currently depend on the default submit behavior for Query so we do
+        not mark this disabled like we do for "search" -->
+  <input type="submit" value="Search" class="visually-hidden" />
+  </form>
 </div>

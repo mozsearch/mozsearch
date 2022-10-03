@@ -208,6 +208,9 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         Ok(PipelineValues::TextMatches(tm)) => {
                             insta::assert_json_snapshot!(&to_value(tm).unwrap());
                         }
+                        Ok(PipelineValues::BatchGroups(bg)) => {
+                            insta::assert_json_snapshot!(&to_value(bg).unwrap());
+                        }
                         Err(ServerError::Unsupported) => {
                             // We're intentionally skipping doing anything here.
                             // Our assumption is that this error will only be

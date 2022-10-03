@@ -2,6 +2,7 @@
   "fake-standard": {
     "_tests": {
       "test_ima_disabled_wpt.js": {
+        "_filename": "test_ima_disabled_wpt.js",
         "disabled": [
           [null, "12345"],
           ["os == \"win\"\n", "https://bugzilla.mozilla.org/show_bug.cgi?id=234567"],
@@ -9,13 +10,15 @@
         ]
       },
       "test_ima_sad_subtests_wpt.js": {
+        "_filename": "test_ima_sad_subtests_wpt.js",
         "_subtests": {
           "foo": {},
           "bar": {},
           "baz": {}
         }
       },
-      "test_ima_weird_meta_wpt.js": {
+      "test_ima_weird_meta_wpt.html": {
+        "_filename": "test_ima_weird_meta_wpt.js"
       }
     }
   }

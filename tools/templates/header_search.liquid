@@ -1,48 +1,53 @@
+{%- if autofocus -%}
+  {%- assign maybe_autofocus = "autofocus " -%}
+{%- else -%}
+  {%- assign maybe_autofocus = "" -%}
+{%- endif -%}
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-    <meta charset="utf-8">
-    <meta name="color-scheme" content="light dark">
-    <link href="/{{tree}}/static/icons/search.png" rel="shortcut icon">
-    <title>Search: {{query | escape}}</title>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <link href="/{{tree}}/static/icons/search.png" rel="shortcut icon">
+  <title>{{ title }}</title>
 
-    <link href="/{{tree}}/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
-    <link href="/{{tree}}/static/css/icons.css" rel="stylesheet" media="screen" />
+  <link href="/{{tree}}/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
+  <link href="/{{tree}}/static/css/icons.css" rel="stylesheet" media="screen" />
 </head>
 
 <body>
 <div id="fixed-header">
-    <form method="get" action="/{{tree}}/search" class="search-box" id="search-box">
+  <form method="get" action="/{{tree}}/search" class="search-box" id="search-box">
     <fieldset>
-        <div id="query-section">
+      <div id="query-section">
         <label for="query" class="query_label visually-hidden">Find</label>
-        <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" autofocus />
+        <input type="text" name="q"  value="{{query | escape}}" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search {{tree}}" autocomplete="off" {{ maybe_autofocus }}/>
         <div class="zero-size-container">
-            <div class="bubble" id="query-bubble">
-            </div>
+          <div class="bubble" id="query-bubble">
+          </div>
         </div>
         <section id="spinner"></section>
-        </div>
-        <div id="option-section" class="v-flex-container">
+      </div>
+      <div id="option-section" class="v-flex-container">
         <label for="case">
-            <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" /><span class="access-key">C</span>ase-sensitive
+          <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" /><span class="access-key">C</span>ase-sensitive
         </label>
         <label for="regexp">
-            <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search
+          <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search
         </label>
-        </div>
-        <div id="path-section">
+      </div>
+      <div id="path-section">
         <label for="path" class="query_label visually-hidden">Path</label>
         <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />
         <div class="zero-size-container">
-            <div class="bubble" id="path-bubble">
-            </div>
+          <div class="bubble" id="path-bubble">
+          </div>
         </div>
-        </div>
+      </div>
     </fieldset>
     <!-- We're marking this disabled in order to avoid the user pressing enter
          triggering the default submit behavior and conflicting with our dynamic
          logic. -->
     <input type="submit" value="Search" disabled class="visually-hidden" />
-    </form>
+  </form>
 </div>

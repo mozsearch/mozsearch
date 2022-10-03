@@ -246,11 +246,14 @@ source = [{ root = "index", file = "wpt-metadata-summary.json" }]
 [jsonfile."wpt-metadata-summary.json".ingestion]
 root = ""
 nesting = "flat-dir-dict-files-are-keys"
-# The dict of tests keyed by their filename is nested under "_tests".  There is
-# some
+# The dict of tests keyed by their filename is nested under "_tests".
 nesting_key = "_tests"
+# Prefix every path we see with our WPT root.
+path_prefix = "testing/web-platform/tests"
+# NB: this mechanism currently only exists for "flat-dir-dict-files-are-keys"
+filename_key = "_filename"
 
 [jsonfile."wpt-metadata-summary.json".concise.info.wpt.object]
 disabling_conditions.pointer = "/disabled"
-disabled_subtests_count.pointer = "/subtests"
+disabled_subtests_count.pointer = "/_subtests"
 disabled_subtests_count.aggregation = "length"

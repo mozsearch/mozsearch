@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use axum::response::{IntoResponse, Response};
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use futures_core::stream::BoxStream;
 use serde::Serialize;
 use serde_json::Value;
-use ustr::Ustr;
+use ustr::{ustr, Ustr};
 
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 
@@ -37,7 +37,7 @@ impl From<tokio::task::JoinError> for ServerError {
     fn from(err: tokio::task::JoinError) -> ServerError {
         ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::RuntimeInvariantViolation,
-            message: format!("task panicked?: {}", err.to_string())
+            message: format!("task panicked?: {}", err.to_string()),
         })
     }
 }
@@ -175,9 +175,31 @@ pub struct FileMatch {
     pub concise: ConcisePerFileInfo<Ustr>,
 }
 
+impl FileMatch {
+    pub fn get_containing_dir(&self) -> Ustr {
+        match self.path.rfind('/') {
+            // We don't want to include the trailing "/"
+            Some(offset) => ustr(&self.path[0..offset]),
+            None => ustr(""),
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct FileMatches {
     pub file_matches: Vec<FileMatch>,
+}
+
+pub enum SearchfoxIndexRoot {
+    /// Already gzipped analysis files.  Note that `fetch_raw_analysis` exists
+    /// and should be used in preference to this for reading file contents.
+    CompressedAnalysis,
+    /// Directory listings.
+    UncompressedDirectoryListing,
+}
+
+pub struct TreeInfo {
+    pub name: String,
 }
 
 /// Unified exposure for interacting with a local Searchfox index on disk or
@@ -218,9 +240,16 @@ pub struct FileMatches {
 pub trait AbstractServer {
     fn clonify(&self) -> Box<dyn AbstractServer + Send + Sync>;
 
-    /// Convert a searchfox tree-local path into an absolute analysis path on
-    /// disk.  This fundamentally only works for local indices.
-    fn translate_analysis_path(&self, sf_path: &str) -> Result<String>;
+    fn tree_info(&self) -> Result<TreeInfo>;
+
+    /// Convert a searchfox tree-local path into an absolute path on disk using
+    /// the requested root.  This fundamentally only works for local indices.
+    /// Note that many paths also have uncompressed (pre compress-outputs.sh)
+    /// and compressed variants (post compress-outputs.sh).  In general the
+    /// uncompressed variants only make sense for parts of the indexing process
+    /// using searchfox-tool.  All checks will happen after compression has
+    /// happened.
+    fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String>;
 
     /// Fetch the contents of the analysis file for the given searchfox
     /// tree-local path, decompressing if it's compressed.
@@ -260,7 +289,12 @@ pub trait AbstractServer {
     /// Note that this will initially be local-only and whether it makes sense
     /// as a remote API really hinges on a rationale for not just remoting
     /// the new "query" mechanism.
-    async fn search_files(&self, pathre: &str, limit: usize) -> Result<FileMatches>;
+    async fn search_files(
+        &self,
+        pathre: &str,
+        include_dirs: bool,
+        limit: usize,
+    ) -> Result<FileMatches>;
 
     /// Given an identifier (prefix), return pairs of matching identifiers and
     /// symbols that correspond to those identifiers.

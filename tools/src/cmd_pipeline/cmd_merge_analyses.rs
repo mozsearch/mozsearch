@@ -43,7 +43,7 @@ impl PipelineCommand for MergeAnalysesCommand {
             .args
             .files
             .iter()
-            .map(|f| server.translate_analysis_path(f))
+            .map(|f| server.translate_path(crate::abstract_server::SearchfoxIndexRoot::CompressedAnalysis, f))
             .collect();
 
         let mut merged_output = Vec::new();

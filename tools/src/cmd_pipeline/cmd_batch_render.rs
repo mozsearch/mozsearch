@@ -1,22 +1,51 @@
 use async_trait::async_trait;
-use serde_json::{to_value};
 use clap::Args;
 
-use super::{interface::{JsonValue, PipelineCommand, PipelineValues}, builder::build_pipeline_graph};
+use super::interface::{PipelineCommand, PipelineValues};
 use crate::{
-    abstract_server::{AbstractServer, Result}, query::chew_query::chew_query,
+    abstract_server::{
+        AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
+    },
+    templating::builder::build_and_parse_dir_listing,
 };
 
 #[derive(Debug, Args)]
 pub struct BatchRender {
     /// Preconfigured rendering task.  This could be an enum or sub-command, but
     /// for now we're just going for strings.
+    #[clap(value_parser)]
     task: String,
 }
 
+/// General operation:
+/// - We take a `BatchGroups` as input.
+/// - We iterate over each batch group and pass it to the liquid template
+///   associated with this task.
+/// - We expand the path template associated with the task and write it out.
 #[derive(Debug)]
 pub struct BatchRenderCommand {
     pub args: BatchRender,
+}
+
+fn write_file_ensuring_parent_dir(file_path: &str, contents: &str) -> Result<()> {
+    let as_path = std::path::Path::new(file_path);
+    let parent_path = match as_path.parent() {
+        Some(p) => p,
+        None => {
+            return Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::DataLayer,
+                message: format!("Problem getting parent of '{}'", file_path),
+            }));
+        }
+    };
+    if let Err(e) = std::fs::create_dir_all(parent_path) {
+        return Err(ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::DataLayer,
+            message: format!("Problem creating parent of '{}': {}", file_path, e),
+        }));
+    }
+    std::fs::write(as_path, contents)?;
+    Ok(())
 }
 
 #[async_trait]
@@ -24,17 +53,53 @@ impl PipelineCommand for BatchRenderCommand {
     async fn execute(
         &self,
         server: &Box<dyn AbstractServer + Send + Sync>,
-        _input: PipelineValues,
+        input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let pipeline_plan = chew_query(&self.args.query)?;
+        let batch_groups = match input {
+            PipelineValues::BatchGroups(bg) => bg,
+            _ => {
+                return Err(ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::ConfigLayer,
+                    message: "batch-render needs BatchGroups".to_string(),
+                }));
+            }
+        };
 
-        if self.args.dump_pipeline {
-            return Ok(PipelineValues::JsonValue(JsonValue { value: to_value(pipeline_plan)? }));
+        match self.args.task.as_str() {
+            "dir" => {
+                let template = build_and_parse_dir_listing();
+                let tree_info = server.tree_info()?;
+                for item in batch_groups.groups {
+                    if let PipelineValues::FileMatches(fm) = item.value {
+                        let liquid_globals = liquid::object!({
+                            "tree": tree_info.name,
+                            // the header always needs this
+                            "query": "",
+                            "path": item.name,
+                            "files": fm.file_matches,
+                        });
+                        let rendered = match template.render(&liquid_globals) {
+                            Ok(r) => r,
+                            Err(e) => {
+                                return Err(ServerError::StickyProblem(ErrorDetails {
+                                    layer: ErrorLayer::ConfigLayer,
+                                    message: format!("Template problems: {}", e),
+                                }));
+                            }
+                        };
+                        let output_path = server.translate_path(
+                            SearchfoxIndexRoot::UncompressedDirectoryListing,
+                            &item.name,
+                        )?;
+                        write_file_ensuring_parent_dir(&output_path, &rendered)?;
+                    }
+                }
+                Ok(PipelineValues::Void)
+            }
+            unknown => Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::ConfigLayer,
+                message: format!("Unknown task type: {}", unknown),
+            })),
         }
-
-        let graph = build_pipeline_graph(server.clonify(), pipeline_plan)?;
-
-        let result = graph.run(true).await;
-        result
     }
 }

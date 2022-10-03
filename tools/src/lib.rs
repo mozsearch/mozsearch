@@ -9,6 +9,7 @@ extern crate include_dir;
 extern crate itertools;
 extern crate linkify;
 extern crate regex;
+extern crate lexical_sort;
 extern crate liquid;
 extern crate query_parser;
 extern crate serde;

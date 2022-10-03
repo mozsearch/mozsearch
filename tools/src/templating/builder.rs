@@ -58,3 +58,12 @@ pub fn build_and_parse_query_results() -> Template {
         .unwrap();
     build_and_parse(template_str)
 }
+
+pub fn build_and_parse_dir_listing() -> Template {
+    let template_str = TEMPLATE_DIR
+        .get_file("dir_listing.liquid")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    build_and_parse(template_str)
+}

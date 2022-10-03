@@ -2,6 +2,7 @@ use std::fs::{File};
 use std::io::{BufReader};
 use std::sync::Arc;
 
+use lexical_sort::natural_lexical_cmp;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, Map, Value};
@@ -63,17 +64,23 @@ impl FileLookupMap {
     }
 
     /// Search the list of files by applying a regexp to the paths.
-    pub fn search_files(&self, pathre: &str, limit: usize) -> Result<FileMatches> {
+    pub fn search_files(&self, pathre: &str, include_dirs: bool, limit: usize) -> Result<FileMatches> {
         let re_path = Regex::new(pathre)?;
         let mut matches: Vec<FileMatch> = self.concise_per_file.iter()
-            .filter(|v| re_path.is_match(v.0))
+            .filter(|v| {
+                if !include_dirs && v.1.is_dir {
+                    false
+                } else {
+                    re_path.is_match(v.0)
+                }
+            })
             .map(|v| {
                 FileMatch {
                     path: v.0.clone(),
                     concise: v.1.clone(),
                 }
             }).take(limit).collect();
-        matches.sort_unstable_by_key(|x| x.path);
+        matches.sort_unstable_by(|a, b| natural_lexical_cmp(&a.path, &b.path));
         Ok(FileMatches {
             file_matches: matches,
         })

@@ -1,0 +1,33 @@
+<table class="folder-content">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Description</th>
+        <th scope="col">Size</th>
+      </tr>
+    </thead>
+    <tbody>
+    {%- for file in files %}
+        {% capture file_url %}/{{ tree }}/source/{{ file.path }}{% endcapture -%}
+        {%- if file.concise.is_dir -%}
+            {%- assign icon_kind = "folder" -%}
+            {%- assign file_size = "" %}
+        {%- else -%}
+            {%- capture icon_kind %}{{ file.path | fileext }}{% endcapture -%}
+            {%- capture file_size %}{{ file.concise.file_size }}{% endcapture -%}
+        {%- endif -%}
+        <tr>
+          {% comment %}
+          We used to have images be their own icon by hitting the hg server, but
+          this seems wasteful for both the user and the hg server.  Searchfox is
+          also absolutely capable of downsampling the image, so if people ask
+          for this feature to come back, we should probably pre-compute low(er)
+          resolution versions of the icons.
+          {% endcomment -%}
+          <td><a href="{{ file_url }}" class="icon icon-{{ icon_kind }}">{{ file.path | split: "/" | last }}</a></td>
+          <td class="description"><a href="{{ file_url }}" title="{{ file.concise.description | default: "" | escape }}">{{ file.concise.description | default: "" | escape }}</td>
+          <td><a href="{{ file_url }}">{{ file_size }}</a></td>
+        </tr>
+{% endfor %}
+    </tbody>
+</table>

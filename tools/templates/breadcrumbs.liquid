@@ -1,0 +1,9 @@
+{%- assign path_segments = path | split: "/" %}
+  <div class="breadcrumbs">
+    <a href="/{{tree}}/source/">{{ tree }}</a>
+{%- for segment in path_segments -%}
+  <span class="path-separator">/</span>
+  {%- assign path_so_far = path_segments | slice: 0, forloop.index | join: "/" -%}
+  <a href="/{{tree}}/source/{{path_so_far}}">{{ segment }}</a>
+{%- endfor %}
+  </div>

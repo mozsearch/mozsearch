@@ -136,6 +136,10 @@ async fn main() {
             emit_json(&to_value(tm).unwrap());
             0
         }
+        Ok(PipelineValues::BatchGroups(bg)) => {
+            emit_json(&to_value(bg).unwrap());
+            0
+        }
         Err(err) => {
             println!("Pipeline Error!");
             println!("{:?}", err);

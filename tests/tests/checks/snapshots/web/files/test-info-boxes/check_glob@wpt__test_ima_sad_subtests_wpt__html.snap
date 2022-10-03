@@ -6,8 +6,7 @@ expression: "&fb.contents"
   <section class="info-box info-box-warning">
     <h4>Test Info: Warnings</h4>
     <div>
-      <ul>
-        <li>This test gets skipped with pattern: <span class="test-skip-info">toolkit == 'android' OR verify OR apple_silicon</span></li>
+      <ul><li>This test has a <a href="/tests/source/testing/web-platform/metafake-standard/test_ima_sad_subtests_wpt.js.ini">WPT meta file</a> that expects 3 subtest issues.</li>
       </ul>
     </div>
   </section>

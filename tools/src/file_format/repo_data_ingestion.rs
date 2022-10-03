@@ -1,3 +1,4 @@
+use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::File;
@@ -172,7 +173,10 @@ impl JsonEvalDictIngestion {
             _ => Map::new(),
         };
         for (key, value_ingest) in &mut self.extra {
-            mix_into.insert(key.clone(), value_ingest.eval(input_val, Value::Null));
+            let evaled = value_ingest.eval(input_val, Value::Null);
+            if !evaled.is_null() {
+                mix_into.insert(key.clone(), evaled);
+            }
         }
         Value::Object(mix_into)
     }
@@ -216,8 +220,9 @@ impl JsonEvalNodeIngestion {
         let traversed = match &self.pointer {
             Some(traversal) => match input_val.pointer(traversal) {
                 Some(val) => match self.aggregation.as_deref() {
-                    Some("length") => match val.as_array() {
-                        Some(arr) => json!(arr.len()),
+                    Some("length") => match &val {
+                        Value::Array(arr) => json!(arr.len()),
+                        Value::Object(obj) => json!(obj.len()),
                         _ => json!(0),
                     },
                     __ => val.clone(),
@@ -247,6 +252,9 @@ pub struct FileIngestion {
     root: String,
     nesting: String,
     nesting_key: Option<String>,
+    #[serde(default)]
+    path_prefix: String,
+    filename_key: Option<String>,
     value_lookup: Option<String>,
 }
 
@@ -258,6 +266,7 @@ pub struct RepoIngestion {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ConcisePerFileInfo<T: Ord> {
     pub path_kind: T,
+    pub is_dir: bool,
     pub file_size: u64,
     pub bugzilla_component: Option<(T, T)>,
     pub subsystem: Option<T>,
@@ -266,10 +275,11 @@ pub struct ConcisePerFileInfo<T: Ord> {
     pub info: Value,
 }
 
-impl Default for ConcisePerFileInfo<Ustr> {
-    fn default() -> Self {
+impl ConcisePerFileInfo<Ustr> {
+    fn default_is_dir(is_dir: bool) -> Self {
         ConcisePerFileInfo {
             path_kind: ustr(""),
+            is_dir,
             file_size: 0,
             bugzilla_component: None,
             subsystem: None,
@@ -282,14 +292,16 @@ impl Default for ConcisePerFileInfo<Ustr> {
 
 #[derive(Deserialize, Serialize)]
 pub struct DetailedPerFileInfo {
+    pub is_dir: bool,
     /// Coverage data; mozilla-central absolutely exceeds i32 regularly.
     pub coverage_lines: Option<Vec<i64>>,
     pub info: Value,
 }
 
-impl Default for DetailedPerFileInfo {
-    fn default() -> Self {
+impl DetailedPerFileInfo {
+    fn default_is_dir(is_dir: bool) -> Self {
         DetailedPerFileInfo {
+            is_dir,
             coverage_lines: None,
             info: json!({}),
         }
@@ -309,19 +321,21 @@ fn write_json_to_file<T: Serialize>(val: &T, path: &str) -> Option<()> {
 }
 
 impl IngestionState {
-    pub fn with_file_info<F>(&mut self, path: &Ustr, f: F)
+    /// Call the helper function with the concise and detailed storages for the
+    /// given path, creating the entries if they do not exist.
+    pub fn with_file_info<F>(&mut self, path: &Ustr, is_dir: bool, f: F)
     where
         F: FnOnce(&mut ConcisePerFileInfo<Ustr>, &mut DetailedPerFileInfo),
     {
         let concise_storage = self
             .concise_per_file
             .entry(path.clone())
-            .or_insert_with(|| ConcisePerFileInfo::default());
+            .or_insert_with(|| ConcisePerFileInfo::default_is_dir(is_dir));
 
         let detailed_storage = self
             .detailed_per_file
             .entry(path.clone())
-            .or_insert_with(|| DetailedPerFileInfo::default());
+            .or_insert_with(|| DetailedPerFileInfo::default_is_dir(is_dir));
 
         f(concise_storage, detailed_storage);
     }
@@ -333,8 +347,19 @@ impl IngestionState {
 
     pub fn write_out_and_drop_detailed_file_info(&mut self, index_path: &str) {
         for (path, detailed_info) in &self.detailed_per_file {
-            let detailed_file_info_fname =
-                format!("{}/detailed-per-file-info/{}", index_path, path);
+            let detailed_file_info_fname = if detailed_info.is_dir {
+                // We flatten the directories because we already need to do name
+                // transforming so we leverage the invariant that there should
+                // never be consecutive slashes to normalize them to "_" after
+                // doubling existing "_"s.
+                format!(
+                    "{}/detailed-per-dir-info/{}",
+                    index_path,
+                    path.replace("_", "__").replace("/", "_")
+                )
+            } else {
+                format!("{}/detailed-per-file-info/{}", index_path, path)
+            };
 
             // We haven't actually bothered to create this directory tree anywhere,
             // and we expect to be sparsely populating it, so just do the mkdir -p
@@ -447,11 +472,17 @@ impl RepoIngestion {
                 Err(_) => (None, 0),
             };
 
-            self.state.with_file_info(file_path, |pfi, _dfi| {
+            self.state.with_file_info(file_path, false, |pfi, _dfi| {
                 pfi.path_kind = use_path_kind;
                 pfi.description = description;
                 pfi.file_size = file_size;
             });
+        }
+    }
+
+    pub fn ingest_dir_list(&mut self, dirs: &Vec<Ustr>) {
+        for dir_path in dirs {
+            self.state.with_file_info(dir_path, true, |_cfi, _dfi| {});
         }
     }
 
@@ -626,16 +657,19 @@ impl RepoIngestion {
 
         match config.ingestion.nesting.as_str() {
             // bugzilla mapping, uses the lookup
-            "hierarchical-dict-dirs-are-dicts-files-are-values" => self
-                .state
-                .recurse_dir_dict_with_lookup(&mut config, &lookups, "", root),
+            "hierarchical-dict-dirs-are-dicts-files-are-values" => {
+                let path_prefix = config.ingestion.path_prefix.clone();
+                self.state
+                    .recurse_dir_dict_with_lookup(&mut config, &lookups, &path_prefix, root)
+            }
             // code coverage mapping
             "hierarchical-dict-explicit-key" => {
                 if let Some(children_key) = &config.ingestion.nesting_key.clone() {
+                    let path_prefix = config.ingestion.path_prefix.clone();
                     self.state.recurse_nested_explicit_children(
                         &mut config,
                         children_key,
-                        "",
+                        &path_prefix,
                         root.take(),
                     )
                 } else {
@@ -646,15 +680,29 @@ impl RepoIngestion {
                 }
             }
             "boring-dict-of-arrays" => {
-                if let (Some(path_key), Value::Object(root_obj)) =
-                    (&config.ingestion.nesting_key.clone(), root)
-                {
+                // for the path_prefix, normalize a trailing "/" onto it for
+                // consistency with the path_so_far-based mechanisms.
+                if let (Some(path_key), path_prefix, Value::Object(root_obj)) = (
+                    &config.ingestion.nesting_key.clone(),
+                    if config.ingestion.path_prefix.is_empty() {
+                        "".to_string()
+                    } else {
+                        format!("{}/", config.ingestion.path_prefix)
+                    },
+                    root,
+                ) {
                     // The serde Map wrapper lacks `into_values` so we destructure.
                     for (_, result_array_val) in root_obj.into_iter() {
                         if let Value::Array(result_array) = result_array_val {
                             for val in result_array {
                                 if let Some(Value::String(path)) = val.get(path_key).clone() {
-                                    self.state.eval_file_values(&mut config, &ustr(&path), &val);
+                                    self.state.eval_file_values(
+                                        &mut config,
+                                        &ustr(&format!("{}{}", &path_prefix, path)),
+                                        false,
+                                        false,
+                                        &val,
+                                    );
                                 }
                             }
                         }
@@ -668,17 +716,39 @@ impl RepoIngestion {
                 }
             }
             "flat-dir-dict-files-are-keys" => {
-                if let (Some(children_key), Value::Object(root_obj)) =
-                    (&config.ingestion.nesting_key.clone(), root.take())
-                {
+                if let (Some(children_key), filename_key, Value::Object(root_obj)) = (
+                    &config.ingestion.nesting_key.clone(),
+                    config.ingestion.filename_key.clone(),
+                    root.take(),
+                ) {
+                    // If there's a path_prefix, normalize a trailing "/" onto it
+                    // for consistency with our path_so_far-based mechanisms.
+                    let use_path_prefix = if config.ingestion.path_prefix.is_empty() {
+                        "".to_string()
+                    } else {
+                        format!("{}/", config.ingestion.path_prefix)
+                    };
                     for (dir_path, dir_obj) in root_obj.into_iter() {
                         if let Some(Value::Object(file_list_obj)) = dir_obj.get(children_key) {
                             // note: I'm skipping the take() step here because lazy.
                             for (filename, file_contents) in file_list_obj {
-                                let path = format!("{}/{}", dir_path, filename);
+                                let use_filename = match &filename_key {
+                                    Some(key) => {
+                                        if let Some(Value::String(s)) = file_contents.get(key) {
+                                            s
+                                        } else {
+                                            continue;
+                                        }
+                                    }
+                                    _ => filename,
+                                };
+                                let path =
+                                    format!("{}{}/{}", use_path_prefix, dir_path, use_filename);
                                 self.state.eval_file_values(
                                     &mut config,
                                     &ustr(&path),
+                                    false,
+                                    false,
                                     file_contents,
                                 );
                             }
@@ -701,11 +771,22 @@ impl RepoIngestion {
 }
 
 impl IngestionState {
-    pub fn eval_file_values(&mut self, config: &mut JsonFileConfig, path: &Ustr, file_val: &Value) {
-        let concise_storage = self
-            .concise_per_file
-            .entry(path.clone())
-            .or_insert_with(|| ConcisePerFileInfo::default());
+    pub fn eval_file_values(
+        &mut self,
+        config: &mut JsonFileConfig,
+        path: &Ustr,
+        create_if_does_not_exist: bool,
+        is_dir: bool,
+        file_val: &Value,
+    ) {
+        let concise_entry = self.concise_per_file.entry(path.clone());
+        if let Entry::Vacant(_) = &concise_entry {
+            if !create_if_does_not_exist {
+                return;
+            }
+        }
+        let concise_storage =
+            concise_entry.or_insert_with(|| ConcisePerFileInfo::default_is_dir(is_dir));
         if let Some(ingestion) = &mut config.concise.path_kind {
             let evaled = ingestion.eval(file_val, Value::Null);
             if !evaled.is_null() {
@@ -733,7 +814,7 @@ impl IngestionState {
         let detailed_storage = self
             .detailed_per_file
             .entry(path.clone())
-            .or_insert_with(|| DetailedPerFileInfo::default());
+            .or_insert_with(|| DetailedPerFileInfo::default_is_dir(is_dir));
 
         if let Some(ingestion) = &mut config.detailed.coverage_lines {
             let evaled = ingestion.eval(file_val, Value::Null);
@@ -781,7 +862,7 @@ impl IngestionState {
                         _ => "".to_string(),
                     };
                     if let Some(looked_up_value) = lookups.get(&lookup_key) {
-                        self.eval_file_values(config, &ustr(&path), &looked_up_value);
+                        self.eval_file_values(config, &ustr(&path), false, false, &looked_up_value);
                     }
                 }
             }
@@ -822,7 +903,7 @@ impl IngestionState {
             // (path_so_far would only be empty in this case for a completely
             // empty file, but there's no need to risk doing buggy stuff in that
             // case.)
-            self.eval_file_values(config, &ustr(&path_so_far), &cur);
+            self.eval_file_values(config, &ustr(&path_so_far), false, false, &cur);
         }
 
         Ok(())

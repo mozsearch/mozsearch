@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
 use super::cmd_augment_results::AugmentResults;
+use super::cmd_batch_render::BatchRender;
 use super::cmd_cat_html::CatHtml;
 use super::cmd_compile_results::CompileResults;
 use super::cmd_crossref_expand::CrossrefExpand;
@@ -62,6 +63,7 @@ pub struct ToolOpts {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     AugmentResults(AugmentResults),
+    BatchRender(BatchRender),
     CatHtml(CatHtml),
     CrossrefExpand(CrossrefExpand),
     CrossrefLookup(CrossrefLookup),
