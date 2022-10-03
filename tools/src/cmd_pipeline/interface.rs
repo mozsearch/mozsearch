@@ -43,6 +43,17 @@ pub struct SymbolicQueryOpts {
     pub identifier: Option<String>,
 }
 
+#[derive(Serialize)]
+pub struct BatchGroups {
+    pub groups: Vec<BatchGroupItem>,
+}
+
+#[derive(Serialize)]
+pub struct BatchGroupItem {
+    pub name: String,
+    pub value: PipelineValues,
+}
+
 /// The input and output of each pipeline segment
 #[derive(Serialize)]
 pub enum PipelineValues {
@@ -58,6 +69,7 @@ pub enum PipelineValues {
     FlattenedResultsBundle(FlattenedResultsBundle),
     GraphResultsBundle(GraphResultsBundle),
     TextFile(TextFile),
+    BatchGroups(BatchGroups),
     Void,
 }
 

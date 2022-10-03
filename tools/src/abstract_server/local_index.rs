@@ -2,18 +2,19 @@ use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
-use ustr::{ustr, Ustr};
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tracing::trace;
+use ustr::{ustr, Ustr};
 
 use super::server_interface::{
-    AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextBounds, TextMatchInFile, HtmlFileRoot, FileMatches,
+    AbstractServer, ErrorDetails, ErrorLayer, FileMatches, HtmlFileRoot, Result,
+    SearchfoxIndexRoot, ServerError, TextBounds, TextMatchInFile,
 };
-use super::{TextMatches, TextMatchesByFile};
+use super::{TextMatches, TextMatchesByFile, TreeInfo};
 
 use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
@@ -95,7 +96,7 @@ fn validate_absoluteish_path(path: &str) -> Result<()> {
     if path.split("/").any(|x| x == "..") {
         Err(ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::BadInput,
-            message: "All paths must be absolute-ish".to_string()
+            message: "All paths must be absolute-ish".to_string(),
         }))
     } else {
         Ok(())
@@ -130,11 +131,23 @@ impl AbstractServer for LocalIndex {
         Box::new(self.clone())
     }
 
-    fn translate_analysis_path(&self, sf_path: &str) -> Result<String> {
-        Ok(format!(
-            "{}/analysis/{}.gz",
-            self.config_paths.index_path, sf_path
-        ))
+    fn tree_info(&self) -> Result<TreeInfo> {
+        Ok(TreeInfo {
+            name: self.tree_name.clone(),
+        })
+    }
+
+    fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String> {
+        match root {
+            SearchfoxIndexRoot::CompressedAnalysis => Ok(format!(
+                "{}/analysis/{}.gz",
+                self.config_paths.index_path, sf_path
+            )),
+            SearchfoxIndexRoot::UncompressedDirectoryListing => Ok(format!(
+                "{}/dir/{}/index.html",
+                self.config_paths.index_path, sf_path
+            )),
+        }
     }
 
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
@@ -165,9 +178,10 @@ impl AbstractServer for LocalIndex {
         // sub-tree.
         validate_absoluteish_path(norm_path)?;
         let (full_path, is_gzipped) = match root {
-            HtmlFileRoot::FormattedFile => {
-                (format!("{}/file/{}.gz", self.config_paths.index_path, norm_path), true)
-            }
+            HtmlFileRoot::FormattedFile => (
+                format!("{}/file/{}.gz", self.config_paths.index_path, norm_path),
+                true,
+            ),
             HtmlFileRoot::FormattedDir => {
                 // Our tree-relative paths should not start with a slash
 
@@ -182,11 +196,18 @@ impl AbstractServer for LocalIndex {
                 } else {
                     format!("{}/", norm_path)
                 };
-                (format!("{}/dir/{}index.html.gz", self.config_paths.index_path, norm_path), true)
+                (
+                    format!(
+                        "{}/dir/{}index.html.gz",
+                        self.config_paths.index_path, norm_path
+                    ),
+                    true,
+                )
             }
-            HtmlFileRoot::FormattedTemplate => {
-                (format!("{}/templates/{}", self.config_paths.index_path, norm_path), false)
-            }
+            HtmlFileRoot::FormattedTemplate => (
+                format!("{}/templates/{}", self.config_paths.index_path, norm_path),
+                false,
+            ),
         };
 
         if !is_gzipped {
@@ -199,7 +220,6 @@ impl AbstractServer for LocalIndex {
         let mut f = File::open(full_path).await?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer).await?;
-
 
         // When we want to go async here,
         // https://github.com/rust-lang/flate2-rs/pull/214 suggests that we want
@@ -226,8 +246,14 @@ impl AbstractServer for LocalIndex {
         result
     }
 
-    async fn search_files(&self, pathre: &str, limit: usize) -> Result<FileMatches> {
-        self.file_lookup_map.search_files(pathre, limit)
+    async fn search_files(
+        &self,
+        pathre: &str,
+        include_dirs: bool,
+        limit: usize,
+    ) -> Result<FileMatches> {
+        self.file_lookup_map
+            .search_files(pathre, include_dirs, limit)
     }
 
     async fn search_identifiers(
@@ -299,7 +325,10 @@ impl AbstractServer for LocalIndex {
                 .entry(result.path.to_string())
                 .or_insert_with(|| {
                     let path = ustr(&result.path);
-                    let path_kind = self.file_lookup_map.lookup_file_from_ustr(&path).map_or_else(|| ustr(""), |fi| fi.path_kind.clone());
+                    let path_kind = self
+                        .file_lookup_map
+                        .lookup_file_from_ustr(&path)
+                        .map_or_else(|| ustr(""), |fi| fi.path_kind.clone());
                     TextMatchesByFile {
                         file: path,
                         path_kind,
@@ -343,7 +372,10 @@ fn fab_server(
 
     let crossref_lookup_map = CrossrefLookupMap::new(&crossref_path, &crossref_extra_path);
 
-    let file_lookup_path = format!("{}/concise-per-file-info.json", tree_config.paths.index_path);
+    let file_lookup_path = format!(
+        "{}/concise-per-file-info.json",
+        tree_config.paths.index_path
+    );
 
     let file_lookup_map = FileLookupMap::new(&file_lookup_path);
 

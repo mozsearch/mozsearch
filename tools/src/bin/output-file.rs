@@ -389,6 +389,7 @@ fn main() {
         }
 
         let liquid_globals = liquid::object!({
+            "tree": tree_name,
             "path": &path,
             // Propagate config settings that aren't absolute paths.  We do some
             // renaming here compared to `TreeConfigPaths` for clarity.

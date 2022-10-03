@@ -17,3 +17,5 @@ cat ${INDEX_ROOT}/repo-files ${INDEX_ROOT}/objdir-files | shuf > ${INDEX_ROOT}/a
 # This is being created for crossref.rs right now and we're not shuffling because
 # we don't need to.
 cat ${INDEX_ROOT}/repo-dirs ${INDEX_ROOT}/objdir-dirs > ${INDEX_ROOT}/all-dirs
+# We need __GENERATED__ to exist on its own too, but it won't from the above.
+echo __GENERATED__ >> ${INDEX_ROOT}/all-dirs

@@ -1,50 +1,49 @@
-{% if concise.info contains "test" and concise.info.test != empty -%}
-{%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
+{% if concise.info contains "test" -%}
+  {%- assign test_heading = "Test Info:" -%}
+  {%- assign test_severity = "info" -%}
+  {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
     {%- assign test_heading = "Test Info: Errors" -%}
     {%- assign test_severity = "error" -%}
-{%- elsif concise.info.test contains "skip_if" and concise.info.test.skip_if != empty -%}
+  {%- elsif concise.info.test contains "skip_if" and concise.info.test.skip_if != empty -%}
     {%- assign test_heading = "Test Info: Warnings" -%}
     {%- assign test_severity = "warning" -%}
-{%- else -%}
-    {%- assign test_heading = "Test Info:" -%}
-    {%- assign test_severity = "info" -%}
-{%- endif -%}
+  {%- elsif concise.info contains "wpt" -%}
+    {%- if concise.info.wpt contains "disabling_conditions" or concise.info.wpt contains "disabled_subtests_count" -%}
+      {%- assign test_heading = "Test Info: Warnings" -%}
+      {%- assign test_severity = "warning" -%}
+    {%- endif -%}
+  {%- endif -%}
 {%- capture double_newline %}
 
 {% endcapture -%}
 {%- capture newline %}
 {% endcapture -%}
-<section class="info-box info-box-{{test_severity}}">
+  <section class="info-box info-box-{{test_severity}}">
     <h4>{{ test_heading }}</h4>
     <div>
-        <ul>
-            {%- if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
-            <li>This test gets skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
+      <ul>
+        {%- if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
+        <li>This test gets skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
+        {%- endif -%}
+        {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
+        <li>This test failed {{ concise.info.test.failure_count }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path }}">quicksearch this test</a></li>
+        {% endif -%}
+        {%- if concise.info contains "wpt" -%}
+            {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta" }}.ini{%- endcapture -%}
+            {%- if concise.info.wpt contains "disabling_conditions" -%}
+                {%- assign linked_meta = true -%}
+        <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that disables it given conditions:
+            <ul>{%- for cond_bug in concise.info.wpt.disabling_conditions %}
+                <li><span class="test-skip-info">{{ cond_bug[0] | strip }}</span>&nbsp; : <a href="{{ cond_bug[1] | ensure_bug_url }}">{{ cond_bug[1] }}</a></li>
+                {%- endfor -%}
+            </ul>
+        </li>
             {%- endif -%}
-            {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
-            <li>This test failed {{ concise.info.test.failure_count }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path }}">quicksearch this test</a></li>
-            {% endif -%}
-            {%- if concise.info contains "wpt" -%}
-                {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta" }}.ini{%- endcapture -%}
-                {%- assign linked_meta = false -%}
-                {%- if concise.info.wpt contains "disabling_conditions" -%}
-                    {%- assign linked_meta = true -%}
-            <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that disables it given conditions:
-                <ul>{%- for cond_bug in concise.info.wpt.disabling_conditions %}
-                    <li><span class="test-skip-info">{{ cond_bug[0] | strip }}</span>&nbsp; : <a href="{{ cond_bug[1] | ensure_bug_url }}">{{ cond_bug[1] }}</a></li>
-                    {%- endfor -%}
-                </ul>
-            </li>
-                {%- endif -%}
-                {%- if concise.info.wpt contains "disabled_subtests_count" -%}
-                    {%- assign linked_meta = true -%}
-            <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that expects {} subtest issues.</li>
-                {%- endif -%}
-                {%- unless linked_meta -%}
-            <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> for some reason.</li>
-                {%- endunless -%}
-            {%- endif %}
-        </ul>
+            {%- if concise.info.wpt contains "disabled_subtests_count" -%}
+        <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that expects {{ concise.info.wpt.disabled_subtests_count }} subtest issues.</li>
+            {%- endif -%}
+        {%- endif %}
+      </ul>
     </div>
-</section>
+  </section>
 {%- endif -%}

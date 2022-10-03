@@ -1,0 +1,18 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<section class="info-boxes" id="info-boxes-container">
+  <section class="info-box info-box-warning">
+    <h4>Test Info: Warnings</h4>
+    <div>
+      <ul><li>This test has a <a href="/tests/source/testing/web-platform/metafake-standard/test_ima_disabled_wpt.js.ini">WPT meta file</a> that disables it given conditions:
+            <ul>
+                <li><span class="test-skip-info"></span>&nbsp; : <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=12345">12345</a></li>
+                <li><span class="test-skip-info">os == "win"</span>&nbsp; : <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=234567">https://bugzilla.mozilla.org/show_bug.cgi?id=234567</a></li>
+                <li><span class="test-skip-info">os == "linux"</span>&nbsp; : <a href="https://bugzilla.mozilla.org/234567">https://bugzilla.mozilla.org/234567</a></li></ul>
+        </li>
+      </ul>
+    </div>
+  </section>
+</section>

@@ -8,6 +8,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "ignored-js/doublestar-ignored/ignored-by-doublestar.js",
       "concise": {
         "path_kind": "Normal",
+        "is_dir": false,
         "file_size": 70,
         "bugzilla_component": null,
         "subsystem": null,
@@ -22,6 +23,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "ignored-js/explicit-ignored.js",
       "concise": {
         "path_kind": "Normal",
+        "is_dir": false,
         "file_size": 56,
         "bugzilla_component": null,
         "subsystem": null,
@@ -36,6 +38,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "ignored-js/not-ignored-after-reinclusion.js",
       "concise": {
         "path_kind": "Normal",
+        "is_dir": false,
         "file_size": 82,
         "bugzilla_component": null,
         "subsystem": null,
@@ -48,6 +51,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "ignored-js/reignored-after-reinclusion.js",
       "concise": {
         "path_kind": "Normal",
+        "is_dir": false,
         "file_size": 61,
         "bugzilla_component": null,
         "subsystem": null,
@@ -62,6 +66,7 @@ expression: "&to_value(fm).unwrap()"
       "path": "ignored-js/wildcard-ignored.js",
       "concise": {
         "path_kind": "Normal",
+        "is_dir": false,
         "file_size": 54,
         "bugzilla_component": null,
         "subsystem": null,

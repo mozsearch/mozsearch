@@ -251,7 +251,7 @@ impl SearchResults {
         // ### path faceting
         let path_sans_filename = match path_container.path.rfind('/') {
             Some(offset) => ustr(&path_container.path[0..offset + 1]),
-            None => path_container.path.clone(),
+            None => ustr(""),
         };
         let mut path_pieces: Vec<Ustr> = path_sans_filename
             .split_inclusive('/')

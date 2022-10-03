@@ -113,10 +113,18 @@ fn main() {
         .map(|x| ustr(&x))
         .collect();
 
+    let all_dirs_list_path = format!("{}/all-dirs", tree_config.paths.index_path);
+    let all_dirs_paths: Vec<Ustr> = fs::read_to_string(all_dirs_list_path)
+        .unwrap()
+        .lines()
+        .map(|x| ustr(&x))
+        .collect();
+
     // ## Ingest Repo-Wide Information
     let per_file_info_toml_str = cfg.read_tree_config_file_with_default("per-file-info.toml").unwrap();
     let mut ingestion = RepoIngestion::new(&per_file_info_toml_str).expect("Your per-file-info.toml file has issues");
     ingestion.ingest_file_list_and_apply_heuristics(&all_files_paths, tree_config);
+    ingestion.ingest_dir_list(&all_dirs_paths);
 
     ingestion.ingest_files(|root: &str, file: &str| {
         cfg.maybe_read_file_from_given_root(&cli.tree_name, root, file)

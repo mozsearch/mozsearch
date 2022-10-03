@@ -1,12 +1,18 @@
 use async_trait::async_trait;
-use clap::Args;
+use clap::{Args, ValueEnum};
+use itertools::Itertools;
 
 use super::{
-    interface::{PipelineCommand, PipelineValues},
+    interface::{BatchGroupItem, BatchGroups, PipelineCommand, PipelineValues},
     transforms::path_glob_transform,
 };
 
-use crate::abstract_server::{AbstractServer, Result};
+use crate::abstract_server::{AbstractServer, FileMatches, Result};
+
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum GroupFilesBy {
+    Directory,
+}
 
 /// Perform a fulltext search against our livegrep/codesearch server over gRPC.
 /// This is local-only at this time.
@@ -20,14 +26,22 @@ pub struct SearchFiles {
     #[clap(long, value_parser)]
     pathre: Option<String>,
 
-    #[clap(short, long, value_parser, default_value = "1000")]
+    #[clap(short, long, value_parser, default_value = "2000")]
     limit: usize,
+
+    #[clap(long, value_parser)]
+    include_dirs: bool,
+
+    #[clap(long, short, value_parser, value_enum)]
+    group_by: Option<GroupFilesBy>,
 }
 
 #[derive(Debug)]
 pub struct SearchFilesCommand {
     pub args: SearchFiles,
 }
+
+const FILE_MATCH_LIMIT: usize = 2_000_000;
 
 #[async_trait]
 impl PipelineCommand for SearchFilesCommand {
@@ -44,10 +58,37 @@ impl PipelineCommand for SearchFilesCommand {
             "".to_string()
         };
 
+        // A zero limit implies no limit, but the server currently needs us to
+        // provide a limit because it uses take().  Also, it's probably
+        // reasonable to have a bit of a limit, so we also use this as a max.
+        let use_limit = if self.args.limit == 0 || self.args.limit > FILE_MATCH_LIMIT {
+            FILE_MATCH_LIMIT
+        } else {
+            self.args.limit
+        };
+
         let matches = server
-            .search_files(&pathre_pattern, self.args.limit)
+            .search_files(&pathre_pattern, self.args.include_dirs, use_limit)
             .await?;
 
-        Ok(PipelineValues::FileMatches(matches))
+        match self.args.group_by {
+            Some(GroupFilesBy::Directory) => {
+                let groups: Vec<_> = matches
+                    .file_matches
+                    .into_iter()
+                    .into_group_map_by(|f| f.get_containing_dir())
+                    .into_iter()
+                    .map(|(dir, matches)| BatchGroupItem {
+                        name: dir.to_string(),
+                        value: PipelineValues::FileMatches(FileMatches {
+                            file_matches: matches,
+                        }),
+                    })
+                    .collect();
+
+                Ok(PipelineValues::BatchGroups(BatchGroups { groups }))
+            }
+            None => Ok(PipelineValues::FileMatches(matches)),
+        }
     }
 }

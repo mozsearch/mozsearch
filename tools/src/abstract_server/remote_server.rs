@@ -4,7 +4,12 @@ use serde_json::{from_str, Value};
 use url::{ParseError, Url};
 use ustr::Ustr;
 
-use super::{server_interface::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, FileMatches}, TextMatches, HtmlFileRoot};
+use super::{
+    server_interface::{
+        AbstractServer, ErrorDetails, ErrorLayer, FileMatches, Result, ServerError, SearchfoxIndexRoot,
+    },
+    HtmlFileRoot, TextMatches, TreeInfo,
+};
 
 /// reqwest won't return an error for an unhappy status code itself; someone
 /// would need to call `Response::error_from_status`, so for now we'll generally
@@ -30,6 +35,7 @@ impl From<ParseError> for ServerError {
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 struct RemoteServer {
+    tree_name: String,
     server_base_url: Url,
     tree_base_url: Url,
     source_base_url: Url,
@@ -89,7 +95,13 @@ impl AbstractServer for RemoteServer {
         Box::new(self.clone())
     }
 
-    fn translate_analysis_path(&self, _sf_path: &str) -> Result<String> {
+    fn tree_info(&self) -> Result<TreeInfo> {
+        Ok(TreeInfo {
+            name: self.tree_name.clone(),
+        })
+    }
+
+    fn translate_path(&self, _root: SearchfoxIndexRoot, _sf_path: &str) -> Result<String> {
         // Remote servers don't have local filesystem paths.
         Err(ServerError::Unsupported)
     }
@@ -138,12 +150,23 @@ impl AbstractServer for RemoteServer {
         Err(ServerError::Unsupported)
     }
 
-    async fn search_files(&self, _pathre: &str, _limit: usize) -> Result<FileMatches> {
+    async fn search_files(
+        &self,
+        _pathre: &str,
+        _is_dir: bool,
+        _limit: usize,
+    ) -> Result<FileMatches> {
         // Not yet; see interface comment.
         Err(ServerError::Unsupported)
     }
 
-    async fn search_identifiers(&self, _needle: &str, _exact_match: bool, _ignore_case: bool, _match_limit: usize) -> Result<Vec<(Ustr, Ustr)>> {
+    async fn search_identifiers(
+        &self,
+        _needle: &str,
+        _exact_match: bool,
+        _ignore_case: bool,
+        _match_limit: usize,
+    ) -> Result<Vec<(Ustr, Ustr)>> {
         // Same rationale as crossref_lookup.
         Err(ServerError::Unsupported)
     }
@@ -184,6 +207,7 @@ pub fn make_remote_server(
     let search_url = tree_base_url.join("search")?;
 
     Ok(Box::new(RemoteServer {
+        tree_name: tree_name.to_string(),
         server_base_url,
         tree_base_url,
         source_base_url,
