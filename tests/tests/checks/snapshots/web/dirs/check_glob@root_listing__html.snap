@@ -48,6 +48,7 @@ expression: "&fb.contents"
          triggering the default submit behavior and conflicting with our dynamic
          logic. -->
     <input type="submit" value="Search" disabled class="visually-hidden" />
+    <span id="data" data-root="/" data-search="/tests/search" data-tree="tests"></span>
   </form>
 </div>
 
@@ -552,10 +553,7 @@ Spread over multiple lines.
 </table>
 
   </div>
-
-  <!-- avoid inline JS and use data attributes instead. Hackey but hey... -->
-  <span id="data" data-root="/" data-search="/tests/search" data-tree="tests"></span>
-</div>
+  
 <script src="/tests/static/js/search.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>
 <script src="/tests/static/js/panel.js"></script>
@@ -566,8 +564,10 @@ Spread over multiple lines.
     <a href="https://github.com/mozsearch/mozsearch">source code repository</a> |
     <a href="https://github.com/mozsearch/mozsearch-mozilla">configuration repository</a> |
     <a href="https://bugzilla.mozilla.org/buglist.cgi?product=Webtools&component=Searchfox&resolution=---">see open bugs</a> |
-    <a href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Webtools&component=Searchfox">file a new bug now that you checked that list of open bugs, right? right?</a>
+    <a href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Webtools&component=Searchfox">file a new bug</a>
 </footer>
+
+</div>
 </body>
 </html>
 

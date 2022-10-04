@@ -3,8 +3,6 @@
   <div id="content" class="content" data-no-results="No results for current query.">
     {{ content }}
   </div>
-
-  <!-- avoid inline JS and use data attributes instead. Hackey but hey... -->
-  <span id="data" data-root="/" data-search="/{{tree}}/search" data-tree="{{tree}}"></span>
+  {% include 'scroll_footer.liquid' %}
 </div>
 {% include 'footer.liquid' %}
