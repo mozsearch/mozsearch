@@ -26,6 +26,7 @@ pub mod templating;
 
 pub mod blame;
 pub mod describe;
+pub mod file_utils;
 pub mod format;
 pub mod git_ops;
 pub mod glob_helper;

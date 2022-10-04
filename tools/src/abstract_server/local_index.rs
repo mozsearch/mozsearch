@@ -117,6 +117,7 @@ struct LocalIndex {
     // already done in `build-blame.rs` for its compute threads and that's
     // likely the model we should use.
     config_paths: TreeConfigPaths,
+    config_repo_path: String,
     tree_name: String,
     // Note: IdentMap internally handles the identifiers db not existing
     ident_map: Option<IdentMap>,
@@ -141,6 +142,11 @@ impl AbstractServer for LocalIndex {
         match root {
             SearchfoxIndexRoot::CompressedAnalysis => Ok(format!(
                 "{}/analysis/{}.gz",
+                self.config_paths.index_path, sf_path
+            )),
+            SearchfoxIndexRoot::ConfigRepo => Ok(format!("{}/{}", self.config_repo_path, sf_path)),
+            SearchfoxIndexRoot::IndexTemplates => Ok(format!(
+                "{}/templates/{}",
                 self.config_paths.index_path, sf_path
             )),
             SearchfoxIndexRoot::UncompressedDirectoryListing => Ok(format!(
@@ -363,6 +369,7 @@ impl AbstractServer for LocalIndex {
 fn fab_server(
     tree_config: TreeConfig,
     tree_name: &str,
+    config_repo_path: &str,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
     let ident_path = format!("{}/identifiers", tree_config.paths.index_path);
     let ident_map = IdentMap::new(&ident_path);
@@ -382,6 +389,7 @@ fn fab_server(
     Ok(Box::new(LocalIndex {
         // We don't need the blame_map and hg_map (yet)
         config_paths: tree_config.paths,
+        config_repo_path: config_repo_path.to_string(),
         tree_name: tree_name.to_string(),
         ident_map,
         crossref_lookup_map,
@@ -404,7 +412,7 @@ pub fn make_local_server(
         }
     };
 
-    fab_server(tree_config, tree_name)
+    fab_server(tree_config, tree_name, &config.config_repo_path)
 }
 
 pub fn make_all_local_servers(
@@ -413,7 +421,7 @@ pub fn make_all_local_servers(
     let config = load(config_path, false, None);
     let mut servers = BTreeMap::new();
     for (tree_name, tree_config) in config.trees {
-        let server = fab_server(tree_config, &tree_name)?;
+        let server = fab_server(tree_config, &tree_name, &config.config_repo_path)?;
         servers.insert(tree_name, server);
     }
     Ok(servers)

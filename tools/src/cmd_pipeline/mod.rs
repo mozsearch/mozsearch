@@ -17,6 +17,7 @@ mod cmd_graph;
 mod cmd_merge_analyses;
 mod cmd_prod_filter;
 mod cmd_query;
+mod cmd_render;
 mod cmd_search;
 mod cmd_search_files;
 mod cmd_search_identifiers;
