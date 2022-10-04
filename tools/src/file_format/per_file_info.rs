@@ -1,12 +1,12 @@
-use std::fs::{File};
-use std::io::{BufReader};
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::Arc;
 
 use lexical_sort::natural_lexical_cmp;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, Map, Value};
-use ustr::{Ustr, UstrMap, existing_ustr};
+use ustr::{existing_ustr, Ustr, UstrMap};
 
 use crate::abstract_server::{FileMatch, FileMatches, Result};
 
@@ -38,7 +38,9 @@ impl FileLookupMap {
         let components_file = File::open(concise_file_path).unwrap();
         let mut reader = BufReader::new(&components_file);
         let map: UstrMap<ConcisePerFileInfo<Ustr>> = from_reader(&mut reader).unwrap();
-        FileLookupMap { concise_per_file: Arc::new(map) }
+        FileLookupMap {
+            concise_per_file: Arc::new(map),
+        }
     }
 
     /// File lookup for when you have an existing Ustr; under no circumstances
@@ -64,9 +66,16 @@ impl FileLookupMap {
     }
 
     /// Search the list of files by applying a regexp to the paths.
-    pub fn search_files(&self, pathre: &str, include_dirs: bool, limit: usize) -> Result<FileMatches> {
+    pub fn search_files(
+        &self,
+        pathre: &str,
+        include_dirs: bool,
+        limit: usize,
+    ) -> Result<FileMatches> {
         let re_path = Regex::new(pathre)?;
-        let mut matches: Vec<FileMatch> = self.concise_per_file.iter()
+        let mut matches: Vec<FileMatch> = self
+            .concise_per_file
+            .iter()
             .filter(|v| {
                 if !include_dirs && v.1.is_dir {
                     false
@@ -74,12 +83,12 @@ impl FileLookupMap {
                     re_path.is_match(v.0)
                 }
             })
-            .map(|v| {
-                FileMatch {
-                    path: v.0.clone(),
-                    concise: v.1.clone(),
-                }
-            }).take(limit).collect();
+            .map(|v| FileMatch {
+                path: v.0.clone(),
+                concise: v.1.clone(),
+            })
+            .take(limit)
+            .collect();
         matches.sort_unstable_by(|a, b| natural_lexical_cmp(&a.path, &b.path));
         Ok(FileMatches {
             file_matches: matches,

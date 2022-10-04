@@ -18,7 +18,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand};
+use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand, cmd_render::RenderCommand};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -58,6 +58,8 @@ pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand +
         Command::ProductionFilter(pf) => Ok(Box::new(ProductionFilterCommand { args: pf })),
 
         Command::Query(q) => Ok(Box::new(QueryCommand { args: q })),
+
+        Command::Render(r) => Ok(Box::new(RenderCommand { args: r })),
 
         Command::Search(q) => Ok(Box::new(SearchCommand { args: q })),
 

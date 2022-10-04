@@ -194,6 +194,11 @@ pub enum SearchfoxIndexRoot {
     /// Already gzipped analysis files.  Note that `fetch_raw_analysis` exists
     /// and should be used in preference to this for reading file contents.
     CompressedAnalysis,
+    /// The root of the config repo.
+    ConfigRepo,
+    /// The templates dir under the index root, home of the search template and
+    /// the rendered help.html
+    IndexTemplates,
     /// Directory listings.
     UncompressedDirectoryListing,
 }
@@ -238,8 +243,20 @@ pub struct TreeInfo {
 ///
 #[async_trait]
 pub trait AbstractServer {
+    /// Clone this server so that the command can kick off some parallelism.
+    /// Currently the idea is that the server implementations are fairly cheap
+    /// objects around either something that either:
+    /// - Can safely be used from multiple threads through use of an Arc wrapper
+    ///   around the data in question so we don't need to duplicate it.
+    /// - Is something like libgit2 where everything we do is actually mutation
+    ///   and there's no sane way to share it across multiple threads and so
+    ///   we either start from a fresh state for each new clone or we have it
+    ///   operate through some kind of request pool or something.
+    ///
+    /// So far we've only had to deal with immutable data so it hasn't mattered.
     fn clonify(&self) -> Box<dyn AbstractServer + Send + Sync>;
 
+    /// Return info about this tree, primarily for templating purposes.
     fn tree_info(&self) -> Result<TreeInfo>;
 
     /// Convert a searchfox tree-local path into an absolute path on disk using
@@ -249,6 +266,14 @@ pub trait AbstractServer {
     /// uncompressed variants only make sense for parts of the indexing process
     /// using searchfox-tool.  All checks will happen after compression has
     /// happened.
+    ///
+    /// TODO: Consider changing uses of this to instead operate in terms of
+    /// read or write requests.  Currently this is only used for single-threaded
+    /// synchronous stuff, but it could make sense to overhaul this if:
+    /// - We're trying to move to parallelism or where the written files could
+    ///   result in read data dependencies where they'd want to know when the
+    ///   write happens.
+    /// - We think this could make some kinds of testing easier or faster.
     fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String>;
 
     /// Fetch the contents of the analysis file for the given searchfox

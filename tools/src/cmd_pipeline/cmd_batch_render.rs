@@ -6,7 +6,7 @@ use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
-    templating::builder::build_and_parse_dir_listing,
+    templating::builder::build_and_parse_dir_listing, file_utils::write_file_ensuring_parent_dir,
 };
 
 #[derive(Debug, Args)]
@@ -25,27 +25,6 @@ pub struct BatchRender {
 #[derive(Debug)]
 pub struct BatchRenderCommand {
     pub args: BatchRender,
-}
-
-fn write_file_ensuring_parent_dir(file_path: &str, contents: &str) -> Result<()> {
-    let as_path = std::path::Path::new(file_path);
-    let parent_path = match as_path.parent() {
-        Some(p) => p,
-        None => {
-            return Err(ServerError::StickyProblem(ErrorDetails {
-                layer: ErrorLayer::DataLayer,
-                message: format!("Problem getting parent of '{}'", file_path),
-            }));
-        }
-    };
-    if let Err(e) = std::fs::create_dir_all(parent_path) {
-        return Err(ServerError::StickyProblem(ErrorDetails {
-            layer: ErrorLayer::DataLayer,
-            message: format!("Problem creating parent of '{}': {}", file_path, e),
-        }));
-    }
-    std::fs::write(as_path, contents)?;
-    Ok(())
 }
 
 #[async_trait]

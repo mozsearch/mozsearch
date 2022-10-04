@@ -11,6 +11,7 @@ use super::cmd_graph::Graph;
 use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
+use super::cmd_render::Render;
 use super::cmd_search::Search;
 use super::cmd_search_files::SearchFiles;
 use super::cmd_search_identifiers::SearchIdentifiers;
@@ -72,6 +73,7 @@ pub enum Command {
     MergeAnalyses(MergeAnalyses),
     ProductionFilter(ProductionFilter),
     Query(Query),
+    Render(Render),
     Search(Search),
     SearchFiles(SearchFiles),
     SearchIdentifiers(SearchIdentifiers),
