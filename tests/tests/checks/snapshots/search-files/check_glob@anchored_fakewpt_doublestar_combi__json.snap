@@ -76,6 +76,9 @@ expression: "&to_value(fm).unwrap()"
         "tags": [],
         "description": null,
         "info": {
+          "test": {
+            "failure_count": 0
+          },
           "wpt": {
             "test_ids": [
               "complex-tests/some_cross_global_test.any.html",

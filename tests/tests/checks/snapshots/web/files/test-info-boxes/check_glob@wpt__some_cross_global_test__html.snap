@@ -1,0 +1,13 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<section class="info-boxes" id="info-boxes-container">
+  <section class="info-box info-box-info">
+    <h4>Test Info:</h4>
+    <div>
+      <ul>
+      </ul>
+    </div>
+  </section>
+</section>
