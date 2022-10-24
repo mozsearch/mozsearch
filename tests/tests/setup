@@ -17,5 +17,6 @@ ln -s -f $CONFIG_REPO/tests/files $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/bugzilla-components.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/test-info-all-tests.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/wpt-manifest.json $INDEX_ROOT
+ln -s -f $CONFIG_REPO/tests/metadata/wpt-mozilla-manifest.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/wpt-metadata-summary.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/code-coverage-report.json $INDEX_ROOT
