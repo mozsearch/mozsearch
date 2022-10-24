@@ -1,0 +1,92 @@
+{
+  "items": {
+    "complex-tests": {
+      "some_cross_global_test.any.js": [
+        "33b5f88f75b8052f202394c4f53bcc2770631202",
+        [
+          "complex-tests/some_cross_global_test.any.html",
+          {
+            "script_metadata": [
+              [
+                "global",
+                "window,worker"
+              ],
+              [
+                "script",
+                "/some/fake/script.js"
+              ]
+            ]
+          }
+        ],
+        [
+          "complex-tests/some_cross_global_test.any.serviceworker.html",
+          {
+            "script_metadata": [
+              [
+                "global",
+                "window,worker"
+              ],
+              [
+                "script",
+                "/some/fake/script.js"
+              ]
+            ]
+          }
+        ],
+        [
+          "complex-tests/some_cross_global_test.any.sharedworker.html",
+          {
+            "script_metadata": [
+              [
+                "global",
+                "window,worker"
+              ],
+              [
+                "script",
+                "/some/fake/script.js"
+              ]
+            ]
+          }
+        ],
+        [
+          "complex-tests/some_cross_global_test.any.worker.html",
+          {
+            "script_metadata": [
+              [
+                "global",
+                "window,worker"
+              ],
+              [
+                "script",
+                "/some/fake/script.js"
+              ]
+            ]
+          }
+        ]
+      ]
+    },
+    "fake-standard": {
+      "test_ima_disabled_wpt.js": [
+        "bf7c0680412b627b9c8ca5932ffd84e8139eba27",
+        [
+          null,
+          {}
+        ]
+      ],
+      "test_ima_sad_subtests_wpt.js": [
+        "bf7c0680412b627b9c8ca5932ffd84e8139eba27",
+        [
+          null,
+          {}
+        ]
+      ],
+      "test_ima_weird_meta_wpt.html": [
+        "bf7c0680412b627b9c8ca5932ffd84e8139eba27",
+        [
+          null,
+          {}
+        ]
+      ]
+    }
+  }
+}

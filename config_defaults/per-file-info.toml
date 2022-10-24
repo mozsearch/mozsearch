@@ -200,6 +200,40 @@ nesting_key = "test"
 skip_if.pointer = "/skip-if"
 failure_count.pointer = "/failure_count"
 
+# ### WPT manifest variants (wpt proper plus "mozilla" wpt)
+#
+# Hierarchical tree rooted under "items" where objects are directories and
+# arrays are file values.
+#
+# The value payloads are an array structure:
+# - 0: hash
+# - 1+: tuple array
+#   - `null` if there are no "test id" variants for this file, otherwise the
+#     "test id" string which is a full path.  For example, for the key
+#     `"idlharness.https.any.js"` under `"shape-detection"`, we have values like
+#     `"shape-detection/idlharness.https.any.html"` and
+#     `"shape-detection/idlharness.https.any.serviceworker.html"` and
+#     `"shape-detection/idlharness.https.any.sharedworker.html"` and
+#     `"shape-detection/idlharness.https.any.worker.html"`
+#   - an object which can be empty, but can also have keys:
+#     - `"script_metadata"` which is an array of tuple arrays with first value:
+#       - `"global"`: happens first and only once? ex: `"window,worker"`
+#       - `"script"`: can happen multiple times, ex: `"/resources/WebIDLParser.js"`
+#         and `"/resources/idlharness.js"`.
+
+[jsonfile."wpt-manifest.json"]
+source = [{ root = "index", file = "wpt-manifest.json" }]
+
+[jsonfile."wpt-manifest.json".ingestion]
+root = "/items"
+nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
+# Prefix every path we see with our WPT root.
+path_prefix = "testing/web-platform/tests"
+
+[jsonfile."wpt-manifest.json".concise.info.wpt.object]
+test_ids.pointer = ""
+test_ids.map.first_index = 1
+test_ids.map.each.pointer = "/0"
 
 # ### WPT wpt-metadata-summary.json
 #
