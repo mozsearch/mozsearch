@@ -186,6 +186,28 @@ impl JsonEvalDictIngestion {
     }
 }
 
+/// Defines a mapping transform over arrays only for now.
+#[derive(Deserialize)]
+pub struct JsonEvalMapIngestion {
+    /// Offset to start from.
+    pub first_index: usize,
+    /// Transform to perform at each
+    pub each: JsonEvalNodeIngestion,
+}
+
+impl JsonEvalMapIngestion {
+    pub fn eval(&mut self, input_val: Value) -> Value {
+        match input_val {
+            Value::Array(arr) => {
+                Value::Array(arr.into_iter().skip(self.first_index).map(|v| {
+                    self.each.eval(&v, Value::Null)
+                }).collect())
+            }
+            _ => Value::Null
+        }
+    }
+}
+
 /// Defines a mechanism for evaluating a JSON input value and returning a JSON
 /// output value, possibly via mutating an existing object dictionary that
 /// already exists in the "slot" where this value will be stored.
@@ -199,6 +221,9 @@ pub struct JsonEvalNodeIngestion {
     /// https://docs.rs/serde_json/latest/serde_json/value/enum.Value.html#method.pointer
     /// for more info.
     pub pointer: Option<String>,
+    /// Perform a mapping transform over an array.  Evaluated prior to
+    /// aggregation.
+    pub map: Option<Box<JsonEvalMapIngestion>>,
     /// Perform some kind of trivial computation on the pointer result from
     /// above.  Current options are:
     /// - "length": Assume we're given an array and get its length.
@@ -217,20 +242,26 @@ pub struct JsonEvalNodeIngestion {
 
 impl JsonEvalNodeIngestion {
     pub fn eval(&mut self, input_val: &Value, existing_output_value: Value) -> Value {
-        let traversed = match &self.pointer {
+        let mut traversed = match &self.pointer {
             Some(traversal) => match input_val.pointer(traversal) {
-                Some(val) => match self.aggregation.as_deref() {
-                    Some("length") => match &val {
-                        Value::Array(arr) => json!(arr.len()),
-                        Value::Object(obj) => json!(obj.len()),
-                        _ => json!(0),
-                    },
-                    __ => val.clone(),
-                },
+                Some(val) => val.clone(),
                 None => Value::Null,
             },
             None => input_val.clone(),
         };
+        if let Some(mapper) = &mut self.map {
+            traversed = mapper.eval(traversed);
+        }
+        if let Some(aggr) = &self.aggregation {
+            traversed = match aggr.as_str() {
+                "length" => match traversed {
+                    Value::Array(arr) => json!(arr.len()),
+                    Value::Object(obj) => json!(obj.len()),
+                    _ => Value::Null,
+                },
+                __ => traversed,
+            };
+        }
         if let Some(object_ingest) = &mut self.object {
             object_ingest.eval(&traversed, existing_output_value)
         } else if let Some(liquid_str) = &self.liquid {
@@ -633,11 +664,11 @@ impl RepoIngestion {
             }
         };
 
-        let mut lookups = Map::new();
+        let mut lookups = None;
         if let Some(value_lookup) = &config.ingestion.value_lookup {
             match input_val.pointer_mut(&value_lookup) {
                 Some(Value::Object(obj)) => {
-                    lookups = obj.clone();
+                    lookups = Some(obj.clone());
                 }
                 _ => {
                     return Err(format!("Unable to locate value lookup '{}'", value_lookup));
@@ -842,7 +873,7 @@ impl IngestionState {
     pub fn recurse_dir_dict_with_lookup(
         &mut self,
         config: &mut JsonFileConfig,
-        lookups: &Map<String, Value>,
+        lookups: &Option<Map<String, Value>>,
         path_so_far: &str,
         cur: Value,
     ) -> Result<(), String> {
@@ -856,13 +887,17 @@ impl IngestionState {
                 if value.is_object() {
                     self.recurse_dir_dict_with_lookup(config, lookups, &path, value)?;
                 } else {
-                    let lookup_key = match value {
-                        Value::String(s) => s,
-                        Value::Number(n) => format!("{}", n),
-                        _ => "".to_string(),
-                    };
-                    if let Some(looked_up_value) = lookups.get(&lookup_key) {
-                        self.eval_file_values(config, &ustr(&path), false, false, &looked_up_value);
+                    if let Some(lookup_values) = lookups {
+                        let lookup_key = match value {
+                            Value::String(s) => s,
+                            Value::Number(n) => format!("{}", n),
+                            _ => "".to_string(),
+                        };
+                        if let Some(looked_up_value) = lookup_values.get(&lookup_key) {
+                            self.eval_file_values(config, &ustr(&path), false, false, &looked_up_value);
+                        }
+                    } else {
+                        self.eval_file_values(config, &ustr(&path), false, false, &value);
                     }
                 }
             }
