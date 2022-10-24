@@ -1,0 +1,69 @@
+{
+    "items": {
+      "random-standard": {
+        "mozilla_specific_test.any.js": [
+          "33b5f88f75b8052f202394c4f53bcc2770631202",
+          [
+            "complex-tests/mozilla_specific_test.any.html",
+            {
+              "script_metadata": [
+                [
+                  "global",
+                  "window,worker"
+                ],
+                [
+                  "script",
+                  "/some/fake/script.js"
+                ]
+              ]
+            }
+          ],
+          [
+            "complex-tests/mozilla_specific_test.any.serviceworker.html",
+            {
+              "script_metadata": [
+                [
+                  "global",
+                  "window,worker"
+                ],
+                [
+                  "script",
+                  "/some/fake/script.js"
+                ]
+              ]
+            }
+          ],
+          [
+            "complex-tests/mozilla_specific_test.any.sharedworker.html",
+            {
+              "script_metadata": [
+                [
+                  "global",
+                  "window,worker"
+                ],
+                [
+                  "script",
+                  "/some/fake/script.js"
+                ]
+              ]
+            }
+          ],
+          [
+            "complex-tests/mozilla_specific_test.any.worker.html",
+            {
+              "script_metadata": [
+                [
+                  "global",
+                  "window,worker"
+                ],
+                [
+                  "script",
+                  "/some/fake/script.js"
+                ]
+              ]
+            }
+          ]
+        ]
+      }
+    }
+  }

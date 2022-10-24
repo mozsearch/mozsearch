@@ -235,6 +235,23 @@ test_ids.pointer = ""
 test_ids.map.first_index = 1
 test_ids.map.each.pointer = "/0"
 
+
+# #### mozilla WPT sub-tree variants
+[jsonfile."wpt-mozilla-manifest.json"]
+source = [{ root = "index", file = "wpt-mozilla-manifest.json" }]
+
+[jsonfile."wpt-mozilla-manifest.json".ingestion]
+root = "/items"
+nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
+# Prefix every path we see with our WPT root.
+path_prefix = "testing/web-platform/mozilla/tests"
+
+[jsonfile."wpt-mozilla-manifest.json".concise.info.wpt.object]
+test_ids.pointer = ""
+test_ids.map.first_index = 1
+test_ids.map.each.pointer = "/0"
+
+
 # ### WPT wpt-metadata-summary.json
 #
 # Paths are flat with only a single level of directory clustering.

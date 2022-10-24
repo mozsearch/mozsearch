@@ -44,6 +44,28 @@ expression: "&to_value(fm).unwrap()"
       }
     },
     {
+      "path": "testing/web-platform/mozilla/tests/random-standard/mozilla_specific_test.any.js",
+      "concise": {
+        "path_kind": "Test files",
+        "is_dir": false,
+        "file_size": 33,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {
+          "wpt": {
+            "test_ids": [
+              "complex-tests/mozilla_specific_test.any.html",
+              "complex-tests/mozilla_specific_test.any.serviceworker.html",
+              "complex-tests/mozilla_specific_test.any.sharedworker.html",
+              "complex-tests/mozilla_specific_test.any.worker.html"
+            ]
+          }
+        }
+      }
+    },
+    {
       "path": "testing/web-platform/tests/complex-tests/some_cross_global_test.any.js",
       "concise": {
         "path_kind": "Test files",
