@@ -34,6 +34,10 @@
     "Web-Platform::Tests": [
       {
         "failure_count": 0,
+        "test": "testing/web-platform/tests/complex-tests/some_cross_global_test.any.js"
+      },
+      {
+        "failure_count": 0,
         "test": "testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js"
       },
       {

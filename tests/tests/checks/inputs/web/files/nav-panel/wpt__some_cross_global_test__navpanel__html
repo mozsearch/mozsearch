@@ -1,0 +1,1 @@
+cat-html testing/web-platform/tests/complex-tests/some_cross_global_test.any.js --select "#panel"
