@@ -71,7 +71,8 @@ let obj_dict = {
     obj_sub_sub_dict: {
       obj_sub_sub_prop: 4
     }
-  }
+  },
+  "<select><keygen>": 2,
 };
 
 function Laser() {
