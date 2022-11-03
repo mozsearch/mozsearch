@@ -338,6 +338,10 @@ function populateResults(data, full, jumpToSingle) {
     return html;
   }
 
+  function escape(s) {
+    return s.replace(/&/gm, "&amp;").replace(/</gm, "&lt;");
+  }
+
   function renderSingleSearchResult(pathkind, qkind, file, line, isContext) {
     var [start, end] = line.bounds || [0, 0];
     var before = line.line.slice(0, start).replace(/^\s+/, "");
@@ -357,10 +361,6 @@ function populateResults(data, full, jumpToSingle) {
       "</a></td>";
     html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
 
-    function escape(s) {
-      return s.replace(/&/gm, "&amp;").replace(/</gm, "&lt;");
-    }
-
     html += "<code>";
     html += escape(before);
     html += "<b>" + escape(middle) + "</b>";
@@ -375,7 +375,7 @@ function populateResults(data, full, jumpToSingle) {
         var url = `/${Dxr.tree}/search?q=symbol:${encodeURIComponent(
           line.contextsym
         )}&redirect=false`;
-        inside = "<a href='" + url + "'>" + line.context + "</a>";
+        inside = "<a href='" + url + "'>" + escape(line.context) + "</a>";
       }
       html +=
         " <span class='result-context'>// found in <code>" +
@@ -488,7 +488,6 @@ function populateResults(data, full, jumpToSingle) {
       }
 
       // Loop over definition/declaration/use/etc. "qkind"s
-      var qkinds = Object.keys(data[pathkind]);
       for (var qkind in data[pathkind]) {
         if (data[pathkind][qkind].length) {
           html += "<tr><td>&nbsp;</td></tr>";
@@ -500,7 +499,7 @@ function populateResults(data, full, jumpToSingle) {
             "'>&#9660;</div>";
           html += "</td>";
 
-          html += "<td><h2 class='result-kind'>" + qkind + "</h2></td></tr>";
+          html += "<td><h2 class='result-kind'>" + escape(qkind) + "</h2></td></tr>";
         }
 
         // Loop over the files with hits.
