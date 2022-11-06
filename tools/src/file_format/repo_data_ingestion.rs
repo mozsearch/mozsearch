@@ -167,13 +167,13 @@ pub struct JsonEvalDictIngestion {
 }
 
 impl JsonEvalDictIngestion {
-    pub fn eval(&mut self, input_val: &Value, existing_output_value: Value) -> Value {
+    pub fn eval(&mut self, ctx: &liquid::Object, input_val: &Value, existing_output_value: Value) -> Value {
         let mut mix_into = match existing_output_value {
             Value::Object(obj) => obj,
             _ => Map::new(),
         };
         for (key, value_ingest) in &mut self.extra {
-            let evaled = value_ingest.eval(input_val, Value::Null);
+            let evaled = value_ingest.eval(&ctx, input_val, Value::Null);
             if !evaled.is_null() {
                 mix_into.insert(key.clone(), evaled);
             }
@@ -191,16 +191,16 @@ impl JsonEvalDictIngestion {
 pub struct JsonEvalMapIngestion {
     /// Offset to start from.
     pub first_index: usize,
-    /// Transform to perform at each
+    /// Transform to perform for each value in the array.
     pub each: JsonEvalNodeIngestion,
 }
 
 impl JsonEvalMapIngestion {
-    pub fn eval(&mut self, input_val: Value) -> Value {
+    pub fn eval(&mut self, ctx: &liquid::Object, input_val: Value) -> Value {
         match input_val {
             Value::Array(arr) => {
                 Value::Array(arr.into_iter().skip(self.first_index).map(|v| {
-                    self.each.eval(&v, Value::Null)
+                    self.each.eval(&ctx, &v, Value::Null)
                 }).collect())
             }
             _ => Value::Null
@@ -224,6 +224,20 @@ pub struct JsonEvalNodeIngestion {
     /// Perform a mapping transform over an array.  Evaluated prior to
     /// aggregation.
     pub map: Option<Box<JsonEvalMapIngestion>>,
+    /// In the event of a null value, perform this evaluation instead.  This is
+    /// being introduced to deal with WPT MANIFEST.json entries which optimize
+    /// by omitting test id paths which are the same as the test file path.
+    ///
+    /// Introducing this does raise the question of whether we should just be
+    /// adding support for something like skylark here rather than adding
+    /// another specialized case.  I think adding this is appropriate based on
+    /// my understanding of the domain, and would probably argue that we should
+    /// probably push anything that would resemble embedded scripting upstream
+    /// as a step that should be run separate from core searchfox logic.  We're
+    /// not doing that in this case because I think an appropriate jq script for
+    /// this would still be pretty confusing/complex compared to this
+    /// incremental enhancement.
+    pub null_fallback: Option<Box<JsonEvalNodeIngestion>>,
     /// Perform some kind of trivial computation on the pointer result from
     /// above.  Current options are:
     /// - "length": Assume we're given an array and get its length.
@@ -241,7 +255,7 @@ pub struct JsonEvalNodeIngestion {
 }
 
 impl JsonEvalNodeIngestion {
-    pub fn eval(&mut self, input_val: &Value, existing_output_value: Value) -> Value {
+    pub fn eval(&mut self, ctx: &liquid::Object, input_val: &Value, existing_output_value: Value) -> Value {
         let mut traversed = match &self.pointer {
             Some(traversal) => match input_val.pointer(traversal) {
                 Some(val) => val.clone(),
@@ -249,8 +263,13 @@ impl JsonEvalNodeIngestion {
             },
             None => input_val.clone(),
         };
+        if traversed.is_null() {
+            if let Some(null_fallback) = &mut self.null_fallback {
+                traversed = null_fallback.eval(ctx, &traversed, Value::Null);
+            }
+        }
         if let Some(mapper) = &mut self.map {
-            traversed = mapper.eval(traversed);
+            traversed = mapper.eval(ctx, traversed);
         }
         if let Some(aggr) = &self.aggregation {
             traversed = match aggr.as_str() {
@@ -263,13 +282,14 @@ impl JsonEvalNodeIngestion {
             };
         }
         if let Some(object_ingest) = &mut self.object {
-            object_ingest.eval(&traversed, existing_output_value)
+            object_ingest.eval(ctx, &traversed, existing_output_value)
         } else if let Some(liquid_str) = &self.liquid {
             let template = self
                 .liquid_cache
                 .get_or_insert_with(|| build_and_parse(&liquid_str));
             let globals = liquid::object!({
                 "value": traversed,
+                "context": ctx,
             });
             Value::String(template.render(&globals).unwrap())
         } else {
@@ -810,6 +830,10 @@ impl IngestionState {
         is_dir: bool,
         file_val: &Value,
     ) {
+        let ctx = liquid::object!({
+            "path": path,
+        });
+
         let concise_entry = self.concise_per_file.entry(path.clone());
         if let Entry::Vacant(_) = &concise_entry {
             if !create_if_does_not_exist {
@@ -819,19 +843,19 @@ impl IngestionState {
         let concise_storage =
             concise_entry.or_insert_with(|| ConcisePerFileInfo::default_is_dir(is_dir));
         if let Some(ingestion) = &mut config.concise.path_kind {
-            let evaled = ingestion.eval(file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
             if !evaled.is_null() {
                 concise_storage.path_kind = from_value(evaled).unwrap();
             }
         }
         if let Some(ingestion) = &mut config.concise.bugzilla_component {
-            let evaled = ingestion.eval(file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
             if !evaled.is_null() {
                 concise_storage.bugzilla_component = Some(from_value(evaled).unwrap());
             }
         }
         if let Some(ingestion) = &mut config.concise.subsystem {
-            let evaled = ingestion.eval(file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
             if !evaled.is_null() {
                 concise_storage.subsystem = Some(from_value(evaled).unwrap());
             }
@@ -840,7 +864,7 @@ impl IngestionState {
         concise_storage.info = config
             .concise
             .info
-            .eval(file_val, concise_storage.info.take());
+            .eval(&ctx, file_val, concise_storage.info.take());
 
         let detailed_storage = self
             .detailed_per_file
@@ -848,7 +872,7 @@ impl IngestionState {
             .or_insert_with(|| DetailedPerFileInfo::default_is_dir(is_dir));
 
         if let Some(ingestion) = &mut config.detailed.coverage_lines {
-            let evaled = ingestion.eval(file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
             if !evaled.is_null() {
                 match from_value(evaled) {
                     Ok(converted) => {
@@ -867,7 +891,7 @@ impl IngestionState {
         detailed_storage.info = config
             .detailed
             .info
-            .eval(file_val, detailed_storage.info.take());
+            .eval(&ctx, file_val, detailed_storage.info.take());
     }
 
     pub fn recurse_dir_dict_with_lookup(
