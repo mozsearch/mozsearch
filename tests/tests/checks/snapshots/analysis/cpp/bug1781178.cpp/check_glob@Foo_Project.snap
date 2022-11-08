@@ -1,0 +1,41 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00006:7-14",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (Point<F>)",
+    "pretty": "function Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E"
+  },
+  {
+    "loc": "00006:7-14",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "context": "Foo",
+    "contextsym": "T_Foo",
+    "peekRange": "6-6"
+  },
+  {
+    "loc": "00010:4-11",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (Point<F>)",
+    "pretty": "function Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E"
+  },
+  {
+    "loc": "00010:4-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "context": "Foo::Bar",
+    "contextsym": "_ZN3Foo3BarEv"
+  }
+]

@@ -182,6 +182,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/bug1781178.cpp" class="icon icon-cpp">bug1781178.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1781178.cpp" title=""></td>
+          <td><a href="/tests/source/bug1781178.cpp">180</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/build.rs" class="icon icon-rs">build.rs</a></td>
           <td class="description"><a href="/tests/source/build.rs" title=""></td>
           <td><a href="/tests/source/build.rs">337</a></td>
