@@ -55,14 +55,19 @@ shell-words = "1.0.0"
 serde = { version = "1.0.130", features = ["derive", "rc", "std"] }
 serde_json = { version = "1.0.67", features = ["preserve_order"] }
 serde_repr = "0.1"
-tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util"] }
+tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
 tokio-stream = "0.1.8"
 toml = "0.5.9"
 tonic = "0.7.1"
-tracing = "0.1.32"
-tracing-subscriber = { version = "0.3.10", features = ["std", "env-filter", "fmt", "local-time", "registry", "json"] }
+tracing = "0.1.37"
+# We explicitly do not enable the "uuid" feature because by default it will be
+# serialized as a u128 in serde which will error out when attempting to convert
+# to a Value or via #flatten, which causes a problem.
+tracing-forest = { version = "0.1.5", features = ["smallvec", "tokio", "uuid"] }
+tracing-subscriber = { version = "0.3.16", features = ["std", "env-filter", "fmt", "local-time", "registry", "json"] }
 url = "2.2.2"
 ustr = { version = "0.9.0", features = ["serialization"] }
+uuid = { version = "1.2.1", features = ["std", "v4"] }
 walkdir = "2.3.2"
 
 [patch.crates-io]
@@ -78,6 +83,9 @@ walkdir = "2.3.2"
 # because that's the last revision before Cargo.toml updated the package's name
 # which causes problems.
 traitobject = { git = "https://github.com/philip-peterson/destructure_traitobject", rev = "d49b0af9087b3b7848d19d5baae43948ebc7fb9d" }
+# If we want to debug what tracing-forest is seeing, I instrumented this with
+# `println!` at some important spots.
+#tracing-forest = { git = "https://github.com/asutherland/tracing-forest.git", rev = "0fef62de683f52f7888ad83891203ac4a645bf8d" }
 
 # Build release mode with line number info for easier debugging when
 # we hit panics in production

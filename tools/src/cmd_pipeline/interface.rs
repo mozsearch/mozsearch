@@ -2,16 +2,16 @@ use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use serde::Serialize;
 use serde_json::{to_string_pretty, Value};
-use ustr::{Ustr, ustr, UstrMap};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
 };
-use tracing::{trace, trace_span};
+use tracing::{trace, trace_span, Instrument};
+use ustr::{ustr, Ustr, UstrMap};
 
-use crate::abstract_server::{FileMatches, TextMatches};
 pub use crate::abstract_server::{AbstractServer, Result};
+use crate::abstract_server::{FileMatches, TextMatches};
 
 use super::symbol_graph::SymbolGraphCollection;
 
@@ -256,7 +256,11 @@ impl SymbolCrossrefInfo {
             if arr.len() == 0 {
                 return None;
             }
-            Some(arr.iter().map(|v| ustr(v["sym"].as_str().unwrap_or(""))).collect())
+            Some(
+                arr.iter()
+                    .map(|v| ustr(v["sym"].as_str().unwrap_or("")))
+                    .collect(),
+            )
         } else {
             None
         }
@@ -634,10 +638,9 @@ impl NamedPipeline {
         traced: bool,
     ) -> Result<PipelineValues> {
         for cmd in &self.commands {
-            let span = trace_span!("run_pipeline_step", cmd = ?cmd);
-            let _span_guard = span.enter();
+            let span = trace_span!("run_named_pipeline_step", cmd = ?cmd);
 
-            match cmd.execute(&server, cur_values).await {
+            match cmd.execute(&server, cur_values).instrument(span.clone()).await {
                 Ok(next_values) => {
                     cur_values = next_values;
                 }
@@ -647,6 +650,7 @@ impl NamedPipeline {
                 }
             }
 
+            let _span_guard = span.entered();
             if traced {
                 let value_str = to_string_pretty(&cur_values).unwrap();
                 trace!(output_json = %value_str);
@@ -675,9 +679,8 @@ impl JunctionInvocation {
         traced: bool,
     ) -> Result<PipelineValues> {
         let span = trace_span!("run junction step", junction = ?self.command);
-        let _span_guard = span.enter();
 
-        let result = match self.command.execute(&server, input_values).await {
+        let result = match self.command.execute(&server, input_values).instrument(span.clone()).await {
             Ok(res) => res,
             Err(err) => {
                 trace!(err = ?err);
@@ -685,6 +688,7 @@ impl JunctionInvocation {
             }
         };
 
+        let _span_guard = span.entered();
         if traced {
             let value_str = to_string_pretty(&result).unwrap();
             trace!(output_json = %value_str);
@@ -714,9 +718,8 @@ impl ServerPipeline {
 
         for cmd in &self.commands {
             let span = trace_span!("run_pipeline_step", cmd = ?cmd);
-            let _span_guard = span.enter();
 
-            match cmd.execute(&self.server, cur_values).await {
+            match cmd.execute(&self.server, cur_values).instrument(span.clone()).await {
                 Ok(next_values) => {
                     cur_values = next_values;
                 }
@@ -726,6 +729,7 @@ impl ServerPipeline {
                 }
             }
 
+            let _span_guard = span.entered();
             if traced {
                 let value_str = to_string_pretty(&cur_values).unwrap();
                 trace!(output_json = %value_str);
@@ -757,9 +761,14 @@ impl ServerPipelineGraph {
                     }
                     None => PipelineValues::Void,
                 };
+                let span = trace_span!("pipeline_task", input_name=?named_pipeline.input_name, output_name=?named_pipeline.output_name).or_current();
                 pipeline_tasks.push((
                     output,
-                    tokio::spawn(named_pipeline.run(self.server.clonify(), input, traced)),
+                    tokio::spawn(
+                        named_pipeline
+                            .run(self.server.clonify(), input, traced)
+                            .instrument(span),
+                    ),
                 ));
             }
 
@@ -780,9 +789,15 @@ impl ServerPipelineGraph {
                         None => PipelineValues::Void,
                     });
                 }
+
+                let span = trace_span!("junction_task", input_names=?junction.input_names, output_name=?junction.output_name).or_current();
                 junction_tasks.push((
                     output,
-                    tokio::spawn(junction.run(self.server.clonify(), input_values, traced)),
+                    tokio::spawn(
+                        junction
+                            .run(self.server.clonify(), input_values, traced)
+                            .instrument(span),
+                    ),
                 ));
             }
 
