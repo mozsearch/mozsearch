@@ -17,6 +17,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate tracing;
 extern crate tracing_subscriber;
+extern crate uuid;
 
 pub mod abstract_server;
 pub mod cmd_pipeline;
@@ -32,5 +33,6 @@ pub mod git_ops;
 pub mod glob_helper;
 pub mod languages;
 pub mod links;
+pub mod logging;
 pub mod output;
 pub mod tokenize;

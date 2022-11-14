@@ -1,89 +1,15 @@
 use std::{
-    io, str,
-    sync::{Arc, Mutex, MutexGuard, TryLockError},
+    str,
 };
 
-use serde_json::{from_str, json, Value, to_value};
+use serde_json::{json, to_value};
 use tokio::fs::{create_dir_all, read_to_string, write};
 use tools::{
     abstract_server::ServerError,
     cmd_pipeline::{build_pipeline, PipelineValues},
     glob_helper::block_in_place_glob_tree,
-    templating::builder::build_and_parse_pipeline_explainer,
+    templating::builder::build_and_parse_pipeline_explainer, logging::{init_logging, LoggedSpan},
 };
-use tracing::dispatcher::Dispatch;
-use tracing_subscriber::fmt::MakeWriter;
-
-/// MockWriter and MockMakeWriter is currently taken verbatim from the MIT licensed
-/// tracing project that is an existing dependency.  It exists only as a cfg(test)
-/// module in
-/// https://github.com/tokio-rs/tracing/blob/master/tracing-subscriber/src/fmt/mod.rs
-/// hence the need to replicate the code here.
-pub struct MockWriter {
-    buf: Arc<Mutex<Vec<u8>>>,
-}
-
-impl MockWriter {
-    pub(crate) fn new(buf: Arc<Mutex<Vec<u8>>>) -> Self {
-        Self { buf }
-    }
-
-    pub(crate) fn map_error<Guard>(err: TryLockError<Guard>) -> io::Error {
-        match err {
-            TryLockError::WouldBlock => io::Error::from(io::ErrorKind::WouldBlock),
-            TryLockError::Poisoned(_) => io::Error::from(io::ErrorKind::Other),
-        }
-    }
-
-    pub(crate) fn buf(&self) -> io::Result<MutexGuard<'_, Vec<u8>>> {
-        self.buf.try_lock().map_err(Self::map_error)
-    }
-}
-
-impl io::Write for MockWriter {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buf()?.write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.buf()?.flush()
-    }
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct MockMakeWriter {
-    buf: Arc<Mutex<Vec<u8>>>,
-}
-
-impl MockMakeWriter {
-    // currently unused
-    /*
-    pub(crate) fn new(buf: Arc<Mutex<Vec<u8>>>) -> Self {
-        Self { buf }
-    }
-
-    pub(crate) fn buf(&self) -> MutexGuard<'_, Vec<u8>> {
-        self.buf.lock().unwrap()
-    }
-    */
-
-    pub(crate) fn get_string(&self) -> String {
-        let mut buf = self.buf.lock().expect("lock shouldn't be poisoned");
-        let string = std::str::from_utf8(&buf[..])
-            .expect("formatter should not have produced invalid utf-8")
-            .to_owned();
-        buf.clear();
-        string
-    }
-}
-
-impl<'a> MakeWriter<'a> for MockMakeWriter {
-    type Writer = MockWriter;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        MockWriter::new(self.buf.clone())
-    }
-}
 
 /// Glob-style insta test where we process all of the searchfox-tool command
 /// lines under TREE/checks/inputs and output the results of those pipelines to
@@ -107,6 +33,8 @@ impl<'a> MakeWriter<'a> for MockMakeWriter {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_check_glob() -> Result<(), std::io::Error> {
     if let Ok(check_root) = std::env::var("CHECK_ROOT") {
+        init_logging();
+
         let explain_template = build_and_parse_pipeline_explainer();
 
         let input_path = format!("{}/inputs", check_root);
@@ -126,16 +54,8 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
             settings.set_snapshot_path(snapshot_path);
             settings.set_snapshot_suffix(filename.clone());
 
-            let make_writer = MockMakeWriter::default();
-            let subscriber = tracing_subscriber::fmt()
-                .json()
-                .with_env_filter("tools=trace")
-                .with_current_span(false)
-                .with_writer(make_writer.clone())
-                .finish();
+            let logged_span = LoggedSpan::new_logged_span(&input_path);
 
-            let dispatcher = Dispatch::new(subscriber);
-            let _trace_guard = tracing::dispatcher::set_default(&dispatcher);
             let mut server_kind = "unknown".to_string();
 
             settings
@@ -224,18 +144,14 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                 })
                 .await;
 
-            let log_values: Vec<Value> = make_writer
-                .get_string()
-                .lines()
-                .map(|s| from_str(s).unwrap())
-                .collect();
+            let log_values = logged_span.retrieve_serde_json().await;
 
             let explain_dir = format!("{}/explanations/{}", check_root, rel_path);
             create_dir_all(explain_dir.clone()).await?;
             let explain_path = format!("{}{}-{}.md", explain_dir, filename, server_kind);
 
             let globals = liquid::object!({
-                "logs": log_values,
+                "logs": vec![log_values],
             });
 
             let output = explain_template.render(&globals).unwrap();

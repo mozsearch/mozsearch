@@ -7,7 +7,7 @@ use std::io::Read;
 use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-use tracing::trace;
+use tracing::{trace};
 use ustr::{ustr, Ustr};
 
 use super::server_interface::{
@@ -297,6 +297,7 @@ impl AbstractServer for LocalIndex {
 
         let endpoint = format!("http://localhost:{}", self.config_paths.codesearch_port);
         trace!("search_text: connecting to {}", endpoint);
+
         let mut client = CodeSearchClient::connect(endpoint).await?;
 
         let query = tonic::Request::new(Query {
@@ -314,6 +315,7 @@ impl AbstractServer for LocalIndex {
             // 0 should pick the default of 0.
             context_lines: 0,
         });
+
         trace!("search_text: connected, issuing query: {}", pattern);
         let response = client.search(query).await?.into_inner();
 
