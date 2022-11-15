@@ -54,6 +54,11 @@ const ERROR_INTERVENTIONS = [
     severity: "INFO",
     prepend: "(unsupported) import assertions can parse this way: "
   },
+  {
+    includes: "redeclaration of import",
+    severity: "INFO",
+    prepend: "Known buggy code pattern is not a problem: "
+  }
 ];
 
 // Note that once we can process .eslintignore most of these can go away because
