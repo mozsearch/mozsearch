@@ -3045,8 +3045,7 @@ dependencies = [
 [[package]]
 name = "traitobject"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efd1f82c56340fdf16f2a953d7bda4f8fdffba13d93b00844c25572110b26079"
+source = "git+https://github.com/philip-peterson/destructure_traitobject?rev=d49b0af9087b3b7848d19d5baae43948ebc7fb9d#d49b0af9087b3b7848d19d5baae43948ebc7fb9d"
 
 [[package]]
 name = "try-lock"
