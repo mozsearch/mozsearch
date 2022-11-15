@@ -65,6 +65,20 @@ url = "2.2.2"
 ustr = { version = "0.9.0", features = ["serialization"] }
 walkdir = "2.3.2"
 
+[patch.crates-io]
+# Our very old version of hyper depends on traitobject but rustc does not like
+# a formulation it uses.  We are able to use the patch mechanism documented at
+# https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html to
+# replace the version hyper sees.  Honestly we would be fine with just using the
+# crates.io version of https://github.com/philip-peterson/destructure_traitobject
+# but my immediate attempts to alias that did not work out.
+#
+# We use revision
+# https://github.com/philip-peterson/destructure_traitobject/commit/d49b0af9087b3b7848d19d5baae43948ebc7fb9d
+# because that's the last revision before Cargo.toml updated the package's name
+# which causes problems.
+traitobject = { git = "https://github.com/philip-peterson/destructure_traitobject", rev = "d49b0af9087b3b7848d19d5baae43948ebc7fb9d" }
+
 # Build release mode with line number info for easier debugging when
 # we hit panics in production
 [profile.release]
