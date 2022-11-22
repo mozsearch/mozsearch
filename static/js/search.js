@@ -280,6 +280,7 @@ function populateResults(data, full, jumpToSingle) {
         cpp: "cpp",
         h: "h",
         c: "c",
+        m: "mm",
         mm: "mm",
         js: "js",
         jsm: "js",
