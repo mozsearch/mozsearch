@@ -168,9 +168,9 @@ pub fn tokenize_plain(string: &str) -> Vec<Token> {
 }
 
 pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
-    fn is_ident(ch: char) -> bool {
-        (ch == '_') || ch.is_alphabetic() || ch.is_digit(10)
-    }
+    let is_ident = |ch: char| -> bool {
+        (ch == '_') || ch.is_alphabetic() || ch.is_digit(10) || (ch == '#' && spec.hash_identifier)
+    };
 
     let mut tokens = Vec::new();
 

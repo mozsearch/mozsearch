@@ -1,0 +1,1 @@
+filter-analysis some_javascript.js -i '#priv_field_num' | show-html

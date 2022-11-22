@@ -5,6 +5,8 @@ use std::path::Path;
 pub struct LanguageSpec {
     pub reserved_words: HashMap<String, String>,
     pub hash_comment: bool,
+    // In JS, private symbols are now a thing.
+    pub hash_identifier: bool,
     pub c_style_comments: bool,
     pub backtick_strings: bool,
     pub regexp_literals: bool,
@@ -566,6 +568,7 @@ static RESERVED_WORDS_KOTLIN: &'static [&'static str] = &[
 lazy_static! {
     static ref JS_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_JS),
+        hash_identifier: true,
         c_style_comments: true,
         backtick_strings: true,
         regexp_literals: true,
