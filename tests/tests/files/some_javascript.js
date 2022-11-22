@@ -28,34 +28,53 @@ class ClassWithProperties {
 
   // PRIVATE FIELDS AREN'T SUPPORTED YET.
   // These next 2 simply won't emit anything in the AST right now.
-  /*
   #priv_field_undefined;
 
   #priv_field_num = 10;
-  */
 
   // This generates a syntax error even if I wrap the object initializer in
   // parens.  The spec is very dry and I'm having trouble figuring out if this
   // is actually legal or not.
-  /*
   #priv_field_dict = {
     sub_prop: 12
   };
-  */
+
+  #priv_method() {
+    // Let's have a few lines so we can verify position: sticky.
+
+    // BEEP BEEP BEEP BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP BEEP BEEP BEEP
+    return this.#priv_field_undefined;
+  }
 
   // This also doesn't work.
-  /*
   #priv_field_func = b => {
+    // Let's have a few lines so we can verify position: sticky.
+
+    // BEEP BEEP BEEP BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP           BEEP
+    // BEEP BEEP BEEP BEEP
     return b * 2;
   };
-  */
 
-  // Disabled by bug 1559269 for now.
-  /*
   consumes_priv_field_num() {
     return this.#priv_field_num;
   }
-  */
 }
 
 class ClassWithStaticMethods {

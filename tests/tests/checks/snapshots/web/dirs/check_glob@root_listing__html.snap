@@ -385,14 +385,8 @@ expression: "&fb.contents"
 
         <tr>
           <td><a href="/tests/source/some_javascript.js" class="icon icon-js">some_javascript.js</a></td>
-          <td class="description"><a href="/tests/source/some_javascript.js" title="#priv_field_undefined;
-
-  #priv_field_num = 10;
-  ">#priv_field_undefined;
-
-  #priv_field_num = 10;
-  </td>
-          <td><a href="/tests/source/some_javascript.js">1898</a></td>
+          <td class="description"><a href="/tests/source/some_javascript.js" title=""></td>
+          <td><a href="/tests/source/some_javascript.js">2555</a></td>
         </tr>
 
         <tr>
