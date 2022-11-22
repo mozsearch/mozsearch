@@ -657,7 +657,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         None => "",
     };
     match ext {
-        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" | "mm" => {
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" | "mm" | "m" => {
             FormatAs::FormatCLike(&*CPP_SPEC)
         }
         "aidl" => FormatAs::FormatCLike(&*AIDL_SPEC),
