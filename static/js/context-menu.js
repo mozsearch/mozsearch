@@ -259,7 +259,13 @@ function getTargetWord() {
 
   function isWordChar(character) {
     // TODO: this could be more non-ascii friendly.
-    return /[A-Z0-9_]/i.test(character);
+    //
+    // Notable Changes:
+    // - We have added "#" to deal with JS private symbols.  This will widen
+    //   C preprocessor directives to include the leading #, which makes sense.
+    //   This will also impact use of the "stringizing operator" for macros,
+    //   where it won't be what we want.
+    return /[#A-Z0-9_]/i.test(character);
   }
 
   if (offset < string.length && !isWordChar(string[offset])) {
