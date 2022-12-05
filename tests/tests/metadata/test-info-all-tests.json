@@ -10,18 +10,29 @@
   "tests": {
     "Product::Component": [
       {
+        "manifest": ["mochitest.ini"],
         "failure_count": 0,
         "skip-if": "toolkit == 'android'\n\nverify\napple_silicon",
         "test": "test_custom_element_base.xul"
       },
       {
+        "manifest": ["chrome.ini"],
         "failure_count": 5,
         "test": "test_DOMWindowCreated_chromeonly.html"
       },
       {
+        "manifest": ["browser.ini"],
         "failure_count": 0,
         "skip-if": "(os == \"win\" && processor == \"aarch64\") || (os == \"mac\") || (os == \"linux\" && !debug)",
         "test": "test_talosconfig_browser_config.json"
+      },
+      {
+        "manifest": [
+          "mochitest.ini:mochitest-common.ini",
+          "mochitest-alt-pref.ini:mochitest-common.ini"
+        ],
+        "failure_count": 0,
+        "test": "test_many_manifest_permutations.js"
       }
     ],
     "OtherProduct::OtherComponent": [
