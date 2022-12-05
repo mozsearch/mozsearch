@@ -394,6 +394,7 @@ pub struct FileIngestion {
     root: String,
     nesting: String,
     nesting_key: Option<String>,
+    partitioned_by: Option<String>,
     #[serde(default)]
     path_prefix: String,
     filename_key: Option<String>,
@@ -809,16 +810,33 @@ impl RepoIngestion {
         };
 
         match config.ingestion.nesting.as_str() {
-            // bugzilla mapping, uses the lookup
+            // Used by:
+            // - bugzilla mapping, uses the lookup
+            // - wpt MANIFEST.json files, uses the
             "hierarchical-dict-dirs-are-dicts-files-are-values" => {
                 let path_prefix = config.ingestion.path_prefix.clone();
-                self.state.recurse_dir_dict_with_lookup(
-                    &mut config,
-                    probe_config,
-                    &lookups,
-                    &path_prefix,
-                    root,
-                )
+                if let Some(_partition_key) = config.ingestion.partitioned_by.clone() {
+                    if let Value::Object(obj) = root {
+                        for (_, partitioned_root) in obj {
+                            self.state.recurse_dir_dict_with_lookup(
+                                &mut config,
+                                probe_config,
+                                &lookups,
+                                &path_prefix,
+                                partitioned_root,
+                            )?;
+                        }
+                    }
+                    Ok(())
+                } else {
+                    self.state.recurse_dir_dict_with_lookup(
+                        &mut config,
+                        probe_config,
+                        &lookups,
+                        &path_prefix,
+                        root,
+                    )
+                }
             }
             // code coverage mapping
             "hierarchical-dict-explicit-key" => {

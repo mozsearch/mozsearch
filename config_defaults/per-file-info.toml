@@ -203,8 +203,11 @@ manifest.pointer = "/manifest"
 
 # ### WPT manifest variants (wpt proper plus "mozilla" wpt)
 #
-# Hierarchical tree rooted under "items" where objects are directories and
-# arrays are file values.
+# Hierarchical tree rooted under "items" where the first level groups by the
+# test type (https://web-platform-tests.org/test-suite-design.html#test-types)
+# like "testharness" (the most common kind), "crashtest", "reftest", etc.  They
+# then have a self-similar structure where at each level objects are directories
+# and arrays are file values.
 #
 # The value payloads are an array structure:
 # - 0: hash
@@ -228,6 +231,12 @@ source = [{ root = "index", file = "wpt-manifest.json" }]
 [jsonfile."wpt-manifest.json".ingestion]
 root = "/items"
 nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
+# As documented at https://web-platform-tests.org/test-suite-design.html#test-types
+# there are number of different test types and these partition the file-hierarchies
+# by type.  For now we will just consume this value, but in the future we should
+# expose this via the context mechanism so that at the file level we can use this
+# value.
+partitioned_by = "test_type"
 # Prefix every path we see with our WPT root.
 path_prefix = "testing/web-platform/tests"
 
@@ -244,6 +253,7 @@ source = [{ root = "index", file = "wpt-mozilla-manifest.json" }]
 [jsonfile."wpt-mozilla-manifest.json".ingestion]
 root = "/items"
 nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
+partitioned_by = "test_type"
 # Prefix every path we see with our WPT root.
 path_prefix = "testing/web-platform/mozilla/tests"
 

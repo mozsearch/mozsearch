@@ -90,7 +90,10 @@ expression: "&to_value(fm).unwrap()"
         "description": null,
         "info": {
           "test": {
-            "failure_count": 0
+            "failure_count": 0,
+            "manifest": [
+              "/complex-tests"
+            ]
           },
           "wpt": {
             "test_ids": [
@@ -116,7 +119,10 @@ expression: "&to_value(fm).unwrap()"
         "description": null,
         "info": {
           "test": {
-            "failure_count": 0
+            "failure_count": 0,
+            "manifest": [
+              "/fake-standard"
+            ]
           },
           "wpt": {
             "test_ids": [
@@ -152,7 +158,10 @@ expression: "&to_value(fm).unwrap()"
         "description": null,
         "info": {
           "test": {
-            "failure_count": 0
+            "failure_count": 0,
+            "manifest": [
+              "/fake-standard"
+            ]
           },
           "wpt": {
             "test_ids": [
@@ -175,7 +184,10 @@ expression: "&to_value(fm).unwrap()"
         "description": null,
         "info": {
           "test": {
-            "failure_count": 0
+            "failure_count": 0,
+            "manifest": [
+              "/fake-standard"
+            ]
           },
           "wpt": {
             "test_ids": [

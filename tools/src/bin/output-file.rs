@@ -13,6 +13,8 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
+use lazy_static::lazy_static;
+use regex::Regex;
 use tools::file_format::config;
 use tools::file_format::per_file_info::read_detailed_file_info;
 use tools::file_format::per_file_info::FileLookupMap;
@@ -83,7 +85,10 @@ fn main() {
     .unwrap();
 
     let pre_lookup_map = Instant::now();
-    let file_lookup_path = format!("{}/concise-per-file-info.json", tree_config.paths.index_path);
+    let file_lookup_path = format!(
+        "{}/concise-per-file-info.json",
+        tree_config.paths.index_path
+    );
     let file_lookup_map = FileLookupMap::new(&file_lookup_path);
     writeln!(
         stdout,
@@ -402,9 +407,21 @@ fn main() {
             "concise": &concise_info,
             "detailed": &detailed_info,
         });
-        let source_file_info_boxes = source_file_info_boxes_template
+
+        lazy_static! {
+            static ref RE_WHITESPACE_CLEANUP: Regex = Regex::new(r#"(\n *)+\n"#).unwrap();
+        }
+
+        let mut source_file_info_boxes = source_file_info_boxes_template
             .render(&liquid_globals)
             .unwrap();
+        // It's really difficult to get whitespace right in the templates right now.
+        // While it probably makes sense to just pass what we get from this through
+        // a formatter in general, for now let's at least just use this exciting
+        // regex to clean things up.
+        source_file_info_boxes = RE_WHITESPACE_CLEANUP
+            .replace_all(&source_file_info_boxes, "\n")
+            .to_string();
         let source_file_other_tools_panels = source_file_other_tools_panel_template
             .render(&liquid_globals)
             .unwrap()

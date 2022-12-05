@@ -22,43 +22,47 @@
     <h4>{{ test_heading }}</h4>
     <div>
       <ul>
-        {%- if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
+{% if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
         <li>This test gets skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
-        {%- endif -%}
-        {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
+{%- endif -%}
+{%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 %}
         <li>This test failed {{ concise.info.test.failure_count }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path }}">quicksearch this test</a></li>
-        {% endif -%}
-        {%- if concise.info.test contains "manifest" and concise.info.test.manifest != empty %}
-           {%- for aggr_manifest in concise.info.test.manifest -%}
-             {%- assign manifests = aggr_manifest | split: ":" %}
-        <li>Manifest: {% for manifest in manifests -%}
-                {%- unless forloop.first %} includes {% endunless -%}<a href="/{{ tree }}/source/{{ manifest }}">{{ manifest }}</a>
-              {%- endfor -%}</li>
-           {%- endfor -%}
-        {%- endif -%}
-        {%- if concise.info contains "wpt" -%}
-            {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta/" }}.ini{%- endcapture -%}
-            {%- if concise.info.wpt contains "disabling_conditions" -%}
-                {%- assign linked_meta = true -%}
+{% endif -%}
+{%- if concise.info contains "wpt" -%}
+  {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta/" }}.ini{%- endcapture -%}
+  {%- if concise.info.wpt contains "disabling_conditions" -%}
+                {%- assign linked_meta = true %}
         <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that disables it given conditions:
             <ul>{%- for cond_bug in concise.info.wpt.disabling_conditions %}
                 <li><span class="test-skip-info">{{ cond_bug[0] | strip }}</span>&nbsp; : <a href="{{ cond_bug[1] | ensure_bug_url }}">{{ cond_bug[1] }}</a></li>
                 {%- endfor -%}
             </ul>
         </li>
-            {%- endif -%}
-            {%- if concise.info.wpt contains "disabled_subtests_count" -%}
+  {%- endif -%}
+  {%- if concise.info.wpt contains "disabled_subtests_count" %}
         <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that expects {{ concise.info.wpt.disabled_subtests_count }} subtest issues.</li>
-{% endif -%}
-            {%- if concise.info.wpt contains "test_ids" %}
+  {% endif -%}
+  {%- if concise.info.wpt contains "test_ids" %}
         <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
             <ul>{%- for test_id in concise.info.wpt.test_ids %}
                 <li>/{{ test_id }} - <a href="https://wpt.fyi/results/{{ test_id }}">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/{{ test_id }}">Interop Dashboard</a></li>
                 {%- endfor -%}
             </ul>
         </li>
-            {%- endif -%}
-          {%- endif %}
+  {%- endif -%}
+{% else %}
+  {%- comment %}WPTs do have a normalized manifest for infrastructure
+  purposes but it's not useful to show the user because it's just the
+  (implicit) directory.{% endcomment -%}
+  {%- if concise.info.test contains "manifest" and concise.info.test.manifest != empty %}
+    {%- for aggr_manifest in concise.info.test.manifest -%}
+              {%- assign manifests = aggr_manifest | split: ":" %}
+        <li>Manifest: {% for manifest in manifests -%}
+              {%- unless forloop.first %} includes {% endunless -%}<a href="/{{ tree }}/source/{{ manifest }}">{{ manifest }}</a>
+            {%- endfor -%}</li>
+    {%- endfor -%}
+  {%- endif -%}
+{%- endif %}
       </ul>
     </div>
   </section>
