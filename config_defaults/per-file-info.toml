@@ -199,6 +199,7 @@ nesting_key = "test"
 [jsonfile."test-info-all-tests.json".concise.info.test.object]
 skip_if.pointer = "/skip-if"
 failure_count.pointer = "/failure_count"
+manifest.pointer = "/manifest"
 
 # ### WPT manifest variants (wpt proper plus "mozilla" wpt)
 #
