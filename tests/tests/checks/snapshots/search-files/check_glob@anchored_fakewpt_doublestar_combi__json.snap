@@ -5,6 +5,19 @@ expression: "&to_value(fm).unwrap()"
 {
   "file_matches": [
     {
+      "path": "testing/web-platform/meta/complex-tests/some_cross_global_test.any.js.ini",
+      "concise": {
+        "path_kind": "Test files",
+        "is_dir": false,
+        "file_size": 109,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
       "path": "testing/web-platform/meta/fake-standard/test_ima_disabled_wpt.js.ini",
       "concise": {
         "path_kind": "Test files",
@@ -85,7 +98,8 @@ expression: "&to_value(fm).unwrap()"
               "complex-tests/some_cross_global_test.any.serviceworker.html",
               "complex-tests/some_cross_global_test.any.sharedworker.html",
               "complex-tests/some_cross_global_test.any.worker.html"
-            ]
+            ],
+            "disabled_subtests_count": 1
           }
         }
       }

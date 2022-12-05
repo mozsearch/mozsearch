@@ -21,5 +21,15 @@
         "_filename": "test_ima_weird_meta_wpt.js"
       }
     }
+  },
+  "complex-tests": {
+    "_tests": {
+      "some_cross_global_test.any.html": {
+        "_filename": "some_cross_global_test.any.js",
+        "_subtests": {
+          "foo": {}
+        }
+      }
+    }
   }
 }

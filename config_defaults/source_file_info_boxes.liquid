@@ -32,8 +32,8 @@
            {%- for aggr_manifest in concise.info.test.manifest -%}
              {%- assign manifests = aggr_manifest | split: ":" %}
         <li>Manifest: {% for manifest in manifests -%}
-            {%- unless forloop.first %} includes {% endunless -%}<a href="{{ tree }}/source/{{ manifest }}">
-             {%- endfor -%}</li>
+                {%- unless forloop.first %} includes {% endunless -%}<a href="/{{ tree }}/source/{{ manifest }}">{{ manifest }}</a>
+              {%- endfor -%}</li>
            {%- endfor -%}
         {%- endif -%}
         {%- if concise.info contains "wpt" -%}
@@ -49,8 +49,8 @@
             {%- endif -%}
             {%- if concise.info.wpt contains "disabled_subtests_count" -%}
         <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that expects {{ concise.info.wpt.disabled_subtests_count }} subtest issues.</li>
-            {%- endif -%}
-            {%- if concise.info.wpt contains "test_ids" -%}
+{% endif -%}
+            {%- if concise.info.wpt contains "test_ids" %}
         <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
             <ul>{%- for test_id in concise.info.wpt.test_ids %}
                 <li>/{{ test_id }} - <a href="https://wpt.fyi/results/{{ test_id }}">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/{{ test_id }}">Interop Dashboard</a></li>

@@ -144,6 +144,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/browser.ini" class="icon icon-ini">browser.ini</a></td>
+          <td class="description"><a href="/tests/source/browser.ini" title=""></td>
+          <td><a href="/tests/source/browser.ini">202</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/bug1432300.cpp" class="icon icon-cpp">bug1432300.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1432300.cpp" title="This simulates the code from JS::ProfilingFrameIterator::getPhysicalFrameAndEntry
  which was highlighting incorrectly in bug 1432300 ">This simulates the code from JS::ProfilingFrameIterator::getPhysicalFrameAndEntry
@@ -197,6 +203,12 @@ expression: "&fb.contents"
           <td><a href="/tests/source/Cargo.toml" class="icon icon-toml">Cargo.toml</a></td>
           <td class="description"><a href="/tests/source/Cargo.toml" title=""></td>
           <td><a href="/tests/source/Cargo.toml">250</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/chrome.ini" class="icon icon-ini">chrome.ini</a></td>
+          <td class="description"><a href="/tests/source/chrome.ini" title=""></td>
+          <td><a href="/tests/source/chrome.ini">40</a></td>
         </tr>
 
         <tr>
@@ -305,6 +317,24 @@ expression: "&fb.contents"
           <td><a href="/tests/source/mobile" class="icon icon-folder">mobile</a></td>
           <td class="description"><a href="/tests/source/mobile" title=""></td>
           <td><a href="/tests/source/mobile"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mochitest-alt-pref.ini" class="icon icon-ini">mochitest-alt-pref.ini</a></td>
+          <td class="description"><a href="/tests/source/mochitest-alt-pref.ini" title=""></td>
+          <td><a href="/tests/source/mochitest-alt-pref.ini">69</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mochitest-common.ini" class="icon icon-ini">mochitest-common.ini</a></td>
+          <td class="description"><a href="/tests/source/mochitest-common.ini" title=""></td>
+          <td><a href="/tests/source/mochitest-common.ini">37</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mochitest.ini" class="icon icon-ini">mochitest.ini</a></td>
+          <td class="description"><a href="/tests/source/mochitest.ini" title=""></td>
+          <td><a href="/tests/source/mochitest.ini">142</a></td>
         </tr>
 
         <tr>
@@ -493,6 +523,12 @@ Spread over multiple lines.
           <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" class="icon icon-html">test_DOMWindowCreated_chromeonly.html</a></td>
           <td class="description"><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" title="DOMWindowCreated not visible in content">DOMWindowCreated not visible in content</td>
           <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html">728</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_many_manifest_permutations.js" class="icon icon-js">test_many_manifest_permutations.js</a></td>
+          <td class="description"><a href="/tests/source/test_many_manifest_permutations.js" title=""></td>
+          <td><a href="/tests/source/test_many_manifest_permutations.js">130</a></td>
         </tr>
 
         <tr>

@@ -1,0 +1,1 @@
+cat-html test_many_manifest_permutations.js --select "section.info-boxes"

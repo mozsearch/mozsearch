@@ -42,7 +42,10 @@ expression: "&to_value(fm).unwrap()"
         "description": "DOMWindowCreated not visible in content",
         "info": {
           "test": {
-            "failure_count": 5
+            "failure_count": 5,
+            "manifest": [
+              "chrome.ini"
+            ]
           }
         }
       }
