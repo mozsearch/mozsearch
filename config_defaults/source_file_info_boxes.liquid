@@ -29,7 +29,7 @@
         <li>This test failed {{ concise.info.test.failure_count }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path }}">quicksearch this test</a></li>
         {% endif -%}
         {%- if concise.info contains "wpt" -%}
-            {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta" }}.ini{%- endcapture -%}
+            {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta/" }}.ini{%- endcapture -%}
             {%- if concise.info.wpt contains "disabling_conditions" -%}
                 {%- assign linked_meta = true -%}
         <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that disables it given conditions:
