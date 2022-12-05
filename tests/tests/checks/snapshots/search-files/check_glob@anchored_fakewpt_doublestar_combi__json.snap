@@ -106,7 +106,7 @@ expression: "&to_value(fm).unwrap()"
           },
           "wpt": {
             "test_ids": [
-              "testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js"
+              "fake-standard/test_ima_disabled_wpt.js"
             ],
             "disabling_conditions": [
               [
@@ -142,7 +142,7 @@ expression: "&to_value(fm).unwrap()"
           },
           "wpt": {
             "test_ids": [
-              "testing/web-platform/tests/fake-standard/test_ima_sad_subtests_wpt.js"
+              "fake-standard/test_ima_sad_subtests_wpt.js"
             ],
             "disabled_subtests_count": 3
           }
