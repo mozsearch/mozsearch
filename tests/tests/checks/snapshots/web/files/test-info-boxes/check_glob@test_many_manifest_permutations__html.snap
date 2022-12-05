@@ -1,0 +1,15 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<section class="info-boxes" id="info-boxes-container">
+  <section class="info-box info-box-info">
+    <h4>Test Info:</h4>
+    <div>
+      <ul>
+        <li>Manifest: <a href="/tests/source/mochitest.ini">mochitest.ini</a> includes <a href="/tests/source/mochitest-common.ini">mochitest-common.ini</a></li>
+        <li>Manifest: <a href="/tests/source/mochitest-alt-pref.ini">mochitest-alt-pref.ini</a> includes <a href="/tests/source/mochitest-common.ini">mochitest-common.ini</a></li>
+      </ul>
+    </div>
+  </section>
+</section>

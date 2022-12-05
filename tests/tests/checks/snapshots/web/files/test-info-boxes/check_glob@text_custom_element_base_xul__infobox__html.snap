@@ -8,6 +8,7 @@ expression: "&fb.contents"
     <div>
       <ul>
         <li>This test gets skipped with pattern: <span class="test-skip-info">toolkit == 'android' OR verify OR apple_silicon</span></li>
+        <li>Manifest: <a href="/tests/source/mochitest.ini">mochitest.ini</a></li>
       </ul>
     </div>
   </section>
