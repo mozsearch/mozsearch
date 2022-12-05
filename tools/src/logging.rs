@@ -84,8 +84,9 @@ impl LoggedSpan {
 }
 
 /// Initialize logging; for now we currently always use a hard-coded value of
-/// tools=trace because this is what we care about for our self-instrumentation,
-/// and the current focus is on that mechanism
+/// tools=trace for the `LoggedSpan` mechanism because that's all we care about,
+/// but if you set the environment variable `RUST_LOG` to a non-empty value, we
+/// will enable pretty/verbose logging (although we can change that if desired).
 //#[allow(unused_must_use)]
 pub fn init_logging() {
     {
@@ -106,8 +107,23 @@ pub fn init_logging() {
             if let Ok(env_filter) = EnvFilter::try_from_default_env() {
                 let layer = tracing_subscriber::fmt::layer()
                     .with_span_events(FmtSpan::ENTER | FmtSpan::EXIT)
-                    .pretty()
-                    .with_thread_ids(true)
+                    //.pretty()
+                    .compact()
+                    // We primarily expect this to go in our log which can be
+                    // excerpted for email purposes, and so ANSI isn't helpful
+                    // for this.
+                    .with_ansi(false)
+                    // In general we don't care about the wall time that much,
+                    // and it takes up a lot of columns, especially in tracing
+                    // which includes sub-second granularities.
+                    //
+                    // Also, if we leave time enabled, we have to fix
+                    // send-warning-email.py to deal with the sub-seconds.
+                    .without_time()
+                    // I had enabled the thread ids for diagnosing complicated
+                    // async issues, but ideally we won't see this much, so this
+                    // will just be noise most of the time.
+                    //.with_thread_ids(true)
                     .with_filter(env_filter)
                     .boxed();
                 layers.push(layer);

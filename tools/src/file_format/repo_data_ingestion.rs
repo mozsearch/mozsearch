@@ -6,6 +6,7 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use liquid::Template;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, from_value, json, to_writer, Map, Value};
 use ustr::{ustr, Ustr};
@@ -159,6 +160,38 @@ pub struct DetailedIngestion {
     pub info: JsonEvalDictIngestion,
 }
 
+pub struct ProbeConfig {
+    path: Option<Regex>,
+}
+
+impl ProbeConfig {
+    pub fn new_from_env() -> Self {
+        let path = if let Ok(probe_path) = std::env::var("PROBE_PATH") {
+            if let Ok(re_path) = Regex::new(&probe_path) {
+                Some(re_path)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Self { path }
+    }
+
+    pub fn should_probe_path(&self, path: &str) -> bool {
+        if let Some(path_regex) = &self.path {
+            return path_regex.is_match(path);
+        }
+        return false;
+    }
+}
+
+pub struct EvalContext<'a> {
+    obj: liquid::Object,
+    probe: &'a ProbeConfig,
+}
+
 /// Defines an object dictionary's contents.
 #[derive(Default, Deserialize)]
 pub struct JsonEvalDictIngestion {
@@ -167,15 +200,38 @@ pub struct JsonEvalDictIngestion {
 }
 
 impl JsonEvalDictIngestion {
-    pub fn eval(&mut self, ctx: &liquid::Object, input_val: &Value, existing_output_value: Value) -> Value {
+    pub fn eval(
+        &mut self,
+        ctx: &EvalContext,
+        probing: bool,
+        input_val: &Value,
+        existing_output_value: Value,
+    ) -> Value {
+        let _obj_entered = if probing {
+            let span = Some(trace_span!("dict_eval").entered());
+            trace!(existing = ?existing_output_value);
+            span
+        } else {
+            None
+        };
         let mut mix_into = match existing_output_value {
             Value::Object(obj) => obj,
             _ => Map::new(),
         };
         for (key, value_ingest) in &mut self.extra {
-            let evaled = value_ingest.eval(&ctx, input_val, Value::Null);
+            if probing {
+                trace!(key = %key);
+            }
+            let existing = mix_into.remove(key).unwrap_or(Value::Null);
+            let evaled = value_ingest.eval(&ctx, probing, input_val, existing);
+
             if !evaled.is_null() {
+                if probing {
+                    trace!(key, val = ?evaled, "inserting non-null key/value");
+                }
                 mix_into.insert(key.clone(), evaled);
+            } else if probing {
+                trace!(key, val = ?evaled, "not inserting null value");
             }
         }
         Value::Object(mix_into)
@@ -196,14 +252,20 @@ pub struct JsonEvalMapIngestion {
 }
 
 impl JsonEvalMapIngestion {
-    pub fn eval(&mut self, ctx: &liquid::Object, input_val: Value) -> Value {
+    pub fn eval(&mut self, ctx: &EvalContext, probing: bool, input_val: Value) -> Value {
+        let _obj_entered = if probing {
+            Some(trace_span!("map_eval").entered())
+        } else {
+            None
+        };
         match input_val {
-            Value::Array(arr) => {
-                Value::Array(arr.into_iter().skip(self.first_index).map(|v| {
-                    self.each.eval(&ctx, &v, Value::Null)
-                }).collect())
-            }
-            _ => Value::Null
+            Value::Array(arr) => Value::Array(
+                arr.into_iter()
+                    .skip(self.first_index)
+                    .map(|v| self.each.eval(&ctx, probing, &v, Value::Null))
+                    .collect(),
+            ),
+            _ => Value::Null,
         }
     }
 }
@@ -255,21 +317,43 @@ pub struct JsonEvalNodeIngestion {
 }
 
 impl JsonEvalNodeIngestion {
-    pub fn eval(&mut self, ctx: &liquid::Object, input_val: &Value, existing_output_value: Value) -> Value {
+    pub fn eval(
+        &mut self,
+        ctx: &EvalContext,
+        probing: bool,
+        input_val: &Value,
+        existing_output_value: Value,
+    ) -> Value {
+        let _eval_entered = if probing {
+            Some(trace_span!("node_eval").entered())
+        } else {
+            None
+        };
         let mut traversed = match &self.pointer {
             Some(traversal) => match input_val.pointer(traversal) {
-                Some(val) => val.clone(),
+                Some(val) => {
+                    if probing {
+                        trace!(traversal, val = ?val, "traversed");
+                    }
+                    val.clone()
+                }
                 None => Value::Null,
             },
             None => input_val.clone(),
         };
         if traversed.is_null() {
             if let Some(null_fallback) = &mut self.null_fallback {
-                traversed = null_fallback.eval(ctx, &traversed, Value::Null);
+                traversed = null_fallback.eval(ctx, probing, &traversed, Value::Null);
+                if probing {
+                    trace!(val = ?traversed, "null_fallback");
+                }
             }
         }
         if let Some(mapper) = &mut self.map {
-            traversed = mapper.eval(ctx, traversed);
+            traversed = mapper.eval(ctx, probing, traversed);
+            if probing {
+                trace!(val = ?traversed, "mapped");
+            }
         }
         if let Some(aggr) = &self.aggregation {
             traversed = match aggr.as_str() {
@@ -280,18 +364,25 @@ impl JsonEvalNodeIngestion {
                 },
                 __ => traversed,
             };
+            if probing {
+                trace!(val = ?traversed, "length");
+            }
         }
         if let Some(object_ingest) = &mut self.object {
-            object_ingest.eval(ctx, &traversed, existing_output_value)
+            object_ingest.eval(ctx, probing, &traversed, existing_output_value)
         } else if let Some(liquid_str) = &self.liquid {
             let template = self
                 .liquid_cache
                 .get_or_insert_with(|| build_and_parse(&liquid_str));
             let globals = liquid::object!({
                 "value": traversed,
-                "context": ctx,
+                "context": ctx.obj,
             });
-            Value::String(template.render(&globals).unwrap())
+            let rendered = template.render(&globals).unwrap();
+            if probing {
+                trace!(val = rendered, "rendered");
+            }
+            Value::String(rendered)
         } else {
             traversed
         }
@@ -541,6 +632,8 @@ impl RepoIngestion {
     where
         F: Fn(&str, &str) -> Result<Option<String>, &'static str>,
     {
+        let probe_config = ProbeConfig::new_from_env();
+
         let find_file = |descriptors: &Vec<SourceDescriptor>| -> Result<Option<String>, String> {
             for desc in descriptors {
                 match maybe_read_file(&desc.root, &desc.file) {
@@ -568,7 +661,7 @@ impl RepoIngestion {
             }
         }
         for (name, contents) in textfile_sources {
-            self.ingest_textfile_data(&name, contents)?;
+            self.ingest_textfile_data(&name, contents, &probe_config)?;
         }
 
         // ### JSON Files
@@ -585,7 +678,7 @@ impl RepoIngestion {
             }
         }
         for (name, mut value) in jsonfile_sources {
-            self.ingest_jsonfile_data(&name, &mut value)?;
+            self.ingest_jsonfile_data(&name, &mut value, &probe_config)?;
         }
 
         Ok(())
@@ -595,6 +688,7 @@ impl RepoIngestion {
         &mut self,
         name: &str,
         file_contents: String,
+        probe_config: &ProbeConfig,
     ) -> Result<(), String> {
         let config = match self.config.textfile.get(name) {
             Some(config) => config,
@@ -612,6 +706,8 @@ impl RepoIngestion {
                 let globber = GlobbingFileList::new(file_contents);
 
                 for (path, concise) in &mut self.state.concise_per_file {
+                    let probing = probe_config.should_probe_path(path);
+
                     // Apply path extension pre-filter.
                     if let Some(exts) = &config.filter_input_ext {
                         if let Some(idx) = path.rfind('.') {
@@ -628,7 +724,12 @@ impl RepoIngestion {
 
                     // Now apply the glob filter.
                     if !globber.is_match(path) {
+                        if probing {
+                            trace!("'{}' did not match", path);
+                        }
                         continue;
+                    } else if probing {
+                        trace!("'{}' matched", path);
                     }
 
                     // It matches if we're here.
@@ -675,6 +776,7 @@ impl RepoIngestion {
         &mut self,
         name: &str,
         input_val: &mut Value,
+        probe_config: &ProbeConfig,
     ) -> Result<(), String> {
         info!("Processing JSON file: {}", name);
         let mut config = match self.config.jsonfile.get_mut(name) {
@@ -710,8 +812,13 @@ impl RepoIngestion {
             // bugzilla mapping, uses the lookup
             "hierarchical-dict-dirs-are-dicts-files-are-values" => {
                 let path_prefix = config.ingestion.path_prefix.clone();
-                self.state
-                    .recurse_dir_dict_with_lookup(&mut config, &lookups, &path_prefix, root)
+                self.state.recurse_dir_dict_with_lookup(
+                    &mut config,
+                    probe_config,
+                    &lookups,
+                    &path_prefix,
+                    root,
+                )
             }
             // code coverage mapping
             "hierarchical-dict-explicit-key" => {
@@ -719,6 +826,7 @@ impl RepoIngestion {
                     let path_prefix = config.ingestion.path_prefix.clone();
                     self.state.recurse_nested_explicit_children(
                         &mut config,
+                        probe_config,
                         children_key,
                         &path_prefix,
                         root.take(),
@@ -749,6 +857,8 @@ impl RepoIngestion {
                                 if let Some(Value::String(path)) = val.get(path_key).clone() {
                                     self.state.eval_file_values(
                                         &mut config,
+                                        probe_config,
+                                        false,
                                         &ustr(&format!("{}{}", &path_prefix, path)),
                                         false,
                                         false,
@@ -797,6 +907,8 @@ impl RepoIngestion {
                                     format!("{}{}/{}", use_path_prefix, dir_path, use_filename);
                                 self.state.eval_file_values(
                                     &mut config,
+                                    probe_config,
+                                    false,
                                     &ustr(&path),
                                     false,
                                     false,
@@ -825,14 +937,21 @@ impl IngestionState {
     pub fn eval_file_values(
         &mut self,
         config: &mut JsonFileConfig,
+        probe_config: &ProbeConfig,
+        parent_probing: bool,
         path: &Ustr,
         create_if_does_not_exist: bool,
         is_dir: bool,
         file_val: &Value,
     ) {
-        let ctx = liquid::object!({
-            "path": path,
-        });
+        let ctx = EvalContext {
+            obj: liquid::object!({
+                "path": path,
+            }),
+            probe: probe_config,
+        };
+
+        let probing = parent_probing || ctx.probe.should_probe_path(path);
 
         let concise_entry = self.concise_per_file.entry(path.clone());
         if let Entry::Vacant(_) = &concise_entry {
@@ -843,28 +962,29 @@ impl IngestionState {
         let concise_storage =
             concise_entry.or_insert_with(|| ConcisePerFileInfo::default_is_dir(is_dir));
         if let Some(ingestion) = &mut config.concise.path_kind {
-            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, probing, file_val, Value::Null);
             if !evaled.is_null() {
                 concise_storage.path_kind = from_value(evaled).unwrap();
             }
         }
         if let Some(ingestion) = &mut config.concise.bugzilla_component {
-            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, probing, file_val, Value::Null);
             if !evaled.is_null() {
                 concise_storage.bugzilla_component = Some(from_value(evaled).unwrap());
             }
         }
         if let Some(ingestion) = &mut config.concise.subsystem {
-            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, probing, file_val, Value::Null);
             if !evaled.is_null() {
                 concise_storage.subsystem = Some(from_value(evaled).unwrap());
             }
         }
 
-        concise_storage.info = config
-            .concise
-            .info
-            .eval(&ctx, file_val, concise_storage.info.take());
+        concise_storage.info =
+            config
+                .concise
+                .info
+                .eval(&ctx, probing, file_val, concise_storage.info.take());
 
         let detailed_storage = self
             .detailed_per_file
@@ -872,7 +992,7 @@ impl IngestionState {
             .or_insert_with(|| DetailedPerFileInfo::default_is_dir(is_dir));
 
         if let Some(ingestion) = &mut config.detailed.coverage_lines {
-            let evaled = ingestion.eval(&ctx, file_val, Value::Null);
+            let evaled = ingestion.eval(&ctx, probing, file_val, Value::Null);
             if !evaled.is_null() {
                 match from_value(evaled) {
                     Ok(converted) => {
@@ -888,15 +1008,17 @@ impl IngestionState {
                 }
             }
         }
-        detailed_storage.info = config
-            .detailed
-            .info
-            .eval(&ctx, file_val, detailed_storage.info.take());
+        detailed_storage.info =
+            config
+                .detailed
+                .info
+                .eval(&ctx, probing, file_val, detailed_storage.info.take());
     }
 
     pub fn recurse_dir_dict_with_lookup(
         &mut self,
         config: &mut JsonFileConfig,
+        probe_config: &ProbeConfig,
         lookups: &Option<Map<String, Value>>,
         path_so_far: &str,
         cur: Value,
@@ -909,7 +1031,7 @@ impl IngestionState {
                     format!("{}/{}", path_so_far, filename)
                 };
                 if value.is_object() {
-                    self.recurse_dir_dict_with_lookup(config, lookups, &path, value)?;
+                    self.recurse_dir_dict_with_lookup(config, probe_config, lookups, &path, value)?;
                 } else {
                     if let Some(lookup_values) = lookups {
                         let lookup_key = match value {
@@ -918,10 +1040,26 @@ impl IngestionState {
                             _ => "".to_string(),
                         };
                         if let Some(looked_up_value) = lookup_values.get(&lookup_key) {
-                            self.eval_file_values(config, &ustr(&path), false, false, &looked_up_value);
+                            self.eval_file_values(
+                                config,
+                                probe_config,
+                                false,
+                                &ustr(&path),
+                                false,
+                                false,
+                                &looked_up_value,
+                            );
                         }
                     } else {
-                        self.eval_file_values(config, &ustr(&path), false, false, &value);
+                        self.eval_file_values(
+                            config,
+                            probe_config,
+                            false,
+                            &ustr(&path),
+                            false,
+                            false,
+                            &value,
+                        );
                     }
                 }
             }
@@ -934,6 +1072,7 @@ impl IngestionState {
     pub fn recurse_nested_explicit_children(
         &mut self,
         config: &mut JsonFileConfig,
+        probe_config: &ProbeConfig,
         children_key: &str,
         path_so_far: &str,
         mut cur: Value,
@@ -955,14 +1094,28 @@ impl IngestionState {
                     } else {
                         format!("{}/{}", path_so_far, filename)
                     };
-                    self.recurse_nested_explicit_children(config, children_key, &path, value)?;
+                    self.recurse_nested_explicit_children(
+                        config,
+                        probe_config,
+                        children_key,
+                        &path,
+                        value,
+                    )?;
                 }
             }
         } else if !path_so_far.is_empty() {
             // (path_so_far would only be empty in this case for a completely
             // empty file, but there's no need to risk doing buggy stuff in that
             // case.)
-            self.eval_file_values(config, &ustr(&path_so_far), false, false, &cur);
+            self.eval_file_values(
+                config,
+                probe_config,
+                false,
+                &ustr(&path_so_far),
+                false,
+                false,
+                &cur,
+            );
         }
 
         Ok(())
