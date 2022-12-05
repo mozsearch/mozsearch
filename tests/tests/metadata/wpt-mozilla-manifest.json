@@ -1,5 +1,6 @@
 {
-    "items": {
+  "items": {
+    "testharness": {
       "random-standard": {
         "mozilla_specific_test.any.js": [
           "33b5f88f75b8052f202394c4f53bcc2770631202",
@@ -67,3 +68,4 @@
       }
     }
   }
+}

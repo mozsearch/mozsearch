@@ -44,18 +44,22 @@
     ],
     "Web-Platform::Tests": [
       {
+        "manifest": ["/complex-tests"],
         "failure_count": 0,
         "test": "testing/web-platform/tests/complex-tests/some_cross_global_test.any.js"
       },
       {
+        "manifest": ["/fake-standard"],
         "failure_count": 0,
         "test": "testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js"
       },
       {
+        "manifest": ["/fake-standard"],
         "failure_count": 0,
         "test": "testing/web-platform/tests/fake-standard/test_ima_sad_subtests_wpt.js"
       },
       {
+        "manifest": ["/fake-standard"],
         "failure_count": 0,
         "test": "testing/web-platform/tests/fake-standard/test_ima_weird_meta_wpt.js"
       }
