@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
+use std::fs::create_dir_all;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
@@ -17,12 +18,16 @@ use serde_json::{json, Map};
 extern crate tools;
 use tools::file_format::config;
 use tools::file_format::repo_data_ingestion::RepoIngestion;
+use tools::logging::LoggedSpan;
+use tools::logging::init_logging;
+use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
 use tools::{
     file_format::analysis::{
         read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
     },
 };
 use ustr::Ustr;
+use ustr::UstrSet;
 use ustr::ustr;
 
 /// The size for a payload line (inclusive of leading indicating character and
@@ -88,8 +93,20 @@ struct CrossrefCli {
 /// ### Memory Management
 /// Memory usage grows continually throughout phase 1.  Because we load many identical strings,
 /// we use string interning so that all long-lived strings are reference-counted interned strings.
-fn main() {
-    env_logger::init();
+
+#[tokio::main]
+async fn main() {
+    // This will honor RUST_LOG, but more importantly enables our LoggedSpan
+    // mechanism.
+    //
+    // Note that this marks us transitioning to an async multi-threaded runtime
+    // for crossref, but as of the time of writing this, the logging
+    // infrastructure is the only async/multi-threaded thing going on, but this
+    // will hopefully open the door to more.  (In particular, the semantic
+    // linkage mechanism discussed in https://bugzilla.mozilla.org/show_bug.cgi?id=1727789
+    // and adjacent bugs would potentially like to see us re-processing the
+    // analysis files in parallel after the initial crossref-building phase.)
+    init_logging();
 
     let cli = CrossrefCli::parse();
 
@@ -121,6 +138,16 @@ fn main() {
         .collect();
 
     // ## Ingest Repo-Wide Information
+    // This will buffer ALL of the tracing logging in our crate between now
+    // and when we retrieve it to emit diagnostics.  To this end, we want
+    // verbose logging to be conditioned on our "probe" mechanism, which means
+    // that we only enable logs for specific values that match our probe, which
+    // is currently controlled by environment variables like `PROBE_PATH` (but
+    // where we could imagine that our trees might always designate a default
+    // probe so that we could have a few instructive data points for people to
+    // learn from rather than an excessive wall of text with no curation).
+    let logged_ingestion_span = LoggedSpan::new_logged_span("repo_ingestion");
+
     let per_file_info_toml_str = cfg.read_tree_config_file_with_default("per-file-info.toml").unwrap();
     let mut ingestion = RepoIngestion::new(&per_file_info_toml_str).expect("Your per-file-info.toml file has issues");
     ingestion.ingest_file_list_and_apply_heuristics(&all_files_paths, tree_config);
@@ -139,6 +166,22 @@ fn main() {
     // coverage info and it might be reasonable to not bother writing out the
     // detailed files until the end when we write out the concise file.
     ingestion.state.write_out_and_drop_detailed_file_info(&tree_config.paths.index_path);
+
+    // Consume the ingestion logged span, pass it through our repo-ingestion
+    // explainer template, and write it do sik.
+    {
+        let ingestion_json = logged_ingestion_span.retrieve_serde_json().await;
+        let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
+        let ingestion_diag_path = format!("{}/repo_ingestion.md", crossref_diag_dir);
+        create_dir_all(crossref_diag_dir).unwrap();
+
+        let globals = liquid::object!({
+            "logs": vec![ingestion_json],
+        });
+        let explain_template = build_and_parse_repo_ingestion_explainer();
+        let output = explain_template.render(&globals).unwrap();
+        std::fs::write(ingestion_diag_path, output).unwrap();
+    }
 
     // ## Process all the analysis files
     let xref_file = format!("{}/crossref", tree_config.paths.index_path);
@@ -344,6 +387,11 @@ fn main() {
     // bug 1727789 but until that time, let's do better.
     let jump_precedences = vec![AnalysisKind::Idl, AnalysisKind::Def];
 
+    // Let's only report missing concise info at most once, as for those cases
+    // where we have them (ex: NSS), there's usually a lot of symbols in the
+    // file and we'd end up reporting the missing info a lot.
+    let mut reported_missing_concise = UstrSet::default();
+
     for (id, id_data) in table {
         let mut kindmap = Map::new();
         for (kind, kind_data) in &id_data {
@@ -359,7 +407,9 @@ fn main() {
                     // NSS seems to have an issue with auto-generated files we
                     // don't know about, so this can't be a warning because it's
                     // too spammy.
-                    info!("Missing concise info for path '{}'", path);
+                    if reported_missing_concise.insert(path.clone()) {
+                        info!("Missing concise info for path '{}'", path);
+                    }
                 }
             }
             let kindstr = match *kind {

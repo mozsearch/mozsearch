@@ -50,6 +50,15 @@ pub fn build_and_parse_pipeline_explainer() -> Template {
     build_and_parse(template_str)
 }
 
+pub fn build_and_parse_repo_ingestion_explainer() -> Template {
+    let template_str = TEMPLATE_DIR
+        .get_file("repo_ingestion_explainer.liquid")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    build_and_parse(template_str)
+}
+
 pub fn build_and_parse_query_results() -> Template {
     let template_str = TEMPLATE_DIR
         .get_file("query_results.liquid")
