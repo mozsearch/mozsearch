@@ -234,7 +234,7 @@ path_prefix = "testing/web-platform/tests"
 test_ids.pointer = ""
 test_ids.map.first_index = 1
 test_ids.map.each.pointer = "/0"
-test_ids.map.each.null_fallback.liquid = "{{ context.path }}"
+test_ids.map.each.null_fallback.liquid = "{{ context.path | strip_prefix_or_empty: 'testing/web-platform/tests/' }}"
 
 # #### mozilla WPT sub-tree variants
 [jsonfile."wpt-mozilla-manifest.json"]
@@ -250,7 +250,7 @@ path_prefix = "testing/web-platform/mozilla/tests"
 test_ids.pointer = ""
 test_ids.map.first_index = 1
 test_ids.map.each.pointer = "/0"
-test_ids.map.each.null_fallback.liquid = "{{ context.path }}"
+test_ids.map.each.null_fallback.liquid = "{{ context.path | strip_prefix_or_empty: 'testing/web-platform/mozilla/tests/' }}"
 
 # ### WPT wpt-metadata-summary.json
 #
