@@ -6,7 +6,10 @@ expression: "&fb.contents"
   <section class="info-box info-box-warning">
     <h4>Test Info: Warnings</h4>
     <div>
-      <ul><li>This test has a <a href="/tests/source/testing/web-platform/meta/fake-standard/test_ima_sad_subtests_wpt.js.ini">WPT meta file</a> that expects 3 subtest issues.</li>
+      <ul><li>This test has a <a href="/tests/source/testing/web-platform/meta/fake-standard/test_ima_sad_subtests_wpt.js.ini">WPT meta file</a> that expects 3 subtest issues.</li><li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
+            <ul>
+                <li>/fake-standard/test_ima_sad_subtests_wpt.js - <a href="https://wpt.fyi/results/fake-standard/test_ima_sad_subtests_wpt.js">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/fake-standard/test_ima_sad_subtests_wpt.js">Interop Dashboard</a></li></ul>
+        </li>
       </ul>
     </div>
   </section>

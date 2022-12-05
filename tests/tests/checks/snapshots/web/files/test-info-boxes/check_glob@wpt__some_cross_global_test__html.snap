@@ -6,7 +6,13 @@ expression: "&fb.contents"
   <section class="info-box info-box-info">
     <h4>Test Info:</h4>
     <div>
-      <ul>
+      <ul><li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
+            <ul>
+                <li>/complex-tests/some_cross_global_test.any.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/complex-tests/some_cross_global_test.any.html">Interop Dashboard</a></li>
+                <li>/complex-tests/some_cross_global_test.any.serviceworker.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.serviceworker.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/complex-tests/some_cross_global_test.any.serviceworker.html">Interop Dashboard</a></li>
+                <li>/complex-tests/some_cross_global_test.any.sharedworker.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.sharedworker.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/complex-tests/some_cross_global_test.any.sharedworker.html">Interop Dashboard</a></li>
+                <li>/complex-tests/some_cross_global_test.any.worker.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.worker.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/complex-tests/some_cross_global_test.any.worker.html">Interop Dashboard</a></li></ul>
+        </li>
       </ul>
     </div>
   </section>

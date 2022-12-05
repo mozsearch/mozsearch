@@ -163,7 +163,11 @@ expression: "&to_value(fm).unwrap()"
           "test": {
             "failure_count": 0
           },
-          "wpt": {}
+          "wpt": {
+            "test_ids": [
+              "fake-standard/test_ima_weird_meta_wpt.js"
+            ]
+          }
         }
       }
     }
