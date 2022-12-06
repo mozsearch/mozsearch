@@ -15,7 +15,7 @@ expression: "&fb.contents"
         </li>
         <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
             <ul>
-                <li>/fake-standard/test_ima_disabled_wpt.js - <a href="https://wpt.fyi/results/fake-standard/test_ima_disabled_wpt.js">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/fake-standard/test_ima_disabled_wpt.js">Interop Dashboard</a></li></ul>
+                <li>/fake-standard/test_ima_disabled_wpt.js - <a href="https://wpt.fyi/results/fake-standard/test_ima_disabled_wpt.js">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent=core::dom: service workers#/fake-standard/test_ima_disabled_wpt.js">Interop Dashboard</a></li></ul>
         </li>
       </ul>
     </div>
