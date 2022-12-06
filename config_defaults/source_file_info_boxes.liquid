@@ -13,6 +13,11 @@
       {%- assign test_severity = "warning" -%}
     {%- endif -%}
   {%- endif -%}
+  {%- if concise.bugzilla_component == empty -%}
+    {%- assign bugzillaString = "" %}
+  {%- else -%}
+    {%- assign bugzillaString = concise.bugzilla_component | join: "::" %}
+{%- endif -%}
 {%- capture double_newline %}
 
 {% endcapture -%}
@@ -45,7 +50,7 @@
   {%- if concise.info.wpt contains "test_ids" %}
         <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
             <ul>{%- for test_id in concise.info.wpt.test_ids %}
-                <li>/{{ test_id }} - <a href="https://wpt.fyi/results/{{ test_id }}">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/#/{{ test_id }}">Interop Dashboard</a></li>
+                <li>/{{ test_id }} - <a href="https://wpt.fyi/results/{{ test_id }}">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent={{ bugzillaString | downcase }}#/{{ test_id }}">Interop Dashboard</a></li>
                 {%- endfor -%}
             </ul>
         </li>

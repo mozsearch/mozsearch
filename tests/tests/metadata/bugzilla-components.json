@@ -27,6 +27,10 @@
     "6": [
       "Core",
       "XPCOM"
+    ],
+    "7": [
+      "Core",
+      "DOM: Service Workers"
     ]
   },
   "paths": {
@@ -46,6 +50,20 @@
     "templates5.cpp": 5,
     "templates5.h": 5,
     "templates_nsTArray.cpp": 5,
+    "testing": {
+      "web-platform": {
+        "tests": {
+          "complex-tests": {
+            "some_cross_global_test.any.js": 7
+          },
+          "fake-standard": {
+            "test_ima_disabled_wpt.js": 7,
+            "test_ima_sad_subtests_wpt.js": 7,
+            "test_ima_weird_meta_wpt.js": 7
+          }
+        }
+      }
+    },
     "test_rust_dependency": {
       "src": {
         "lib.rs": 1

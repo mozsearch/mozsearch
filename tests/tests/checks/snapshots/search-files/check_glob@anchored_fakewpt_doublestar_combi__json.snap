@@ -84,8 +84,11 @@ expression: "&to_value(fm).unwrap()"
         "path_kind": "Test files",
         "is_dir": false,
         "file_size": 44,
-        "bugzilla_component": null,
-        "subsystem": null,
+        "bugzilla_component": [
+          "Core",
+          "DOM: Service Workers"
+        ],
+        "subsystem": "Core/DOM/Service Workers",
         "tags": [],
         "description": null,
         "info": {
@@ -113,8 +116,11 @@ expression: "&to_value(fm).unwrap()"
         "path_kind": "Test files",
         "is_dir": false,
         "file_size": 43,
-        "bugzilla_component": null,
-        "subsystem": null,
+        "bugzilla_component": [
+          "Core",
+          "DOM: Service Workers"
+        ],
+        "subsystem": "Core/DOM/Service Workers",
         "tags": [],
         "description": null,
         "info": {
@@ -152,8 +158,11 @@ expression: "&to_value(fm).unwrap()"
         "path_kind": "Test files",
         "is_dir": false,
         "file_size": 43,
-        "bugzilla_component": null,
-        "subsystem": null,
+        "bugzilla_component": [
+          "Core",
+          "DOM: Service Workers"
+        ],
+        "subsystem": "Core/DOM/Service Workers",
         "tags": [],
         "description": null,
         "info": {
@@ -178,8 +187,11 @@ expression: "&to_value(fm).unwrap()"
         "path_kind": "Test files",
         "is_dir": false,
         "file_size": 43,
-        "bugzilla_component": null,
-        "subsystem": null,
+        "bugzilla_component": [
+          "Core",
+          "DOM: Service Workers"
+        ],
+        "subsystem": "Core/DOM/Service Workers",
         "tags": [],
         "description": null,
         "info": {
