@@ -284,6 +284,7 @@ function populateResults(data, full, jumpToSingle) {
         mm: "mm",
         js: "js",
         jsm: "js",
+        mjs: "js",
         py: "py",
         ini: "conf",
         sh: "sh",
