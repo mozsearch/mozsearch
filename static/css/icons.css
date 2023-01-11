@@ -1,24 +1,50 @@
 /* icons */
-.icon.folder, .icon-folder {
+.deprecated-icon.folder, .deprecated-icon-folder {
   background: transparent url(../icons/mimetypes/folder.png) 0.5em 7px
     no-repeat;
   padding: 0.5em 0.5em 0.5em 30px; /* 30px = 16px icon + 7px padding above + a little more whitespace */
 }
+
 .folder-content {
   clear: both;
 }
-.icon {
+.mimetype-fixed-container {
   background-color: transparent;
   background-position: 0.5em center;
   background-repeat: no-repeat;
   background-size: 16px 16px;
   padding: 0.5em 0.5em 0.5em 30px;
-}
-.icon-container {
+  /* default to the unknown icon if there is no specific filetype selector;
+     this has the same precedence as the mimtype-icon-* values so this must
+     be defined before the per-file icon selectors. */
+     background-image: url(../icons/mimetypes/unknown.png);
+    }
+
+.mimetype-floating-container {
   background-color: transparent;
   background-repeat: no-repeat;
   float: right;
   padding: 8px; /* Makes the container 16x16 in order to show full icon. */
+  /* same rationale as for .mimetype-fixed-container */
+  background-image: url(../icons/mimetypes/unknown.png);
+}
+.mimetype-bullet {
+  background-color: transparent;
+  background-repeat: no-repeat;
+  display: inline-block;
+  padding: 8px; /* Makes the container 16x16 in order to show full icon. */
+  vertical-align: text-bottom;
+  /* same rationale as for .mimetype-fixed-container */
+  background-image: url(../icons/mimetypes/unknown.png);
+}
+
+/* Previously the panel button rows were getting their padding from ".icon"
+   which is now mimetype-fixed-container, but that was semantically sketchy and
+   we needed the class name to be clearly about font icons with containers
+   identified separately. */
+.panel .item {
+  padding: 0.5em 0.5em 0.5em 30px;
+  background-color: transparent;
 }
 
 .panel label.panel-accel {
@@ -74,171 +100,83 @@
 }
 
 /* MimeType Icons */
-.build {
+.mimetype-icon-build {
   background-image: url(../icons/mimetypes/build.png);
 }
-/* The .c class is used in files for comments. This definition is there just to prevent overriding. */
-.icon-container.c,
-.icon.c {
+.mimetype-icon-c {
   background-image: url(../icons/mimetypes/c.png);
 }
-.conf {
+.mimetype-icon-conf {
   background-image: url(../icons/mimetypes/conf.png);
 }
-.cpp {
+.mimetype-icon-cpp {
   background-image: url(../icons/mimetypes/cpp.png);
 }
-.cs {
+.mimetype-icon-cs {
   background-image: url(../icons/mimetypes/cs.png);
 }
-.css {
+.mimetype-icon-css {
   background-image: url(../icons/mimetypes/css.png);
 }
-/* Prevents display of diff icon in the panel, which has its own */
-.results .diff,
-.folder-content .diff {
+.mimetype-icon-diff {
   background-image: url(../icons/mimetypes/diff.png);
 }
-.h {
+.mimetype-icon-folder {
+  background: transparent url(../icons/mimetypes/folder.png) 0.5em 7px no-repeat;
+  padding: 0.5em 0.5em 0.5em 30px; /* 30px = 16px icon + 7px padding above + a little more whitespace */
+}
+.mimetype-icon-h {
   background-image: url(../icons/mimetypes/h.png);
 }
-.html {
+.mimetype-icon-html {
   background-image: url(../icons/mimetypes/html.png);
 }
-.iso {
+.mimetype-icon-iso {
   background-image: url(../icons/mimetypes/iso.png);
 }
-.image {
+.mimetype-icon-image {
   background-image: url(../icons/mimetypes/image.png);
 }
-.java {
+.mimetype-icon-java {
   background-image: url(../icons/mimetypes/java.png);
 }
-.js {
+.mimetype-icon-js, .mimetype-icon-jsm, .mimetype-icon-mjs {
   background-image: url(../icons/mimetypes/js.png);
 }
-.mm {
+.mimetype-icon-mm {
   background-image: url(../icons/mimetypes/mm.png);
 }
-.php {
+.mimetype-icon-php {
   background-image: url(../icons/mimetypes/php.png);
 }
-.py {
+.mimetype-icon-py {
   background-image: url(../icons/mimetypes/py.png);
 }
-.rb {
+.mimetype-icon-rb {
   background-image: url(../icons/mimetypes/rb.png);
 }
-.sh {
+.mimetype-icon-sh {
   background-image: url(../icons/mimetypes/sh.png);
 }
-.svg {
+.mimetype-icon-svg {
   background-image: url(../icons/mimetypes/svg.png);
 }
-.tex {
+.mimetype-icon-tex {
   background-image: url(../icons/mimetypes/tex.png);
 }
-.txt {
+.mimetype-icon-txt {
   background-image: url(../icons/mimetypes/txt.png);
 }
-.ui {
+.mimetype-icon-ui {
   background-image: url(../icons/mimetypes/ui.png);
 }
-.unknown {
+.mimetype-icon-unknown {
   background-image: url(../icons/mimetypes/unknown.png);
 }
-.vs {
+.mimetype-icon-vs {
   background-image: url(../icons/mimetypes/vs.png);
 }
-.xml {
+.mimetype-icon-xml {
   background-image: url(../icons/mimetypes/xml.png);
 }
 
-.icon-bullet {
-  background-color: transparent;
-  background-repeat: no-repeat;
-  display: inline-block;
-  padding: 8px; /* Makes the container 16x16 in order to show full icon. */
-  vertical-align: text-bottom;
-}
-
-/* new bulleted list icon attempt.  This was initially an attempt to use
-   list-item which meant that background-image above couldn't be used, but now
-   it's still being retained since we don't pass the file extension through a
-   mapping phase and so it's necessary for the extension to be prefixed and to
-   allow for a fallback to unknown.
-*/
-.icon-c {
-  background-image: url(../icons/mimetypes/c.png);
-}
-.icon-conf {
-  background-image: url(../icons/mimetypes/conf.png);
-}
-.icon-cpp {
-  background-image: url(../icons/mimetypes/cpp.png);
-}
-.icon-cs {
-  background-image: url(../icons/mimetypes/cs.png);
-}
-.icon-css {
-  background-image: url(../icons/mimetypes/css.png);
-}
-.icon-diff {
-  background-image: url(../icons/mimetypes/diff.png);
-}
-.icon-h {
-  background-image: url(../icons/mimetypes/h.png);
-}
-.icon-html {
-  background-image: url(../icons/mimetypes/html.png);
-}
-.icon-iso {
-  background-image: url(../icons/mimetypes/iso.png);
-}
-.icon-image {
-  background-image: url(../icons/mimetypes/image.png);
-}
-.icon-java {
-  background-image: url(../icons/mimetypes/java.png);
-}
-.icon-js, .icon-jsm, .icon-mjs {
-  background-image: url(../icons/mimetypes/js.png);
-}
-.icon-mm {
-  background-image: url(../icons/mimetypes/mm.png);
-}
-.icon-php {
-  background-image: url(../icons/mimetypes/php.png);
-}
-.icon-py {
-  background-image: url(../icons/mimetypes/py.png);
-}
-.icon-rb {
-  background-image: url(../icons/mimetypes/rb.png);
-}
-.icon-sh {
-  background-image: url(../icons/mimetypes/sh.png);
-}
-.icon-svg {
-  background-image: url(../icons/mimetypes/svg.png);
-}
-.icon-tex {
-  background-image: url(../icons/mimetypes/tex.png);
-}
-.icon-txt {
-  background-image: url(../icons/mimetypes/txt.png);
-}
-.icon-ui {
-  background-image: url(../icons/mimetypes/ui.png);
-}
-/* absent a more specific icon rule, assume unknown */
-.icon-bullet,
-.icon-unknown {
-  background-image: url(../icons/mimetypes/unknown.png);
-}
-.icon-vs {
-  background-image: url(../icons/mimetypes/vs.png);
-}
-.icon-xml {
-  background-image: url(../icons/mimetypes/xml.png);
-}

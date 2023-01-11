@@ -24,7 +24,7 @@
           for this feature to come back, we should probably pre-compute low(er)
           resolution versions of the icons.
           {% endcomment -%}
-          <td><a href="{{ file_url }}" class="icon icon-{{ icon_kind }}">{{ file.path | split: "/" | last }}</a></td>
+          <td><a href="{{ file_url }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind }}">{{ file.path | split: "/" | last }}</a></td>
           <td class="description"><a href="{{ file_url }}" title="{{ file.concise.description | default: "" | escape }}">{{ file.concise.description | default: "" | escape }}</td>
           <td><a href="{{ file_url }}">{{ file_size }}</a></td>
         </tr>
