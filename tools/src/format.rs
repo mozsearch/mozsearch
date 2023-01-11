@@ -439,7 +439,7 @@ pub fn format_file_data(
 
     output::generate_breadcrumbs(&opt, writer, path)?;
 
-    output::generate_panel(writer, panel)?;
+    output::generate_panel(&opt, writer, panel)?;
 
     let info_boxes_container = F::Seq(vec![
         F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
@@ -1015,7 +1015,7 @@ pub fn format_diff(
         items: vcs_panel_items,
         raw_items: vec![],
     }];
-    output::generate_panel(writer, &sections)?;
+    output::generate_panel(&opt, writer, &sections)?;
 
     let f = F::Seq(vec![F::T(
         format!("<div id=\"file\" class=\"file\" role=\"table\"{}>", slug),

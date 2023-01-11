@@ -607,6 +607,9 @@ tr.after-context-line + tr.before-context-line {
   text-align: left;
   cursor: pointer;
 }
+#show-settings {
+  color: var(--panel-header-color);
+}
 .navpanel-icon {
   display: inline-block;
   margin-right: 0.5rem;
@@ -696,7 +699,7 @@ span[data-symbols].hovered {
 }
 
 /* Help screen */
-.intro {
+.intro, .settings-page {
   font: 14px/1.5 Arial, Helvetica, sans-serif;
   margin-left: 10%;
   margin-right: 10%;

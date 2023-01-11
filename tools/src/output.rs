@@ -271,6 +271,7 @@ pub fn generate_footer(
     }
 
     let scripts = [
+        "settings.js",
         "search.js",
         "context-menu.js",
         "panel.js",
@@ -323,6 +324,7 @@ static COPY_ICONS: &str = r#"<span class="icon-docs copy-icon"></span><span clas
 /// Generate HTML for a panel containing the given sections and write it to the
 /// provided writer.  This is expected to be called once per document.
 pub fn generate_panel(
+    opt: &Options,
     writer: &mut dyn Write,
     sections: &[PanelSection],
 ) -> Result<(), &'static str> {
@@ -404,6 +406,8 @@ pub fn generate_panel(
             F::Indent(vec![
                 F::S(r#"<span class="navpanel-icon icon-down-dir expanded" aria-hidden="false"></span>"#),
                 F::S("Navigation"),
+                F::T(format!(r#"<a id="show-settings" title="Go to settings page" href="/{}/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>"#,
+                     opt.tree_name)),
             ]),
             F::S("</button>"),
             F::S(r#"<section id="panel-content" aria-expanded="true" aria-hidden="false">"#),

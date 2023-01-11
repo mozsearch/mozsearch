@@ -149,6 +149,10 @@ impl AbstractServer for LocalIndex {
                 "{}/templates/{}",
                 self.config_paths.index_path, sf_path
             )),
+            SearchfoxIndexRoot::IndexPages => Ok(format!(
+                "{}/pages/{}",
+                self.config_paths.index_path, sf_path
+            )),
             SearchfoxIndexRoot::UncompressedDirectoryListing => Ok(format!(
                 "{}/dir/{}/index.html",
                 self.config_paths.index_path, sf_path

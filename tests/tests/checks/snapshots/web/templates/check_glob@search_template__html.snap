@@ -61,6 +61,7 @@ expression: "&fb.contents"
     </script>
   </div>
   
+<script src="/tests/static/js/settings.js"></script>
 <script src="/tests/static/js/search.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>
 <script src="/tests/static/js/panel.js"></script>

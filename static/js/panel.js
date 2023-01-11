@@ -1,8 +1,13 @@
 var Panel = new (class Panel {
   constructor() {
     this.panel = document.getElementById("panel");
+    // Avoid complaining if this page doesn't have a panel on it.
+    if (!this.panel) {
+      return;
+    }
     this.toggleButton = document.getElementById("panel-toggle");
     this.icon = this.panel.querySelector(".navpanel-icon");
+    this.settingsButton = document.getElementById("show-settings");
     this.content = document.getElementById("panel-content");
     this.accelEnabledCheckbox = document.getElementById("panel-accel-enable");
 
@@ -44,6 +49,11 @@ var Panel = new (class Panel {
         },
       },
     };
+
+    // We want the default event for clicking on the settings link to work, but
+    // we want to stop its propagation so that it doesn't bubble up to the
+    // toggle button handler that comes next.
+    this.settingsButton.addEventListener("click", (evt) => { evt.stopPropagation(); });
 
     this.toggleButton.addEventListener("click", () => this.toggle());
     this.accelEnabledCheckbox.addEventListener("change", () => {
@@ -280,6 +290,11 @@ var Panel = new (class Panel {
   }
 
   updateMarkdownState() {
+    // If we're on a page without a panel, there's nothing to do.
+    if (!this.panel) {
+      return;
+    }
+
     for (const [_, { node, isEnabled }] of Object.entries(this.markdown)) {
       if (!node) {
         continue;

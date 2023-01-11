@@ -94,3 +94,12 @@ pub fn build_and_parse_help_index() -> Template {
         .unwrap();
     build_and_parse(template_str)
 }
+
+pub fn build_and_parse_settings() -> Template {
+    let template_str = TEMPLATE_DIR
+        .get_file("settings.liquid")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    build_and_parse(template_str)
+}

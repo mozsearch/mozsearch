@@ -90,7 +90,7 @@ var BlamePopup = new (class BlamePopup {
     }
 
     // If no content was returned or the blame element has changed, bail.
-    if (!content || this.blameElement != elt) {
+    if (!content || this.blameElement != elt || !hoverRightOfElt) {
       return;
     }
 

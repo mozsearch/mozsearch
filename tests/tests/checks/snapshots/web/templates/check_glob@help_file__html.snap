@@ -177,6 +177,7 @@ indexes C++ and JavaScript code. This is the help page for Searchfox.
 
   </div>
   
+<script src="/tests/static/js/settings.js"></script>
 <script src="/tests/static/js/search.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>
 <script src="/tests/static/js/panel.js"></script>

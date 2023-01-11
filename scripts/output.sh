@@ -75,5 +75,10 @@ SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
     $MOZSEARCH_PATH/tools/target/release/searchfox-tool "$TOOL_CMD"
 
+TOOL_CMD="render settings"
+SEARCHFOX_SERVER=${CONFIG_FILE} \
+    SEARCHFOX_TREE=${TREE_NAME} \
+    $MOZSEARCH_PATH/tools/target/release/searchfox-tool "$TOOL_CMD"
+
 #js $MOZSEARCH_PATH/scripts/output-template.js $FILES_ROOT $INDEX_ROOT $MOZSEARCH_PATH $TREE_NAME
 #js $MOZSEARCH_PATH/scripts/output-help.js $CONFIG_REPO/help.html $INDEX_ROOT $MOZSEARCH_PATH $TREE_NAME

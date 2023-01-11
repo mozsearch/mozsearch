@@ -1,0 +1,209 @@
+{% include 'header_search.liquid' title: "Searchfox Settings", autofocus: false %}
+<div id="scrolling">
+  <div id="content" class="content settings-page" data-no-results="No results for current query.">
+    <h1>Searchfox Settings</h1>
+    <section>
+      <h2>About Searchfox Settings</h2>
+      <p>
+        This page describes and allows you to change your searchfox settings.
+        Settings are stored in LocalStorage and so will be specific to your
+        profile and any user container.  Settings only control client-side
+        JavaScript decision-making and are never directly sent to the server,
+        although settings can affect what requests are sent to the server.  Per
+        the <a href="https://www.visophyte.org/blog/2022/10/05/andrews-searchfox-vision-2022/">
+        current searchfox vision doc</a>, because URLs are intended to be
+        shareable and consistent, a shared URL may assume the existence of a
+        feature and effectively enable it while viewing that page so that the UI
+        experienced is consistent and not bizarrely broken.  The user's settings
+        in LocalStorage will not be affected, however, and when transitioning
+        back to a page that doesn't assume a feature, the user will return to
+        their normal flow.
+      </p>
+      <p>
+        There is currently no support for synchronizing settings, although if
+        searchfox ends up with enough settings, a mechanism to export settings
+        by generating a URL or a copy-and-pasteable JSON payload could be added.
+      </p>
+      <p>
+        Settings are organized into three categories:
+      </p>
+      <ul>
+        <li>
+          Widget Enable/Disable.  Searchfox widgets are pieces of functionality
+          that operate independently from each other.  They are conceptually
+          similar to web-extensions; when enabled they can add menu items to the
+          context menu and new interactable HTML to the fancy bar, but they will
+          not directly interact with other widgets or core features in a way
+          that would introduce functionality combinatorial explosions.
+        </li>
+        <li>
+          <p>
+            Core Feature Quality Gates.  As new functionality is added to
+            searchfox, it moves through several quality levels: alpha, beta, and
+            release.  Alpha features are under active development and
+            experimentation which can result in continual changes to the user
+            experience and where the experience may be brittle.  Beta features
+            have reached a stable experience, but one that it's not clear is
+            appropriate to yet push to users who primarily are interested in the
+            searchfox experience they are used to.  In particular, during 2023
+            it's likely new development will only promote features to beta with an
+            eye towards polishing their interaction near the end of 2023 and
+            then promoting many of those features to release simultaneously.
+          </p>
+          <p>
+            Unless abandoned, core features are always moving in the direction
+            of being enabled.  This means we can have features like "remove X"
+            as we don't have a concept of "disabling" a feature.  As a user, if
+            you don't want a specific feature and it hasn't yet reached
+            "release", then you can set your quality gate for that feature to
+            "release" even if you your global quality gate set to "alpha" or
+            "beta", but eventually that feature will become enabled when it hits
+            release.  That said, "behavior" settings are always a possibility as
+            long as they don't create combinatiorial explosions that complicate
+            maintenance and development.
+          </p>
+          <p>
+            Continuing the theme of avoiding creating combinatorial explosions,
+            features do not interact with each other, they only depend on each
+            other.  This means as new alpha/beta features evolve that initially
+            operate in isolation, new dependencies on other features may be
+            added that.
+          </p>
+        </li>
+        <li>
+          Behavior: A setting that changes how a core feature or a widget
+          behaves.  Behavioral settings should ideally operate independently
+          from each other to avoid combinatorial explosion that is hard to test
+          or reason about.
+        </li>
+      </ul>
+      <p>
+        Features are tracked as "alpha", "beta", and "release".
+        versions.
+        features which are either enabled or
+        disabled, a
+        Features are organized into alpha, beta, and release features.
+        As we implement new functionality in 2023 and pick new defaults, we are
+        currently trying to strike a balance between maintaining muscle memory
+        and exposing new functionality that's additive but without disrupting
+        the experience you had from searchfox at the end of 2022.  This is not a
+        commitment to never change anything or to add preferences for
+        everything, but it is a recognition that there needs to be a high bar
+        for changes that are not opt-in or which cannot be opted-out of.  It is
+        also a recognition that most new functionality will be developed
+        iteratively in consultation with the (actively involved) userbase, and
+        so there is likely to be a non-trivial amount of churn for new
+        functionality, so new functionality needs to be opt-in until the
+        experience has stabilized.
+      </p>
+      <p>
+        To this end, settings are broken into two categories:
+      </p>
+    </section>
+    <section>
+      <h2>Alpha/Beta/Release Default Core Feature Gate</h2>
+      <p>
+        As discussed above, core features are either alpha quality, beta
+        quality, or release quality.  This default setting controls what quality
+        is chosen if you do not choose a specific per-feature quality.  For
+        example, you could choose the default quality gate of "release", but for
+        specific features you are interested in, choose "alpha".  If you end up
+        not liking the churn of the feature, you could switch those features to
+        "beta" so you can experience them again when they're improved /
+        stabilized.
+      </p>
+      <form>
+        <label for="global--default-feature-gate">Default feature gate:</label>
+        <select id="global--default-feature-gate">
+          <option value="release">Release</option>
+          <option value="beta">Beta</option>
+          <option value="alpha">Alpha</option>
+        </select>
+      </form>
+      <!-- The existence of this template is assumed / hardcoded. Its contents
+           are always inserted inside any feature gate setting selects. -->
+      <template id="feature-gate-options">
+        <option value="">Use your default</option>
+        <option value="release">Release</option>
+        <option value="beta">Beta</option>
+        <option value="alpha">Alpha</option>
+      </template>
+    </section>
+    <section>
+      <h2>Source Listings</h2>
+
+      <section>
+        <h3>Page Titles Behavior</h3>
+        <p>
+          What do you want the document.title of source listing pages to be?
+        </p>
+        <p>
+          Currently, searchfox has the following sources of information available
+          for use when titling the page from most specific to most generic:
+        </p>
+        <ul>
+          <li>
+            The line selection.  Searchfox source listing pages interpret their
+            anchors as a comma-delimited list of line-number ranges.  All lines
+            covered by the ranges will be higlighted, and the page will be
+            scrolled so that the first anchored line is fully visible.  When you
+            click on a searchfox link result or use a "go to" context menu
+            option, searchfox will currently generate a direct line-number link.
+            Heuristics are used to attempt to extract the likely symbol that the
+            line selection is attempting to identify.
+          </li>
+          <li>
+            The most specific <code>position: sticky</code> nesting area
+            currently displayed at the top of the window.  When possible, source
+            listings attempt to provide you with the context of what namespace,
+            class, and method you're looking at by having them stick to the top
+            of the viewport.
+          </li>
+          <li>
+            The filename of the source file, not including the path.
+          </li>
+        </ul>
+        <p>
+          Originally, only the filename (sans path) was displayed, but starting
+          in mid 2021 <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1702319">
+          an attempt was made</a> to provide more context by adding line
+          selection and "sticky" title in that order, followed by the filename.
+        </p>
+        <form>
+          <fieldset>
+            <legend>Page Title Data Sources Other Than Filename</legend>
+            <ul>
+              <li>
+                <input type="checkbox" id="page-title--line-selection">
+                <label for="page-title--line-selection">Line Selection</label>
+              </li>
+              <li>
+                <input type="checkbox" id="page-title--sticky-symbol">
+                <label for="page-title--sticky-symbol">The most specific position: sticky symbol.</label>
+              </li>
+            </ul>
+          </fieldset>
+        </form>
+      </section>
+    </section>
+    <section>
+      <h2>Fancy Bar</h2>
+      <p>
+        The Fancy Bar currently replaces the navigation bar on the right side of
+        the screen with a collapsible sidebar.  It is the home of most widgets
+        that exist to provide context.
+      </p>
+      <section>
+        <h3>Fancy Bar Feature Gate</h3>
+        <form>
+          <label for="fancy-bar--enabled">Fancy bar feature gate:</label>
+          <select id="fancy-bar--enabled">
+          </select>
+        </form>
+
+      </section>
+    </section>
+  </div>
+  {% include 'scroll_footer.liquid' %}
+</div>
+{% include 'footer.liquid' %}

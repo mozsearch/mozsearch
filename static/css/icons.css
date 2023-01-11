@@ -18,7 +18,7 @@
      this has the same precedence as the mimtype-icon-* values so this must
      be defined before the per-file icon selectors. */
      background-image: url(../icons/mimetypes/unknown.png);
-    }
+}
 
 .mimetype-floating-container {
   background-color: transparent;
@@ -36,6 +36,10 @@
   vertical-align: text-bottom;
   /* same rationale as for .mimetype-fixed-container */
   background-image: url(../icons/mimetypes/unknown.png);
+}
+
+.mimetype-no-icon {
+  background-image: none;
 }
 
 /* Previously the panel button rows were getting their padding from ".icon"

@@ -438,6 +438,8 @@ function populateResults(data, full, jumpToSingle) {
 
   // If no data is returned, inform the user.
   let container = document.getElementById("content");
+  // Clobber any additional classes that existed on the content container.
+  container.setAttribute("class", "content");
   container.innerHTML = "";
 
   let timeoutWarning = timed_out

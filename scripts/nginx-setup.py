@@ -21,6 +21,8 @@ import os.path
 import subprocess
 import six
 
+# The config file at the root of the WORKING directory; all paths should be
+# absolute paths.
 config_fname = sys.argv[1]
 # doc_root will usually be /home/ubuntu/docroot and will hold files like:
 # - status.txt: A file written by the web-servers that the web-server triggering
@@ -150,6 +152,8 @@ location('= /robots.txt', [
 # we're using could better cleaned up by use of "alias".  The exception is
 # "source" where the "try_files" is definitely absolutely necessary.
 for repo in config['trees']:
+    tree_config = config['trees'][repo]
+    index_path = tree_config['index_path']
     head_rev = None
     if 'git_path' in config['trees'][repo]:
         try:
@@ -160,6 +164,8 @@ for repo in config['trees']:
 
     # we use alias because the we don't want the "/{repo}" portion.
     location(f'/{repo}/static/', [f'alias {mozsearch_path}/static/;'])
+
+    location(f'/{repo}/pages/', [f'alias {index_path}/pages/;'])
 
     location(f'/{repo}/source', [
         f'root {doc_root};',
