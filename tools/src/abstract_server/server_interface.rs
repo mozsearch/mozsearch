@@ -197,8 +197,14 @@ pub enum SearchfoxIndexRoot {
     /// The root of the config repo.
     ConfigRepo,
     /// The templates dir under the index root, home of the search template and
-    /// the rendered help.html
+    /// the rendered help.html.  This differs from IndexPages because the pages
+    /// directory is intended to be exposed directly to the web, whereas if we
+    /// expose the templates pages, we do so individually via symlinks.
     IndexTemplates,
+    /// The "pages" dir under the index root.  This directory is intended to be
+    /// exposed to the web in its entirety, which differs from IndexTemplates,
+    /// which is not.  This is the home of the settings page.
+    IndexPages,
     /// Directory listings.
     UncompressedDirectoryListing,
 }

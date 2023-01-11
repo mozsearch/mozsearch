@@ -27,9 +27,9 @@ var DocumentTitler = new (class DocumentTitler {
     // If we have a better title than the original title, use it, but making
     // sure to include the original filename because this is important for
     // finding the tab again in the awesomebar via its filename.
-    if (this.selectionTitle) {
+    if (Settings.pageTitle.lineSelection && this.selectionTitle) {
       bestTitle = `${this.selectionTitle} (${this.originalTitle})`;
-    } else if (this.stickyTitle) {
+    } else if (Settings.pageTitle.stickySymbol && this.stickyTitle) {
       bestTitle = `${this.stickyTitle} (${this.originalTitle})`;
     } else {
       bestTitle = this.originalTitle;

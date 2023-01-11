@@ -25,6 +25,18 @@ $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING
 sudo mkdir -p /etc/nginx/sites-enabled
 sudo rm -f /etc/nginx/sites-enabled/default
 
+# ### Create the docroot
+#
+# There is some awkwardness here where we create hierarchies centered on the
+# docroot because nginx-setup.py is using `root` directives in a bunch of places
+# where we probably should be using `alias`.  The main difference is whether the
+# `location` path is used when looking on disk; if you have a location of
+# "/foo/" and a request of "/foo/bar", then a `root`` of "/blah" will be
+# "/blah/foo/bar" retaining the "/foo/" whereas an `alias` would be "/blah/bar".
+#
+# We likely want to change to using `alias` in cases where we conceptually are
+# mapping a directory on a 1:1 basis.  For cases where we are mapping individual
+# files, symlinks are probably still appropriate.
 rm -rf $SERVER_ROOT/docroot
 mkdir -p $SERVER_ROOT/docroot
 DOCROOT=$(realpath $SERVER_ROOT/docroot)
@@ -53,10 +65,13 @@ do
     fi
 done
 
+# ### Create and emplace the nginx configuration file
 $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > /tmp/nginx
 sudo mv /tmp/nginx /etc/nginx/sites-enabled/mozsearch.conf
 sudo chmod 0644 /etc/nginx/sites-enabled/mozsearch.conf
 
+# ### Caching
+#
 # Iterate over the tree names in order of increasing priority so that we can
 # make sure that the most important (by higher priority value) trees get their
 # data cached last so if we run out of spare memory capacity, it's the less
@@ -76,6 +91,8 @@ do
     cache_when_codesearch livegrep.idx
 done
 
+# ### Ensure nginx is running
+#
 # Under docker nginx might not be running, in which case we need to start it,
 # but only if we don't see existing processes.
 pgrep nginx || sudo /etc/init.d/nginx start

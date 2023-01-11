@@ -110,10 +110,30 @@ var ContextMenu = new (class ContextMenu {
       let li = document.createElement("li");
       let link = li.appendChild(document.createElement("a"));
       link.href = item.href;
-      link.classList.add("icon");
+      link.classList.add("mimetype-fixed-container");
+      // Cancel out the default "unknown" icon we get from the above so there's
+      // no icon displayed (by default but also in conjunction with the below).
+      link.classList.add("mimetype-no-icon");
+      // So for a long time we would display a search icon in the context menu,
+      // but only ever a search icon because that's the only thing we hardcode
+      // in the menuItems we would push in the logic above.
+      //
+      // But we accidentally removed the icon in
+      // 6c35b409a1d4dde7581a59bbad317a472732c15c in late 2021, so we haven't
+      // had the icon around anymore, so the context menu has had the whitespace
+      // where an icon would go, but we wouldn't display any.  The other icons
+      // removed at the same time were intended for the context menu to
+      // differentiate between searches, jumps, etc.
+      //
+      // In order to maintain the existing status quo, I'm commenting out the
+      // logic below so we don't have an icon, but we should probably strongly
+      // consider bringing icons back in a way that provides for the ability to
+      // visually distinguish stuff.
+      /*
       if (item.icon) {
         link.classList.add(item.icon);
       }
+      */
       link.innerHTML = item.html;
       this.menu.appendChild(li);
     }
@@ -185,7 +205,7 @@ var Hover = new (class Hover {
       return;
     }
 
-    let symbols = event.target.closest("[data-symbols]");
+    let symbols = event.target?.closest("[data-symbols]");
     if (!symbols) {
       return this.deactivate();
     }

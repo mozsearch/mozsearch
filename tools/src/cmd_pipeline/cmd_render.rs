@@ -6,7 +6,7 @@ use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
-    templating::builder::{build_and_parse_search_template, build_and_parse_help_index}, file_utils::write_file_ensuring_parent_dir,
+    templating::builder::{build_and_parse_search_template, build_and_parse_help_index, build_and_parse_settings}, file_utils::write_file_ensuring_parent_dir,
 };
 
 /// Render a single template, potentially processing pipeline input.
@@ -89,6 +89,31 @@ impl PipelineCommand for RenderCommand {
                 let output_path = server.translate_path(
                     SearchfoxIndexRoot::IndexTemplates,
                     "help.html",
+                )?;
+                write_file_ensuring_parent_dir(&output_path, &rendered)?;
+                Ok(PipelineValues::Void)
+
+            }
+            "settings" => {
+                let template = build_and_parse_settings();
+
+                let liquid_globals = liquid::object!({
+                    "tree": tree_info.name,
+                    // the header always needs this
+                    "query": "",
+                });
+                let rendered = match template.render(&liquid_globals) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        return Err(ServerError::StickyProblem(ErrorDetails {
+                            layer: ErrorLayer::ConfigLayer,
+                            message: format!("Template problems: {}", e),
+                        }));
+                    }
+                };
+                let output_path = server.translate_path(
+                    SearchfoxIndexRoot::IndexPages,
+                    "settings.html",
                 )?;
                 write_file_ensuring_parent_dir(&output_path, &rendered)?;
                 Ok(PipelineValues::Void)

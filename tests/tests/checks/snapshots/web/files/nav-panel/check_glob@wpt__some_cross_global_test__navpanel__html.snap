@@ -6,6 +6,7 @@ expression: "&fb.contents"
   <button id="panel-toggle">
     <span class="navpanel-icon icon-down-dir expanded" aria-hidden="false"></span>
     Navigation
+    <a id="show-settings" title="Go to settings page" href="/tests/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
   </button>
   <section id="panel-content" aria-expanded="true" aria-hidden="false">
   <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
