@@ -310,9 +310,9 @@ function populateResults(data, full, jumpToSingle) {
     var html = "";
     html += "<tr class='result-head " + klass + "'>";
     html +=
-      "<td class='left-column'><div class='" +
+      "<td class='left-column'><div class='mimetype-icon-" +
       chooseIcon(fileResult.path) +
-      " icon-container'></div></td>";
+      " mimetype-floating-container'></div></td>";
 
     // This span exists for a11y reasons.  See bug 1558691 but the core idea is:
     // - It's fine (and good!) to upgrade this to an explicit h3 in the future.

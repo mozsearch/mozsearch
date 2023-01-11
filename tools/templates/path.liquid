@@ -1,5 +1,5 @@
 {%- assign path_segments = path | split: "/" %}
-<h3 class="path"><div class="icon-bullet icon-{{ path | fileext }}"></div>
+<h3 class="path"><div class="mimetype-bullet mimetype-icon-{{ path | fileext }}"></div>
 {% for segment in path_segments -%}
     {%-  unless forloop.first -%}
     <span class="path-separator">/</span>

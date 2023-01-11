@@ -15,11 +15,11 @@
         {%- if copyable -%}
             {%- if link != empty -%}
                 <button class="icon copy" title="Copy to clipboard">
-                    {%- include "svg_icons/copy_icons.liquid" -%}
+                    <span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span>
                 </button>
             {%- else -%}
                 <span class="icon copy indicator">
-                    {%- include "svg_icons/copy_icons.liquid" -%}
+                    <span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span>
                 </span>
             {%- endif -%}
         {%- endif -%}
