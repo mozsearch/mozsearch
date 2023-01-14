@@ -67,7 +67,8 @@
             features do not interact with each other, they only depend on each
             other.  This means as new alpha/beta features evolve that initially
             operate in isolation, new dependencies on other features may be
-            added that.
+            added that could disable the feature until you enable the other
+            features.
           </p>
         </li>
         <li>
@@ -78,11 +79,6 @@
         </li>
       </ul>
       <p>
-        Features are tracked as "alpha", "beta", and "release".
-        versions.
-        features which are either enabled or
-        disabled, a
-        Features are organized into alpha, beta, and release features.
         As we implement new functionality in 2023 and pick new defaults, we are
         currently trying to strike a balance between maintaining muscle memory
         and exposing new functionality that's additive but without disrupting
@@ -95,9 +91,6 @@
         so there is likely to be a non-trivial amount of churn for new
         functionality, so new functionality needs to be opt-in until the
         experience has stabilized.
-      </p>
-      <p>
-        To this end, settings are broken into two categories:
       </p>
     </section>
     <section>
@@ -191,7 +184,8 @@
       <p>
         The Fancy Bar currently replaces the navigation bar on the right side of
         the screen with a collapsible sidebar.  It is the home of most widgets
-        that exist to provide context.
+        that exist to provide context.  It is currently believed to be
+        <b><span id="quality--fancy-bar--enabled"></span></b> quality.
       </p>
       <section>
         <h3>Fancy Bar Feature Gate</h3>

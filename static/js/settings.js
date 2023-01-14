@@ -528,7 +528,14 @@ const SettingsBinder = new (class SettingsBinder {
         elem.addEventListener("change", () => {
           Settings.__setValueFromIdSpace(elem.id, elem.value);
         });
+      }
     }
+
+    // Bind things that say what current qualities are:
+    for (const elem of root.querySelectorAll('[id^="quality--"]')) {
+      const useId = elem.id.substring("quality--".length);
+      const info = Settings.__lookupSettingFromId(useId);
+      elem.textContent = info.keyDef.quality;
     }
   }
 })();
