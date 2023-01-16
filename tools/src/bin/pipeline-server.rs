@@ -14,7 +14,7 @@ use axum::{
 use liquid::Template;
 use tools::{
     abstract_server::{make_all_local_servers, AbstractServer, ServerError},
-    cmd_pipeline::builder::build_pipeline_graph,
+    cmd_pipeline::{builder::build_pipeline_graph, PipelineValues},
     query::chew_query::chew_query,
     templating::builder::build_and_parse_query_results,
 };
@@ -59,11 +59,19 @@ async fn handle_query(
     };
 
     if make_html {
+        let sym_info_str = match &result {
+            PipelineValues::GraphResultsBundle(grb) => {
+                serde_json::to_string(&grb.symbols).unwrap_or_else(|_| "{}".to_string())
+            }
+            _ => "{}".to_string(),
+        };
+
         let globals = liquid::object!({
             "results": result,
             "query": query.clone(),
             "preset": preset.clone(),
             "tree": tree.clone(),
+            "SYM_INFO_STR": sym_info_str,
         });
 
         let output = templates.query_results.render(&globals)?;

@@ -112,7 +112,16 @@ fn transform_svg(svg: &str) -> String {
     }
     RE_TITLE
         .replace_all(svg, |caps: &Captures| {
-            format!(" data-symbols=\"{}\">", caps.get(1).unwrap().as_str())
+            let captured = caps.get(1).unwrap();
+            // Do not transform the `g` title of "g" to data-symbols.  Although
+            // maybe we should be providing it a better title?  Although maybe
+            // a straight-up heading explaining the graph is even better, as I
+            // think this is where we're going to want to put the dual UI.
+            if captured.as_str() == "g" {
+                ">".to_string()
+            } else {
+                format!(" data-symbols=\"{}\">", captured.as_str())
+            }
         })
         .to_string()
 }
@@ -124,7 +133,7 @@ impl PipelineCommand for GraphCommand {
         _server: &Box<dyn AbstractServer + Send + Sync>,
         input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let graphs = match input {
+        let mut graphs = match input {
             PipelineValues::SymbolGraphCollection(sgc) => sgc,
             // TODO: Figure out a better way to handle a nonsensical pipeline
             // configuration / usage.
@@ -156,7 +165,7 @@ impl PipelineCommand for GraphCommand {
                 graphs: vec![RenderedGraph {
                     graph: transform_svg(&graph_contents),
                 }],
-                symbols: graphs.symbols_meta_to_json(),
+                symbols: graphs.symbols_meta_to_jumpref_json_destructive(),
                 overloads_hit: graphs.overloads_hit,
             })),
             _ => Ok(PipelineValues::TextFile(TextFile {

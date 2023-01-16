@@ -47,13 +47,21 @@ var Dxr = new (class Dxr {
     });
 
     this.fields.query.addEventListener("input", () => this.startSearchSoon());
-    this.fields.path.addEventListener("input", () => this.startSearchSoon());
-    this.fields.regexp.addEventListener("change", () => this.startSearch());
-    this.fields.caseSensitive.addEventListener("change", event => {
-      window.localStorage.setItem("caseSensitive", event.target.checked);
-      this.startSearch();
-    });
-    this.initFormFromLocalStorageOrUrl();
+    // XXX hacky mechanism so that we only run this on pages with a "search"
+    // header rather than a "query" header.  We should refactor this and the
+    // general code listing generation so that we:
+    // - pick search versus query based on Setting and can change by user
+    //   choice even on any page.
+    // - explicitly understand if it's operating in search or query mode.
+    if (this.fields.path) {
+      this.fields.path.addEventListener("input", () => this.startSearchSoon());
+      this.fields.regexp.addEventListener("change", () => this.startSearch());
+      this.fields.caseSensitive.addEventListener("change", event => {
+        window.localStorage.setItem("caseSensitive", event.target.checked);
+        this.startSearch();
+      });
+      this.initFormFromLocalStorageOrUrl();
+    }
   }
 
   cancel(cancelFetch = true) {
@@ -140,6 +148,12 @@ var Dxr = new (class Dxr {
   }
 
   initFormFromLocalStorageOrUrl() {
+    // XXX similar to in the constructor, we're using the path field as an
+    // indication of the mode we're in, but we should clean this up.
+    if (!this.fields.path) {
+      return;
+    }
+
     let url = new URL(location.href);
     let params = url.searchParams;
 
