@@ -88,7 +88,7 @@ struct CrossrefCli {
     analysis_files_list_path: String,
 }
 
-/// Process all analysis files, deriving the `crossref`, `jumps`, and `identifiers` output files.
+/// Process all analysis files, deriving the `crossref`, `jumpref`, and `identifiers` output files.
 /// See https://github.com/mozsearch/mozsearch/blob/master/docs/crossref.md for high-level
 /// documentation on how this works (locally, `docs/crossref.md`).
 ///
@@ -99,9 +99,9 @@ struct CrossrefCli {
 ///    pre-computing a path_kind for every file.
 /// 2. The analysis files are read, populating `table`, `pretty_table`, `id_table`, and
 ///    `meta_table` incrementally.  Primary cross-reference information comes from target records,
-///    but the file is also processed for source records in order to populate `meta_table` with
+///    but the file is also processed for structured records in order to populate `meta_table` with
 ///    meta-information about the symbol.
-/// 2. The table is consumed with jumps generated as a byproduct.
+/// 2. The table is consumed, generating both crossref and jumpref information.
 ///
 /// ### Memory Management
 /// Memory usage grows continually throughout phase 1.  Because we load many identical strings,
@@ -213,9 +213,15 @@ async fn main() {
     // of the raw symbols that map to the pretty symbol.  Pretty symbols that start with numbers or
     // include whitespace are considered illegal and not included in the map.
     let mut id_table = BTreeMap::new();
-    // Maps (raw) symbol to `SymbolMeta` info for this symbol.  This information is currently
-    // extracted from the source records during an additional pass of the analysis file, looking
-    // only at defs.  However, in the future, this will likely come from a new type of record.
+    // Maps (raw) symbol to `SymbolMeta` info for this symbol.  Currently, we
+    // require that the language analyzer created a "structured" record and we
+    // use that, but it could make sense for us to automatically generate a stub
+    // meta for symbols for which we didn't find a structured record.  A minor
+    // awkwardness here is that we would really want to use the "source" records
+    // for this (as we did prior to the introduction of the structured record
+    // type), but we currently don't retain those.  (But we do currently read
+    // the file 2x; maybe it would be better to read it once and have the
+    // records grouped by type so we can improve that).
     let mut meta_table = BTreeMap::new();
     // Maps (raw) symbol to a BTreeSet of the (raw) symbols it "calls".  (The
     // term makes most sense when dealing with functions/similar.  This was
