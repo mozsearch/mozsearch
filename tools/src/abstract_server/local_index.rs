@@ -123,6 +123,7 @@ struct LocalIndex {
     ident_map: Option<IdentMap>,
     // But for crossref, it's on us.
     crossref_lookup_map: Option<CrossrefLookupMap>,
+    jumpref_lookup_map: Option<CrossrefLookupMap>,
     file_lookup_map: FileLookupMap,
 }
 
@@ -251,6 +252,20 @@ impl AbstractServer for LocalIndex {
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
             "crossref_lookup: {}",
+            symbol
+        );
+        result
+    }
+
+    async fn jumpref_lookup(&self, symbol: &str) -> Result<Value> {
+        let now = Instant::now();
+        let result = match &self.jumpref_lookup_map {
+            Some(jumpref) => jumpref.lookup(symbol),
+            None => Ok(Value::Null),
+        };
+        trace!(
+            duration_us = now.elapsed().as_micros() as u64,
+            "jumpref_lookup: {}",
             symbol
         );
         result
@@ -385,6 +400,11 @@ fn fab_server(
 
     let crossref_lookup_map = CrossrefLookupMap::new(&crossref_path, &crossref_extra_path);
 
+    let jumpref_path = format!("{}/jumpref", tree_config.paths.index_path);
+    let jumpref_extra_path = format!("{}/jumpref-extra", tree_config.paths.index_path);
+
+    let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
+
     let file_lookup_path = format!(
         "{}/concise-per-file-info.json",
         tree_config.paths.index_path
@@ -399,6 +419,7 @@ fn fab_server(
         tree_name: tree_name.to_string(),
         ident_map,
         crossref_lookup_map,
+        jumpref_lookup_map,
         file_lookup_map,
     }))
 }

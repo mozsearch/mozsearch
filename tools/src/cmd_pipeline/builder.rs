@@ -18,7 +18,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand, cmd_render::RenderCommand};
+use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand, cmd_render::RenderCommand, cmd_jumpref_lookup::JumprefLookupCommand};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -52,6 +52,8 @@ pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand +
         Command::FilterAnalysis(fa) => Ok(Box::new(FilterAnalysisCommand { args: fa })),
 
         Command::Graph(g) => Ok(Box::new(GraphCommand { args: g })),
+
+        Command::JumprefLookup(cl) => Ok(Box::new(JumprefLookupCommand { args: cl })),
 
         Command::MergeAnalyses(ma) => Ok(Box::new(MergeAnalysesCommand { args: ma })),
 

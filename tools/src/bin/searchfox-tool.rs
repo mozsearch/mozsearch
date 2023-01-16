@@ -128,6 +128,10 @@ async fn main() {
             emit_json(&jv.value);
             0
         }
+        Ok(PipelineValues::JsonValueList(jvl)) => {
+            emit_json(&to_value(jvl).unwrap());
+            0
+        }
         Ok(PipelineValues::FileMatches(fm)) => {
             emit_json(&to_value(fm).unwrap());
             0

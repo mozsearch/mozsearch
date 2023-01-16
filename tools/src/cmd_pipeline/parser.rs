@@ -8,6 +8,7 @@ use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_graph::Graph;
+use super::cmd_jumpref_lookup::JumprefLookup;
 use super::cmd_merge_analyses::MergeAnalyses;
 use super::cmd_prod_filter::ProductionFilter;
 use super::cmd_query::Query;
@@ -70,6 +71,7 @@ pub enum Command {
     CrossrefLookup(CrossrefLookup),
     FilterAnalysis(FilterAnalysis),
     Graph(Graph),
+    JumprefLookup(JumprefLookup),
     MergeAnalyses(MergeAnalyses),
     ProductionFilter(ProductionFilter),
     Query(Query),
