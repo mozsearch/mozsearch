@@ -150,6 +150,11 @@ impl AbstractServer for RemoteServer {
         Err(ServerError::Unsupported)
     }
 
+    async fn jumpref_lookup(&self, _symbol: &str) -> Result<Value> {
+        // Same rationale for `crossref_lookup` above.
+        Err(ServerError::Unsupported)
+    }
+
     async fn search_files(
         &self,
         _pathre: &str,

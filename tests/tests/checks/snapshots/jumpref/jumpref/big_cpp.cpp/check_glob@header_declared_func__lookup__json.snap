@@ -1,0 +1,32 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(jvl).unwrap()"
+---
+{
+  "values": [
+    {
+      "value": {
+        "sym": "i_was_declared_in_the_header",
+        "pretty": "i_was_declared_in_the_header",
+        "meta": {
+          "structured": 1,
+          "pretty": "i_was_declared_in_the_header",
+          "sym": "i_was_declared_in_the_header",
+          "kind": "function",
+          "implKind": "",
+          "sizeBytes": null,
+          "bindingSlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": []
+        },
+        "jumps": {
+          "def": "big_cpp.cpp#473",
+          "decl": "big_header.h#6"
+        }
+      }
+    }
+  ]
+}

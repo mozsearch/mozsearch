@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(jvl).unwrap()"
+---
+{
+  "values": [
+    {
+      "value": {
+        "sym": "simple::<Loader>::needs_hard_reload",
+        "pretty": "simple::<Loader>::needs_hard_reload"
+      }
+    }
+  ]
+}

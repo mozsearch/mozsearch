@@ -297,6 +297,10 @@ pub trait AbstractServer {
     /// symbol.
     async fn crossref_lookup(&self, symbol: &str) -> Result<Value>;
 
+    /// Retrieve the JSON contents of the jumpref database for the given
+    /// symbol.
+    async fn jumpref_lookup(&self, symbol: &str) -> Result<Value>;
+
     /// Search the list of all files using a (potentially empty) regexp string
     /// and optionally enforcing a limit.  The underlying list of files should
     /// be equivalent to the union of the `repo-files` and `objdir-files`

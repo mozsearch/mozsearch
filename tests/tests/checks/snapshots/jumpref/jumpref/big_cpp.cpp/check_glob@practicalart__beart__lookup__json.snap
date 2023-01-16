@@ -1,0 +1,41 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(jvl).unwrap()"
+---
+{
+  "values": [
+    {
+      "value": {
+        "sym": "_ZN7outerNS12PracticalArt5beArtEv",
+        "pretty": "outerNS::PracticalArt::beArt",
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::PracticalArt::beArt",
+          "sym": "_ZN7outerNS12PracticalArt5beArtEv",
+          "kind": "method",
+          "parentsym": "T_outerNS::PracticalArt",
+          "implKind": "",
+          "sizeBytes": null,
+          "bindingSlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [
+            {
+              "pretty": "outerNS::AbstractArt::beArt",
+              "sym": "_ZN7outerNS11AbstractArt5beArtEv"
+            }
+          ],
+          "props": [
+            "instance",
+            "virtual",
+            "user"
+          ]
+        },
+        "jumps": {
+          "def": "big_cpp.cpp#433"
+        }
+      }
+    }
+  ]
+}

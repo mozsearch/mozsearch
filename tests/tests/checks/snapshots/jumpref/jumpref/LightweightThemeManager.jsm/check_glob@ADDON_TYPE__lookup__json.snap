@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(jvl).unwrap()"
+---
+{
+  "values": [
+    {
+      "value": {
+        "sym": "#ADDON_TYPE",
+        "pretty": "ADDON_TYPE"
+      }
+    }
+  ]
+}

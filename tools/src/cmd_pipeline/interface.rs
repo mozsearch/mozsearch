@@ -62,6 +62,7 @@ pub enum PipelineValues {
     SymbolCrossrefInfoList(SymbolCrossrefInfoList),
     SymbolGraphCollection(SymbolGraphCollection),
     JsonValue(JsonValue),
+    JsonValueList(JsonValueList),
     JsonRecords(JsonRecords),
     FileMatches(FileMatches),
     TextMatches(TextMatches),
@@ -575,6 +576,19 @@ impl JsonRecordsByFile {
 #[derive(Serialize)]
 pub struct JsonValue {
     pub value: Value,
+}
+
+/// Multiple JSON values, as wrapped into a JsonValue.  While any values stored
+/// here can obviously just be placed into a JSON array instead, the intent is
+/// to avoid confusing aggregation for transport like we're doing here versus
+/// what an endpoint that's not aggregating would return.
+///
+/// This does mean that the JSON serialization of this struct will look a little
+/// awkward, but this will make it easier if we start labeling the JsonValue
+/// values with their source/etc.
+#[derive(Serialize)]
+pub struct JsonValueList {
+    pub values: Vec<JsonValue>,
 }
 
 /// JSON Analysis Records grouped by (source) file.

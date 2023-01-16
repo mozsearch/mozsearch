@@ -1,0 +1,1 @@
+search-identifiers "i_was_declared_in_the_header" | jumpref-lookup

@@ -1,0 +1,14 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(jvl).unwrap()"
+---
+{
+  "values": [
+    {
+      "value": {
+        "sym": "FILE_big_cpp@2Ecpp",
+        "pretty": "big_cpp.cpp"
+      }
+    }
+  ]
+}
