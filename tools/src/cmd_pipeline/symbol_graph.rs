@@ -13,7 +13,7 @@ use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 use ustr::{Ustr, ustr, UstrMap};
 
-use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::{abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, file_format::crossref_converter::convert_crossref_value_to_sym_info_rep};
 
 use super::interface::OverloadInfo;
 
@@ -134,7 +134,7 @@ impl Serialize for SymbolGraphCollection {
         }
 
         let mut sgc = serializer.serialize_struct("SymbolGraphCollection", 2)?;
-        sgc.serialize_field("symbol_metas", &self.symbols_meta_to_json())?;
+        sgc.serialize_field("jumprefs", &self.symbols_meta_to_jumpref_json_nomut())?;
         sgc.serialize_field("graphs", &graphs)?;
         sgc.end()
     }
@@ -145,18 +145,38 @@ fn escaped_node_id(id: &str) -> NodeId {
 }
 
 impl SymbolGraphCollection {
-    /// Return a sorted Object mapping from symbol identifiers to their meta, if
-    /// available.  We sort the symbols for stability for testing purposes and
-    /// for human readability reasons.
-    pub fn symbols_meta_to_json(&self) -> Value {
-        let mut metas = BTreeMap::new();
-        for sym_info in self.node_set.symbol_crossref_infos.iter() {
-            if let Some(meta) = sym_info.crossref_info.get("meta") {
-                metas.insert(sym_info.symbol.clone(), meta.clone());
-            }
+    /// Destructively return a sorted Object mapping from symbol identifiers to
+    /// their jumpref info.  We sort the symbols for stability for testing
+    /// purposes and for human readability reasons.  The destruction is that
+    /// the DerivedSymbolInfo's have their `crossref_info` serde_json::Value
+    /// instances take()n.
+    ///
+    /// This method is currently destructive because the
+    /// convert_crossref_value_to_sym_info_rep currently is destructive and
+    /// because it seems like nothing else currently needs that info.  But it
+    /// should be fine to make this optionally non-destructive.
+    ///
+    /// Okay, now there's a nondestructive version below this that's less
+    /// efficient.
+    pub fn symbols_meta_to_jumpref_json_destructive(&mut self) -> Value {
+        let mut jumprefs = BTreeMap::new();
+        for sym_info in self.node_set.symbol_crossref_infos.iter_mut() {
+            let info = sym_info.crossref_info.take();
+            jumprefs.insert(sym_info.symbol.clone(), convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None));
         }
 
-        json!(metas)
+        json!(jumprefs)
+    }
+
+    pub fn symbols_meta_to_jumpref_json_nomut(&self) -> Value {
+        let mut jumprefs = BTreeMap::new();
+        for sym_info in self.node_set.symbol_crossref_infos.iter() {
+            // XXX This is inefficient!
+            let info = sym_info.crossref_info.clone();
+            jumprefs.insert(sym_info.symbol.clone(), convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None));
+        }
+
+        json!(jumprefs)
     }
 
     /// Convert the graph with the given index to a { nodes, edges } rep where:
@@ -244,7 +264,7 @@ impl SymbolGraphCollection {
         }
 
         json!({
-            "symbol_metas": self.symbols_meta_to_json(),
+            "jumprefs": self.symbols_meta_to_jumpref_json_nomut(),
             "graphs": graphs,
         })
     }

@@ -12,6 +12,3 @@
 {% for graph in results.GraphResultsBundle.graphs %}
 {{ graph.graph }}
 {% endfor %}
-<script>
-var SYMBOL_DB = {{ results.GraphResultsBundle.symbols | json }};
-</script>

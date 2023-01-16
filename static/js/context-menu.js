@@ -307,7 +307,7 @@ function getTargetWord() {
   let node = selection.anchorNode;
   let string = node.nodeValue;
 
-  if (!string.length) {
+  if (!string?.length) {
     return null;
   }
 
