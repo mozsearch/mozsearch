@@ -50,21 +50,22 @@ pub fn convert_crossref_value_to_sym_info_rep(cross_val: Value, sym: &Ustr, fall
                     rep.insert("pretty".to_string(), json!(fallback_pretty.unwrap_or(sym).to_string()));
                 }
                 rep.insert(key, meta);
-
-                let mut jumps = Map::new();
-                jumpify(xref.remove("idl"), "idl", &mut jumps);
-                jumpify(xref.remove("defs"), "def", &mut jumps);
-                jumpify(xref.remove("decls"), "decl", &mut jumps);
-
-                // TODO: Need to handle the IDL search permutations issue that currently allows
-                // the language indexer to define multiple symbol groupings.
-
-                if jumps.len() > 0 {
-                    rep.insert("jumps".to_string(), json!(jumps));
-                }
             } else {
                 rep.insert("pretty".to_string(), json!(fallback_pretty.unwrap_or(sym).to_string()));
             }
+
+            let mut jumps = Map::new();
+            jumpify(xref.remove("idl"), "idl", &mut jumps);
+            jumpify(xref.remove("defs"), "def", &mut jumps);
+            jumpify(xref.remove("decls"), "decl", &mut jumps);
+
+            // TODO: Need to handle the IDL search permutations issue that currently allows
+            // the language indexer to define multiple symbol groupings.
+
+            if jumps.len() > 0 {
+                rep.insert("jumps".to_string(), json!(jumps));
+            }
+
             json!(rep)
         }
         _ => {

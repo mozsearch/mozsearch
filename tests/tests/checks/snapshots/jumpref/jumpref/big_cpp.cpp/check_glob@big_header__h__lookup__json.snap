@@ -7,7 +7,10 @@ expression: "&to_value(jvl).unwrap()"
     {
       "value": {
         "sym": "FILE_big_cpp@2Ecpp",
-        "pretty": "big_cpp.cpp"
+        "pretty": "big_cpp.cpp",
+        "jumps": {
+          "def": "big_cpp.cpp#1"
+        }
       }
     }
   ]

@@ -7,7 +7,10 @@ expression: "&to_value(jvl).unwrap()"
     {
       "value": {
         "sym": "simple::<Loader>::needs_hard_reload",
-        "pretty": "simple::<Loader>::needs_hard_reload"
+        "pretty": "simple::<Loader>::needs_hard_reload",
+        "jumps": {
+          "def": "simple.rs#45"
+        }
       }
     }
   ]
