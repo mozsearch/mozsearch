@@ -76,3 +76,26 @@ pub fn convert_crossref_value_to_sym_info_rep(cross_val: Value, sym: &Ustr, fall
         }
     }
 }
+
+/// Helper that processes a jumpref-formatted Value in order to extract any
+/// binding slot symbols that should also be looked up.  In general there should
+/// be no need to transitively traverse the resulting symbols at this time, but
+/// if you did it should not end up pulling in a lot of symbols.  (Compare with
+/// walking subclasses/superclasses, which are explicitly not binding slots;
+/// that could pull in an immense amount of information!)
+pub fn extra_binding_slot_syms_from_jumpref(jumpref: &Value) -> Vec<String> {
+    let mut extra_syms = vec![];
+    if let Some(owner) = jumpref.pointer("/meta/slotOwner") {
+        if let Some(Value::String(sym)) = owner.get("sym") {
+            extra_syms.push(sym.clone());
+        }
+    }
+    if let Some(Value::Array(slots)) = jumpref.pointer("/meta/bindingSlots") {
+        for slot in slots {
+            if let Some(Value::String(sym)) = slot.get("sym") {
+                extra_syms.push(sym.clone());
+            }
+        }
+    }
+    extra_syms
+}

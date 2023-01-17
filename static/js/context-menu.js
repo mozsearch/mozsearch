@@ -53,7 +53,8 @@ var ContextMenu = new (class ContextMenu {
       }
     }
 
-    let menuItems = [];
+    let jumpMenuItems = [];
+    let searchMenuItems = [];
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
@@ -78,43 +79,112 @@ var ContextMenu = new (class ContextMenu {
         // need to try and include any extra context.
         exposeSymbolsForDebugging.push(symInfo);
 
-        let { pretty } = symInfo;
-
-        if (symInfo.jumps) {
-          if (symInfo.jumps.idl && symInfo.jumps.idl !== sourceLineClicked) {
-            menuItems.push({
+        // Define a helper we can also use for the binding slots below.
+        const jumpify = (jumpref, pretty) => {
+          if (!jumpref.jumps) {
+            return;
+          }
+          if (jumpref.jumps.idl && jumpref.jumps.idl !== sourceLineClicked) {
+            jumpMenuItems.push({
               html: this.fmt("Go to IDL definition of _", pretty),
-              href: `/${tree}/source/${symInfo.jumps.idl}`,
+              href: `/${tree}/source/${jumpref.jumps.idl}`,
               icon: "search",
             });
           }
 
-          if (symInfo.jumps.def && symInfo.jumps.def !== sourceLineClicked) {
-            menuItems.push({
+          if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
+            jumpMenuItems.push({
               html: this.fmt("Go to definition of _", pretty),
-              href: `/${tree}/source/${symInfo.jumps.def}`,
+              href: `/${tree}/source/${jumpref.jumps.def}`,
               icon: "search",
             });
           }
 
-          if (symInfo.jumps.decl && symInfo.jumps.decl !== sourceLineClicked) {
-            menuItems.push({
+          if (jumpref.jumps.decl && jumpref.jumps.decl !== sourceLineClicked) {
+            jumpMenuItems.push({
               html: this.fmt("Go to declaration of _", pretty),
-              href: `/${tree}/source/${symInfo.jumps.decl}`,
+              href: `/${tree}/source/${jumpref.jumps.decl}`,
               icon: "search",
             });
           }
         }
 
-        menuItems.push({
-          html: this.fmt("Search for _", pretty),
-          href: `/${tree}/search?q=symbol:${encodeURIComponent(
-            sym
-          )}&redirect=false`,
-          icon: "search",
-        });
+        jumpify(symInfo, symInfo.pretty);
+
+
+        // Slot owner
+        if (symInfo.meta?.slotOwner) {
+          let slotOwner = symInfo.meta.slotOwner;
+          let ownerJumpref = SYM_INFO[slotOwner.sym];
+          if (ownerJumpref) {
+            jumpify(ownerJumpref, ownerJumpref.pretty);
+          }
+        }
+
+        let searches = [[ symInfo.pretty, sym ]];
+        // Binding slots
+        if (symInfo.meta?.bindingSlots) {
+          let implKind = symInfo.meta.implKind || "impl";
+          if (implKind === "idl") {
+            implKind = "IDL";
+          }
+
+          let allSearchSyms = [];
+          for (const slot of symInfo.meta.bindingSlots) {
+            let maybeLang = "";
+            if (slot.slotLang) {
+              let lang = slot.slotLang.toUpperCase();
+              if (lang === "CPP") {
+                lang = "C++";
+              }
+              maybeLang = ` ${lang}`;
+            }
+
+            let slotJumpref = SYM_INFO[slot.sym];
+
+            // Favor the slot's pretty if available.
+            const effectivePretty = slotJumpref?.pretty || symInfo.pretty;
+            let slotPretty =
+              `${implKind}${maybeLang} ${slot.slotKind} ${effectivePretty}`;
+            searches.push([slotPretty, slot.sym]);
+            allSearchSyms.push(slot.sym);
+
+            if (slotJumpref) {
+              jumpify(slotJumpref, slotPretty);
+            }
+          }
+
+          // If there were multiple language bindings that we think might exist,
+          // then generate a single roll-up search.
+          if (allSearchSyms.length > 1) {
+            // Eat the default search if this was IDL, as currently the "search"
+            // endpoint search for the synthetic symbol will only do upsells
+            // which is not what people are used to.
+            if (implKind === "IDL") {
+              searches.shift();
+              // Do put the synthetic symbol at the start of the explicit symbol
+              // list, however.
+              allSearchSyms.unshift(sym);
+            }
+            searches.push([`${implKind} ${symInfo.meta.kind} ${symInfo.pretty}`, allSearchSyms.join(",")]);
+          }
+        }
+
+
+
+        for (const search of searches) {
+          searchMenuItems.push({
+            html: this.fmt("Search for _", search[0]),
+            href: `/${tree}/search?q=symbol:${encodeURIComponent(
+              search[1]
+            )}&redirect=false`,
+            icon: "search",
+          });
+        }
       }
     }
+
+    let menuItems = jumpMenuItems.concat(searchMenuItems);
 
     let word = getTargetWord();
     if (word) {
