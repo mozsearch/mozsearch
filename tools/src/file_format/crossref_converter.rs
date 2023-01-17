@@ -17,7 +17,7 @@ pub fn convert_crossref_value_to_sym_info_rep(cross_val: Value, sym: &Ustr, fall
     // entry with the given jump_kind.
     let jumpify = |path_hits: Option<Value>, jump_kind: &str, jump_map: &mut Map<String, Value>| {
         if let Some(Value::Array(mut paths)) = path_hits {
-            if paths.len() > 1 {
+            if paths.len() != 1 {
                 return;
             }
             if let Value::Object(mut path_hit) = paths.remove(0) {
