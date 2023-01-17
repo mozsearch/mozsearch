@@ -53,8 +53,14 @@ var ContextMenu = new (class ContextMenu {
       }
     }
 
+    // jumps come first
     let jumpMenuItems = [];
+    // then searches
     let searchMenuItems = [];
+    // the the text search and sticky highlight option
+    // then these extra menu items which are for new/experimental features where
+    // we don't want to mess with muscle memory at the top of the list.
+    let extraMenuItems = [];
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
@@ -170,8 +176,6 @@ var ContextMenu = new (class ContextMenu {
           }
         }
 
-
-
         for (const search of searches) {
           searchMenuItems.push({
             html: this.fmt("Search for _", search[0]),
@@ -181,6 +185,15 @@ var ContextMenu = new (class ContextMenu {
             icon: "search",
           });
         }
+
+        if (true) {
+          const queryString = `calls-to:'${symInfo.pretty}' depth:4`;
+          extraMenuItems.push({
+            html: this.fmt("Diagram uses of _", symInfo.pretty),
+            href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+            icon: "search"
+          });
+        }  
       }
     }
 
@@ -204,6 +217,8 @@ var ContextMenu = new (class ContextMenu {
         href: `javascript:Hover.stickyHighlight('${symbols}', '${visibleToken}')`,
       });
     }
+
+    menuItems.push(...extraMenuItems);
 
     if (!menuItems.length) {
       return;
