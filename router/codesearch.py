@@ -58,7 +58,8 @@ def do_search(host, port, pattern, fold_case, file, context_lines):
     log('  codesearch result with %d line matches across %d paths - %f : %s',
         len(result.results), len(matches), time.time() - t,
         repr(result.stats).replace('\n', ', '))
-    return (matches, livegrep_pb2.SearchStats.ExitReason.Name(result.stats.exit_reason) == 'TIMEOUT')
+    return (matches, livegrep_pb2.SearchStats.ExitReason.Name(result.stats.exit_reason) == 'TIMEOUT',
+            livegrep_pb2.SearchStats.ExitReason.Name(result.stats.exit_reason) == 'MATCH_LIMIT')
 
 def daemonize(args):
     # Spawn a process to start the daemon
@@ -112,7 +113,7 @@ def startup_codesearch(data):
             # potentially will not return the same results every time it is run
             # and that's okay.  But because of our app-level caching, it ends
             # up that we will usually only run one exact query once.
-            '-max_matches', '1000',
+            '-max_matches', '4000',
             '-threads', f'{use_threads}',
             # We set the timeout to 30 seconds up from 10 seconds because our
             # caching policy requires our searches to be deterministic in the
@@ -160,7 +161,7 @@ def search(pattern, fold_case, path, tree_name, context_lines):
         if e.code() != grpc.StatusCode.UNAVAILABLE:
             # TODO: better job of surfacing the error back to the user. This might be e.g.
             # a grpc.StatusCode.INVALID_ARGUMENT if say the `pattern` is a malformed regex
-            return ([], False)
+            return ([], False, False)
 
         # If the exception indicated a connection failure, try to restart the server and search
         # again.
@@ -171,7 +172,7 @@ def search(pattern, fold_case, path, tree_name, context_lines):
         except Exception as e:
             log('Got exception after restarting codesearch: %s', repr(e))
             # TODO: as above, do a better job of surfacing the error back to the user.
-            return ([], False)
+            return ([], False, False)
 
 
 def load(config, stop=True, start=True, only_tree_name=None):

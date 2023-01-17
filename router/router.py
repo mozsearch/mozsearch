@@ -25,6 +25,10 @@ from logger import log
 from six.moves import range
 from raw_search import RawSearchResults
 
+# Our historical limits are somewhat limiting, let's add a brief and poorly
+# but excitingly named scaling factor for our limits.
+EXTREME_FACTOR = 4
+
 def index_path(tree_name):
     return config['trees'][tree_name]['index_path']
 
@@ -215,6 +219,8 @@ class SearchResults(object):
     def __init__(self):
         self.results = []
         self.qualified_results = []
+        self.count_limit_hit = False
+        self.work_limit_hit = False
 
         self.pathre = None
         self.compiled = {}
@@ -236,8 +242,8 @@ class SearchResults(object):
     def add_qualified_results(self, qual, results, modifier):
         self.qualified_results.append((qual, results, modifier))
 
-    max_count = 1000
-    max_work = 750
+    max_count = 1000 * EXTREME_FACTOR
+    max_work = 1000 * EXTREME_FACTOR
     path_precedences = ['normal', 'thirdparty', 'test', 'generated']
     key_precedences = ["Files", "IDL", "Definitions", "Overrides",
         "Overridden By", "Superclasses", "Subclasses", "Assignments", "Uses",
@@ -350,7 +356,15 @@ class SearchResults(object):
                         lines_out.append(line)
                         count += 1
                         if count == self.max_count:
+                            self.count_limit_hit = True
                             break
+                    else:
+                        # if there were no lines, as is the case for files, still
+                        # count this as 1 result.
+                        count += 1
+                        if count == self.max_count:
+                            self.count_limit_hit = True
+                            # we're not in a loop here so no need to break here.
 
                     if lines_out or qkind == 'Files':
                         l = result.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, [])
@@ -382,6 +396,7 @@ class SearchResults(object):
             work = 0
             for (qual, results, line_modifier) in self.qualified_results:
                 if work > self.max_work and work_limit:
+                    self.work_limit_hit = True
                     log('WORK LIMIT HIT')
                     break
                 for pathr in results.get(kind, []):
@@ -396,19 +411,31 @@ class SearchResults(object):
         r = self.sort_compiled()
         return r
 
+# What's the maximum number of files to return to the user?
+FILE_RESPONSE_LIMIT = 1000 * EXTREME_FACTOR
+# Since we do end up categorizing the files, let's actually get a lot more
+# results from `search_files` and apply that filtering later.  Honestly, I'm
+# not sure we even need to apply this limit, but there are currently 347k m-c
+# files, so baby steps are probably appropriate.
+FILE_PRE_FILTER_RESPONSE_LIMIT = FILE_RESPONSE_LIMIT * 8
+
 def search_files(tree_name, path):
     t = time.time()
+    # Note that while `all-files` currently exists, it's also intentionally
+    # shuffled and so it's probably more sane to just use both of these files
+    # for now.
     pathFile = os.path.join(index_path(tree_name), 'repo-files')
     objdirFile = os.path.join(index_path(tree_name), 'objdir-files')
     try:
         # We set the locale to make grep much faster.
         results = subprocess.check_output(['grep', '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'}, universal_newlines=True)
     except subprocess.CalledProcessError:
-        return []
+        return ([], False)
     results = results.strip().split('\n')
     results = [ {'path': f, 'lines': []} for f in results ]
     log('  search_files "%s" - %f', path, time.time() - t)
-    return results[:1000]
+    limit_hit = len(results) > FILE_RESPONSE_LIMIT
+    return (results[:FILE_PRE_FILTER_RESPONSE_LIMIT], limit_hit)
 
 def demangle(sym):
     try:
@@ -504,6 +531,7 @@ def get_json_search_results(tree_name, query):
 
     work_limit = False
     hit_timeout = False
+    hit_limits = []
 
     if 'symbol' in parsed:
         search.set_path_filter(parsed.get('pathre'))
@@ -512,26 +540,35 @@ def get_json_search_results(tree_name, query):
         search.add_results(expand_keys(tree_name, crossrefs.lookup_merging(tree_name, symbols)))
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
-        (substr_results, timed_out) = codesearch.search(parsed['re'], fold_case, path, tree_name, context_lines)
+        (substr_results, timed_out, codesearch_limit_hit) = codesearch.search(parsed['re'], fold_case, path, tree_name, context_lines)
         search.add_results({'Textual Occurrences': substr_results})
         hit_timeout |= timed_out
+        if codesearch_limit_hit:
+            hit_limits.append('fulltext search hit limit')
     elif 'id' in parsed:
         search.set_path_filter(parsed.get('pathre'))
         identifier_search(search, tree_name, parsed['id'], complete=True, fold_case=fold_case)
     elif 'default' in parsed:
         work_limit = True
         path = parsed.get('pathre', '.*')
-        (substr_results, timed_out) = codesearch.search(parsed['default'], fold_case, path, tree_name, context_lines)
+        (substr_results, timed_out, codesearch_limit_hit) = codesearch.search(parsed['default'], fold_case, path, tree_name, context_lines)
         search.add_results({'Textual Occurrences': substr_results})
         hit_timeout |= timed_out
+        if codesearch_limit_hit:
+            hit_limits.append('fulltext search hit limit')
         if 'pathre' not in parsed:
-            file_results = search_files(tree_name, parsed['default'])
+            (file_results, file_limit_hit) = search_files(tree_name, parsed['default'])
+            if file_limit_hit:
+                hit_limits.append('file pre-filter limit')
             search.add_results({'Files': file_results})
 
             identifier_search(search, tree_name, parsed['default'], complete=False, fold_case=fold_case)
     elif 'pathre' in parsed:
         path = parsed['pathre']
-        search.add_results({'Files': search_files(tree_name, path)})
+        (file_results, file_limit_hit) = search_files(tree_name, path)
+        if file_limit_hit:
+            hit_limits.append("file")
+        search.add_results({'Files': file_results})
     else:
         assert False
         results = {}
@@ -540,8 +577,14 @@ def get_json_search_results(tree_name, query):
     results = search.get(work_limit)
     log('  search.get() - %f', time.time() - search_get_t)
 
+    if search.count_limit_hit:
+        hit_limits.append('result count limit')
+    if search.work_limit_hit:
+        hit_limits.append('work limit')
+
     results['*title*'] = title
     results['*timedout*'] = hit_timeout
+    results['*limits*'] = hit_limits
     return json.dumps(results)
 
 def identifier_sorch(search, tree_name, needle, complete, fold_case):
@@ -634,6 +677,7 @@ def get_json_sorch_results(tree_name, query):
 
     work_limit = False
     hit_timeout = False
+    hit_limits = []
 
     if 'symbol' in parsed:
         search.set_path_filter(parsed.get('pathre'))
@@ -653,7 +697,10 @@ def get_json_sorch_results(tree_name, query):
         #search.add_results({'Textual Occurrences': substr_results})
         #hit_timeout |= timed_out
         if 'pathre' not in parsed:
-            file_results = search_files(tree_name, parsed['default'])
+            (file_results, file_limit_hit) = search_files(tree_name, parsed['default'])
+            if file_limit_hit:
+                hit_limits.append('file pre-filter limit')
+
             search.add_paths(file_results)
 
             identifier_sorch(search, tree_name, parsed['default'], complete=False, fold_case=fold_case)
@@ -665,6 +712,7 @@ def get_json_sorch_results(tree_name, query):
 
     results['*title*'] = title
     results['*timedout*'] = hit_timeout
+    results['*limits*'] = hit_limits
     return json.dumps(results)
 
 class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):

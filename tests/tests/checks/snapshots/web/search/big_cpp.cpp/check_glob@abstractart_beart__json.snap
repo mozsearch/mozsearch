@@ -43,5 +43,6 @@ expression: "&jv.value"
     ]
   },
   "*title*": "outerNS::AbstractArt::beArt",
-  "*timedout*": false
+  "*timedout*": false,
+  "*limits*": []
 }
