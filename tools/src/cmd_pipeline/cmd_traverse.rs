@@ -220,17 +220,36 @@ impl PipelineCommand for TraverseCommand {
                     // uses in either direction; they are support.
                     BindingSlotKind::EnablingPref
                     | BindingSlotKind::EnablingFunc
-                    | BindingSlotKind::Const => false,
+                    | BindingSlotKind::Const
+                    | BindingSlotKind::Send => false,
                     _ => true,
                 };
                 if should_traverse {
                     let (idl_id, idl_info) =
                         sym_node_set.ensure_symbol(&slot_owner.sym, server).await?;
 
-                    graph.add_edge(idl_id, sym_id.clone());
-                    if depth < max_depth && considered.insert(idl_info.symbol.clone()) {
-                        trace!(sym = idl_info.symbol.as_str(), "scheduling owner slot sym");
-                        to_traverse.push((idl_info.symbol.clone(), depth + 1));
+                    // So if this was the recv, let's look through to the send
+                    // and add an edge to that instead and then continue the
+                    // loop so we ignore the other uses.
+                    if slot_owner.slot_kind == BindingSlotKind::Recv {
+                        if let Some(send_sym) = idl_info.get_binding_slot_sym("send") {
+                            let (send_id, send_info) = sym_node_set.ensure_symbol(&send_sym, server).await?;
+                            graph.add_edge(send_id, sym_id.clone());
+                            if depth < max_depth && considered.insert(send_info.symbol.clone()) {
+                                trace!(sym = send_info.symbol.as_str(), "scheduling send slot sym");
+                                to_traverse.push((send_info.symbol.clone(), depth + 1));
+                            }
+                        }
+                        continue;
+                    } else {
+                        // And so here we're, uh, just going to name-check the
+                        // parent.
+                        // TODO: further implement binding slot magic.
+                        graph.add_edge(idl_id, sym_id.clone());
+                        if depth < max_depth && considered.insert(idl_info.symbol.clone()) {
+                            trace!(sym = idl_info.symbol.as_str(), "scheduling owner slot sym");
+                            to_traverse.push((idl_info.symbol.clone(), depth + 1));
+                        }
                     }
                 }
             }
