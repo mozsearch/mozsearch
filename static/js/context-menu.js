@@ -405,7 +405,7 @@ function getTargetWord() {
 
   let offset = selection.focusOffset;
   let node = selection.anchorNode;
-  let string = node.nodeValue;
+  let string = node?.nodeValue;
 
   if (!string?.length) {
     return null;
