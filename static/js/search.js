@@ -361,9 +361,13 @@ function populateResults(data, full, jumpToSingle) {
     return s.replace(/&/gm, "&amp;").replace(/</gm, "&lt;");
   }
 
-  function renderSingleSearchResult(pathkind, qkind, file, line, isContext) {
+  function renderSingleSearchResult(pathkind, qkind, file, line, isContext, hasContext) {
     var [start, end] = line.bounds || [0, 0];
-    var before = line.line.slice(0, start).replace(/^\s+/, "");
+    var before = line.line.slice(0, start);
+    // Do not truncate off the leading whitespace if we're trying to present in context.
+    if (!hasContext) {
+      before = before.replace(/^\s+/, "");
+    }
     var middle = line.line.slice(start, end);
     var after = line.line.slice(end).replace(/\s+$/, "");
 
@@ -381,8 +385,13 @@ function populateResults(data, full, jumpToSingle) {
     html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
 
     html += "<code>";
-    html += escape(before);
-    html += "<b>" + escape(middle) + "</b>";
+    // in the context cases, we may only have an after.
+    if (before) {
+      html += escape(before);
+    }
+    if (middle) {
+      html += "<b>" + escape(middle) + "</b>";
+    }
     html += escape(after);
     html += "</code>";
 
@@ -584,6 +593,8 @@ function populateResults(data, full, jumpToSingle) {
               return;
             }
 
+            let has_context = line.context_before || line.context_after;
+
             if (line.context_before) {
               let lineDelta = -line.context_before.length;
               for (const lineStr of line.context_before) {
@@ -592,12 +603,13 @@ function populateResults(data, full, jumpToSingle) {
                   qkind,
                   file,
                   { lno: line.lno + lineDelta, line: lineStr },
-                  "before"
+                  "before",
+                  true
                 );
                 lineDelta++;
               }
             }
-            html += renderSingleSearchResult(pathkind, qkind, file, line);
+            html += renderSingleSearchResult(pathkind, qkind, file, line, false, has_context);
             if (line.context_after) {
               let lineDelta = 1;
               for (const lineStr of line.context_after) {
@@ -606,7 +618,8 @@ function populateResults(data, full, jumpToSingle) {
                   qkind,
                   file,
                   { lno: line.lno + lineDelta, line: lineStr },
-                  "after"
+                  "after",
+                  true
                 );
                 lineDelta++;
               }
