@@ -82,5 +82,6 @@ expression: "&jv.value"
     ]
   },
   "*title*": "DoubleBase::doublePure",
-  "*timedout*": false
+  "*timedout*": false,
+  "*limits*": []
 }

@@ -273,6 +273,9 @@ function populateResults(data, full, jumpToSingle) {
   var timed_out = data["*timedout*"];
   delete data["*timedout*"];
 
+  let limits_hit = data["*limits*"] || [];
+  delete data["*limits*"];
+
   window.scrollTo(0, 0);
 
   function makeURL(path) {
@@ -419,7 +422,10 @@ function populateResults(data, full, jumpToSingle) {
     for (var qkind in data[pathkind]) {
       for (var k = 0; k < data[pathkind][qkind].length; k++) {
         var path = data[pathkind][qkind][k];
-        count += path.lines.length;
+        // 0 lines implies this is a file, in which case just the bare file still
+        // counts for our result count purposes and how router.py determined the
+        // limits.
+        count += (path.lines.length || 1);
       }
     }
   }
@@ -456,8 +462,13 @@ function populateResults(data, full, jumpToSingle) {
   container.setAttribute("class", "content");
   container.innerHTML = "";
 
+  let limitWarning = "";
+  if (limits_hit.length > 0) {
+    limitWarning = `<div><b>Warning</b>: The following limits were hit in your search: ${limits_hit.join(", ")}</div>`;
+  }
+
   let timeoutWarning = timed_out
-    ? "<div>Warning: results may be incomplete due to server-side search timeout!</div>"
+    ? "<div><b>Warning</b>: Results may be incomplete due to server-side search timeout!</div>"
     : "";
 
   if (!fileCount) {
@@ -465,6 +476,9 @@ function populateResults(data, full, jumpToSingle) {
       "beforeend",
       "<span>No results for current query.</span>"
     );
+    if (limitWarning) {
+      container.insertAdjacentHTML("beforeend", limitWarning);
+    }
     if (timeoutWarning) {
       container.insertAdjacentHTML("beforeend", timeoutWarning);
     }
@@ -472,8 +486,11 @@ function populateResults(data, full, jumpToSingle) {
     if (count) {
       container.insertAdjacentHTML(
         "beforeend",
-        `<div>Number of results: ${count} (maximum is 1000)</div>`
+        `<div>Number of results: ${count} (maximum is around 4000)</div>`
       );
+    }
+    if (limitWarning) {
+      container.insertAdjacentHTML("beforeend", limitWarning);
     }
     if (timeoutWarning) {
       container.insertAdjacentHTML("beforeend", timeoutWarning);
