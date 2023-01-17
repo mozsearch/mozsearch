@@ -73,6 +73,11 @@ const SETTING_DEFS = {
       quality: "alpha",
     }
   },
+  diagramming: {
+    enabled: {
+      quality: "alpha",
+    }
+  },
 };
 
 const QUALITY_ORDERING = [
