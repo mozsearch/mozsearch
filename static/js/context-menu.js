@@ -81,6 +81,18 @@ var ContextMenu = new (class ContextMenu {
           continue;
         }
 
+        // TODO: Revisit this as the diagramming mechanism better understands how
+        // to deal with slots.  There are some complications related to this
+        // because currently the JS XPIDL binding situation is such that there are
+        // way too many false-positives so it's usually going to be bad news to
+        // try and traverse the JS binding edges, so we sorta don't want the
+        // traversal to even try yet.
+        //
+        // IDL symbols are usually not directly diagrammable, so for now if we see
+        // we're an IDL symbol and we have binding slots, we instead will just use
+        // the C++ binding symbols.
+        let diagrammableSyms = [symInfo];
+
         // The symInfo is self-identifying via `pretty` and `sym` so we don't
         // need to try and include any extra context.
         exposeSymbolsForDebugging.push(symInfo);
@@ -117,7 +129,6 @@ var ContextMenu = new (class ContextMenu {
 
         jumpify(symInfo, symInfo.pretty);
 
-
         // Slot owner
         if (symInfo.meta?.slotOwner) {
           let slotOwner = symInfo.meta.slotOwner;
@@ -133,20 +144,22 @@ var ContextMenu = new (class ContextMenu {
           let implKind = symInfo.meta.implKind || "impl";
           if (implKind === "idl") {
             implKind = "IDL";
+            diagrammableSyms = [];
           }
 
           let allSearchSyms = [];
           for (const slot of symInfo.meta.bindingSlots) {
+            let slotJumpref = SYM_INFO[slot.sym];
+
             let maybeLang = "";
             if (slot.slotLang) {
               let lang = slot.slotLang.toUpperCase();
               if (lang === "CPP") {
                 lang = "C++";
+                diagrammableSyms.push(slotJumpref);
               }
               maybeLang = ` ${lang}`;
             }
-
-            let slotJumpref = SYM_INFO[slot.sym];
 
             // Favor the slot's pretty if available.
             const effectivePretty = slotJumpref?.pretty || symInfo.pretty;
@@ -186,14 +199,16 @@ var ContextMenu = new (class ContextMenu {
           });
         }
 
-        if (true) {
-          const queryString = `calls-to:'${symInfo.pretty}' depth:4`;
-          extraMenuItems.push({
-            html: this.fmt("Diagram uses of _", symInfo.pretty),
-            href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-            icon: "search"
-          });
-        }  
+        if (Settings.diagramming.enabled) {
+          for (const jumpref of diagrammableSyms) {
+            const queryString = `calls-to:'${jumpref.pretty}' depth:4`;
+            extraMenuItems.push({
+              html: this.fmt("Diagram uses of _", jumpref.pretty),
+              href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+              icon: "search"
+            });
+          }
+        }
       }
     }
 

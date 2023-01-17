@@ -145,7 +145,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 1;
+const SETTINGS_VERSION = 2;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".

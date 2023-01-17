@@ -13,7 +13,7 @@ use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 use ustr::{Ustr, ustr, UstrMap};
 
-use crate::{abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, file_format::crossref_converter::convert_crossref_value_to_sym_info_rep};
+use crate::{abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, file_format::{crossref_converter::convert_crossref_value_to_sym_info_rep}};
 
 use super::interface::OverloadInfo;
 
@@ -103,6 +103,23 @@ impl DerivedSymbolInfo {
             Some(Value::String(pretty)) => ustr(pretty),
             _ => self.symbol.clone(),
         }
+    }
+
+    pub fn get_binding_slot_sym(&self, kind: &str) -> Option<Ustr> {
+        if let Some(Value::Array(slots)) = self.crossref_info.pointer("/meta/bindingSlots") {
+            for slot in slots {
+                if let Some(Value::String(slot_kind)) = slot.get("slotKind") {
+                    if slot_kind.as_str() != kind {
+                        continue;
+                    }
+                    if let Some(Value::String(sym)) = slot.get("sym") {
+                        return Some(ustr(sym));
+                    }
+                    break;
+                }
+            }
+        }
+        None
     }
 }
 
