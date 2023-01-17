@@ -6,6 +6,7 @@ use std::process::Command;
 use std::time::Instant;
 
 use crate::blame;
+use crate::file_format::crossref_converter::extra_binding_slot_syms_from_jumpref;
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::git_ops;
 use crate::languages;
@@ -22,7 +23,7 @@ use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 use git2;
 use serde_json::{json, Map, to_string, to_string_pretty};
-use ustr::{Ustr};
+use ustr::{Ustr, ustr};
 
 #[derive(Debug)]
 pub struct FormattedLine {
@@ -211,8 +212,22 @@ pub fn format_code(
                                 generated_sym_info.insert(sym.clone(), json!(obj));
                             }
                         } else if let Some(lookup) = jumpref_lookup {
-                            if let Ok(jumpref_info) = lookup.lookup(&sym) {
-                                generated_sym_info.insert(sym.clone(), jumpref_info);
+                            if let Ok(jumpref) = lookup.lookup(&sym) {
+                                // See if there are any binding slot symbols that we should also
+                                // include.  This allows us to do things like, when presenting a
+                                // context menu for a synthetic XPIDL symbol, we can also provide an
+                                // option to go directly to the C++ binding definition.
+                                for extra_sym in extra_binding_slot_syms_from_jumpref(&jumpref) {
+                                    // no need to lookup and add what we already know
+                                    let extra_sym = ustr(&extra_sym);
+                                    if generated_sym_info.contains_key(&extra_sym) {
+                                        continue;
+                                    }
+                                    if let Ok(extra_info) = lookup.lookup(&extra_sym) {
+                                        generated_sym_info.insert(extra_sym, extra_info);
+                                    }
+                                }
+                                generated_sym_info.insert(sym.clone(), jumpref);
                             }
                         }
                     }

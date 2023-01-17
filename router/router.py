@@ -149,7 +149,7 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
                 # The owner is going to be an IDL parent right now, make sure
                 # we're showing the IDL (def) as IDL.
                 if 'slotOwner' in meta:
-                    merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slowOwner']['sym']], 'IDL')
+                    merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slotOwner']['sym']], 'IDL')
                 # If we've got an IDL symbol, show all of its related binding
                 # definitions as definitions.
                 if 'bindingSlots' in meta:

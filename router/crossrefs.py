@@ -172,24 +172,10 @@ def lookup_merging(tree_name, symbols):
     for symbol in symbols:
         result = lookup_raw(tree_name, symbol)
         if result is None:
-            # This was existing behavior to fail if we encounter any incorrect
-            # symbols.  I'm currently leaving this in place because a request
-            # for a symbol we don't know suggests 1 of 3 things:
-            #
-            # 1. The query is from a prior indexing and is stale, and it's
-            #    probably better to return no results than incorrect results,
-            #    as someone can then refresh pages/etc. and see a correct
-            #    result.  That said, going forward, it likely would make sense
-            #    to be able to convey that stale results are implied and signal
-            #    that upwards.  This seems like a job for the rust rewrite.
-            # 2. There's a bug somewhere!  Returning no results is better in
-            #    this case because it is more likely to get eyes on the problem,
-            #    whereas returning partial results will potentially result in
-            #    the problem being hidden.
-            # 3. A rogue/broken client is trying to generate load, in which case
-            #    giving up sooner is better.  However this won't prevent
-            #    a competent rogue client from generating infinite load.
-            return {}
+            # we used to bail here, but it turns out this is actually a real
+            # correctness problem when searching for XPIDL JS methods that don't
+            # exist.
+            continue
 
         for (k, v) in result.items():
             if k == 'callees':
