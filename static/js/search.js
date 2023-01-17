@@ -418,16 +418,27 @@ function populateResults(data, full, jumpToSingle) {
   // Accumulate the total number of results for our initial summary and to
   // support our "automatically go to a single result" UX optimization below.
   var count = 0;
+  var tupledCounts = new Map();
+  var pathkindCounts = new Map();
   for (var pathkind in data) {
+    let pathkindHits = 0;
+    let pathkindFiles = 0;
     for (var qkind in data[pathkind]) {
+      let qkindHitcount = 0;
       for (var k = 0; k < data[pathkind][qkind].length; k++) {
         var path = data[pathkind][qkind][k];
         // 0 lines implies this is a file, in which case just the bare file still
         // counts for our result count purposes and how router.py determined the
         // limits.
         count += (path.lines.length || 1);
+        qkindHitcount += path.lines.length;
       }
+      tupledCounts.set(`${pathkind}-${qkind}`, { hits: qkindHitcount, files: data[pathkind][qkind].length });
+      pathkindHits += qkindHitcount;
+      pathkindFiles += data[pathkind][qkind].length;
     }
+
+    pathkindCounts.set(pathkind, { hits: pathkindHits, files: pathkindFiles });
   }
 
   // Accumulate the total number of files to support our "automatically go to a
@@ -504,7 +515,9 @@ function populateResults(data, full, jumpToSingle) {
     var counter = 0;
 
     var pathkindNames = {
-      normal: null,
+      // Previously we would not say normal, but we need a place to hang the
+      // counts.
+      normal: "Core code",
       test: "Test files",
       generated: "Generated code",
       thirdparty: "Third-party code",
@@ -515,10 +528,19 @@ function populateResults(data, full, jumpToSingle) {
     for (var pathkind in data) {
       var pathkindName = pathkindNames[pathkind];
       if (pathkindName) {
+        let pathkindCount = pathkindCounts.get(pathkind);
+        if (pathkindCount) {
+          if (pathkindCount.hits) {
+            maybeCounts = ` (${pathkindCount.hits} lines across ${pathkindCount.files} files)`;
+          } else {
+            maybeCounts = ` (${pathkindCount.files} files)`;
+          }
+        }
+
         html += "<tr><td>&nbsp;</td></tr>";
         html +=
           "<tr><td class='section'>§</td><td><div class='result-pathkind'>" +
-          pathkindName +
+          pathkindName + maybeCounts +
           "</div></td></tr>";
       }
 
@@ -534,7 +556,16 @@ function populateResults(data, full, jumpToSingle) {
             "'>&#9660;</div>";
           html += "</td>";
 
-          html += "<td><h2 class='result-kind'>" + escape(qkind) + "</h2></td></tr>";
+          let maybeCounts = "";
+          let qkindCount = tupledCounts.get(`${pathkind}-${qkind}`);
+          if (qkindCount) {
+            if (qkindCount.hits) {
+              maybeCounts = ` (${qkindCount.hits} lines across ${qkindCount.files} files)`;
+            } else {
+              maybeCounts = ` (${qkindCount.files} files)`;
+            }
+          }
+          html += "<td><h2 class='result-kind'>" + escape(qkind) + maybeCounts + "</h2></td></tr>";
         }
 
         // Loop over the files with hits.
