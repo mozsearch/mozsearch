@@ -267,14 +267,11 @@ function populateResults(data, full, jumpToSingle) {
 
   var title = data["*title*"];
   if (title) {
-    delete data["*title*"];
     document.title = title + " - mozsearch";
   }
   var timed_out = data["*timedout*"];
-  delete data["*timedout*"];
 
   let limits_hit = data["*limits*"] || [];
-  delete data["*limits*"];
 
   window.scrollTo(0, 0);
 
@@ -430,6 +427,13 @@ function populateResults(data, full, jumpToSingle) {
   var tupledCounts = new Map();
   var pathkindCounts = new Map();
   for (var pathkind in data) {
+    // Skip metadata fields.  We used to delete these before calling into this
+    // method, but if we rendered 2x, we would eat important error information.
+    // (Obviously, it would be better to not render 2x, etc.  But this is
+    // defense in depth.)
+    if (pathkind.startsWith("*")) {
+      continue;
+    }
     let pathkindHits = 0;
     let pathkindFiles = 0;
     for (var qkind in data[pathkind]) {
@@ -454,6 +458,9 @@ function populateResults(data, full, jumpToSingle) {
   // single result" UX optimization below.
   var fileCount = 0;
   for (var pathkind in data) {
+    if (pathkind.startsWith("*")) {
+      continue;
+    }
     for (var qkind in data[pathkind]) {
       fileCount += data[pathkind][qkind].length;
     }
@@ -535,6 +542,9 @@ function populateResults(data, full, jumpToSingle) {
     var html = "";
     // Loop over normal/test/generated/thirdparty "pathkind"s
     for (var pathkind in data) {
+      if (pathkind.startsWith("*")) {
+        continue;
+      }
       var pathkindName = pathkindNames[pathkind];
       if (pathkindName) {
         let pathkindCount = pathkindCounts.get(pathkind);
