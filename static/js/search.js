@@ -265,6 +265,9 @@ var populateEpoch = 0;
 function populateResults(data, full, jumpToSingle) {
   populateEpoch++;
 
+  // We use to delete these fields from the data, but that's not compatible of
+  // the current 2-pass rendering approach, so now the logic below knows to skip
+  // any key that starts with a "*".
   var title = data["*title*"];
   if (title) {
     document.title = title + " - mozsearch";
@@ -427,10 +430,9 @@ function populateResults(data, full, jumpToSingle) {
   var tupledCounts = new Map();
   var pathkindCounts = new Map();
   for (var pathkind in data) {
-    // Skip metadata fields.  We used to delete these before calling into this
-    // method, but if we rendered 2x, we would eat important error information.
-    // (Obviously, it would be better to not render 2x, etc.  But this is
-    // defense in depth.)
+    // Skip metadata fields.  The current idiom calls this method twice to
+    // reduce initial above-the-folder rendering into place, which means that
+    // we can't just delete these fields.
     if (pathkind.startsWith("*")) {
       continue;
     }
@@ -475,7 +477,9 @@ function populateResults(data, full, jumpToSingle) {
 
     if (count == 1) {
       var line = file.lines[0];
-      var lno = line.lno;
+      // If there was only a "file" response just act like we clicked on the
+      // file def by using a line number of 1.
+      var lno = line?.lno || 1;
       window.location = `/${Dxr.tree}/source/${path}#${lno}`;
     } else {
       window.location = `/${Dxr.tree}/source/${path}`;
