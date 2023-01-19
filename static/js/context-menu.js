@@ -77,7 +77,8 @@ var ContextMenu = new (class ContextMenu {
         }
 
         const symInfo = SYM_INFO[sym];
-        if (!symInfo) {
+        // XXX Ignore no_crossref data that's currently not useful/used.
+        if (!symInfo || !symInfo.sym || !symInfo.pretty) {
           continue;
         }
 
@@ -133,7 +134,8 @@ var ContextMenu = new (class ContextMenu {
         if (symInfo.meta?.slotOwner) {
           let slotOwner = symInfo.meta.slotOwner;
           let ownerJumpref = SYM_INFO[slotOwner.sym];
-          if (ownerJumpref) {
+          // XXX Ignore no_crossref data that's currently not useful/used.
+          if (ownerJumpref && ownerJumpref.sym && ownerJumpref.pretty) {
             jumpify(ownerJumpref, ownerJumpref.pretty);
           }
         }
@@ -149,7 +151,12 @@ var ContextMenu = new (class ContextMenu {
 
           let allSearchSyms = [];
           for (const slot of symInfo.meta.bindingSlots) {
+            // XXX Ignore no_crossref data that's currently not useful/used.
             let slotJumpref = SYM_INFO[slot.sym];
+            // (we do handle the pretty not existing below)
+            if (!slotJumpref || !slotJumpref.sym) {
+              continue;
+            }
 
             let maybeLang = "";
             if (slot.slotLang) {
