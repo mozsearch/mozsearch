@@ -4,7 +4,13 @@ we have additional tricks available.
 
 Nothing here is authoritative or exhaustive.  If you want those, check out
 these links:
-- [Bash FAQ](https://mywiki.wooledge.org/BashFAQ) and specific pages:
+- [Bash Sheet](https://mywiki.wooledge.org/BashSheet) - A quick one page reference.
+- [Bash Guide](https://mywiki.wooledge.org/BashGuide) - Detailed (useful)
+  documentation.
+- [Bash FAQ](https://mywiki.wooledge.org/BashFAQ) and specific pages which focus
+  on best practices, edge cases, and common mistakes, although there's also
+  [Practices](https://mywiki.wooledge.org/BashGuide/Practices) from the Bash
+  Guide if you're not already dealing with something that's broken.
   - [`Arguments`](https://mywiki.wooledge.org/Arguments)
   - [`Quotes`](https://mywiki.wooledge.org/Quotes)
   - [`What is the difference between test, [ and [[ ?`](https://mywiki.wooledge.org/BashFAQ/031)
