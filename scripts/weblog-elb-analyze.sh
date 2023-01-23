@@ -114,6 +114,12 @@ IP_GROUPING+=', count(req_count >= 128) as ips_128rq'
 IP_GROUPING+=', sum(if(req_count >= 128, req_count, 0)) as reqs_128rq'
 IP_GROUPING+=', count(req_count >= 256) as ips_256rq'
 IP_GROUPING+=', sum(if(req_count >= 256, req_count, 0)) as reqs_256rq'
+IP_GROUPING+=', count(req_count >= 512) as ips_512rq'
+IP_GROUPING+=', sum(if(req_count >= 512, req_count, 0)) as reqs_512rq'
+IP_GROUPING+=', count(req_count >= 1024) as ips_1024rq'
+IP_GROUPING+=', sum(if(req_count >= 1024, req_count, 0)) as reqs_1024rq'
+IP_GROUPING+=', count(req_count >= 2048) as ips_2048rq'
+IP_GROUPING+=', sum(if(req_count >= 2048, req_count, 0)) as reqs_2048rq'
 IP_GROUPING+=' by sf_tree, category | sort by sf_tree, category'
 
 # From stackoverflow answer https://stackoverflow.com/a/34282594/17236969 by
