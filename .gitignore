@@ -10,6 +10,8 @@ fastcgi/obj
 *.pyc
 clang-plugin/testfiles
 clang-plugin/analysis
+clang-plugin/.cache
+clang-plugin/compile_commands.json
 /js
 tools/target
 paths
