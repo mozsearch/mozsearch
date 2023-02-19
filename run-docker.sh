@@ -5,6 +5,10 @@
 # ensure you get a distinct bash shell in the container even if you run this
 # script in multiple tabs[1].
 #
+# This command will attempt to generate automatic mounts for any symlinks found
+# in the "trees" subdirectory.  This is intended as a means of letting you
+# index local trees by symlinking them.
+#
 # 1: We definer the container as running a canonical bash shell.  When we run
 # `docker container start CONTAINER` this spins up the shell, but you don't get
 # your terminal bound to the shell until we run `docker attach CONTAINER`.
@@ -49,6 +53,20 @@ if container_exists; then
         docker attach ${CONTAINER_NAME}
     fi
 else
+    # build list of additional mounts; we use process substitution because
+    # piping would create a subshell; see https://mywiki.wooledge.org/BashFAQ/024
+    #
+    # Note that the following currently works, but it doesn't work like I
+    # intended it to work.  Like, the symlink ends up working because we end up
+    # mounting the actual path at its true path in the real world.  I, uh,
+    # don't understand what's actually going on, although I'm guessing it
+    # doesn't like trying to create a mount-point with a mount-point and is
+    # ignoring the target we're specifying and using the source.
+    LINKMOUNTS=()
+    while read -r link; do
+      LINKMOUNTS+=( --mount type=bind,source=$(readlink -f ${link}),target=/vagrant/${link} )
+    done < <(/usr/bin/find trees -type l)
+
     # flags:
     # - `-it`: `i` is interactive, `t` is allocate a pseudo-tty
     # - `--name`: controls the name that is used to refer to the container for other
@@ -61,6 +79,7 @@ else
         -it \
         --name $CONTAINER_NAME \
         --mount type=bind,source=${THIS_DIR},target=${INSIDE_CONTAINER_DIR} \
+        "${LINKMOUNTS[@]}" \
         -p ${OUTSIDE_CONTAINER_PORT}:${INSIDE_CONTAINER_PORT} \
         ${IMAGE_NAME} \
         ${SHELL}
