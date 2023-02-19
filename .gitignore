@@ -21,3 +21,5 @@ repos
 /config
 addons
 /tests/tests/checks/explanations
+/trees/*
+!/trees/README.md
