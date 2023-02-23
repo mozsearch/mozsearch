@@ -26,10 +26,6 @@ use tools::file_format::analysis::{
 };
 use ustr::ustr;
 
-// Note: This file has been forked into scip-indexer.rs for generic SCIP
-// ingestion purposes.  (And this comment is being added so git's copy
-// detection has an easier time of realizing that!)
-
 /// A global definition id in a crate.
 ///
 /// FIXME(emilio): This key is kind of slow, because GlobalCrateId contains a
@@ -83,31 +79,14 @@ fn sanitize_symbol(sym: &str) -> String {
     // Downstream processing of the symbol doesn't deal well with
     // these characters, so replace them with underscores.
     fn is_special_char(c: char) -> bool {
-        matches!(c, ',' | '.' | '(' | ')' | '-')
+        matches!(c, ',' | ' ' | '.' | '(' | ')' | '\n' | '#' | '-' | '/')
     }
-    fn is_separator(c: char) -> bool {
-        c.is_ascii_whitespace() || matches!(c, '#' | '/')
-    }
-    sym.replace(is_special_char, "_")
-        .trim_matches('_')
-        .replace(is_separator, "::")
-        .trim_matches(':')
-        .into()
+    sym.replace(is_special_char, "_").trim_matches('_').into()
 }
 
 fn pretty_symbol(sym: &str) -> Cow<str> {
-    use scip::symbol::SymbolFormatOptions;
     if let Ok(sym) = scip::symbol::parse_symbol(&sym) {
-        return Cow::Owned(scip::symbol::format_symbol_with(
-            sym,
-            SymbolFormatOptions {
-                include_scheme: false,
-                include_package_manager: false,
-                include_package_name: true,
-                include_package_version: false,
-                include_descriptor: true,
-            },
-        ));
+        return Cow::Owned(scip::symbol::format_symbol(sym));
     }
     Cow::Borrowed(sym)
 }
@@ -962,7 +941,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
             match doc_symbols_to_index.get(s) {
                 Some(i) => Cow::Borrowed(&doc.symbols[*i]),
                 None => {
-                    debug!("Didn't find symbol {:?} in local symbol table", s);
+                    warn!("Didn't find symbol {:?} in local symbol table", s);
                     // Fake it till you make it? We have no info for this
                     // symbol, so...
                     Cow::Owned(SymbolInformation {
@@ -978,9 +957,6 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
         for occurrence in &doc.occurrences {
             let loc = scip_range_to_searchfox_location(&occurrence.range);
             let symbol = lookup_symbol(&occurrence.symbol);
-            if scip::symbol::is_local_symbol(&symbol.symbol) {
-                continue;
-            }
             {
                 let global = sanitize_symbol(&symbol.symbol);
                 let pretty = pretty_symbol(&symbol.symbol);
