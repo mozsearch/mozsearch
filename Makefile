@@ -75,6 +75,18 @@ build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config config1.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
+build-trees: check-in-vagrant build-clang-plugin build-rust-tools
+	mkdir -p ~/trees-index
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tree-configs config.json ~/trees-index
+	/vagrant/infrastructure/indexer-run.sh /vagrant/tree-configs ~/trees-index
+	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
+	/vagrant/infrastructure/web-server-check.sh /vagrant/tree-configs ~/trees-index "http://localhost/"
+
+serve-trees: check-in-vagrant build-clang-plugin build-rust-tools
+	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
+
 # This is similar to build-mozilla-repo, except it strips out the non-mozilla-central trees
 # from config.json and puts the stripped version into trypush.json.
 trypush: check-in-vagrant build-clang-plugin build-rust-tools

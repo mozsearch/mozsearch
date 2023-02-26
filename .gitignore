@@ -23,3 +23,5 @@ addons
 /tests/tests/checks/explanations
 /trees/*
 !/trees/README.md
+/tree-configs/*
+!/tree-configs/README.md
