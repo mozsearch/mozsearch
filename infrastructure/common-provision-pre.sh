@@ -176,7 +176,7 @@ if [ ! -d git-cinnabar ]; then
 fi
 
 # Install scip
-SCIP_VERSION=v0.2.0
+SCIP_VERSION=v0.3.0
 curl -L https://github.com/sourcegraph/scip/releases/download/$SCIP_VERSION/scip-linux-amd64.tar.gz | tar xzf - scip
 sudo ln -fs $(pwd)/scip /usr/local/bin/scip
 
