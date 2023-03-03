@@ -26,6 +26,10 @@
 # other shell types.
 CONTAINER_NAME=${SEARCHFOX_DOCKER_CONTAINER_NAME:-searchfox}
 IMAGE_NAME=${SEARCHFOX_DOCKER_IMAGE_NAME:-searchfox}
+# Note that the volume is optional!  Also, we suffix it with "-vol" because I
+# saw it in the docs and that seems reasonable to avoid having everything be
+# named like exactly the same.
+VOLUME_NAME=${SEARCHFOX_DOCKER_VOLUME_NAME:-searchfox-vol}
 
 THIS_DIR=$(pwd)
 # For consistency we mount the source dir at /vagrant still
@@ -40,6 +44,10 @@ SHELL=/usr/bin/bash
 
 container_exists() {
     docker container inspect ${CONTAINER_NAME} &> /dev/null
+}
+
+volume_exists() {
+    docker volume inspect ${VOLUME_NAME} &> /dev/null
 }
 
 if container_exists; then
@@ -67,6 +75,14 @@ else
       LINKMOUNTS+=( --mount type=bind,source=$(readlink -f ${link}),target=/vagrant/${link} )
     done < <(/usr/bin/find trees -type l)
 
+    # Mount the home directory volume if it exists.  The docker docs say that
+    # if there is anything already at that location prior to us passing this
+    # directive, it will be copied into the volume.
+    VOLMOUNTS=()
+    if volume_exists; then
+      VOLMOUNTS+=( --mount source=${VOLUME_NAME},target=/home/vagrant )
+    fi
+
     # flags:
     # - `-it`: `i` is interactive, `t` is allocate a pseudo-tty
     # - `--name`: controls the name that is used to refer to the container for other
@@ -80,6 +96,7 @@ else
         --name $CONTAINER_NAME \
         --mount type=bind,source=${THIS_DIR},target=${INSIDE_CONTAINER_DIR} \
         "${LINKMOUNTS[@]}" \
+        "${VOLMOUNTS[@]}" \
         -p ${OUTSIDE_CONTAINER_PORT}:${INSIDE_CONTAINER_PORT} \
         ${IMAGE_NAME} \
         ${SHELL}
