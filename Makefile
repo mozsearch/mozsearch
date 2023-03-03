@@ -75,6 +75,10 @@ build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
+serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
+
 build-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/trees-index
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tree-configs config.json ~/trees-index
