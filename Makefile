@@ -70,9 +70,9 @@ build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 	mkdir -p ~/mozilla-index
-	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config1.json ~/mozilla-index
+	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config config1.json ~/mozilla-index ~
+	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
 build-trees: check-in-vagrant build-clang-plugin build-rust-tools
