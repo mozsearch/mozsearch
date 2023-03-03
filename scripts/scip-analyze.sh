@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This file has been forked to scip-analyze.sh
+# This file is a fork of scip-analyze.sh
 #
 # This script:
 # 1. Locates the rust save-analysis directories under the provided root.
@@ -36,11 +36,12 @@ GENERATED_SRC=$4
 SF_ANALYSIS_OUT=$5
 
 if [ -d "$RUST_ANALYSIS_IN" ]; then
-  INPUTS="$(find $RUST_ANALYSIS_IN -type f -name rust.scip)"
-  SCIP_FLAGS="--scip --scip-prefix $RUST_ANALYSIS_IN"
+  INPUTS="$(find $RUST_ANALYSIS_IN -type d -name save-analysis)"
+  SCIP_FLAGS=""
   if [ "x$INPUTS" = "x" ]; then
-    INPUTS="$(find $RUST_ANALYSIS_IN -type d -name save-analysis)"
-    SCIP_FLAGS=""
+    INPUTS="$(find $RUST_ANALYSIS_IN -type f -name rust.scip)"
+    SCIP_FLAGS="--scip --scip-prefix $RUST_ANALYSIS_IN"
+  else
     # Rust stdlib files use `analysis` directories instead of `save-analysis`, so
     # even though they live under the same root, it needs a separate find pass
     # because the above will not have found them.
