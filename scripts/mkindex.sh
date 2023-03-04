@@ -47,16 +47,16 @@ date
 
 export RUST_LOG=info
 
-if [[ ! -f $OBJDIR/rust-analyzed ]]; then
-  # Do not run rust analysis if it was already analyzed by the build script, as
+if [[ ! -f $OBJDIR/scip-analyzed ]]; then
+  # Do not run SCIP analysis if it was already analyzed by the build script, as
   # mozsearch-mozilla's `shared/process-tc-artifacts.sh` does.
   date
-  $MOZSEARCH_PATH/scripts/rust-analyze.sh \
+  $MOZSEARCH_PATH/scripts/scip-analyze.sh \
     "$CONFIG_FILE" \
     "$TREE_NAME" \
     "$OBJDIR" \
     "$OBJDIR" \
-    "$INDEX_ROOT/analysis" || handle_tree_error "rust-analyze.sh"
+    "$INDEX_ROOT/analysis" || handle_tree_error "scip-analyze.sh"
 fi
 
 date
