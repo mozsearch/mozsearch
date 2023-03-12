@@ -2,7 +2,7 @@ use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use async_trait::async_trait;
 use lol_html::{element, HtmlRewriter, Settings};
-use clap::StructOpt;
+use clap::Parser;
 use ustr::UstrMap;
 
 use super::interface::{PipelineCommand, PipelineValues};
@@ -33,14 +33,14 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 /// - Have the crossref database include some extra context and have tokenizer
 ///   state included at the first line point so the tokenizer can do a bare
 ///   bones syntax highlighting.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct AugmentResults {
     /// Lines of context before a hit.
-    #[structopt(short, long, value_parser, default_value = "0")]
+    #[clap(short, long, value_parser, default_value = "0")]
     before: u32,
 
     /// Lines of context after a hit.
-    #[structopt(short, long, value_parser, default_value = "0")]
+    #[clap(short, long, value_parser, default_value = "0")]
     after: u32,
 }
 

@@ -47,17 +47,20 @@ date
 
 export RUST_LOG=info
 
-if [[ ! -f $OBJDIR/scip-analyzed ]]; then
-  # Do not run SCIP analysis if it was already analyzed by the build script, as
-  # mozsearch-mozilla's `shared/process-tc-artifacts.sh` does.
-  date
-  $MOZSEARCH_PATH/scripts/scip-analyze.sh \
-    "$CONFIG_FILE" \
-    "$TREE_NAME" \
-    "$OBJDIR" \
-    "$OBJDIR" \
-    "$INDEX_ROOT/analysis" || handle_tree_error "scip-analyze.sh"
-fi
+date
+
+# Transform any .scip files the config `scip_subtrees` setting tells us about.
+# This does not generate any .scip files; instead it is assumed that they would
+# have been generated in the config's `build` script.  It's also assumed that
+# for complicated situations like mozilla-central where merge-analyses may be
+# required, that the scripts will handle calling `scip-analyze.sh` or
+# `scip-indexer` directly and will not list them in `scip_subtrees`.
+$MOZSEARCH_PATH/scripts/scip-analyze.sh \
+  "$CONFIG_FILE" \
+  "$TREE_NAME" \
+  "$OBJDIR" \
+  "$OBJDIR" \
+  "$INDEX_ROOT/analysis" || handle_tree_error "scip-analyze.sh"
 
 date
 
