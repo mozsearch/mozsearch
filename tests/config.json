@@ -14,7 +14,13 @@
       "objdir_path": "$WORKING/tests/objdir",
       "wpt_root": "testing/web-platform",
       "codesearch_path": "$WORKING/tests/livegrep.idx",
-      "codesearch_port": 8080
+      "codesearch_port": 8080,
+      "scip_subtrees": {
+        "rust": {
+          "scip_index_path": "$WORKING/tests/rust.scip",
+          "subtree_root": "."
+        }
+      }
     }
   }
 }

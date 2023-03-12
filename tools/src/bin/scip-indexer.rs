@@ -45,11 +45,13 @@ struct TreeInfo<'a> {
     generated_friendly: &'a Path,
 }
 
+/// SCIP symbols
+
 fn sanitize_symbol(sym: &str) -> String {
     // Downstream processing of the symbol doesn't deal well with
     // these characters, so replace them with underscores.
     fn is_special_char(c: char) -> bool {
-        matches!(c, ',' | ' ' | '.' | '(' | ')' | '\n' | '#' | '-' | '/')
+        matches!(c, ',' | ' ' | '\n')
     }
     sym.replace(is_special_char, "_").trim_matches('_').into()
 }
@@ -70,25 +72,25 @@ fn create_output_dir(output_file: &Path) -> io::Result<()> {
 #[derive(Parser)]
 struct RustIndexerCli {
     /// Points to the source root (FILES_ROOT)
-    #[clap(value_parser)]
+    #[arg(value_parser)]
     src: PathBuf,
 
     /// Points to the directory where searchfox metadata should go (ANALYSIS_ROOT)
-    #[clap(value_parser)]
+    #[arg(value_parser)]
     output: PathBuf,
 
     /// Points to the generated source files root (GENERATED)
-    #[clap(value_parser)]
+    #[arg(value_parser)]
     generated: PathBuf,
 
-    /// Common prefix to the scip files. If given e.g., the objdir, we can infer
-    /// that a given scip file in objdir/tools/rust.scip refers to tools/ rather
-    /// than top-level srcdir locations.
-    #[clap(long, value_parser)]
-    scip_prefix: Option<PathBuf>,
+    /// Relative path from the root of the searchfox source tree to the SCIP
+    /// index's contents.  If the SCIP index is from the root then this should
+    /// be ".", otherwise it should be the relative path like "js-subtree/".
+    #[arg(long, value_parser)]
+    subtree_root: PathBuf,
 
     /// rustc analysis directories or scip inputs
-    #[clap(value_parser)]
+    #[arg(value_parser)]
     inputs: Vec<PathBuf>,
 }
 
@@ -124,7 +126,7 @@ fn write_line(mut file: &mut File, data: &impl serde::Serialize) {
     file.write_all(b"\n").unwrap();
 }
 
-fn scip_roles_to_searchfox_tags(roles: i32) -> Vec<AnalysisKind> {
+fn scip_roles_to_searchfox_analysis_kind(roles: i32) -> Vec<AnalysisKind> {
     let mut values = vec![];
 
     macro_rules! map_to_searchfox {
@@ -148,7 +150,7 @@ fn scip_roles_to_searchfox_tags(roles: i32) -> Vec<AnalysisKind> {
     values
 }
 
-fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_file: PathBuf) {
+fn analyze_using_scip(tree_info: &TreeInfo, subtree_root: &PathBuf, scip_file: PathBuf) {
     use protobuf::Message;
     use scip::types::*;
 
@@ -160,15 +162,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
 
     for doc in &index.documents {
         let searchfox_path = Path::new(&doc.relative_path).to_owned();
-        let searchfox_path =
-            match scip_prefix.and_then(|prefix| scip_file.strip_prefix(prefix).ok()) {
-                Some(p) => {
-                    let mut p = p.to_owned();
-                    p.pop();
-                    p.join(&searchfox_path)
-                }
-                None => searchfox_path,
-            };
+        let searchfox_path = subtree_root.to_owned().join(&searchfox_path);
 
         let output_file = tree_info.out_analysis_dir.join(&searchfox_path);
         if let Err(err) = create_output_dir(&output_file) {
@@ -274,7 +268,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                 &get_target_data(&symbol.symbol, AnalysisKind::Use),
             );
 
-            for kind in scip_roles_to_searchfox_tags(occurrence.symbol_roles) {
+            for kind in scip_roles_to_searchfox_analysis_kind(occurrence.symbol_roles) {
                 write_line(&mut file, &get_target_data(&symbol.symbol, kind));
             }
 
@@ -309,6 +303,6 @@ fn main() {
     info!("Tree info: {:?}", tree_info);
 
     for file in cli.inputs {
-        analyze_using_scip(&tree_info, cli.scip_prefix.as_ref(), file);
+        analyze_using_scip(&tree_info, &cli.subtree_root, file);
     }
 }
