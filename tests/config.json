@@ -17,7 +17,7 @@
       "codesearch_port": 8080,
       "scip_subtrees": {
         "rust": {
-          "scip_index_path": "$WORKING/tests/rust.scip",
+          "scip_index_path": "$WORKING/tests/objdir/rust.scip",
           "subtree_root": "."
         }
       }

@@ -6,7 +6,7 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="37"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span data-symbols="rust_analyzer::cargo::files::0_1_0::Loader::new">new</span>(<span data-symbols="rust_analyzer::cargo::files::0_1_0::new____deps_dir">deps_dir</span>: <span data-symbols="rust_analyzer::cargo::std::https:::::github_com::rust_lang::rust::library::std::path::PathBuf">PathBuf</span>) -> <span class="syn_reserved" >Self</span> {
+  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_rust_Loader#new().">new</span>(<span class="syn_def" data-symbols="S_rs_rust_new().(deps_dir)">deps_dir</span>: <span data-symbols="S_rs_rust_path/PathBuf#">PathBuf</span>) -> <span class="syn_reserved" >Self</span> {
 </code>
 </div>
 

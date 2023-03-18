@@ -48,6 +48,7 @@ expression: "&to_value(scil).unwrap()"
           "structured": 1,
           "pretty": "nsIXPCTestObjectReadWrite::SetBooleanProperty",
           "sym": "_ZN25nsIXPCTestObjectReadWrite18SetBooleanPropertyEb",
+          "type_pretty": null,
           "kind": "method",
           "parentsym": "T_nsIXPCTestObjectReadWrite",
           "slotOwner": {

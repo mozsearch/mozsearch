@@ -1,1 +1,1 @@
-filter-analysis simple.rs -k def -s rust_analyzer::cargo::files::0_1_0::Loader::new
+filter-analysis simple.rs -k def -i Loader::new

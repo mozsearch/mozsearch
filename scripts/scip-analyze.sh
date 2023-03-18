@@ -42,17 +42,19 @@ SF_ANALYSIS_OUT=$4
 # Note that another option would be to just have the scip-indexer directly
 # access the information from the config file.  We're not doing that in order to
 # faciliate use-cases like mozilla-central's merge-analyses, etc.
-SCIP_SUBTREE_INFOS=$(jq -Mc ".trees[\"${TREE_NAME}\"].scip_subtrees[]?" ${CONFIG_FILE})
+SCIP_SUBTREE_INFOS=$(jq -Mc ".trees[\"${TREE_NAME}\"].scip_subtrees | to_entries | .[]?" ${CONFIG_FILE})
 
 # Note: This structuring avoids use of a pipe and sub-shells which allows us to
 # mutate global variables if we want.
 while read -r subtree_obj; do
-  scip_index_path=$(jq -Mr '.scip_index_path' <<< "$subtree_obj")
-  subtree_root=$(jq -Mr '.subtree_root' <<< "$subtree_obj")
+  scip_tree_name=$(jq -Mr '.key' <<< "$subtree_obj")
+  scip_index_path=$(jq -Mr '.value.scip_index_path' <<< "$subtree_obj")
+  subtree_root=$(jq -Mr '.value.subtree_root' <<< "$subtree_obj")
   $MOZSEARCH_PATH/tools/target/release/scip-indexer \
     "$FILES_ROOT" \
     "$SF_ANALYSIS_OUT" \
     "$GENERATED_SRC" \
+    --subtree-name "${scip_tree_name}" \
     --subtree-root "${subtree_root}" \
     "${scip_index_path}"
 done <<< "$SCIP_SUBTREE_INFOS"
