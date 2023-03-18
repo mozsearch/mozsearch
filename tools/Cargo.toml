@@ -25,7 +25,7 @@ git2 = "0.16.1"
 globset = "0.4.8"
 hyper = "0.10"
 include_dir = "0.7.2"
-insta = { version = "1.14.0" }
+insta = { version = "1.14.0", features = ["json"] }
 ipdl_parser = { path = "./ipdl_parser" }
 # asuth picked this version because our Cargo.lock already had 0.7.11 for our
 # rls-analysis dep.
@@ -48,10 +48,7 @@ regex = "1"
 reqwest = "0.11.3"
 rls-analysis = "0.18.1"
 rls-data = "0.19.1"
-# Ensures we have
-# https://github.com/sourcegraph/scip/commit/17d46abc2d64b62d43ddeccd057da90638ead292
-# + debugging spew removal
-scip = { git = "https://github.com/sourcegraph/scip", rev = "17d46abc2d64b62d43ddeccd057da90638ead292" }
+scip = { git = "https://github.com/asutherland/scip.git", branch = "current-stack" }
 shell-words = "1.0.0"
 # Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
 # does not make any effort to do interning

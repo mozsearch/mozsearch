@@ -96,6 +96,20 @@ pub enum AnalysisKind {
     Idl,
 }
 
+impl AnalysisKind {
+    pub fn to_ustr(&self) -> Ustr {
+        // We could obviously precompute/LAZY_STATIC these
+        match self {
+            AnalysisKind::Use => ustr("use"),
+            AnalysisKind::Def => ustr("def"),
+            AnalysisKind::Assign => ustr("assign"),
+            AnalysisKind::Decl => ustr("decl"),
+            AnalysisKind::Forward => ustr("forward"),
+            AnalysisKind::Idl => ustr("idl"),
+        }
+    }
+}
+
 /// This is intended to help model the self-describing nature of analysis
 /// records where we have `"target": 1` at the start of the field.  A normal
 /// single-value enum should take up no space... hopefully that's the case for
@@ -178,6 +192,7 @@ pub struct StructuredFieldInfo {
     pub type_pretty: Ustr,
     #[serde(rename = "typesym", default)]
     pub type_sym: Ustr,
+    // XXX this should be made Optional like size_bytes.
     #[serde(rename = "offsetBytes", default)]
     pub offset_bytes: u32,
     #[serde(rename = "bitPositions")]
@@ -273,6 +288,14 @@ pub struct AnalysisStructured {
     pub pretty: Ustr,
     #[serde(default)]
     pub sym: Ustr,
+    // XXX Adding this right now for scip-indexer because we're using the analysis
+    // rep as the canonical info to provide to the source record, and right now this
+    // only exists on source records and fields.
+    // TODO: have crossref.rs promote info into this from the source record as
+    // appropriate; especially because at least initially in C++ we'll only have
+    // this data from the source record.
+    // TODO: consider whether we should have type_sym here too.
+    pub type_pretty: Option<Ustr>,
     #[serde(default)]
     pub kind: Ustr,
 

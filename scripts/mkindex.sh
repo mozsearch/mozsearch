@@ -59,7 +59,6 @@ $MOZSEARCH_PATH/scripts/scip-analyze.sh \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   "$OBJDIR" \
-  "$OBJDIR" \
   "$INDEX_ROOT/analysis" || handle_tree_error "scip-analyze.sh"
 
 date

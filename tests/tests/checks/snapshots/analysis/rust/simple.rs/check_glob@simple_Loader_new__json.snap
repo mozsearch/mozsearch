@@ -5,9 +5,16 @@ expression: "&json_results"
 [
   {
     "loc": "00037:11-14",
+    "source": 1,
+    "syntax": "def,method",
+    "pretty": "method Loader::new",
+    "sym": "S_rs_rust_Loader#new()."
+  },
+  {
+    "loc": "00037:11-14",
     "target": 1,
     "kind": "def",
-    "pretty": "files Loader#new().",
-    "sym": "rust_analyzer::cargo::files::0_1_0::Loader::new"
+    "pretty": "Loader::new",
+    "sym": "S_rs_rust_Loader#new()."
   }
 ]

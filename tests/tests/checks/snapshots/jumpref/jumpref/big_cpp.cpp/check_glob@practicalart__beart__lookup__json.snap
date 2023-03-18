@@ -12,6 +12,7 @@ expression: "&to_value(jvl).unwrap()"
           "structured": 1,
           "pretty": "outerNS::PracticalArt::beArt",
           "sym": "_ZN7outerNS12PracticalArt5beArtEv",
+          "type_pretty": null,
           "kind": "method",
           "parentsym": "T_outerNS::PracticalArt",
           "implKind": "",

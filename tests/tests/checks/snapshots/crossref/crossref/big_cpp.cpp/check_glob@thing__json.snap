@@ -160,6 +160,7 @@ expression: "&to_value(scil).unwrap()"
           "structured": 1,
           "pretty": "outerNS::Thing",
           "sym": "T_outerNS::Thing",
+          "type_pretty": null,
           "kind": "class",
           "implKind": "",
           "sizeBytes": 16,

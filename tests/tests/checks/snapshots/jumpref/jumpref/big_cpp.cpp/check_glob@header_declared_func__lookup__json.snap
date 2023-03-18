@@ -12,6 +12,7 @@ expression: "&to_value(jvl).unwrap()"
           "structured": 1,
           "pretty": "i_was_declared_in_the_header",
           "sym": "i_was_declared_in_the_header",
+          "type_pretty": null,
           "kind": "function",
           "implKind": "",
           "sizeBytes": null,

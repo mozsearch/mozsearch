@@ -29,6 +29,7 @@ expression: "&to_value(scil).unwrap()"
           "structured": 1,
           "pretty": "nsIXPCTestParams::testOctet",
           "sym": "XPIDL_nsIXPCTestParams_testOctet",
+          "type_pretty": null,
           "kind": "method",
           "implKind": "idl",
           "sizeBytes": null,
@@ -104,6 +105,7 @@ expression: "&to_value(scil).unwrap()"
           "structured": 1,
           "pretty": "nsIXPCTestParams::TestOctet",
           "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
+          "type_pretty": null,
           "kind": "method",
           "parentsym": "T_nsIXPCTestParams",
           "slotOwner": {
