@@ -11,7 +11,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use scip::types::descriptor::Suffix;
 use serde_json::Map;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
@@ -38,16 +37,6 @@ struct TreeInfo<'a> {
     /// Local filesystem path root for the analysis dir where rust-indexer.rs
     /// should write its output.
     out_analysis_dir: &'a Path,
-    /// Local filesystem path root for the source tree.  In the searchfox path
-    /// space presented to users, this means all paths not prefixed with
-    /// `__GENERATED__`.
-    srcdir: &'a Path,
-    /// Local filesystem path root for the per-platform generated source tree.
-    /// In the searchfox path space presented to users, this means paths
-    /// prefixed with `__GENERATED__`.
-    generated: &'a Path,
-    /// The searchfox path space prefix for generated.
-    generated_friendly: &'a Path,
 }
 
 /// SCIP symbols
@@ -59,13 +48,6 @@ fn sanitize_symbol(sym: &str) -> String {
         matches!(c, ',' | ' ' | '\n')
     }
     sym.replace(is_special_char, "_").trim_matches('_').into()
-}
-
-fn pretty_symbol(sym: &str) -> Cow<str> {
-    if let Ok(sym) = scip::symbol::parse_symbol(&sym) {
-        return Cow::Owned(scip::symbol::format_symbol(sym));
-    }
-    Cow::Borrowed(sym)
 }
 
 fn create_output_dir(output_file: &Path) -> io::Result<()> {
@@ -767,10 +749,7 @@ fn main() {
     let cli = RustIndexerCli::parse();
 
     let tree_info = TreeInfo {
-        srcdir: &cli.src,
         out_analysis_dir: &cli.output,
-        generated: &cli.generated,
-        generated_friendly: &PathBuf::from("__GENERATED__"),
     };
 
     info!("Tree info: {:?}", tree_info);
