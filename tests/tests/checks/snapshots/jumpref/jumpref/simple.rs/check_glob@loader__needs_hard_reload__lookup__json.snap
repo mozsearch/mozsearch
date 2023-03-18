@@ -7,12 +7,12 @@ expression: "&to_value(jvl).unwrap()"
     {
       "value": {
         "sym": "S_rs_rust_Loader#needs_hard_reload().",
-        "pretty": "Loader::needs_hard_reload",
+        "pretty": "simple::Loader::needs_hard_reload",
         "meta": {
           "structured": 1,
-          "pretty": "Loader::needs_hard_reload",
+          "pretty": "simple::Loader::needs_hard_reload",
           "sym": "S_rs_rust_Loader#needs_hard_reload().",
-          "type_pretty": null,
+          "type_pretty": "fn needs_hard_reload(&self, _: &Path) -> bool",
           "kind": "method",
           "parentsym": "S_rs_rust_Loader#",
           "implKind": "impl",

@@ -7,14 +7,15 @@ expression: "&json_results"
     "loc": "00037:11-14",
     "source": 1,
     "syntax": "def,method",
-    "pretty": "method Loader::new",
-    "sym": "S_rs_rust_Loader#new()."
+    "pretty": "method simple::Loader::new",
+    "sym": "S_rs_rust_Loader#new().",
+    "type": "pub fn new(deps_dir: PathBuf) -> Self"
   },
   {
     "loc": "00037:11-14",
     "target": 1,
     "kind": "def",
-    "pretty": "Loader::new",
+    "pretty": "simple::Loader::new",
     "sym": "S_rs_rust_Loader#new()."
   }
 ]

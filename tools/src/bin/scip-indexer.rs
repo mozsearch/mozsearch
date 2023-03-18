@@ -257,7 +257,29 @@ fn analyze_using_scip(
                 //let mut align_bytes = 0;
                 let mut offset_bytes = 0;
 
-                // Name of
+                // For cases like rust-analyzer, we are provided with the
+                // namespace of the identifier.  For example, for "Loader::new()"
+                // defined in "simple.rs", this will be "simple::Loader".  For
+                // the "Loader" type itself, this will just be "simple".
+                //
+                // For now we assume this will always include the type name,
+                // but this and the `PrettyAction` type may need to evolve.
+                let mut doc_namespace = None;
+
+                // High confidence identifier name of what's being defined for
+                // fallback use in the case of locals as extracted from the doc
+                // strings.
+                //
+                // Because the doc strings are intended to be human-readable
+                // rather than machine-readable, this may not always be
+                // something we can reliably parse.  In particular, rust-analyzer
+                // likes to excerpt the declaration, and our whole point in
+                // using SCIP is to not be writing our own rust parser, although
+                // we can probably evolve good-enough regexps, etc.
+                //
+                // TODO: Consider allowing for a fix-up pass when processing the
+                // occurrences when we can potentially have the underlying token
+                // available and/or a full tree-sitter parse.
                 let mut doc_name = None;
                 let mut type_pretty = None;
 
@@ -266,7 +288,7 @@ fn analyze_using_scip(
                     // optionally present offset.  It will not match in all
                     // cases.
                     static ref RE_RUST_INFO: Regex =
-                        Regex::new(r"^```rust\n([^\n]+)\n```\n\n```rust\n(.+)(?: // size = (\d+), align = (\d+)(?:, offset = (\d+))?)?\n```$").unwrap();
+                        Regex::new(r"^\n?```rust\n([^\n]+)\n```\n\n```rust\n(.+)(?: // size = (\d+), align = (\d+)(?:, offset = (\d+))?)?\n```$").unwrap();
                     // used for fields, methods, arguments/parameters
                     static ref RE_TS_TYPED: Regex =
                         Regex::new(r"^```ts\n([^ ])+ (.+): ([^\n]+)\n```$").unwrap();
@@ -290,6 +312,9 @@ fn analyze_using_scip(
                                     // well.
                                     //
                                     // XXX also we only use this for fields right now.
+                                    if let Some(s) = caps.get(1) {
+                                        doc_namespace = Some(s.as_str().to_string());
+                                    }
                                     if let Some(s) = caps.get(2) {
                                         type_pretty = Some(ustr(s.as_str()));
                                     }
@@ -495,6 +520,16 @@ fn analyze_using_scip(
                                 pretty_pieces.push("unknown".to_string());
                             }
                         }
+                    }
+                }
+
+                // If we have an explicit doc namespace that provides context
+                // the descriptors do not provide, then use that for all
+                // pieces except the last piece we get from the descriptor.
+                if let Some(namespace) = doc_namespace {
+                    if let Some(last_piece) = pretty_pieces.pop() {
+                        pretty_pieces = namespace.split("::").map(|s| s.to_string()).collect();
+                        pretty_pieces.push(last_piece);
                     }
                 }
 
