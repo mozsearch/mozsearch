@@ -11,6 +11,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use scip::types::descriptor::Suffix;
 use serde_json::Map;
+use tools::file_format::config;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
@@ -23,24 +24,8 @@ use tools::file_format::analysis::{
 };
 use ustr::{ustr, UstrMap};
 
-/// Local filesystem path mappings and metadata which exist for the following
-/// purposes:
-/// 1. Know where to output the analysis files.
-///   - There is only ever one analysis output directory.
-/// 2. Know how to locate rust source files in order to hackily extract strings
-///    that should have been in the save-analysis files.
-///    - After config scripts run and normalize things there are 2 source
-///      directories: revision controlled source (cross-platform) and the
-///      (per-platform) generated files directory.
-#[derive(Debug)]
-struct TreeInfo<'a> {
-    /// Local filesystem path root for the analysis dir where rust-indexer.rs
-    /// should write its output.
-    out_analysis_dir: &'a Path,
-}
 
-/// SCIP symbols
-
+/// Normalize illegal symbol characters into underscores.
 fn sanitize_symbol(sym: &str) -> String {
     // Downstream processing of the symbol doesn't deal well with
     // these characters, so replace them with underscores.
@@ -58,17 +43,13 @@ fn create_output_dir(output_file: &Path) -> io::Result<()> {
 
 #[derive(Parser)]
 struct RustIndexerCli {
-    /// Points to the source root (FILES_ROOT)
-    #[arg(value_parser)]
-    src: PathBuf,
+    /// Path to the variable-expanded config file
+    #[clap(value_parser)]
+    config_file: String,
 
-    /// Points to the directory where searchfox metadata should go (ANALYSIS_ROOT)
-    #[arg(value_parser)]
-    output: PathBuf,
-
-    /// Points to the generated source files root (GENERATED)
-    #[arg(value_parser)]
-    generated: PathBuf,
+    /// The tree in the config file we're cross-referencing
+    #[clap(value_parser)]
+    tree_name: String,
 
     #[arg(long, value_parser)]
     subtree_name: String,
@@ -165,7 +146,7 @@ enum PrettyAction {
 }
 
 fn analyze_using_scip(
-    tree_info: &TreeInfo,
+    tree_config: &config::TreeConfig,
     subtree_name: &str,
     subtree_root: &PathBuf,
     scip_file: PathBuf,
@@ -641,11 +622,13 @@ fn analyze_using_scip(
         }
     }
 
+    let analysis_root = Path::new(&tree_config.paths.index_path).join("analysis");
+
     for doc in &index.documents {
         let searchfox_path = Path::new(&doc.relative_path).to_owned();
         let searchfox_path = subtree_root.to_owned().join(&searchfox_path);
 
-        let output_file = tree_info.out_analysis_dir.join(&searchfox_path);
+        let output_file = analysis_root.join(&searchfox_path);
         if let Err(err) = create_output_dir(&output_file) {
             error!(
                 "Couldn't create dir for: {}, {:?}",
@@ -751,13 +734,11 @@ fn main() {
 
     let cli = RustIndexerCli::parse();
 
-    let tree_info = TreeInfo {
-        out_analysis_dir: &cli.output,
-    };
-
-    info!("Tree info: {:?}", tree_info);
+    let tree_name = &cli.tree_name;
+    let cfg = config::load(&cli.config_file, false, Some(&tree_name));
+    let tree_config = cfg.trees.get(tree_name).unwrap();
 
     for file in cli.inputs {
-        analyze_using_scip(&tree_info, &cli.subtree_name, &cli.subtree_root, file);
+        analyze_using_scip(&tree_config, &cli.subtree_name, &cli.subtree_root, file);
     }
 }
