@@ -2867,6 +2867,9 @@ dependencies = [
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
+ "tree-sitter",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
  "url 2.2.2",
  "ustr",
  "uuid",
@@ -3029,6 +3032,36 @@ dependencies = [
 name = "traitobject"
 version = "0.1.0"
 source = "git+https://github.com/philip-peterson/destructure_traitobject?rev=d49b0af9087b3b7848d19d5baae43948ebc7fb9d#d49b0af9087b3b7848d19d5baae43948ebc7fb9d"
+
+[[package]]
+name = "tree-sitter"
+version = "0.20.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4423c784fe11398ca91e505cdc71356b07b1a924fc8735cfab5333afe3e18bc"
+dependencies = [
+ "cc",
+ "regex 1.5.5",
+]
+
+[[package]]
+name = "tree-sitter-rust"
+version = "0.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "797842733e252dc11ae5d403a18060bf337b822fc2ae5ddfaa6ff4d9cc20bda6"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-typescript"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "079c695c32d39ad089101c66393aeaca30e967fba3486a91f573d2f0e12d290a"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
 
 [[package]]
 name = "try-lock"
