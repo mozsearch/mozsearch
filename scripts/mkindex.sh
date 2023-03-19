@@ -57,9 +57,7 @@ date
 # `scip-indexer` directly and will not list them in `scip_subtrees`.
 $MOZSEARCH_PATH/scripts/scip-analyze.sh \
   "$CONFIG_FILE" \
-  "$TREE_NAME" \
-  "$OBJDIR" \
-  "$INDEX_ROOT/analysis" || handle_tree_error "scip-analyze.sh"
+  "$TREE_NAME" || handle_tree_error "scip-analyze.sh"
 
 date
 

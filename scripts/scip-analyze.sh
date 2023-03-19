@@ -10,24 +10,14 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# -lt 4 ]
+if [ $# -lt 2 ]
 then
-    echo "Usage: scip-analyze.sh config-file.json tree_name generated_src sf_analysis_out"
+    echo "Usage: scip-analyze.sh config-file.json tree_name"
     exit 1
 fi
 
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
-# This is where we find the source code corresponding to __GENERATED__ files.
-# This is the objdir in self-built single-platform cases and generated-$PLATFORM
-# in multi-platform cases at the current time.
-GENERATED_SRC=$3
-# This is where we write the resulting searchfox analysis files.  We expect
-# this to be a platform-specific directory like analysis-$PLATFORM in
-# multi-platform cases (which will be processed by merge-analyses) and analysis
-# in single-platform cases.
-SF_ANALYSIS_OUT=$4
-
 
 # Extract the list of scip_subtrees for our tree of interest.  We extract each
 # full POJO object rather than its keys in this pass because we explicitly allow
@@ -51,9 +41,8 @@ while read -r subtree_obj; do
   scip_index_path=$(jq -Mr '.value.scip_index_path' <<< "$subtree_obj")
   subtree_root=$(jq -Mr '.value.subtree_root' <<< "$subtree_obj")
   $MOZSEARCH_PATH/tools/target/release/scip-indexer \
-    "$FILES_ROOT" \
-    "$SF_ANALYSIS_OUT" \
-    "$GENERATED_SRC" \
+    "$CONFIG_FILE" \
+    "$TREE_NAME" \
     --subtree-name "${scip_tree_name}" \
     --subtree-root "${subtree_root}" \
     "${scip_index_path}"

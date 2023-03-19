@@ -56,6 +56,8 @@ if [ -d "$RUST_ANALYSIS_IN" ]; then
   fi
 
   $MOZSEARCH_PATH/tools/target/release/rust-indexer \
+    "$CONFIG_FILE" \
+    "$TREE_NAME" \
     "$FILES_ROOT" \
     "$SF_ANALYSIS_OUT" \
     "$GENERATED_SRC" \
