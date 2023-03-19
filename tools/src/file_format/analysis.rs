@@ -11,36 +11,47 @@ use serde_json::{from_str, from_value, Map, Value};
 use serde_repr::*;
 use ustr::{ustr, Ustr, UstrMap};
 
-#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
+    /// 1-base lined-number.
     pub lineno: u32,
+    /// 0-based start column, inclusive.
     pub col_start: u32,
+    /// 0-based end column, inclusive.
     pub col_end: u32,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct LineRange {
+    /// 1-based starting line-number
     pub start_lineno: u32,
+    /// 1-based ending line number.
     pub end_lineno: u32,
 }
 
 impl LineRange {
     pub fn is_empty(&self) -> bool {
-        self.start_lineno == 0 && self.end_lineno == 0
+        (self.start_lineno == 0 && self.end_lineno == 0) ||
+        (self.start_lineno == u32::MAX && self.end_lineno == u32::MAX)
     }
 }
 
-#[derive(Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct SourceRange {
+    /// 1-based starting line number, inclusive.
     pub start_lineno: u32,
+    /// 0-based starting column number, inclusive.
     pub start_col: u32,
+    /// 1-based ending line number, inclusive.
     pub end_lineno: u32,
+    /// 0-based ending column number, inclusive.
     pub end_col: u32,
 }
 
 impl SourceRange {
     pub fn is_empty(&self) -> bool {
-        self.start_lineno == 0
+        // we allow both 0 and u32::MAX as sentinel values.
+        self.start_lineno == 0 || self.start_lineno == u32::MAX
     }
 }
 

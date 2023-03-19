@@ -2,7 +2,7 @@
 source: tests/test_check_insta.rs
 expression: "&aggr_str"
 ---
-<div role="row" id="line-37" class="source-line-with-number">
+<div role="row" id="line-37" class="source-line-with-number nesting-sticky-line">
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="37"></div>

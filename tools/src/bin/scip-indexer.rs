@@ -11,7 +11,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use scip::types::descriptor::Suffix;
 use serde_json::Map;
-use tools::file_format::config;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
@@ -22,8 +21,8 @@ use tools::file_format::analysis::{
     SourceRange, SourceTag, StructuredFieldInfo, StructuredMethodInfo, StructuredOverrideInfo,
     StructuredSuperInfo, StructuredTag, TargetTag, WithLocation,
 };
-use ustr::{ustr, UstrMap};
-
+use tools::file_format::config;
+use ustr::{ustr, Ustr, UstrMap};
 
 /// Normalize illegal symbol characters into underscores.
 fn sanitize_symbol(sym: &str) -> String {
@@ -58,7 +57,7 @@ struct RustIndexerCli {
     /// index's contents.  If the SCIP index is from the root then this should
     /// be ".", otherwise it should be the relative path like "js-subtree/".
     #[arg(long, value_parser)]
-    subtree_root: PathBuf,
+    subtree_root: String,
 
     /// rustc analysis directories or scip inputs
     #[arg(value_parser)]
@@ -88,6 +87,26 @@ fn scip_range_to_searchfox_location(range: &[i32]) -> Location {
         lineno: line_start,
         col_start,
         col_end,
+    }
+}
+
+fn node_range_to_searchfox_location(range: tree_sitter::Range) -> Location {
+    // Searchfox uses 1-indexed lines, 0-indexed columns while tree-sitter uses
+    // 0-based for both.
+    Location {
+        lineno: range.start_point.row as u32 + 1,
+        col_start: range.start_point.column as u32,
+        col_end: range.end_point.column as u32,
+    }
+}
+fn node_range_to_searchfox_range(range: tree_sitter::Range) -> SourceRange {
+    // Searchfox uses 1-indexed lines, 0-indexed columns while tree-sitter uses
+    // 0-based for both.
+    SourceRange {
+        start_lineno: range.start_point.row as u32 + 1,
+        start_col: range.start_point.column as u32,
+        end_lineno: range.end_point.row as u32 + 1,
+        end_col: range.end_point.column as u32,
     }
 }
 
@@ -123,11 +142,11 @@ fn scip_roles_to_searchfox_analysis_kind(roles: i32) -> AnalysisKind {
     return AnalysisKind::Use;
 }
 
-/// Our specifically handled languages for conditional logic.
+/// Our specifically handled languages for conditional logic.  We currently
+/// require tree-sitter support for all supported languages.
 enum ScipLang {
     Rust,
     Typescript,
-    Other,
 }
 
 enum PrettyAction {
@@ -145,10 +164,196 @@ enum PrettyAction {
     UseAlternateSource,
 }
 
+/// Helper structure that we use to populate our tree-sitter queries.  See the
+/// block comment in `analyze_using_scip` for context.
+///
+/// This structure captures the relevant data for queries that help us know
+/// which SCIP occurrence should be the definition that starts a nesting range
+/// both for position:sticky purposes and for context/contextsym purposes.
+/// In general this just means knowing the node name for a given construct plus
+/// the field names for the name and body.  Frequently the field name is "name",
+/// but sometimes it can be something like "type".  Usually the body is "body".
+///
+/// Note that the query syntax is quite powerful and the names of captures could
+/// potentially be used to encode metadata, so if making any changes to the type
+/// here or adding a whole bunch of additional instances below, it's probably
+/// worth considering moving to using externally stored ".scm" files which
+/// have semantic capture groups instead of this current approach.  In
+/// particular, alternations could be invaluable.  Also, we should avoid doing
+/// anything that resembles reinventing `tree-sitter-highlight`.
+///
+/// The current approach has been chosen for prototyping expediency and for
+/// ease of adding sidecar data, but as noted above and after having done
+/// additional research, especially around conventions (and limited rust binding
+/// support) for `#`-prefixed predicates, it's clear this is not the path
+/// forward without a very good reason.  (Readability could be a good reason;
+/// the s-expr syntax is powerful but probably unfamiliar to most people.  That
+/// said, its use around tree-sitter is so common that it seems like a
+/// reasonable thing to understand if touching tree-sitter related code.)
+///
+/// A reasonable hybrid approach, depending on how easy it is to add custom
+/// predicates to the rust bindings, is to embed full s-exprs here but leave
+/// our sidecar structure so that we can just use rust logic for what would
+/// otherwise be potentially complex predicates.
+struct SitterNesting {
+    root_node_type: Vec<&'static str>,
+    name_field: &'static str,
+    body_field: &'static str,
+}
+
+lazy_static! {
+    // our list is manually derived from the tags.scm file:
+    // https://github.com/tree-sitter/tree-sitter-rust/blob/master/queries/tags.scm
+    static ref RUST_NESTING: Vec<SitterNesting> = vec![
+        SitterNesting {
+            root_node_type: vec!["struct_item"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["enum_item"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["union_item"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["function_item"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["trait_item"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["mod_item"],
+            name_field: "name",
+            body_field: "body",
+        },
+        // TODO macro_definition lacks a body so the body needs to be the parent
+        // node maybe?
+        //
+        // impl can also have a "trait" field, but symbol-wise I think the
+        // important symbol for context is the struct type not the trait type.
+        SitterNesting {
+            root_node_type: vec!["impl_item"],
+            name_field: "type",
+            body_field: "body",
+        },
+    ];
+    // tree-sitter support for typescript is a little weird because the
+    // typescript languages (typescript and tsx) extend the javascript
+    // language.
+    //
+    // for now we manually derive these from both base queries tags.scm files:
+    // https://github.com/tree-sitter/tree-sitter-javascript/blob/master/queries/tags.scm
+    // https://github.com/tree-sitter/tree-sitter-typescript/blob/master/queries/tags.scm
+    static ref JS_NESTING: Vec<SitterNesting> = vec![
+        // ### from the JS tags
+        SitterNesting {
+            root_node_type: vec!["method_definition"],
+            name_field: "name",
+            body_field: "body",
+        },
+        // There's an alt over class and class_declaration; class_declaration
+        // becomes "class" if we add a "let blah = " ahead of it (and it stops
+        // being a declaration).
+        SitterNesting {
+            root_node_type: vec!["class", "class_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+        // There's also an alt over function/generators
+        SitterNesting {
+            root_node_type: vec![
+                "function",
+                "function_declaration",
+                "generator_function",
+                "generator_function_declaration"
+            ],
+            name_field: "name",
+            body_field: "body",
+        },
+        // TODO: tags.scm has logic for lexical binds on arrow functions and
+        // this is worth considering, although arguably this might also resemble
+        // the lambda case.  But this is also beyond our current approach with
+        // generated syntax.  Also, conceptually, the arrow functions should
+        // already exist within a nesting scope, which raises the question of
+        // whether it's actually desirable to treat them like C++ lambdas which
+        // we also currently fold in.
+        // TODO: There's also property-defined arrow functions.
+        //
+        // ### from the TS tags
+        // XXX skipping function_signature because it lacks a directly available
+        // body.
+        // XXX skipping (abstract_)method_signature because it lacks a directly
+        // available body.
+        SitterNesting {
+            root_node_type: vec!["abstract_class_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["module"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["interface_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+    ];
+}
+
+struct NestedSymbol {
+    /// The symbol covering this nested range that should be used for
+    /// contextsym.
+    sym: Ustr,
+    /// The pretty identifier of that symbol.
+    pretty: Ustr,
+    /// The range it covers; we really only need the last line, but include this
+    /// for debugging.
+    nesting_range: SourceRange,
+}
+
+fn compile_nesting_queries(
+    lang: tree_sitter::Language,
+    nesting: &Vec<SitterNesting>,
+) -> tree_sitter::Query {
+    let query_pats: Vec<String> = nesting
+        .iter()
+        .map(|ndef| {
+            let mut parts = vec![];
+            let mut indent = "";
+            if ndef.root_node_type.len() > 1 {
+                parts.push("[".to_string());
+                indent = "  ";
+            }
+            for node_type in &ndef.root_node_type {
+                parts.push(format!(
+                    "{}({} {}: (_) @name {}: (_) @body)",
+                    indent, node_type, ndef.name_field, ndef.body_field
+                ));
+            }
+            if ndef.root_node_type.len() > 1 {
+                parts.push("]".to_string());
+            }
+            parts.join("\n")
+        })
+        .collect();
+    tree_sitter::Query::new(lang, &query_pats.join("\n")).unwrap()
+}
+
 fn analyze_using_scip(
     tree_config: &config::TreeConfig,
     subtree_name: &str,
-    subtree_root: &PathBuf,
+    subtree_root: &str,
     scip_file: PathBuf,
 ) {
     use protobuf::Message;
@@ -166,7 +371,10 @@ fn analyze_using_scip(
     let (lang_name, lang) = match index.metadata.tool_info.name.as_str() {
         "rust-analyzer" => ("rs", ScipLang::Rust),
         "scip-typescript" => ("js", ScipLang::Typescript),
-        _ => ("eh", ScipLang::Other),
+        _ => {
+            warn!("Unsupported language; we need tree-sitter support.");
+            return;
+        }
     };
 
     // ## First Pass: Process Symbol Definitions
@@ -314,7 +522,6 @@ fn analyze_using_scip(
                                     }
                                 }
                             }
-                            _ => {}
                         }
                     }
                     // Otherwise this is an extracted docstring, which we can't
@@ -626,7 +833,7 @@ fn analyze_using_scip(
 
     for doc in &index.documents {
         let searchfox_path = Path::new(&doc.relative_path).to_owned();
-        let searchfox_path = subtree_root.to_owned().join(&searchfox_path);
+        let searchfox_path = Path::new(&subtree_root).to_owned().join(&searchfox_path);
 
         let output_file = analysis_root.join(&searchfox_path);
         if let Err(err) = create_output_dir(&output_file) {
@@ -648,6 +855,67 @@ fn analyze_using_scip(
                 continue;
             }
         };
+
+        let source_fname =
+            tree_config.find_source_file(&format!("{}/{}", subtree_root, &doc.relative_path));
+        let source_contents = match std::fs::read(source_fname.clone()) {
+            Ok(f) => f,
+            Err(_) => {
+                error!("Unable to open source file {}", source_fname);
+                continue;
+            }
+        };
+
+        // XXX Because typescript has different languages for typescript and tsx,
+        // we currently need to create the parser and the queries on a per-file
+        // basis.  We should revisit this if profiling shows this is a big problem.
+        let mut parser = tree_sitter::Parser::new();
+        let ts_query = match &lang {
+            ScipLang::Rust => {
+                parser
+                    .set_language(tree_sitter_rust::language())
+                    .expect("Error loading Rust grammar");
+                compile_nesting_queries(tree_sitter_rust::language(), &RUST_NESTING)
+            }
+            ScipLang::Typescript => {
+                if doc.relative_path.ends_with(".tsx") || doc.relative_path.ends_with(".jsx") {
+                    parser
+                        .set_language(tree_sitter_typescript::language_tsx())
+                        .expect("Error loading TSX grammar");
+                    compile_nesting_queries(tree_sitter_typescript::language_tsx(), &JS_NESTING)
+                } else {
+                    parser
+                        .set_language(tree_sitter_typescript::language_typescript())
+                        .expect("Error loading Typescript grammar");
+                    compile_nesting_queries(
+                        tree_sitter_typescript::language_typescript(),
+                        &JS_NESTING,
+                    )
+                }
+            }
+        };
+        let name_capture_ix = ts_query.capture_index_for_name("name").unwrap();
+        let body_capture_ix = ts_query.capture_index_for_name("body").unwrap();
+
+        // XXX Currently cloning source_contents because the query_cursor needs the
+        // text for its predicate magic; this should probably be Cowed or something
+        // like that to avoid the duplication.
+        let parse_tree = match parser.parse(source_contents.clone(), None) {
+            Some(t) => t,
+            _ => {
+                warn!("tree-sitter parse failed, skipping file.");
+                continue;
+            }
+        };
+
+        let mut query_cursor = tree_sitter::QueryCursor::new();
+        let mut query_matches =
+            query_cursor.matches(&ts_query, parse_tree.root_node(), &source_contents[..]);
+        let mut next_parse_match;
+        let mut next_parse_loc = Location::default();
+        let mut next_parse_nesting = SourceRange::default();
+
+        let mut nesting_stack: Vec<NestedSymbol> = vec![];
 
         // Be chatty about the files we're outputting so that it's easier to follow
         // the path of rust analysis generation.
@@ -673,6 +941,97 @@ fn analyze_using_scip(
 
             let is_local = occurrence.symbol.starts_with("local ");
 
+            // ## Tree-Sitter Nesting Magic
+            //
+            // Goals:
+            // 1. Provide `nesting_range` information for source records for
+            //    relevant namespaces.
+            // 2. Contribute context/contextsym information to target records.
+            //    These should usually line up with the nesting information we
+            //    want from the above.
+            //
+            // There are broadly 2 implementation approaches:
+            // 1. Detailed AST traversal: We walk the AST ourselves and keep our
+            //    cursor close to the occurrences.
+            // 2. Use tree-sitter's query mechanism to have it give us a
+            //    filtered set of the AST nodes that should correspond to the
+            //    relevant nesting and namespace nesting levels.
+            //
+            // We're going with the 2nd approach because anything we do is going
+            // to need to involve language-specific configuration data, and it
+            // seems very silly to re-invent a worse version of the query
+            // mechanism.
+            //
+            // A very nice thing about the query mechanism is it can tell you
+            // which pattern index matched, which means we can define a little
+            // data structure that we use to derive the query and also have
+            // structured rust data that we can consult without any hacks.
+            // (NB: As documented on the SitterNesting type, we probably should
+            // be using a different approach based on `.scm` files.)
+
+            // Pop off any nested symbols which don't include the current line.
+            while let Some(nested) = nesting_stack.last() {
+                if loc.lineno > nested.nesting_range.end_lineno {
+                    nesting_stack.pop();
+                } else {
+                    break;
+                }
+            }
+
+            // Check if this symbol starts a nesting range or if we need to skip.
+            // We defer pushing any nesting we start to simplify the logic below
+            // that's nesting aware; a symbol shouldn't be its own contextsym!
+
+            // Skip any matched symbols that are earlier than our current symbol.
+            while next_parse_loc < loc {
+                next_parse_match = query_matches.next();
+                (next_parse_loc, next_parse_nesting) = if let Some(pm) = &next_parse_match {
+                    (
+                        node_range_to_searchfox_location(
+                            pm.nodes_for_capture_index(name_capture_ix)
+                                .next()
+                                .unwrap()
+                                .range(),
+                        ),
+                        node_range_to_searchfox_range(
+                            pm.nodes_for_capture_index(body_capture_ix)
+                                .next()
+                                .unwrap()
+                                .range(),
+                        ),
+                    )
+                } else {
+                    (
+                        Location {
+                            lineno: u32::MAX,
+                            col_start: 0,
+                            col_end: 0,
+                        },
+                        SourceRange {
+                            start_lineno: u32::MAX,
+                            start_col: 0,
+                            end_lineno: u32::MAX,
+                            end_col: 0,
+                        },
+                    )
+                }
+            }
+
+            // If we match the name, then push this.
+            let starts_nest = if next_parse_loc == loc {
+                // Note that it's possible this current approach could result
+                // with us defining the start of 2+ nesting ranges on the same
+                // line.  format.rs handles this and we similarly require any
+                // other consumers to handle this.
+                Some(NestedSymbol {
+                    sym: sinfo.sym.clone(),
+                    pretty: sinfo.pretty.clone(),
+                    nesting_range: next_parse_nesting.clone(),
+                })
+            } else {
+                None
+            };
+
             {
                 let source_data = WithLocation {
                     data: AnalysisSource {
@@ -681,8 +1040,11 @@ fn analyze_using_scip(
                         pretty: ustr(&format!("{} {}", sinfo.kind, sinfo.pretty)),
                         sym: vec![sinfo.sym.clone()],
                         no_crossref: is_local,
-                        // TODO(bug 1796870): Nesting.
-                        nesting_range: SourceRange::default(),
+                        nesting_range: if let Some(nest) = &starts_nest {
+                            nest.nesting_range.clone()
+                        } else {
+                            SourceRange::default()
+                        },
                         // TODO: Expose type information for fields/etc.
                         type_pretty: sinfo.type_pretty.clone(),
                         type_sym: None,
@@ -706,14 +1068,20 @@ fn analyze_using_scip(
             // TODO: Contextual info.
 
             if !is_local {
+                let (contextsym, context) = if let Some(nested) = nesting_stack.last() {
+                    (nested.sym.clone(), nested.pretty.clone())
+                } else {
+                    (ustr(""), ustr(""))
+                };
+
                 let target_data = WithLocation {
                     data: AnalysisTarget {
                         target: TargetTag::Target,
                         kind,
                         pretty: sinfo.pretty.clone(),
                         sym: sinfo.sym.clone(),
-                        context: ustr(""),
-                        contextsym: ustr(""),
+                        context,
+                        contextsym,
                         peek_range: LineRange {
                             start_lineno: 0,
                             end_lineno: 0,
@@ -722,6 +1090,12 @@ fn analyze_using_scip(
                     loc: loc.clone(),
                 };
                 write_line(&mut file, &target_data);
+            }
+
+            // Push the nesting now that we've finished processing the symbol
+            // and this avoids any consultations of the stack above.
+            if let Some(nested) = starts_nest {
+                nesting_stack.push(nested);
             }
         }
     }
