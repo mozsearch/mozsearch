@@ -24,6 +24,9 @@ except FileNotFoundError:
 tree_config = config['trees'][tree_name]
 tree_repo = tree_config['files_path']
 lines = run(['git', 'ls-files', '--recurse-submodules'], cwd=tree_repo).splitlines()
+if len(lines) == 0:
+    # find . -type f -printf '%P\n'
+    lines = run(['/usr/bin/find', '.', '-type', 'f', '-printf', '%P\n'], cwd=tree_repo).splitlines()
 
 if 'modify_file_list' in repo_files:
     lines = repo_files['modify_file_list'](lines, config=tree_config)
