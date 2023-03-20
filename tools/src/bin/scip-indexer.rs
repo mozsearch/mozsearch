@@ -145,6 +145,7 @@ fn scip_roles_to_searchfox_analysis_kind(roles: i32) -> AnalysisKind {
 /// Our specifically handled languages for conditional logic.  We currently
 /// require tree-sitter support for all supported languages.
 enum ScipLang {
+    Python,
     Rust,
     Typescript,
 }
@@ -202,6 +203,20 @@ struct SitterNesting {
 }
 
 lazy_static! {
+    // our list is manually derived from the tags.scm file:
+    // https://github.com/tree-sitter/tree-sitter-python/blob/master/queries/tags.scm
+    static ref PYTHON_NESTING: Vec<SitterNesting> = vec![
+        SitterNesting {
+            root_node_type: vec!["class_definition"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["function_definition"],
+            name_field: "name",
+            body_field: "body",
+        },
+    ];
     // our list is manually derived from the tags.scm file:
     // https://github.com/tree-sitter/tree-sitter-rust/blob/master/queries/tags.scm
     static ref RUST_NESTING: Vec<SitterNesting> = vec![
@@ -370,6 +385,7 @@ fn analyze_using_scip(
 
     let (lang_name, lang) = match index.metadata.tool_info.name.as_str() {
         "rust-analyzer" => ("rs", ScipLang::Rust),
+        "scip-python" => ("py", ScipLang::Python),
         "scip-typescript" => ("js", ScipLang::Typescript),
         _ => {
             warn!("Unsupported language; we need tree-sitter support.");
@@ -472,6 +488,10 @@ fn analyze_using_scip(
                 for (i, doc) in scip_sym_info.documentation.iter().enumerate() {
                     if i == 0 {
                         match &lang {
+                            ScipLang::Python => {
+                                // TODO: try and extract some info from here;
+                                // It looks like this could be very descriptor-dependent.
+                            }
                             ScipLang::Rust => {
                                 if let Some(caps) = RE_RUST_INFO.captures(doc) {
                                     // XXX this gives us the full type signature absent the
@@ -889,6 +909,12 @@ fn analyze_using_scip(
         // basis.  We should revisit this if profiling shows this is a big problem.
         let mut parser = tree_sitter::Parser::new();
         let ts_query = match &lang {
+            ScipLang::Python => {
+                parser
+                    .set_language(tree_sitter_python::language())
+                    .expect("Error loading Python grammar");
+                compile_nesting_queries(tree_sitter_python::language(), &PYTHON_NESTING)
+            }
             ScipLang::Rust => {
                 parser
                     .set_language(tree_sitter_rust::language())
