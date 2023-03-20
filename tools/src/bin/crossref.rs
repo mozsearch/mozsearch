@@ -299,14 +299,17 @@ async fn main() {
         for datum in analysis {
             // pieces are all `AnalysisTarget` instances.
             for piece in datum.data {
-                let t1 = table.entry(piece.sym).or_insert(BTreeMap::new());
-                let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
-                let t3 = t2.entry(path.clone()).or_insert(Vec::new());
+                // If we're going to experience a bad line, skip out before
+                // creating any structure.
                 let lineno = (datum.loc.lineno - 1) as usize;
                 if lineno >= lines.len() {
                     print!("Bad line number in file {} (line {})\n", path, lineno);
                     continue;
                 }
+
+                let t1 = table.entry(piece.sym).or_insert(BTreeMap::new());
+                let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
+                let t3 = t2.entry(path.clone()).or_insert(Vec::new());
 
                 let (line, offset) = lines[lineno].clone();
 
