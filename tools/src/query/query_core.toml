@@ -14,6 +14,14 @@ command = "crossref-lookup"
 command = "traverse"
 args.edge = "uses"
 
+[term.calls-to-sym]
+[[term.calls-to-sym.group.graph-build]]
+command = "crossref-lookup"
+args.positional = "$0"
+[[term.calls-to-sym.group.graph-build]]
+command = "traverse"
+args.edge = "uses"
+
 [term.calls-between]
 [[term.calls-between.group.graph-build]]
 command = "search-identifiers"
