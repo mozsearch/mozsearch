@@ -209,6 +209,7 @@ var ContextMenu = new (class ContextMenu {
         if (Settings.diagramming.enabled) {
           for (const jumpref of diagrammableSyms) {
             const queryString = `calls-to:'${jumpref.pretty}' depth:4`;
+            //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
             extraMenuItems.push({
               html: this.fmt("Diagram uses of _", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
