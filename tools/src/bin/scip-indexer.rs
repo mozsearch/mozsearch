@@ -451,6 +451,7 @@ fn analyze_using_scip(
                 // TODO: Consider allowing for a fix-up pass when processing the
                 // occurrences when we can potentially have the underlying token
                 // available and/or a full tree-sitter parse.
+                let mut fallback_kind = None;
                 let mut doc_name = None;
                 let mut type_pretty = None;
 
@@ -462,10 +463,10 @@ fn analyze_using_scip(
                         Regex::new(r"^\n?```rust\n([^\n]+)\n```\n\n```rust\n(.+)(?: // size = (\d+), align = (\d+)(?:, offset = (\d+))?)?\n```$").unwrap();
                     // used for fields, methods, arguments/parameters
                     static ref RE_TS_TYPED: Regex =
-                        Regex::new(r"^```ts\n([^ ])+ (.+): ([^\n]+)\n```$").unwrap();
+                        Regex::new(r"^```ts\n([^ ]+) (.+): ([^\n]+)\n```$").unwrap();
                     // used for modules, classes
                     static ref RE_TS_UNTYPED: Regex =
-                        Regex::new(r"^```ts\n([^ ])+ (.+)\n```$").unwrap();
+                        Regex::new(r"^```ts\n([^ ]+) (.+)\n```$").unwrap();
                 }
 
                 for (i, doc) in scip_sym_info.documentation.iter().enumerate() {
@@ -510,6 +511,10 @@ fn analyze_using_scip(
                             }
                             ScipLang::Typescript => {
                                 if let Some(caps) = RE_TS_TYPED.captures(doc) {
+                                    if let Some(s) = caps.get(1) {
+                                        fallback_kind =
+                                            Some(s.as_str().trim_matches(|c| c == '(' || c == ')'));
+                                    }
                                     if let Some(s) = caps.get(2) {
                                         doc_name = Some(s.as_str().to_string());
                                     }
@@ -560,9 +565,15 @@ fn analyze_using_scip(
                         // built by parsing a string encoding of the enum, it
                         // logically is similar in nature to the enum_value
                         // being an Err.  Regardless, we skip it.
-                        Ok(Suffix::UnspecifiedSuffix) => continue,
+                        Ok(Suffix::UnspecifiedSuffix) => {
+                            warn!("Experienced unspecified suffix on {}", scip_sym_info.symbol);
+                            continue;
+                        }
                         Ok(v) => v,
-                        Err(_) => continue,
+                        Err(_) => {
+                            warn!("Experienced weird suffix error on {}", scip_sym_info.symbol);
+                            continue;
+                        }
                     };
                     let escaped = sanitize_symbol(&desc_piece.name);
 
@@ -762,7 +773,7 @@ fn analyze_using_scip(
                     pretty,
                     sym: norm_sym,
                     type_pretty,
-                    kind: ustr(last_kind.unwrap_or("")),
+                    kind: ustr(last_kind.or(fallback_kind).unwrap_or("")),
                     parent_sym,
                     slot_owner: None,
                     impl_kind: ustr("impl"),
@@ -783,8 +794,15 @@ fn analyze_using_scip(
                     overridden_by_syms: vec![],
                     extra: Map::default(),
                 };
-                scip_symbol_to_structured.insert(scip_sym_info.symbol.clone(), structured);
-                our_symbol_to_scip_sym.insert(norm_sym, scip_sym_info.symbol.clone());
+                // for local symbols we use our own symbol because the SCIP symbol is not
+                // actually unique; we also need to update our helper mapping.
+                if scip_sym_info.symbol.starts_with("local ") {
+                    scip_symbol_to_structured.insert(norm_sym.to_string(), structured);
+                    our_symbol_to_scip_sym.insert(norm_sym, norm_sym.to_string());
+                } else {
+                    scip_symbol_to_structured.insert(scip_sym_info.symbol.clone(), structured);
+                    our_symbol_to_scip_sym.insert(norm_sym, scip_sym_info.symbol.clone());
+                }
 
                 if last_contributes_to_parent {
                     if let Some(psym) = parent_sym {
@@ -926,20 +944,71 @@ fn analyze_using_scip(
         );
 
         for occurrence in &doc.occurrences {
-            let sinfo = match scip_symbol_to_structured.get(&occurrence.symbol) {
+            // We need to normalize locals to include the file path, consistent
+            // with how we handled them in the prior pass.  Note that this is
+            // not actually an official SCIP symbol, but because the local symbols
+            // are not namespaced, we just store it using our normalized version.
+            let (is_local, norm_scip_sym) = if occurrence.symbol.starts_with("local ") {
+                (
+                    true,
+                    format!(
+                        "S_{}_{}_{}/#{}",
+                        lang_name,
+                        subtree_name,
+                        sanitize_symbol(&doc.relative_path),
+                        &occurrence.symbol[6..]
+                    ),
+                )
+            } else {
+                (false, occurrence.symbol.clone())
+            };
+
+            let sinfo = match scip_symbol_to_structured.get(&norm_scip_sym) {
                 Some(s) => s,
                 None => {
-                    warn!(
-                        "Unable to find structured data for symbol: {}",
-                        occurrence.symbol
-                    );
-                    continue;
+                    if is_local {
+                        // For locals that don't exist, we create a new structured
+                        // fake, save it, and return it.
+
+                        let norm_scip_sym_ustr = ustr(&norm_scip_sym);
+                        let fake = AnalysisStructured {
+                            structured: StructuredTag::Structured,
+                            // XXX we should really try and extract the underlying token as the pretty.
+                            pretty: ustr(&occurrence.symbol),
+                            sym: norm_scip_sym_ustr,
+                            type_pretty: None,
+                            kind: ustr("local"),
+                            parent_sym: None,
+                            slot_owner: None,
+                            impl_kind: ustr("impl"),
+                            size_bytes: None,
+                            binding_slots: vec![],
+                            supers: vec![],
+                            methods: vec![],
+                            fields: vec![],
+                            overrides: vec![],
+                            props: vec![],
+
+                            idl_sym: None,
+                            subclass_syms: vec![],
+                            overridden_by_syms: vec![],
+                            extra: Map::default(),
+
+                        };
+                        scip_symbol_to_structured.insert(norm_scip_sym.clone(), fake);
+                        our_symbol_to_scip_sym.insert(norm_scip_sym_ustr, norm_scip_sym.clone());
+                        scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
+                    } else {
+                        warn!(
+                            "Unable to find structured data for symbol: {}",
+                            norm_scip_sym
+                        );
+                        continue;
+                    }
                 }
             };
             let loc = scip_range_to_searchfox_location(&occurrence.range);
             let kind = scip_roles_to_searchfox_analysis_kind(occurrence.symbol_roles);
-
-            let is_local = occurrence.symbol.starts_with("local ");
 
             // ## Tree-Sitter Nesting Magic
             //
@@ -1033,10 +1102,14 @@ fn analyze_using_scip(
             };
 
             {
+                let mut syntax = vec![kind.to_ustr()];
+                if !sinfo.kind.is_empty() {
+                    syntax.push(sinfo.kind.clone());
+                }
                 let source_data = WithLocation {
                     data: AnalysisSource {
                         source: SourceTag::Source,
-                        syntax: vec![kind.to_ustr(), sinfo.kind.clone()],
+                        syntax,
                         pretty: ustr(&format!("{} {}", sinfo.kind, sinfo.pretty)),
                         sym: vec![sinfo.sym.clone()],
                         no_crossref: is_local,
