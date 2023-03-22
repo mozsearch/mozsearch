@@ -35,6 +35,11 @@ command = "traverse"
 args.edge = "uses"
 args.paths-between = true
 
+[term.colorize-callees]
+[[term.colorize-callees.group.graph-render]]
+command = "graph"
+args.colorize-callees = "$0"
+
 # This includes the search and crossref-lookup stages to avoid ordering issues
 # for `depth:N calls-to:FOO` but maybe this should be handled by letting a
 # precedence be set on the depth to defer it.

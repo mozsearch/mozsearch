@@ -1,0 +1,58 @@
+---
+source: tests/test_check_insta.rs
+expression: "&jv.value"
+---
+{
+  "groups": {
+    "graph-build": {
+      "input": null,
+      "segments": [
+        {
+          "command": "search-identifiers",
+          "args": [
+            "--exact-match",
+            "outerNS::Thing::takeDamage"
+          ]
+        },
+        {
+          "command": "crossref-lookup",
+          "args": []
+        },
+        {
+          "command": "traverse",
+          "args": [
+            "--edge=uses"
+          ]
+        }
+      ],
+      "output": "graph",
+      "depth": 0
+    },
+    "graph-render": {
+      "input": "graph",
+      "segments": [
+        {
+          "command": "graph",
+          "args": [
+            "--colorize-callees=::isFriendlyCat",
+            "--format=mozsearch"
+          ]
+        }
+      ],
+      "output": "result",
+      "depth": 0
+    }
+  },
+  "junctions": {},
+  "phases": [
+    {
+      "groups": [
+        [
+          "graph-build",
+          "graph-render"
+        ]
+      ],
+      "junctions": []
+    }
+  ]
+}
