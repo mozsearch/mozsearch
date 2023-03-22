@@ -1,0 +1,1 @@
+query --dump-pipeline "calls-to:'outerNS::Thing::takeDamage' colorize-callees:'::isFriendlyCat'"

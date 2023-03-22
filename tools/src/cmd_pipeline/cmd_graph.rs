@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
+use dot_generator::*;
+use dot_structures::*;
 use regex::{self, Captures, Regex};
+use serde_json::Value;
 
 use graphviz_rust::cmd::{CommandArg, Format};
 use graphviz_rust::exec;
@@ -9,6 +12,7 @@ use graphviz_rust::printer::{DotPrinter, PrinterContext};
 use super::interface::{
     GraphResultsBundle, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
 };
+use super::symbol_graph::DerivedSymbolInfo;
 
 use crate::abstract_server::{AbstractServer, Result};
 
@@ -30,6 +34,9 @@ pub enum GraphFormat {
 pub struct Graph {
     #[clap(long, short, value_parser, value_enum, default_value = "svg")]
     pub format: GraphFormat,
+
+    #[clap(long, value_parser)]
+    pub colorize_callees: Vec<String>,
 }
 
 /// ## Graph Implementation Thoughts / Rationale ##
@@ -142,7 +149,23 @@ impl PipelineCommand for GraphCommand {
             }
         };
 
-        let dot_graph = graphs.graph_to_graphviz(graphs.graphs.len() - 1);
+        let decorate_node = |node: &mut Node, sym_info: &DerivedSymbolInfo| {
+            for (i, colorize) in self.args.colorize_callees.iter().enumerate() {
+                if let Some(Value::Array(arr)) = sym_info.crossref_info.get("callees") {
+                    for callee in arr {
+                        if let Some(Value::String(pretty)) = callee.get("pretty") {
+                            if pretty.ends_with(colorize) {
+                                node.attributes.push(attr!("colorscheme", "pastel28"));
+                                node.attributes.push(attr!("style", "filled"));
+                                node.attributes.push(attr!("fillcolor", i + 1));
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        let dot_graph = graphs.graph_to_graphviz(graphs.graphs.len() - 1, decorate_node);
         if self.args.format == GraphFormat::RawDot {
             let raw_dot_str = dot_graph.print(&mut PrinterContext::default());
             return Ok(PipelineValues::TextFile(TextFile {

@@ -1,0 +1,25 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+digraph g {
+    node[shape=box,fontname="Courier New",fontsize=10]
+    "_ZN7outerNS8OuterCat4meetERNS_5HumanE"[label="outerNS::OuterCat::meet"]
+    "_ZN7outerNS5Thing6ignoreEv"[label="outerNS::Thing::ignore"]
+    "_ZN7outerNS8OuterCat4meetERNS_5HumanE" -> "_ZN7outerNS5Thing6ignoreEv" 
+    "_ZN7outerNS8OuterCat4meetERNS_5CouchE"[label="outerNS::OuterCat::meet"]
+    "_ZN7outerNS8OuterCat13isFriendlyCatEv"[label="outerNS::OuterCat::isFriendlyCat"]
+    "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat13isFriendlyCatEv" 
+    "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv"[label="outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible"]
+    "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv" 
+    "_ZN7outerNS8OuterCat5shredERNS_5ThingE"[label="outerNS::OuterCat::shred",colorscheme=pastel28,style=filled,fillcolor=1]
+    "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" 
+    "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"[label="outerNS::OuterCat::destroy"]
+    "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" 
+    "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" 
+    "_ZN7outerNS5Thing10takeDamageEi"[label="outerNS::Thing::takeDamage"]
+    "_ZN7outerNS8OuterCat5shredERNS_5ThingE" -> "_ZN7outerNS5Thing10takeDamageEi" 
+    "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv" -> "_ZN7outerNS8OuterCat13isFriendlyCatEv" 
+    "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv"[label="outerNS::OuterCat::isSecretlyUnfriendly"]
+    "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv" -> "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv" 
+}

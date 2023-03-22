@@ -234,7 +234,10 @@ impl SymbolGraphCollection {
     }
 
     /// Convert the graph with the given index to a graphviz rep.
-    pub fn graph_to_graphviz(&self, graph_idx: usize) -> Graph {
+    pub fn graph_to_graphviz<F>(&self, graph_idx: usize, node_decorate: F) -> Graph
+    where
+        F: Fn(&mut Node, &DerivedSymbolInfo),
+    {
         let mut dot_graph = graph!(
             di id!("g");
             node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))
@@ -250,16 +253,20 @@ impl SymbolGraphCollection {
             let source_info = self.node_set.get(&source_id);
             let source_sym = source_info.symbol.clone();
             if nodes.insert(source_sym.clone()) {
+                let mut node = node!(esc source_sym.clone(); attr!("label", esc source_info.get_pretty()));
+                node_decorate(&mut node, source_info);
                 dot_graph.add_stmt(stmt!(
-                    node!(esc source_sym.clone(); attr!("label", esc source_info.get_pretty()))
+                    node
                 ));
             }
 
             let target_info = self.node_set.get(&target_id);
             let target_sym = target_info.symbol.clone();
             if nodes.insert(target_sym.clone()) {
+                let mut node = node!(esc target_sym.clone(); attr!("label", esc target_info.get_pretty()));
+                node_decorate(&mut node, target_info);
                 dot_graph.add_stmt(stmt!(
-                    node!(esc target_sym.clone(); attr!("label", esc target_info.get_pretty()))
+                    node
                 ));
             }
 
