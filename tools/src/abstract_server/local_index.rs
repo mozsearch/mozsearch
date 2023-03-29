@@ -296,6 +296,7 @@ impl AbstractServer for LocalIndex {
             }
             trace!(
                 duration_us = now.elapsed().as_micros() as u64,
+                result_count = results.len(),
                 "search_identifiers: {}",
                 needle
             );
@@ -340,6 +341,7 @@ impl AbstractServer for LocalIndex {
 
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
+            result_count = response.results.len(),
             "search_text: query completed: {}",
             pattern
         );

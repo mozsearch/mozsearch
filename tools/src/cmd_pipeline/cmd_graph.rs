@@ -28,12 +28,23 @@ pub enum GraphFormat {
     Mozsearch,
 }
 
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum GraphMode {
+    /// No hierarchy, everything is a node, there are no clusters.
+    Flat,
+    /// Derive a hierarchical relationship with clusters from the input graph.
+    Hier,
+}
+
 /// Render a received graph into a dot, svg, or json-wrapped-svg which also
 /// includes embedded crossref information.
 #[derive(Debug, Args)]
 pub struct Graph {
     #[clap(long, short, value_parser, value_enum, default_value = "svg")]
     pub format: GraphFormat,
+
+    #[clap(long, short, value_parser, value_enum, default_value = "hier")]
+    pub mode: GraphMode,
 
     #[clap(long, value_parser)]
     pub colorize_callees: Vec<String>,
@@ -113,31 +124,56 @@ pub struct GraphCommand {
     pub args: Graph,
 }
 
+/// Convert tunneled symbol identifiers in the SVG into `data-symbols`
+/// attributes.  Specific conversions:
+/// - `<title>` tags holding the node identifiers.
+/// - `<a xlink...>` tags holding links resulting from HTML labels./
+///
+/// Currently our general behavior is to drop anything that has an identifier
+/// that starts with "SYN_" and to assume that everything else is a valid
+/// symbol.  The original fancy branch prototype instead generated completely
+/// synthetic identifiers in all cases which were added to a map so that
+/// data-symbols could be looked up in the map.  I think there's something to be
+/// said for for having the identifiers be more self-descriptive as we're
+/// currently doing, but arguably it probably makes more sense to generate a
+/// mangled pretty identifier with compensation made for any collisions.
+///
+/// TODO: As proposed above, potentially move towards allocating identifiers
+/// with a lookup map.
 fn transform_svg(svg: &str) -> String {
     lazy_static! {
         static ref RE_TITLE: Regex = Regex::new(">\n<title>([^<]+)</title>").unwrap();
+        static ref RE_XLINK: Regex = Regex::new(r#"<a xlink:href="([^"]+)" xlink:title="[^"]+">"#).unwrap();
     }
-    RE_TITLE
+    let titled = RE_TITLE
         .replace_all(svg, |caps: &Captures| {
-            let captured = caps.get(1).unwrap();
+            let captured = caps.get(1).unwrap().as_str();
             // Do not transform the `g` title of "g" to data-symbols.  Although
             // maybe we should be providing it a better title?  Although maybe
             // a straight-up heading explaining the graph is even better, as I
             // think this is where we're going to want to put the dual UI.
-            if captured.as_str() == "g" {
+            if captured == "g" || captured.starts_with("SYN_") {
                 ">".to_string()
             } else {
-                format!(" data-symbols=\"{}\">", captured.as_str())
+                format!(" data-symbols=\"{}\">", captured)
             }
-        })
-        .to_string()
+        });
+    RE_XLINK
+        .replace_all(&titled, |caps: &Captures| {
+            let captured = caps.get(1).unwrap().as_str();
+            if captured.starts_with("SYN_") {
+                "<g>".to_string()
+            } else {
+                format!("<g data-symbols=\"{}\">", captured)
+            }
+        }).replace("</a>", "</g>")
 }
 
 #[async_trait]
 impl PipelineCommand for GraphCommand {
     async fn execute(
         &self,
-        _server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &Box<dyn AbstractServer + Send + Sync>,
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         let mut graphs = match input {
@@ -165,7 +201,16 @@ impl PipelineCommand for GraphCommand {
             }
         };
 
-        let dot_graph = graphs.graph_to_graphviz(graphs.graphs.len() - 1, decorate_node);
+        let dot_graph = match self.args.mode {
+            GraphMode::Flat => {
+                graphs.graph_to_graphviz(graphs.graphs.len() - 1, decorate_node)
+            }
+            GraphMode::Hier => {
+                graphs.derive_hierarchical_graph(graphs.graphs.len() - 1, server).await?;
+                //return Ok(PipelineValues::SymbolGraphCollection(graphs));
+                graphs.hierarchical_graph_to_graphviz(graphs.hierarchical_graphs.len() - 1)
+            }
+        };
         if self.args.format == GraphFormat::RawDot {
             let raw_dot_str = dot_graph.print(&mut PrinterContext::default());
             return Ok(PipelineValues::TextFile(TextFile {

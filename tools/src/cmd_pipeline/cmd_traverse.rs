@@ -455,12 +455,14 @@ impl PipelineCommand for TraverseCommand {
                 node_set: paths_node_set,
                 graphs: vec![paths_graph],
                 overloads_hit,
+                hierarchical_graphs: vec![],
             }
         } else {
             SymbolGraphCollection {
                 node_set: sym_node_set,
                 graphs: vec![graph],
                 overloads_hit,
+                hierarchical_graphs: vec![],
             }
         };
 

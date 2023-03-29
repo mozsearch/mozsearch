@@ -336,7 +336,8 @@ td#line-numbers {
   box-shadow: 0px 4px 8px rgba(0, 0, 0, .9);
 }
 
-.source-line a {
+.source-line a,
+g[data-symbols] {
   cursor: pointer;
 }
 .code code {

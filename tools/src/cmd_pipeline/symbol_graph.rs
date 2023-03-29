@@ -11,9 +11,13 @@ use petgraph::{
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
-use ustr::{Ustr, ustr, UstrMap};
+use tracing::trace;
+use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
-use crate::{abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError}, file_format::{crossref_converter::convert_crossref_value_to_sym_info_rep}};
+use crate::{
+    abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
+    file_format::crossref_converter::convert_crossref_value_to_sym_info_rep,
+};
 
 use super::interface::OverloadInfo;
 
@@ -89,13 +93,28 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
     }
 }
 
+// TODO: evaluate the type of kinds we now allow thanks to SCIP; we may need to
+// expand this match branch or just normalize more in SCIP indexing.
+pub fn semantic_kind_is_class(semantic_kind: &str) -> bool {
+    match semantic_kind {
+        "class" => true,
+        _ => false,
+    }
+}
+
 impl DerivedSymbolInfo {
     pub fn is_callable(&self) -> bool {
-        let is_callable = match self.crossref_info.pointer("/meta/kind") {
+        match self.crossref_info.pointer("/meta/kind") {
             Some(Value::String(sem_kind)) => semantic_kind_is_callable(sem_kind),
             _ => false,
-        };
-        return is_callable;
+        }
+    }
+
+    pub fn is_class(&self) -> bool {
+        match self.crossref_info.pointer("/meta/kind") {
+            Some(Value::String(sem_kind)) => semantic_kind_is_class(sem_kind),
+            _ => false,
+        }
     }
 
     pub fn get_pretty(&self) -> Ustr {
@@ -138,6 +157,7 @@ pub struct SymbolGraphCollection {
     pub node_set: SymbolGraphNodeSet,
     pub graphs: Vec<NamedSymbolGraph>,
     pub overloads_hit: Vec<OverloadInfo>,
+    pub hierarchical_graphs: Vec<HierarchicalSymbolGraph>,
 }
 
 impl Serialize for SymbolGraphCollection {
@@ -179,7 +199,10 @@ impl SymbolGraphCollection {
         let mut jumprefs = BTreeMap::new();
         for sym_info in self.node_set.symbol_crossref_infos.iter_mut() {
             let info = sym_info.crossref_info.take();
-            jumprefs.insert(sym_info.symbol.clone(), convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None));
+            jumprefs.insert(
+                sym_info.symbol.clone(),
+                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+            );
         }
 
         json!(jumprefs)
@@ -190,7 +213,10 @@ impl SymbolGraphCollection {
         for sym_info in self.node_set.symbol_crossref_infos.iter() {
             // XXX This is inefficient!
             let info = sym_info.crossref_info.clone();
-            jumprefs.insert(sym_info.symbol.clone(), convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None));
+            jumprefs.insert(
+                sym_info.symbol.clone(),
+                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+            );
         }
 
         json!(jumprefs)
@@ -253,21 +279,19 @@ impl SymbolGraphCollection {
             let source_info = self.node_set.get(&source_id);
             let source_sym = source_info.symbol.clone();
             if nodes.insert(source_sym.clone()) {
-                let mut node = node!(esc source_sym.clone(); attr!("label", esc source_info.get_pretty()));
+                let mut node =
+                    node!(esc source_sym.clone(); attr!("label", esc source_info.get_pretty()));
                 node_decorate(&mut node, source_info);
-                dot_graph.add_stmt(stmt!(
-                    node
-                ));
+                dot_graph.add_stmt(stmt!(node));
             }
 
             let target_info = self.node_set.get(&target_id);
             let target_sym = target_info.symbol.clone();
             if nodes.insert(target_sym.clone()) {
-                let mut node = node!(esc target_sym.clone(); attr!("label", esc target_info.get_pretty()));
+                let mut node =
+                    node!(esc target_sym.clone(); attr!("label", esc target_info.get_pretty()));
                 node_decorate(&mut node, target_info);
-                dot_graph.add_stmt(stmt!(
-                    node
-                ));
+                dot_graph.add_stmt(stmt!(node));
             }
 
             // node_id!'s macro_rules currently can't handle an `esc` prefix, so
@@ -291,6 +315,136 @@ impl SymbolGraphCollection {
             "jumprefs": self.symbols_meta_to_jumpref_json_nomut(),
             "graphs": graphs,
         })
+    }
+
+    pub async fn derive_hierarchical_graph(
+        &mut self,
+        graph_idx: usize,
+        server: &Box<dyn AbstractServer + Send + Sync>,
+    ) -> Result<()> {
+        trace!("derive_hierarchical_graph");
+        let graph = match self.graphs.get(graph_idx) {
+            Some(g) => g,
+            None => {
+                return Ok(());
+            }
+        };
+
+        let mut root = HierarchicalNode {
+            segment: HierarchySegment::PrettySegment("".to_string()),
+            display_name: "".to_string(),
+            symbols: vec![],
+            action: None,
+            children: BTreeMap::default(),
+            edges: vec![],
+            descendant_edge_count: 0,
+            height: 0,
+        };
+
+        let mut checked_pretties = UstrSet::default();
+
+        // ## Populate the hierarchy nodes.
+        for sym_id in graph.list_nodes() {
+            let sym_pretty = self.node_set.get(&sym_id).get_pretty();
+            let mut pretty_so_far = "".to_string();
+            let mut segments = vec![];
+            trace!(sym = %sym_pretty, "processing symbol");
+            for piece in sym_pretty.split("::") {
+                trace!(piece = %piece, "processing piece");
+                segments.push(HierarchySegment::PrettySegment(piece.to_string()));
+                pretty_so_far = if pretty_so_far.is_empty() {
+                    piece.to_string()
+                } else {
+                    format!("{}::{}", pretty_so_far, piece)
+                };
+                let ustr_so_far = ustr(&pretty_so_far);
+                if checked_pretties.insert(ustr_so_far) {
+                    // We haven't checked this before, so process it.
+
+                    // See if we can find a symbol for this identifier.
+                    let use_sym_id = if sym_pretty == pretty_so_far {
+                        trace!(pretty = %pretty_so_far, "reusing known symbol");
+                        sym_id.clone()
+                    } else {
+                        // TODO: Either don't set the limit to 1 or provide a better
+                        // explanation or some assert on why this is okay.  In
+                        // general, since we are taking a fast path on the full pretty
+                        // match, we shouldn't be dealing with overloads here, so there
+                        // really should only be a single ancestor symbol per pretty.
+                        if let Some((match_sym, _)) = server
+                            .search_identifiers(&pretty_so_far, true, false, 1)
+                            .await?
+                            .iter()
+                            .next()
+                        {
+                            let (match_sym_id, _) =
+                                self.node_set.ensure_symbol(&match_sym, server).await?;
+                            match_sym_id
+                        } else {
+                            trace!(pretty = %pretty_so_far, "failed to locate symbol for identifier");
+                            continue;
+                        }
+                    };
+
+                    let mut reversed_segments = segments.clone();
+                    reversed_segments.reverse();
+                    trace!(pretty = %pretty_so_far, "placing found symbol");
+                    root.place_sym(reversed_segments, use_sym_id);
+                }
+            }
+        }
+
+        // ## Populate the hierarchy edges
+        for (from_id, to_id) in graph.list_edges() {
+            let from_pretty = self.node_set.get(&from_id).get_pretty();
+            let from_pieces = from_pretty.split("::");
+            let to_pretty = self.node_set.get(&to_id).get_pretty();
+            let to_pieces = to_pretty.split("::");
+
+            let mut common_path: Vec<HierarchySegment> = from_pieces
+                .zip(to_pieces)
+                .take_while(|(a, b)| a == b)
+                .map(|(a, _)| HierarchySegment::PrettySegment(a.to_string()))
+                .collect();
+            common_path.reverse();
+            root.place_edge(common_path, from_id, to_id);
+        }
+
+        self.hierarchical_graphs.push(HierarchicalSymbolGraph {
+            name: graph.name.clone(),
+            root,
+        });
+
+        Ok(())
+    }
+
+    /// Convert the graph with the given index to a graphviz rep.
+    pub fn hierarchical_graph_to_graphviz(&mut self, graph_idx: usize) -> Graph {
+        trace!(graph_idx = %graph_idx, "hierarchical_graph_to_graphviz");
+        let graph = match self.hierarchical_graphs.get_mut(graph_idx) {
+            Some(g) => g,
+            None => {
+                trace!("no such graph");
+                return graph!(
+                    di id!("g");
+                    node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))
+                )
+            }
+        };
+
+        let mut state = HierarchicalRenderState {
+            next_synthetic_id: 0,
+            sym_to_edges: HashMap::default(),
+        };
+        graph.root.compile(0, 0, false, &self.node_set, &mut state);
+
+        let dot_graph = Graph::DiGraph {
+            id: id!("g"),
+            strict: false,
+            stmts: graph.root.render(&self.node_set, &mut state),
+        };
+
+        dot_graph
     }
 }
 
@@ -330,6 +484,13 @@ impl NamedSymbolGraph {
         self.node_ix_to_id.insert(idx, sym_id.0);
 
         NodeIndex::new(idx as usize)
+    }
+
+    pub fn list_nodes(&self) -> Vec<SymbolGraphNodeId> {
+        self.graph
+            .node_indices()
+            .map(|ix| SymbolGraphNodeId(*self.node_ix_to_id.get(&(ix.index() as u32)).unwrap()))
+            .collect()
     }
 
     pub fn add_edge(&mut self, source: SymbolGraphNodeId, target: SymbolGraphNodeId) {
@@ -372,6 +533,513 @@ impl NamedSymbolGraph {
             })
             .collect();
         node_paths
+    }
+}
+
+/// Helper hierarchy for building graphviz html table labels as used for our
+/// graph display.  This is not meant to be generic.
+pub struct LabelTable {
+    pub rows: Vec<LabelRow>,
+
+    pub columns_needed: u32,
+}
+
+pub struct LabelRow {
+    // note that currently our "compile" step assumes there's only ever one cell
+    pub cells: Vec<LabelCell>,
+}
+
+pub struct LabelCell {
+    pub contents: String,
+    pub symbol: String,
+    pub port: String,
+    pub indent_level: u32,
+}
+
+impl LabelTable {
+    pub fn compile(&mut self) {
+        for row in &self.rows {
+            self.columns_needed = std::cmp::max(self.columns_needed, row.compile());
+        }
+    }
+
+    pub fn render(&self) -> String {
+        let mut rows = vec![];
+        for row in &self.rows {
+            rows.push(row.render(self.columns_needed));
+        }
+        format!(
+            r#"<<table border="0" cellborder="1" cellspacing="0" cellpadding="4">{}</table>>"#,
+            rows.join("")
+        )
+    }
+}
+
+impl LabelRow {
+    pub fn compile(&self) -> u32 {
+        let mut columns = 0;
+        for cell in &self.cells {
+            columns += cell.indent_level + 1;
+        }
+        columns
+    }
+
+    pub fn render(&self, column_count: u32) -> String {
+        let mut row_pieces = vec![];
+        for cell in &self.cells {
+            let pad_cols = cell.indent_level;
+            let use_cols = column_count - pad_cols;
+            if pad_cols > 0 {
+                row_pieces.push(format!(
+                    r#"<td colspan="{}" width="{}"></td>"#,
+                    pad_cols,
+                    pad_cols * 4
+                ));
+            }
+            row_pieces.push(format!(
+                r#"<td colspan="{}" href="{}" port="{}">{}</td>"#,
+                use_cols, cell.symbol, cell.port, cell.contents
+            ));
+        }
+        format!("<tr>{}</tr>", row_pieces.join(""))
+    }
+}
+
+pub enum HierarchicalLayoutAction {
+    /// Used for the root node; its contents are rendered at the same level as
+    /// the parent and the parent is not rendered.
+    Flatten,
+    /// Collapse the node into its child.  This is used for situations like
+    /// namespaces with one one child which is a sub-namespace and there is no
+    /// benefit to creating a separate cluster for the parent.
+    Collapse,
+    /// Be a graphviz cluster.  Used for situations where there are multiple
+    /// children that are eitehr conceptually distinct (ex: separate classes) or
+    /// where there are simply too many edges directly between its children and
+    /// so the use of a table would be very visually busy.
+    ///
+    /// Currently there is a NodeId for the cluster and one for the placeholder.
+    Cluster(String, String),
+    /// Be a table and therefore all children are records.  Used for situations
+    /// like a class where the children are methods/fields and the containment
+    /// relationship makes sense to express as a table and there is no issue
+    /// with edges between the children making the diagram too busy.
+    ///
+    /// Payload is the node id for the node that is/holds the HTML label.
+    Table(String),
+    /// For children of a Table parent.
+    ///
+    /// Payload is the port name.
+    Record(String),
+    /// Just a normal graphviz node, either contained in a cluster or by the
+    /// root.
+    Node(String),
+}
+
+/// A typed hierarchy segment.  While initially we expect all segments to be
+/// part of a pretty identifier, in the future this may include:
+/// - Process Type (Parent, Content, Network, etc.)
+/// - Subsystem / subcomponent / submodule
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
+pub enum HierarchySegment {
+    PrettySegment(String),
+}
+
+impl HierarchySegment {
+    pub fn to_human_readable(&self) -> String {
+        match self {
+            Self::PrettySegment(p) => p.clone(),
+        }
+    }
+}
+
+/// A hierarchial graph derived from a NamedSymbolGraph.
+pub struct HierarchicalSymbolGraph {
+    pub name: String,
+    pub root: HierarchicalNode,
+}
+
+pub struct HierarchicalNode {
+    /// The segment this is named by in the parent node's `children`.
+    pub segment: HierarchySegment,
+    /// The display name to use for this segment.  This starts out as the
+    /// segment or a more human-readable variation of the segment.  This may be
+    /// updated in situations like if its parent is given a `Collapse` action.
+    ///
+    /// This may be empty in the case of the root node.
+    pub display_name: String,
+    /// The list of symbols associated with with location.  This can happen due
+    /// to differences in signatures across platforms resulting in multiple
+    /// symbols corresponding to a single pretty identifier, which is what we
+    /// want to support here.  This can also happen due to explicitly overloaded
+    /// methods, and ideally we would not fully coalesce these cases, but for
+    /// now we do.
+    ///
+    /// TODO: Improve the explicit overloaded method situation.  (There are
+    /// thoughts on how to address this elsewhere; maybe the graphing bug?)
+    pub symbols: Vec<SymbolGraphNodeId>,
+    /// The action to take when rendering this node to a graph.  Initially None,
+    /// but set during `compile`, and then later used for rendering (and debug
+    /// and test output so we can understand what decisions were taken).
+    pub action: Option<HierarchicalLayoutAction>,
+    pub children: BTreeMap<HierarchySegment, HierarchicalNode>,
+    /// List of the edges for which this node was the common ancestor.  This is
+    /// done so that the `compile` step can understand the number of edges
+    /// amongst its descendants and avoid creating (too many) edges between
+    /// table rows/cells.  It also results in a better organized dot file which
+    /// is nice for readability.
+    pub edges: Vec<(SymbolGraphNodeId, SymbolGraphNodeId)>,
+    /// How many edges are contained in the descendants of this node (but not
+    /// including this node's own edges).
+    pub descendant_edge_count: u32,
+    /// The maximum descendant depth below this node.  A node with no children
+    /// has a height of 0.  A node with a child with no children has a height of
+    /// 1.
+    pub height: u32,
+}
+
+impl HierarchicalNode {
+    /// Recursively traverse child nodes, creating them as needed, in order to
+    /// place symbols and create hierarchy as a byproduct.
+    pub fn place_sym(
+        &mut self,
+        mut reversed_segments: Vec<HierarchySegment>,
+        sym_id: SymbolGraphNodeId,
+    ) {
+        if let Some(next_seg) = reversed_segments.pop() {
+            let kid = self.children.entry(next_seg.clone()).or_insert_with(|| {
+                let display_name = next_seg.to_human_readable();
+                HierarchicalNode {
+                    segment: next_seg,
+                    display_name,
+                    symbols: vec![],
+                    action: None,
+                    children: BTreeMap::default(),
+                    edges: vec![],
+                    descendant_edge_count: 0,
+                    height: 0,
+                }
+            });
+            kid.place_sym(reversed_segments, sym_id);
+            // The height of the kid may have updated, so potentially update our
+            // height.  This will bubble upwards appropriately.
+            self.height = core::cmp::max(self.height, kid.height + 1);
+        } else {
+            self.symbols.push(sym_id);
+        }
+    }
+
+    pub fn place_edge(
+        &mut self,
+        mut reversed_segments: Vec<HierarchySegment>,
+        from_id: SymbolGraphNodeId,
+        to_id: SymbolGraphNodeId,
+    ) {
+        if let Some(next_seg) = reversed_segments.pop() {
+            if let Some(kid) = self.children.get_mut(&next_seg) {
+                // The edge will go in our descendant, so we bump the count.
+                self.descendant_edge_count += 1;
+                kid.place_edge(reversed_segments, from_id, to_id);
+            }
+        } else {
+            // We do not modify the descendant_edge_count because it's our own
+            // edge.
+            self.edges.push((from_id, to_id));
+        }
+    }
+
+    pub fn compile(
+        &mut self,
+        depth: usize,
+        collapsed_ancestors: u32,
+        has_class_ancestor: bool,
+        node_set: &SymbolGraphNodeSet,
+        state: &mut HierarchicalRenderState,
+    ) {
+        let is_root = depth == 0;
+
+        let is_class = if self.symbols.len() >= 1 {
+            let sym_info = node_set.get(&self.symbols[0]);
+            sym_info.is_class()
+        } else {
+            false
+        };
+        let be_class = has_class_ancestor || is_class;
+
+        // If the node has only one child and no edges, we can collapse it UNLESS
+        // the child is a class, in which case we really don't want to.
+        if !is_root && !be_class && self.children.len() == 1 && self.edges.len() == 0 {
+            let sole_kid = self.children.values_mut().next().unwrap();
+            // (not all nodes will have associated symbols)
+            let kid_is_class = if let Some(kid_id) = sole_kid.symbols.get(0) {
+                node_set.get(kid_id).is_class()
+            } else {
+                false
+            };
+
+            // The child's needs impact our ability to collapse:
+            // - If the kid is a class, don't collapse into it.  (Classes can still
+            //   be clusters, but the idea is they should/need to be distinguished
+            //   from classes.)
+            if !kid_is_class {
+                self.action = Some(HierarchicalLayoutAction::Collapse);
+                if !self.display_name.is_empty() {
+                    sole_kid.display_name =
+                        format!("{}::{}", self.display_name, sole_kid.display_name);
+                    self.display_name = "".to_string();
+                }
+                sole_kid.compile(
+                    depth + 1,
+                    collapsed_ancestors + 1,
+                    be_class,
+                    node_set,
+                    state,
+                );
+                return;
+            }
+        }
+
+        let mut be_cluster = false;
+
+        if is_root {
+            self.action = Some(HierarchicalLayoutAction::Flatten);
+            for kid in self.children.values_mut() {
+                kid.compile(depth + 1, collapsed_ancestors, be_class, node_set, state);
+            }
+        } else if self.edges.len() > 0 {
+            // If there are edges at this level, it does not make sense to be a
+            // table because the self-edges end up quite gratuitous.  (The edges
+            // vec only contains edges among our immediate children.)
+            be_cluster = true;
+        } else if be_class && self.descendant_edge_count < 5 && self.height == 1 {
+            // If the number of internal edges are low and we've reached a class AND
+            // we have a height of 1 (which implies having children), then we can
+            // be a table.
+            //
+            // In the prototype, this choice was not aware of height and so could
+            // result in trying to create a table that could be complicated by the
+            // existence of inner classes.  Our introduction of height should
+            // eliminate that concern while not precluding use of a table when
+            // we are only dealing with classes.  Like it could be nice to have
+            // a class and its immediate subclasses shown as a table as long as
+            // there aren't methods nested under the sub-class.
+            //
+            // Note that the prototype never dealt with that more complex table
+            // case, it just had a comment noting the weirdness possible.
+            let (parent_id_str, parent_info) = self.derive_id(node_set, state);
+            if let Some((parent_graph_id, parent_sym)) = parent_info {
+                let in_target = node_id!(esc parent_id_str, port!(id!(esc parent_sym), "w"));
+                let out_target = node_id!(esc parent_id_str, port!(id!(esc parent_sym), "e"));
+                state.register_symbol_edge_targets(&parent_graph_id, in_target, out_target);
+            }
+
+            for kid in self.children.values_mut() {
+                let (kid_id_str, kid_info) = kid.derive_id(node_set, state);
+                if let Some((kid_graph_id, _)) = kid_info {
+                    let in_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "w"));
+                    let out_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "e"));
+                    state.register_symbol_edge_targets(&kid_graph_id, in_target, out_target)
+                }
+                kid.action = Some(HierarchicalLayoutAction::Record(kid_id_str));
+            }
+            self.action = Some(HierarchicalLayoutAction::Table(parent_id_str));
+        } else if self.children.len() > 0 {
+            // If there are kids, we want to be a cluster after all.
+            be_cluster = true;
+        } else {
+            let (node_id_str, maybe_sym_info) = self.derive_id(node_set, state);
+            if let Some((graph_id, _)) = maybe_sym_info {
+                let id = node_id!(esc node_id_str);
+                state.register_symbol_edge_targets(&graph_id, id.clone(), id);
+            }
+            self.action = Some(HierarchicalLayoutAction::Node(node_id_str));
+        }
+
+        if be_cluster {
+            let placeholder_id_str = state.issue_new_synthetic_id();
+            let (cluster_id, maybe_sym_info) = self.derive_id(node_set, state);
+            let placeholder_id = node_id!(esc placeholder_id_str);
+
+            self.action = Some(HierarchicalLayoutAction::Cluster(
+                cluster_id,
+                placeholder_id_str,
+            ));
+
+            // XXX The use of a placeholder is from the prototype; need to
+            // understand and document the approach more.
+            if let Some((sym_id, _)) = maybe_sym_info {
+                state.register_symbol_edge_targets(&sym_id, placeholder_id.clone(), placeholder_id);
+            }
+
+            for kid in self.children.values_mut() {
+                kid.compile(depth + 1, 0, be_class, node_set, state);
+            }
+        }
+    }
+
+    /// Normalize situations for nodes which lack a symbol id so that we create
+    /// a synthetic id which can be used as a node id and return the string
+    /// representation of the symbol, if any.
+    pub fn derive_id(
+        &self,
+        node_set: &SymbolGraphNodeSet,
+        state: &mut HierarchicalRenderState,
+    ) -> (String, Option<(SymbolGraphNodeId, String)>) {
+        // XXX for now use at most one symbol, but the intent here is we could
+        // potentially be clever with multiple symbols here.
+        if self.symbols.len() >= 1 {
+            let sym_info = node_set.get(&self.symbols[0]);
+            (
+                sym_info.symbol.to_string(),
+                Some((self.symbols[0].clone(), sym_info.symbol.to_string())),
+            )
+        } else {
+            (state.issue_new_synthetic_id(), None)
+        }
+    }
+
+    pub fn render(
+        &self,
+        node_set: &SymbolGraphNodeSet,
+        state: &mut HierarchicalRenderState,
+    ) -> Vec<Stmt> {
+        let action = match &self.action {
+            Some(a) => a,
+            None => {
+                return vec![];
+            }
+        };
+
+        let mut result = vec![];
+        match action {
+            // Collapse ends up looking the same as flatten.
+            HierarchicalLayoutAction::Flatten => {
+                // provide the default settings here in the root too
+                // XXX eh, maybe too hacky...
+                result.push(stmt!(node!("graph"; attr!("fontname", esc "Courier New"), attr!("fontsize", "12"))));
+                result.push(stmt!(node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))));
+                for kid in self.children.values() {
+                    result.extend(kid.render(node_set, state));
+                }
+            }
+            HierarchicalLayoutAction::Collapse => {
+                for kid in self.children.values() {
+                    result.extend(kid.render(node_set, state));
+                }
+            }
+            HierarchicalLayoutAction::Cluster(cluster_id, placeholder_id) => {
+                let mut sg = subgraph!(esc cluster_id; attr!("cluster", "true"), attr!("label", esc self.display_name));
+                sg.stmts.push(stmt!(
+                    node!(esc placeholder_id; attr!("shape", "point"), attr!("style", "invis"))
+                ));
+
+                for kid in self.children.values() {
+                    sg.stmts.extend(kid.render(node_set, state));
+                }
+
+                result.push(stmt!(sg));
+            }
+            HierarchicalLayoutAction::Table(node_id) => {
+                let mut table = LabelTable {
+                    rows: vec![],
+                    columns_needed: 0,
+                };
+
+                table.rows.push(LabelRow {
+                    cells: vec![LabelCell {
+                        contents: format!("<b>{}</b>", self.display_name),
+                        symbol: node_id.clone(),
+                        port: node_id.clone(),
+                        indent_level: 0,
+                    }],
+                });
+
+                let mut kid_edges = vec![];
+                for kid in self.children.values() {
+                    if let Some(HierarchicalLayoutAction::Record(kid_port_name)) = &kid.action {
+                        table.rows.push(LabelRow {
+                            cells: vec![LabelCell {
+                                contents: kid.display_name.clone(),
+                                symbol: kid_port_name.clone(),
+                                port: kid_port_name.clone(),
+                                indent_level: 1,
+                            }],
+                        });
+
+                        for (from_id, to_id) in &kid.edges {
+                            if let Some((from_node, to_node)) = state.lookup_edge(from_id, to_id) {
+                                kid_edges.push(stmt!(edge!(from_node => to_node)));
+                            }
+                        }
+                    }
+                }
+
+                table.compile();
+                let table_html = table.render();
+
+                let node = node!(esc node_id; attr!("label", html table_html));
+                result.push(stmt!(node));
+
+                result.extend(kid_edges);
+            }
+            HierarchicalLayoutAction::Record(_) => {
+                // Records will be handled by their parent table.
+            }
+            HierarchicalLayoutAction::Node(node_id) => {
+                result.push(stmt!(
+                    node!(esc node_id; attr!("label", esc self.display_name))
+                ));
+            }
+        }
+
+        for (from_id, to_id) in &self.edges {
+            if let Some((from_node, to_node)) = state.lookup_edge(from_id, to_id) {
+                result.push(stmt!(edge!(from_node => to_node)));
+            }
+        }
+
+        result
+    }
+}
+
+pub struct HierarchicalRenderState {
+    next_synthetic_id: u32,
+    /// Maps the SymbolGraphNodeId to (in-edge id, out-edge-id)
+    sym_to_edges: HashMap<u32, (NodeId, NodeId)>,
+}
+
+impl HierarchicalRenderState {
+    pub fn issue_new_synthetic_id(&mut self) -> String {
+        let use_id = self.next_synthetic_id;
+        self.next_synthetic_id += 1;
+        format!("SYN_{}", use_id)
+    }
+
+    pub fn register_symbol_edge_targets(
+        &mut self,
+        sym_id: &SymbolGraphNodeId,
+        in_target: NodeId,
+        out_target: NodeId,
+    ) {
+        self.sym_to_edges.insert(sym_id.0, (in_target, out_target));
+    }
+
+    pub fn lookup_edge(
+        &self,
+        from_id: &SymbolGraphNodeId,
+        to_id: &SymbolGraphNodeId,
+    ) -> Option<(NodeId, NodeId)> {
+        let from_id = match self.sym_to_edges.get(&from_id.0) {
+            Some((_, out_target)) => out_target.clone(),
+            _ => {
+                return None;
+            }
+        };
+
+        match self.sym_to_edges.get(&to_id.0) {
+            Some((in_target, _)) => Some((from_id, in_target.clone())),
+            _ => None,
+        }
     }
 }
 

@@ -1,1 +1,1 @@
-search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --format=svg
+search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --format=svg --mode=flat
