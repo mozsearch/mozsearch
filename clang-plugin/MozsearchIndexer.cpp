@@ -1982,6 +1982,26 @@ public:
     return true;
   }
 
+  bool VisitOverloadExpr(OverloadExpr *E) {
+    SourceLocation Loc = E->getExprLoc();
+    normalizeLocation(&Loc);
+    if (!isInterestingLocation(Loc)) {
+      return true;
+    }
+
+    for (auto *Candidate : E->decls()) {
+      if (TemplateDecl *TD = dyn_cast<TemplateDecl>(Candidate)) {
+        Candidate = TD->getTemplatedDecl();
+      }
+      if (FunctionDecl *F = dyn_cast<FunctionDecl>(Candidate)) {
+        std::string Mangled = getMangledName(CurMangleContext, F);
+        visitIdentifier("use", "function", getQualifiedName(F), Loc, Mangled,
+                        F->getType(), getContext(Loc));
+      }
+    }
+    return true;
+  }
+
   bool VisitCXXDependentScopeMemberExpr(CXXDependentScopeMemberExpr *E) {
     SourceLocation Loc = E->getMemberLoc();
     normalizeLocation(&Loc);

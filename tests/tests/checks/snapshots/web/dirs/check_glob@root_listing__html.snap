@@ -189,6 +189,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/bug1781178.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1781178.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1781178.cpp" title=""></td>
+          <td><a href="/tests/source/bug1781178.cpp">245</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/build.rs" class="mimetype-fixed-container mimetype-icon-rs">build.rs</a></td>
           <td class="description"><a href="/tests/source/build.rs" title=""></td>
           <td><a href="/tests/source/build.rs">337</a></td>
