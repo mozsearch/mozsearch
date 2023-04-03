@@ -3,6 +3,7 @@ source: tests/test_check_insta.rs
 expression: "&fb.contents"
 ---
 digraph g {
+    concentrate=true
     graph[fontname="Courier New",fontsize=12]
     node[shape=box,fontname="Courier New",fontsize=10]
     subgraph "NS_outerNS" {
@@ -20,7 +21,7 @@ digraph g {
         "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" 
         "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" 
         "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" 
-        "T_outerNS::Thing"[label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td colspan="2" href="T_outerNS::Thing" port="T_outerNS::Thing"><b>Thing</b></td></tr><tr><td colspan="1" width="4"></td><td colspan="1" href="_ZN7outerNS5Thing10takeDamageEi" port="_ZN7outerNS5Thing10takeDamageEi">takeDamage</td></tr></table>>]
+        "T_outerNS::Thing"[shape=none,label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td href="T_outerNS::Thing" port="T_outerNS::Thing" align="left"><b>Thing</b></td></tr><tr><td href="_ZN7outerNS5Thing10takeDamageEi" port="_ZN7outerNS5Thing10takeDamageEi" align="left">&nbsp;takeDamage</td></tr></table>>]
     }
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE" -> "T_outerNS::Thing":"_ZN7outerNS5Thing10takeDamageEi":w 
 }

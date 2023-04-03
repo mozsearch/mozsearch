@@ -1,0 +1,5 @@
+{% for graph in results.SymbolGraphCollection.hierarchicalGraphs %}
+<pre>
+{{ graph | json }}
+</pre>
+{% endfor %}

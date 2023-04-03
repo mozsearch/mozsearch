@@ -1,0 +1,1 @@
+search-identifiers outerNS::Thing::takeDamage | crossref-lookup | traverse --edge=uses | graph --format=json --mode=hier

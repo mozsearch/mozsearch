@@ -10,7 +10,7 @@ use petgraph::{
 };
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use serde_json::{json, Value};
+use serde_json::{json, Value, to_value};
 use tracing::trace;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -170,9 +170,15 @@ impl Serialize for SymbolGraphCollection {
             graphs.push(self.graph_to_json(i));
         }
 
+        let mut hierarchical_graphs = vec![];
+        for i in 0..self.hierarchical_graphs.len() {
+            hierarchical_graphs.push(self.hier_graph_to_json(i));
+        }
+
         let mut sgc = serializer.serialize_struct("SymbolGraphCollection", 2)?;
         sgc.serialize_field("jumprefs", &self.symbols_meta_to_jumpref_json_nomut())?;
         sgc.serialize_field("graphs", &graphs)?;
+        sgc.serialize_field("hierarchicalGraphs", &hierarchical_graphs)?;
         sgc.end()
     }
 }
@@ -259,6 +265,20 @@ impl SymbolGraphCollection {
         })
     }
 
+    /// Convert the graph with the given index to a { nodes, edges } rep where:
+    ///
+    /// - nodes is a sorted array of symbol strings.
+    /// - edges is a sorted array of { from, to } where from/to are symbol
+    ///   strings and the sort is over [from, to]
+    pub fn hier_graph_to_json(&self, graph_idx: usize) -> Value {
+        let graph = match self.hierarchical_graphs.get(graph_idx) {
+            Some(g) => g,
+            None => return json!({}),
+        };
+
+        graph.root.to_json(&self.node_set)
+    }
+
     /// Convert the graph with the given index to a graphviz rep.
     pub fn graph_to_graphviz<F>(&self, graph_idx: usize, node_decorate: F) -> Graph
     where
@@ -306,15 +326,7 @@ impl SymbolGraphCollection {
     }
 
     pub fn to_json(&self) -> Value {
-        let mut graphs = vec![];
-        for i in 0..self.graphs.len() {
-            graphs.push(self.graph_to_json(i));
-        }
-
-        json!({
-            "jumprefs": self.symbols_meta_to_jumpref_json_nomut(),
-            "graphs": graphs,
-        })
+        to_value(self).unwrap()
     }
 
     pub async fn derive_hierarchical_graph(
@@ -428,7 +440,7 @@ impl SymbolGraphCollection {
                 return graph!(
                     di id!("g");
                     node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))
-                )
+                );
             }
         };
 
@@ -441,6 +453,7 @@ impl SymbolGraphCollection {
         let dot_graph = Graph::DiGraph {
             id: id!("g"),
             strict: false,
+            // Note that the root node renders the default style directives.
             stmts: graph.root.render(&self.node_set, &mut state),
         };
 
@@ -584,21 +597,13 @@ impl LabelRow {
         columns
     }
 
-    pub fn render(&self, column_count: u32) -> String {
+    pub fn render(&self, _column_count: u32) -> String {
         let mut row_pieces = vec![];
         for cell in &self.cells {
-            let pad_cols = cell.indent_level;
-            let use_cols = column_count - pad_cols;
-            if pad_cols > 0 {
-                row_pieces.push(format!(
-                    r#"<td colspan="{}" width="{}"></td>"#,
-                    pad_cols,
-                    pad_cols * 4
-                ));
-            }
+            let indent_str = "&nbsp;".repeat(cell.indent_level as usize);
             row_pieces.push(format!(
-                r#"<td colspan="{}" href="{}" port="{}">{}</td>"#,
-                use_cols, cell.symbol, cell.port, cell.contents
+                r#"<td href="{}" port="{}" align="left">{}{}</td>"#,
+                cell.symbol, cell.port, indent_str, cell.contents
             ));
         }
         format!("<tr>{}</tr>", row_pieces.join(""))
@@ -699,6 +704,73 @@ pub struct HierarchicalNode {
 }
 
 impl HierarchicalNode {
+    pub fn to_json(&self, node_set: &SymbolGraphNodeSet) -> Value {
+        let symbols: Vec<Ustr> = self
+            .symbols
+            .iter()
+            .map(|id| node_set.get(id).symbol.clone())
+            .collect();
+        let action = match &self.action {
+            None => Value::Null,
+            Some(HierarchicalLayoutAction::Flatten) => json!({
+                "layoutAction": "flatten",
+            }),
+            Some(HierarchicalLayoutAction::Collapse) => json!({
+                "layoutAction": "collapse",
+            }),
+            Some(HierarchicalLayoutAction::Cluster(cluster_id, placeholder_id)) => {
+                json!({
+                    "layoutAction": "cluster",
+                    "clusterId": cluster_id,
+                    "placeholderId": placeholder_id,
+                })
+            }
+            Some(HierarchicalLayoutAction::Table(node_id)) => {
+                json!({
+                    "layoutAction": "table",
+                    "nodeId": node_id,
+                })
+            }
+            Some(HierarchicalLayoutAction::Record(port_name)) => {
+                json!({
+                    "layoutAction": "record",
+                    "portName": port_name,
+                })
+            }
+            Some(HierarchicalLayoutAction::Node(node_id)) => {
+                json!({
+                    "layoutAction": "node",
+                    "nodeId": node_id,
+                })
+            }
+        };
+        let children: Vec<Value> = self
+            .children
+            .values()
+            .map(|kid| kid.to_json(&node_set))
+            .collect();
+        let edges: Vec<Value> = self
+            .edges
+            .iter()
+            .map(|(from_id, to_id)| {
+                json!({
+                    "from": node_set.get(from_id).symbol.clone(),
+                    "to": node_set.get(to_id).symbol.clone(),
+                })
+            })
+            .collect();
+        json!({
+            "segment": self.segment.to_human_readable(),
+            "displayName": self.display_name,
+            "height": self.height,
+            "symbols": symbols,
+            "action": action,
+            "children": children,
+            "edges": edges,
+            "descendantEdgeCount": self.descendant_edge_count,
+        })
+    }
+
     /// Recursively traverse child nodes, creating them as needed, in order to
     /// place symbols and create hierarchy as a byproduct.
     pub fn place_sym(
@@ -915,8 +987,10 @@ impl HierarchicalNode {
             // Collapse ends up looking the same as flatten.
             HierarchicalLayoutAction::Flatten => {
                 // provide the default settings here in the root too
-                // XXX eh, maybe too hacky...
-                result.push(stmt!(node!("graph"; attr!("fontname", esc "Courier New"), attr!("fontsize", "12"))));
+                result.push(stmt!(attr!("concentrate", "true")));
+                result.push(stmt!(
+                    node!("graph"; attr!("fontname", esc "Courier New"), attr!("fontsize", "12"))
+                ));
                 result.push(stmt!(node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))));
                 for kid in self.children.values() {
                     result.extend(kid.render(node_set, state));
@@ -977,7 +1051,8 @@ impl HierarchicalNode {
                 table.compile();
                 let table_html = table.render();
 
-                let node = node!(esc node_id; attr!("label", html table_html));
+                let node =
+                    node!(esc node_id; attr!("shape", "none"), attr!("label", html table_html));
                 result.push(stmt!(node));
 
                 result.extend(kid_edges);

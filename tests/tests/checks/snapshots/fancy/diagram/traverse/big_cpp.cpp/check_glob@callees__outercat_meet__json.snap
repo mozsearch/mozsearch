@@ -644,5 +644,6 @@ expression: sgc.to_json()
         }
       ]
     }
-  ]
+  ],
+  "hierarchicalGraphs": []
 }
