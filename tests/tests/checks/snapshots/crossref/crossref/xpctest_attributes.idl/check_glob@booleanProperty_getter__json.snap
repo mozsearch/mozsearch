@@ -50,6 +50,7 @@ expression: "&to_value(scil).unwrap()"
           "sym": "_ZN25nsIXPCTestObjectReadWrite18GetBooleanPropertyEPb",
           "type_pretty": null,
           "kind": "method",
+          "subsystem": null,
           "parentsym": "T_nsIXPCTestObjectReadWrite",
           "slotOwner": {
             "slotKind": "getter",

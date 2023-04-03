@@ -31,6 +31,7 @@ expression: "&to_value(scil).unwrap()"
           "sym": "S_jvm_sample/JavaLibrary#C#",
           "type_pretty": null,
           "kind": "class",
+          "subsystem": null,
           "parentsym": "S_jvm_sample/JavaLibrary#",
           "implKind": "impl",
           "sizeBytes": null,

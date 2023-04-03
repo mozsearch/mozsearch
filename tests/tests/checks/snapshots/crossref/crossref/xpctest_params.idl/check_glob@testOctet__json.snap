@@ -31,6 +31,7 @@ expression: "&to_value(scil).unwrap()"
           "sym": "XPIDL_nsIXPCTestParams_testOctet",
           "type_pretty": null,
           "kind": "method",
+          "subsystem": null,
           "implKind": "idl",
           "sizeBytes": null,
           "bindingSlots": [
@@ -109,6 +110,7 @@ expression: "&to_value(scil).unwrap()"
           "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
           "type_pretty": null,
           "kind": "method",
+          "subsystem": null,
           "parentsym": "T_nsIXPCTestParams",
           "slotOwner": {
             "slotKind": "method",

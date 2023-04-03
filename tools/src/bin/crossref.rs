@@ -348,6 +348,8 @@ async fn main() {
             }
         }
 
+        let concise_info = ingestion.state.concise_per_file.get(path);
+
         let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
         for datum in structured_analysis {
             // pieces are all `AnalysisStructured` instances that were generated alongside source
@@ -369,6 +371,10 @@ async fn main() {
                     }
                     if let Some(slot_info) = piece.slot_owner.take() {
                         xref_link_slots.insert((slot_info.sym, piece.sym), slot_info.props);
+                    }
+
+                    if let Some(concise) = concise_info {
+                        piece.subsystem = concise.subsystem.clone();
                     }
 
                     piece

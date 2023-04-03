@@ -882,10 +882,15 @@ impl HierarchicalNode {
             for kid in self.children.values_mut() {
                 kid.compile(depth + 1, collapsed_ancestors, be_class, node_set, state);
             }
-        } else if self.edges.len() > 0 {
+        } else if self.edges.len() > 0 && self.children.len() > 0 {
             // If there are edges at this level, it does not make sense to be a
             // table because the self-edges end up quite gratuitous.  (The edges
             // vec only contains edges among our immediate children.)
+            //
+            // The exception is that if the edge is just a self-edge, then
+            // there's no need to make this a cluster.  This can happen for
+            // overloaded methods where we collapse them to a single graphviz
+            // node but one variant of the function calls the other variant.
             be_cluster = true;
         } else if be_class && self.descendant_edge_count < 5 && self.height == 1 {
             // If the number of internal edges are low and we've reached a class AND
