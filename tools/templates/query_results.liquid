@@ -8,6 +8,8 @@
             {% include 'query_results/rb_root.liquid' %}
           {% when "GraphResultsBundle" %}
             {% include 'query_results/graph_root.liquid' %}
+          {% when "SymbolGraphCollection" %}
+            {% include 'query_results/graph_collection_root.liquid' %}
           {% when "TextFile" %}
             {% include 'query_results/text_file_root.liquid' %}
         {% else %}

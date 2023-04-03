@@ -40,6 +40,11 @@ args.paths-between = true
 command = "graph"
 args.colorize-callees = "$0"
 
+[term.graph-debug]
+[[term.graph-debug.group.graph-render]]
+command = "graph"
+args.debug = true
+
 # This includes the search and crossref-lookup stages to avoid ordering issues
 # for `depth:N calls-to:FOO` but maybe this should be handled by letting a
 # precedence be set on the depth to defer it.

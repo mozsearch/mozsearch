@@ -18,6 +18,8 @@ use crate::abstract_server::{AbstractServer, Result};
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum GraphFormat {
+    // JSON format, useful for when GraphMode is Hier.
+    Json,
     // Raw dot syntax without any layout performed.
     RawDot,
     SVG,
@@ -45,6 +47,15 @@ pub struct Graph {
 
     #[clap(long, short, value_parser, value_enum, default_value = "hier")]
     pub mode: GraphMode,
+
+    /// Enable debug mode which currently means forcing the format to be Json.
+    /// This is currently structured this way because this is intended to be
+    /// used as a flag translated by `query_core.toml` and we avoid problems
+    /// where the default format argument created by the pipelien fights a user
+    /// controlled value.  But it also makes sense to have this debug flag be
+    /// something explicit and for the explicit use of the query syntax.
+    #[clap(long, value_parser)]
+    pub debug: bool,
 
     #[clap(long, value_parser)]
     pub colorize_callees: Vec<String>,
@@ -218,7 +229,15 @@ impl PipelineCommand for GraphCommand {
                 contents: raw_dot_str,
             }));
         }
-        let (format, mime_type) = match self.args.format {
+
+        // Currently our debug mode is to just force ourselves to render the graph
+        // as JSON.
+        let use_format = match (self.args.debug, &self.args.format) {
+            (true, _) => GraphFormat::Json,
+            (_, format) => format.clone()
+        };
+
+        let (format, mime_type) = match &use_format {
             GraphFormat::SVG | GraphFormat::Mozsearch => (Format::Svg, "image/svg+xml".to_string()),
             GraphFormat::PNG => (Format::Png, "image/png".to_string()),
             _ => (Format::Dot, "text/x-dot".to_string()),
@@ -228,7 +247,10 @@ impl PipelineCommand for GraphCommand {
             &mut PrinterContext::default(),
             vec![CommandArg::Format(format)],
         )?;
-        match self.args.format {
+        match use_format {
+            GraphFormat::Json => {
+                Ok(PipelineValues::SymbolGraphCollection(graphs))
+            }
             GraphFormat::Mozsearch => Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
                 graphs: vec![RenderedGraph {
                     graph: transform_svg(&graph_contents),
