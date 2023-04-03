@@ -370,7 +370,11 @@ impl SymbolGraphCollection {
                     format!("{}::{}", pretty_so_far, piece)
                 };
                 let ustr_so_far = ustr(&pretty_so_far);
-                if checked_pretties.insert(ustr_so_far) {
+
+                // If this is a partial pretty, then we only need to perform a lookup
+                // for it once, but if it's a full pretty then we need to process it
+                // because overloads exist (and have the same pretty)!
+                if sym_pretty == pretty_so_far || checked_pretties.insert(ustr_so_far) {
                     // We haven't checked this before, so process it.
 
                     // See if we can find a symbol for this identifier.
@@ -898,20 +902,18 @@ impl HierarchicalNode {
             //
             // Note that the prototype never dealt with that more complex table
             // case, it just had a comment noting the weirdness possible.
-            let (parent_id_str, parent_info) = self.derive_id(node_set, state);
-            if let Some((parent_graph_id, parent_sym)) = parent_info {
-                let in_target = node_id!(esc parent_id_str, port!(id!(esc parent_sym), "w"));
-                let out_target = node_id!(esc parent_id_str, port!(id!(esc parent_sym), "e"));
-                state.register_symbol_edge_targets(&parent_graph_id, in_target, out_target);
+            let parent_id_str = self.derive_id(node_set, state);
+            {
+                let in_target = node_id!(esc parent_id_str, port!(id!(esc parent_id_str), "w"));
+                let out_target = node_id!(esc parent_id_str, port!(id!(esc parent_id_str), "e"));
+                state.register_symbol_edge_targets(&self.symbols, in_target, out_target);
             }
 
             for kid in self.children.values_mut() {
-                let (kid_id_str, kid_info) = kid.derive_id(node_set, state);
-                if let Some((kid_graph_id, _)) = kid_info {
-                    let in_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "w"));
-                    let out_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "e"));
-                    state.register_symbol_edge_targets(&kid_graph_id, in_target, out_target)
-                }
+                let kid_id_str = kid.derive_id(node_set, state);
+                let in_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "w"));
+                let out_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "e"));
+                state.register_symbol_edge_targets(&kid.symbols, in_target, out_target);
                 kid.action = Some(HierarchicalLayoutAction::Record(kid_id_str));
             }
             self.action = Some(HierarchicalLayoutAction::Table(parent_id_str));
@@ -919,17 +921,15 @@ impl HierarchicalNode {
             // If there are kids, we want to be a cluster after all.
             be_cluster = true;
         } else {
-            let (node_id_str, maybe_sym_info) = self.derive_id(node_set, state);
-            if let Some((graph_id, _)) = maybe_sym_info {
-                let id = node_id!(esc node_id_str);
-                state.register_symbol_edge_targets(&graph_id, id.clone(), id);
-            }
+            let node_id_str = self.derive_id(node_set, state);
+            let id = node_id!(esc node_id_str);
+            state.register_symbol_edge_targets(&self.symbols, id.clone(), id);
             self.action = Some(HierarchicalLayoutAction::Node(node_id_str));
         }
 
         if be_cluster {
             let placeholder_id_str = state.issue_new_synthetic_id();
-            let (cluster_id, maybe_sym_info) = self.derive_id(node_set, state);
+            let cluster_id = self.derive_id(node_set, state);
             let placeholder_id = node_id!(esc placeholder_id_str);
 
             self.action = Some(HierarchicalLayoutAction::Cluster(
@@ -939,9 +939,7 @@ impl HierarchicalNode {
 
             // XXX The use of a placeholder is from the prototype; need to
             // understand and document the approach more.
-            if let Some((sym_id, _)) = maybe_sym_info {
-                state.register_symbol_edge_targets(&sym_id, placeholder_id.clone(), placeholder_id);
-            }
+            state.register_symbol_edge_targets(&self.symbols, placeholder_id.clone(), placeholder_id);
 
             for kid in self.children.values_mut() {
                 kid.compile(depth + 1, 0, be_class, node_set, state);
@@ -952,21 +950,20 @@ impl HierarchicalNode {
     /// Normalize situations for nodes which lack a symbol id so that we create
     /// a synthetic id which can be used as a node id and return the string
     /// representation of the symbol, if any.
+    ///
+    /// Returns the String to use as the node id in the graphviz graph.  For
+    /// nodes that have backing symbols, this will be all of the symbols joined
+    /// with commas because data-symbols will do the right thing
+    /// post-transformation.
     pub fn derive_id(
         &self,
         node_set: &SymbolGraphNodeSet,
         state: &mut HierarchicalRenderState,
-    ) -> (String, Option<(SymbolGraphNodeId, String)>) {
-        // XXX for now use at most one symbol, but the intent here is we could
-        // potentially be clever with multiple symbols here.
+    ) -> String {
         if self.symbols.len() >= 1 {
-            let sym_info = node_set.get(&self.symbols[0]);
-            (
-                sym_info.symbol.to_string(),
-                Some((self.symbols[0].clone(), sym_info.symbol.to_string())),
-            )
+            self.symbols.iter().map(|sym_id| node_set.get(sym_id).symbol.clone()).join(",")
         } else {
-            (state.issue_new_synthetic_id(), None)
+            state.issue_new_synthetic_id()
         }
     }
 
@@ -1092,11 +1089,13 @@ impl HierarchicalRenderState {
 
     pub fn register_symbol_edge_targets(
         &mut self,
-        sym_id: &SymbolGraphNodeId,
+        sym_ids: &Vec<SymbolGraphNodeId>,
         in_target: NodeId,
         out_target: NodeId,
     ) {
-        self.sym_to_edges.insert(sym_id.0, (in_target, out_target));
+        for sym_id in sym_ids {
+            self.sym_to_edges.insert(sym_id.0, (in_target.clone(), out_target.clone()));
+        }
     }
 
     pub fn lookup_edge(
