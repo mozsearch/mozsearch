@@ -323,6 +323,9 @@ pub struct AnalysisStructured {
     pub type_pretty: Option<Ustr>,
     #[serde(default)]
     pub kind: Ustr,
+    // Comes from the ConcisePerFileInfo where the structured record was found.
+    #[serde(default)]
+    pub subsystem: Option<Ustr>,
 
     #[serde(rename = "parentsym", skip_serializing_if = "Option::is_none")]
     pub parent_sym: Option<Ustr>,

@@ -14,6 +14,7 @@ expression: "&to_value(jvl).unwrap()"
           "sym": "S_rs_Loader#needs_hard_reload().",
           "type_pretty": "fn needs_hard_reload(&self, _: &Path) -> bool",
           "kind": "method",
+          "subsystem": "Core/Simple",
           "parentsym": "S_rs_Loader#",
           "implKind": "impl",
           "sizeBytes": null,

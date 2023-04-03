@@ -65,6 +65,7 @@ expression: "&to_value(scil).unwrap()"
           "sym": "S_jvm_sample/JavaLibrary#<init>().",
           "type_pretty": null,
           "kind": "method",
+          "subsystem": null,
           "parentsym": "S_jvm_sample/JavaLibrary#",
           "implKind": "impl",
           "sizeBytes": null,

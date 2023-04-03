@@ -162,6 +162,7 @@ expression: "&to_value(scil).unwrap()"
           "sym": "T_outerNS::Thing",
           "type_pretty": null,
           "kind": "class",
+          "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
