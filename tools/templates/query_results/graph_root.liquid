@@ -2,7 +2,7 @@
 <h3>Limits Hit:</h3>
 <ul>
   {%- for overload in results.GraphResultsBundle.overloads_hit -%}
-  <li>{{ overload.kind }}: {{ overload.exist }} exist, {{ overload.included }} included.
+  <li>{{overload.sym}}: {{ overload.kind }}: {{ overload.exist }} exist, {{ overload.included }} included.
   {%- if overload.local_limit > 0 %} Local limit: {{ overload.local_limit }}{% endif -%}
   {%- if overload.global_limit > 0 %} Global limit: {{ overload.global_limit }}{% endif -%}
   </li>
