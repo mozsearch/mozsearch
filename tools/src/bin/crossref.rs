@@ -8,9 +8,8 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
 
-extern crate env_logger;
 #[macro_use]
-extern crate log;
+extern crate tracing;
 
 extern crate clap;
 use clap::Parser;
@@ -24,6 +23,7 @@ use tools::file_format::ontology_mapping::OntologyMappingIngestion;
 use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
+use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
 use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
 use tools::{
     file_format::analysis::{
@@ -415,11 +415,16 @@ async fn main() {
     }
 
     // ## Process Ontology rules
+    let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
+
     let ontology_toml_str = cfg.read_tree_config_file_with_default("ontology-mapping.toml").unwrap();
     let ontology = OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues");
 
+    info!("Parsed ontology-mapping.toml, processing now.");
+
     for (pretty_id, rule) in ontology.config.pretty.iter() {
         if rule.runnable {
+            info!(" Processing pretty rule for: {}", pretty_id);
             if let Some(root_method_syms) = id_table.get(&pretty_id) {
                 // The list of symbols to process for the runnable relationship.
                 // We process the root syms to find their descendants, but we
@@ -429,18 +434,22 @@ async fn main() {
                 let mut pending_method_syms = vec![];
                 for sym in root_method_syms {
                     if let Some(sym_meta) = meta_table.get(&sym) {
-                        for over in &sym_meta.overrides {
-                            pending_method_syms.push(over.sym);
+                        for over in &sym_meta.overridden_by_syms {
+                            pending_method_syms.push(over.clone());
                         }
                     }
                 }
 
+                info!("  found {} initial method syms", pending_method_syms.len());
+
                 // (this is LIFO traversal, which is fine for us)
                 while let Some(method_sym) = pending_method_syms.pop() {
+                    info!("  processing method sym: {}", method_sym);
+
                     // use the method to find its owning class
                     let class_sym = if let Some(method_meta) = meta_table.get(&method_sym) {
-                        for over in &method_meta.overrides {
-                            pending_method_syms.push(over.sym);
+                        for over in &method_meta.overridden_by_syms {
+                            pending_method_syms.push(over.clone());
                         }
 
                         match method_meta.parent_sym {
@@ -450,6 +459,8 @@ async fn main() {
                     } else {
                         continue;
                     };
+
+                    info!("  found class sym: {}", class_sym);
 
                     // ### use the class to find its constructors
                     let constructor_syms = if let Some(class_meta) = meta_table.get(&class_sym) {
@@ -467,6 +478,8 @@ async fn main() {
                     } else {
                         continue;
                     };
+
+                    info!("  found constructor syms: {:?}", constructor_syms);
 
                     // ### mutate each of the constructors to have the ontology slot
                     for con_sym in &constructor_syms {
@@ -493,6 +506,23 @@ async fn main() {
             }
         }
     }
+
+    // Consume the ontology logged span, pass it through our ontology-ingestion
+    // explainer template, and write it do sik.
+    {
+        let ingestion_json = logged_ontology_span.retrieve_serde_json().await;
+        let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
+        let ingestion_diag_path = format!("{}/ontology_ingestion.md", crossref_diag_dir);
+        create_dir_all(crossref_diag_dir).unwrap();
+
+        let globals = liquid::object!({
+            "logs": vec![ingestion_json],
+        });
+        let explain_template = build_and_parse_ontology_ingestion_explainer();
+        let output = explain_template.render(&globals).unwrap();
+        std::fs::write(ingestion_diag_path, output).unwrap();
+    }
+
 
     // ## Write out the crossref and jumpref databases.
     let mut xref_out = File::create(xref_file).unwrap();

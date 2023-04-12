@@ -155,7 +155,10 @@ pub fn init_logging() {
                 layers.push(layer.boxed());
                 Registry::default()
                     .with(layers)
-                    .with(EnvFilter::new("tools=trace"))
+                    // This needs to be static, so I'm hackily currently just adding binaries
+                    // that call this method to the list, but it could make sense to do
+                    // something more clever with a macro, etc.
+                    .with(EnvFilter::new("crossref=trace,tools=trace"))
             })
             // set this up to run forever?
             .on(async {
