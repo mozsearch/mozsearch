@@ -37,6 +37,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": null,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [],
           "methods": [],
           "fields": [],

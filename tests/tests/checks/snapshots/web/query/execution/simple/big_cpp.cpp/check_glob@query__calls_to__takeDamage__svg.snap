@@ -30,6 +30,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": 16,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [
           {
             "sym": "T_outerNS::Thing",
@@ -166,6 +167,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": 16,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [
           {
@@ -283,6 +285,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -314,6 +317,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -341,6 +345,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -368,6 +373,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],

@@ -24,6 +24,7 @@ expression: sgc.to_json()
         "implKind": "",
         "sizeBytes": 16,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [
           {
             "sym": "T_outerNS::Thing",
@@ -160,6 +161,7 @@ expression: sgc.to_json()
         "implKind": "",
         "sizeBytes": 16,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [
           {
@@ -277,6 +279,7 @@ expression: sgc.to_json()
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -308,6 +311,7 @@ expression: sgc.to_json()
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -335,6 +339,7 @@ expression: sgc.to_json()
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -362,6 +367,7 @@ expression: sgc.to_json()
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],

@@ -53,6 +53,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [
             {
               "sym": "T_outerNS::Thing",
@@ -339,6 +340,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [],
           "methods": [
             {
@@ -545,6 +547,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [
             {
               "sym": "T_outerNS::Thing",
@@ -677,6 +680,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [
             {
               "sym": "T_outerNS::Thing",
@@ -798,6 +802,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [
             {
               "sym": "T_outerNS::Thing",
@@ -949,6 +954,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [
             {
               "sym": "T_outerNS::Human",
@@ -1069,6 +1075,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [
             {
               "sym": "T_outerNS::AbstractArt",

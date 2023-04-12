@@ -48,6 +48,7 @@ expression: "&to_value(scil).unwrap()"
               "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
             }
           ],
+          "ontologySlots": [],
           "supers": [],
           "methods": [],
           "fields": [],
@@ -121,6 +122,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": null,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [],
           "methods": [],
           "fields": [],

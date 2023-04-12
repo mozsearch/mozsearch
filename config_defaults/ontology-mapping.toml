@@ -1,0 +1,15 @@
+# ### Runnables ###
+#
+# The mappings here specify rules that annotate all descendant overrides of
+# virtual runnable methods so that when we encounter them in the crossref
+# process that we are able to generate `RunnableConstructor` slot edges to their
+# constructors and corresponding `RunnableMethod` slot edges back from the
+# constructors to the runnable methods.  These will be followed by the
+# "traverse" command instead of getting into the infrastructure boilerplate
+# around runnables.
+
+[pretty."notyet::nsIRunnable::Run"]
+runnable = true
+
+[pretty."notyet::mozilla::dom::WorkerRunnable::WorkerRun"]
+runnable = true

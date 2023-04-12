@@ -166,6 +166,7 @@ expression: "&to_value(scil).unwrap()"
           "implKind": "",
           "sizeBytes": 16,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [],
           "methods": [
             {
