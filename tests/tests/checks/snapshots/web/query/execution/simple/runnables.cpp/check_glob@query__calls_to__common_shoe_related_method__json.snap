@@ -445,7 +445,16 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
-        "ontologySlots": [],
+        "ontologySlots": [
+          {
+            "slotKind": "runnable_constructor",
+            "syms": [
+              "_ZN12ShoeRunnableC1Ev",
+              "_ZN12ShoeRunnableC1ERKS_",
+              "_ZN12ShoeRunnableC1EOS_"
+            ]
+          }
+        ],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -481,7 +490,16 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
-        "ontologySlots": [],
+        "ontologySlots": [
+          {
+            "slotKind": "runnable_constructor",
+            "syms": [
+              "_ZN14SandalRunnableC1Ev",
+              "_ZN14SandalRunnableC1ERKS_",
+              "_ZN14SandalRunnableC1EOS_"
+            ]
+          }
+        ],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -514,7 +532,16 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
-        "ontologySlots": [],
+        "ontologySlots": [
+          {
+            "slotKind": "runnable_constructor",
+            "syms": [
+              "_ZN16ShoelaceRunnableC1Ev",
+              "_ZN16ShoelaceRunnableC1ERKS_",
+              "_ZN16ShoelaceRunnableC1EOS_"
+            ]
+          }
+        ],
         "supers": [],
         "methods": [],
         "fields": [],

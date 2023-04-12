@@ -8,8 +8,8 @@
 # "traverse" command instead of getting into the infrastructure boilerplate
 # around runnables.
 
-[pretty."notyet::nsIRunnable::Run"]
+[pretty."nsIRunnable::Run"]
 runnable = true
 
-[pretty."notyet::mozilla::dom::WorkerRunnable::WorkerRun"]
+[pretty."mozilla::dom::WorkerRunnable::WorkerRun"]
 runnable = true
