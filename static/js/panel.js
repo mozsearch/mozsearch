@@ -38,7 +38,7 @@ var Panel = new (class Panel {
       block: {
         node: this.findItem("Code Block"),
         isEnabled: () => {
-          return Highlight?.selectedLines.size > 0;
+          return Highlighter?.selectedLines.size > 0;
         },
         getText: url => {
           const file = document.getElementById("file");
@@ -261,7 +261,7 @@ var Panel = new (class Panel {
       return lineText.substring(0, count);
     }
 
-    for (const line of [...Highlight.selectedLines].sort((a, b) => a - b)) {
+    for (const line of [...Highlighter.selectedLines].sort((a, b) => a - b)) {
       if (lastLine !== -1 && lastLine != line - 1) {
         lines.push(kPlaceholder);
       }

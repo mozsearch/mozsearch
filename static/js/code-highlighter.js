@@ -411,7 +411,7 @@ var Sticky = new (class Sticky {
   }
 })();
 
-var Highlight = new (class Highlight {
+var Highlighter = new (class Highlighter {
   constructor() {
     for (let line of document.querySelectorAll(".line-number")) {
       line.addEventListener("click", event => this.onLineNumberClick(event));
