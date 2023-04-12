@@ -23,6 +23,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": 1,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [
           {
@@ -90,6 +91,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": 1,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [
           {
@@ -157,6 +159,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": 1,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [
           {
@@ -216,6 +219,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": 1,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [
           {
@@ -284,6 +288,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -311,6 +316,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -338,6 +344,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -366,6 +373,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -394,6 +402,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -422,6 +431,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],
@@ -450,6 +460,7 @@ expression: "&to_value(grb).unwrap()"
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
+        "ontologySlots": [],
         "supers": [],
         "methods": [],
         "fields": [],

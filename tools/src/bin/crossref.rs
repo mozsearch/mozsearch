@@ -16,8 +16,11 @@ extern crate clap;
 use clap::Parser;
 use serde_json::{json, Map};
 extern crate tools;
+use tools::file_format::analysis::OntologySlotInfo;
+use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::config;
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
+use tools::file_format::ontology_mapping::OntologyMappingIngestion;
 use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
@@ -408,6 +411,86 @@ async fn main() {
                 sym: owner_sym,
                 props,
             });
+        }
+    }
+
+    // ## Process Ontology rules
+    let ontology_toml_str = cfg.read_tree_config_file_with_default("ontology-mapping.toml").unwrap();
+    let ontology = OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues");
+
+    for (pretty_id, rule) in ontology.config.pretty.iter() {
+        if rule.runnable {
+            if let Some(root_method_syms) = id_table.get(&pretty_id) {
+                // The list of symbols to process for the runnable relationship.
+                // We process the root syms to find their descendants, but we
+                // don't actually process the root symbols.  These pending syms
+                // will both be directly processed and have their children
+                // appended as well.
+                let mut pending_method_syms = vec![];
+                for sym in root_method_syms {
+                    if let Some(sym_meta) = meta_table.get(&sym) {
+                        for over in &sym_meta.overrides {
+                            pending_method_syms.push(over.sym);
+                        }
+                    }
+                }
+
+                // (this is LIFO traversal, which is fine for us)
+                while let Some(method_sym) = pending_method_syms.pop() {
+                    // use the method to find its owning class
+                    let class_sym = if let Some(method_meta) = meta_table.get(&method_sym) {
+                        for over in &method_meta.overrides {
+                            pending_method_syms.push(over.sym);
+                        }
+
+                        match method_meta.parent_sym {
+                            Some(p) => p,
+                            _ => continue,
+                        }
+                    } else {
+                        continue;
+                    };
+
+                    // ### use the class to find its constructors
+                    let constructor_syms = if let Some(class_meta) = meta_table.get(&class_sym) {
+                        let mut syms = vec![];
+                        let class_name = class_meta.pretty.rsplit("::").next().unwrap();
+                        // We expect the constructors to have the same name as the class; currently
+                        // for C++ we don't actually emit a special "props" "constructor" value.
+                        let constructor_pretty = ustr(&format!("{}::{}", class_meta.pretty, class_name));
+                        for method in &class_meta.methods {
+                            if method.pretty == constructor_pretty {
+                                syms.push(method.sym);
+                            }
+                        }
+                        syms
+                    } else {
+                        continue;
+                    };
+
+                    // ### mutate each of the constructors to have the ontology slot
+                    for con_sym in &constructor_syms {
+                        if let Some(con_meta) = meta_table.get_mut(&con_sym) {
+                            // XXX we could track precedence for runnable rules so that
+                            // we could remove lower precedence relationships here.  This
+                            // would be relevant for WorkerRunnable.
+
+                            con_meta.ontology_slots.push(OntologySlotInfo {
+                                slot_kind: OntologySlotKind::RunnableMethod,
+                                syms: vec![method_sym],
+                            });
+                        }
+                    }
+
+                    // ### mutate our method_sym to have the ontology slot to the constructors
+                    if let Some(method_meta) = meta_table.get_mut(&method_sym) {
+                        method_meta.ontology_slots.push(OntologySlotInfo {
+                            slot_kind: OntologySlotKind::RunnableConstructor,
+                            syms: constructor_syms,
+                        })
+                    }
+                }
+            }
         }
     }
 

@@ -297,6 +297,80 @@ pub struct StructuredBindingSlotInfo {
     pub sym: Ustr,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OntologySlotKind {
+    /// For methods like nsIRunnable::Run, any overrides will have this slot
+    /// which points at the constructors.  In the future this might be replaced
+    /// or accompanied by a `RunnableDispatch` kind.
+    ///
+    /// Constructors will have the reciprocal `RunnableMethod` slot.
+    ///
+    /// The `syms` payload will be the list of symbols for the constructors
+    /// for the immediate class.  We intentionally do not look up the superclass
+    /// chain here, but that would likely be a side effect if the Run method
+    /// calls its superclass run method.
+    RunnableConstructor,
+    /// For constructors of nsIRunnable/similar subclasses, this slot points at
+    /// the run methods which will reference this constructor and its siblings
+    /// via `RunnableConstructor`.
+    RunnableMethod,
+}
+
+/// Evolving mechanism that allows trees to define high-level semantics that
+/// allow eliding low-level implementation details in favor of expressing the
+/// emergent control or data flow as humans understand it.  In particular, we
+/// want simple annotations to provide a more useful understanding of the code
+/// that raw static analysis would not be able to infer, at least on the level
+/// we can currently implement it.
+///
+/// For example, nsIRunnable is a case where we know that overrides of the Run
+/// method result from the construction of a runnable followed by its dispatch.
+/// For now, we will just treat the creation of the runnable class as an implied
+/// call to its Run method, but in the future with some static analysis combined
+/// with limited symbolic execution, we could also track the code that hands
+/// the runnable off to a more generic dispatch system.  (In general a core goal
+/// is not to get tripped up by infrastructure code that touches everything.)
+///
+/// ### Ongoing Design Discussion
+///
+/// #### Locations / Existings Target Records
+///
+/// An question is how this mechanism should relate to target records which have
+/// location information.  Currently these slots don't have any location info,
+/// but effectively serve to repurpose existing records' symbols and contextsym.
+/// Arguably the edges we are introducing exclusively for graphing purposes
+/// should impact hit results in "search" style results.  For our current
+/// "runnable" use case, this is something we can reasonably map to how we
+/// handle subclasses/superclasses/overrides since we can straightforwardly map
+/// to the entire kind slot of the related symbols.
+///
+/// But for something like handling preferences or observer notifications where
+/// we are partitioning uses based on an argument, this would not be sufficient.
+/// We would need a way to filter those hits either through labeling we do ahead
+/// of time or that we can recompute on the fly from the `OntologySlotInfo` if
+/// we use this model.  An alternate approach for those cases would be to
+/// introduce synthetic symbols, which had been the hand-waving tentative plan
+/// but which did not address the logistical glue layer and the relationship
+/// between the low-level symbols versus the high-level symbols and hit results.
+///
+/// There is a spectrum in this space in terms of what low level symbols can be
+/// usefully faceted versus situations where the results would be so voluminous
+/// that normal faceting would likely be overwhelmed and there is an argument
+/// for a different UI paradigm and pre-computation.  For example, observer
+/// notifications have a sufficiently limited domain that faceting is
+/// appropriate, but for preferences the domain is so huge and the usage so
+/// extensive that a normal faceting UI would be of dubious utility because the
+/// user should probably just keep typing if they are interested in a specific
+/// preference.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OntologySlotInfo {
+    #[serde(rename = "slotKind")]
+    pub slot_kind: OntologySlotKind,
+    /// The symbols
+    pub syms: Vec<Ustr>,
+}
+
 /// The structured record type extracts out the necessary information to uniquely identify the
 /// symbol and what is required for cross-referencing's establishment of hierarchy/links.  The rest
 /// of the data in the JSON payload of the record (minus these fields) is re-encoded as a
@@ -340,6 +414,8 @@ pub struct AnalysisStructured {
 
     #[serde(rename = "bindingSlots", default)]
     pub binding_slots: Vec<StructuredBindingSlotInfo>,
+    #[serde(rename = "ontologySlots", default)]
+    pub ontology_slots: Vec<OntologySlotInfo>,
     #[serde(default)]
     pub supers: Vec<StructuredSuperInfo>,
     #[serde(default)]

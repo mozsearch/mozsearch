@@ -299,6 +299,11 @@ Raw record info.  These are attributes that will be found in the analysis files.
   - `slotLang`: See `BindingSlotLang`
   - `ownerLang`: See `BindingOwnerLang`
   - `sym`
+- `ontologySlots`: For semantics introduced via `ontology-mapping.toml`, an
+  array of `OntologySlotInfo`:
+  - `slotKind`: See `OntologySlotKind`
+  - `syms`: An array of target symbols.  Because of cases like
+    RunnableConstructor this needs to be a set and not just a singular sym.
 - `supers`: For class-like symbols, an array of:
   - `sym`: The searchfox symbol for this super.
   - `props`: An array of strings whose presence indicates a semantic attribute:

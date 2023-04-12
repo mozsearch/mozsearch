@@ -912,6 +912,7 @@ fn analyze_using_scip(
                         None
                     },
                     binding_slots: vec![],
+                    ontology_slots: vec![],
                     supers,
                     methods: vec![],
                     fields: vec![],
@@ -1132,6 +1133,7 @@ fn analyze_using_scip(
                         impl_kind: ustr("impl"),
                         size_bytes: None,
                         binding_slots: vec![],
+                        ontology_slots: vec![],
                         supers: vec![],
                         methods: vec![],
                         fields: vec![],

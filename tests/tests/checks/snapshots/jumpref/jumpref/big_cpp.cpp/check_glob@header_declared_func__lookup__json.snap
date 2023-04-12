@@ -18,6 +18,7 @@ expression: "&to_value(jvl).unwrap()"
           "implKind": "",
           "sizeBytes": null,
           "bindingSlots": [],
+          "ontologySlots": [],
           "supers": [],
           "methods": [],
           "fields": [],
