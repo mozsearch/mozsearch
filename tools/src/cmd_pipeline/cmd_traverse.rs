@@ -16,7 +16,7 @@ use super::{
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    file_format::analysis::{BindingSlotKind, StructuredBindingSlotInfo},
+    file_format::analysis::{BindingSlotKind, StructuredBindingSlotInfo, OntologySlotInfo, OntologySlotKind},
 };
 
 /// Processes piped-in crossref symbol data, recursively traversing the given
@@ -251,6 +251,46 @@ impl PipelineCommand for TraverseCommand {
                             to_traverse.push((idl_info.symbol.clone(), depth + 1));
                         }
                     }
+                }
+            }
+
+            // Check whether we have any ontology shortcuts to handle.
+            let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
+            if let Some(Value::Array(slots)) = sym_info.crossref_info.pointer("/meta/ontologySlots").cloned() {
+                let mut keep_going = true;
+                for slot_val in slots {
+                    let slot: OntologySlotInfo = from_value(slot_val).unwrap();
+                    let (should_traverse, upwards) = match slot.slot_kind {
+                        OntologySlotKind::RunnableConstructor => {
+                            (self.args.edge == "uses", true)
+                        }
+                        OntologySlotKind::RunnableMethod => {
+                            (self.args.edge == "callees", false)
+                        }
+                    };
+                    if should_traverse {
+                        for rel_sym in slot.syms {
+                            let (rel_id, _) = sym_node_set.ensure_symbol(&rel_sym, server).await?;
+                            if upwards {
+                                graph.add_edge(rel_id, sym_id.clone());
+                            } else {
+                                graph.add_edge(sym_id.clone(), rel_id);
+                            }
+                            if depth < max_depth && considered.insert(rel_sym.clone()) {
+                                trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
+                                to_traverse.push((rel_sym.clone(), depth + 1));
+                            }
+                        }
+                        // For the case of runnables the override hierarchy is arguably a
+                        // distraction from the fundamental control flow going on.
+                        //
+                        // TODO: Evaluate whether avoiding walking up the override edges is helpful
+                        // as implemented here.
+                        keep_going = false;
+                    }
+                }
+                if !keep_going {
+                    continue;
                 }
             }
 

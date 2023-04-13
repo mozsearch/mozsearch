@@ -470,7 +470,9 @@ async fn main() {
                         // for C++ we don't actually emit a special "props" "constructor" value.
                         let constructor_pretty = ustr(&format!("{}::{}", class_meta.pretty, class_name));
                         for method in &class_meta.methods {
-                            if method.pretty == constructor_pretty {
+                            // Skip constructors that aren't known; this can happen for the copy
+                            // constructor/etc.
+                            if method.pretty == constructor_pretty && table.contains_key(&method.sym){
                                 syms.push(method.sym);
                             }
                         }
