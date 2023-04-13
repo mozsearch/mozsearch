@@ -13,3 +13,9 @@ runnable = true
 
 [pretty."mozilla::dom::WorkerRunnable::WorkerRun"]
 runnable = true
+
+[pretty."mozilla::dom::WorkerMainThreadRunnable::MainThreadRun"]
+runnable = true
+
+[pretty."mozilla::dom::WorkerThreadProxySyncRunnable::RunOnMainThread"]
+runnable = true
