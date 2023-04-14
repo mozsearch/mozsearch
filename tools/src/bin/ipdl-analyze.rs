@@ -34,12 +34,6 @@ fn get_options_parser() -> Options {
         "DIR",
     );
     opts.reqopt(
-        "d",
-        "outheaders-dir",
-        "Directory into which C++ headers analysis data is location.",
-        "HDR_DIR",
-    );
-    opts.reqopt(
         "b",
         "base-input-prefix",
         "Base directory where IPDL input files are found.",
@@ -57,20 +51,13 @@ fn get_options_parser() -> Options {
         "List of source files, probably `repo-files`.",
         "FILES_LIST",
     );
+    opts.reqopt(
+        "o",
+        "objdir-list",
+        "List of generated/objdir files, probably `objdir-files`.",
+        "FILES_LIST",
+    );
     opts
-}
-
-/**
- * Derive where the auto-generated PFooParent.h/PFooChild.h files will show up.
- */
-fn header_file_name(outheaders_dir: &str, ns: &ast::Namespace, parent_or_child: &str) -> String {
-    format!(
-        "{}/{}/{}{}.h",
-        outheaders_dir,
-        ns.namespaces.clone().join("/"),
-        ns.name.id,
-        parent_or_child
-    )
 }
 
 fn load_file_list(filenames_file: &str) -> BTreeMap<String, String> {
@@ -268,10 +255,10 @@ fn main() {
         include_dirs.push(PathBuf::from(i))
     }
 
-    let outheaders_dir = matches.opt_str("d").unwrap();
     let base_dir = matches.opt_str("b").unwrap();
     let analysis_dir = matches.opt_str("a").unwrap();
-    let file_list_fname = matches.opt_str("f").unwrap();
+    let repo_file_list_fname = matches.opt_str("f").unwrap();
+    let objdir_file_list_fname = matches.opt_str("o").unwrap();
     let base_path = Path::new(&base_dir);
     let analysis_path = Path::new(&analysis_dir);
 
@@ -280,7 +267,8 @@ fn main() {
         file_names.push(PathBuf::from(f));
     }
 
-    let repo_files_map = load_file_list(&file_list_fname);
+    let repo_files_map = load_file_list(&repo_file_list_fname);
+    let objdir_files_map = load_file_list(&objdir_file_list_fname);
 
     let maybe_tus = parser::parse(&include_dirs, file_names);
 
@@ -341,27 +329,50 @@ fn main() {
             // It knows about all symbols, so the main issue is that it also really wants to know
             // the byproducts of this analysis.  One possibility is to support a type of record
             // that is linked/fixed-up by the crossref process.
+            //
+            // ### Platform variations resulting from preprocessed IPDL files
+            //
+            // Some IPDL files like PContent.ipdl are preprocessed which both means the IPDL parser
+            // has to deal with the existence of directives, but also that we need to deal with the
+            // merge logic being unable to unify the files.  Previously we use predicted path
+            // locations to find `PFoo{Parent,Child}.h`, but now we perform a lookup from the
+            // `objdir-files` list identically to how we use `repo-files` list for
+            // "Foo{Parent,Child}.h".
 
-            // Parent Analyses
-            let parent_fname = header_file_name(&outheaders_dir, &ns, "Parent");
-            println!("  Reading Parent header {:?}", parent_fname);
-            let mut parent_ana_files = vec![parent_fname];
+            // ### Parent Analyses
+            let mut parent_ana_files = vec![];
+            if let Some(parent_fname) = objdir_files_map.get(&format!("{}Parent.h", &ns.name.id)) {
+                let parent_path = analysis_path.join(parent_fname).to_string_lossy().into_owned();
+                println!("  Reading Parent header {:?}", &parent_path);
+                parent_ana_files.push(parent_path);
+            } else {
+                println!("  Unable to find Parent header for protocol: {}", &ns.name.id);
+            }
             if let Some(parent_impl_fname) = repo_files_map.get(&format!("{}Parent.h", &ns.name.id[1..])) {
                 let parent_impl_path = analysis_path.join(parent_impl_fname).to_string_lossy().into_owned();
                 println!("  Reading Parent impl header {:?}", &parent_impl_path);
                 parent_ana_files.push(parent_impl_path);
+            } else {
+                println!("  Unable to find Parent impl header for protocol: {}", &ns.name.id);
             }
 
             let parent_analysis = read_analyses(parent_ana_files.as_slice(), &mut read_target);
 
-            // Child Analyses
-            let child_fname = header_file_name(&outheaders_dir, &ns, "Child");
-            println!("  Reading Child header {:?}", child_fname);
-            let mut child_ana_files = vec![child_fname];
+            // ### Child Analyses
+            let mut child_ana_files = vec![];
+            if let Some(child_fname) = objdir_files_map.get(&format!("{}Child.h", &ns.name.id)) {
+                let child_path = analysis_path.join(child_fname).to_string_lossy().into_owned();
+                println!("  Reading Child header {:?}", &child_path);
+                child_ana_files.push(child_path);
+            } else {
+                println!("  Unable to find Child header for protocol: {}", &ns.name.id);
+            }
             if let Some(child_impl_fname) = repo_files_map.get(&format!("{}Child.h", &ns.name.id[1..])) {
                 let child_impl_path = analysis_path.join(child_impl_fname).to_string_lossy().into_owned();
                 println!("  Reading Child impl header {:?}", &child_impl_path);
                 child_ana_files.push(child_impl_path);
+            } else {
+                println!("  Unable to find Child impl header for protocol: {}", &ns.name.id);
             }
             let child_analysis = read_analyses(child_ana_files.as_slice(), &mut read_target);
 
