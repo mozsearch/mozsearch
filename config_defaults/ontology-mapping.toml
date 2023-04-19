@@ -32,7 +32,9 @@ label = "cc:unlink"
 #
 # Okay, so, uh, these are only for testing.
 
-
+[[pretty."outerNS::Thing".label_field_uses.labels]]
+context_sym_suffix = "::unlink"
+label = "cc:unlink"
 
 # ### Pointer Types ###
 #
