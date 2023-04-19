@@ -40,6 +40,33 @@ expression: "&jv.value"
           }
         ]
       }
+    ],
+    "Uses (outerNS::PracticalArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "lno": 452,
+            "bounds": [
+              0,
+              12
+            ],
+            "line": "PracticalArt &mHeldArt;",
+            "context": "outerNS::StackArtHolder",
+            "contextsym": "T_outerNS::StackArtHolder"
+          },
+          {
+            "lno": 455,
+            "bounds": [
+              15,
+              27
+            ],
+            "line": "StackArtHolder(PracticalArt &aArt) : mHeldArt(aArt) {}",
+            "context": "outerNS::StackArtHolder::StackArtHolder",
+            "contextsym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE"
+          }
+        ]
+      }
     ]
   },
   "*title*": "outerNS::PracticalArt",

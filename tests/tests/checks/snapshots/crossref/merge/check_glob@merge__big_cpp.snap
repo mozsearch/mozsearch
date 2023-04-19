@@ -1146,43 +1146,98 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS12PracticalArt5beArtEv"
   },
   {
-    "loc": "00452:10-17",
+    "loc": "00451:6-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::StackArtHolder",
+    "sym": "T_outerNS::StackArtHolder",
+    "peekRange": "451-451"
+  },
+  {
+    "loc": "00452:16-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::StackArtHolder::mHeldArt",
+    "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
+    "context": "outerNS::StackArtHolder",
+    "contextsym": "T_outerNS::StackArtHolder",
+    "peekRange": "452-452"
+  },
+  {
+    "loc": "00452:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::PracticalArt",
+    "sym": "T_outerNS::PracticalArt",
+    "context": "outerNS::StackArtHolder",
+    "contextsym": "T_outerNS::StackArtHolder"
+  },
+  {
+    "loc": "00455:17-29",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::PracticalArt",
+    "sym": "T_outerNS::PracticalArt",
+    "context": "outerNS::StackArtHolder::StackArtHolder",
+    "contextsym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE"
+  },
+  {
+    "loc": "00455:2-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::StackArtHolder::StackArtHolder",
+    "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
+    "context": "outerNS::StackArtHolder",
+    "contextsym": "T_outerNS::StackArtHolder",
+    "peekRange": "455-455"
+  },
+  {
+    "loc": "00455:39-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::StackArtHolder::mHeldArt",
+    "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
+    "context": "outerNS::StackArtHolder",
+    "contextsym": "T_outerNS::StackArtHolder"
+  },
+  {
+    "loc": "00458:10-17",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS",
     "sym": "NS_outerNS::innerNS"
   },
   {
-    "loc": "00454:6-14",
+    "loc": "00460:6-14",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS::InnerCat",
     "sym": "T_outerNS::innerNS::InnerCat",
-    "peekRange": "454-454"
+    "peekRange": "460-460"
   },
   {
-    "loc": "00460:6-13",
+    "loc": "00466:6-13",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
-    "peekRange": "460-460"
+    "peekRange": "466-466"
   },
   {
-    "loc": "00472:6-21",
+    "loc": "00478:6-21",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS::NondebugAnonCat",
     "sym": "T_outerNS::innerNS::NondebugAnonCat",
-    "peekRange": "472-472"
+    "peekRange": "478-478"
   },
   {
-    "loc": "00485:5-33",
+    "loc": "00491:5-33",
     "target": 1,
     "kind": "def",
     "pretty": "i_was_declared_in_the_header",
     "sym": "i_was_declared_in_the_header",
-    "peekRange": "485-485"
+    "peekRange": "491-491"
   },
   {
     "loc": "00001:0",
@@ -1388,7 +1443,7 @@ expression: "&json_results"
     "syntax": "def,namespace",
     "pretty": "namespace outerNS",
     "sym": "NS_outerNS",
-    "nestingRange": "132:19-482:0"
+    "nestingRange": "132:19-488:0"
   },
   {
     "loc": "00134:8-16",
@@ -2587,44 +2642,113 @@ expression: "&json_results"
     "type": "int"
   },
   {
-    "loc": "00452:10-17",
+    "loc": "00451:6-20",
+    "source": 1,
+    "syntax": "def,type",
+    "pretty": "type outerNS::StackArtHolder",
+    "sym": "T_outerNS::StackArtHolder",
+    "nestingRange": "451:21-456:0"
+  },
+  {
+    "loc": "00452:2-14",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type outerNS::PracticalArt",
+    "sym": "T_outerNS::PracticalArt",
+    "type": "class outerNS::PracticalArt",
+    "typesym": "T_outerNS::PracticalArt"
+  },
+  {
+    "loc": "00452:16-24",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field outerNS::StackArtHolder::mHeldArt",
+    "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
+    "type": "PracticalArt &"
+  },
+  {
+    "loc": "00455:2-16",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function outerNS::StackArtHolder::StackArtHolder",
+    "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
+    "nestingRange": "455:54-455:55",
+    "type": "void (PracticalArt &)"
+  },
+  {
+    "loc": "00455:17-29",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type outerNS::PracticalArt",
+    "sym": "T_outerNS::PracticalArt",
+    "type": "class outerNS::PracticalArt",
+    "typesym": "T_outerNS::PracticalArt"
+  },
+  {
+    "loc": "00455:31-35",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable aArt",
+    "sym": "V_60233f95607c3527_de3639c71",
+    "no_crossref": 1,
+    "type": "PracticalArt &"
+  },
+  {
+    "loc": "00455:39-47",
+    "source": 1,
+    "syntax": "field,use",
+    "pretty": "field outerNS::StackArtHolder::mHeldArt",
+    "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
+    "type": "PracticalArt &"
+  },
+  {
+    "loc": "00455:48-52",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable aArt",
+    "sym": "V_60233f95607c3527_de3639c71",
+    "no_crossref": 1,
+    "type": "PracticalArt &"
+  },
+  {
+    "loc": "00458:10-17",
     "source": 1,
     "syntax": "def,namespace",
     "pretty": "namespace outerNS::innerNS",
     "sym": "NS_outerNS::innerNS",
-    "nestingRange": "452:19-480:0"
+    "nestingRange": "458:19-486:0"
   },
   {
-    "loc": "00454:6-14",
+    "loc": "00460:6-14",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::innerNS::InnerCat",
     "sym": "T_outerNS::innerNS::InnerCat",
-    "nestingRange": "454:15-456:0"
+    "nestingRange": "460:15-462:0"
   },
   {
-    "loc": "00460:6-13",
+    "loc": "00466:6-13",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
-    "nestingRange": "460:14-462:0"
+    "nestingRange": "466:14-468:0"
   },
   {
-    "loc": "00472:6-21",
+    "loc": "00478:6-21",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::innerNS::NondebugAnonCat",
     "sym": "T_outerNS::innerNS::NondebugAnonCat",
-    "nestingRange": "472:22-474:0"
+    "nestingRange": "478:22-480:0"
   },
   {
-    "loc": "00485:5-33",
+    "loc": "00491:5-33",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function i_was_declared_in_the_header",
     "sym": "i_was_declared_in_the_header",
-    "nestingRange": "485:36-489:0",
+    "nestingRange": "491:36-495:0",
     "type": "void (void)"
   },
   {
@@ -2693,6 +2817,25 @@ expression: "&json_results"
     "kind": "field",
     "subsystem": null,
     "parentsym": "T_outerNS::OuterCat",
+    "implKind": "",
+    "sizeBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": []
+  },
+  {
+    "loc": "00452:16-24",
+    "structured": 1,
+    "pretty": "outerNS::StackArtHolder::mHeldArt",
+    "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
+    "type_pretty": null,
+    "kind": "field",
+    "subsystem": null,
+    "parentsym": "T_outerNS::StackArtHolder",
     "implKind": "",
     "sizeBytes": null,
     "bindingSlots": [],
@@ -3280,6 +3423,43 @@ expression: "&json_results"
     "props": []
   },
   {
+    "loc": "00451:6-20",
+    "structured": 1,
+    "pretty": "outerNS::StackArtHolder",
+    "sym": "T_outerNS::StackArtHolder",
+    "type_pretty": null,
+    "kind": "class",
+    "subsystem": null,
+    "implKind": "",
+    "sizeBytes": 8,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [
+      {
+        "pretty": "outerNS::StackArtHolder::StackArtHolder",
+        "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
+        "props": [
+          "instance",
+          "user"
+        ]
+      }
+    ],
+    "fields": [
+      {
+        "pretty": "outerNS::StackArtHolder::mHeldArt",
+        "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
+        "type": "PracticalArt &",
+        "typesym": "",
+        "offsetBytes": 0,
+        "bitPositions": null,
+        "sizeBytes": 8
+      }
+    ],
+    "overrides": [],
+    "props": []
+  },
+  {
     "loc": "00192:6-15",
     "structured": 1,
     "pretty": "outerNS::Superhero",
@@ -3477,7 +3657,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00460:6-13",
+    "loc": "00466:6-13",
     "structured": 1,
     "pretty": "outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
@@ -3495,7 +3675,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00454:6-14",
+    "loc": "00460:6-14",
     "structured": 1,
     "pretty": "outerNS::innerNS::InnerCat",
     "sym": "T_outerNS::innerNS::InnerCat",
@@ -3513,7 +3693,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00472:6-21",
+    "loc": "00478:6-21",
     "structured": 1,
     "pretty": "outerNS::innerNS::NondebugAnonCat",
     "sym": "T_outerNS::innerNS::NondebugAnonCat",
@@ -3743,6 +3923,28 @@ expression: "&json_results"
     "kind": "method",
     "subsystem": null,
     "parentsym": "T_outerNS::PracticalArt",
+    "implKind": "",
+    "sizeBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ]
+  },
+  {
+    "loc": "00455:2-16",
+    "structured": 1,
+    "pretty": "outerNS::StackArtHolder::StackArtHolder",
+    "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "parentsym": "T_outerNS::StackArtHolder",
     "implKind": "",
     "sizeBytes": null,
     "bindingSlots": [],
@@ -4143,7 +4345,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00485:5-33",
+    "loc": "00491:5-33",
     "structured": 1,
     "pretty": "i_was_declared_in_the_header",
     "sym": "i_was_declared_in_the_header",
