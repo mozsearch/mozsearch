@@ -38,19 +38,38 @@ label = "cc:unlink"
 
 # ### Pointer Types ###
 #
-# These inform our processing of class fields
+# These inform our processing of class fields.
+#
+# Note that we currently do need to manually provide the namespaced and
+# un-namespaced variations of a type.
 
 [types."nsCOMPtr".pointer]
 kind = "strong"
 
+# explicitly not in the mozilla namespace
 [types."RefPtr".pointer]
+kind = "strong"
+
+[types."mozilla::SafeRefPtr".pointer]
 kind = "strong"
 
 [types."SafeRefPtr".pointer]
 kind = "strong"
 
+[types."mozilla::ThreadSafeWeakPtr".pointer]
+kind = "weak"
+
+[types."ThreadSafeWeakPtr".pointer]
+kind = "weak"
+
+[types."mozilla::UniquePtr".pointer]
+kind = "unique"
+
 [types."UniquePtr".pointer]
 kind = "unique"
+
+[types."mozilla::WeakPtr".pointer]
+kind = "weak"
 
 [types."WeakPtr".pointer]
 kind = "weak"
@@ -58,8 +77,17 @@ kind = "weak"
 [types."std::shared_ptr".pointer]
 kind = "strong"
 
+[types."shared_ptr".pointer]
+kind = "strong"
+
 [types."std::unique_ptr".pointer]
 kind = "unique"
 
+[types."unique_ptr".pointer]
+kind = "unique"
+
 [types."std::weak_ptr".pointer]
+kind = "weak"
+
+[types."weak_ptr".pointer]
 kind = "weak"
