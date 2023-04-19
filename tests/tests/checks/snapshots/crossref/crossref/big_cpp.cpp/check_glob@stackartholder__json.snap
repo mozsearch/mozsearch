@@ -1,0 +1,88 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "T_outerNS::StackArtHolder",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 451,
+                "bounds": [
+                  6,
+                  20
+                ],
+                "line": "class StackArtHolder {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "451-451"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "kind": "field",
+            "pretty": "outerNS::StackArtHolder::mHeldArt",
+            "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt"
+          },
+          {
+            "kind": "class",
+            "pretty": "outerNS::PracticalArt",
+            "sym": "T_outerNS::PracticalArt"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::StackArtHolder",
+          "sym": "T_outerNS::StackArtHolder",
+          "type_pretty": null,
+          "kind": "class",
+          "subsystem": "Core/Big",
+          "implKind": "",
+          "sizeBytes": 8,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [
+            {
+              "pretty": "outerNS::StackArtHolder::StackArtHolder",
+              "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
+              "props": [
+                "instance",
+                "user"
+              ]
+            }
+          ],
+          "fields": [
+            {
+              "pretty": "outerNS::StackArtHolder::mHeldArt",
+              "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
+              "type": "PracticalArt &",
+              "typesym": "",
+              "offsetBytes": 0,
+              "bitPositions": null,
+              "sizeBytes": 8,
+              "pointerInfo": {
+                "kind": "ref",
+                "sym": "_ZN7outerNS12PracticalArtC1Ev"
+              }
+            }
+          ],
+          "overrides": [],
+          "props": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

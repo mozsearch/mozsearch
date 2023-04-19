@@ -456,6 +456,8 @@ async fn main() {
                             kind: ptr_kind,
                             sym: pointee_syms.iter().next().unwrap().clone(),
                         });
+                    } else {
+                        warn!(pretty=pointee_pretty.as_str(), "Unable to map pretty identifier to symbols.");
                     }
                 }
             }
