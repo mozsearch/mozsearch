@@ -63,7 +63,7 @@ tree-sitter-rust = "0.20.3"
 tree-sitter-typescript = "0.20.2"
 tree-sitter-java = "0.20.2"
 tree-sitter-kotlin = { git = "https://github.com/fwcd/tree-sitter-kotlin.git" }
-toml = "0.5.9"
+toml = "0.7.3"
 tonic = "0.7.1"
 tracing = "0.1.37"
 # We explicitly do not enable the "uuid" feature because by default it will be

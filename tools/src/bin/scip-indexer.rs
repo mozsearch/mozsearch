@@ -11,7 +11,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use scip::types::descriptor::Suffix;
 use serde_json::Map;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeSet};
 use std::fs::{self, File};
 use std::io;
 use std::io::BufReader;
@@ -944,6 +944,7 @@ fn analyze_using_scip(
                                             pretty: symbol_info.pretty,
                                             sym: symbol_info.norm_sym,
                                             props: vec![],
+                                            labels: BTreeSet::default(),
                                         });
                                     }
                                     Some("field") => {
@@ -959,6 +960,8 @@ fn analyze_using_scip(
                                             } else {
                                                 None
                                             },
+                                            labels: BTreeSet::default(),
+                                            pointer_info: None,
                                         });
                                     }
                                     _ => {}

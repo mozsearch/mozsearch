@@ -19,3 +19,40 @@ runnable = true
 
 [pretty."mozilla::dom::WorkerThreadProxySyncRunnable::RunOnMainThread"]
 runnable = true
+
+# ### Cycle Collection ###
+[[pretty."nsXPCOMCycleCollectionParticipant".label_field_uses.labels]]
+context_sym_suffix = "::cycleCollection::TraverseNative"
+label = "cc:traverse"
+[[pretty."nsXPCOMCycleCollectionParticipant".label_field_uses.labels]]
+context_sym_suffix = "::cycleCollection::Unlink"
+label = "cc:unlink"
+
+
+# ### Pointer Types ###
+#
+# These inform our processing of class fields
+
+[types."nsCOMPtr".pointer]
+kind = "strong"
+
+[types."RefPtr".pointer]
+kind = "strong"
+
+[types."SafeRefPtr".pointer]
+kind = "strong"
+
+[types."UniquePtr".pointer]
+kind = "unique"
+
+[types."WeakPtr".pointer]
+kind = "weak"
+
+[types."std::shared_ptr".pointer]
+kind = "strong"
+
+[types."std::unique_ptr".pointer]
+kind = "unique"
+
+[types."std::weak_ptr".pointer]
+kind = "weak"

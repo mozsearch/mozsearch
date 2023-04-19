@@ -163,7 +163,11 @@ expression: sgc.to_json()
             "typesym": "T_std::shared_ptr",
             "offsetBytes": 16,
             "bitPositions": null,
-            "sizeBytes": 16
+            "sizeBytes": 16,
+            "pointerInfo": {
+              "kind": "strong",
+              "sym": "_ZN7outerNS5HumanC1Ev"
+            }
           },
           {
             "pretty": "outerNS::OuterCat::mFavoriteCouch",
@@ -172,7 +176,11 @@ expression: sgc.to_json()
             "typesym": "",
             "offsetBytes": 32,
             "bitPositions": null,
-            "sizeBytes": 8
+            "sizeBytes": 8,
+            "pointerInfo": {
+              "kind": "raw",
+              "sym": "_ZN7outerNS5CouchC1Ei"
+            }
           }
         ],
         "overrides": [],

@@ -17,6 +17,7 @@ use serde_json::{json, Map};
 extern crate tools;
 use tools::file_format::analysis::OntologySlotInfo;
 use tools::file_format::analysis::OntologySlotKind;
+use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::config;
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
 use tools::file_format::ontology_mapping::OntologyMappingIngestion;
@@ -32,6 +33,7 @@ use tools::{
     },
 };
 use ustr::Ustr;
+use ustr::UstrMap;
 use ustr::UstrSet;
 use ustr::ustr;
 
@@ -229,10 +231,23 @@ async fn main() {
     // Maps (raw) symbol to interned-pretty symbol string.  Each raw symbol is unique, but there
     // may be many raw symbols that map to the same pretty symbol string.
     let mut pretty_table = HashMap::new();
-    // Reverse of pretty_table.  The key is the pretty symbol, and the value is a BTreeSet of all
+    // Reverse of pretty_table.  The key is the pretty symbol, and the value is a UstrSet of all
     // of the raw symbols that map to the pretty symbol.  Pretty symbols that start with numbers or
     // include whitespace are considered illegal and not included in the map.
-    let mut id_table = BTreeMap::new();
+    //
+    // This table has been modified so that it is populated with the suffix variations immediately.
+    // So for the symbol "foo::bar::Baz" we will add entries for "Baz", "bar::Baz", and
+    // "foo::bar::Baz".  Previously we would only add the full variation and compute the suffixes
+    // when writing its contents out, but we now need/want this for processing field type strings
+    // because we do not currently have the fully qualified symbols available.  In the future
+    // we hopefully will have better type representations for fields.
+    //
+    // An alternate approach would be for us to write the identifier table out earlier and just
+    // memory map that for subsequent processing.  Not doing that right now because the ustr rep
+    // potentially could end up comparable in memory usage if the identifer file is fully paged
+    // in, and for performance we would want it fully paged in, so might as well use the memory
+    // so we fail faster if we don't have the memory available.
+    let mut id_table = UstrMap::default();
     // Maps (raw) symbol to `SymbolMeta` info for this symbol.  Currently, we
     // require that the language analyzer created a "structured" record and we
     // use that, but it could make sense for us to automatically generate a stub
@@ -340,13 +355,22 @@ async fn main() {
                     peek_range: piece.peek_range,
                 });
 
-                // Idempotently insert the pretty symbol -> symbol mapping as long as the pretty
+                // Idempotently insert the pretty identifier -> symbol mapping as long as the pretty
                 // symbol looks sane.  (Whitespace breaks the `identifiers` file's text format, so
                 // we can't include them.)
                 let ch = piece.sym.chars().nth(0).unwrap();
                 if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
-                    let t1 = id_table.entry(piece.pretty).or_insert(BTreeSet::new());
-                    t1.insert(piece.sym);
+                    // We now do the component explosion ahead of time:
+                    let components = split_scopes(&piece.pretty.as_str());
+                    for i in 0..components.len() {
+                        let sub = &components[i..components.len()];
+                        let sub = sub.join("::");
+
+                        if !sub.is_empty() {
+                            let t1 = id_table.entry(ustr(&sub)).or_insert(UstrSet::default());
+                            t1.insert(piece.sym);
+                        }
+                    }
                 }
             }
         }
@@ -414,7 +438,7 @@ async fn main() {
         }
     }
 
-    // ## Process Ontology rules
+    // ## Process Ontology config
     let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
 
     let ontology_toml_str = cfg.read_tree_config_file_with_default("ontology-mapping.toml").unwrap();
@@ -422,9 +446,27 @@ async fn main() {
 
     info!("Parsed ontology-mapping.toml, processing now.");
 
+    // ### Process class/fields using ontology type information
+    for meta in meta_table.values_mut() {
+        if meta.kind.as_str() == "class" {
+            for field in &mut meta.fields {
+                if let Some((ptr_kind, pointee_pretty)) = ontology.config.maybe_parse_type_as_pointer(&field.type_pretty) {
+                    if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
+                        field.pointer_info = Some(StructuredPointerInfo {
+                            kind: ptr_kind,
+                            sym: pointee_syms.iter().next().unwrap().clone(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // ### Process Ontology Rules
     for (pretty_id, rule) in ontology.config.pretty.iter() {
+        // #### Runnables
         if rule.runnable {
-            info!(" Processing pretty rule for: {}", pretty_id);
+            info!(" Processing pretty runnable rule for: {}", pretty_id);
             if let Some(root_method_syms) = id_table.get(&pretty_id) {
                 // The list of symbols to process for the runnable relationship.
                 // We process the root syms to find their descendants, but we
@@ -503,6 +545,54 @@ async fn main() {
                             slot_kind: OntologySlotKind::RunnableConstructor,
                             syms: constructor_syms,
                         })
+                    }
+                }
+            }
+        }
+
+        // #### Field Labeling
+        //
+        // We start from an ancestral class and find all of its subclasses and all of their fields.
+        // For each field, we check its uses and see if they match the rules.  If so, we will plan
+        // to add a label to the field on its class.  (Currently we do not do anythign to the
+        // structured info for field symbol itself.)
+        if let Some(label_rule) = &rule.label_field_uses {
+            info!(" Processing pretty label_field_uses rule for: {}", pretty_id);
+            if let Some(root_method_syms) = id_table.get(&pretty_id) {
+                let mut investigate_class_syms = vec![];
+                // We don't care about the root itself, just its subclasses.
+                for sym in root_method_syms {
+                    if let Some(sym_meta) = meta_table.get(&sym) {
+                        for sub in &sym_meta.subclass_syms {
+                            investigate_class_syms.push(sub.clone());
+                        }
+                    }
+                }
+
+                while let Some(class_sym) = investigate_class_syms.pop() {
+                    let sym_meta = match meta_table.get_mut(&class_sym) {
+                        Some(m) => m,
+                        None => continue,
+                    };
+
+                    for sub in &sym_meta.subclass_syms {
+                        investigate_class_syms.push(sub.clone());
+                    }
+
+                    for field in &mut sym_meta.fields {
+                        if let Some(kind_map) = table.get(&field.sym) {
+                            if let Some(path_hits) = kind_map.get(&AnalysisKind::Use) {
+                                for hits in path_hits.values() {
+                                    for hit in hits {
+                                        for rule in &label_rule.labels {
+                                            if hit.context.ends_with(rule.context_sym_suffix.as_str()) {
+                                                field.labels.insert(rule.label.clone());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -668,15 +758,8 @@ async fn main() {
     let mut idf = File::create(id_file).unwrap();
     for (id, syms) in id_table {
         for sym in syms {
-            let components = split_scopes(&id.as_str());
-            for i in 0..components.len() {
-                let sub = &components[i..components.len()];
-                let sub = sub.join("::");
-                if !sub.is_empty() {
-                    let line = format!("{} {}\n", sub, sym);
-                    let _ = idf.write_all(line.as_bytes());
-                }
-            }
+            let line = format!("{} {}\n", id, sym);
+            let _ = idf.write_all(line.as_bytes());
         }
     }
 
