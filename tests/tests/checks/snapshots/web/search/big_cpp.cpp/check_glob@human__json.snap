@@ -9,7 +9,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 179,
+            "lno": 180,
             "bounds": [
               6,
               11
@@ -17,7 +17,7 @@ expression: "&jv.value"
             "line": "class Human: public Thing {",
             "context": "",
             "contextsym": "",
-            "peekRange": "179-179"
+            "peekRange": "180-180"
           }
         ]
       }
@@ -27,7 +27,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 135,
+            "lno": 136,
             "bounds": [
               6,
               11
@@ -35,7 +35,7 @@ expression: "&jv.value"
             "line": "class Thing {",
             "context": "",
             "contextsym": "",
-            "peekRange": "135-135",
+            "peekRange": "136-136",
             "upsearch": "symbol:T_outerNS::Thing"
           }
         ]
@@ -46,7 +46,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 188,
+            "lno": 189,
             "bounds": [
               6,
               11
@@ -54,7 +54,7 @@ expression: "&jv.value"
             "line": "class Superhero : public Human {",
             "context": "",
             "contextsym": "",
-            "peekRange": "188-188",
+            "peekRange": "189-189",
             "upsearch": "symbol:T_outerNS::Superhero"
           }
         ]
@@ -65,7 +65,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 192,
+            "lno": 193,
             "bounds": [
               2,
               7
@@ -75,7 +75,7 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS9SuperheroC1Ev"
           },
           {
-            "lno": 213,
+            "lno": 214,
             "bounds": [
               0,
               5
@@ -85,7 +85,7 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
-            "lno": 214,
+            "lno": 215,
             "bounds": [
               16,
               21
@@ -95,7 +95,17 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
-            "lno": 340,
+            "lno": 239,
+            "bounds": [
+              16,
+              21
+            ],
+            "line": "std::shared_ptr<Human> mOwner;",
+            "context": "outerNS::OuterCat",
+            "contextsym": "T_outerNS::OuterCat"
+          },
+          {
+            "lno": 344,
             "bounds": [
               10,
               15

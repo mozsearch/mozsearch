@@ -4,7 +4,7 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00024:6-19",
+    "loc": "00025:6-19",
     "structured": 1,
     "pretty": "GlobalContext",
     "sym": "T_GlobalContext",

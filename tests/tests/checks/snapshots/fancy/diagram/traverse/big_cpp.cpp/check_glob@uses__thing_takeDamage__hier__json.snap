@@ -8,7 +8,7 @@ expression: sgc.to_json()
       "sym": "NS_outerNS",
       "pretty": "NS_outerNS",
       "jumps": {
-        "def": "big_cpp.cpp#131"
+        "def": "big_cpp.cpp#132"
       }
     },
     "T_outerNS::OuterCat": {
@@ -22,7 +22,7 @@ expression: sgc.to_json()
         "kind": "class",
         "subsystem": "Core/Big",
         "implKind": "",
-        "sizeBytes": 16,
+        "sizeBytes": 40,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [
@@ -97,6 +97,22 @@ expression: sgc.to_json()
             ]
           },
           {
+            "pretty": "outerNS::OuterCat::OuterCat",
+            "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ]
+          },
+          {
+            "pretty": "outerNS::OuterCat::OuterCat",
+            "sym": "_ZN7outerNS8OuterCatC1EOS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ]
+          },
+          {
             "pretty": "outerNS::OuterCat::operator=",
             "sym": "_ZN7outerNS8OuterCataSERKS0_",
             "props": [
@@ -139,13 +155,31 @@ expression: sgc.to_json()
             "offsetBytes": 14,
             "bitPositions": null,
             "sizeBytes": 1
+          },
+          {
+            "pretty": "outerNS::OuterCat::mOwner",
+            "sym": "F_<T_outerNS::OuterCat>_mOwner",
+            "type": "std::shared_ptr<Human>",
+            "typesym": "T_std::shared_ptr",
+            "offsetBytes": 16,
+            "bitPositions": null,
+            "sizeBytes": 16
+          },
+          {
+            "pretty": "outerNS::OuterCat::mFavoriteCouch",
+            "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+            "type": "Couch *",
+            "typesym": "",
+            "offsetBytes": 32,
+            "bitPositions": null,
+            "sizeBytes": 8
           }
         ],
         "overrides": [],
         "props": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#221"
+        "def": "big_cpp.cpp#222"
       }
     },
     "T_outerNS::Thing": {
@@ -262,7 +296,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#135"
+        "def": "big_cpp.cpp#136"
       }
     },
     "_ZN7outerNS5Thing10takeDamageEi": {
@@ -294,7 +328,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#156"
+        "def": "big_cpp.cpp#157"
       }
     },
     "_ZN7outerNS8OuterCat4meetERNS_5CouchE": {
@@ -322,7 +356,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#351"
+        "def": "big_cpp.cpp#355"
       }
     },
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
@@ -350,7 +384,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#390"
+        "def": "big_cpp.cpp#394"
       }
     },
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
@@ -378,7 +412,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#397"
+        "def": "big_cpp.cpp#401"
       }
     }
   },

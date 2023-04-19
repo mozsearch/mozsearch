@@ -26,7 +26,7 @@ expression: sgc.to_json()
         "props": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#235"
+        "def": "big_cpp.cpp#236"
       }
     },
     "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly": {
@@ -51,7 +51,7 @@ expression: sgc.to_json()
         "props": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#236"
+        "def": "big_cpp.cpp#237"
       }
     },
     "F_<T_outerNS::Thing>_mDefunct": {
@@ -76,7 +76,7 @@ expression: sgc.to_json()
         "props": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#145"
+        "def": "big_cpp.cpp#146"
       }
     },
     "F_<T_outerNS::Thing>_mHP": {
@@ -101,7 +101,7 @@ expression: sgc.to_json()
         "props": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#141"
+        "def": "big_cpp.cpp#142"
       }
     },
     "T_outerNS::Couch": {
@@ -163,7 +163,7 @@ expression: sgc.to_json()
         "props": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#205"
+        "def": "big_cpp.cpp#206"
       }
     },
     "T_outerNS::Human": {
@@ -246,7 +246,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#179"
+        "def": "big_cpp.cpp#180"
       }
     },
     "T_outerNS::Thing": {
@@ -363,7 +363,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#135"
+        "def": "big_cpp.cpp#136"
       }
     },
     "_ZN7outerNS5Thing10takeDamageEi": {
@@ -395,7 +395,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#156"
+        "def": "big_cpp.cpp#157"
       }
     },
     "_ZN7outerNS5Thing6ignoreEv": {
@@ -423,8 +423,8 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#166",
-        "decl": "big_cpp.cpp#154"
+        "def": "big_cpp.cpp#167",
+        "decl": "big_cpp.cpp#155"
       }
     },
     "_ZN7outerNS8OuterCat13isFriendlyCatEv": {
@@ -452,7 +452,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#311"
+        "def": "big_cpp.cpp#315"
       }
     },
     "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv": {
@@ -480,7 +480,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#315"
+        "def": "big_cpp.cpp#319"
       }
     },
     "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv": {
@@ -508,7 +508,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#330"
+        "def": "big_cpp.cpp#334"
       }
     },
     "_ZN7outerNS8OuterCat4meetERNS_5CouchE": {
@@ -536,7 +536,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#351"
+        "def": "big_cpp.cpp#355"
       }
     },
     "_ZN7outerNS8OuterCat4meetERNS_5HumanE": {
@@ -564,7 +564,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#340"
+        "def": "big_cpp.cpp#344"
       }
     },
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
@@ -592,7 +592,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#390"
+        "def": "big_cpp.cpp#394"
       }
     },
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
@@ -620,7 +620,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#397"
+        "def": "big_cpp.cpp#401"
       }
     }
   },

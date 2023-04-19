@@ -14,6 +14,7 @@
  * - Not using templates.
  */
 
+#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -234,6 +235,9 @@ class OuterCat : Thing {
 
   bool mIsFriendly;
   bool mIsSecretlyUnfriendly;
+
+  std::shared_ptr<Human> mOwner;
+  Couch *mFavoriteCouch;
 
   public:
   // These things can be known.

@@ -13,7 +13,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 221,
+                "lno": 222,
                 "bounds": [
                   6,
                   14
@@ -21,7 +21,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class OuterCat : Thing {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "221-221"
+                "peekRange": "222-222"
               }
             ]
           }
@@ -39,6 +39,16 @@ expression: "&to_value(scil).unwrap()"
           },
           {
             "kind": "class",
+            "pretty": "outerNS::Couch",
+            "sym": "T_outerNS::Couch"
+          },
+          {
+            "kind": "class",
+            "pretty": "outerNS::Human",
+            "sym": "T_outerNS::Human"
+          },
+          {
+            "kind": "class",
             "pretty": "outerNS::Thing",
             "sym": "T_outerNS::Thing"
           }
@@ -51,7 +61,7 @@ expression: "&to_value(scil).unwrap()"
           "kind": "class",
           "subsystem": "Core/Big",
           "implKind": "",
-          "sizeBytes": 16,
+          "sizeBytes": 40,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [
@@ -126,6 +136,22 @@ expression: "&to_value(scil).unwrap()"
               ]
             },
             {
+              "pretty": "outerNS::OuterCat::OuterCat",
+              "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
+              "pretty": "outerNS::OuterCat::OuterCat",
+              "sym": "_ZN7outerNS8OuterCatC1EOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ]
+            },
+            {
               "pretty": "outerNS::OuterCat::operator=",
               "sym": "_ZN7outerNS8OuterCataSERKS0_",
               "props": [
@@ -168,6 +194,24 @@ expression: "&to_value(scil).unwrap()"
               "offsetBytes": 14,
               "bitPositions": null,
               "sizeBytes": 1
+            },
+            {
+              "pretty": "outerNS::OuterCat::mOwner",
+              "sym": "F_<T_outerNS::OuterCat>_mOwner",
+              "type": "std::shared_ptr<Human>",
+              "typesym": "T_std::shared_ptr",
+              "offsetBytes": 16,
+              "bitPositions": null,
+              "sizeBytes": 16
+            },
+            {
+              "pretty": "outerNS::OuterCat::mFavoriteCouch",
+              "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+              "type": "Couch *",
+              "typesym": "",
+              "offsetBytes": 32,
+              "bitPositions": null,
+              "sizeBytes": 8
             }
           ],
           "overrides": [],
@@ -187,7 +231,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 166,
+                "lno": 167,
                 "bounds": [
                   5,
                   10
@@ -197,7 +241,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5Thing6ignoreEv"
               },
               {
-                "lno": 179,
+                "lno": 180,
                 "bounds": [
                   20,
                   25
@@ -207,7 +251,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Human"
               },
               {
-                "lno": 183,
+                "lno": 184,
                 "bounds": [
                   2,
                   7
@@ -217,7 +261,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5HumanC1Ev"
               },
               {
-                "lno": 205,
+                "lno": 206,
                 "bounds": [
                   21,
                   26
@@ -227,7 +271,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Couch"
               },
               {
-                "lno": 209,
+                "lno": 210,
                 "bounds": [
                   2,
                   7
@@ -237,7 +281,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5CouchC1Ei"
               },
               {
-                "lno": 221,
+                "lno": 222,
                 "bounds": [
                   17,
                   22
@@ -247,7 +291,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::OuterCat"
               },
               {
-                "lno": 258,
+                "lno": 262,
                 "bounds": [
                   2,
                   7
@@ -257,7 +301,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
               },
               {
-                "lno": 390,
+                "lno": 394,
                 "bounds": [
                   11,
                   16
@@ -267,7 +311,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
               },
               {
-                "lno": 397,
+                "lno": 401,
                 "bounds": [
                   13,
                   18
@@ -277,7 +321,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
               },
               {
-                "lno": 417,
+                "lno": 421,
                 "bounds": [
                   27,
                   32
@@ -287,7 +331,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::AbstractArt"
               },
               {
-                "lno": 420,
+                "lno": 424,
                 "bounds": [
                   2,
                   7
@@ -305,7 +349,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 135,
+                "lno": 136,
                 "bounds": [
                   6,
                   11
@@ -313,7 +357,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class Thing {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "135-135"
+                "peekRange": "136-136"
               }
             ]
           }
@@ -459,7 +503,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 188,
+                "lno": 189,
                 "bounds": [
                   25,
                   30
@@ -469,7 +513,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Superhero"
               },
               {
-                "lno": 192,
+                "lno": 193,
                 "bounds": [
                   2,
                   7
@@ -479,7 +523,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS9SuperheroC1Ev"
               },
               {
-                "lno": 213,
+                "lno": 214,
                 "bounds": [
                   0,
                   5
@@ -489,7 +533,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5CouchC1Ei"
               },
               {
-                "lno": 214,
+                "lno": 215,
                 "bounds": [
                   16,
                   21
@@ -499,7 +543,17 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5CouchC1Ei"
               },
               {
-                "lno": 340,
+                "lno": 239,
+                "bounds": [
+                  16,
+                  21
+                ],
+                "line": "std::shared_ptr<Human> mOwner;",
+                "context": "outerNS::OuterCat",
+                "contextsym": "T_outerNS::OuterCat"
+              },
+              {
+                "lno": 344,
                 "bounds": [
                   10,
                   15
@@ -517,7 +571,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 179,
+                "lno": 180,
                 "bounds": [
                   6,
                   11
@@ -525,7 +579,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class Human: public Thing {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "179-179"
+                "peekRange": "180-180"
               }
             ]
           }
@@ -632,7 +686,17 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 351,
+                "lno": 240,
+                "bounds": [
+                  0,
+                  5
+                ],
+                "line": "Couch *mFavoriteCouch;",
+                "context": "outerNS::OuterCat",
+                "contextsym": "T_outerNS::OuterCat"
+              },
+              {
+                "lno": 355,
                 "bounds": [
                   10,
                   15
@@ -650,7 +714,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 205,
+                "lno": 206,
                 "bounds": [
                   6,
                   11
@@ -658,7 +722,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class Couch : public Thing {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "205-205"
+                "peekRange": "206-206"
               }
             ]
           }
@@ -744,7 +808,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 427,
+                "lno": 431,
                 "bounds": [
                   28,
                   39
@@ -754,7 +818,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::PracticalArt"
               },
               {
-                "lno": 430,
+                "lno": 434,
                 "bounds": [
                   2,
                   13
@@ -772,7 +836,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 417,
+                "lno": 421,
                 "bounds": [
                   6,
                   17
@@ -780,7 +844,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class AbstractArt : public Thing {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "417-417"
+                "peekRange": "421-421"
               }
             ]
           }
@@ -896,7 +960,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 210,
+                "lno": 211,
                 "bounds": [
                   0,
                   9
@@ -906,7 +970,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5CouchC1Ei"
               },
               {
-                "lno": 211,
+                "lno": 212,
                 "bounds": [
                   16,
                   25
@@ -924,7 +988,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 188,
+                "lno": 189,
                 "bounds": [
                   6,
                   15
@@ -932,7 +996,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class Superhero : public Human {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "188-188"
+                "peekRange": "189-189"
               }
             ]
           }
@@ -1045,7 +1109,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 427,
+                "lno": 431,
                 "bounds": [
                   6,
                   18
@@ -1053,7 +1117,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class PracticalArt : public AbstractArt {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "427-427"
+                "peekRange": "431-431"
               }
             ]
           }
