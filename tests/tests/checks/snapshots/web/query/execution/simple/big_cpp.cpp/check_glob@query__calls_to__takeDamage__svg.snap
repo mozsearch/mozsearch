@@ -179,6 +179,9 @@ expression: "&to_value(grb).unwrap()"
             "offsetBytes": 16,
             "bitPositions": null,
             "sizeBytes": 16,
+            "labels": [
+              "cc:unlink"
+            ],
             "pointerInfo": {
               "kind": "strong",
               "sym": "_ZN7outerNS5HumanC1Ev"
@@ -192,6 +195,9 @@ expression: "&to_value(grb).unwrap()"
             "offsetBytes": 32,
             "bitPositions": null,
             "sizeBytes": 8,
+            "labels": [
+              "cc:unlink"
+            ],
             "pointerInfo": {
               "kind": "raw",
               "sym": "_ZN7outerNS5CouchC1Ei"
