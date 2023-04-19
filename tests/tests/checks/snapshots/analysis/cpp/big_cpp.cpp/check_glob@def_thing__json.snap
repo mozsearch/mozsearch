@@ -6,7 +6,7 @@ expression: "&json_results"
   {
     "loc": "00136:6-11",
     "source": 1,
-    "nestingRange": "136:12-165:0",
+    "nestingRange": "136:12-168:0",
     "syntax": "def,type",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing"

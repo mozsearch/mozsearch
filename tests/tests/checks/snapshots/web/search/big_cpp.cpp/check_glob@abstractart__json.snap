@@ -9,7 +9,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 421,
+            "lno": 429,
             "bounds": [
               6,
               17
@@ -17,7 +17,7 @@ expression: "&jv.value"
             "line": "class AbstractArt : public Thing {",
             "context": "",
             "contextsym": "",
-            "peekRange": "421-421"
+            "peekRange": "429-429"
           }
         ]
       }
@@ -46,7 +46,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 431,
+            "lno": 439,
             "bounds": [
               6,
               17
@@ -54,7 +54,7 @@ expression: "&jv.value"
             "line": "class PracticalArt : public AbstractArt {",
             "context": "",
             "contextsym": "",
-            "peekRange": "431-431",
+            "peekRange": "439-439",
             "upsearch": "symbol:T_outerNS::PracticalArt"
           }
         ]
@@ -65,7 +65,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 434,
+            "lno": 442,
             "bounds": [
               2,
               13

@@ -9,7 +9,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 180,
+            "lno": 183,
             "bounds": [
               6,
               11
@@ -17,7 +17,7 @@ expression: "&jv.value"
             "line": "class Human: public Thing {",
             "context": "",
             "contextsym": "",
-            "peekRange": "180-180"
+            "peekRange": "183-183"
           }
         ]
       }
@@ -46,7 +46,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 189,
+            "lno": 192,
             "bounds": [
               6,
               11
@@ -54,7 +54,7 @@ expression: "&jv.value"
             "line": "class Superhero : public Human {",
             "context": "",
             "contextsym": "",
-            "peekRange": "189-189",
+            "peekRange": "192-192",
             "upsearch": "symbol:T_outerNS::Superhero"
           }
         ]
@@ -65,7 +65,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 193,
+            "lno": 196,
             "bounds": [
               2,
               7
@@ -75,7 +75,7 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS9SuperheroC1Ev"
           },
           {
-            "lno": 214,
+            "lno": 217,
             "bounds": [
               0,
               5
@@ -85,7 +85,7 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
-            "lno": 215,
+            "lno": 218,
             "bounds": [
               16,
               21
@@ -95,7 +95,7 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
-            "lno": 239,
+            "lno": 242,
             "bounds": [
               16,
               21
@@ -105,7 +105,7 @@ expression: "&jv.value"
             "contextsym": "T_outerNS::OuterCat"
           },
           {
-            "lno": 344,
+            "lno": 352,
             "bounds": [
               10,
               15

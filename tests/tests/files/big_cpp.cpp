@@ -162,6 +162,9 @@ class Thing {
       damage = 0;
     }
   }
+
+  virtual void unlink() {
+  }
 };
 
 void Thing::ignore() {
@@ -340,6 +343,11 @@ class OuterCat : Thing {
   }
 
   public:
+
+  void unlink() override {
+    mOwner = nullptr;
+    mFavoriteCouch = nullptr;
+  }
 
   void meet(Human &human) {
     human.ignore();

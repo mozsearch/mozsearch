@@ -38,6 +38,15 @@ expression: "&json_results"
         ]
       },
       {
+        "pretty": "outerNS::Thing::unlink",
+        "sym": "_ZN7outerNS5Thing6unlinkEv",
+        "props": [
+          "instance",
+          "virtual",
+          "user"
+        ]
+      },
+      {
         "pretty": "outerNS::Thing::operator=",
         "sym": "_ZN7outerNS5ThingaSERKS0_",
         "props": [

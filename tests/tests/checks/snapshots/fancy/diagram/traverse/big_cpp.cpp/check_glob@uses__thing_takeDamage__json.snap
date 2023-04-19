@@ -61,7 +61,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#355"
+        "def": "big_cpp.cpp#363"
       }
     },
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
@@ -89,7 +89,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#394"
+        "def": "big_cpp.cpp#402"
       }
     },
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
@@ -117,7 +117,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#401"
+        "def": "big_cpp.cpp#409"
       }
     }
   },
