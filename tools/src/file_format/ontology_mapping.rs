@@ -48,7 +48,8 @@ pub enum OntologyPointerKind {
     Strong,
     Unique,
     Weak,
-    Raw
+    Raw,
+    Ref,
 }
 
 pub struct OntologyMappingIngestion {
@@ -79,6 +80,7 @@ enum TypeParseState {
 struct ShoddyType {
     is_const: bool,
     is_pointer: bool,
+    is_ref: bool,
     identifier: String,
     args: Vec<ShoddyType>,
 }
@@ -111,6 +113,12 @@ impl OntologyMappingConfig {
     /// - Not intended to grow or become more sophisticated than being able to
     ///   build a simple tree with very simple rules.  We have access to clang
     ///   and all the info it has, and we should just use that as the next step.
+    ///
+    /// TODO: Distinguish a ref to a strong pointer from just a ref.
+    /// - We should already be able to do this, but this is more of a question of
+    ///   how/whether to reflect this in the diagram.  Also, it raises the issue
+    ///   of whetehr we should be potentially propagating more of `ShoddyType`
+    ///   directly.
     pub fn maybe_parse_type_as_pointer(&self, type_str: &str) -> Option<(OntologyPointerKind, Ustr)> {
         let mut c = type_str.chars();
         let mut state = TypeParseState::Typish;
@@ -149,6 +157,9 @@ impl OntologyMappingConfig {
                 (TypeParseState::Typish, Some('*')) => {
                     cur_type.is_pointer = true;
                     token = String::new();
+                }
+                (TypeParseState::Typish, Some('&')) => {
+                    cur_type.is_ref = true;
                 }
                 (TypeParseState::Typish, Some('<')) => {
                     if cur_type.identifier.len() > 0 {
@@ -222,6 +233,9 @@ impl OntologyMappingConfig {
                 (TypeParseState::Closing, Some(' ')) => {
                     // Whitespace doesn't mattern when closing.
                 }
+                (TypeParseState::Closing, Some('&')) => {
+                    cur_type.is_ref = true;
+                }
                 (TypeParseState::Closing, Some(c)) => {
                     info!(type_str, "Unexpected character in closing state: '{}'", c);
                 }
@@ -230,7 +244,11 @@ impl OntologyMappingConfig {
 
         if result.is_none() {
             if cur_type.is_pointer {
+                info!(type_str, type_name = cur_type.identifier, "fallback to pointer on exit");
                 return Some((OntologyPointerKind::Raw, ustr(&cur_type.identifier)));
+            } else if cur_type.is_ref {
+                info!(type_str, type_name = cur_type.identifier, "fallback to ref on exit");
+                return Some((OntologyPointerKind::Ref, ustr(&cur_type.identifier)));
             }
         }
 

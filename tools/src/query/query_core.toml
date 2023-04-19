@@ -35,6 +35,17 @@ command = "traverse"
 args.edge = "uses"
 args.paths-between = true
 
+[term.class-diagram]
+[[term.class-diagram.group.graph-build]]
+command = "search-identifiers"
+args.positional = "$0"
+args.exact-match = true
+[[term.class-diagram.group.graph-build]]
+command = "crossref-lookup"
+[[term.class-diagram.group.graph-build]]
+command = "traverse"
+args.edge = "class"
+
 [term.colorize-callees]
 [[term.colorize-callees.group.graph-render]]
 command = "graph"
