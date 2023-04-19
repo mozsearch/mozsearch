@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -10,6 +11,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{from_str, from_value, Map, Value};
 use serde_repr::*;
 use ustr::{ustr, Ustr, UstrMap};
+
+use super::ontology_mapping::OntologyPointerKind;
 
 #[derive(Copy, Clone, Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
@@ -175,6 +178,8 @@ pub struct StructuredMethodInfo {
     pub sym: Ustr,
     #[serde(default)]
     pub props: Vec<Ustr>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub labels: BTreeSet<Ustr>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -206,6 +211,16 @@ pub struct StructuredFieldInfo {
     pub bit_positions: Option<StructuredBitPositionInfo>,
     #[serde(rename = "sizeBytes")]
     pub size_bytes: Option<u32>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub labels: BTreeSet<Ustr>,
+    #[serde(rename = "pointerInfo", skip_serializing_if = "Option::is_none")]
+    pub pointer_info: Option<StructuredPointerInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredPointerInfo {
+    pub kind: OntologyPointerKind,
+    pub sym: Ustr,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
