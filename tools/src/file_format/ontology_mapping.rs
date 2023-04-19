@@ -119,6 +119,52 @@ impl OntologyMappingConfig {
     ///   how/whether to reflect this in the diagram.  Also, it raises the issue
     ///   of whetehr we should be potentially propagating more of `ShoddyType`
     ///   directly.
+    ///
+    /// TODO: Move to returning an explicit new return type in the option, which
+    /// may or may not make sense to be wrapped in a vec.  Visually:
+    /// - For maps the key and value may way to be on separate rows to avoid
+    ///   arrow crossings.  The type name should be implicit in the target,
+    ///   though.
+    /// - Potential badges:
+    ///   - Atom for atomic: U+269B \u269B
+    ///   -
+    ///
+    /// Pending issues:
+    /// - closing state hates commas and then the new type:
+    ///   `AutoTArray<RefPtr<nsFrameSelection>, 1>`
+    /// - `NotNull<nsCOMPtr<mozIStorageConnection> >` getting id clobber
+    ///   `prev_id="nsCOMPtr" new_id=""`
+    /// - `nsTArray<Accessible *>` the space trips us up.
+    /// - Also maybe:
+    ///   `Got an identifier when already had an identifier! type_str="Maybe<BufferPointer<BaselineFrame> >" prev_id="BufferPointer" new_id=""`
+    /// - Also for arrays, seems like we should propagate that.
+    ///   - `Vector<UniquePtr<ProfiledThreadData> >` is an interesting case of that.
+    ///   - `const std::vector<HashMgr *> &`
+    ///   - `Vector<char *>`
+    ///   - `AutoTArray` in addition to `nsTArray`, `mozilla::Array`, nsTObserverArray
+    /// - Also sets like HashSet
+    /// - Native arrays?
+    ///   - `"UniquePtr<char[]>"`
+    ///   - `UniquePtr<nscoord[]>`
+    /// - maybe just bail on functions because of complex signatures, ex tame:
+    ///   `std::queue<std::function<void (void)> >`
+    /// - Maybe just bail on unions?  ex:
+    ///   `union AllocInfo::(anonymous at /builds/worker/checkouts/gecko/memory/build/mozjemalloc.cpp:3508:3)`
+    /// - Similar with enums:
+    ///   `enum (unnamed enum at /builds/worker/checkouts/gecko/xpcom/tests/gtest/TestMultiplexInputStream.cpp:503:3)`
+    /// - Maybe need to "Evaluate" only on first arg for cases like
+    ///   `UniquePtr<Utf8Unit[], JS::FreePolicy>` where right now we only call on the FreePolicy.
+    ///
+    /// Other domain situations:
+    /// - `Rooted<AbstractGeneratorObject *>`
+    /// - `Atomic<_Bool>`
+    /// - DataMutex, StaticDataMutex
+    ///   - So for these I think it makes sense for this to be a bool that gets mapped to an atomic emoji.
+    /// - Maps: `nsTHashtable<CategoryLeaf>`, std::map
+    ///   - For std::map need to reference key and value types!
+    ///
+    /// Complex scenarios:
+    /// - `HashSet<gc::Cell *, DefaultHasher<gc::Cell *>, SystemAllocPolicy>` hates the closing state
     pub fn maybe_parse_type_as_pointer(&self, type_str: &str) -> Option<(OntologyPointerKind, Ustr)> {
         let mut c = type_str.chars();
         let mut state = TypeParseState::Typish;
@@ -232,6 +278,9 @@ impl OntologyMappingConfig {
                 }
                 (TypeParseState::Closing, Some(' ')) => {
                     // Whitespace doesn't mattern when closing.
+                }
+                (TypeParseState::Closing, Some('*')) => {
+                    cur_type.is_pointer = true;
                 }
                 (TypeParseState::Closing, Some('&')) => {
                     cur_type.is_ref = true;
