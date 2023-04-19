@@ -13,7 +13,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 167,
+                "lno": 170,
                 "bounds": [
                   5,
                   10
@@ -23,7 +23,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5Thing6ignoreEv"
               },
               {
-                "lno": 180,
+                "lno": 183,
                 "bounds": [
                   20,
                   25
@@ -33,7 +33,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Human"
               },
               {
-                "lno": 184,
+                "lno": 187,
                 "bounds": [
                   2,
                   7
@@ -43,7 +43,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5HumanC1Ev"
               },
               {
-                "lno": 206,
+                "lno": 209,
                 "bounds": [
                   21,
                   26
@@ -53,7 +53,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Couch"
               },
               {
-                "lno": 210,
+                "lno": 213,
                 "bounds": [
                   2,
                   7
@@ -63,7 +63,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5CouchC1Ei"
               },
               {
-                "lno": 222,
+                "lno": 225,
                 "bounds": [
                   17,
                   22
@@ -73,7 +73,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::OuterCat"
               },
               {
-                "lno": 262,
+                "lno": 265,
                 "bounds": [
                   2,
                   7
@@ -83,7 +83,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
               },
               {
-                "lno": 394,
+                "lno": 402,
                 "bounds": [
                   11,
                   16
@@ -93,7 +93,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
               },
               {
-                "lno": 401,
+                "lno": 409,
                 "bounds": [
                   13,
                   18
@@ -103,7 +103,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
               },
               {
-                "lno": 421,
+                "lno": 429,
                 "bounds": [
                   27,
                   32
@@ -113,7 +113,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::AbstractArt"
               },
               {
-                "lno": 424,
+                "lno": 432,
                 "bounds": [
                   2,
                   7
@@ -188,6 +188,15 @@ expression: "&to_value(scil).unwrap()"
             {
               "pretty": "outerNS::Thing::takeDamage",
               "sym": "_ZN7outerNS5Thing10takeDamageEi",
+              "props": [
+                "instance",
+                "virtual",
+                "user"
+              ]
+            },
+            {
+              "pretty": "outerNS::Thing::unlink",
+              "sym": "_ZN7outerNS5Thing6unlinkEv",
               "props": [
                 "instance",
                 "virtual",

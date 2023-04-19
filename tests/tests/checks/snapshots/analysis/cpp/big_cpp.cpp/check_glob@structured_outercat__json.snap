@@ -4,7 +4,7 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00222:6-14",
+    "loc": "00225:6-14",
     "structured": 1,
     "pretty": "outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
@@ -46,6 +46,15 @@ expression: "&json_results"
         "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
         "props": [
           "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::unlink",
+        "sym": "_ZN7outerNS8OuterCat6unlinkEv",
+        "props": [
+          "instance",
+          "virtual",
           "user"
         ]
       },
