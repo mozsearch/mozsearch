@@ -4,12 +4,12 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00221:6-14",
+    "loc": "00222:6-14",
     "structured": 1,
     "pretty": "outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
     "kind": "class",
-    "sizeBytes": 16,
+    "sizeBytes": 40,
     "supers": [
       {
         "sym": "T_outerNS::Thing",
@@ -82,6 +82,22 @@ expression: "&json_results"
         ]
       },
       {
+        "pretty": "outerNS::OuterCat::OuterCat",
+        "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::OuterCat::OuterCat",
+        "sym": "_ZN7outerNS8OuterCatC1EOS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
         "pretty": "outerNS::OuterCat::operator=",
         "sym": "_ZN7outerNS8OuterCataSERKS0_",
         "props": [
@@ -120,6 +136,21 @@ expression: "&json_results"
         "type": "_Bool",
         "offsetBytes": 14,
         "sizeBytes": 1
+      },
+      {
+        "pretty": "outerNS::OuterCat::mOwner",
+        "sym": "F_<T_outerNS::OuterCat>_mOwner",
+        "type": "std::shared_ptr<Human>",
+        "typesym": "T_std::shared_ptr",
+        "offsetBytes": 16,
+        "sizeBytes": 16
+      },
+      {
+        "pretty": "outerNS::OuterCat::mFavoriteCouch",
+        "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+        "type": "Couch *",
+        "offsetBytes": 32,
+        "sizeBytes": 8
       }
     ]
   }

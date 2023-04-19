@@ -4,7 +4,7 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00156:15-25",
+    "loc": "00157:15-25",
     "structured": 1,
     "pretty": "outerNS::Thing::takeDamage",
     "sym": "_ZN7outerNS5Thing10takeDamageEi",
