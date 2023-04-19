@@ -448,6 +448,12 @@ public:
   }
 };
 
+class StackArtHolder {
+  PracticalArt &mHeldArt;
+
+  public:
+  StackArtHolder(PracticalArt &aArt) : mHeldArt(aArt) {}
+};
 
 namespace innerNS {
 
