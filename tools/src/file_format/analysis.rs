@@ -675,6 +675,9 @@ impl<'de> Deserialize<'de> for Location {
 
 fn parse_line_range(range: &str) -> LineRange {
     let v: Vec<&str> = range.split("-").collect();
+    if v.len() != 2 {
+        return LineRange::default();
+    }
     let start_lineno = v[0].parse::<u32>().unwrap();
     let end_lineno = v[1].parse::<u32>().unwrap();
     LineRange {
@@ -704,6 +707,9 @@ impl<'de> Deserialize<'de> for LineRange {
 
 fn parse_source_range(range: &str) -> SourceRange {
     let v: Vec<&str> = range.split(&['-', ':'][..]).collect();
+    if v.len() != 4 {
+        return SourceRange::default();
+    }
     let start_lineno = v[0].parse::<u32>().unwrap();
     let start_col = v[1].parse::<u32>().unwrap();
     let end_lineno = v[2].parse::<u32>().unwrap();
