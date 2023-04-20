@@ -158,6 +158,7 @@ expression: "&json_results"
         "pretty": "outerNS::OuterCat::mFavoriteCouch",
         "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
         "type": "Couch *",
+        "typesym": "T_outerNS::Couch",
         "offsetBytes": 32,
         "sizeBytes": 8
       }

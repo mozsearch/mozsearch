@@ -392,7 +392,8 @@ expression: "&to_value(grb).unwrap()"
         "args": [
           {
             "name": "aDispatcher",
-            "type": "Dispatcher *"
+            "type": "Dispatcher *",
+            "typesym": "T_Dispatcher"
           }
         ]
       },
@@ -475,7 +476,8 @@ expression: "&to_value(grb).unwrap()"
         "args": [
           {
             "name": "aDispatcher",
-            "type": "Dispatcher *"
+            "type": "Dispatcher *",
+            "typesym": "T_Dispatcher"
           }
         ]
       },
@@ -558,7 +560,8 @@ expression: "&to_value(grb).unwrap()"
         "args": [
           {
             "name": "aDispatcher",
-            "type": "Dispatcher *"
+            "type": "Dispatcher *",
+            "typesym": "T_Dispatcher"
           }
         ]
       },

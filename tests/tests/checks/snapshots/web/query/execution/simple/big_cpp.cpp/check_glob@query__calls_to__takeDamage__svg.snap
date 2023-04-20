@@ -205,7 +205,7 @@ expression: "&to_value(grb).unwrap()"
             "pretty": "outerNS::OuterCat::mFavoriteCouch",
             "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
             "type": "Couch *",
-            "typesym": "",
+            "typesym": "T_outerNS::Couch",
             "offsetBytes": 32,
             "bitPositions": null,
             "sizeBytes": 8,
@@ -424,7 +424,8 @@ expression: "&to_value(grb).unwrap()"
         "args": [
           {
             "name": "couch",
-            "type": "Couch &"
+            "type": "Couch &",
+            "typesym": "T_outerNS::Couch"
           }
         ]
       },
@@ -458,7 +459,8 @@ expression: "&to_value(grb).unwrap()"
         "args": [
           {
             "name": "thing",
-            "type": "Thing &"
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
           }
         ]
       },
@@ -492,7 +494,8 @@ expression: "&to_value(grb).unwrap()"
         "args": [
           {
             "name": "thing",
-            "type": "Thing &"
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
           }
         ]
       },

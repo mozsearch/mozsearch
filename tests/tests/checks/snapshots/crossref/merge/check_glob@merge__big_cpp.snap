@@ -1976,6 +1976,7 @@ expression: "&json_results"
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
     "type": "elem_type",
+    "typesym": "T_outerNS::Superhero",
     "argRanges": [
       "220:52-220:52"
     ]
@@ -1997,6 +1998,7 @@ expression: "&json_results"
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
     "type": "elem_type",
+    "typesym": "T_outerNS::Human",
     "argRanges": [
       "221:64-221:64"
     ]
@@ -2074,7 +2076,8 @@ expression: "&json_results"
     "syntax": "def,field",
     "pretty": "field outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
-    "type": "Couch *"
+    "type": "Couch *",
+    "typesym": "T_outerNS::Couch"
   },
   {
     "loc": "00255:2-10",
@@ -2251,6 +2254,7 @@ expression: "&json_results"
     "pretty": "function std::shared_ptr::operator=",
     "sym": "_ZNSt10shared_ptraSEOSt10shared_ptrIT_E",
     "type": "shared_ptr<Human> &",
+    "typesym": "T_std::shared_ptr",
     "argRanges": [
       "348:4-348:4",
       "348:13-348:13"
@@ -2269,7 +2273,8 @@ expression: "&json_results"
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
-    "type": "Couch *"
+    "type": "Couch *",
+    "typesym": "T_outerNS::Couch"
   },
   {
     "loc": "00352:7-11",
@@ -2296,7 +2301,8 @@ expression: "&json_results"
     "pretty": "variable human",
     "sym": "V_8046c975607c3527_e79fa9f013",
     "no_crossref": 1,
-    "type": "Human &"
+    "type": "Human &",
+    "typesym": "T_outerNS::Human"
   },
   {
     "loc": "00353:4-9",
@@ -2305,7 +2311,8 @@ expression: "&json_results"
     "pretty": "variable human",
     "sym": "V_8046c975607c3527_e79fa9f013",
     "no_crossref": 1,
-    "type": "Human &"
+    "type": "Human &",
+    "typesym": "T_outerNS::Human"
   },
   {
     "loc": "00353:10-16",
@@ -2340,7 +2347,8 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_ae80fa75607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &"
+    "type": "Couch &",
+    "typesym": "T_outerNS::Couch"
   },
   {
     "loc": "00364:4-9",
@@ -2360,7 +2368,8 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_ae80fa75607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &"
+    "type": "Couch &",
+    "typesym": "T_outerNS::Couch"
   },
   {
     "loc": "00366:9-22",
@@ -2388,7 +2397,8 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_ae80fa75607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &"
+    "type": "Couch &",
+    "typesym": "T_outerNS::Couch"
   },
   {
     "loc": "00375:15-46",
@@ -2416,7 +2426,8 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_ae80fa75607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &"
+    "type": "Couch &",
+    "typesym": "T_outerNS::Couch"
   },
   {
     "loc": "00402:7-12",
@@ -2443,7 +2454,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_c3217995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00403:4-9",
@@ -2452,7 +2464,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_c3217995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00403:10-20",
@@ -2490,7 +2503,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_5e8ea995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00411:4-9",
@@ -2510,7 +2524,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_5e8ea995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00414:4-9",
@@ -2530,7 +2545,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_5e8ea995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00417:4-9",
@@ -2550,7 +2566,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_5e8ea995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00420:4-9",
@@ -2570,7 +2587,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_5e8ea995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00423:4-9",
@@ -2590,7 +2608,8 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_5e8ea995607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &"
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
   },
   {
     "loc": "00427:8-14",
@@ -2738,7 +2757,8 @@ expression: "&json_results"
     "syntax": "def,field",
     "pretty": "field outerNS::StackArtHolder::mHeldArt",
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
-    "type": "PracticalArt &"
+    "type": "PracticalArt &",
+    "typesym": "T_outerNS::PracticalArt"
   },
   {
     "loc": "00455:2-16",
@@ -2765,7 +2785,8 @@ expression: "&json_results"
     "pretty": "variable aArt",
     "sym": "V_60233f95607c3527_de3639c71",
     "no_crossref": 1,
-    "type": "PracticalArt &"
+    "type": "PracticalArt &",
+    "typesym": "T_outerNS::PracticalArt"
   },
   {
     "loc": "00455:39-47",
@@ -2773,7 +2794,8 @@ expression: "&json_results"
     "syntax": "field,use",
     "pretty": "field outerNS::StackArtHolder::mHeldArt",
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
-    "type": "PracticalArt &"
+    "type": "PracticalArt &",
+    "typesym": "T_outerNS::PracticalArt"
   },
   {
     "loc": "00455:48-52",
@@ -2782,7 +2804,8 @@ expression: "&json_results"
     "pretty": "variable aArt",
     "sym": "V_60233f95607c3527_de3639c71",
     "no_crossref": 1,
-    "type": "PracticalArt &"
+    "type": "PracticalArt &",
+    "typesym": "T_outerNS::PracticalArt"
   },
   {
     "loc": "00458:10-17",
@@ -3459,7 +3482,7 @@ expression: "&json_results"
         "pretty": "outerNS::OuterCat::mFavoriteCouch",
         "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
         "type": "Couch *",
-        "typesym": "",
+        "typesym": "T_outerNS::Couch",
         "offsetBytes": 32,
         "bitPositions": null,
         "sizeBytes": 8
@@ -3567,7 +3590,7 @@ expression: "&json_results"
         "pretty": "outerNS::StackArtHolder::mHeldArt",
         "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
         "type": "PracticalArt &",
-        "typesym": "",
+        "typesym": "T_outerNS::PracticalArt",
         "offsetBytes": 0,
         "bitPositions": null,
         "sizeBytes": 8
@@ -4103,7 +4126,8 @@ expression: "&json_results"
     "args": [
       {
         "name": "aArt",
-        "type": "PracticalArt &"
+        "type": "PracticalArt &",
+        "typesym": "T_outerNS::PracticalArt"
       }
     ]
   },
@@ -4355,7 +4379,8 @@ expression: "&json_results"
     "args": [
       {
         "name": "couch",
-        "type": "Couch &"
+        "type": "Couch &",
+        "typesym": "T_outerNS::Couch"
       }
     ]
   },
@@ -4383,7 +4408,8 @@ expression: "&json_results"
     "args": [
       {
         "name": "human",
-        "type": "Human &"
+        "type": "Human &",
+        "typesym": "T_outerNS::Human"
       }
     ]
   },
@@ -4411,7 +4437,8 @@ expression: "&json_results"
     "args": [
       {
         "name": "thing",
-        "type": "Thing &"
+        "type": "Thing &",
+        "typesym": "T_outerNS::Thing"
       }
     ]
   },
@@ -4467,7 +4494,8 @@ expression: "&json_results"
     "args": [
       {
         "name": "thing",
-        "type": "Thing &"
+        "type": "Thing &",
+        "typesym": "T_outerNS::Thing"
       }
     ]
   },

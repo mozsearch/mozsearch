@@ -68,7 +68,8 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "couch",
-            "type": "Couch &"
+            "type": "Couch &",
+            "typesym": "T_outerNS::Couch"
           }
         ]
       },
@@ -102,7 +103,8 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "thing",
-            "type": "Thing &"
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
           }
         ]
       },
@@ -136,7 +138,8 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "thing",
-            "type": "Thing &"
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
           }
         ]
       },

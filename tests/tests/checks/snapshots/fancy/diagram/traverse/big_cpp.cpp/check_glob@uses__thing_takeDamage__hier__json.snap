@@ -199,7 +199,7 @@ expression: sgc.to_json()
             "pretty": "outerNS::OuterCat::mFavoriteCouch",
             "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
             "type": "Couch *",
-            "typesym": "",
+            "typesym": "T_outerNS::Couch",
             "offsetBytes": 32,
             "bitPositions": null,
             "sizeBytes": 8,
@@ -418,7 +418,8 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "couch",
-            "type": "Couch &"
+            "type": "Couch &",
+            "typesym": "T_outerNS::Couch"
           }
         ]
       },
@@ -452,7 +453,8 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "thing",
-            "type": "Thing &"
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
           }
         ]
       },
@@ -486,7 +488,8 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "thing",
-            "type": "Thing &"
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
           }
         ]
       },
