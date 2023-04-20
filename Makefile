@@ -71,6 +71,13 @@ build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/searchfox-index ~
 
+# Notes:
+# - If you want to use a modified version of mozsearch-mozilla, such as one
+#   checked out under "config" in the check-out repo, you can create a symlink
+#   in the VM's home directory via `pushd ~; ln -s /vagrant/config mozilla-config`.
+# - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
+#   that have the relevant jobs scheduled on them.  In particular:
+#   `./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"`
 build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 	mkdir -p ~/mozilla-index

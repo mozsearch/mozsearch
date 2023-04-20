@@ -1476,7 +1476,10 @@ public:
         J.arrayBegin();
 
         for (auto range : *ArgRanges) {
-          J.value(fullRangeToString(range));
+          std::string ArgRangeStr = fullRangeToString(range);
+          if (!ArgRangeStr.empty()) {
+            J.value(ArgRangeStr);
+          }
         }
 
         J.arrayEnd();
@@ -1553,7 +1556,10 @@ public:
       J.arrayBegin();
 
       for (auto range : *ArgRanges) {
-        J.value(fullRangeToString(range));
+          std::string ArgRangeStr = fullRangeToString(range);
+          if (!ArgRangeStr.empty()) {
+            J.value(ArgRangeStr);
+          }
       }
 
       J.arrayEnd();
