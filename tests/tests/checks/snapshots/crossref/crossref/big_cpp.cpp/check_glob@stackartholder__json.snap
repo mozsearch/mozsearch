@@ -57,7 +57,8 @@ expression: "&to_value(scil).unwrap()"
               "props": [
                 "instance",
                 "user"
-              ]
+              ],
+              "args": []
             }
           ],
           "fields": [

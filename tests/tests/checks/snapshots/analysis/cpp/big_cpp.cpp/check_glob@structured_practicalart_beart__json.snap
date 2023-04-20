@@ -8,6 +8,7 @@ expression: "&json_results"
     "structured": 1,
     "pretty": "outerNS::PracticalArt::beArt",
     "sym": "_ZN7outerNS12PracticalArt5beArtEv",
+    "args": [],
     "kind": "method",
     "parentsym": "T_outerNS::PracticalArt",
     "overrides": [

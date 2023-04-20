@@ -49,7 +49,8 @@ expression: "&to_value(scil).unwrap()"
           ],
           "overriddenBy": [
             "_ZN7outerNS12PracticalArt5beArtEv"
-          ]
+          ],
+          "args": []
         }
       },
       "relation": "Queried",

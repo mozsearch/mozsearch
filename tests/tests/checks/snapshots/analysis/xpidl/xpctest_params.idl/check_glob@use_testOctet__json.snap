@@ -9,7 +9,12 @@ expression: "&json_results"
     "syntax": "use,function",
     "type": "uint32_t",
     "pretty": "function nsIXPCTestParams::TestOctet",
-    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
+    "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
+    "argRanges": [
+      "7:20-7:20",
+      "7:23-7:24",
+      "7:27-7:28"
+    ]
   },
   {
     "loc": "00007:10-19",
@@ -18,6 +23,11 @@ expression: "&json_results"
     "pretty": "nsIXPCTestParams::TestOctet",
     "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
     "context": "consume_xpidl",
-    "contextsym": "_Z13consume_xpidlP16nsIXPCTestParams"
+    "contextsym": "_Z13consume_xpidlP16nsIXPCTestParams",
+    "argRanges": [
+      "7:20-7:20",
+      "7:23-7:24",
+      "7:27-7:28"
+    ]
   }
 ]

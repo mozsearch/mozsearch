@@ -70,6 +70,12 @@ expression: "&to_value(scil).unwrap()"
             "instance",
             "virtual",
             "user"
+          ],
+          "args": [
+            {
+              "name": "aBooleanProperty",
+              "type": "_Bool *"
+            }
           ]
         }
       },

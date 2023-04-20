@@ -26,7 +26,8 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       "jumps": {
         "def": "lots_of_calls.cpp#30"
@@ -54,6 +55,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "four",
+            "type": "CallerFour *"
+          }
         ]
       },
       "jumps": {
@@ -83,6 +90,20 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "two",
+            "type": "CallerTwo *"
+          },
+          {
+            "name": "three",
+            "type": "CallerThree *"
+          },
+          {
+            "name": "four",
+            "type": "CallerFour *"
+          }
         ]
       },
       "jumps": {
@@ -112,6 +133,16 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "three",
+            "type": "CallerThree *"
+          },
+          {
+            "name": "four",
+            "type": "CallerFour *"
+          }
         ]
       },
       "jumps": {

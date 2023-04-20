@@ -87,7 +87,22 @@ expression: "&json_results"
     "syntax": "use,function",
     "type": "void",
     "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE6Circle"
+    "sym": "_ZN14DrawingContext4drawE6Circle",
+    "argRanges": [
+      "29:9-29:9"
+    ]
+  },
+  {
+    "loc": "00029:4-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle",
+    "context": "foo",
+    "contextsym": "_Z3fooR14DrawingContextIT_ERT0_",
+    "argRanges": [
+      "29:9-29:9"
+    ]
   },
   {
     "loc": "00029:4-8",

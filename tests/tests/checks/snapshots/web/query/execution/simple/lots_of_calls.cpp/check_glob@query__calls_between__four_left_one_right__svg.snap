@@ -32,7 +32,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerFour::four_right",
@@ -40,7 +41,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerFour::CallerFour",
@@ -49,7 +51,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerFour::CallerFour",
@@ -58,7 +61,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerFour::CallerFour",
@@ -67,7 +71,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [],
@@ -100,7 +105,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerOne::one_calls_two_right",
@@ -108,7 +114,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerOne::CallerOne",
@@ -117,7 +124,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerOne::CallerOne",
@@ -126,7 +134,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerOne::CallerOne",
@@ -135,7 +144,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [],
@@ -168,7 +178,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerThree::CallerThree",
@@ -177,7 +188,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerThree::CallerThree",
@@ -186,7 +198,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerThree::CallerThree",
@@ -195,7 +208,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [],
@@ -228,7 +242,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerTwo::two_right_calls_three_nexus",
@@ -236,7 +251,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerTwo::CallerTwo",
@@ -245,7 +261,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerTwo::CallerTwo",
@@ -254,7 +271,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "CallerTwo::CallerTwo",
@@ -263,7 +281,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [],
@@ -296,7 +315,8 @@ expression: "&to_value(grb).unwrap()"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       "jumps": {
         "def": "lots_of_calls.cpp#30"
@@ -324,6 +344,12 @@ expression: "&to_value(grb).unwrap()"
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "four",
+            "type": "CallerFour *"
+          }
         ]
       },
       "jumps": {
@@ -353,6 +379,20 @@ expression: "&to_value(grb).unwrap()"
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "two",
+            "type": "CallerTwo *"
+          },
+          {
+            "name": "three",
+            "type": "CallerThree *"
+          },
+          {
+            "name": "four",
+            "type": "CallerFour *"
+          }
         ]
       },
       "jumps": {
@@ -382,6 +422,16 @@ expression: "&to_value(grb).unwrap()"
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "three",
+            "type": "CallerThree *"
+          },
+          {
+            "name": "four",
+            "type": "CallerFour *"
+          }
         ]
       },
       "jumps": {

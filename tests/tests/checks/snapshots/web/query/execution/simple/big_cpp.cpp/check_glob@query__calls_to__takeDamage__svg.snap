@@ -44,7 +44,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::isFriendlyCat",
@@ -52,7 +53,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
@@ -60,7 +62,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
@@ -68,7 +71,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::unlink",
@@ -77,7 +81,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "virtual",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::meet",
@@ -85,7 +90,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::meet",
@@ -93,7 +99,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::shred",
@@ -101,7 +108,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::destroy",
@@ -109,7 +117,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::OuterCat",
@@ -117,7 +126,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::OuterCat",
@@ -125,7 +135,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::operator=",
@@ -133,7 +144,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::operator=",
@@ -141,7 +153,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::OuterCat::~OuterCat",
@@ -149,7 +162,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [
@@ -233,7 +247,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::ignore",
@@ -241,7 +256,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::takeDamage",
@@ -250,7 +266,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "virtual",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::unlink",
@@ -259,7 +276,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "virtual",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::operator=",
@@ -267,7 +285,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::operator=",
@@ -275,7 +294,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::~Thing",
@@ -283,7 +303,8 @@ expression: "&to_value(grb).unwrap()"
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::Thing",
@@ -292,7 +313,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::Thing",
@@ -301,7 +323,8 @@ expression: "&to_value(grb).unwrap()"
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [
@@ -363,6 +386,12 @@ expression: "&to_value(grb).unwrap()"
         ],
         "overriddenBy": [
           "_ZN7outerNS9Superhero10takeDamageEi"
+        ],
+        "args": [
+          {
+            "name": "damage",
+            "type": "int"
+          }
         ]
       },
       "jumps": {
@@ -391,6 +420,12 @@ expression: "&to_value(grb).unwrap()"
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "couch",
+            "type": "Couch &"
+          }
         ]
       },
       "jumps": {
@@ -419,6 +454,12 @@ expression: "&to_value(grb).unwrap()"
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &"
+          }
         ]
       },
       "jumps": {
@@ -447,6 +488,12 @@ expression: "&to_value(grb).unwrap()"
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &"
+          }
         ]
       },
       "jumps": {
