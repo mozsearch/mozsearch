@@ -238,7 +238,7 @@ expression: "&to_value(scil).unwrap()"
               "pretty": "outerNS::OuterCat::mFavoriteCouch",
               "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
               "type": "Couch *",
-              "typesym": "",
+              "typesym": "T_outerNS::Couch",
               "offsetBytes": 32,
               "bitPositions": null,
               "sizeBytes": 8,

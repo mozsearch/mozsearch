@@ -1143,6 +1143,15 @@ public:
       J.attribute("type", FieldType.getAsString());
       QualType CanonicalFieldType = FieldType.getCanonicalType();
       const TagDecl *tagDecl = CanonicalFieldType->getAsTagDecl();
+      if (!tagDecl) {
+        // Try again piercing any pointers/references involved.  Note that our
+        // typesym semantics are dubious-ish and right now crossref just does
+        // some parsing of "type" itself until we improve this rep.
+        CanonicalFieldType = CanonicalFieldType->getPointeeType();
+        if (!CanonicalFieldType.isNull()) {
+          tagDecl = CanonicalFieldType->getAsTagDecl();
+        }
+      }
       if (tagDecl) {
         J.attribute("typesym", getMangledName(CurMangleContext, tagDecl));
       }
@@ -1211,10 +1220,20 @@ public:
       J.attribute("name", param->getName());
       QualType ArgType = param->getOriginalType();
       J.attribute("type", ArgType.getAsString());
+
       QualType CanonicalArgType = ArgType.getCanonicalType();
-      const TagDecl *tagDecl = CanonicalArgType->getAsTagDecl();
-      if (tagDecl) {
-        J.attribute("typesym", getMangledName(CurMangleContext, tagDecl));
+      const TagDecl *canonDecl = CanonicalArgType->getAsTagDecl();
+      if (!canonDecl) {
+        // Try again piercing any pointers/references involved.  Note that our
+        // typesym semantics are dubious-ish and right now crossref just does
+        // some parsing of "type" itself until we improve this rep.
+        CanonicalArgType = CanonicalArgType->getPointeeType();
+        if (!CanonicalArgType.isNull()) {
+          canonDecl = CanonicalArgType->getAsTagDecl();
+        }
+      }
+      if (canonDecl) {
+        J.attribute("typesym", getMangledName(CurMangleContext, canonDecl));
       }
 
       J.objectEnd();
@@ -1503,6 +1522,15 @@ public:
       J.attribute("type", MaybeType.getAsString());
       QualType canonical = MaybeType.getCanonicalType();
       const TagDecl *decl = canonical->getAsTagDecl();
+      if (!decl) {
+        // Try again piercing any pointers/references involved.  Note that our
+        // typesym semantics are dubious-ish and right now crossref just does
+        // some parsing of "type" itself until we improve this rep.
+        canonical = canonical->getPointeeType();
+        if (!canonical.isNull()) {
+          decl = canonical->getAsTagDecl();
+        }
+      }
       if (decl) {
         std::string Mangled = getMangledName(CurMangleContext, decl);
         J.attribute("typesym", Mangled);

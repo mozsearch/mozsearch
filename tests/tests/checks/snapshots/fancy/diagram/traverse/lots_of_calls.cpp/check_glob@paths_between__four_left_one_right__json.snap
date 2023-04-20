@@ -59,7 +59,8 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "four",
-            "type": "CallerFour *"
+            "type": "CallerFour *",
+            "typesym": "T_CallerFour"
           }
         ]
       },
@@ -94,15 +95,18 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "two",
-            "type": "CallerTwo *"
+            "type": "CallerTwo *",
+            "typesym": "T_CallerTwo"
           },
           {
             "name": "three",
-            "type": "CallerThree *"
+            "type": "CallerThree *",
+            "typesym": "T_CallerThree"
           },
           {
             "name": "four",
-            "type": "CallerFour *"
+            "type": "CallerFour *",
+            "typesym": "T_CallerFour"
           }
         ]
       },
@@ -137,11 +141,13 @@ expression: sgc.to_json()
         "args": [
           {
             "name": "three",
-            "type": "CallerThree *"
+            "type": "CallerThree *",
+            "typesym": "T_CallerThree"
           },
           {
             "name": "four",
-            "type": "CallerFour *"
+            "type": "CallerFour *",
+            "typesym": "T_CallerFour"
           }
         ]
       },
