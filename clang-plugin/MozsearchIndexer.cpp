@@ -1202,6 +1202,28 @@ public:
 
     emitBindingAttributes(J, *decl);
 
+    J.attributeBegin("args");
+    J.arrayBegin();
+
+    for (auto param : decl->parameters()) {
+      J.objectBegin();
+
+      J.attribute("name", param->getName());
+      QualType ArgType = param->getOriginalType();
+      J.attribute("type", ArgType.getAsString());
+      QualType CanonicalArgType = ArgType.getCanonicalType();
+      const TagDecl *tagDecl = CanonicalArgType->getAsTagDecl();
+      if (tagDecl) {
+        J.attribute("typesym", getMangledName(CurMangleContext, tagDecl));
+      }
+
+      J.objectEnd();
+    }
+
+    J.arrayEnd();
+    J.attributeEnd();
+
+
     auto cxxDecl = dyn_cast<CXXMethodDecl>(decl);
 
     if (cxxDecl) {
@@ -1377,7 +1399,8 @@ public:
                        QualType MaybeType = QualType(),
                        Context TokenContext = Context(), int Flags = 0,
                        SourceRange PeekRange = SourceRange(),
-                       SourceRange NestingRange = SourceRange()) {
+                       SourceRange NestingRange = SourceRange(),
+                       std::vector<SourceRange> *ArgRanges = nullptr) {
     SourceLocation Loc = LocRange.getBegin();
     if (!shouldVisit(Loc)) {
       return;
@@ -1427,6 +1450,18 @@ public:
         if (!PeekRangeStr.empty()) {
           J.attribute("peekRange", PeekRangeStr);
         }
+      }
+
+      if (ArgRanges) {
+        J.attributeBegin("argRanges");
+        J.arrayBegin();
+
+        for (auto range : *ArgRanges) {
+          J.value(fullRangeToString(range));
+        }
+
+        J.arrayEnd();
+        J.attributeEnd();
       }
 
       // End the top-level object.
@@ -1483,6 +1518,18 @@ public:
 
     if (Flags & NoCrossref) {
       J.attribute("no_crossref", 1);
+    }
+
+    if (ArgRanges) {
+      J.attributeBegin("argRanges");
+      J.arrayBegin();
+
+      for (auto range : *ArgRanges) {
+        J.value(fullRangeToString(range));
+      }
+
+      J.arrayEnd();
+      J.attributeEnd();
     }
 
     // End the top-level object.
@@ -1888,8 +1935,14 @@ public:
       return true;
     }
 
+    std::vector<SourceRange> argRanges;
+    for (auto argExpr : E->arguments()) {
+      argRanges.push_back(argExpr->getSourceRange());
+    }
+
     visitIdentifier("use", "function", getQualifiedName(NamedCallee), Loc, Mangled,
-                    E->getCallReturnType(*AstContext), getContext(Loc), Flags);
+                    E->getCallReturnType(*AstContext), getContext(Loc), Flags,
+                    SourceRange(), SourceRange(), &argRanges);
 
     return true;
   }

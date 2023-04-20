@@ -23,7 +23,8 @@ expression: "&to_value(jvl).unwrap()"
           "methods": [],
           "fields": [],
           "overrides": [],
-          "props": []
+          "props": [],
+          "args": []
         },
         "jumps": {
           "def": "big_cpp.cpp#491",

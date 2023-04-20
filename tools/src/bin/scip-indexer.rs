@@ -945,6 +945,8 @@ fn analyze_using_scip(
                                             sym: symbol_info.norm_sym,
                                             props: vec![],
                                             labels: BTreeSet::default(),
+                                            // TODO: see about trying to extract args from markdown?
+                                            args: vec![],
                                         });
                                     }
                                     Some("field") => {
@@ -1269,6 +1271,7 @@ fn analyze_using_scip(
                         // TODO: Expose type information for fields/etc.
                         type_pretty: sinfo.type_pretty.clone(),
                         type_sym: None,
+                        arg_ranges: vec![],
                     },
                     loc,
                 };
@@ -1307,6 +1310,7 @@ fn analyze_using_scip(
                             start_lineno: 0,
                             end_lineno: 0,
                         },
+                        arg_ranges: vec![],
                     },
                     loc: loc.clone(),
                 };

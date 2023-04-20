@@ -427,6 +427,7 @@ fn visit_common(
                 start_lineno: 0,
                 end_lineno: 0,
             },
+            arg_ranges: vec![],
         },
         loc: loc.clone(),
     };
@@ -460,6 +461,7 @@ fn visit_common(
             // TODO: Expose type information for fields/etc.
             type_pretty: None,
             type_sym: None,
+            arg_ranges: vec![],
         },
         loc,
     };
@@ -995,6 +997,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                         // TODO: Expose type information for fields/etc.
                         type_pretty: None,
                         type_sym: None,
+                        arg_ranges: vec![],
                     },
                     loc,
                 };
@@ -1019,6 +1022,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                             start_lineno: 0,
                             end_lineno: 0,
                         },
+                        arg_ranges: vec![],
                     },
                     loc: loc.clone(),
                 }

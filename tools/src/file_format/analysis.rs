@@ -153,6 +153,8 @@ pub struct AnalysisTarget {
         skip_serializing_if = "LineRange::is_empty"
     )]
     pub peek_range: LineRange,
+    #[serde(rename = "argRanges", default, skip_serializing_if = "Vec::is_empty")]
+    pub arg_ranges: Vec<SourceRange>,
 }
 
 /// See TargetTag for more info
@@ -171,6 +173,15 @@ pub struct StructuredSuperInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredArgInfo {
+    pub name: Ustr,
+    #[serde(rename = "type", default)]
+    pub type_pretty: Ustr,
+    #[serde(rename = "typesym", default)]
+    pub type_sym: Ustr,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredMethodInfo {
     #[serde(default)]
     pub pretty: Ustr,
@@ -180,6 +191,8 @@ pub struct StructuredMethodInfo {
     pub props: Vec<Ustr>,
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub labels: BTreeSet<Ustr>,
+    #[serde(default)]
+    pub args: Vec<StructuredArgInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -544,6 +557,8 @@ pub struct AnalysisSource {
     /// type_sym.
     #[serde(rename = "typesym", skip_serializing_if = "Option::is_none")]
     pub type_sym: Option<Ustr>,
+    #[serde(rename = "argRanges", default, skip_serializing_if = "Vec::is_empty")]
+    pub arg_ranges: Vec<SourceRange>,
 }
 
 impl AnalysisSource {

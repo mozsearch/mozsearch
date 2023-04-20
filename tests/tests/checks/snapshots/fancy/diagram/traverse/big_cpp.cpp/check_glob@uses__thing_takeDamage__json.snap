@@ -30,6 +30,12 @@ expression: sgc.to_json()
         ],
         "overriddenBy": [
           "_ZN7outerNS9Superhero10takeDamageEi"
+        ],
+        "args": [
+          {
+            "name": "damage",
+            "type": "int"
+          }
         ]
       },
       "jumps": {
@@ -58,6 +64,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "couch",
+            "type": "Couch &"
+          }
         ]
       },
       "jumps": {
@@ -86,6 +98,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &"
+          }
         ]
       },
       "jumps": {
@@ -114,6 +132,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &"
+          }
         ]
       },
       "jumps": {

@@ -175,7 +175,8 @@ expression: "&to_value(scil).unwrap()"
               "props": [
                 "instance",
                 "user"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::ignore",
@@ -183,7 +184,8 @@ expression: "&to_value(scil).unwrap()"
               "props": [
                 "instance",
                 "user"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::takeDamage",
@@ -192,7 +194,8 @@ expression: "&to_value(scil).unwrap()"
                 "instance",
                 "virtual",
                 "user"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::unlink",
@@ -201,7 +204,8 @@ expression: "&to_value(scil).unwrap()"
                 "instance",
                 "virtual",
                 "user"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::operator=",
@@ -209,7 +213,8 @@ expression: "&to_value(scil).unwrap()"
               "props": [
                 "instance",
                 "defaulted"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::operator=",
@@ -217,7 +222,8 @@ expression: "&to_value(scil).unwrap()"
               "props": [
                 "instance",
                 "defaulted"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::~Thing",
@@ -225,7 +231,8 @@ expression: "&to_value(scil).unwrap()"
               "props": [
                 "instance",
                 "defaulted"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::Thing",
@@ -234,7 +241,8 @@ expression: "&to_value(scil).unwrap()"
                 "instance",
                 "defaulted",
                 "constexpr"
-              ]
+              ],
+              "args": []
             },
             {
               "pretty": "outerNS::Thing::Thing",
@@ -243,7 +251,8 @@ expression: "&to_value(scil).unwrap()"
                 "instance",
                 "defaulted",
                 "constexpr"
-              ]
+              ],
+              "args": []
             }
           ],
           "fields": [

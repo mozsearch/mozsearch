@@ -8,6 +8,12 @@ expression: "&json_results"
     "structured": 1,
     "pretty": "outerNS::Superhero::takeDamage",
     "sym": "_ZN7outerNS9Superhero10takeDamageEi",
+    "args": [
+      {
+        "name": "damage",
+        "type": "int"
+      }
+    ],
     "kind": "method",
     "parentsym": "T_outerNS::Superhero",
     "overrides": [

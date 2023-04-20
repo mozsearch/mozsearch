@@ -131,6 +131,20 @@ expression: "&to_value(scil).unwrap()"
             "instance",
             "virtual",
             "user"
+          ],
+          "args": [
+            {
+              "name": "a",
+              "type": "uint8_t"
+            },
+            {
+              "name": "b",
+              "type": "uint8_t *"
+            },
+            {
+              "name": "_retval",
+              "type": "uint8_t *"
+            }
           ]
         }
       },

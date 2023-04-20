@@ -32,7 +32,8 @@ expression: "&to_value(jvl).unwrap()"
             "instance",
             "virtual",
             "user"
-          ]
+          ],
+          "args": []
         },
         "jumps": {
           "def": "big_cpp.cpp#445"

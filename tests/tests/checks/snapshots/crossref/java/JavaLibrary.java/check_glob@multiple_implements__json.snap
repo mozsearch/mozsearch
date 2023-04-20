@@ -51,7 +51,8 @@ expression: "&to_value(scil).unwrap()"
             {
               "pretty": "sample::JavaLibrary::C::<init>",
               "sym": "S_jvm_sample/JavaLibrary#C#<init>().",
-              "props": []
+              "props": [],
+              "args": []
             }
           ],
           "fields": [],

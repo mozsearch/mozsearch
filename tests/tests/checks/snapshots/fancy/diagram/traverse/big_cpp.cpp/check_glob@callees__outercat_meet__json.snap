@@ -131,7 +131,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Couch::operator=",
@@ -139,7 +140,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Couch::operator=",
@@ -147,7 +149,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Couch::~Couch",
@@ -155,7 +158,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [],
@@ -193,7 +197,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Human::operator=",
@@ -201,7 +206,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Human::operator=",
@@ -209,7 +215,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Human::~Human",
@@ -217,7 +224,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Human::Human",
@@ -226,7 +234,8 @@ expression: sgc.to_json()
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Human::Human",
@@ -235,7 +244,8 @@ expression: sgc.to_json()
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [],
@@ -271,7 +281,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::ignore",
@@ -279,7 +290,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::takeDamage",
@@ -288,7 +300,8 @@ expression: sgc.to_json()
               "instance",
               "virtual",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::unlink",
@@ -297,7 +310,8 @@ expression: sgc.to_json()
               "instance",
               "virtual",
               "user"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::operator=",
@@ -305,7 +319,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::operator=",
@@ -313,7 +328,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::~Thing",
@@ -321,7 +337,8 @@ expression: sgc.to_json()
             "props": [
               "instance",
               "defaulted"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::Thing",
@@ -330,7 +347,8 @@ expression: sgc.to_json()
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           },
           {
             "pretty": "outerNS::Thing::Thing",
@@ -339,7 +357,8 @@ expression: sgc.to_json()
               "instance",
               "defaulted",
               "constexpr"
-            ]
+            ],
+            "args": []
           }
         ],
         "fields": [
@@ -401,6 +420,12 @@ expression: sgc.to_json()
         ],
         "overriddenBy": [
           "_ZN7outerNS9Superhero10takeDamageEi"
+        ],
+        "args": [
+          {
+            "name": "damage",
+            "type": "int"
+          }
         ]
       },
       "jumps": {
@@ -429,7 +454,8 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       "jumps": {
         "def": "big_cpp.cpp#170",
@@ -458,7 +484,8 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       "jumps": {
         "def": "big_cpp.cpp#318"
@@ -486,7 +513,8 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       "jumps": {
         "def": "big_cpp.cpp#322"
@@ -514,7 +542,8 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       "jumps": {
         "def": "big_cpp.cpp#337"
@@ -542,6 +571,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "couch",
+            "type": "Couch &"
+          }
         ]
       },
       "jumps": {
@@ -570,6 +605,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "human",
+            "type": "Human &"
+          }
         ]
       },
       "jumps": {
@@ -598,6 +639,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &"
+          }
         ]
       },
       "jumps": {
@@ -626,6 +673,12 @@ expression: sgc.to_json()
         "props": [
           "instance",
           "user"
+        ],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &"
+          }
         ]
       },
       "jumps": {
