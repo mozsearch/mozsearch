@@ -215,6 +215,12 @@ const FILENAME_INTERVENTIONS = [
     prepend: "Puppeteer has weird JS in old m-c trees: "
   },
   {
+    // dom/base/crashtests/1822717-module.js is an example.
+    includes_list: ["/crashtests/"],
+    severity: "INFO",
+    prepend: "Crashtest may intentionally contain syntax errors: "
+  },
+  {
     // mozilla-central proper provides the coverage we need, whereas we have an
     // ever-growing list of ESR JS code that never gets updated.  These are
     // being added for config3 which is home to our oldest ESR code.
@@ -261,8 +267,9 @@ function logError(msg)
   }
 
   outer: for (const intervention of FILENAME_INTERVENTIONS) {
+    let file_lower = gFilename?.toLowerCase();
     for (const include_entry of intervention.includes_list) {
-      if (gFilename?.toLowerCase().includes(include_entry)) {
+      if (file_lower?.includes(include_entry)) {
         severity = intervention.severity;
         msg = "Downgrading warning to info because: " + intervention.prepend + msg;
         break outer;
