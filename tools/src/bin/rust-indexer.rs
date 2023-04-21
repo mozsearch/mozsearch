@@ -957,6 +957,9 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
         for occurrence in &doc.occurrences {
             let loc = scip_range_to_searchfox_location(&occurrence.range);
             let symbol = lookup_symbol(&occurrence.symbol);
+            if scip::symbol::is_local_symbol(&symbol.symbol) {
+                continue;
+            }
             {
                 let global = sanitize_symbol(&symbol.symbol);
                 let pretty = pretty_symbol(&symbol.symbol);
