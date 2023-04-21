@@ -34,12 +34,11 @@ GENERATED_SRC=$4
 SF_ANALYSIS_OUT=$5
 
 if [ -d "$RUST_ANALYSIS_IN" ]; then
-  INPUTS="$(find $RUST_ANALYSIS_IN -type d -name save-analysis)"
-  SCIP_FLAGS=""
+  INPUTS="$(find $RUST_ANALYSIS_IN -type f -name rust.scip)"
+  SCIP_FLAGS="--scip --scip-prefix $RUST_ANALYSIS_IN"
   if [ "x$INPUTS" = "x" ]; then
-    INPUTS="$(find $RUST_ANALYSIS_IN -type f -name rust.scip)"
-    SCIP_FLAGS="--scip --scip-prefix $RUST_ANALYSIS_IN"
-  else
+    INPUTS="$(find $RUST_ANALYSIS_IN -type d -name save-analysis)"
+    SCIP_FLAGS=""
     # Rust stdlib files use `analysis` directories instead of `save-analysis`, so
     # even though they live under the same root, it needs a separate find pass
     # because the above will not have found them.
