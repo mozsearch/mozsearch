@@ -79,14 +79,28 @@ fn sanitize_symbol(sym: &str) -> String {
     // Downstream processing of the symbol doesn't deal well with
     // these characters, so replace them with underscores.
     fn is_special_char(c: char) -> bool {
-        matches!(c, ',' | ' ' | '.' | '(' | ')' | '\n' | '#' | '-' | '/')
+        matches!(c, ',' | '.' | '(' | ')' | '#' | '-' | '/')
     }
-    sym.replace(is_special_char, "_").trim_matches('_').into()
+    sym.replace(is_special_char, "_")
+        .trim_matches('_')
+        .replace(|c: char| c.is_ascii_whitespace(), "::")
+        .trim_matches(':')
+        .into()
 }
 
 fn pretty_symbol(sym: &str) -> Cow<str> {
+    use scip::symbol::SymbolFormatOptions;
     if let Ok(sym) = scip::symbol::parse_symbol(&sym) {
-        return Cow::Owned(scip::symbol::format_symbol(sym));
+        return Cow::Owned(scip::symbol::format_symbol_with(
+            sym,
+            SymbolFormatOptions {
+                include_scheme: false,
+                include_package_manager: false,
+                include_package_name: true,
+                include_package_version: false,
+                include_descriptor: true,
+            },
+        ));
     }
     Cow::Borrowed(sym)
 }
