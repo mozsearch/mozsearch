@@ -42,13 +42,16 @@ memmap = { package = "memmap2", version = "0.5.3" }
 num_cpus = "1"
 petgraph = "0.6.0"
 prost = "0.10.1"
-protobuf = "3.1"
+protobuf = "3.2"
 query-parser = "0.2.0"
 regex = "1"
 reqwest = "0.11.3"
 rls-analysis = "0.18.1"
 rls-data = "0.19.1"
-scip = "0.1.1"
+# Ensures we have
+# https://github.com/sourcegraph/scip/commit/17d46abc2d64b62d43ddeccd057da90638ead292
+# + debugging spew removal
+scip = { git = "https://github.com/sourcegraph/scip", rev = "17d46abc2d64b62d43ddeccd057da90638ead292" }
 shell-words = "1.0.0"
 # Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
 # does not make any effort to do interning
