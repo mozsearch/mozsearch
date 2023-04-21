@@ -79,11 +79,14 @@ fn sanitize_symbol(sym: &str) -> String {
     // Downstream processing of the symbol doesn't deal well with
     // these characters, so replace them with underscores.
     fn is_special_char(c: char) -> bool {
-        matches!(c, ',' | '.' | '(' | ')' | '#' | '-' | '/')
+        matches!(c, ',' | '.' | '(' | ')' | '-')
+    }
+    fn is_separator(c: char) -> bool {
+        c.is_ascii_whitespace() || matches!(c, '#' | '/')
     }
     sym.replace(is_special_char, "_")
         .trim_matches('_')
-        .replace(|c: char| c.is_ascii_whitespace(), "::")
+        .replace(is_separator, "::")
         .trim_matches(':')
         .into()
 }
