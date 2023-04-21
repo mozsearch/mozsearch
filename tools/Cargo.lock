@@ -588,12 +588,6 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
 name = "fixedbitset"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
-
-[[package]]
-name = "fixedbitset"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "279fb028e20b3c4c320317955b77c5e0c9701f05a1d309905d6fc702cdc5053e"
@@ -1151,9 +1145,8 @@ dependencies = [
 
 [[package]]
 name = "lalrpop"
-version = "0.19.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b15174f1c529af5bf1283c3bc0058266b483a67156f79589fab2a25e23cf8988"
+version = "0.19.8"
+source = "git+https://github.com/mozsearch/lalrpop?branch=mozsearch-version1#393688d6295f50479c5a99fccb52eb6bd38785b5"
 dependencies = [
  "ascii-canvas",
  "atty",
@@ -1162,7 +1155,7 @@ dependencies = [
  "ena",
  "itertools 0.10.3",
  "lalrpop-util",
- "petgraph 0.5.1",
+ "petgraph",
  "pico-args",
  "regex 1.5.5",
  "regex-syntax 0.6.25",
@@ -1174,9 +1167,8 @@ dependencies = [
 
 [[package]]
 name = "lalrpop-util"
-version = "0.19.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3e58cce361efcc90ba8a0a5f982c741ff86b603495bb15a998412e957dcd278"
+version = "0.19.8"
+source = "git+https://github.com/mozsearch/lalrpop?branch=mozsearch-version1#393688d6295f50479c5a99fccb52eb6bd38785b5"
 dependencies = [
  "regex 1.5.5",
 ]
@@ -1724,21 +1716,11 @@ dependencies = [
 
 [[package]]
 name = "petgraph"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
-dependencies = [
- "fixedbitset 0.2.0",
- "indexmap",
-]
-
-[[package]]
-name = "petgraph"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a13a2fa9d0b63e5f22328828741e523766fff0ee9e779316902290dff3f824f"
 dependencies = [
- "fixedbitset 0.4.1",
+ "fixedbitset",
  "indexmap",
 ]
 
@@ -1949,7 +1931,7 @@ dependencies = [
  "lazy_static",
  "log 0.4.17",
  "multimap",
- "petgraph 0.6.0",
+ "petgraph",
  "prost",
  "prost-types",
  "regex 1.5.5",
@@ -2897,7 +2879,7 @@ dependencies = [
  "lol_html",
  "memmap2",
  "num_cpus",
- "petgraph 0.6.0",
+ "petgraph",
  "prost",
  "protobuf",
  "query-parser",
