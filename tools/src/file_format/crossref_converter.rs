@@ -24,7 +24,7 @@ pub fn convert_crossref_value_to_sym_info_rep(cross_val: Value, sym: &Ustr, fall
                 let path_val = path_hit.remove("path").unwrap();
                 let path = path_val.as_str().unwrap();
                 if let Some(Value::Array(mut lines)) = path_hit.remove("lines") {
-                    if lines.len() > 1 {
+                    if lines.len() != 1 {
                         return;
                     }
                     if let Value::Object(line_hit) = lines.remove(0) {
