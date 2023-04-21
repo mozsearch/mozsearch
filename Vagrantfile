@@ -25,6 +25,20 @@ Vagrant.configure("2") do |config|
     # time, which you should not do.
     override.vm.synced_folder './', '/vagrant', type: 'nfs', nfs_udp: false, accessmode: "squash", mount_options: ['local_lock=all']
 
+    # If you want to do a mozilla indexer run, and you run out of disk space,
+    # the way to go is, from the host:
+    #
+    #   $ vagrant halt
+    #   Find the image (in my case in /var/lib/libvirt/images)
+    #   $ sudo qemu-img resize mozsearch_default.img +100G
+    #
+    # Then from the vm:
+    #
+    #   $ sudo lvresize -v -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv
+    #   $ sudo resize2fs -p /dev/mapper/ubuntu--vg-ubuntu--lv
+    #
+    # Consider increasing v.memory a bit too, if your hardware supports it, to
+    # speed up things preventing swap.
     v.memory = 10000
     v.cpus = 8
   end
