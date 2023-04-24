@@ -166,7 +166,7 @@ fn transform_svg(svg: &str) -> String {
             if captured == "g" || captured.starts_with("SYN_") {
                 ">".to_string()
             } else {
-                format!(" data-symbols=\"{}\">", captured)
+                format!(" data-symbols=\"{}\">", urlencoding::decode(captured).unwrap_or_default())
             }
         });
     RE_XLINK
@@ -175,7 +175,7 @@ fn transform_svg(svg: &str) -> String {
             if captured.starts_with("SYN_") {
                 "<g>".to_string()
             } else {
-                format!("<g data-symbols=\"{}\">", captured)
+                format!("<g data-symbols=\"{}\">", urlencoding::decode(captured).unwrap_or_default())
             }
         }).replace("</a>", "</g>")
 }

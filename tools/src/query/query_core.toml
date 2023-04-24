@@ -56,14 +56,12 @@ args.colorize-callees = "$0"
 command = "graph"
 args.debug = true
 
-# This includes the search and crossref-lookup stages to avoid ordering issues
-# for `depth:N calls-to:FOO` but maybe this should be handled by letting a
-# precedence be set on the depth to defer it.
+# This previously was doing a broken thing to try and avoid creating a weird
+# situation if this was specified before "calls-to", but it didn't actually do
+# what it thought it was doing because the earlier stages were not actually
+# associated with "term.depth" but instead "term.calls-to".  Noting this here
+# in case that somehow was doing something important and this breaks things...
 [term.depth]
-[[term.calls-to.group.graph-build]]
-command = "search-identifiers"
-[[term.calls-to.group.graph-build]]
-command = "crossref-lookup"
 [[term.depth.group.graph-build]]
 command = "traverse"
 args.max-depth = "$0"

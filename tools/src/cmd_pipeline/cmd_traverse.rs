@@ -10,13 +10,13 @@ use ustr::ustr;
 use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues},
     symbol_graph::{
-        DerivedSymbolInfo, NamedSymbolGraph, SymbolGraphCollection, SymbolGraphNodeSet,
+        DerivedSymbolInfo, NamedSymbolGraph, SymbolBadge, SymbolGraphCollection, SymbolGraphNodeSet,
     },
 };
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    file_format::analysis::{BindingSlotKind, StructuredBindingSlotInfo, OntologySlotInfo, OntologySlotKind},
+    file_format::analysis::{BindingSlotKind, StructuredBindingSlotInfo, OntologySlotInfo, OntologySlotKind, StructuredFieldInfo},
 };
 
 /// Processes piped-in crossref symbol data, recursively traversing the given
@@ -151,6 +151,9 @@ impl PipelineCommand for TraverseCommand {
 
             let (sym_node_id, _info) =
                 sym_node_set.add_symbol(DerivedSymbolInfo::new(info.symbol, info.crossref_info));
+            // TODO: do something to limit the size of the root-set.  The
+            // combinatorial explosion for something like nsGlobalWindowInner is
+            // just too silly.  This can added as an overload.
             root_set.push(sym_node_id);
         }
 
@@ -195,8 +198,44 @@ impl PipelineCommand for TraverseCommand {
                 .unwrap_or(&Value::Null)
                 .clone();
 
+            let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
+
+            if self.args.edge.as_str() == "class" {
+                if let Some(fields_json) = sym_info.crossref_info.pointer("/meta/fields").cloned() {
+                    let fields: Vec<StructuredFieldInfo> = from_value(fields_json).unwrap();
+                    for field in fields {
+                        let mut show_field = field.labels.len() > 0;
+
+                        let target_id = if let Some(ptr_info) = field.pointer_info {
+                            show_field = true;
+                            let (target_id, _) = sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
+                            if depth < max_depth && considered.insert(ptr_info.sym.clone()) {
+                                trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
+                                to_traverse.push((ptr_info.sym.clone(), depth + 1));
+                            }
+                            Some(target_id)
+                        } else {
+                            None
+                        };
+
+                        if show_field {
+                            let (field_id, field_info) = sym_node_set.ensure_symbol(&field.sym, server).await?;
+                            for label in field.labels {
+                                field_info.badges.push(SymbolBadge {
+                                    label,
+                                    source_jump: None,
+                                });
+                            }
+                            if let Some(tgt_id) = target_id {
+                                graph.add_edge(field_id, tgt_id);
+                            }
+                        }
+                    }
+                }
+            }
+
             // Check whether to traverse a parent binding slot relationship.
-            if let Some(val) = sym_info.crossref_info.pointer("/meta/slotOwner").cloned() {
+            if let Some(val) = slot_owner {
                 let slot_owner: StructuredBindingSlotInfo = from_value(val).unwrap();
 
                 // There are a few possibilities with a binding slot.  It can be

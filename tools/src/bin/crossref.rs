@@ -452,10 +452,20 @@ async fn main() {
             for field in &mut meta.fields {
                 if let Some((ptr_kind, pointee_pretty)) = ontology.config.maybe_parse_type_as_pointer(&field.type_pretty) {
                     if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
-                        field.pointer_info = Some(StructuredPointerInfo {
-                            kind: ptr_kind,
-                            sym: pointee_syms.iter().next().unwrap().clone(),
-                        });
+                        // We need to find the first symbol that's referring to a type.
+                        // Conveniently, for C++, these will always start with `T_`,
+                        // which is nice because we can't do a lookup in meta right now.
+                        // TODO: Generalize to better understand what's a type, especially
+                        // in JS.  It might be easiest to sidestep this problem by having
+                        // the analyzer be emitting structured information for the field
+                        // so that we're just working in symbol space in the first place.
+                        let best_sym = pointee_syms.iter().find(|s| s.starts_with("T_"));
+                        if let Some(sym) = best_sym {
+                            field.pointer_info = Some(StructuredPointerInfo {
+                                kind: ptr_kind,
+                                sym: sym.clone(),
+                            });
+                        }
                     } else {
                         warn!(pretty=pointee_pretty.as_str(), "Unable to map pretty identifier to symbols.");
                     }

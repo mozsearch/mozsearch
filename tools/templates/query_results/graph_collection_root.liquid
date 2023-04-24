@@ -1,5 +1,5 @@
 {% for graph in results.SymbolGraphCollection.hierarchicalGraphs %}
 <pre>
-{{ graph | json }}
+{{ graph | json | escape }}
 </pre>
 {% endfor %}
