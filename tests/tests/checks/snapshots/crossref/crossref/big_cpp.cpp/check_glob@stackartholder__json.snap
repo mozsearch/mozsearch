@@ -65,7 +65,7 @@ expression: "&to_value(scil).unwrap()"
             {
               "pretty": "outerNS::StackArtHolder::mHeldArt",
               "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
-              "type": "PracticalArt &",
+              "type": "class outerNS::PracticalArt &",
               "typesym": "T_outerNS::PracticalArt",
               "offsetBytes": 0,
               "bitPositions": null,
