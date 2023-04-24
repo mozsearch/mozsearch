@@ -3472,7 +3472,7 @@ expression: "&json_results"
       {
         "pretty": "outerNS::OuterCat::mOwner",
         "sym": "F_<T_outerNS::OuterCat>_mOwner",
-        "type": "std::shared_ptr<Human>",
+        "type": "class std::shared_ptr<class outerNS::Human>",
         "typesym": "T_std::shared_ptr",
         "offsetBytes": 16,
         "bitPositions": null,
@@ -3481,7 +3481,7 @@ expression: "&json_results"
       {
         "pretty": "outerNS::OuterCat::mFavoriteCouch",
         "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
-        "type": "Couch *",
+        "type": "class outerNS::Couch *",
         "typesym": "T_outerNS::Couch",
         "offsetBytes": 32,
         "bitPositions": null,
@@ -3589,7 +3589,7 @@ expression: "&json_results"
       {
         "pretty": "outerNS::StackArtHolder::mHeldArt",
         "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
-        "type": "PracticalArt &",
+        "type": "class outerNS::PracticalArt &",
         "typesym": "T_outerNS::PracticalArt",
         "offsetBytes": 0,
         "bitPositions": null,
