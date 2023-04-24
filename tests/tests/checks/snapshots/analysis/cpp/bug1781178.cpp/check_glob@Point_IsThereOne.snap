@@ -1,0 +1,24 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00002:7-17",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "_Bool (void)",
+    "pretty": "function Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv"
+  },
+  {
+    "loc": "00002:7-17",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv",
+    "context": "Point",
+    "contextsym": "T_Point",
+    "peekRange": "2-2"
+  }
+]

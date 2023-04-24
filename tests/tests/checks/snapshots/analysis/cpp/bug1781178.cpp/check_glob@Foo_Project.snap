@@ -4,45 +4,45 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00006:7-14",
+    "loc": "00008:7-14",
     "source": 1,
-    "nestingRange": "6:25-6:26",
+    "nestingRange": "8:25-8:26",
     "syntax": "def,function",
     "type": "void (Point<F>)",
     "pretty": "function Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__E"
   },
   {
-    "loc": "00006:7-14",
+    "loc": "00008:7-14",
     "target": 1,
     "kind": "def",
     "pretty": "Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__E",
     "context": "Foo",
     "contextsym": "T_Foo",
-    "peekRange": "6-6"
+    "peekRange": "8-8"
   },
   {
-    "loc": "00009:7-14",
+    "loc": "00011:7-14",
     "source": 1,
-    "nestingRange": "9:35-9:36",
+    "nestingRange": "11:35-11:36",
     "syntax": "def,function",
     "type": "void (Point<F>, Point<F>)",
     "pretty": "function Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_"
   },
   {
-    "loc": "00009:7-14",
+    "loc": "00011:7-14",
     "target": 1,
     "kind": "def",
     "pretty": "Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_",
     "context": "Foo",
     "contextsym": "T_Foo",
-    "peekRange": "9-9"
+    "peekRange": "11-11"
   },
   {
-    "loc": "00013:4-11",
+    "loc": "00015:4-11",
     "source": 1,
     "syntax": "use,function",
     "type": "void (Point<F>)",
@@ -50,7 +50,7 @@ expression: "&json_results"
     "sym": "_ZN3Foo7ProjectE5PointITL0__E"
   },
   {
-    "loc": "00013:4-11",
+    "loc": "00015:4-11",
     "source": 1,
     "syntax": "use,function",
     "type": "void (Point<F>, Point<F>)",
@@ -58,7 +58,7 @@ expression: "&json_results"
     "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_"
   },
   {
-    "loc": "00013:4-11",
+    "loc": "00015:4-11",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Project",
@@ -67,7 +67,7 @@ expression: "&json_results"
     "contextsym": "_ZN3Foo3BarEv"
   },
   {
-    "loc": "00013:4-11",
+    "loc": "00015:4-11",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Project",

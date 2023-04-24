@@ -1,4 +1,6 @@
-template <typename> struct Point {};
+template <typename> struct Point {
+  bool IsThereOne();
+};
 
 template <typename>
 struct Foo {
@@ -13,3 +15,8 @@ struct Foo {
     Project(p);
   }
 };
+
+template <typename T> void TemplateFunc() {
+  Point<T> p;
+  p.IsThereOne();
+}
