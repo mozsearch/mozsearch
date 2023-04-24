@@ -72,7 +72,7 @@ expression: "&to_value(scil).unwrap()"
               "sizeBytes": 8,
               "pointerInfo": {
                 "kind": "ref",
-                "sym": "_ZN7outerNS12PracticalArtC1Ev"
+                "sym": "T_outerNS::PracticalArt"
               }
             }
           ],

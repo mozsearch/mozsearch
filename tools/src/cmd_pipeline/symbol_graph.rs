@@ -78,11 +78,22 @@ is working.
   states for debugging.
 */
 
+pub fn make_safe_port_id(dubious_id: &str) -> String {
+    return dubious_id.replace(|x| x == '<' || x == '>' || x == ':', "_");
+}
+
 /// A symbol and its cross-reference information plus caching helpers.
 #[derive(Clone)]
 pub struct DerivedSymbolInfo {
     pub symbol: Ustr,
     pub crossref_info: Value,
+    pub badges: Vec<SymbolBadge>,
+}
+
+#[derive(Clone)]
+pub struct SymbolBadge {
+    pub label: Ustr,
+    pub source_jump: Option<String>,
 }
 
 pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
@@ -147,6 +158,7 @@ impl DerivedSymbolInfo {
         DerivedSymbolInfo {
             symbol,
             crossref_info,
+            badges: vec![],
         }
     }
 }
@@ -607,7 +619,7 @@ impl LabelRow {
             let indent_str = "&nbsp;".repeat(cell.indent_level as usize);
             row_pieces.push(format!(
                 r#"<td href="{}" port="{}" align="left">{}{}</td>"#,
-                cell.symbol, cell.port, indent_str, cell.contents
+                urlencoding::encode(&cell.symbol), cell.port, indent_str, cell.contents
             ));
         }
         format!("<tr>{}</tr>", row_pieces.join(""))
@@ -909,15 +921,17 @@ impl HierarchicalNode {
             // case, it just had a comment noting the weirdness possible.
             let parent_id_str = self.derive_id(node_set, state);
             {
-                let in_target = node_id!(esc parent_id_str, port!(id!(esc parent_id_str), "w"));
-                let out_target = node_id!(esc parent_id_str, port!(id!(esc parent_id_str), "e"));
+                let port_id_str = make_safe_port_id(&parent_id_str);
+                let in_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "w"));
+                let out_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"));
                 state.register_symbol_edge_targets(&self.symbols, in_target, out_target);
             }
 
             for kid in self.children.values_mut() {
                 let kid_id_str = kid.derive_id(node_set, state);
-                let in_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "w"));
-                let out_target = node_id!(esc parent_id_str, port!(id!(esc kid_id_str), "e"));
+                let port_id_str = make_safe_port_id(&kid_id_str);
+                let in_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "w"));
+                let out_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"));
                 state.register_symbol_edge_targets(&kid.symbols, in_target, out_target);
                 kid.action = Some(HierarchicalLayoutAction::Record(kid_id_str));
             }
@@ -1025,19 +1039,20 @@ impl HierarchicalNode {
                     cells: vec![LabelCell {
                         contents: format!("<b>{}</b>", self.display_name),
                         symbol: node_id.clone(),
-                        port: node_id.clone(),
+                        port: make_safe_port_id(node_id),
                         indent_level: 0,
                     }],
                 });
 
                 let mut kid_edges = vec![];
                 for kid in self.children.values() {
-                    if let Some(HierarchicalLayoutAction::Record(kid_port_name)) = &kid.action {
+                    if let Some(HierarchicalLayoutAction::Record(kid_id)) = &kid.action {
+                        let kid_port_name = make_safe_port_id(kid_id);
                         table.rows.push(LabelRow {
                             cells: vec![LabelCell {
                                 contents: kid.display_name.clone(),
-                                symbol: kid_port_name.clone(),
-                                port: kid_port_name.clone(),
+                                symbol: kid_id.clone(),
+                                port: kid_port_name,
                                 indent_level: 1,
                             }],
                         });
@@ -1211,14 +1226,14 @@ impl SymbolGraphNodeSet {
     pub fn add_symbol(
         &mut self,
         sym_info: DerivedSymbolInfo,
-    ) -> (SymbolGraphNodeId, &DerivedSymbolInfo) {
+    ) -> (SymbolGraphNodeId, &mut DerivedSymbolInfo) {
         let index = self.symbol_crossref_infos.len();
         let symbol = sym_info.symbol.clone();
         self.symbol_crossref_infos.push(sym_info);
         self.symbol_to_index_map.insert(symbol, index as u32);
         (
             SymbolGraphNodeId(index as u32),
-            self.symbol_crossref_infos.get(index).unwrap(),
+            self.symbol_crossref_infos.get_mut(index).unwrap(),
         )
     }
 
@@ -1226,11 +1241,11 @@ impl SymbolGraphNodeSet {
         &'a mut self,
         sym: &'a Ustr,
         server: &'a Box<dyn AbstractServer + Send + Sync>,
-    ) -> Result<(SymbolGraphNodeId, &DerivedSymbolInfo)> {
+    ) -> Result<(SymbolGraphNodeId, &mut DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {
             let sym_info = self
                 .symbol_crossref_infos
-                .get(*index as usize)
+                .get_mut(*index as usize)
                 .ok_or_else(make_data_invariant_err)?;
             return Ok((SymbolGraphNodeId(*index), sym_info));
         }

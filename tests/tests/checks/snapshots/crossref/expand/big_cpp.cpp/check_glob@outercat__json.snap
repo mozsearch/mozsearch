@@ -231,7 +231,7 @@ expression: "&to_value(scil).unwrap()"
               ],
               "pointerInfo": {
                 "kind": "strong",
-                "sym": "_ZN7outerNS5HumanC1Ev"
+                "sym": "T_outerNS::Human"
               }
             },
             {
@@ -247,7 +247,7 @@ expression: "&to_value(scil).unwrap()"
               ],
               "pointerInfo": {
                 "kind": "raw",
-                "sym": "_ZN7outerNS5CouchC1Ei"
+                "sym": "T_outerNS::Couch"
               }
             }
           ],
