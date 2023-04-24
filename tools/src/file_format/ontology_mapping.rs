@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use ustr::{ustr, UstrMap, Ustr};
+use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Deserialize)]
 pub struct OntologyMappingConfig {
@@ -34,15 +34,17 @@ pub struct OntologyLabelRule {
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OntologyType {
-    Pointer(OntologyTypePointer)
+    Pointer(OntologyTypePointer),
 }
 
 #[derive(Deserialize)]
 pub struct OntologyTypePointer {
     pub kind: OntologyPointerKind,
+    #[serde(default)]
+    pub arg_index: u32,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OntologyPointerKind {
     Strong,
@@ -61,13 +63,11 @@ impl OntologyMappingIngestion {
         let config: OntologyMappingConfig =
             toml::from_str(config_str).map_err(|err| err.to_string())?;
 
-        Ok(OntologyMappingIngestion {
-            config,
-        })
+        Ok(OntologyMappingIngestion { config })
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
 enum TypeParseState {
     /// We're parsing a type.
     Typish,
@@ -165,7 +165,10 @@ impl OntologyMappingConfig {
     ///
     /// Complex scenarios:
     /// - `HashSet<gc::Cell *, DefaultHasher<gc::Cell *>, SystemAllocPolicy>` hates the closing state
-    pub fn maybe_parse_type_as_pointer(&self, type_str: &str) -> Option<(OntologyPointerKind, Ustr)> {
+    pub fn maybe_parse_type_as_pointer(
+        &self,
+        type_str: &str,
+    ) -> Option<(OntologyPointerKind, Ustr)> {
         let mut c = type_str.chars();
         let mut state = TypeParseState::Typish;
         let mut type_stack: Vec<ShoddyType> = vec![];
@@ -188,11 +191,22 @@ impl OntologyMappingConfig {
                     if token.len() > 0 {
                         if token.as_str() == "const" {
                             cur_type.is_const = true;
+                        } else if token.as_str() == "union" {
+                            // we can't do anything useful with unions.
+                            return None;
+                        } else if token.as_str() == "enum" {
+                            // we can't do anything useful with enums.
+                            return None;
                         } else if token.as_str() == "class" {
                             // did I intentionally have us add markers here?
                         } else {
                             if cur_type.identifier.len() > 0 {
-                                warn!(type_str, prev_id=cur_type.identifier, new_id=token, "Got an identifier when already had an identifier!");
+                                warn!(
+                                    type_str,
+                                    prev_id = cur_type.identifier,
+                                    new_id = token,
+                                    "Got an identifier when already had an identifier!"
+                                );
                             }
                             cur_type.identifier = token;
                         }
@@ -209,7 +223,12 @@ impl OntologyMappingConfig {
                 }
                 (TypeParseState::Typish, Some('<')) => {
                     if cur_type.identifier.len() > 0 {
-                        warn!(type_str, prev_id=cur_type.identifier, new_id=token, "Got an identifier when already had an identifier!");
+                        warn!(
+                            type_str,
+                            prev_id = cur_type.identifier,
+                            new_id = token,
+                            "Got an identifier when already had an identifier!"
+                        );
                     }
                     cur_type.identifier = token;
                     token = String::new();
@@ -218,10 +237,13 @@ impl OntologyMappingConfig {
                     cur_type = ShoddyType::default();
                 }
                 (TypeParseState::Typish, Some(',')) => {
-                    // We're done parsing the cur_type and should push it into
-                    // our parent's type.
                     if cur_type.identifier.len() > 0 {
-                        warn!(type_str, prev_id=cur_type.identifier, new_id=token, "Got an identifier when already had an identifier!");
+                        warn!(
+                            type_str,
+                            prev_id = cur_type.identifier,
+                            new_id = token,
+                            "Got an identifier when already had an identifier!"
+                        );
                     }
                     cur_type.identifier = token;
                     token = String::new();
@@ -234,13 +256,20 @@ impl OntologyMappingConfig {
                         return None;
                     }
                 }
-                (TypeParseState::Typish, Some('>')) |
-                (TypeParseState::Closing, Some('>')) => {
-                    if cur_type.identifier.len() > 0 {
-                        warn!(type_str, prev_id=cur_type.identifier, new_id=token, "Got an identifier when already had an identifier!");
+                (TypeParseState::Typish, Some('>')) | (TypeParseState::Closing, Some('>')) => {
+                    // In the closing state we don't process the token.
+                    if state == TypeParseState::Typish {
+                        if cur_type.identifier.len() > 0 {
+                            warn!(
+                                type_str,
+                                prev_id = cur_type.identifier,
+                                new_id = token,
+                                "Got an identifier when already had an identifier!"
+                            );
+                        }
+                        cur_type.identifier = token;
+                        token = String::new();
                     }
-                    cur_type.identifier = token;
-                    token = String::new();
 
                     // A type is being closed out, the cur_type goes in the parent,
                     // and the parent becomes the new cur_type.
@@ -252,19 +281,29 @@ impl OntologyMappingConfig {
                             return None;
                         }
                     };
-
-                    // Evaluate the types here.
-                    let parent_name = ustr(&cur_type.identifier);
-                    info!(type_str, parent_name = cur_type.identifier, pointee_name = done_type.identifier, "evaluating");
-                    if let Some(OntologyType::Pointer(ptr)) = self.types.get(&parent_name) {
-                        let pointee_name = ustr(&done_type.identifier);
-                        if let Some(existing) = result {
-                            warn!(type_str, "Clobbering existing result with pointee type: {}", existing.1);
-                        }
-                        result = Some((ptr.kind.clone(), pointee_name));
-                    }
-
                     cur_type.args.push(done_type);
+
+                    // Evaluate the types now that cur_type is updated.
+                    let parent_name = ustr(&cur_type.identifier);
+                    if let Some(OntologyType::Pointer(ptr)) = self.types.get(&parent_name) {
+                        if let Some(arg_type) = cur_type.args.get(ptr.arg_index as usize) {
+                            let pointee_name = ustr(&arg_type.identifier);
+                            info!(
+                                type_str,
+                                parent_name = cur_type.identifier,
+                                pointee_name = pointee_name.as_str(),
+                                "evaluating"
+                            );
+
+                            if let Some(existing) = result {
+                                warn!(
+                                    type_str,
+                                    "Clobbering existing result with pointee type: {}", existing.1
+                                );
+                            }
+                            result = Some((ptr.kind.clone(), pointee_name));
+                        }
+                    }
 
                     state = TypeParseState::Closing;
                 }
@@ -278,6 +317,17 @@ impl OntologyMappingConfig {
                 }
                 (TypeParseState::Closing, Some(' ')) => {
                     // Whitespace doesn't mattern when closing.
+                }
+                (TypeParseState::Closing, Some(',')) => {
+                    if let Some(container_type) = type_stack.last_mut() {
+                        container_type.args.push(cur_type);
+                        cur_type = ShoddyType::default();
+                    } else {
+                        warn!(type_str, "Hit comma with no parent type!");
+                        return None;
+                    }
+                    // We're no longer closing.
+                    state = TypeParseState::Typish;
                 }
                 (TypeParseState::Closing, Some('*')) => {
                     cur_type.is_pointer = true;
@@ -293,14 +343,102 @@ impl OntologyMappingConfig {
 
         if result.is_none() {
             if cur_type.is_pointer {
-                info!(type_str, type_name = cur_type.identifier, "fallback to pointer on exit");
+                info!(
+                    type_str,
+                    type_name = cur_type.identifier,
+                    "fallback to pointer on exit"
+                );
                 return Some((OntologyPointerKind::Raw, ustr(&cur_type.identifier)));
             } else if cur_type.is_ref {
-                info!(type_str, type_name = cur_type.identifier, "fallback to ref on exit");
+                info!(
+                    type_str,
+                    type_name = cur_type.identifier,
+                    "fallback to ref on exit"
+                );
                 return Some((OntologyPointerKind::Ref, ustr(&cur_type.identifier)));
             }
         }
 
         result
     }
+}
+
+#[test]
+fn test_type_parser() {
+    let test_config = r#"
+[types."nsCOMPtr".pointer]
+kind = "strong"
+
+# explicitly not in the mozilla namespace
+[types."RefPtr".pointer]
+kind = "strong"
+
+[types."mozilla::UniquePtr".pointer]
+kind = "unique"
+
+[types."UniquePtr".pointer]
+kind = "unique"
+
+[types."mozilla::WeakPtr".pointer]
+kind = "weak"
+
+[types."WeakPtr".pointer]
+kind = "weak"
+
+[types."nsClassHashtable".pointer]
+kind = "unique"
+arg_index = 1
+"#;
+    let ingestion = OntologyMappingIngestion::new(test_config).unwrap();
+    let c = &ingestion.config;
+
+    assert_eq!(c.maybe_parse_type_as_pointer("_Bool"), None);
+
+    // Note that some of these real-world examples pre-date our change to use the
+    // canonical type which gets us fully qualified namespaces, so these won't
+    // match reality.
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("class RefPtr<class outer::inner::Actual>"),
+        Some((OntologyPointerKind::Strong, ustr("outer::inner::Actual")))
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("UniquePtr<class Poodle, JS::FreePolicy>"),
+        Some((OntologyPointerKind::Unique, ustr("Poodle")))
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("AutoTArray<RefPtr<nsFrameSelection>, 1>"),
+        Some((OntologyPointerKind::Strong, ustr("nsFrameSelection")))
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("NotNull<nsCOMPtr<mozIStorageConnection> >"),
+        Some((OntologyPointerKind::Strong, ustr("mozIStorageConnection")))
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("NotNull<nsCOMPtr<mozIStorageConnection> >"),
+        Some((OntologyPointerKind::Strong, ustr("mozIStorageConnection")))
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("union AllocInfo::(anonymous at /builds/worker/checkouts/gecko/memory/build/mozjemalloc.cpp:3508:3)"),
+        None
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer(
+            "nsClassHashtable<nsCStringHashKey, RegistrationDataPerPrincipal>"
+        ),
+        Some((
+            OntologyPointerKind::Unique,
+            ustr("RegistrationDataPerPrincipal")
+        ))
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("HashSet<RefPtr<ServiceWorkerRegistrationInfo>, PointerHasher<ServiceWorkerRegistrationInfo*>>"),
+        Some((OntologyPointerKind::Strong, ustr("ServiceWorkerRegistrationInfo")))
+    );
 }
