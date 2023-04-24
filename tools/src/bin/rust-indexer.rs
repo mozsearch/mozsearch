@@ -958,7 +958,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
             match doc_symbols_to_index.get(s) {
                 Some(i) => Cow::Borrowed(&doc.symbols[*i]),
                 None => {
-                    warn!("Didn't find symbol {:?} in local symbol table", s);
+                    debug!("Didn't find symbol {:?} in local symbol table", s);
                     // Fake it till you make it? We have no info for this
                     // symbol, so...
                     Cow::Owned(SymbolInformation {
