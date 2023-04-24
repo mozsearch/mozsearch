@@ -476,6 +476,19 @@ async fn main() {
 
     // ### Process Ontology Rules
     for (pretty_id, rule) in ontology.config.pretty.iter() {
+        // #### Labels we just slap on
+        if rule.labels.len() > 0 {
+            if let Some(root_syms) = id_table.get(&pretty_id) {
+                for sym in root_syms {
+                    if let Some(sym_meta) = meta_table.get_mut(&sym) {
+                        for label in &rule.labels {
+                            sym_meta.labels.insert(label.clone());
+                        }
+                    }
+                }
+            }
+        }
+
         // #### Runnables
         if rule.runnable {
             info!(" Processing pretty runnable rule for: {}", pretty_id);
@@ -570,10 +583,10 @@ async fn main() {
         // structured info for field symbol itself.)
         if let Some(label_rule) = &rule.label_field_uses {
             info!(" Processing pretty label_field_uses rule for: {}", pretty_id);
-            if let Some(root_method_syms) = id_table.get(&pretty_id) {
+            if let Some(root_class_syms) = id_table.get(&pretty_id) {
                 let mut investigate_class_syms = vec![];
                 // We don't care about the root itself, just its subclasses.
-                for sym in root_method_syms {
+                for sym in root_class_syms {
                     if let Some(sym_meta) = meta_table.get(&sym) {
                         for sub in &sym_meta.subclass_syms {
                             investigate_class_syms.push(sub.clone());
