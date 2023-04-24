@@ -448,7 +448,7 @@ async fn main() {
 
     // ### Process class/fields using ontology type information
     for meta in meta_table.values_mut() {
-        if meta.kind.as_str() == "class" {
+        if meta.kind.as_str() == "class" || meta.kind.as_str() == "struct" {
             for field in &mut meta.fields {
                 if let Some((ptr_kind, pointee_pretty)) = ontology.config.maybe_parse_type_as_pointer(&field.type_pretty) {
                     if let Some(pointee_syms) = id_table.get(&pointee_pretty) {

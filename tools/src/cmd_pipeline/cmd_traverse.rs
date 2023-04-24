@@ -5,7 +5,7 @@ use itertools::Itertools;
 use serde_json::{from_value, Value};
 use clap::Args;
 use tracing::trace;
-use ustr::ustr;
+use ustr::{ustr, Ustr};
 
 use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues},
@@ -201,6 +201,19 @@ impl PipelineCommand for TraverseCommand {
             let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
 
             if self.args.edge.as_str() == "class" {
+                if let Some(labels_json) = sym_info.crossref_info.pointer("/meta/labels").cloned() {
+                    let labels: Vec<Ustr> = from_value(labels_json).unwrap();
+                    let mut skip_symbol = false;
+                    for label in labels {
+                        if label.as_str() == "class-diagram:stop" {
+                            // Don't process the fields if we see a stop.
+                            skip_symbol = true;
+                        }
+                    }
+                    if skip_symbol {
+                        continue;
+                    }
+                }
                 if let Some(fields_json) = sym_info.crossref_info.pointer("/meta/fields").cloned() {
                     let fields: Vec<StructuredFieldInfo> = from_value(fields_json).unwrap();
                     for field in fields {
