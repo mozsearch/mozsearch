@@ -17,6 +17,8 @@ pub struct OntologyRule {
     #[serde(default)]
     pub runnable: bool,
     pub label_field_uses: Option<OntologyLabelFieldUses>,
+    #[serde(default)]
+    pub labels: Vec<Ustr>,
 }
 
 #[derive(Deserialize)]
@@ -52,6 +54,7 @@ pub enum OntologyPointerKind {
     Weak,
     Raw,
     Ref,
+    Contains,
 }
 
 pub struct OntologyMappingIngestion {
@@ -81,6 +84,7 @@ struct ShoddyType {
     is_const: bool,
     is_pointer: bool,
     is_ref: bool,
+    is_tag: bool,
     identifier: String,
     args: Vec<ShoddyType>,
 }
@@ -197,8 +201,8 @@ impl OntologyMappingConfig {
                         } else if token.as_str() == "enum" {
                             // we can't do anything useful with enums.
                             return None;
-                        } else if token.as_str() == "class" {
-                            // did I intentionally have us add markers here?
+                        } else if token.as_str() == "class" || token.as_str() == "struct" {
+                            cur_type.is_tag = true;
                         } else {
                             if cur_type.identifier.len() > 0 {
                                 warn!(
@@ -341,6 +345,10 @@ impl OntologyMappingConfig {
             }
         }
 
+        if token.len() > 0 {
+            cur_type.identifier = token;
+        }
+
         if result.is_none() {
             if cur_type.is_pointer {
                 info!(
@@ -356,6 +364,8 @@ impl OntologyMappingConfig {
                     "fallback to ref on exit"
                 );
                 return Some((OntologyPointerKind::Ref, ustr(&cur_type.identifier)));
+            } else if cur_type.is_tag {
+                return Some((OntologyPointerKind::Contains, ustr(&cur_type.identifier)));
             }
         }
 
@@ -441,4 +451,11 @@ arg_index = 1
         c.maybe_parse_type_as_pointer("HashSet<RefPtr<ServiceWorkerRegistrationInfo>, PointerHasher<ServiceWorkerRegistrationInfo*>>"),
         Some((OntologyPointerKind::Strong, ustr("ServiceWorkerRegistrationInfo")))
     );
+
+    // const struct mozilla::dom::locks::LockRequest
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("const struct mozilla::dom::locks::LockRequest"),
+        Some((OntologyPointerKind::Contains, ustr("mozilla::dom::locks::LockRequest")))
+    );
+
 }

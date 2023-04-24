@@ -20,6 +20,15 @@ runnable = true
 [pretty."mozilla::dom::WorkerThreadProxySyncRunnable::RunOnMainThread"]
 runnable = true
 
+[pretty."nsIGlobalObject"]
+labels = ["class-diagram:stop"]
+
+[pretty."nsGlobalWindowInner"]
+labels = ["class-diagram:stop"]
+
+[pretty."mozilla::dom::WorkerPrivate"]
+labels = ["class-diagram:stop"]
+
 # ### Cycle Collection ###
 [[pretty."nsXPCOMCycleCollectionParticipant".label_field_uses.labels]]
 context_sym_suffix = "::cycleCollection::TraverseNative"

@@ -454,6 +454,8 @@ pub struct AnalysisStructured {
     pub overrides: Vec<StructuredOverrideInfo>,
     #[serde(default)]
     pub props: Vec<Ustr>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub labels: BTreeSet<Ustr>,
 
     // ### Derived by cross-referencing
     #[serde(rename = "idlsym", skip_serializing_if = "Option::is_none")]
