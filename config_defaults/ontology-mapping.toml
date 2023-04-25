@@ -50,15 +50,31 @@ label = "cc:unlink"
 # Types like nsString don't need to be called out.
 [types."nsTString".value]
 
+[types."nsPoint".value]
+
+[types."nsIPrincipal".value]
+[types."nsIURI".value]
+[types."nsIReferrerInfo".value]
+
+[types."std::tuple".value]
+
+
+[types."mozilla::TimeStamp".value]
+
+[types."mozilla::dom::IdType".value]
+
 # The refcount and owning thread are boring and usually there.  These could
 # potentially make sense as badges.
 [types."nsCycleCollectingAutoRefCnt".value]
+[types."nsAutoRefCnt".value]
 [types."nsAutoOwningThread".value]
 
 # Maps/Sets are interesting if their values are interesting, so let's mark
 # them as values right now.
 # TODO: Potentially have this (and arrays) annotate multiplicity.
 [types."nsBaseHashtable".value]
+[types."nsTBaseHashSet".value]
+
 [types."nsTArray".value]
 [types."AutoTArray".value]
 [types."mozilla::Vector".value]
@@ -133,3 +149,6 @@ kind = "weak"
 
 [types."weak_ptr".pointer]
 kind = "weak"
+
+[types."nsRefPtrHashKey".pointer]
+kind = "strong"
