@@ -964,7 +964,7 @@ fn analyze_using_scip(
                                                 None
                                             },
                                             labels: BTreeSet::default(),
-                                            pointer_info: None,
+                                            pointer_info: vec![],
                                         });
                                     }
                                     _ => {}

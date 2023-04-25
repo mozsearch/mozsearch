@@ -450,7 +450,12 @@ async fn main() {
     for meta in meta_table.values_mut() {
         if meta.kind.as_str() == "class" || meta.kind.as_str() == "struct" {
             for field in &mut meta.fields {
-                if let Some((ptr_kind, pointee_pretty)) = ontology.config.maybe_parse_type_as_pointer(&field.type_pretty) {
+                // In order to avoid getting confused by native types, require that we have some
+                // typesym.  We won't have a typesym for native types.
+                if field.type_sym.is_empty() {
+                    continue;
+                }
+                for (ptr_kind, pointee_pretty) in ontology.config.maybe_parse_type_as_pointer(&field.type_pretty) {
                     if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
                         // We need to find the first symbol that's referring to a type.
                         // Conveniently, for C++, these will always start with `T_`,
@@ -461,7 +466,7 @@ async fn main() {
                         // so that we're just working in symbol space in the first place.
                         let best_sym = pointee_syms.iter().find(|s| s.starts_with("T_"));
                         if let Some(sym) = best_sym {
-                            field.pointer_info = Some(StructuredPointerInfo {
+                            field.pointer_info.push(StructuredPointerInfo {
                                 kind: ptr_kind,
                                 sym: sym.clone(),
                             });
