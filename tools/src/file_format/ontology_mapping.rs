@@ -33,7 +33,7 @@ pub struct OntologyLabelRule {
     pub label: Ustr,
 }
 
-#[derive(Deserialize)]
+#[derive(Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OntologyType {
     Pointer(OntologyTypePointer),
@@ -42,7 +42,7 @@ pub enum OntologyType {
     Nothing,
 }
 
-#[derive(Deserialize)]
+#[derive(Eq, PartialEq, Deserialize)]
 pub struct OntologyTypePointer {
     pub kind: OntologyPointerKind,
     #[serde(default)]
@@ -320,7 +320,10 @@ impl OntologyMappingConfig {
                                     "evaluating"
                                 );
 
-                                if arg_type.is_tag {
+                                if arg_type.is_tag
+                                    && self.types.get(&pointee_name)
+                                        != Some(&OntologyType::Value)
+                                {
                                     results.push((ptr.kind.clone(), pointee_name));
                                 }
                                 cur_type.consumed = true;
@@ -402,7 +405,7 @@ impl OntologyMappingConfig {
             cur_type.identifier = token;
         }
 
-        if results.is_empty() {
+        if results.is_empty() && !cur_type.consumed {
             if cur_type.is_pointer {
                 info!(
                     type_str,
@@ -463,6 +466,9 @@ arg_index = 1
 
 # ### Sentinel Nothing Types ###
 [types."mozilla::Nothing".nothing]
+
+[types."mozilla::Maybe".pointer]
+kind = "contains"
 "#;
     let ingestion = OntologyMappingIngestion::new(test_config).unwrap();
     let c = &ingestion.config;
@@ -538,5 +544,10 @@ arg_index = 1
             (OntologyPointerKind::Strong, ustr("nsIDocShell")),
             (OntologyPointerKind::Raw, ustr("mozilla::dom::WorkerPrivate"))
         ]
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("class mozilla::Maybe<class nsTString<char16_t> >"),
+        vec![]
     );
 }
