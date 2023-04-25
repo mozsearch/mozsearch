@@ -20,5 +20,22 @@ expression: "&json_results"
     "context": "Point",
     "contextsym": "T_Point",
     "peekRange": "2-2"
+  },
+  {
+    "loc": "00021:4-14",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "_Bool (void)",
+    "pretty": "function Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv"
+  },
+  {
+    "loc": "00021:4-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv",
+    "context": "TemplateFunc",
+    "contextsym": "_Z12TemplateFuncv"
   }
 ]
