@@ -434,6 +434,12 @@ impl SymbolGraphCollection {
                 .take_while(|(a, b)| a == b)
                 .map(|(a, _)| HierarchySegment::PrettySegment(a.to_string()))
                 .collect();
+            // If one is an ancestor of the other, then put the edge above the
+            // outer ancestor by popping off a segment.  This allows us to use a
+            // table where we might otherwise fall back to a cluster.
+            if from_pretty.starts_with(to_pretty.as_str()) || to_pretty.starts_with(from_pretty.as_str()) {
+                common_path.pop();
+            }
             common_path.reverse();
             root.place_edge(common_path, from_id, to_id);
         }
