@@ -70,10 +70,12 @@ expression: "&to_value(scil).unwrap()"
               "offsetBytes": 0,
               "bitPositions": null,
               "sizeBytes": 8,
-              "pointerInfo": {
-                "kind": "ref",
-                "sym": "T_outerNS::PracticalArt"
-              }
+              "pointerInfo": [
+                {
+                  "kind": "ref",
+                  "sym": "T_outerNS::PracticalArt"
+                }
+              ]
             }
           ],
           "overrides": [],

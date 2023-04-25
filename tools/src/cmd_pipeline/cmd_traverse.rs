@@ -219,17 +219,16 @@ impl PipelineCommand for TraverseCommand {
                     for field in fields {
                         let mut show_field = field.labels.len() > 0;
 
-                        let target_id = if let Some(ptr_info) = field.pointer_info {
+                        let mut target_ids = vec![];
+                        for ptr_info in field.pointer_info {
                             show_field = true;
                             let (target_id, _) = sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
                             if depth < max_depth && considered.insert(ptr_info.sym.clone()) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
                                 to_traverse.push((ptr_info.sym.clone(), depth + 1));
                             }
-                            Some(target_id)
-                        } else {
-                            None
-                        };
+                            target_ids.push(target_id);
+                        }
 
                         if show_field {
                             let (field_id, field_info) = sym_node_set.ensure_symbol(&field.sym, server).await?;
@@ -239,8 +238,8 @@ impl PipelineCommand for TraverseCommand {
                                     source_jump: None,
                                 });
                             }
-                            if let Some(tgt_id) = target_id {
-                                graph.add_edge(field_id, tgt_id);
+                            for tgt_id in target_ids {
+                                graph.add_edge(field_id.clone(), tgt_id);
                             }
                         }
                     }

@@ -229,10 +229,12 @@ expression: "&to_value(scil).unwrap()"
               "labels": [
                 "cc:unlink"
               ],
-              "pointerInfo": {
-                "kind": "strong",
-                "sym": "T_outerNS::Human"
-              }
+              "pointerInfo": [
+                {
+                  "kind": "strong",
+                  "sym": "T_outerNS::Human"
+                }
+              ]
             },
             {
               "pretty": "outerNS::OuterCat::mFavoriteCouch",
@@ -245,10 +247,12 @@ expression: "&to_value(scil).unwrap()"
               "labels": [
                 "cc:unlink"
               ],
-              "pointerInfo": {
-                "kind": "raw",
-                "sym": "T_outerNS::Couch"
-              }
+              "pointerInfo": [
+                {
+                  "kind": "raw",
+                  "sym": "T_outerNS::Couch"
+                }
+              ]
             }
           ],
           "overrides": [],

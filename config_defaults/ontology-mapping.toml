@@ -45,12 +45,42 @@ label = "cc:unlink"
 context_sym_suffix = "::unlink"
 label = "cc:unlink"
 
+# ### Value Types ###
+#
+# Types like nsString don't need to be called out.
+[types."nsTString".value]
+
+# The refcount and owning thread are boring and usually there.  These could
+# potentially make sense as badges.
+[types."nsCycleCollectingAutoRefCnt".value]
+[types."nsAutoOwningThread".value]
+
+# Maps/Sets are interesting if their values are interesting, so let's mark
+# them as values right now.
+# TODO: Potentially have this (and arrays) annotate multiplicity.
+[types."nsBaseHashtable".value]
+[types."nsTArray".value]
+[types."AutoTArray".value]
+[types."mozilla::Vector".value]
+[types."HashSet".value]
+
+
+# ### Variant Types ###
+[types."mozilla::Variant".variant]
+
+# ### Sentinel Nothing Types ###
+[types."mozilla::Nothing".nothing]
+
 # ### Pointer Types ###
 #
 # These inform our processing of class fields.
 #
 # Note that we currently do need to manually provide the namespaced and
 # un-namespaced variations of a type.
+
+# Doing this for Maybe<ServiceWorkerDescriptor> right now.
+[types."mozilla::Maybe".pointer]
+kind = "contains"
 
 [types."nsCOMPtr".pointer]
 kind = "strong"
@@ -67,6 +97,9 @@ kind = "strong"
 
 [types."mozilla::ThreadSafeWeakPtr".pointer]
 kind = "weak"
+
+[types."mozilla::CheckedUnsafePtr".pointer]
+kind = "raw"
 
 [types."ThreadSafeWeakPtr".pointer]
 kind = "weak"

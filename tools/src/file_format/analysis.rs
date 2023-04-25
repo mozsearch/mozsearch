@@ -226,8 +226,8 @@ pub struct StructuredFieldInfo {
     pub size_bytes: Option<u32>,
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub labels: BTreeSet<Ustr>,
-    #[serde(rename = "pointerInfo", skip_serializing_if = "Option::is_none")]
-    pub pointer_info: Option<StructuredPointerInfo>,
+    #[serde(default, rename = "pointerInfo", skip_serializing_if = "Vec::is_empty")]
+    pub pointer_info: Vec<StructuredPointerInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
