@@ -819,7 +819,9 @@ impl HierarchicalNode {
             // height.  This will bubble upwards appropriately.
             self.height = core::cmp::max(self.height, kid.height + 1);
         } else {
-            self.symbols.push(sym_id);
+            if !self.symbols.contains(&sym_id) {
+                self.symbols.push(sym_id);
+            }
         }
     }
 
@@ -1010,6 +1012,11 @@ impl HierarchicalNode {
             HierarchicalLayoutAction::Flatten => {
                 // provide the default settings here in the root too
                 result.push(stmt!(attr!("concentrate", "true")));
+                // Decidedly not better, but interesting!
+                // (As discussed extensively on discourse, the LR is a rotation of the TD that
+                // does not do well with records.)
+                //result.push(stmt!(attr!("rankdir", "lr")));
+                //result.push(stmt!(attr!("layout", "osage")));
                 result.push(stmt!(
                     node!("graph"; attr!("fontname", esc "Courier New"), attr!("fontsize", "12"))
                 ));
@@ -1146,7 +1153,7 @@ impl HierarchicalRenderState {
 /// Wrapped u32 identifier for DerivedSymbolInfo nodes in a SymbolGraphNodeSet
 /// for type safety.  The values correspond to the index of the node in the
 /// `symbol_crossref_infos` vec in `SymbolGraphNodeSet`.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct SymbolGraphNodeId(u32);
 
 pub struct SymbolGraphNodeSet {

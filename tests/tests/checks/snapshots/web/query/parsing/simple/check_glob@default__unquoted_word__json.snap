@@ -9,7 +9,11 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "augment-results",
-          "args": []
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": []
+          }
         }
       ],
       "output": "result",
@@ -20,9 +24,13 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "search-files",
-          "args": [
-            "foo"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": [
+              "foo"
+            ]
+          }
         }
       ],
       "output": "file-search",
@@ -33,17 +41,29 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "search-identifiers",
-          "args": [
-            "foo"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": [
+              "foo"
+            ]
+          }
         },
         {
           "command": "crossref-lookup",
-          "args": []
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": []
+          }
         },
         {
           "command": "crossref-expand",
-          "args": []
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": []
+          }
         }
       ],
       "output": "semantic-search",
@@ -54,9 +74,16 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "search-text",
-          "args": [
-            "--re=foo"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {
+              "re": [
+                "foo",
+                0
+              ]
+            },
+            "positional_args": []
+          }
         }
       ],
       "output": "text-search",
@@ -72,7 +99,11 @@ expression: "&jv.value"
       ],
       "command": {
         "command": "compile-results",
-        "args": []
+        "args": {
+          "bool_args": [],
+          "named_args": {},
+          "positional_args": []
+        }
       },
       "output": "compiled",
       "depth": 0

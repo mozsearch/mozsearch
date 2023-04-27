@@ -56,6 +56,13 @@ args.colorize-callees = "$0"
 command = "graph"
 args.debug = true
 
+[term.graph-format]
+[[term.graph-format.group.graph-render]]
+command = "graph"
+priority = 1
+args.format = "$0"
+
+
 # This previously was doing a broken thing to try and avoid creating a weird
 # situation if this was specified before "calls-to", but it didn't actually do
 # what it thought it was doing because the earlier stages were not actually
