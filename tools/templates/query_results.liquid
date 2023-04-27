@@ -16,6 +16,13 @@
           Unhandled results type {{result_pair[0]}}!
         {% endcase %}
       {% endfor %}
+      {% if logs != empty %}
+        <pre>
+        {% for log in logs %}
+          {{ log | json | escape}}
+        {% endfor %}
+        </pre>
+      {% endif %}
   </div>
   <script>var SYM_INFO = {{ SYM_INFO_STR }};</script>
   {% include 'scroll_footer.liquid' search: "query" %}
