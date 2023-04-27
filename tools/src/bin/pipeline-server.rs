@@ -51,9 +51,13 @@ async fn handle_query(
         }
     };
 
-    let pipeline_plan = chew_query(query)?;
+    let graph = {
+        let _log_entered = logged_span.span.clone().entered();
 
-    let graph = build_pipeline_graph(server.clonify(), pipeline_plan)?;
+        let pipeline_plan = chew_query(query)?;
+
+        build_pipeline_graph(server.clonify(), pipeline_plan)?
+    };
 
     let result = graph.run(true).instrument(logged_span.span.clone()).await?;
 
