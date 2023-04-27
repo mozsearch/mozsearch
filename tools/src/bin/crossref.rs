@@ -182,6 +182,7 @@ async fn main() {
     // probe so that we could have a few instructive data points for people to
     // learn from rather than an excessive wall of text with no curation).
     let logged_ingestion_span = LoggedSpan::new_logged_span("repo_ingestion");
+    let ingestion_entered = logged_ingestion_span.span.clone().entered();
 
     let per_file_info_toml_str = cfg.read_tree_config_file_with_default("per-file-info.toml").unwrap();
     let mut ingestion = RepoIngestion::new(&per_file_info_toml_str).expect("Your per-file-info.toml file has issues");
@@ -204,6 +205,7 @@ async fn main() {
 
     // Consume the ingestion logged span, pass it through our repo-ingestion
     // explainer template, and write it do sik.
+    drop(ingestion_entered);
     {
         let ingestion_json = logged_ingestion_span.retrieve_serde_json().await;
         let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
@@ -440,6 +442,7 @@ async fn main() {
 
     // ## Process Ontology config
     let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
+    let ontology_entered = logged_ontology_span.span.clone().entered();
 
     let ontology_toml_str = cfg.read_tree_config_file_with_default("ontology-mapping.toml").unwrap();
     let ontology = OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues");
@@ -631,6 +634,7 @@ async fn main() {
 
     // Consume the ontology logged span, pass it through our ontology-ingestion
     // explainer template, and write it do sik.
+    drop(ontology_entered);
     {
         let ingestion_json = logged_ontology_span.retrieve_serde_json().await;
         let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
