@@ -182,7 +182,7 @@ pub fn build_pipeline_graph(
                     let full_args: Vec<String> =
                         vec!["searchfox-tool".to_string(), segment.command.clone()]
                             .iter()
-                            .chain(&segment.args)
+                            .chain(&segment.args.to_vec())
                             .cloned()
                             .collect();
                     let opts = match ToolOpts::try_parse_from(full_args) {
@@ -233,7 +233,7 @@ pub fn build_pipeline_graph(
                 junction_info.command.command.clone(),
             ]
             .iter()
-            .chain(&junction_info.command.args)
+            .chain(&junction_info.command.args.to_vec())
             .cloned()
             .collect();
             let opts = match JunctionOpts::try_parse_from(full_args) {

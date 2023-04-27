@@ -7,7 +7,10 @@ use query_parser::{parse, TermValue};
 use serde::{Deserialize, Serialize};
 use toml::value::Table;
 
-use crate::{abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError}, cmd_pipeline::transforms::path_glob_transform};
+use crate::{
+    abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError},
+    cmd_pipeline::transforms::path_glob_transform,
+};
 
 /*
   Queries are translated into pipelines in the following steps:
@@ -79,6 +82,8 @@ pub struct TermExpansion {
 pub struct PipelineUse {
     pub command: String,
     #[serde(default)]
+    pub priority: u32,
+    #[serde(default)]
     pub args: Table,
 }
 
@@ -129,28 +134,32 @@ fn apply_transforms(user_val: String, transforms: &Vec<String>) -> String {
     val
 }
 
-fn flatten_args(user_val: &str, args: &Table) -> Vec<String> {
-    let mut flattened = vec![];
+fn flatten_args(user_val: &str, priority: u32, args: &Table) -> PipelineArgs {
+    let mut flattened = PipelineArgs::default();
     for (key, arg_val) in args.iter() {
         if key.as_str() == "positional" {
             if let Some(arg_str) = arg_val.as_str() {
-                flattened.push(arg_str.replace("$0", user_val));
+                flattened
+                    .positional_args
+                    .push(arg_str.replace("$0", user_val));
             }
         } else if let Some(arg_bool) = arg_val.as_bool() {
             // boolean command-line args should be omitted if false
             if arg_bool {
-                flattened.push(format!("--{}", key));
+                flattened.bool_args.insert(key.clone());
             }
         } else if let Some(arg_str) = arg_val.as_str() {
             let replaced_arg = arg_str.replace("$0", user_val);
-            flattened.push(format!("--{}={}", key, shell_words::quote(&replaced_arg)))
+            flattened
+                .named_args
+                .insert(key.clone(), (shell_words::quote(&replaced_arg).to_string(), priority));
         }
     }
     flattened
 }
 
 impl QueryPipelineGroupBuilder {
-    fn ensure_pipeline_step(&mut self, group_name: String, command: String, args: Vec<String>) {
+    fn ensure_pipeline_step(&mut self, group_name: String, command: String, args: PipelineArgs) {
         let group = self
             .groups
             .entry(group_name)
@@ -188,7 +197,7 @@ impl QueryPipelineGroupBuilder {
 
                 for (group_name, pipeline_uses) in term.group.iter() {
                     for pipe_use in pipeline_uses.iter() {
-                        let flattened_args = flatten_args(&term_value, &pipe_use.args);
+                        let flattened_args = flatten_args(&term_value, 0, &pipe_use.args);
                         self.ensure_pipeline_step(
                             group_name.clone(),
                             pipe_use.command.clone(),
@@ -214,19 +223,10 @@ pub struct PipelineGroup {
 }
 
 impl PipelineGroup {
-    fn ensure_pipeline_step(&mut self, command: String, args: Vec<String>) {
-        match self
-            .segments
-            .iter_mut()
-            .rfind(|seg| seg.command == command)
-        {
+    fn ensure_pipeline_step(&mut self, command: String, args: PipelineArgs) {
+        match self.segments.iter_mut().rfind(|seg| seg.command == command) {
             Some(seg) => {
-                for arg in args {
-                    // We de-duplicate each argument added.
-                    if !seg.args.contains(&arg) {
-                        seg.args.push(arg);
-                    }
-                }
+                seg.args.merge(args);
             }
             None => {
                 self.segments.push(PipelineSegment { command, args });
@@ -244,9 +244,49 @@ pub struct JunctionNode {
 }
 
 #[derive(Default, Serialize)]
+pub struct PipelineArgs {
+    pub bool_args: BTreeSet<String>,
+    // Only the named args need a priority for deciding when to clobber.
+    pub named_args: BTreeMap<String, (String, u32)>,
+    pub positional_args: Vec<String>,
+}
+
+impl PipelineArgs {
+    pub fn merge(&mut self, mut other: Self) {
+        self.bool_args.append(&mut other.bool_args);
+        for (key, (oth_val, oth_pri)) in other.named_args {
+            if let Some(ptr) = self.named_args.get_mut(&key) {
+                // Only clobber our current value if the new value has a higher priority.
+                if oth_pri > ptr.1 {
+                    *ptr = (oth_val, oth_pri);
+                }
+            } else {
+                self.named_args.insert(key, (oth_val, oth_pri));
+            }
+        }
+        self.positional_args.append(&mut other.positional_args);
+    }
+
+    pub fn to_vec(&self) -> Vec<String> {
+        let mut args = vec![];
+        for arg in &self.bool_args {
+            args.push(format!("--{}", arg));
+        }
+        for (key, (val, _pri)) in &self.named_args {
+            args.push(format!("--{}", key));
+            args.push(val.clone());
+        }
+        for arg in &self.positional_args {
+            args.push(arg.clone());
+        }
+        args
+    }
+}
+
+#[derive(Default, Serialize)]
 pub struct PipelineSegment {
     pub command: String,
-    pub args: Vec<String>,
+    pub args: PipelineArgs,
 }
 
 pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
@@ -341,7 +381,7 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 unprocessed_groups.push_back(group_name);
 
                 for cmd in &group_config.commands {
-                    let flattened_args = flatten_args("", &cmd.args);
+                    let flattened_args = flatten_args("", cmd.priority, &cmd.args);
                     group.ensure_pipeline_step(cmd.command.clone(), flattened_args);
                 }
             }
@@ -368,7 +408,7 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 // junction:
                 if junction.command.command.is_empty() {
                     junction.command.command = junction_config.command.clone();
-                    junction.command.args = flatten_args("", &junction_config.args);
+                    junction.command.args = flatten_args("", 0, &junction_config.args);
                     unprocessed_junctions.push_back(junction_name);
                 }
             }

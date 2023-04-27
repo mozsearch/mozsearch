@@ -9,10 +9,20 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "augment-results",
-          "args": [
-            "--after=4",
-            "--before=4"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {
+              "after": [
+                "4",
+                0
+              ],
+              "before": [
+                "4",
+                0
+              ]
+            },
+            "positional_args": []
+          }
         }
       ],
       "output": "result",
@@ -23,9 +33,13 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "search-files",
-          "args": [
-            "DoubleBase::doublePure"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": [
+              "DoubleBase::doublePure"
+            ]
+          }
         }
       ],
       "output": "file-search",
@@ -36,17 +50,29 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "search-identifiers",
-          "args": [
-            "DoubleBase::doublePure"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": [
+              "DoubleBase::doublePure"
+            ]
+          }
         },
         {
           "command": "crossref-lookup",
-          "args": []
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": []
+          }
         },
         {
           "command": "crossref-expand",
-          "args": []
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": []
+          }
         }
       ],
       "output": "semantic-search",
@@ -57,9 +83,16 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "search-text",
-          "args": [
-            "--re=DoubleBase::doublePure"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {
+              "re": [
+                "DoubleBase::doublePure",
+                0
+              ]
+            },
+            "positional_args": []
+          }
         }
       ],
       "output": "text-search",
@@ -75,7 +108,11 @@ expression: "&jv.value"
       ],
       "command": {
         "command": "compile-results",
-        "args": []
+        "args": {
+          "bool_args": [],
+          "named_args": {},
+          "positional_args": []
+        }
       },
       "output": "compiled",
       "depth": 0

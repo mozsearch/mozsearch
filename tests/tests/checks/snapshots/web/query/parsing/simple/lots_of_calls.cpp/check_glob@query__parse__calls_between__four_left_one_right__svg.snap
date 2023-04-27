@@ -9,24 +9,41 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "search-identifiers",
-          "args": [
-            "--exact-match",
-            "CallerFour::four_left",
-            "CallerOne::one_calls_two_right"
-          ]
+          "args": {
+            "bool_args": [
+              "exact-match"
+            ],
+            "named_args": {},
+            "positional_args": [
+              "CallerFour::four_left",
+              "CallerOne::one_calls_two_right"
+            ]
+          }
         },
         {
           "command": "crossref-lookup",
-          "args": [
-            "--methods"
-          ]
+          "args": {
+            "bool_args": [
+              "methods"
+            ],
+            "named_args": {},
+            "positional_args": []
+          }
         },
         {
           "command": "traverse",
-          "args": [
-            "--edge=uses",
-            "--paths-between"
-          ]
+          "args": {
+            "bool_args": [
+              "paths-between"
+            ],
+            "named_args": {
+              "edge": [
+                "uses",
+                0
+              ]
+            },
+            "positional_args": []
+          }
         }
       ],
       "output": "graph",
@@ -37,9 +54,16 @@ expression: "&jv.value"
       "segments": [
         {
           "command": "graph",
-          "args": [
-            "--format=mozsearch"
-          ]
+          "args": {
+            "bool_args": [],
+            "named_args": {
+              "format": [
+                "mozsearch",
+                0
+              ]
+            },
+            "positional_args": []
+          }
         }
       ],
       "output": "result",
