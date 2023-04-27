@@ -53,8 +53,12 @@ label = "cc:unlink"
 [types."nsPoint".value]
 
 [types."nsIPrincipal".value]
+[types."mozilla::ipc::PrincipalInfo".value]
 [types."nsIURI".value]
+[types."mozilla::ipc::URIParams".value]
 [types."nsIReferrerInfo".value]
+
+[types."mozilla::ipc::IPDLStructMemberWrapper".value]
 
 [types."std::tuple".value]
 

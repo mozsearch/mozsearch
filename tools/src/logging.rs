@@ -5,7 +5,7 @@ use tokio::{
     sync::oneshot::{self, Receiver, Sender},
     task::JoinHandle,
 };
-use tracing::{info, info_span, span::EnteredSpan};
+use tracing::{info, info_span, span::Span};
 use tracing_forest::{processor::from_fn, traits::*, tree::Tree, worker_task};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter, Layer, Registry};
 use uuid::Uuid;
@@ -28,7 +28,7 @@ lazy_static! {
 /// It is necessary to have called `init_logging()` below to have set up the
 /// necessary machinery which will install tracing-forest as the subscriber.
 pub struct LoggedSpan {
-    span: EnteredSpan,
+    pub span: Span,
     rx: Receiver<Tree>,
 }
 
@@ -58,7 +58,7 @@ impl LoggedSpan {
         let id = Uuid::new_v4();
 
         //let id_str = id.as_simple().to_string();
-        let span = info_span!(parent: None, "logged_span", name, uuid = %id).entered();
+        let span = info_span!(parent: None, "logged_span", name, uuid = %id);
         info!("logged_span_start");
         let (tx, rx) = oneshot::channel();
 

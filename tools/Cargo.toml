@@ -10,7 +10,8 @@ tonic-build = "0.7.1"
 [dependencies]
 async-stream = "0.3.2"
 async-trait = "0.1.50"
-axum = "0.5.3"
+axum = "0.6.17"
+axum-macros = "0.3.7"
 chrono = "0.2"
 clap = { version = "4.0", features = ["cargo", "derive", "env"] }
 cssparser = "0.29"

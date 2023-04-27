@@ -10,6 +10,7 @@ use tools::{
     glob_helper::block_in_place_glob_tree,
     templating::builder::build_and_parse_pipeline_explainer, logging::{init_logging, LoggedSpan},
 };
+use tracing::Instrument;
 
 /// Glob-style insta test where we process all of the searchfox-tool command
 /// lines under TREE/checks/inputs and output the results of those pipelines to
@@ -145,7 +146,7 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         }
                     }
                 })
-                .await;
+                .instrument(logged_span.span.clone()).await;
 
             let log_values = logged_span.retrieve_serde_json().await;
 
