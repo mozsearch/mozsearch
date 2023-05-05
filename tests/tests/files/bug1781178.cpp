@@ -4,6 +4,8 @@ template <typename> struct Point {
 
 template <typename>
 struct Foo {
+  void Simple();
+  
   template <typename F>
   void Project(Point<F>) {}
 
@@ -13,6 +15,8 @@ struct Foo {
   void Bar() {
     Point<float> p;
     Project(p);
+
+    this->Simple();
   }
 };
 

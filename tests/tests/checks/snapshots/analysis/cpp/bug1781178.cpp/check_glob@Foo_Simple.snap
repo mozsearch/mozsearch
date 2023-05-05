@@ -1,0 +1,24 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00007:7-13",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (void)",
+    "pretty": "function Foo::Simple",
+    "sym": "_ZN3Foo6SimpleEv"
+  },
+  {
+    "loc": "00007:7-13",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "Foo::Simple",
+    "sym": "_ZN3Foo6SimpleEv",
+    "context": "Foo",
+    "contextsym": "T_Foo",
+    "peekRange": "7-7"
+  }
+]

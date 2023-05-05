@@ -22,7 +22,7 @@ expression: "&json_results"
     "peekRange": "2-2"
   },
   {
-    "loc": "00021:4-14",
+    "loc": "00025:4-14",
     "source": 1,
     "syntax": "use,function",
     "type": "_Bool (void)",
@@ -30,7 +30,7 @@ expression: "&json_results"
     "sym": "_ZN5Point10IsThereOneEv"
   },
   {
-    "loc": "00021:4-14",
+    "loc": "00025:4-14",
     "target": 1,
     "kind": "use",
     "pretty": "Point::IsThereOne",
