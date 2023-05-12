@@ -23,6 +23,12 @@ pub struct SearchIdentifiers {
     #[clap(short, long, value_parser)]
     case_sensitive: bool,
 
+    /// Should this only match types as indicated by the `T_` convention?
+    /// Currently a hack and this should instead be handled by having the
+    /// crossref-lookup do the filtering.
+    #[clap(long, value_parser)]
+    types_only: bool,
+
     /// Minimum identifier length to search for.  The default of 3 is derived
     /// from router.py's `is_trivial_search` heuristic requiring a length of 3,
     /// although it was only required along one axis.
@@ -78,6 +84,10 @@ impl PipelineCommand for SearchIdentifiersCommand {
                 )
                 .await?
             {
+                if self.args.types_only && !sym.starts_with("T_") {
+                    continue;
+                }
+
                 let quality = match (
                     &self.args.exact_match,
                     id.as_str() == from_ident.as_str(),
