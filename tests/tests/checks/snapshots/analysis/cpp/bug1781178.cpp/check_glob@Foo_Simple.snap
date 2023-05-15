@@ -22,7 +22,7 @@ expression: "&json_results"
     "peekRange": "7-7"
   },
   {
-    "loc": "00020:10-16",
+    "loc": "00023:10-16",
     "source": 1,
     "syntax": "use,function",
     "type": "void (void)",
@@ -30,7 +30,7 @@ expression: "&json_results"
     "sym": "_ZN3Foo6SimpleEv"
   },
   {
-    "loc": "00020:10-16",
+    "loc": "00023:10-16",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Simple",
