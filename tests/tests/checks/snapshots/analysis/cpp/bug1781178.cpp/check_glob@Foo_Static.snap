@@ -1,0 +1,24 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00008:14-20",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (void)",
+    "pretty": "function Foo::Static",
+    "sym": "_ZN3Foo6StaticEv"
+  },
+  {
+    "loc": "00008:14-20",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "Foo::Static",
+    "sym": "_ZN3Foo6StaticEv",
+    "context": "Foo",
+    "contextsym": "T_Foo",
+    "peekRange": "8-8"
+  }
+]

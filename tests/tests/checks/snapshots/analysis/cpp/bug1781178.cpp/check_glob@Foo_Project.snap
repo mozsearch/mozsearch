@@ -4,45 +4,45 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00010:7-14",
+    "loc": "00011:7-14",
     "source": 1,
-    "nestingRange": "10:25-10:26",
+    "nestingRange": "11:25-11:26",
     "syntax": "def,function",
     "type": "void (Point<F>)",
     "pretty": "function Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__E"
   },
   {
-    "loc": "00010:7-14",
+    "loc": "00011:7-14",
     "target": 1,
     "kind": "def",
     "pretty": "Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__E",
     "context": "Foo",
     "contextsym": "T_Foo",
-    "peekRange": "10-10"
+    "peekRange": "11-11"
   },
   {
-    "loc": "00013:7-14",
+    "loc": "00014:7-14",
     "source": 1,
-    "nestingRange": "13:35-13:36",
+    "nestingRange": "14:35-14:36",
     "syntax": "def,function",
     "type": "void (Point<F>, Point<F>)",
     "pretty": "function Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_"
   },
   {
-    "loc": "00013:7-14",
+    "loc": "00014:7-14",
     "target": 1,
     "kind": "def",
     "pretty": "Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_",
     "context": "Foo",
     "contextsym": "T_Foo",
-    "peekRange": "13-13"
+    "peekRange": "14-14"
   },
   {
-    "loc": "00017:4-11",
+    "loc": "00018:4-11",
     "source": 1,
     "syntax": "use,function",
     "type": "void (Point<F>)",
@@ -50,7 +50,7 @@ expression: "&json_results"
     "sym": "_ZN3Foo7ProjectE5PointITL0__E"
   },
   {
-    "loc": "00017:4-11",
+    "loc": "00018:4-11",
     "source": 1,
     "syntax": "use,function",
     "type": "void (Point<F>, Point<F>)",
@@ -58,7 +58,7 @@ expression: "&json_results"
     "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_"
   },
   {
-    "loc": "00017:4-11",
+    "loc": "00018:4-11",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Project",
@@ -67,7 +67,7 @@ expression: "&json_results"
     "contextsym": "_ZN3Foo3BarEv"
   },
   {
-    "loc": "00017:4-11",
+    "loc": "00018:4-11",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Project",

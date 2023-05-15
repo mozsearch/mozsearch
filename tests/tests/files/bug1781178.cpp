@@ -5,6 +5,7 @@ template <typename> struct Point {
 template <typename>
 struct Foo {
   void Simple();
+  static void Static();
   
   template <typename F>
   void Project(Point<F>) {}
@@ -17,6 +18,11 @@ struct Foo {
     Project(p);
 
     this->Simple();
+  }
+
+  template <typename Other>
+  void Baz() {
+    Foo<Other>::Static();
   }
 };
 
