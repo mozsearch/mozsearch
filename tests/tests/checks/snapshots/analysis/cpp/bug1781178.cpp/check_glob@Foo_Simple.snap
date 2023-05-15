@@ -20,5 +20,22 @@ expression: "&json_results"
     "context": "Foo",
     "contextsym": "T_Foo",
     "peekRange": "7-7"
+  },
+  {
+    "loc": "00020:10-16",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (void)",
+    "pretty": "function Foo::Simple",
+    "sym": "_ZN3Foo6SimpleEv"
+  },
+  {
+    "loc": "00020:10-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Foo::Simple",
+    "sym": "_ZN3Foo6SimpleEv",
+    "context": "Foo::Bar",
+    "contextsym": "_ZN3Foo3BarEv"
   }
 ]
