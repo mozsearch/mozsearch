@@ -1,0 +1,119 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00008:7-11",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (class Rectangle)",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE9Rectangle"
+  },
+  {
+    "loc": "00008:7-11",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE9Rectangle",
+    "context": "DrawingContext",
+    "contextsym": "T_DrawingContext",
+    "peekRange": "8-8"
+  },
+  {
+    "loc": "00009:7-11",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (class Triangle)",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE8Triangle"
+  },
+  {
+    "loc": "00009:7-11",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE8Triangle",
+    "context": "DrawingContext",
+    "contextsym": "T_DrawingContext",
+    "peekRange": "9-9"
+  },
+  {
+    "loc": "00010:7-11",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (class Circle)",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle"
+  },
+  {
+    "loc": "00010:7-11",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle",
+    "context": "DrawingContext",
+    "contextsym": "T_DrawingContext",
+    "peekRange": "10-10"
+  },
+  {
+    "loc": "00015:4-8",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (class Circle)",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle"
+  },
+  {
+    "loc": "00015:4-8",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (class Rectangle)",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE9Rectangle"
+  },
+  {
+    "loc": "00015:4-8",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (class Triangle)",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE8Triangle"
+  },
+  {
+    "loc": "00015:4-8",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle"
+  },
+  {
+    "loc": "00015:4-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle",
+    "context": "foo",
+    "contextsym": "_Z3fooR14DrawingContextIT_ERT0_"
+  },
+  {
+    "loc": "00015:4-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE8Triangle",
+    "context": "foo",
+    "contextsym": "_Z3fooR14DrawingContextIT_ERT0_"
+  },
+  {
+    "loc": "00015:4-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE9Rectangle",
+    "context": "foo",
+    "contextsym": "_Z3fooR14DrawingContextIT_ERT0_"
+  }
+]
