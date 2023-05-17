@@ -10,7 +10,7 @@ use petgraph::{
 };
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use serde_json::{json, Value, to_value};
+use serde_json::{json, to_value, Value};
 use tracing::trace;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -437,7 +437,9 @@ impl SymbolGraphCollection {
             // If one is an ancestor of the other, then put the edge above the
             // outer ancestor by popping off a segment.  This allows us to use a
             // table where we might otherwise fall back to a cluster.
-            if from_pretty.starts_with(to_pretty.as_str()) || to_pretty.starts_with(from_pretty.as_str()) {
+            if from_pretty.starts_with(&format!("{}::", to_pretty.as_str()))
+                || to_pretty.starts_with(&format!("{}::", from_pretty.as_str()))
+            {
                 common_path.pop();
             }
             common_path.reverse();
@@ -625,7 +627,10 @@ impl LabelRow {
             let indent_str = "&nbsp;".repeat(cell.indent_level as usize);
             row_pieces.push(format!(
                 r#"<td href="{}" port="{}" align="left">{}{}</td>"#,
-                urlencoding::encode(&cell.symbol), cell.port, indent_str, cell.contents
+                urlencoding::encode(&cell.symbol),
+                cell.port,
+                indent_str,
+                cell.contents
             ));
         }
         format!("<tr>{}</tr>", row_pieces.join(""))
@@ -966,7 +971,11 @@ impl HierarchicalNode {
 
             // XXX The use of a placeholder is from the prototype; need to
             // understand and document the approach more.
-            state.register_symbol_edge_targets(&self.symbols, placeholder_id.clone(), placeholder_id);
+            state.register_symbol_edge_targets(
+                &self.symbols,
+                placeholder_id.clone(),
+                placeholder_id,
+            );
 
             for kid in self.children.values_mut() {
                 kid.compile(depth + 1, 0, be_class, node_set, state);
@@ -988,7 +997,10 @@ impl HierarchicalNode {
         state: &mut HierarchicalRenderState,
     ) -> String {
         if self.symbols.len() >= 1 {
-            self.symbols.iter().map(|sym_id| node_set.get(sym_id).symbol.clone()).join(",")
+            self.symbols
+                .iter()
+                .map(|sym_id| node_set.get(sym_id).symbol.clone())
+                .join(",")
         } else {
             state.issue_new_synthetic_id()
         }
@@ -1010,16 +1022,37 @@ impl HierarchicalNode {
         match action {
             // Collapse ends up looking the same as flatten.
             HierarchicalLayoutAction::Flatten => {
-                // provide the default settings here in the root too
+                // Provide the default settings here in the root too.
+
+                // concentrate has the advantage of bundling edges together that are going to the
+                // same location (although not exhaustively), but has the downside that it can
+                // result in wackier looking edges as we end up with more spline segments and each
+                // segment can do its own wiggly thing, so concentrated edges can seem to wiggle for
+                // no good reason.
                 result.push(stmt!(attr!("concentrate", "true")));
+
                 // Decidedly not better, but interesting!
                 // (As discussed extensively on discourse, the LR is a rotation of the TD that
                 // does not do well with records.)
                 //result.push(stmt!(attr!("rankdir", "lr")));
                 //result.push(stmt!(attr!("layout", "osage")));
-                result.push(stmt!(
-                    node!("graph"; attr!("fontname", esc "Courier New"), attr!("fontsize", "12"))
-                ));
+
+                // The graph node affects both the root graph and subgraphs/clusters, which is why
+                // we don't just set the attributes here at the root level on the root digraph.
+                result.push(stmt!(node!("graph";
+                    attr!("fontname", esc "Courier New"),
+                    attr!("fontsize", "12"),
+                    // Didn't notice a difference yet, but may be useful.
+                    //attr!("ratio", "compress"),
+                    // Currently newrank just ends up making clusters taller with weird whitespace
+                    // because it's leaving space for nodes contained in sibling clusters (because
+                    // the point of newrank is to allow nodes outside the cluster to impact rank
+                    // calculations).  It only makes sense to turn this on when we have a benefit
+                    // like being able to use rank=same to line nodes in the cluster up with nodes
+                    // outside the cluster or in another cluster.
+                    //attr!("newrank", "true"),
+                    attr!("compound", "true")
+                )));
                 result.push(stmt!(node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))));
                 for kid in self.children.values() {
                     result.extend(kid.render(node_set, state));
@@ -1036,8 +1069,45 @@ impl HierarchicalNode {
                     node!(esc placeholder_id; attr!("shape", "point"), attr!("style", "invis"))
                 ));
 
+                // Build a rank=same group for all nodes in the cluster that only have edges into
+                // them external to the cluster.  We do this in order to make the graph more
+                // vertical because this will help nodes with edges into our cluster have a rank
+                // that doesn't overlap with our cluster.  At least for nodes that are only
+                // public-facing; if the node has internal edges into it, this heuristic won't
+                // apply.
+                //
+                // We achieve this by walking the list of edges inside this cluster and making note
+                // of all of the "to" identifiers in a set.  As we walk our list of children, any
+                // child without any of its symbols being in that to set gets added to this top
+                // group.
+                //
+                // A limitation of this approach is that we don't distinguish between a node that
+                // has external edges to it and a node that has no edges to it at all.  But we only
+                // expect that to happen in overview situations, and those probably want additional
+                // specializations that we can deal with then.
+                let mut internal_targets: HashSet<SymbolGraphNodeId> = HashSet::new();
+                for (_, to_id) in &self.edges {
+                    internal_targets.insert(to_id.clone());
+                }
+                let mut top_nodes = subgraph!(; attr!("rank", "same"), attr!("cluster", "false"), attr!("label", esc ""));
+
                 for kid in self.children.values() {
                     sg.stmts.extend(kid.render(node_set, state));
+
+                    if !kid.symbols.iter().any(|id| { internal_targets.contains(&id)}) {
+                        match &kid.action {
+                            Some(HierarchicalLayoutAction::Node(kid_id)) => {
+                                top_nodes.stmts.push(stmt!(node!(esc kid_id)));
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                // Only push the rank=same group if it will cover at least 2 nodes; we need to
+                // account for the attributes we added above too.
+                if top_nodes.stmts.len() >= (3 + 2) {
+                    sg.stmts.push(stmt!(top_nodes));
                 }
 
                 result.push(stmt!(sg));
@@ -1127,7 +1197,8 @@ impl HierarchicalRenderState {
         out_target: NodeId,
     ) {
         for sym_id in sym_ids {
-            self.sym_to_edges.insert(sym_id.0, (in_target.clone(), out_target.clone()));
+            self.sym_to_edges
+                .insert(sym_id.0, (in_target.clone(), out_target.clone()));
         }
     }
 
@@ -1153,7 +1224,7 @@ impl HierarchicalRenderState {
 /// Wrapped u32 identifier for DerivedSymbolInfo nodes in a SymbolGraphNodeSet
 /// for type safety.  The values correspond to the index of the node in the
 /// `symbol_crossref_infos` vec in `SymbolGraphNodeSet`.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct SymbolGraphNodeId(u32);
 
 pub struct SymbolGraphNodeSet {
