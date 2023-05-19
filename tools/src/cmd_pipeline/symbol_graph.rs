@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use dot_generator::*;
 use dot_structures::*;
+use graphviz_rust::printer::{DotPrinter, PrinterContext};
 use itertools::Itertools;
 use petgraph::{
     algo::all_simple_paths,
@@ -1167,9 +1168,21 @@ impl HierarchicalNode {
             }
         }
 
+        let mut emitted_edges = HashSet::new();
+        let mut ctx = PrinterContext::default();
         for (from_id, to_id) in &self.edges {
             if let Some((from_node, to_node)) = state.lookup_edge(from_id, to_id) {
-                result.push(stmt!(edge!(from_node => to_node)));
+                // We de-duplicate on what the string rep ends up looking like because the NodeId type
+                // and its sub-types don't really want to get put in a set.
+                //
+                // The need to de-duplicate currently arises from multiple symbols being associated
+                // with a single node/pretty identifier due to multiple platforms.  Which is to say
+                // that we have already de-duplicated edges on a symbol basis upstream, but only
+                // now are we de-duplicating in node space.
+                let maybe_edge = stmt!(edge!(from_node => to_node));
+                if emitted_edges.insert(maybe_edge.print(&mut ctx)) {
+                    result.push(maybe_edge);
+                }
             }
         }
 
