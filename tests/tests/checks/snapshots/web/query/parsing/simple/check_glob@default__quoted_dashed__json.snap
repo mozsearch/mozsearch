@@ -28,7 +28,7 @@ expression: "&jv.value"
             "bool_args": [],
             "named_args": {},
             "positional_args": [
-              "foo bar"
+              "--tricky"
             ]
           }
         }
@@ -45,7 +45,7 @@ expression: "&jv.value"
             "bool_args": [],
             "named_args": {},
             "positional_args": [
-              "foo bar"
+              "--tricky"
             ]
           }
         },
@@ -78,7 +78,7 @@ expression: "&jv.value"
             "bool_args": [],
             "named_args": {
               "re": [
-                "foo bar",
+                "\\-\\-tricky",
                 0
               ]
             },

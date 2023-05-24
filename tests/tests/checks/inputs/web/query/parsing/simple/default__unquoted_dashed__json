@@ -1,0 +1,4 @@
+# We have to pass our own "--" here in order to get our payload string to not
+# be interpreted at our first level here.  This matches what we would get
+# if we provided this to the pipeline-server.
+query --dump-pipeline -- '--tricky'

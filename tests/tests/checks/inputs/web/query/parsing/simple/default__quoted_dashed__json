@@ -1,0 +1,6 @@
+# Although not strictly necessary because of our quote characters, we use
+# `--` to be consistent with the unquoted case and in case people use this as
+# the basis for other checks.  Specifically, we actually want to test the
+# graph building logic of query, not this first-level pipeline parsing, so we
+# need to pass `--` to avoid this first-level from getting tricked by dashes.
+query --dump-pipeline -- '"--tricky"'
