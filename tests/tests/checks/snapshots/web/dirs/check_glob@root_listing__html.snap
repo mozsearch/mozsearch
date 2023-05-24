@@ -191,7 +191,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/bug1781178.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1781178.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1781178.cpp" title=""></td>
-          <td><a href="/tests/source/bug1781178.cpp">528</a></td>
+          <td><a href="/tests/source/bug1781178.cpp">609</a></td>
         </tr>
 
         <tr>
@@ -481,7 +481,7 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/template_shapes.cpp" class="mimetype-fixed-container mimetype-icon-cpp">template_shapes.cpp</a></td>
           <td class="description"><a href="/tests/source/template_shapes.cpp" title=""></td>
-          <td><a href="/tests/source/template_shapes.cpp">445</a></td>
+          <td><a href="/tests/source/template_shapes.cpp">1126</a></td>
         </tr>
 
         <tr>

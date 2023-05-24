@@ -4,6 +4,11 @@ template <typename> struct Point {
 
 template <typename T>
 struct Foo {
+  struct Nested {
+    int field;
+  };
+  Nested nested;
+
   void Simple();
   static void Static();
   
@@ -21,6 +26,8 @@ struct Foo {
     this->Project(tp);
 
     this->Simple();
+
+    (void)nested.field;
   }
 
   template <typename Other>
