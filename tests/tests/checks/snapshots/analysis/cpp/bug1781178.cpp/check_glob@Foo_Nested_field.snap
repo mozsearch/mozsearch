@@ -1,0 +1,24 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00008:8-13",
+    "source": 1,
+    "syntax": "def,field",
+    "type": "int",
+    "pretty": "field Foo::Nested::field",
+    "sym": "F_<T_Foo::Nested>_field"
+  },
+  {
+    "loc": "00008:8-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Foo::Nested::field",
+    "sym": "F_<T_Foo::Nested>_field",
+    "context": "Foo::Nested",
+    "contextsym": "T_Foo::Nested",
+    "peekRange": "8-8"
+  }
+]
