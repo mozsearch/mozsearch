@@ -145,7 +145,11 @@ pub fn init_logging() {
 
                         let id = span.uuid();
                         if let Some(tx) = span_map.remove(&id) {
-                            tx.send(tree).unwrap();
+                            // Sending can fail if the receiver has been dropped.
+                            // This can happen if the LoggedSpan is dropped without retrieving its
+                            // results.  We expect this to happen in cases where `?` is used in
+                            // the same scope as the LoggedSpan is held.
+                            let _ = tx.send(tree);
                         }
                     }
                     Ok(())
