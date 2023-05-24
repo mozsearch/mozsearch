@@ -78,7 +78,7 @@ expression: "&jv.value"
             "bool_args": [],
             "named_args": {
               "re": [
-                "'foo\\.bar\\+hats\\(\\)'",
+                "foo\\.bar\\+hats\\(\\)",
                 0
               ]
             },

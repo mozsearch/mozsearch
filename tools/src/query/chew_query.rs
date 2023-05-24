@@ -152,7 +152,7 @@ fn flatten_args(user_val: &str, priority: u32, args: &Table) -> PipelineArgs {
             let replaced_arg = arg_str.replace("$0", user_val);
             flattened
                 .named_args
-                .insert(key.clone(), (shell_words::quote(&replaced_arg).to_string(), priority));
+                .insert(key.clone(), (replaced_arg, priority));
         }
     }
     flattened
@@ -260,24 +260,38 @@ impl PipelineArgs {
                 if oth_pri > ptr.1 {
                     *ptr = (oth_val, oth_pri);
                 }
-            } else {
+        } else {
                 self.named_args.insert(key, (oth_val, oth_pri));
             }
         }
         self.positional_args.append(&mut other.positional_args);
     }
 
+    // ## Escaping
+    //
+    // We don't need to deal with shell escaping, but we do need to deal with
+    // our string-based interaction with clap meaning that clap can't magically
+    // distinguish between us indicating an argument by passing a string
+    // prefixed with double-dashed and a value that we want to start with
+    // double-dashes.  However, we are able to deal with this by making sure
+    // that:
+    //
+    // * Named args use the `--arg=value` syntax since `--arg=--value` is
+    //   unambiguous.
+    // * Positional args only come after the magic `--` delimiter.
     pub fn to_vec(&self) -> Vec<String> {
         let mut args = vec![];
         for arg in &self.bool_args {
             args.push(format!("--{}", arg));
         }
         for (key, (val, _pri)) in &self.named_args {
-            args.push(format!("--{}", key));
-            args.push(val.clone());
+            args.push(format!("--{}={}", key, val));
         }
-        for arg in &self.positional_args {
-            args.push(arg.clone());
+        if self.positional_args.len() > 0 {
+            args.push("--".to_string());
+            for arg in &self.positional_args {
+                args.push(arg.clone());
+            }
         }
         args
     }

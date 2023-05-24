@@ -185,6 +185,7 @@ pub fn build_pipeline_graph(
                             .chain(&segment.args.to_vec())
                             .cloned()
                             .collect();
+                    trace!(full_args = ?full_args);
                     let opts = match ToolOpts::try_parse_from(full_args) {
                         Ok(opts) => opts,
                         Err(err) => {
@@ -236,6 +237,7 @@ pub fn build_pipeline_graph(
             .chain(&junction_info.command.args.to_vec())
             .cloned()
             .collect();
+            trace!(full_args = ?full_args);
             let opts = match JunctionOpts::try_parse_from(full_args) {
                 Ok(opts) => opts,
                 Err(err) => {
