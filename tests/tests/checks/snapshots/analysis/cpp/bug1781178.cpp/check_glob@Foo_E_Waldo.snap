@@ -20,5 +20,23 @@ expression: "&json_results"
     "sym": "E_<T_Foo::E>_Waldo",
     "context": "Foo::E",
     "contextsym": "T_Foo::E"
+  },
+  {
+    "loc": "00036:13-18",
+    "source": 1,
+    "syntax": "use,enum",
+    "type": "enum Foo::E",
+    "typesym": "T_Foo::E",
+    "pretty": "enum Foo::E::Waldo",
+    "sym": "E_<T_Foo::E>_Waldo"
+  },
+  {
+    "loc": "00036:13-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Foo::E::Waldo",
+    "sym": "E_<T_Foo::E>_Waldo",
+    "context": "Foo::Bar",
+    "contextsym": "_ZN3Foo3BarEv"
   }
 ]
