@@ -1,0 +1,24 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00013:4-9",
+    "source": 1,
+    "syntax": "def,enum constant",
+    "type": "enum Foo::E",
+    "typesym": "T_Foo::E",
+    "pretty": "enum constant Foo::E::Waldo",
+    "sym": "E_<T_Foo::E>_Waldo"
+  },
+  {
+    "loc": "00013:4-9",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Foo::E::Waldo",
+    "sym": "E_<T_Foo::E>_Waldo",
+    "context": "Foo::E",
+    "contextsym": "T_Foo::E"
+  }
+]

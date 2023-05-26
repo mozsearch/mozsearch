@@ -9,6 +9,10 @@ struct Foo {
   };
   Nested nested;
 
+  enum E {
+    Waldo
+  };
+
   void Simple();
   static void Static();
   
@@ -28,6 +32,8 @@ struct Foo {
     this->Simple();
 
     (void)nested.field;
+
+    (void)E::Waldo;
   }
 
   template <typename Other>

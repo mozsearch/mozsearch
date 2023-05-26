@@ -22,7 +22,7 @@ expression: "&json_results"
     "peekRange": "8-8"
   },
   {
-    "loc": "00030:17-22",
+    "loc": "00034:17-22",
     "source": 1,
     "syntax": "use,field",
     "type": "int",
@@ -30,7 +30,7 @@ expression: "&json_results"
     "sym": "F_<T_Foo::Nested>_field"
   },
   {
-    "loc": "00030:17-22",
+    "loc": "00034:17-22",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Nested::field",
