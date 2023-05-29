@@ -1,0 +1,22 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00044:8-15",
+    "source": 1,
+    "syntax": "def,type",
+    "pretty": "type Foo::Typedef",
+    "sym": "T_Foo::Typedef"
+  },
+  {
+    "loc": "00044:8-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Foo::Typedef",
+    "sym": "T_Foo::Typedef",
+    "context": "Foo",
+    "contextsym": "T_Foo"
+  }
+]

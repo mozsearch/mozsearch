@@ -40,9 +40,11 @@ struct Foo {
   void Baz() {
     Foo<Other>::Static();
   }
+
+  using Typedef = int;
 };
 
-template <typename T> void TemplateFunc() {
+template <typename T> void TemplateFunc(typename Foo<T>::Typedef) {
   Point<T> p;
   p.IsThereOne();
 }
