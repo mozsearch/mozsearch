@@ -37,5 +37,22 @@ expression: "&json_results"
     "sym": "_ZN5Point10IsThereOneEv",
     "context": "TemplateFunc",
     "contextsym": "_Z12TemplateFuncN3FooIT_E7TypedefE"
+  },
+  {
+    "loc": "00056:10-20",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "_Bool (void)",
+    "pretty": "function Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv"
+  },
+  {
+    "loc": "00056:10-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv",
+    "context": "DerivedPoint::Foo",
+    "contextsym": "_ZN12DerivedPoint3FooEv"
   }
 ]
