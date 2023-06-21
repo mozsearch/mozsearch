@@ -48,3 +48,11 @@ template <typename T> void TemplateFunc(typename Foo<T>::Typedef) {
   Point<T> p;
   p.IsThereOne();
 }
+
+template <typename T> using Pint = Point<T>;
+
+template <typename T> struct DerivedPoint : Pint<T> {
+  void Foo() {
+    this->IsThereOne();
+  }
+};
