@@ -40,6 +40,7 @@ set -o pipefail # Check all commands in a pipeline
 rustup component remove clippy || true
 rustup component remove rustfmt || true
 rustup component remove rust-docs || true
+rustup component add rust-analyzer || true
 rustup update
 
 # Install SpiderMonkey.
