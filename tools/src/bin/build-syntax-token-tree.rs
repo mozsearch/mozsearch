@@ -1,10 +1,7 @@
-// This file is the historical line-centric blame implementation and has been
-// forked to:
-// - build-syntax-token-tree.rs - This converts the source tree into the
-//   tree-sitter alternate representation of the tree state at any given point
-//   in time.  This is not a blame tree.
-// - build-syntax-blame-tree.rs - This concerns the syntax token tree into the
-//   token-centric blame tree.
+// This binary derives both a token-centric (token per line) representation of
+// the source files in the input source tree using tree-sitter as well as
+// synthetic files using the same tree-sitter derived information.  It is
+// intended to be subsequently processed by build-syntax-blame-tree.rs.
 
 extern crate env_logger;
 extern crate git2;
@@ -374,6 +371,7 @@ fn find_unmodified_lines(
                 for parent in commit.parents() {
                     let parent_path = file_movement
                         .and_then(|m| m.get(&blob.id()))
+                        .map(|p| p.borrow())
                         .unwrap_or(&path);
                     let parent_blob = match parent.tree()?.get_path(parent_path) {
                         Ok(t) if t.kind() == Some(ObjectType::Blob) => {
