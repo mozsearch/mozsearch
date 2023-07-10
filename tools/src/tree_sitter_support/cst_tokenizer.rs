@@ -225,7 +225,7 @@ pub fn hypertokenize_source_file(
                         "{}{} {}",
                         if context_stack.is_empty() { "%" } else { "" },
                         context_stack.join("::"),
-                        token
+                        token.trim()
                     ));
                 }
                 visited_children = true;
