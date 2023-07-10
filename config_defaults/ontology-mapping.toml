@@ -7,6 +7,16 @@
 # constructors to the runnable methods.  These will be followed by the
 # "traverse" command instead of getting into the infrastructure boilerplate
 # around runnables.
+#
+# TODO: Need to deal with situations like
+# https://searchfox.org/mozilla-central/rev/6220909421e5cdb2e706a87f77ba7c6f4f21e4d0/dom/quota/ActorsParent.cpp#7064
+# where we have an explicit call to Run made from inside the class.  Although we
+# want to avoid including the calls to the base class signature of the method,
+# we absolutely want to process in-class concrete references to the Run method,
+# maybe even all the way up the hierarchy short of the runnable method itself.
+# This case will shortly change in https://phabricator.services.mozilla.com/D182182
+# so that OriginOperationBase::RunImmediately will directly be invoking Run
+# itself.
 
 [pretty."nsIRunnable::Run"]
 runnable = true
