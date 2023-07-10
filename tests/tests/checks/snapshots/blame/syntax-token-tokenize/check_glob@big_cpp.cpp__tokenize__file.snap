@@ -395,7 +395,7 @@ outerNS outerNS
 outerNS {
 outerNS #define
 outerNS HUMAN_HP
-outerNS  100
+outerNS 100
 outerNS::Thing class
 outerNS::Thing Thing
 outerNS::Thing {
@@ -1304,7 +1304,7 @@ outerNS::OuterCat }
 outerNS ;
 outerNS #define
 outerNS ART_HP
-outerNS  100
+outerNS 100
 outerNS::AbstractArt class
 outerNS::AbstractArt AbstractArt
 outerNS::AbstractArt :
