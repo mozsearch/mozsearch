@@ -2,48 +2,144 @@
 source: tests/test_check_insta.rs
 expression: "&fb.contents"
 ---
- /**
- * This test file attempts to create the following situations:
- * - Multiple levels of lexical scoping.
- * - Those lexical blocks are sufficiently large that it's common for the
- *   block open to be off of the screen so that a "position:sticky" style
- *   display would be appropriate.
- * - Call structures potentially look interesting if you graph them.
- *
- * This is accomplished by:
- * - Many silly comment blocks.
- * - Tons of copy and pasting and search and replace.
- * - Panicking when trying to trying to come up with subject matter and deciding
- *   that cats and dogs work.
- * - Not using templates.
- */
- #include
- <memory>
- 
+% /**
+% *
+% This
+% test
+% file
+% attempts
+% to
+% create
+% the
+% following
+% situations:
+% *
+% -
+% Multiple
+% levels
+% of
+% lexical
+% scoping.
+% *
+% -
+% Those
+% lexical
+% blocks
+% are
+% sufficiently
+% large
+% that
+% it's
+% common
+% for
+% the
+% *
+% block
+% open
+% to
+% be
+% off
+% of
+% the
+% screen
+% so
+% that
+% a
+% "position:sticky"
+% style
+% *
+% display
+% would
+% be
+% appropriate.
+% *
+% -
+% Call
+% structures
+% potentially
+% look
+% interesting
+% if
+% you
+% graph
+% them.
+% *
+% *
+% This
+% is
+% accomplished
+% by:
+% *
+% -
+% Many
+% silly
+% comment
+% blocks.
+% *
+% -
+% Tons
+% of
+% copy
+% and
+% pasting
+% and
+% search
+% and
+% replace.
+% *
+% -
+% Panicking
+% when
+% trying
+% to
+% trying
+% to
+% come
+% up
+% with
+% subject
+% matter
+% and
+% deciding
+% *
+% that
+% cats
+% and
+% dogs
+% work.
+% *
+% -
+% Not
+% using
+% templates.
+% */
+% #include
+% <memory>
+% 
 
- #include
- <stdio.h>
- 
+% #include
+% <stdio.h>
+% 
 
- #include
- <stdlib.h>
- 
+% #include
+% <stdlib.h>
+% 
 
 
- #include
- "
- "
- 
+% #include
+% "
+% "
+% 
 
- #include
- "
- "
- 
+% #include
+% "
+% "
+% 
 
- #include
- "
- "
- 
+% #include
+% "
+% "
+% 
 
 
 GlobalContext class
@@ -64,9 +160,12 @@ GlobalContext::decideBooleanTrait rand
 GlobalContext::decideBooleanTrait (
 GlobalContext::decideBooleanTrait )
 GlobalContext::decideBooleanTrait ;
-GlobalContext::decideBooleanTrait // boop boop
 GlobalContext::decideBooleanTrait //
-GlobalContext::decideBooleanTrait // boop
+GlobalContext::decideBooleanTrait boop
+GlobalContext::decideBooleanTrait boop
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait boop
 GlobalContext::decideBooleanTrait int
 GlobalContext::decideBooleanTrait midpointValue
 GlobalContext::decideBooleanTrait =
@@ -81,29 +180,60 @@ GlobalContext::decideBooleanTrait >
 GlobalContext::decideBooleanTrait midpointValue
 GlobalContext::decideBooleanTrait )
 GlobalContext::decideBooleanTrait {
-GlobalContext::decideBooleanTrait // beep
 GlobalContext::decideBooleanTrait //
-GlobalContext::decideBooleanTrait // beep beep beep
+GlobalContext::decideBooleanTrait beep
 GlobalContext::decideBooleanTrait //
-GlobalContext::decideBooleanTrait // beep
 GlobalContext::decideBooleanTrait //
-GlobalContext::decideBooleanTrait //      beep
+GlobalContext::decideBooleanTrait beep
+GlobalContext::decideBooleanTrait beep
+GlobalContext::decideBooleanTrait beep
 GlobalContext::decideBooleanTrait //
-GlobalContext::decideBooleanTrait //           beep
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait beep
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait beep
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait beep
 GlobalContext::decideBooleanTrait return
 GlobalContext::decideBooleanTrait true
 GlobalContext::decideBooleanTrait ;
 GlobalContext::decideBooleanTrait }
-GlobalContext::decideBooleanTrait // BEEP BEEP BEEP BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP           BEEP
-GlobalContext::decideBooleanTrait // BEEP BEEP BEEP BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
+GlobalContext::decideBooleanTrait BEEP
 GlobalContext::decideBooleanTrait return
 GlobalContext::decideBooleanTrait false
 GlobalContext::decideBooleanTrait ;
@@ -149,55 +279,106 @@ GlobalContext::LessGlobalContext LessGlobalContext
 GlobalContext::LessGlobalContext {
 GlobalContext::LessGlobalContext public
 GlobalContext::LessGlobalContext :
-GlobalContext::LessGlobalContext // BARK
-GlobalContext::LessGlobalContext //     BARK
-GlobalContext::LessGlobalContext //         BARK
-GlobalContext::LessGlobalContext //             BARK
-GlobalContext::LessGlobalContext //                 BARK
-GlobalContext::LessGlobalContext //                     BARK
-GlobalContext::LessGlobalContext //                         BARK
-GlobalContext::LessGlobalContext //                             BARK
-GlobalContext::LessGlobalContext //                                 BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
 GlobalContext::LessGlobalContext::decideWhetherToDecide static
 GlobalContext::LessGlobalContext::decideWhetherToDecide bool
 GlobalContext::LessGlobalContext::decideWhetherToDecide decideWhetherToDecide
 GlobalContext::LessGlobalContext::decideWhetherToDecide (
 GlobalContext::LessGlobalContext::decideWhetherToDecide )
 GlobalContext::LessGlobalContext::decideWhetherToDecide {
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP BEEP BEEP BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
-GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP BEEP BEEP BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide //
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide BEEP
 GlobalContext::LessGlobalContext::decideWhetherToDecide return
 GlobalContext::LessGlobalContext::decideWhetherToDecide true
 GlobalContext::LessGlobalContext::decideWhetherToDecide ;
 GlobalContext::LessGlobalContext::decideWhetherToDecide }
-GlobalContext::LessGlobalContext // BARK
-GlobalContext::LessGlobalContext //     BARK
-GlobalContext::LessGlobalContext //         BARK
-GlobalContext::LessGlobalContext //             BARK
-GlobalContext::LessGlobalContext //                 BARK
-GlobalContext::LessGlobalContext //                     BARK
-GlobalContext::LessGlobalContext //                         BARK
-GlobalContext::LessGlobalContext //                             BARK
-GlobalContext::LessGlobalContext //                                 BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
+GlobalContext::LessGlobalContext //
+GlobalContext::LessGlobalContext BARK
 GlobalContext::LessGlobalContext }
 GlobalContext ;
-GlobalContext // BARK
-GlobalContext //     BARK
-GlobalContext //         BARK
-GlobalContext //             BARK
-GlobalContext //                 BARK
-GlobalContext //                     BARK
-GlobalContext //                         BARK
-GlobalContext //                             BARK
-GlobalContext //                                 BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
+GlobalContext //
+GlobalContext BARK
 GlobalContext::decideDogBooleanTrait static
 GlobalContext::decideDogBooleanTrait bool
 GlobalContext::decideDogBooleanTrait decideDogBooleanTrait
@@ -225,7 +406,7 @@ GlobalContext::decideDogBooleanTrait ;
 GlobalContext::decideDogBooleanTrait }
 GlobalContext ;
 GlobalContext }
- ;
+% ;
 outerNS namespace
 outerNS outerNS
 outerNS {
@@ -240,15 +421,29 @@ outerNS::Thing Thing
 outerNS::Thing {
 outerNS::Thing protected
 outerNS::Thing :
-outerNS::Thing // Finally, an example class that could evolve into a MUD!
 outerNS::Thing //
-outerNS::Thing // Health
-outerNS::Thing // Points
+outerNS::Thing Finally,
+outerNS::Thing an
+outerNS::Thing example
+outerNS::Thing class
+outerNS::Thing that
+outerNS::Thing could
+outerNS::Thing evolve
+outerNS::Thing into
+outerNS::Thing a
+outerNS::Thing MUD!
+outerNS::Thing //
+outerNS::Thing //
+outerNS::Thing Health
+outerNS::Thing //
+outerNS::Thing Points
 outerNS::Thing::mHP int
 outerNS::Thing::mHP mHP
 outerNS::Thing::mHP ;
-outerNS::Thing // Existence
-outerNS::Thing // Points
+outerNS::Thing //
+outerNS::Thing Existence
+outerNS::Thing //
+outerNS::Thing Points
 outerNS::Thing::mDefunct bool
 outerNS::Thing::mDefunct mDefunct
 outerNS::Thing::mDefunct ;
@@ -270,7 +465,8 @@ outerNS::Thing::Thing (
 outerNS::Thing::Thing false
 outerNS::Thing::Thing )
 outerNS::Thing::Thing {
-outerNS::Thing::Thing // bop.
+outerNS::Thing::Thing //
+outerNS::Thing::Thing bop.
 outerNS::Thing::Thing }
 outerNS::Thing::ignore void
 outerNS::Thing::ignore ignore
@@ -322,16 +518,71 @@ outerNS::Thing::ignore ignore
 outerNS::Thing::ignore (
 outerNS::Thing::ignore )
 outerNS::Thing::ignore {
-outerNS::Thing::ignore // ignore
-outerNS::Thing::ignore // i g n o r e
-outerNS::Thing::ignore // i  g  n  o  r  e
-outerNS::Thing::ignore // i   g   n   o   r   e
-outerNS::Thing::ignore // i    g    n    o    r    e
-outerNS::Thing::ignore // i   g   n   o   r   e
-outerNS::Thing::ignore // i    g    n    o    r    e
-outerNS::Thing::ignore // i   g   n   o   r   e
-outerNS::Thing::ignore // i  g  n  o  r  e
-outerNS::Thing::ignore // i g n o r e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore ignore
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
+outerNS::Thing::ignore //
+outerNS::Thing::ignore i
+outerNS::Thing::ignore g
+outerNS::Thing::ignore n
+outerNS::Thing::ignore o
+outerNS::Thing::ignore r
+outerNS::Thing::ignore e
 outerNS::Thing::ignore }
 outerNS::Human class
 outerNS::Human Human
@@ -378,11 +629,19 @@ outerNS::Superhero::takeDamage damage
 outerNS::Superhero::takeDamage )
 outerNS::Superhero::takeDamage override
 outerNS::Superhero::takeDamage {
-outerNS::Superhero::takeDamage // nope
-outerNS::Superhero::takeDamage //   nope
-outerNS::Superhero::takeDamage //     nope!
-outerNS::Superhero::takeDamage //   ...
-outerNS::Superhero::takeDamage // Superheroes don't take damage.
+outerNS::Superhero::takeDamage //
+outerNS::Superhero::takeDamage nope
+outerNS::Superhero::takeDamage //
+outerNS::Superhero::takeDamage nope
+outerNS::Superhero::takeDamage //
+outerNS::Superhero::takeDamage nope!
+outerNS::Superhero::takeDamage //
+outerNS::Superhero::takeDamage ...
+outerNS::Superhero::takeDamage //
+outerNS::Superhero::takeDamage Superheroes
+outerNS::Superhero::takeDamage don't
+outerNS::Superhero::takeDamage take
+outerNS::Superhero::takeDamage damage.
 outerNS::Superhero::takeDamage }
 outerNS::Superhero }
 outerNS ;
@@ -457,17 +716,44 @@ outerNS::OuterCat Thing
 outerNS::OuterCat {
 outerNS::OuterCat private
 outerNS::OuterCat :
-outerNS::OuterCat // Cat secrets!
-outerNS::OuterCat // The secrets of cats!
-outerNS::OuterCat // These cannot be known to humans.
-outerNS::OuterCat // Or anyone.
-outerNS::OuterCat // Except perhaps other cats.
-outerNS::OuterCat // Or perhaps not.
-outerNS::OuterCat // Or perhaps...
-outerNS::OuterCat //           ...
-outerNS::OuterCat //           ...
-outerNS::OuterCat //           ...
-outerNS::OuterCat //           ...not!
+outerNS::OuterCat //
+outerNS::OuterCat Cat
+outerNS::OuterCat secrets!
+outerNS::OuterCat //
+outerNS::OuterCat The
+outerNS::OuterCat secrets
+outerNS::OuterCat of
+outerNS::OuterCat cats!
+outerNS::OuterCat //
+outerNS::OuterCat These
+outerNS::OuterCat cannot
+outerNS::OuterCat be
+outerNS::OuterCat known
+outerNS::OuterCat to
+outerNS::OuterCat humans.
+outerNS::OuterCat //
+outerNS::OuterCat Or
+outerNS::OuterCat anyone.
+outerNS::OuterCat //
+outerNS::OuterCat Except
+outerNS::OuterCat perhaps
+outerNS::OuterCat other
+outerNS::OuterCat cats.
+outerNS::OuterCat //
+outerNS::OuterCat Or
+outerNS::OuterCat perhaps
+outerNS::OuterCat not.
+outerNS::OuterCat //
+outerNS::OuterCat Or
+outerNS::OuterCat perhaps...
+outerNS::OuterCat //
+outerNS::OuterCat ...
+outerNS::OuterCat //
+outerNS::OuterCat ...
+outerNS::OuterCat //
+outerNS::OuterCat ...
+outerNS::OuterCat //
+outerNS::OuterCat ...not!
 outerNS::OuterCat::mIsFriendly bool
 outerNS::OuterCat::mIsFriendly mIsFriendly
 outerNS::OuterCat::mIsFriendly ;
@@ -488,30 +774,97 @@ outerNS::OuterCat mFavoriteCouch
 outerNS::OuterCat ;
 outerNS::OuterCat public
 outerNS::OuterCat :
-outerNS::OuterCat // These things can be known.
-outerNS::OuterCat // But they are methods.
-outerNS::OuterCat // So they're not really things you know.
-outerNS::OuterCat // Although there are getters.
-outerNS::OuterCat // Shoot, maybe those should be protected.
-outerNS::OuterCat // Okay, now they're protected.
-outerNS::OuterCat // Although you haven't read that far down yet.
-outerNS::OuterCat // The comments don't get better.
+outerNS::OuterCat //
+outerNS::OuterCat These
+outerNS::OuterCat things
+outerNS::OuterCat can
+outerNS::OuterCat be
+outerNS::OuterCat known.
+outerNS::OuterCat //
+outerNS::OuterCat But
+outerNS::OuterCat they
+outerNS::OuterCat are
+outerNS::OuterCat methods.
+outerNS::OuterCat //
+outerNS::OuterCat So
+outerNS::OuterCat they're
+outerNS::OuterCat not
+outerNS::OuterCat really
+outerNS::OuterCat things
+outerNS::OuterCat you
+outerNS::OuterCat know.
+outerNS::OuterCat //
+outerNS::OuterCat Although
+outerNS::OuterCat there
+outerNS::OuterCat are
+outerNS::OuterCat getters.
+outerNS::OuterCat //
+outerNS::OuterCat Shoot,
+outerNS::OuterCat maybe
+outerNS::OuterCat those
+outerNS::OuterCat should
+outerNS::OuterCat be
+outerNS::OuterCat protected.
+outerNS::OuterCat //
+outerNS::OuterCat Okay,
+outerNS::OuterCat now
+outerNS::OuterCat they're
+outerNS::OuterCat protected.
+outerNS::OuterCat //
+outerNS::OuterCat Although
+outerNS::OuterCat you
+outerNS::OuterCat haven't
+outerNS::OuterCat read
+outerNS::OuterCat that
+outerNS::OuterCat far
+outerNS::OuterCat down
+outerNS::OuterCat yet.
+outerNS::OuterCat //
+outerNS::OuterCat The
+outerNS::OuterCat comments
+outerNS::OuterCat don't
+outerNS::OuterCat get
+outerNS::OuterCat better.
 outerNS::OuterCat::OuterCat OuterCat
 outerNS::OuterCat::OuterCat (
 outerNS::OuterCat::OuterCat bool
 outerNS::OuterCat::OuterCat beFriendly
 outerNS::OuterCat::OuterCat ,
-outerNS::OuterCat::OuterCat // what gets position:sticky'd here do you suppose
-outerNS::OuterCat::OuterCat // and how long does it last?
-outerNS::OuterCat::OuterCat // ...
-outerNS::OuterCat::OuterCat // ...
-outerNS::OuterCat::OuterCat // hm.
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat what
+outerNS::OuterCat::OuterCat gets
+outerNS::OuterCat::OuterCat position:sticky'd
+outerNS::OuterCat::OuterCat here
+outerNS::OuterCat::OuterCat do
+outerNS::OuterCat::OuterCat you
+outerNS::OuterCat::OuterCat suppose
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat and
+outerNS::OuterCat::OuterCat how
+outerNS::OuterCat::OuterCat long
+outerNS::OuterCat::OuterCat does
+outerNS::OuterCat::OuterCat it
+outerNS::OuterCat::OuterCat last?
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat ...
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat ...
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat hm.
 outerNS::OuterCat::OuterCat bool
 outerNS::OuterCat::OuterCat beSecretlyUnfriendly
 outerNS::OuterCat::OuterCat )
-outerNS::OuterCat::OuterCat // more hm.
-outerNS::OuterCat::OuterCat // yes, very hm.
-outerNS::OuterCat::OuterCat // hm hm hm.
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat more
+outerNS::OuterCat::OuterCat hm.
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat yes,
+outerNS::OuterCat::OuterCat very
+outerNS::OuterCat::OuterCat hm.
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat hm
+outerNS::OuterCat::OuterCat hm
+outerNS::OuterCat::OuterCat hm.
 outerNS::OuterCat::OuterCat :
 outerNS::OuterCat::OuterCat Thing
 outerNS::OuterCat::OuterCat (
@@ -524,60 +877,166 @@ outerNS::OuterCat::OuterCat mIsFriendly
 outerNS::OuterCat::OuterCat (
 outerNS::OuterCat::OuterCat beFriendly
 outerNS::OuterCat::OuterCat )
-outerNS::OuterCat::OuterCat // Unknown.
-outerNS::OuterCat::OuterCat // ...
-outerNS::OuterCat::OuterCat // Okay, we can probably implement things now.
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Unknown.
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat ...
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Okay,
+outerNS::OuterCat::OuterCat we
+outerNS::OuterCat::OuterCat can
+outerNS::OuterCat::OuterCat probably
+outerNS::OuterCat::OuterCat implement
+outerNS::OuterCat::OuterCat things
+outerNS::OuterCat::OuterCat now.
 outerNS::OuterCat::OuterCat ,
 outerNS::OuterCat::OuterCat mIsSecretlyUnfriendly
 outerNS::OuterCat::OuterCat (
 outerNS::OuterCat::OuterCat beSecretlyUnfriendly
 outerNS::OuterCat::OuterCat )
 outerNS::OuterCat::OuterCat {
-outerNS::OuterCat::OuterCat // Meow
-outerNS::OuterCat::OuterCat //  Meow
-outerNS::OuterCat::OuterCat //   Meow
-outerNS::OuterCat::OuterCat //    Meow
-outerNS::OuterCat::OuterCat //     Meow
-outerNS::OuterCat::OuterCat //      Meow
-outerNS::OuterCat::OuterCat //       Meow
-outerNS::OuterCat::OuterCat //     Meow
-outerNS::OuterCat::OuterCat //    Meow
-outerNS::OuterCat::OuterCat //   Meow
-outerNS::OuterCat::OuterCat //    Meow
-outerNS::OuterCat::OuterCat //     Meow
-outerNS::OuterCat::OuterCat //      Meow
-outerNS::OuterCat::OuterCat //       Meow
-outerNS::OuterCat::OuterCat //        Meow
-outerNS::OuterCat::OuterCat //         Meow
-outerNS::OuterCat::OuterCat //          Meow
-outerNS::OuterCat::OuterCat //           Meow
-outerNS::OuterCat::OuterCat //            Meow
-outerNS::OuterCat::OuterCat //             Meow
-outerNS::OuterCat::OuterCat //              Meow Meow Meow Meow Meow Meow Meow
-outerNS::OuterCat::OuterCat //                                            Meow
-outerNS::OuterCat::OuterCat //                                             Meow
-outerNS::OuterCat::OuterCat //                                              Meow
-outerNS::OuterCat::OuterCat //                                             Meow
-outerNS::OuterCat::OuterCat //                                            Meow
-outerNS::OuterCat::OuterCat //                                           Meow
-outerNS::OuterCat::OuterCat //                                          Meow
-outerNS::OuterCat::OuterCat //                                         Meow
-outerNS::OuterCat::OuterCat //                                        Meow
-outerNS::OuterCat::OuterCat //                                       Meow
-outerNS::OuterCat::OuterCat //                                      Meow
-outerNS::OuterCat::OuterCat //                                     Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
+outerNS::OuterCat::OuterCat //
+outerNS::OuterCat::OuterCat Meow
 outerNS::OuterCat::OuterCat }
 outerNS::OuterCat protected
 outerNS::OuterCat :
-outerNS::OuterCat // Sorta secret things.
-outerNS::OuterCat // Like, other cats know these things.
-outerNS::OuterCat // But still, not for humans.
-outerNS::OuterCat // Not now.
-outerNS::OuterCat // Not ever.
-outerNS::OuterCat // Unless some type of special cat x-ray is developed.
-outerNS::OuterCat // Boy, wouldn't that be a thing.
-outerNS::OuterCat // Humanity is come so far, and yet we don't have a specialized cat x-ray...
-outerNS::OuterCat // one capable of seeing into the true nature of a cat.
+outerNS::OuterCat //
+outerNS::OuterCat Sorta
+outerNS::OuterCat secret
+outerNS::OuterCat things.
+outerNS::OuterCat //
+outerNS::OuterCat Like,
+outerNS::OuterCat other
+outerNS::OuterCat cats
+outerNS::OuterCat know
+outerNS::OuterCat these
+outerNS::OuterCat things.
+outerNS::OuterCat //
+outerNS::OuterCat But
+outerNS::OuterCat still,
+outerNS::OuterCat not
+outerNS::OuterCat for
+outerNS::OuterCat humans.
+outerNS::OuterCat //
+outerNS::OuterCat Not
+outerNS::OuterCat now.
+outerNS::OuterCat //
+outerNS::OuterCat Not
+outerNS::OuterCat ever.
+outerNS::OuterCat //
+outerNS::OuterCat Unless
+outerNS::OuterCat some
+outerNS::OuterCat type
+outerNS::OuterCat of
+outerNS::OuterCat special
+outerNS::OuterCat cat
+outerNS::OuterCat x-ray
+outerNS::OuterCat is
+outerNS::OuterCat developed.
+outerNS::OuterCat //
+outerNS::OuterCat Boy,
+outerNS::OuterCat wouldn't
+outerNS::OuterCat that
+outerNS::OuterCat be
+outerNS::OuterCat a
+outerNS::OuterCat thing.
+outerNS::OuterCat //
+outerNS::OuterCat Humanity
+outerNS::OuterCat is
+outerNS::OuterCat come
+outerNS::OuterCat so
+outerNS::OuterCat far,
+outerNS::OuterCat and
+outerNS::OuterCat yet
+outerNS::OuterCat we
+outerNS::OuterCat don't
+outerNS::OuterCat have
+outerNS::OuterCat a
+outerNS::OuterCat specialized
+outerNS::OuterCat cat
+outerNS::OuterCat x-ray...
+outerNS::OuterCat //
+outerNS::OuterCat one
+outerNS::OuterCat capable
+outerNS::OuterCat of
+outerNS::OuterCat seeing
+outerNS::OuterCat into
+outerNS::OuterCat the
+outerNS::OuterCat true
+outerNS::OuterCat nature
+outerNS::OuterCat of
+outerNS::OuterCat a
+outerNS::OuterCat cat.
 outerNS::OuterCat::isFriendlyCat bool
 outerNS::OuterCat::isFriendlyCat isFriendlyCat
 outerNS::OuterCat::isFriendlyCat (
@@ -592,17 +1051,28 @@ outerNS::OuterCat::isSecretlyUnfriendly isSecretlyUnfriendly
 outerNS::OuterCat::isSecretlyUnfriendly (
 outerNS::OuterCat::isSecretlyUnfriendly )
 outerNS::OuterCat::isSecretlyUnfriendly {
-outerNS::OuterCat::isSecretlyUnfriendly //                                             Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                              Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                             Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                            Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                           Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                          Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                         Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                        Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                       Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                      Meow
-outerNS::OuterCat::isSecretlyUnfriendly //                                     Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
+outerNS::OuterCat::isSecretlyUnfriendly //
+outerNS::OuterCat::isSecretlyUnfriendly Meow
 outerNS::OuterCat::isSecretlyUnfriendly return
 outerNS::OuterCat::isSecretlyUnfriendly mIsSecretlyUnfriendly
 outerNS::OuterCat::isSecretlyUnfriendly ;
@@ -662,12 +1132,28 @@ outerNS::OuterCat::meet )
 outerNS::OuterCat::meet ;
 outerNS::OuterCat::meet }
 outerNS::OuterCat /**
-   * Something there is that doesn't love a couch.
-   *
-   * A cat.
-   *
-   * A cat doesn't love a couch.
-   */
+outerNS::OuterCat *
+outerNS::OuterCat Something
+outerNS::OuterCat there
+outerNS::OuterCat is
+outerNS::OuterCat that
+outerNS::OuterCat doesn't
+outerNS::OuterCat love
+outerNS::OuterCat a
+outerNS::OuterCat couch.
+outerNS::OuterCat *
+outerNS::OuterCat *
+outerNS::OuterCat A
+outerNS::OuterCat cat.
+outerNS::OuterCat *
+outerNS::OuterCat *
+outerNS::OuterCat A
+outerNS::OuterCat cat
+outerNS::OuterCat doesn't
+outerNS::OuterCat love
+outerNS::OuterCat a
+outerNS::OuterCat couch.
+outerNS::OuterCat */
 outerNS::OuterCat::meet void
 outerNS::OuterCat::meet meet
 outerNS::OuterCat::meet (
@@ -689,13 +1175,20 @@ outerNS::OuterCat::meet (
 outerNS::OuterCat::meet )
 outerNS::OuterCat::meet )
 outerNS::OuterCat::meet {
-outerNS::OuterCat::meet // D
-outerNS::OuterCat::meet //  E
-outerNS::OuterCat::meet //   S
-outerNS::OuterCat::meet //    T
-outerNS::OuterCat::meet //     R
-outerNS::OuterCat::meet //      O
-outerNS::OuterCat::meet //       Y
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet D
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet E
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet S
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet T
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet R
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet O
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet Y
 outerNS::OuterCat::meet destroy
 outerNS::OuterCat::meet (
 outerNS::OuterCat::meet couch
@@ -710,26 +1203,43 @@ outerNS::OuterCat::meet (
 outerNS::OuterCat::meet )
 outerNS::OuterCat::meet )
 outerNS::OuterCat::meet {
-outerNS::OuterCat::meet // NO
 outerNS::OuterCat::meet //
-outerNS::OuterCat::meet // D
-outerNS::OuterCat::meet //  E
-outerNS::OuterCat::meet //   S
-outerNS::OuterCat::meet //    T
-outerNS::OuterCat::meet //     R
-outerNS::OuterCat::meet //      O
-outerNS::OuterCat::meet //       Y
-outerNS::OuterCat::meet // do nothing
+outerNS::OuterCat::meet NO
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet D
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet E
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet S
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet T
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet R
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet O
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet Y
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet do
+outerNS::OuterCat::meet nothing
 outerNS::OuterCat::meet }
 outerNS::OuterCat::meet else
 outerNS::OuterCat::meet {
-outerNS::OuterCat::meet // D
-outerNS::OuterCat::meet //  E
-outerNS::OuterCat::meet //   S
-outerNS::OuterCat::meet //    T
-outerNS::OuterCat::meet //     R
-outerNS::OuterCat::meet //      O
-outerNS::OuterCat::meet //       Y
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet D
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet E
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet S
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet T
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet R
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet O
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet Y
 outerNS::OuterCat::meet destroy
 outerNS::OuterCat::meet (
 outerNS::OuterCat::meet couch
@@ -738,8 +1248,11 @@ outerNS::OuterCat::meet ;
 outerNS::OuterCat::meet }
 outerNS::OuterCat::meet }
 outerNS::OuterCat /**
-   * Standard cat destruction.
-   */
+outerNS::OuterCat *
+outerNS::OuterCat Standard
+outerNS::OuterCat cat
+outerNS::OuterCat destruction.
+outerNS::OuterCat */
 outerNS::OuterCat::shred void
 outerNS::OuterCat::shred shred
 outerNS::OuterCat::shred (
@@ -757,8 +1270,12 @@ outerNS::OuterCat::shred )
 outerNS::OuterCat::shred ;
 outerNS::OuterCat::shred }
 outerNS::OuterCat /**
-   * More thorough cat destruction.
-   */
+outerNS::OuterCat *
+outerNS::OuterCat More
+outerNS::OuterCat thorough
+outerNS::OuterCat cat
+outerNS::OuterCat destruction.
+outerNS::OuterCat */
 outerNS::OuterCat::destroy void
 outerNS::OuterCat::destroy destroy
 outerNS::OuterCat::destroy (
@@ -767,31 +1284,36 @@ outerNS::OuterCat::destroy &
 outerNS::OuterCat::destroy thing
 outerNS::OuterCat::destroy )
 outerNS::OuterCat::destroy {
-outerNS::OuterCat::destroy // s
+outerNS::OuterCat::destroy //
+outerNS::OuterCat::destroy s
 outerNS::OuterCat::destroy shred
 outerNS::OuterCat::destroy (
 outerNS::OuterCat::destroy thing
 outerNS::OuterCat::destroy )
 outerNS::OuterCat::destroy ;
-outerNS::OuterCat::destroy //  h
+outerNS::OuterCat::destroy //
+outerNS::OuterCat::destroy h
 outerNS::OuterCat::destroy shred
 outerNS::OuterCat::destroy (
 outerNS::OuterCat::destroy thing
 outerNS::OuterCat::destroy )
 outerNS::OuterCat::destroy ;
-outerNS::OuterCat::destroy //   r
+outerNS::OuterCat::destroy //
+outerNS::OuterCat::destroy r
 outerNS::OuterCat::destroy shred
 outerNS::OuterCat::destroy (
 outerNS::OuterCat::destroy thing
 outerNS::OuterCat::destroy )
 outerNS::OuterCat::destroy ;
-outerNS::OuterCat::destroy //    e
+outerNS::OuterCat::destroy //
+outerNS::OuterCat::destroy e
 outerNS::OuterCat::destroy shred
 outerNS::OuterCat::destroy (
 outerNS::OuterCat::destroy thing
 outerNS::OuterCat::destroy )
 outerNS::OuterCat::destroy ;
-outerNS::OuterCat::destroy //     d
+outerNS::OuterCat::destroy //
+outerNS::OuterCat::destroy d
 outerNS::OuterCat::destroy shred
 outerNS::OuterCat::destroy (
 outerNS::OuterCat::destroy thing
@@ -824,8 +1346,25 @@ outerNS::AbstractArt::AbstractArt ART_HP
 outerNS::AbstractArt::AbstractArt )
 outerNS::AbstractArt::AbstractArt {
 outerNS::AbstractArt::AbstractArt }
-outerNS::AbstractArt // This pure virtual method needs to be treated like a definition for our
-outerNS::AbstractArt // structured record emission purposes.
+outerNS::AbstractArt //
+outerNS::AbstractArt This
+outerNS::AbstractArt pure
+outerNS::AbstractArt virtual
+outerNS::AbstractArt method
+outerNS::AbstractArt needs
+outerNS::AbstractArt to
+outerNS::AbstractArt be
+outerNS::AbstractArt treated
+outerNS::AbstractArt like
+outerNS::AbstractArt a
+outerNS::AbstractArt definition
+outerNS::AbstractArt for
+outerNS::AbstractArt our
+outerNS::AbstractArt //
+outerNS::AbstractArt structured
+outerNS::AbstractArt record
+outerNS::AbstractArt emission
+outerNS::AbstractArt purposes.
 outerNS::AbstractArt::beArt virtual
 outerNS::AbstractArt::beArt void
 outerNS::AbstractArt::beArt beArt
@@ -853,14 +1392,27 @@ outerNS::PracticalArt::PracticalArt (
 outerNS::PracticalArt::PracticalArt )
 outerNS::PracticalArt::PracticalArt {
 outerNS::PracticalArt::PracticalArt }
-outerNS::PracticalArt // This should properly see the beArt as something it's overriding.
+outerNS::PracticalArt //
+outerNS::PracticalArt This
+outerNS::PracticalArt should
+outerNS::PracticalArt properly
+outerNS::PracticalArt see
+outerNS::PracticalArt the
+outerNS::PracticalArt beArt
+outerNS::PracticalArt as
+outerNS::PracticalArt something
+outerNS::PracticalArt it's
+outerNS::PracticalArt overriding.
 outerNS::PracticalArt::beArt void
 outerNS::PracticalArt::beArt beArt
 outerNS::PracticalArt::beArt (
 outerNS::PracticalArt::beArt )
 outerNS::PracticalArt::beArt override
 outerNS::PracticalArt::beArt {
-outerNS::PracticalArt::beArt // Apprecaite in value!
+outerNS::PracticalArt::beArt //
+outerNS::PracticalArt::beArt Apprecaite
+outerNS::PracticalArt::beArt in
+outerNS::PracticalArt::beArt value!
 outerNS::PracticalArt::beArt mHP
 outerNS::PracticalArt::beArt ++
 outerNS::PracticalArt::beArt ;
@@ -914,7 +1466,10 @@ outerNS::innerNS::DebugAnonCat {
 outerNS::innerNS::DebugAnonCat }
 outerNS::innerNS ;
 outerNS::innerNS #else
-outerNS::innerNS // not ifdef DEBUG
+outerNS::innerNS //
+outerNS::innerNS not
+outerNS::innerNS ifdef
+outerNS::innerNS DEBUG
 outerNS::innerNS::NondebugAnonCat class
 outerNS::innerNS::NondebugAnonCat NondebugAnonCat
 outerNS::innerNS::NondebugAnonCat {
@@ -923,17 +1478,57 @@ outerNS::innerNS ;
 outerNS::innerNS #endif
 outerNS::innerNS }
 outerNS::innerNS ;
-outerNS::innerNS // end anonymous namespace
+outerNS::innerNS //
+outerNS::innerNS end
+outerNS::innerNS anonymous
+outerNS::innerNS namespace
 outerNS::innerNS }
-outerNS // end namespace innerNS
+outerNS //
+outerNS end
+outerNS namespace
+outerNS innerNS
 outerNS }
- // end namespace outerNS
+% //
+% end
+% namespace
+% outerNS
 i_was_declared_in_the_header void
 i_was_declared_in_the_header i_was_declared_in_the_header
 i_was_declared_in_the_header (
 i_was_declared_in_the_header )
 i_was_declared_in_the_header {
-i_was_declared_in_the_header // Perhaps there was a bug where the declaration might have been treated as a
-i_was_declared_in_the_header // definition and then, adding insult to injury, the range from this file was
-i_was_declared_in_the_header // exposed in the header.
+i_was_declared_in_the_header //
+i_was_declared_in_the_header Perhaps
+i_was_declared_in_the_header there
+i_was_declared_in_the_header was
+i_was_declared_in_the_header a
+i_was_declared_in_the_header bug
+i_was_declared_in_the_header where
+i_was_declared_in_the_header the
+i_was_declared_in_the_header declaration
+i_was_declared_in_the_header might
+i_was_declared_in_the_header have
+i_was_declared_in_the_header been
+i_was_declared_in_the_header treated
+i_was_declared_in_the_header as
+i_was_declared_in_the_header a
+i_was_declared_in_the_header //
+i_was_declared_in_the_header definition
+i_was_declared_in_the_header and
+i_was_declared_in_the_header then,
+i_was_declared_in_the_header adding
+i_was_declared_in_the_header insult
+i_was_declared_in_the_header to
+i_was_declared_in_the_header injury,
+i_was_declared_in_the_header the
+i_was_declared_in_the_header range
+i_was_declared_in_the_header from
+i_was_declared_in_the_header this
+i_was_declared_in_the_header file
+i_was_declared_in_the_header was
+i_was_declared_in_the_header //
+i_was_declared_in_the_header exposed
+i_was_declared_in_the_header in
+i_was_declared_in_the_header the
+i_was_declared_in_the_header header.
 i_was_declared_in_the_header }

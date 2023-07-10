@@ -5,26 +5,28 @@ use include_dir::{include_dir, Dir};
 
 static QUERIES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/tokenizer_queries");
 
-fn load_language_queries(ts_lang: tree_sitter::Language, lang_str: &str) -> Result<tree_sitter::Query, String> {
+fn load_language_queries(
+    ts_lang: tree_sitter::Language,
+    lang_str: &str,
+) -> Result<tree_sitter::Query, String> {
     match QUERIES_DIR.get_file(format!("{}.scm", lang_str)) {
         Some(file) => {
             let maybe_contents = file.contents_utf8().map(|s| borrow::Cow::from(s));
             match maybe_contents {
                 Some(contents) => {
-                    tree_sitter::Query::new(ts_lang, &contents).map_err(|ts_err| {
-                        ts_err.message
-                    })
+                    tree_sitter::Query::new(ts_lang, &contents).map_err(|ts_err| ts_err.message)
                 }
-                _ => {
-                    Err(format!("No queries for lang: {}", lang_str))
-                }
+                _ => Err(format!("No queries for lang: {}", lang_str)),
             }
         }
         _ => Err(format!("No queries for lang: {}", lang_str)),
     }
 }
 
-pub fn hypertokenize_source_file(filename: &str, source_contents: &str) -> Result<Vec<String>, String> {
+pub fn hypertokenize_source_file(
+    filename: &str,
+    source_contents: &str,
+) -> Result<Vec<String>, String> {
     let ext = match Path::new(filename).extension() {
         Some(ext) => ext.to_str().unwrap(),
         None => "",
@@ -71,7 +73,6 @@ pub fn hypertokenize_source_file(filename: &str, source_contents: &str) -> Resul
     let name_capture_ix = container_query.capture_index_for_name("name").unwrap();
     let container_capture_ix = container_query.capture_index_for_name("container").unwrap();
 
-
     let parse_tree = match parser.parse(source_contents.as_bytes(), None) {
         Some(t) => t,
         _ => {
@@ -86,13 +87,20 @@ pub fn hypertokenize_source_file(filename: &str, source_contents: &str) -> Resul
     let mut visited_children = false;
 
     let mut query_cursor = tree_sitter::QueryCursor::new();
-    let mut query_matches =
-        query_cursor.matches(&container_query, parse_tree.root_node(), source_contents.as_bytes());
+    let mut query_matches = query_cursor.matches(
+        &container_query,
+        parse_tree.root_node(),
+        source_contents.as_bytes(),
+    );
 
     let mut next_container_match = query_matches.next();
     let mut next_container_id = usize::MAX;
     if let Some(container_match) = &next_container_match {
-        next_container_id = container_match.nodes_for_capture_index(container_capture_ix).next().unwrap().id();
+        next_container_id = container_match
+            .nodes_for_capture_index(container_capture_ix)
+            .next()
+            .unwrap()
+            .id();
     }
 
     let mut context_stack: Vec<String> = vec![];
@@ -133,14 +141,22 @@ pub fn hypertokenize_source_file(filename: &str, source_contents: &str) -> Resul
 
             // Handle if this is our next container.
             if node.id() == next_container_id {
-                let name_node = next_container_match.unwrap().nodes_for_capture_index(name_capture_ix).next().unwrap();
+                let name_node = next_container_match
+                    .unwrap()
+                    .nodes_for_capture_index(name_capture_ix)
+                    .next()
+                    .unwrap();
                 let name = name_node.utf8_text(source_contents.as_bytes()).unwrap();
                 context_stack.push(name.to_string());
                 id_stack.push(next_container_id);
 
                 next_container_match = query_matches.next();
                 if let Some(container_match) = &next_container_match {
-                    next_container_id = container_match.nodes_for_capture_index(container_capture_ix).next().unwrap().id();
+                    next_container_id = container_match
+                        .nodes_for_capture_index(container_capture_ix)
+                        .next()
+                        .unwrap()
+                        .id();
                 } else {
                     next_container_id = usize::MAX;
                 }
@@ -149,7 +165,34 @@ pub fn hypertokenize_source_file(filename: &str, source_contents: &str) -> Resul
                 visited_children = false;
                 _depth += 1;
             } else {
-                tokenized.push(format!("{} {}", context_stack.join("::"), node.utf8_text(source_contents.as_bytes()).unwrap()));
+                let token = node.utf8_text(source_contents.as_bytes()).unwrap();
+                // Comments don't get further tokenized and are marked as extra, so for now we
+                // only perform additional whitespace tokenization for "extra" nodes.  This
+                // may turn out to be wrong.
+                if token.is_empty() {
+                    // ignore empty tokens!
+                } else if node.is_extra() {
+                    // TODO: probably better to use the regex crate here to avoid a bunch of empty
+                    // matches for consecutive whitespace.
+                    for piece in token.split(char::is_whitespace) {
+                        if piece.is_empty() {
+                            continue;
+                        }
+                        tokenized.push(format!(
+                            "{}{} {}",
+                            if context_stack.is_empty() { "%" } else { "" },
+                            context_stack.join("::"),
+                            piece
+                        ));
+                    }
+                } else {
+                    tokenized.push(format!(
+                        "{}{} {}",
+                        if context_stack.is_empty() { "%" } else { "" },
+                        context_stack.join("::"),
+                        token
+                    ));
+                }
                 visited_children = true;
             }
         }
