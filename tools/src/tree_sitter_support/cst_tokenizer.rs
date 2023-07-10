@@ -35,36 +35,70 @@ pub fn hypertokenize_source_file(
     let mut tokenized = Vec::new();
 
     let mut parser = tree_sitter::Parser::new();
-    let container_query = match ext {
+    // ### atom_nodes ###
+    //
+    // We borrow difftastic's terminology to deal with awkward tree-sitter nodes
+    // like tree-sitter-cpp's `string_literal` where we want to use the contents
+    // of the node and ignore the fact that it has children because there are
+    // only children for the opening and closing `"` characters but no node for
+    // the actual contents of the string.
+    //
+    // See https://github.com/tree-sitter/tree-sitter/issues/1156 for more
+    // information on the underlying tree-sitter issue.
+    //
+    // Specific example details:
+    // - `#include "big_header.h"` has 3 children:
+    //   - `#include"`: 0 children
+    //   - `"big_header.h"`: 2 children, both of which are the quotes?!  This
+    //     differs from `<stdlib.h>` which is just a single monolithic string
+    //     with no children.
+    //   - `\n`: 0 children
+    //
+    // ### ignore_nodes
+    //
+    // As noted in https://github.com/tree-sitter/tree-sitter-c/issues/97 the
+    // C preprocessor nodes currently are weird and include the trailing
+    // newline.  For our purposes, we never actually want to emit a newline
+    // token, so it's easy enough for us to just forbid that node.
+    let (container_query, atom_nodes, ignore_nodes) = match ext {
         "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" => {
             parser
                 .set_language(tree_sitter_mozcpp::language())
                 .expect("Error loading Mozcpp grammar");
-            load_language_queries(tree_sitter_mozcpp::language(), "cpp")?
+            let query = load_language_queries(tree_sitter_mozcpp::language(), "cpp")?;
+            let lang = tree_sitter_mozcpp::language();
+            let string_literal = lang.id_for_node_kind("string_literal", true);
+            let char_literal = lang.id_for_node_kind("char_literal", true);
+            let newline = lang.id_for_node_kind("\n", false);
+            (query, vec![string_literal, char_literal], vec![newline])
         }
         "js" | "jsm" | "json" | "mjs" | "sjs" | "ts" => {
             parser
                 .set_language(tree_sitter_typescript::language_typescript())
                 .expect("Error loading Typescript grammar");
-            load_language_queries(tree_sitter_typescript::language_typescript(), "typescript")?
+            let query = load_language_queries(tree_sitter_typescript::language_typescript(), "typescript")?;
+            (query, vec![], vec![])
         }
         "jsx" | "tsx" => {
             parser
                 .set_language(tree_sitter_typescript::language_tsx())
                 .expect("Error loading TSX grammar");
-            load_language_queries(tree_sitter_typescript::language_tsx(), "typescript")?
+            let query = load_language_queries(tree_sitter_typescript::language_tsx(), "typescript")?;
+            (query, vec![], vec![])
         }
         "py" | "build" | "configure" => {
             parser
                 .set_language(tree_sitter_python::language())
                 .expect("Error loading Python grammar");
-            load_language_queries(tree_sitter_python::language(), "python")?
+            let query = load_language_queries(tree_sitter_python::language(), "python")?;
+            (query, vec![], vec![])
         }
         "rs" => {
             parser
                 .set_language(tree_sitter_rust::language())
                 .expect("Error loading Rust grammar");
-            load_language_queries(tree_sitter_rust::language(), "rust")?
+            let query = load_language_queries(tree_sitter_rust::language(), "rust")?;
+            (query, vec![], vec![])
         }
         _ => {
             return Err(format!("Unsupported file format: {}", ext));
@@ -82,6 +116,14 @@ pub fn hypertokenize_source_file(
 
     // The cursor traversal logic here is derived from the tree-sitter-cli
     // parse_file_at_path logic: https://github.com/tree-sitter/tree-sitter/blob/master/cli/src/parse.rs
+    //
+    // A good resource if you are interested in what this class is doing is to instead look at
+    // https://github.com/Wilfred/difftastic/blob/master/src/parse/tree_sitter_parser.rs which
+    // I discovered after running into problems with the node modeling of tree-sitter-cpp's
+    // `string_literal` node and found https://github.com/tree-sitter/tree-sitter/issues/1156
+    // and related issues and discussion.  Note that it is explicitly mapping tree-sitter's
+    // pseudo-CST to its own tree rep, whereas we are just linearizing tokens here, but the
+    // general desire to have all tokens remains.
     let mut cursor = parse_tree.walk();
     let mut _depth = 0;
     let mut visited_children = false;
@@ -105,17 +147,6 @@ pub fn hypertokenize_source_file(
 
     let mut context_stack: Vec<String> = vec![];
     let mut id_stack: Vec<usize> = vec![];
-
-    // Revised plan:
-    // - Similar to our mechanism for nesting ranges in scip-indexer.rs, use tree-sitter queries
-    //   in order to define queries that will match against nodes in the AST which should define
-    //   a context scope.  Except now we'll store them in separate ".scm" files rather than our
-    //   weird manual transformation thing.
-    //   - This should provide all the extensibility we need and allow for some interesting
-    //     possibilities for things like dealing with switch statements, etc.  Also, it could
-    //     allow for identifying the level of strength of the context, etc.
-    // - The traversal can potentially be simplified somewhat since the node identifiers should
-    //   let us know to pop the context scope when we pop that node by going to the parent.
 
     loop {
         let node = cursor.node();
@@ -161,7 +192,11 @@ pub fn hypertokenize_source_file(
                     next_container_id = usize::MAX;
                 }
             }
-            if cursor.goto_first_child() {
+            let node_kind_id = node.kind_id();
+            if ignore_nodes.contains(&node_kind_id) {
+                // ignore this node!
+                visited_children = true;
+            } else if !atom_nodes.contains(&node_kind_id) && cursor.goto_first_child() {
                 visited_children = false;
                 _depth += 1;
             } else {
