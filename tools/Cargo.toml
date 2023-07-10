@@ -59,6 +59,7 @@ serde_repr = "0.1"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
 tokio-stream = "0.1.8"
 tree-sitter = "0.20.9"
+tree-sitter-mozcpp = "0.20.2"
 tree-sitter-python = "0.20.2"
 tree-sitter-rust = "0.20.3"
 tree-sitter-typescript = "0.20.2"

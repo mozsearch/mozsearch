@@ -286,6 +286,14 @@ pub trait AbstractServer {
     /// tree-local path, decompressing if it's compressed.
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>>;
 
+    /// Fetch the contents of a raw (not HTML rendered) source file
+    /// corresponding to the indexed revision like you would get out of revision
+    /// control.
+    ///
+    /// TODO: In the future this should probably take a revision descriptor so
+    /// we can actually check the source file out if needed.
+    async fn fetch_raw_source(&self, sf_path: &str) -> Result<String>;
+
     /// Fetch the contents of a rendered HTML file, decompressing if it's
     /// compressed.  If `is_file` is true, this will be from the INDEX/file
     /// sub-tree.  If `is_file` is false, we're treating it as a directory

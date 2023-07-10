@@ -1,0 +1,939 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+ /**
+ * This test file attempts to create the following situations:
+ * - Multiple levels of lexical scoping.
+ * - Those lexical blocks are sufficiently large that it's common for the
+ *   block open to be off of the screen so that a "position:sticky" style
+ *   display would be appropriate.
+ * - Call structures potentially look interesting if you graph them.
+ *
+ * This is accomplished by:
+ * - Many silly comment blocks.
+ * - Tons of copy and pasting and search and replace.
+ * - Panicking when trying to trying to come up with subject matter and deciding
+ *   that cats and dogs work.
+ * - Not using templates.
+ */
+ #include
+ <memory>
+ 
+
+ #include
+ <stdio.h>
+ 
+
+ #include
+ <stdlib.h>
+ 
+
+
+ #include
+ "
+ "
+ 
+
+ #include
+ "
+ "
+ 
+
+ #include
+ "
+ "
+ 
+
+
+GlobalContext class
+GlobalContext GlobalContext
+GlobalContext {
+GlobalContext public
+GlobalContext :
+GlobalContext::decideBooleanTrait static
+GlobalContext::decideBooleanTrait bool
+GlobalContext::decideBooleanTrait decideBooleanTrait
+GlobalContext::decideBooleanTrait (
+GlobalContext::decideBooleanTrait )
+GlobalContext::decideBooleanTrait {
+GlobalContext::decideBooleanTrait int
+GlobalContext::decideBooleanTrait rval
+GlobalContext::decideBooleanTrait =
+GlobalContext::decideBooleanTrait rand
+GlobalContext::decideBooleanTrait (
+GlobalContext::decideBooleanTrait )
+GlobalContext::decideBooleanTrait ;
+GlobalContext::decideBooleanTrait // boop boop
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait // boop
+GlobalContext::decideBooleanTrait int
+GlobalContext::decideBooleanTrait midpointValue
+GlobalContext::decideBooleanTrait =
+GlobalContext::decideBooleanTrait RAND_MAX
+GlobalContext::decideBooleanTrait /
+GlobalContext::decideBooleanTrait 2
+GlobalContext::decideBooleanTrait ;
+GlobalContext::decideBooleanTrait if
+GlobalContext::decideBooleanTrait (
+GlobalContext::decideBooleanTrait rval
+GlobalContext::decideBooleanTrait >
+GlobalContext::decideBooleanTrait midpointValue
+GlobalContext::decideBooleanTrait )
+GlobalContext::decideBooleanTrait {
+GlobalContext::decideBooleanTrait // beep
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait // beep beep beep
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait // beep
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait //      beep
+GlobalContext::decideBooleanTrait //
+GlobalContext::decideBooleanTrait //           beep
+GlobalContext::decideBooleanTrait return
+GlobalContext::decideBooleanTrait true
+GlobalContext::decideBooleanTrait ;
+GlobalContext::decideBooleanTrait }
+GlobalContext::decideBooleanTrait // BEEP BEEP BEEP BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP           BEEP
+GlobalContext::decideBooleanTrait // BEEP BEEP BEEP BEEP
+GlobalContext::decideBooleanTrait return
+GlobalContext::decideBooleanTrait false
+GlobalContext::decideBooleanTrait ;
+GlobalContext::decideBooleanTrait }
+GlobalContext::decideEnigmaticAnimalBooleanTrait static
+GlobalContext::decideEnigmaticAnimalBooleanTrait bool
+GlobalContext::decideEnigmaticAnimalBooleanTrait decideEnigmaticAnimalBooleanTrait
+GlobalContext::decideEnigmaticAnimalBooleanTrait (
+GlobalContext::decideEnigmaticAnimalBooleanTrait )
+GlobalContext::decideEnigmaticAnimalBooleanTrait {
+GlobalContext::decideEnigmaticAnimalBooleanTrait return
+GlobalContext::decideEnigmaticAnimalBooleanTrait decideBooleanTrait
+GlobalContext::decideEnigmaticAnimalBooleanTrait (
+GlobalContext::decideEnigmaticAnimalBooleanTrait )
+GlobalContext::decideEnigmaticAnimalBooleanTrait ;
+GlobalContext::decideEnigmaticAnimalBooleanTrait }
+GlobalContext::decideCatBooleanTrait static
+GlobalContext::decideCatBooleanTrait bool
+GlobalContext::decideCatBooleanTrait decideCatBooleanTrait
+GlobalContext::decideCatBooleanTrait (
+GlobalContext::decideCatBooleanTrait )
+GlobalContext::decideCatBooleanTrait {
+GlobalContext::decideCatBooleanTrait return
+GlobalContext::decideCatBooleanTrait decideEnigmaticAnimalBooleanTrait
+GlobalContext::decideCatBooleanTrait (
+GlobalContext::decideCatBooleanTrait )
+GlobalContext::decideCatBooleanTrait ;
+GlobalContext::decideCatBooleanTrait }
+GlobalContext::decideBestFriendBooleanTrait static
+GlobalContext::decideBestFriendBooleanTrait bool
+GlobalContext::decideBestFriendBooleanTrait decideBestFriendBooleanTrait
+GlobalContext::decideBestFriendBooleanTrait (
+GlobalContext::decideBestFriendBooleanTrait )
+GlobalContext::decideBestFriendBooleanTrait {
+GlobalContext::decideBestFriendBooleanTrait return
+GlobalContext::decideBestFriendBooleanTrait decideBooleanTrait
+GlobalContext::decideBestFriendBooleanTrait (
+GlobalContext::decideBestFriendBooleanTrait )
+GlobalContext::decideBestFriendBooleanTrait ;
+GlobalContext::decideBestFriendBooleanTrait }
+GlobalContext::LessGlobalContext class
+GlobalContext::LessGlobalContext LessGlobalContext
+GlobalContext::LessGlobalContext {
+GlobalContext::LessGlobalContext public
+GlobalContext::LessGlobalContext :
+GlobalContext::LessGlobalContext // BARK
+GlobalContext::LessGlobalContext //     BARK
+GlobalContext::LessGlobalContext //         BARK
+GlobalContext::LessGlobalContext //             BARK
+GlobalContext::LessGlobalContext //                 BARK
+GlobalContext::LessGlobalContext //                     BARK
+GlobalContext::LessGlobalContext //                         BARK
+GlobalContext::LessGlobalContext //                             BARK
+GlobalContext::LessGlobalContext //                                 BARK
+GlobalContext::LessGlobalContext::decideWhetherToDecide static
+GlobalContext::LessGlobalContext::decideWhetherToDecide bool
+GlobalContext::LessGlobalContext::decideWhetherToDecide decideWhetherToDecide
+GlobalContext::LessGlobalContext::decideWhetherToDecide (
+GlobalContext::LessGlobalContext::decideWhetherToDecide )
+GlobalContext::LessGlobalContext::decideWhetherToDecide {
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP BEEP BEEP BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP           BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide // BEEP BEEP BEEP BEEP
+GlobalContext::LessGlobalContext::decideWhetherToDecide return
+GlobalContext::LessGlobalContext::decideWhetherToDecide true
+GlobalContext::LessGlobalContext::decideWhetherToDecide ;
+GlobalContext::LessGlobalContext::decideWhetherToDecide }
+GlobalContext::LessGlobalContext // BARK
+GlobalContext::LessGlobalContext //     BARK
+GlobalContext::LessGlobalContext //         BARK
+GlobalContext::LessGlobalContext //             BARK
+GlobalContext::LessGlobalContext //                 BARK
+GlobalContext::LessGlobalContext //                     BARK
+GlobalContext::LessGlobalContext //                         BARK
+GlobalContext::LessGlobalContext //                             BARK
+GlobalContext::LessGlobalContext //                                 BARK
+GlobalContext::LessGlobalContext }
+GlobalContext ;
+GlobalContext // BARK
+GlobalContext //     BARK
+GlobalContext //         BARK
+GlobalContext //             BARK
+GlobalContext //                 BARK
+GlobalContext //                     BARK
+GlobalContext //                         BARK
+GlobalContext //                             BARK
+GlobalContext //                                 BARK
+GlobalContext::decideDogBooleanTrait static
+GlobalContext::decideDogBooleanTrait bool
+GlobalContext::decideDogBooleanTrait decideDogBooleanTrait
+GlobalContext::decideDogBooleanTrait (
+GlobalContext::decideDogBooleanTrait )
+GlobalContext::decideDogBooleanTrait {
+GlobalContext::decideDogBooleanTrait if
+GlobalContext::decideDogBooleanTrait (
+GlobalContext::decideDogBooleanTrait LessGlobalContext
+GlobalContext::decideDogBooleanTrait ::
+GlobalContext::decideDogBooleanTrait decideWhetherToDecide
+GlobalContext::decideDogBooleanTrait (
+GlobalContext::decideDogBooleanTrait )
+GlobalContext::decideDogBooleanTrait )
+GlobalContext::decideDogBooleanTrait {
+GlobalContext::decideDogBooleanTrait return
+GlobalContext::decideDogBooleanTrait decideBestFriendBooleanTrait
+GlobalContext::decideDogBooleanTrait (
+GlobalContext::decideDogBooleanTrait )
+GlobalContext::decideDogBooleanTrait ;
+GlobalContext::decideDogBooleanTrait }
+GlobalContext::decideDogBooleanTrait return
+GlobalContext::decideDogBooleanTrait false
+GlobalContext::decideDogBooleanTrait ;
+GlobalContext::decideDogBooleanTrait }
+GlobalContext ;
+GlobalContext }
+ ;
+outerNS namespace
+outerNS outerNS
+outerNS {
+outerNS #define
+outerNS HUMAN_HP
+outerNS  100
+outerNS 
+
+
+outerNS::Thing class
+outerNS::Thing Thing
+outerNS::Thing {
+outerNS::Thing protected
+outerNS::Thing :
+outerNS::Thing // Finally, an example class that could evolve into a MUD!
+outerNS::Thing //
+outerNS::Thing // Health
+outerNS::Thing // Points
+outerNS::Thing::mHP int
+outerNS::Thing::mHP mHP
+outerNS::Thing::mHP ;
+outerNS::Thing // Existence
+outerNS::Thing // Points
+outerNS::Thing::mDefunct bool
+outerNS::Thing::mDefunct mDefunct
+outerNS::Thing::mDefunct ;
+outerNS::Thing public
+outerNS::Thing :
+outerNS::Thing::Thing Thing
+outerNS::Thing::Thing (
+outerNS::Thing::Thing int
+outerNS::Thing::Thing baseHP
+outerNS::Thing::Thing )
+outerNS::Thing::Thing :
+outerNS::Thing::Thing mHP
+outerNS::Thing::Thing (
+outerNS::Thing::Thing baseHP
+outerNS::Thing::Thing )
+outerNS::Thing::Thing ,
+outerNS::Thing::Thing mDefunct
+outerNS::Thing::Thing (
+outerNS::Thing::Thing false
+outerNS::Thing::Thing )
+outerNS::Thing::Thing {
+outerNS::Thing::Thing // bop.
+outerNS::Thing::Thing }
+outerNS::Thing::ignore void
+outerNS::Thing::ignore ignore
+outerNS::Thing::ignore (
+outerNS::Thing::ignore )
+outerNS::Thing::ignore ;
+outerNS::Thing::takeDamage virtual
+outerNS::Thing::takeDamage void
+outerNS::Thing::takeDamage takeDamage
+outerNS::Thing::takeDamage (
+outerNS::Thing::takeDamage int
+outerNS::Thing::takeDamage damage
+outerNS::Thing::takeDamage )
+outerNS::Thing::takeDamage {
+outerNS::Thing::takeDamage mHP
+outerNS::Thing::takeDamage -=
+outerNS::Thing::takeDamage damage
+outerNS::Thing::takeDamage ;
+outerNS::Thing::takeDamage if
+outerNS::Thing::takeDamage (
+outerNS::Thing::takeDamage damage
+outerNS::Thing::takeDamage <=
+outerNS::Thing::takeDamage 0
+outerNS::Thing::takeDamage )
+outerNS::Thing::takeDamage {
+outerNS::Thing::takeDamage mDefunct
+outerNS::Thing::takeDamage =
+outerNS::Thing::takeDamage true
+outerNS::Thing::takeDamage ;
+outerNS::Thing::takeDamage damage
+outerNS::Thing::takeDamage =
+outerNS::Thing::takeDamage 0
+outerNS::Thing::takeDamage ;
+outerNS::Thing::takeDamage }
+outerNS::Thing::takeDamage }
+outerNS::Thing::unlink virtual
+outerNS::Thing::unlink void
+outerNS::Thing::unlink unlink
+outerNS::Thing::unlink (
+outerNS::Thing::unlink )
+outerNS::Thing::unlink {
+outerNS::Thing::unlink }
+outerNS::Thing }
+outerNS ;
+outerNS::Thing::ignore void
+outerNS::Thing::ignore Thing
+outerNS::Thing::ignore ::
+outerNS::Thing::ignore ignore
+outerNS::Thing::ignore (
+outerNS::Thing::ignore )
+outerNS::Thing::ignore {
+outerNS::Thing::ignore // ignore
+outerNS::Thing::ignore // i g n o r e
+outerNS::Thing::ignore // i  g  n  o  r  e
+outerNS::Thing::ignore // i   g   n   o   r   e
+outerNS::Thing::ignore // i    g    n    o    r    e
+outerNS::Thing::ignore // i   g   n   o   r   e
+outerNS::Thing::ignore // i    g    n    o    r    e
+outerNS::Thing::ignore // i   g   n   o   r   e
+outerNS::Thing::ignore // i  g  n  o  r  e
+outerNS::Thing::ignore // i g n o r e
+outerNS::Thing::ignore }
+outerNS::Human class
+outerNS::Human Human
+outerNS::Human :
+outerNS::Human public
+outerNS::Human Thing
+outerNS::Human {
+outerNS::Human public
+outerNS::Human :
+outerNS::Human::Human Human
+outerNS::Human::Human (
+outerNS::Human::Human )
+outerNS::Human::Human :
+outerNS::Human::Human Thing
+outerNS::Human::Human (
+outerNS::Human::Human HUMAN_HP
+outerNS::Human::Human )
+outerNS::Human::Human {
+outerNS::Human::Human }
+outerNS::Human }
+outerNS ;
+outerNS::Superhero class
+outerNS::Superhero Superhero
+outerNS::Superhero :
+outerNS::Superhero public
+outerNS::Superhero Human
+outerNS::Superhero {
+outerNS::Superhero public
+outerNS::Superhero :
+outerNS::Superhero::Superhero Superhero
+outerNS::Superhero::Superhero (
+outerNS::Superhero::Superhero )
+outerNS::Superhero::Superhero :
+outerNS::Superhero::Superhero Human
+outerNS::Superhero::Superhero (
+outerNS::Superhero::Superhero )
+outerNS::Superhero::Superhero {
+outerNS::Superhero::Superhero }
+outerNS::Superhero::takeDamage void
+outerNS::Superhero::takeDamage takeDamage
+outerNS::Superhero::takeDamage (
+outerNS::Superhero::takeDamage int
+outerNS::Superhero::takeDamage damage
+outerNS::Superhero::takeDamage )
+outerNS::Superhero::takeDamage override
+outerNS::Superhero::takeDamage {
+outerNS::Superhero::takeDamage // nope
+outerNS::Superhero::takeDamage //   nope
+outerNS::Superhero::takeDamage //     nope!
+outerNS::Superhero::takeDamage //   ...
+outerNS::Superhero::takeDamage // Superheroes don't take damage.
+outerNS::Superhero::takeDamage }
+outerNS::Superhero }
+outerNS ;
+outerNS::Couch class
+outerNS::Couch Couch
+outerNS::Couch :
+outerNS::Couch public
+outerNS::Couch Thing
+outerNS::Couch {
+outerNS::Couch public
+outerNS::Couch :
+outerNS::Couch::Couch Couch
+outerNS::Couch::Couch (
+outerNS::Couch::Couch int
+outerNS::Couch::Couch couchHP
+outerNS::Couch::Couch =
+outerNS::Couch::Couch 20
+outerNS::Couch::Couch )
+outerNS::Couch::Couch :
+outerNS::Couch::Couch Thing
+outerNS::Couch::Couch (
+outerNS::Couch::Couch couchHP
+outerNS::Couch::Couch )
+outerNS::Couch::Couch {
+outerNS::Couch::Couch Superhero
+outerNS::Couch::Couch superBob
+outerNS::Couch::Couch ;
+outerNS::Couch::Couch WhatsYourVector
+outerNS::Couch::Couch <
+outerNS::Couch::Couch Superhero
+outerNS::Couch::Couch >
+outerNS::Couch::Couch victor
+outerNS::Couch::Couch (
+outerNS::Couch::Couch &
+outerNS::Couch::Couch superBob
+outerNS::Couch::Couch )
+outerNS::Couch::Couch ;
+outerNS::Couch::Couch Human
+outerNS::Couch::Couch bob
+outerNS::Couch::Couch ;
+outerNS::Couch::Couch WhatsYourVector
+outerNS::Couch::Couch <
+outerNS::Couch::Couch Human
+outerNS::Couch::Couch >
+outerNS::Couch::Couch goodReferenceRight
+outerNS::Couch::Couch (
+outerNS::Couch::Couch &
+outerNS::Couch::Couch bob
+outerNS::Couch::Couch )
+outerNS::Couch::Couch ;
+outerNS::Couch::Couch victor
+outerNS::Couch::Couch .
+outerNS::Couch::Couch forwardDeclaredTemplateThingInlinedBelow
+outerNS::Couch::Couch (
+outerNS::Couch::Couch this
+outerNS::Couch::Couch )
+outerNS::Couch::Couch ;
+outerNS::Couch::Couch goodReferenceRight
+outerNS::Couch::Couch .
+outerNS::Couch::Couch forwardDeclaredTemplateThingInlinedBelow
+outerNS::Couch::Couch (
+outerNS::Couch::Couch this
+outerNS::Couch::Couch )
+outerNS::Couch::Couch ;
+outerNS::Couch::Couch }
+outerNS::Couch }
+outerNS ;
+outerNS::OuterCat class
+outerNS::OuterCat OuterCat
+outerNS::OuterCat :
+outerNS::OuterCat Thing
+outerNS::OuterCat {
+outerNS::OuterCat private
+outerNS::OuterCat :
+outerNS::OuterCat // Cat secrets!
+outerNS::OuterCat // The secrets of cats!
+outerNS::OuterCat // These cannot be known to humans.
+outerNS::OuterCat // Or anyone.
+outerNS::OuterCat // Except perhaps other cats.
+outerNS::OuterCat // Or perhaps not.
+outerNS::OuterCat // Or perhaps...
+outerNS::OuterCat //           ...
+outerNS::OuterCat //           ...
+outerNS::OuterCat //           ...
+outerNS::OuterCat //           ...not!
+outerNS::OuterCat::mIsFriendly bool
+outerNS::OuterCat::mIsFriendly mIsFriendly
+outerNS::OuterCat::mIsFriendly ;
+outerNS::OuterCat::mIsSecretlyUnfriendly bool
+outerNS::OuterCat::mIsSecretlyUnfriendly mIsSecretlyUnfriendly
+outerNS::OuterCat::mIsSecretlyUnfriendly ;
+outerNS::OuterCat::mOwner std
+outerNS::OuterCat::mOwner ::
+outerNS::OuterCat::mOwner shared_ptr
+outerNS::OuterCat::mOwner <
+outerNS::OuterCat::mOwner Human
+outerNS::OuterCat::mOwner >
+outerNS::OuterCat::mOwner mOwner
+outerNS::OuterCat::mOwner ;
+outerNS::OuterCat Couch
+outerNS::OuterCat *
+outerNS::OuterCat mFavoriteCouch
+outerNS::OuterCat ;
+outerNS::OuterCat public
+outerNS::OuterCat :
+outerNS::OuterCat // These things can be known.
+outerNS::OuterCat // But they are methods.
+outerNS::OuterCat // So they're not really things you know.
+outerNS::OuterCat // Although there are getters.
+outerNS::OuterCat // Shoot, maybe those should be protected.
+outerNS::OuterCat // Okay, now they're protected.
+outerNS::OuterCat // Although you haven't read that far down yet.
+outerNS::OuterCat // The comments don't get better.
+outerNS::OuterCat::OuterCat OuterCat
+outerNS::OuterCat::OuterCat (
+outerNS::OuterCat::OuterCat bool
+outerNS::OuterCat::OuterCat beFriendly
+outerNS::OuterCat::OuterCat ,
+outerNS::OuterCat::OuterCat // what gets position:sticky'd here do you suppose
+outerNS::OuterCat::OuterCat // and how long does it last?
+outerNS::OuterCat::OuterCat // ...
+outerNS::OuterCat::OuterCat // ...
+outerNS::OuterCat::OuterCat // hm.
+outerNS::OuterCat::OuterCat bool
+outerNS::OuterCat::OuterCat beSecretlyUnfriendly
+outerNS::OuterCat::OuterCat )
+outerNS::OuterCat::OuterCat // more hm.
+outerNS::OuterCat::OuterCat // yes, very hm.
+outerNS::OuterCat::OuterCat // hm hm hm.
+outerNS::OuterCat::OuterCat :
+outerNS::OuterCat::OuterCat Thing
+outerNS::OuterCat::OuterCat (
+outerNS::OuterCat::OuterCat 9
+outerNS::OuterCat::OuterCat *
+outerNS::OuterCat::OuterCat HUMAN_HP
+outerNS::OuterCat::OuterCat )
+outerNS::OuterCat::OuterCat ,
+outerNS::OuterCat::OuterCat mIsFriendly
+outerNS::OuterCat::OuterCat (
+outerNS::OuterCat::OuterCat beFriendly
+outerNS::OuterCat::OuterCat )
+outerNS::OuterCat::OuterCat // Unknown.
+outerNS::OuterCat::OuterCat // ...
+outerNS::OuterCat::OuterCat // Okay, we can probably implement things now.
+outerNS::OuterCat::OuterCat ,
+outerNS::OuterCat::OuterCat mIsSecretlyUnfriendly
+outerNS::OuterCat::OuterCat (
+outerNS::OuterCat::OuterCat beSecretlyUnfriendly
+outerNS::OuterCat::OuterCat )
+outerNS::OuterCat::OuterCat {
+outerNS::OuterCat::OuterCat // Meow
+outerNS::OuterCat::OuterCat //  Meow
+outerNS::OuterCat::OuterCat //   Meow
+outerNS::OuterCat::OuterCat //    Meow
+outerNS::OuterCat::OuterCat //     Meow
+outerNS::OuterCat::OuterCat //      Meow
+outerNS::OuterCat::OuterCat //       Meow
+outerNS::OuterCat::OuterCat //     Meow
+outerNS::OuterCat::OuterCat //    Meow
+outerNS::OuterCat::OuterCat //   Meow
+outerNS::OuterCat::OuterCat //    Meow
+outerNS::OuterCat::OuterCat //     Meow
+outerNS::OuterCat::OuterCat //      Meow
+outerNS::OuterCat::OuterCat //       Meow
+outerNS::OuterCat::OuterCat //        Meow
+outerNS::OuterCat::OuterCat //         Meow
+outerNS::OuterCat::OuterCat //          Meow
+outerNS::OuterCat::OuterCat //           Meow
+outerNS::OuterCat::OuterCat //            Meow
+outerNS::OuterCat::OuterCat //             Meow
+outerNS::OuterCat::OuterCat //              Meow Meow Meow Meow Meow Meow Meow
+outerNS::OuterCat::OuterCat //                                            Meow
+outerNS::OuterCat::OuterCat //                                             Meow
+outerNS::OuterCat::OuterCat //                                              Meow
+outerNS::OuterCat::OuterCat //                                             Meow
+outerNS::OuterCat::OuterCat //                                            Meow
+outerNS::OuterCat::OuterCat //                                           Meow
+outerNS::OuterCat::OuterCat //                                          Meow
+outerNS::OuterCat::OuterCat //                                         Meow
+outerNS::OuterCat::OuterCat //                                        Meow
+outerNS::OuterCat::OuterCat //                                       Meow
+outerNS::OuterCat::OuterCat //                                      Meow
+outerNS::OuterCat::OuterCat //                                     Meow
+outerNS::OuterCat::OuterCat }
+outerNS::OuterCat protected
+outerNS::OuterCat :
+outerNS::OuterCat // Sorta secret things.
+outerNS::OuterCat // Like, other cats know these things.
+outerNS::OuterCat // But still, not for humans.
+outerNS::OuterCat // Not now.
+outerNS::OuterCat // Not ever.
+outerNS::OuterCat // Unless some type of special cat x-ray is developed.
+outerNS::OuterCat // Boy, wouldn't that be a thing.
+outerNS::OuterCat // Humanity is come so far, and yet we don't have a specialized cat x-ray...
+outerNS::OuterCat // one capable of seeing into the true nature of a cat.
+outerNS::OuterCat::isFriendlyCat bool
+outerNS::OuterCat::isFriendlyCat isFriendlyCat
+outerNS::OuterCat::isFriendlyCat (
+outerNS::OuterCat::isFriendlyCat )
+outerNS::OuterCat::isFriendlyCat {
+outerNS::OuterCat::isFriendlyCat return
+outerNS::OuterCat::isFriendlyCat mIsFriendly
+outerNS::OuterCat::isFriendlyCat ;
+outerNS::OuterCat::isFriendlyCat }
+outerNS::OuterCat::isSecretlyUnfriendly bool
+outerNS::OuterCat::isSecretlyUnfriendly isSecretlyUnfriendly
+outerNS::OuterCat::isSecretlyUnfriendly (
+outerNS::OuterCat::isSecretlyUnfriendly )
+outerNS::OuterCat::isSecretlyUnfriendly {
+outerNS::OuterCat::isSecretlyUnfriendly //                                             Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                              Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                             Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                            Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                           Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                          Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                         Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                        Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                       Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                      Meow
+outerNS::OuterCat::isSecretlyUnfriendly //                                     Meow
+outerNS::OuterCat::isSecretlyUnfriendly return
+outerNS::OuterCat::isSecretlyUnfriendly mIsSecretlyUnfriendly
+outerNS::OuterCat::isSecretlyUnfriendly ;
+outerNS::OuterCat::isSecretlyUnfriendly }
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible bool
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible isFriendlyIfNotCurrentlyVisible
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible (
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible )
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible {
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible if
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible (
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible isSecretlyUnfriendly
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible (
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible )
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible )
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible {
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible return
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible true
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible ;
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible }
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible return
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible isFriendlyCat
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible (
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible )
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible ;
+outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible }
+outerNS::OuterCat public
+outerNS::OuterCat :
+outerNS::OuterCat::unlink void
+outerNS::OuterCat::unlink unlink
+outerNS::OuterCat::unlink (
+outerNS::OuterCat::unlink )
+outerNS::OuterCat::unlink override
+outerNS::OuterCat::unlink {
+outerNS::OuterCat::unlink mOwner
+outerNS::OuterCat::unlink =
+outerNS::OuterCat::unlink nullptr
+outerNS::OuterCat::unlink ;
+outerNS::OuterCat::unlink mFavoriteCouch
+outerNS::OuterCat::unlink =
+outerNS::OuterCat::unlink nullptr
+outerNS::OuterCat::unlink ;
+outerNS::OuterCat::unlink }
+outerNS::OuterCat::meet void
+outerNS::OuterCat::meet meet
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet Human
+outerNS::OuterCat::meet &
+outerNS::OuterCat::meet human
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet {
+outerNS::OuterCat::meet human
+outerNS::OuterCat::meet .
+outerNS::OuterCat::meet ignore
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet ;
+outerNS::OuterCat::meet }
+outerNS::OuterCat /**
+   * Something there is that doesn't love a couch.
+   *
+   * A cat.
+   *
+   * A cat doesn't love a couch.
+   */
+outerNS::OuterCat::meet void
+outerNS::OuterCat::meet meet
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet Couch
+outerNS::OuterCat::meet &
+outerNS::OuterCat::meet couch
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet {
+outerNS::OuterCat::meet shred
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet couch
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet ;
+outerNS::OuterCat::meet if
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet !
+outerNS::OuterCat::meet isFriendlyCat
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet {
+outerNS::OuterCat::meet // D
+outerNS::OuterCat::meet //  E
+outerNS::OuterCat::meet //   S
+outerNS::OuterCat::meet //    T
+outerNS::OuterCat::meet //     R
+outerNS::OuterCat::meet //      O
+outerNS::OuterCat::meet //       Y
+outerNS::OuterCat::meet destroy
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet couch
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet ;
+outerNS::OuterCat::meet }
+outerNS::OuterCat::meet else
+outerNS::OuterCat::meet if
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet isFriendlyIfNotCurrentlyVisible
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet {
+outerNS::OuterCat::meet // NO
+outerNS::OuterCat::meet //
+outerNS::OuterCat::meet // D
+outerNS::OuterCat::meet //  E
+outerNS::OuterCat::meet //   S
+outerNS::OuterCat::meet //    T
+outerNS::OuterCat::meet //     R
+outerNS::OuterCat::meet //      O
+outerNS::OuterCat::meet //       Y
+outerNS::OuterCat::meet // do nothing
+outerNS::OuterCat::meet }
+outerNS::OuterCat::meet else
+outerNS::OuterCat::meet {
+outerNS::OuterCat::meet // D
+outerNS::OuterCat::meet //  E
+outerNS::OuterCat::meet //   S
+outerNS::OuterCat::meet //    T
+outerNS::OuterCat::meet //     R
+outerNS::OuterCat::meet //      O
+outerNS::OuterCat::meet //       Y
+outerNS::OuterCat::meet destroy
+outerNS::OuterCat::meet (
+outerNS::OuterCat::meet couch
+outerNS::OuterCat::meet )
+outerNS::OuterCat::meet ;
+outerNS::OuterCat::meet }
+outerNS::OuterCat::meet }
+outerNS::OuterCat /**
+   * Standard cat destruction.
+   */
+outerNS::OuterCat::shred void
+outerNS::OuterCat::shred shred
+outerNS::OuterCat::shred (
+outerNS::OuterCat::shred Thing
+outerNS::OuterCat::shred &
+outerNS::OuterCat::shred thing
+outerNS::OuterCat::shred )
+outerNS::OuterCat::shred {
+outerNS::OuterCat::shred thing
+outerNS::OuterCat::shred .
+outerNS::OuterCat::shred takeDamage
+outerNS::OuterCat::shred (
+outerNS::OuterCat::shred 1
+outerNS::OuterCat::shred )
+outerNS::OuterCat::shred ;
+outerNS::OuterCat::shred }
+outerNS::OuterCat /**
+   * More thorough cat destruction.
+   */
+outerNS::OuterCat::destroy void
+outerNS::OuterCat::destroy destroy
+outerNS::OuterCat::destroy (
+outerNS::OuterCat::destroy Thing
+outerNS::OuterCat::destroy &
+outerNS::OuterCat::destroy thing
+outerNS::OuterCat::destroy )
+outerNS::OuterCat::destroy {
+outerNS::OuterCat::destroy // s
+outerNS::OuterCat::destroy shred
+outerNS::OuterCat::destroy (
+outerNS::OuterCat::destroy thing
+outerNS::OuterCat::destroy )
+outerNS::OuterCat::destroy ;
+outerNS::OuterCat::destroy //  h
+outerNS::OuterCat::destroy shred
+outerNS::OuterCat::destroy (
+outerNS::OuterCat::destroy thing
+outerNS::OuterCat::destroy )
+outerNS::OuterCat::destroy ;
+outerNS::OuterCat::destroy //   r
+outerNS::OuterCat::destroy shred
+outerNS::OuterCat::destroy (
+outerNS::OuterCat::destroy thing
+outerNS::OuterCat::destroy )
+outerNS::OuterCat::destroy ;
+outerNS::OuterCat::destroy //    e
+outerNS::OuterCat::destroy shred
+outerNS::OuterCat::destroy (
+outerNS::OuterCat::destroy thing
+outerNS::OuterCat::destroy )
+outerNS::OuterCat::destroy ;
+outerNS::OuterCat::destroy //     d
+outerNS::OuterCat::destroy shred
+outerNS::OuterCat::destroy (
+outerNS::OuterCat::destroy thing
+outerNS::OuterCat::destroy )
+outerNS::OuterCat::destroy ;
+outerNS::OuterCat::destroy }
+outerNS::OuterCat }
+outerNS ;
+outerNS #define
+outerNS ART_HP
+outerNS  100
+outerNS 
+
+
+outerNS::AbstractArt class
+outerNS::AbstractArt AbstractArt
+outerNS::AbstractArt :
+outerNS::AbstractArt public
+outerNS::AbstractArt Thing
+outerNS::AbstractArt {
+outerNS::AbstractArt public
+outerNS::AbstractArt :
+outerNS::AbstractArt::AbstractArt AbstractArt
+outerNS::AbstractArt::AbstractArt (
+outerNS::AbstractArt::AbstractArt )
+outerNS::AbstractArt::AbstractArt :
+outerNS::AbstractArt::AbstractArt Thing
+outerNS::AbstractArt::AbstractArt (
+outerNS::AbstractArt::AbstractArt ART_HP
+outerNS::AbstractArt::AbstractArt )
+outerNS::AbstractArt::AbstractArt {
+outerNS::AbstractArt::AbstractArt }
+outerNS::AbstractArt // This pure virtual method needs to be treated like a definition for our
+outerNS::AbstractArt // structured record emission purposes.
+outerNS::AbstractArt::beArt virtual
+outerNS::AbstractArt::beArt void
+outerNS::AbstractArt::beArt beArt
+outerNS::AbstractArt::beArt (
+outerNS::AbstractArt::beArt )
+outerNS::AbstractArt::beArt =
+outerNS::AbstractArt::beArt 0
+outerNS::AbstractArt::beArt ;
+outerNS::AbstractArt }
+outerNS ;
+outerNS::PracticalArt class
+outerNS::PracticalArt PracticalArt
+outerNS::PracticalArt :
+outerNS::PracticalArt public
+outerNS::PracticalArt AbstractArt
+outerNS::PracticalArt {
+outerNS::PracticalArt public
+outerNS::PracticalArt :
+outerNS::PracticalArt::PracticalArt PracticalArt
+outerNS::PracticalArt::PracticalArt (
+outerNS::PracticalArt::PracticalArt )
+outerNS::PracticalArt::PracticalArt :
+outerNS::PracticalArt::PracticalArt AbstractArt
+outerNS::PracticalArt::PracticalArt (
+outerNS::PracticalArt::PracticalArt )
+outerNS::PracticalArt::PracticalArt {
+outerNS::PracticalArt::PracticalArt }
+outerNS::PracticalArt // This should properly see the beArt as something it's overriding.
+outerNS::PracticalArt::beArt void
+outerNS::PracticalArt::beArt beArt
+outerNS::PracticalArt::beArt (
+outerNS::PracticalArt::beArt )
+outerNS::PracticalArt::beArt override
+outerNS::PracticalArt::beArt {
+outerNS::PracticalArt::beArt // Apprecaite in value!
+outerNS::PracticalArt::beArt mHP
+outerNS::PracticalArt::beArt ++
+outerNS::PracticalArt::beArt ;
+outerNS::PracticalArt::beArt }
+outerNS::PracticalArt }
+outerNS ;
+outerNS::StackArtHolder class
+outerNS::StackArtHolder StackArtHolder
+outerNS::StackArtHolder {
+outerNS::StackArtHolder PracticalArt
+outerNS::StackArtHolder &
+outerNS::StackArtHolder mHeldArt
+outerNS::StackArtHolder ;
+outerNS::StackArtHolder public
+outerNS::StackArtHolder :
+outerNS::StackArtHolder::StackArtHolder StackArtHolder
+outerNS::StackArtHolder::StackArtHolder (
+outerNS::StackArtHolder::StackArtHolder PracticalArt
+outerNS::StackArtHolder::StackArtHolder &
+outerNS::StackArtHolder::StackArtHolder aArt
+outerNS::StackArtHolder::StackArtHolder )
+outerNS::StackArtHolder::StackArtHolder :
+outerNS::StackArtHolder::StackArtHolder mHeldArt
+outerNS::StackArtHolder::StackArtHolder (
+outerNS::StackArtHolder::StackArtHolder aArt
+outerNS::StackArtHolder::StackArtHolder )
+outerNS::StackArtHolder::StackArtHolder {
+outerNS::StackArtHolder::StackArtHolder }
+outerNS::StackArtHolder }
+outerNS ;
+outerNS::innerNS namespace
+outerNS::innerNS innerNS
+outerNS::innerNS {
+outerNS::innerNS::InnerCat class
+outerNS::innerNS::InnerCat InnerCat
+outerNS::innerNS::InnerCat {
+outerNS::innerNS::InnerCat }
+outerNS::innerNS ;
+outerNS::innerNS namespace
+outerNS::innerNS {
+outerNS::innerNS::AnonCat class
+outerNS::innerNS::AnonCat AnonCat
+outerNS::innerNS::AnonCat {
+outerNS::innerNS::AnonCat }
+outerNS::innerNS ;
+outerNS::innerNS #ifdef
+outerNS::innerNS DEBUG
+outerNS::innerNS::DebugAnonCat class
+outerNS::innerNS::DebugAnonCat DebugAnonCat
+outerNS::innerNS::DebugAnonCat {
+outerNS::innerNS::DebugAnonCat }
+outerNS::innerNS ;
+outerNS::innerNS #else
+outerNS::innerNS // not ifdef DEBUG
+outerNS::innerNS::NondebugAnonCat class
+outerNS::innerNS::NondebugAnonCat NondebugAnonCat
+outerNS::innerNS::NondebugAnonCat {
+outerNS::innerNS::NondebugAnonCat }
+outerNS::innerNS ;
+outerNS::innerNS #endif
+outerNS::innerNS }
+outerNS::innerNS ;
+outerNS::innerNS // end anonymous namespace
+outerNS::innerNS }
+outerNS // end namespace innerNS
+outerNS }
+ // end namespace outerNS
+i_was_declared_in_the_header void
+i_was_declared_in_the_header i_was_declared_in_the_header
+i_was_declared_in_the_header (
+i_was_declared_in_the_header )
+i_was_declared_in_the_header {
+i_was_declared_in_the_header // Perhaps there was a bug where the declaration might have been treated as a
+i_was_declared_in_the_header // definition and then, adding insult to injury, the range from this file was
+i_was_declared_in_the_header // exposed in the header.
+i_was_declared_in_the_header }

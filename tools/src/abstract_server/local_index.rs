@@ -7,7 +7,7 @@ use std::io::Read;
 use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-use tracing::{trace};
+use tracing::trace;
 use ustr::{ustr, Ustr};
 
 use super::server_interface::{
@@ -175,6 +175,25 @@ impl AbstractServer for LocalIndex {
         let full_path = format!("{}/analysis/{}.gz", self.config_paths.index_path, norm_path);
         let values = read_gzipped_ndjson_from_file(&full_path).await?;
         Ok(Box::pin(tokio_stream::iter(values)))
+    }
+
+    async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
+        // We normalize off any leading "/" mainly to support our test cases
+        // being able to use "/" to indicate they're interested in a root dir.
+        let norm_path = if sf_path.starts_with('/') {
+            &sf_path[1..]
+        } else {
+            sf_path
+        };
+        // We don't want anyone trying to construct a path that escapes the
+        // sub-tree.
+        validate_absoluteish_path(norm_path)?;
+        let full_path = format!("{}/{}", self.config_paths.files_path, norm_path);
+
+        let mut f = File::open(full_path).await?;
+        let mut raw_str = String::new();
+        f.read_to_string(&mut raw_str).await?;
+        Ok(raw_str)
     }
 
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {

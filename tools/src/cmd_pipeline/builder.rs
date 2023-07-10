@@ -18,7 +18,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand, cmd_render::RenderCommand, cmd_jumpref_lookup::JumprefLookupCommand};
+use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand, cmd_render::RenderCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_tokenize_source::TokenizeSourceCommand};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -72,6 +72,8 @@ pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand +
         Command::SearchText(st) => Ok(Box::new(SearchTextCommand { args: st })),
 
         Command::ShowHtml(sh) => Ok(Box::new(ShowHtmlCommand { args: sh })),
+
+        Command::TokenizeSource(ts) => Ok(Box::new(TokenizeSourceCommand { args: ts })),
 
         Command::Traverse(t) => Ok(Box::new(TraverseCommand { args: t })),
     }

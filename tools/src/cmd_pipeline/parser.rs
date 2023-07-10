@@ -18,6 +18,7 @@ use super::cmd_search_files::SearchFiles;
 use super::cmd_search_identifiers::SearchIdentifiers;
 use super::cmd_search_text::SearchText;
 use super::cmd_show_html::ShowHtml;
+use super::cmd_tokenize_source::TokenizeSource;
 use super::cmd_traverse::Traverse;
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -81,6 +82,7 @@ pub enum Command {
     SearchIdentifiers(SearchIdentifiers),
     SearchText(SearchText),
     ShowHtml(ShowHtml),
+    TokenizeSource(TokenizeSource),
     Traverse(Traverse),
 }
 

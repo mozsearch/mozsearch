@@ -116,6 +116,11 @@ impl AbstractServer for RemoteServer {
         Ok(Box::pin(tokio_stream::iter(values?)))
     }
 
+    async fn fetch_raw_source(&self, _sf_path: &str) -> Result<String> {
+        // I'm not sure we actually expose the underlying raw file?
+        Err(ServerError::Unsupported)
+    }
+
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {
         // We don't have access to raw templates, so just call that unsupported.
         // Note that we could special-case for "help.html" here since it does
