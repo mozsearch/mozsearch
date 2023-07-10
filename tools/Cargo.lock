@@ -3051,6 +3051,7 @@ dependencies = [
  "tree-sitter",
  "tree-sitter-java",
  "tree-sitter-kotlin",
+ "tree-sitter-mozcpp",
  "tree-sitter-python",
  "tree-sitter-rust",
  "tree-sitter-typescript",
@@ -3229,6 +3230,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-cpp"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dbedbf4066bfab725b3f9e2a21530507419a7d2f98621d3c13213502b734ec0"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
 name = "tree-sitter-java"
 version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3245,6 +3256,17 @@ source = "git+https://github.com/fwcd/tree-sitter-kotlin.git#0ef87892401bb01c84b
 dependencies = [
  "cc",
  "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-mozcpp"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9514ebbde0a575c43027fffa2702788ae7fb967be5e1a43daae92667400d13e"
+dependencies = [
+ "cc",
+ "tree-sitter",
+ "tree-sitter-cpp",
 ]
 
 [[package]]

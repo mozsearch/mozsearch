@@ -24,6 +24,7 @@ pub mod cmd_pipeline;
 pub mod file_format;
 pub mod query;
 pub mod templating;
+pub mod tree_sitter_support;
 
 pub mod blame;
 pub mod describe;
