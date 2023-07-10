@@ -115,33 +115,16 @@ expression: "&fb.contents"
 % */
 % #include
 % <memory>
-% 
-
 % #include
 % <stdio.h>
-% 
-
 % #include
 % <stdlib.h>
-% 
-
-
 % #include
-% "
-% "
-% 
-
+% "big_header.h"
 % #include
-% "
-% "
-% 
-
+% "subdir/header@with,many^strange~chars.h"
 % #include
-% "
-% "
-% 
-
-
+% "atom_magic.h"
 GlobalContext class
 GlobalContext GlobalContext
 GlobalContext {
@@ -413,9 +396,6 @@ outerNS {
 outerNS #define
 outerNS HUMAN_HP
 outerNS  100
-outerNS 
-
-
 outerNS::Thing class
 outerNS::Thing Thing
 outerNS::Thing {
@@ -1325,9 +1305,6 @@ outerNS ;
 outerNS #define
 outerNS ART_HP
 outerNS  100
-outerNS 
-
-
 outerNS::AbstractArt class
 outerNS::AbstractArt AbstractArt
 outerNS::AbstractArt :
