@@ -111,13 +111,12 @@ var DocumentTitler = new (class DocumentTitler {
    * heuristic, but this should ideally be handled by either:
    * - Directly annotating the DOM with the symbol element that is inducing
    *   the nesting.
-   * - Switching from the data-i scheme to using a symbols dictionary and
+   * - Switching from the SYM_INFO scheme to using a symbols dictionary and
    *   ensuring the symbol data similarly identifies any nesting associated with
    *   the symbol.
    *
    * The current heuristic logic is:
-   * - Pick the last observed symbol (by having a "data-i" attribute) preceding
-   *   a `(`.
+   * - Pick the last observed symbol preceding a `(`.
    */
   _findBestPrettySymbolInSourceLineElem(elem) {
     let bestPretty = null,
@@ -126,8 +125,8 @@ var DocumentTitler = new (class DocumentTitler {
       return { long: bestPretty, short: bestShortPretty };
     }
 
-    const symElems = elem.querySelectorAll("[data-i]");
-    scan: for (const symElem of symElems) {
+    const defs = elem.querySelectorAll(".syn_def");
+    scan: for (const def of defs) {
       // Check if any of the preceding nodes had a "(" in them.  If they did,
       // this symbol is irrelevant and we should break out of the outer "scan"
       // loop.
@@ -140,7 +139,7 @@ var DocumentTitler = new (class DocumentTitler {
       let sawClass = false;
       let sawColon = false;
       for (
-        let prevNode = symElem.previousSibling;
+        let prevNode = def.previousSibling;
         prevNode;
         prevNode = prevNode.previousSibling
       ) {
@@ -161,28 +160,29 @@ var DocumentTitler = new (class DocumentTitler {
         }
       }
 
-      // Extract the most appropriate pretty data from the searches.
-      // Specifically, we are looking for "pretty" text in the searches that
+      // Extract the most appropriate pretty data from the symbols.
+      // Specifically, we are looking for "pretty" text in the symbols that
       // contains the textContent from the semantic token.  We do this to
       // compensate for the implicitly invoked field constructors which
       // currently end up coalesced into the constructor's symbol/point.
-      const visibleToken = symElem.textContent;
-      const data = window.ANALYSIS_DATA[symElem.getAttribute("data-i")];
-      const searches = data[1];
-      // Process all of the searches, retaining the last one we see as the way
+      const visibleToken = def.textContent;
+      const symbols = def.getAttribute("data-symbols").split(",");
+
+      // Process all of the symbols, retaining the last one we see as the way
       // we sort the symbols currently means the most appropriate symbol may be
       // last.  The motivating scenario here is WorkerPrivate::MemoryReporter
       // that subclasses nsIMemoryReporter (and where "MemoryReporter" is also a
-      // substring of "nsIMemoryReporter") and the MemoryReporter search is
+      // substring of "nsIMemoryReporter") and the MemoryReporter symbol is
       // currently deterministically last in the list.
-      let useSearch;
-      for (const search of searches) {
-        if (search.pretty?.includes(visibleToken)) {
-          useSearch = search;
+      for (const sym of symbols) {
+        const symInfo = window.SYM_INFO[sym];
+        if (!symInfo) {
+          continue;
         }
-      }
-      if (useSearch) {
-        bestPretty = useSearch.pretty;
+        if (!symInfo.pretty?.includes(visibleToken)) {
+          continue;
+        }
+        bestPretty = symInfo.pretty;
       }
     }
 
