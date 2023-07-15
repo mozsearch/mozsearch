@@ -223,12 +223,11 @@ var DocumentTitler = new (class DocumentTitler {
    * hash changes, etc.)  This method finds the nesting block that encloses this
    * line and use its nesting block opening symbol.
    */
-  processLineSelection(lastSelectedLine) {
+  processLineSelection(selectedLines) {
     this.selectionTitle = null;
     this.selectedSymbol = null;
-    if (lastSelectedLine) {
-      const selectedLine = document.getElementById(`line-${lastSelectedLine}`);
-      const nestingContainer = selectedLine?.closest(".nesting-container");
+    if (selectedLines.size) {
+      const nestingContainer = this._findNestingContainerFor(selectedLines);
       const nestingLine = nestingContainer?.querySelector(
         ".nesting-sticky-line"
       );
@@ -241,6 +240,69 @@ var DocumentTitler = new (class DocumentTitler {
     this.updateTitle();
 
     Panel.onSelectedSymbolChanged();
+  }
+
+  /**
+   * Find the deepest container where there's only one container in the depth
+   * in given lines.
+   */
+  _findNestingContainerFor(lines) {
+    let maxDepth = 0;
+    let lastContainer = null;
+    let containersPerDepth = new Map();
+
+    for (const line of [...lines].sort()) {
+      const selectedLine = document.getElementById(`line-${line}`);
+      const nestingContainer = selectedLine?.closest(".nesting-container");
+
+      if (nestingContainer === lastContainer) {
+        continue;
+      }
+
+      lastContainer = nestingContainer;
+
+      let depth = null;
+      for (const className of nestingContainer.classList) {
+        const m = className.match(/nesting-depth-(\d+)/);
+        if (m) {
+          depth = parseInt(m[1]);
+          break;
+        }
+      }
+
+      if (depth === null) {
+        continue;
+      }
+
+      if (depth > maxDepth) {
+        maxDepth = depth;
+      }
+
+      let containers;
+      if (!containersPerDepth.has(depth)) {
+        containers = new Set();
+        containersPerDepth.set(depth, containers);
+      } else {
+        containers = containersPerDepth.get(depth);
+      }
+      containers.add(nestingContainer);
+    }
+
+    for (let depth = maxDepth; depth > 0; depth--) {
+      if (!containersPerDepth.has(depth)) {
+        continue;
+      }
+
+      const containers = containersPerDepth.get(depth);
+      if (containers.size == 1) {
+        return [...containers][0];
+      }
+    }
+
+    // There's no such container.
+    // This can happen if multiple top-level functions are selected, or simply
+    // there's no nesting container.
+    return null;
   }
 })();
 
@@ -563,7 +625,7 @@ var Highlighter = new (class Highlighter {
       let extra = link.getAttribute("data-update-link").replace("{}", hash);
       link.href = link.getAttribute("data-link") + extra;
     }
-    DocumentTitler.processLineSelection(this.lastSelectedLine);
+    DocumentTitler.processLineSelection(this.selectedLines);
   }
 
   toHash() {
