@@ -111,9 +111,8 @@ var DocumentTitler = new (class DocumentTitler {
    * heuristic, but this should ideally be handled by either:
    * - Directly annotating the DOM with the symbol element that is inducing
    *   the nesting.
-   * - Switching from the SYM_INFO scheme to using a symbols dictionary and
-   *   ensuring the symbol data similarly identifies any nesting associated with
-   *   the symbol.
+   * - Augmenting the SYM_INFO symbol dictionary to provide information about
+   *   nesting in parallel to the "jumps".
    *
    * The current heuristic logic is:
    * - Pick the last observed symbol preceding a `(`.
@@ -125,6 +124,8 @@ var DocumentTitler = new (class DocumentTitler {
       return { long: bestPretty, short: bestShortPretty };
     }
 
+    // format.rs maps "def", "decl", and "idl" syntax kinds to "syn_def" so this
+    // covers all "kinds" of interest.
     const defs = elem.querySelectorAll(".syn_def");
     scan: for (const def of defs) {
       // Check if any of the preceding nodes had a "(" in them.  If they did,
@@ -138,6 +139,9 @@ var DocumentTitler = new (class DocumentTitler {
       // when we see a colon anywhere.
       let sawClass = false;
       let sawColon = false;
+      // Also check if there's tilde, to distinguish a destructor from its
+      // class symbol.
+      let sawTilde = false;
       for (
         let prevNode = def.previousSibling;
         prevNode;
@@ -154,6 +158,9 @@ var DocumentTitler = new (class DocumentTitler {
         }
         if (prevNode.textContent.includes(" : ")) {
           sawColon = true;
+        }
+        if (prevNode.textContent.includes("~")) {
+          sawTilde = true;
         }
         if (sawClass && sawColon) {
           break scan;
@@ -181,6 +188,11 @@ var DocumentTitler = new (class DocumentTitler {
         }
         if (!symInfo.pretty?.includes(visibleToken)) {
           continue;
+        }
+        if (sawTilde) {
+          if (!symInfo.pretty?.includes("~")) {
+            continue;
+          }
         }
         bestPretty = symInfo.pretty;
       }
