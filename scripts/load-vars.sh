@@ -20,16 +20,6 @@ export BLAME_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_blame_path" ${CONFIG_FIL
 export TREE_ON_ERROR=$(jq -r ".trees[\"${TREE_NAME}\"].on_error" ${CONFIG_FILE})
 export TREE_CACHING=$(jq -r ".trees[\"${TREE_NAME}\"].cache" ${CONFIG_FILE})
 
-# Touches the upload inhibiting marker file and returns 1 so a `||` cascade can
-# continue in the same stylistic fashion.  Maybe this is weird but I think a
-# && having to follow this would also be weird and you'd have to end up reading
-# this comment anyways.
-inhibit_upload() {
-    touch $INDEX_ROOT/INHIBIT_UPLOAD
-    return 1
-}
-export -f inhibit_upload
-
 handle_tree_error() {
     local msg=$1
     echo "warning: Tree '$TREE_NAME' error: $msg"
