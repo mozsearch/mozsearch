@@ -30,5 +30,8 @@ do
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
     mkdir -p $INDEX_ROOT
 
-    $CONFIG_REPO/$TREE_NAME/setup || inhibit_upload || handle_tree_error "tree setup script"
+    # If this fails, we let it propagate to abort the entire indexer. Setup
+    # failure is generally pretty bad and can leave the git repo in a weird
+    # state that doesn't lend itself to graceful fallback. See bug 1842632.
+    $CONFIG_REPO/$TREE_NAME/setup
 done
