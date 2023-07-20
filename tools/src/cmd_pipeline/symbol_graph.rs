@@ -20,7 +20,7 @@ use crate::{
     file_format::crossref_converter::convert_crossref_value_to_sym_info_rep,
 };
 
-use super::interface::OverloadInfo;
+use super::{interface::OverloadInfo, cmd_graph::GraphLayout};
 
 /**
 Graph abstraction for symbols built on top of petgraph.
@@ -456,7 +456,7 @@ impl SymbolGraphCollection {
     }
 
     /// Convert the graph with the given index to a graphviz rep.
-    pub fn hierarchical_graph_to_graphviz(&mut self, graph_idx: usize) -> Graph {
+    pub fn hierarchical_graph_to_graphviz(&mut self, graph_idx: usize, graph_layout: &GraphLayout) -> Graph {
         trace!(graph_idx = %graph_idx, "hierarchical_graph_to_graphviz");
         let graph = match self.hierarchical_graphs.get_mut(graph_idx) {
             Some(g) => g,
@@ -475,12 +475,30 @@ impl SymbolGraphCollection {
         };
         graph.root.compile(0, 0, false, &self.node_set, &mut state);
 
-        let dot_graph = Graph::DiGraph {
+        let mut dot_graph = Graph::DiGraph {
             id: id!("g"),
             strict: false,
-            // Note that the root node renders the default style directives.
-            stmts: graph.root.render(&self.node_set, &mut state),
+            stmts: vec![],
         };
+
+        // XXX I'm trying something here where we add our own styling statements
+        // here before rendering the graph and then propagating its statements
+        // across.  As noted below, we previously were just having the styling
+        // happening in the graph rendering process below; we really need to
+        // figure out where this should happen, but this hybrid approach is
+        // somewhat reasonable for now.
+        match graph_layout {
+            GraphLayout::Neato => {
+                dot_graph.add_stmt(stmt!(node!("graph"; attr!("overlap","prism"))));
+            }
+            _ => {}
+        }
+
+        // Note that the root node renders the default style directives.
+        let stmts = graph.root.render(&self.node_set, &mut state);
+        for stmt in stmts {
+            dot_graph.add_stmt(stmt);
+        }
 
         dot_graph
     }
