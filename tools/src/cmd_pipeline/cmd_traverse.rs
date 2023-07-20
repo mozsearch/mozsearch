@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use clap::Args;
 use itertools::Itertools;
 use serde_json::{from_value, Value};
-use clap::Args;
 use tracing::trace;
 use ustr::{ustr, Ustr};
 
@@ -16,7 +16,10 @@ use super::{
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    file_format::analysis::{BindingSlotKind, StructuredBindingSlotInfo, OntologySlotInfo, OntologySlotKind, StructuredFieldInfo},
+    file_format::analysis::{
+        BindingSlotKind, OntologySlotInfo, OntologySlotKind, StructuredBindingSlotInfo,
+        StructuredFieldInfo,
+    },
 };
 
 /// Processes piped-in crossref symbol data, recursively traversing the given
@@ -198,6 +201,12 @@ impl PipelineCommand for TraverseCommand {
                 .unwrap_or(&Value::Null)
                 .clone();
 
+            let overridden_by = sym_info
+                .crossref_info
+                .pointer("/meta/overriddenBy")
+                .unwrap_or(&Value::Null)
+                .clone();
+
             let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
 
             if self.args.edge.as_str() == "class" {
@@ -206,7 +215,8 @@ impl PipelineCommand for TraverseCommand {
                     let mut skip_symbol = false;
                     for label in labels {
                         if label.as_str() == "class-diagram:stop" {
-                            // Don't process the fields if we see a stop.
+                            // Don't process the fields if we see a stop.  This is something
+                            // manually specified in ontology-mapping.toml currently.
                             skip_symbol = true;
                         }
                     }
@@ -222,7 +232,8 @@ impl PipelineCommand for TraverseCommand {
                         let mut target_ids = vec![];
                         for ptr_info in field.pointer_info {
                             show_field = true;
-                            let (target_id, _) = sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
+                            let (target_id, _) =
+                                sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
                             if depth < max_depth && considered.insert(ptr_info.sym.clone()) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
                                 to_traverse.push((ptr_info.sym.clone(), depth + 1));
@@ -231,7 +242,8 @@ impl PipelineCommand for TraverseCommand {
                         }
 
                         if show_field {
-                            let (field_id, field_info) = sym_node_set.ensure_symbol(&field.sym, server).await?;
+                            let (field_id, field_info) =
+                                sym_node_set.ensure_symbol(&field.sym, server).await?;
                             for label in field.labels {
                                 field_info.badges.push(SymbolBadge {
                                     label,
@@ -284,7 +296,8 @@ impl PipelineCommand for TraverseCommand {
                     // loop so we ignore the other uses.
                     if slot_owner.props.slot_kind == BindingSlotKind::Recv {
                         if let Some(send_sym) = idl_info.get_binding_slot_sym("send") {
-                            let (send_id, send_info) = sym_node_set.ensure_symbol(&send_sym, server).await?;
+                            let (send_id, send_info) =
+                                sym_node_set.ensure_symbol(&send_sym, server).await?;
                             graph.add_edge(send_id, sym_id.clone());
                             if depth < max_depth && considered.insert(send_info.symbol.clone()) {
                                 trace!(sym = send_info.symbol.as_str(), "scheduling send slot sym");
@@ -307,17 +320,17 @@ impl PipelineCommand for TraverseCommand {
 
             // Check whether we have any ontology shortcuts to handle.
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
-            if let Some(Value::Array(slots)) = sym_info.crossref_info.pointer("/meta/ontologySlots").cloned() {
+            if let Some(Value::Array(slots)) = sym_info
+                .crossref_info
+                .pointer("/meta/ontologySlots")
+                .cloned()
+            {
                 let mut keep_going = true;
                 for slot_val in slots {
                     let slot: OntologySlotInfo = from_value(slot_val).unwrap();
                     let (should_traverse, upwards) = match slot.slot_kind {
-                        OntologySlotKind::RunnableConstructor => {
-                            (self.args.edge == "uses", true)
-                        }
-                        OntologySlotKind::RunnableMethod => {
-                            (self.args.edge == "callees", false)
-                        }
+                        OntologySlotKind::RunnableConstructor => (self.args.edge == "uses", true),
+                        OntologySlotKind::RunnableMethod => (self.args.edge == "callees", false),
                     };
                     if should_traverse {
                         for rel_sym in slot.syms {
@@ -347,13 +360,10 @@ impl PipelineCommand for TraverseCommand {
 
             // ## Handle "overrides" and "overriddenBy"
             //
-            // Currently both of these edges are directed to work with "uses"
-            // such that call trees will be deeper rather than wider, but this
-            // should be revisited and thought out more, especially as to
-            // whether this should result in clusters, etc.
+            // We currently only walk up "overrides" for "uses" but we now will
+            // also process "overriddenBy" for "inheritance".
             //
             // Note that the logic below is highly duplicative
-            //let overridden_by = sym_info.crossref_info.pointer("/meta/overriddenBy").unwrap_or(&Value::Null).clone();
 
             if let Some(sym_edges) = overrides.as_array() {
                 let bad_data = || {
@@ -393,37 +403,36 @@ impl PipelineCommand for TraverseCommand {
                 }
             }
 
-            // commented out because for "uses" we only want to walk up overrides for now.
-            /*
-            if let Some(sym_edges) = overridden_by.as_array() {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on meta overriddenBy"),
-                    })
-                };
+            if self.args.edge.as_str() == "inheritance" {
+                if let Some(sym_edges) = overridden_by.as_array() {
+                    let bad_data = || {
+                        ServerError::StickyProblem(ErrorDetails {
+                            layer: ErrorLayer::DataLayer,
+                            message: format!("Bad edge info in sym {sym} on meta overriddenBy"),
+                        })
+                    };
 
+                    for target in sym_edges {
+                        // overriddenBy is just a bare symbol name currently
+                        let target_sym_str = target.as_str().ok_or_else(bad_data)?;
+                        let target_sym = ustr(target_sym_str);
 
-                for target in sym_edges {
-                    // overriddenBy is just a bare symbol name currently
-                    let target_sym = target.as_str().ok_or_else(bad_data)?;
+                        let (target_id, target_info) =
+                            sym_node_set.ensure_symbol(&target_sym, server).await?;
 
-                    let (target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server).await?;
-
-                    if target_info.is_callable() {
-                        if considered.insert(target_info.symbol.clone()) {
-                            // Same rationale on avoiding a duplicate edge.
-                            graph.add_edge(target_id, sym_id.clone());
-                            if depth < max_depth {
-                                trace!(sym = target_sym, "scheduling overridenBy");
-                                to_traverse.push((target_info.symbol.clone(), depth + 1));
+                        if target_info.is_callable() {
+                            if considered.insert(target_info.symbol.clone()) {
+                                // Same rationale on avoiding a duplicate edge.
+                                graph.add_edge(target_id, sym_id.clone());
+                                if depth < max_depth {
+                                    trace!(sym = target_sym_str, "scheduling overridenBy");
+                                    to_traverse.push((target_info.symbol.clone(), depth + 1));
+                                }
                             }
                         }
                     }
                 }
             }
-            */
 
             // ## Handle the explicit edges
             if let Some(sym_edges) = edges.as_array() {

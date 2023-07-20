@@ -5,7 +5,7 @@ use dot_structures::*;
 use regex::{self, Captures, Regex};
 use serde_json::Value;
 
-use graphviz_rust::cmd::{CommandArg, Format};
+use graphviz_rust::cmd::{CommandArg, Format, Layout};
 use graphviz_rust::exec;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
 
@@ -38,6 +38,16 @@ pub enum GraphMode {
     Hier,
 }
 
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum GraphLayout {
+    /// Default use of the dot engine.
+    Dot,
+    /// Use neato
+    Neato,
+    /// Use fdp
+    Fdp,
+}
+
 /// Render a received graph into a dot, svg, or json-wrapped-svg which also
 /// includes embedded crossref information.
 #[derive(Debug, Args)]
@@ -47,6 +57,9 @@ pub struct Graph {
 
     #[clap(long, short, value_parser, value_enum, default_value = "hier")]
     pub mode: GraphMode,
+
+    #[clap(long, short, value_parser, value_enum, default_value = "dot")]
+    pub layout: GraphLayout,
 
     /// Enable debug mode which currently means forcing the format to be Json.
     /// This is currently structured this way because this is intended to be
@@ -219,7 +232,7 @@ impl PipelineCommand for GraphCommand {
             GraphMode::Hier => {
                 graphs.derive_hierarchical_graph(graphs.graphs.len() - 1, server).await?;
                 //return Ok(PipelineValues::SymbolGraphCollection(graphs));
-                graphs.hierarchical_graph_to_graphviz(graphs.hierarchical_graphs.len() - 1)
+                graphs.hierarchical_graph_to_graphviz(graphs.hierarchical_graphs.len() - 1, &self.args.layout)
             }
         };
         if self.args.format == GraphFormat::RawDot {
@@ -242,10 +255,16 @@ impl PipelineCommand for GraphCommand {
             GraphFormat::PNG => (Format::Png, "image/png".to_string()),
             _ => (Format::Dot, "text/x-dot".to_string()),
         };
+        let mut exec_commands = vec![CommandArg::Format(format)];
+        exec_commands.push(match self.args.layout {
+            GraphLayout::Dot => CommandArg::Layout(Layout::Dot),
+            GraphLayout::Neato => CommandArg::Layout(Layout::Neato),
+            GraphLayout::Fdp => CommandArg::Layout(Layout::Fdp),
+        });
         let graph_contents = exec(
             dot_graph,
             &mut PrinterContext::default(),
-            vec![CommandArg::Format(format)],
+            exec_commands,
         )?;
         match use_format {
             GraphFormat::Json => {

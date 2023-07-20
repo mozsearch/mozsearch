@@ -35,6 +35,23 @@ command = "traverse"
 args.edge = "uses"
 args.paths-between = true
 
+# "inheritance-diagram" is a quick hack to show the full transitive overrides/
+# overriddenBy relationship.
+[term.inheritance-diagram]
+[[term.inheritance-diagram.group.graph-build]]
+command = "search-identifiers"
+args.positional = "$0"
+args.exact-match = true
+[[term.inheritance-diagram.group.graph-build]]
+command = "crossref-lookup"
+[[term.inheritance-diagram.group.graph-build]]
+command = "traverse"
+args.edge = "inheritance"
+
+# "class-diagram" currently tries to show the relationship between a given
+# class and other classes exclusively via fields, but it would be good to also:
+# - Traverse IPC communication relationships
+# - Be more intentional/explicit about inheritance; we may do something.
 [term.class-diagram]
 [[term.class-diagram.group.graph-build]]
 command = "search-identifiers"
@@ -46,6 +63,7 @@ command = "crossref-lookup"
 [[term.class-diagram.group.graph-build]]
 command = "traverse"
 args.edge = "class"
+
 
 [term.colorize-callees]
 [[term.colorize-callees.group.graph-render]]
@@ -63,6 +81,11 @@ command = "graph"
 priority = 1
 args.format = "$0"
 
+[term.graph-layout]
+[[term.graph-layout.group.graph-render]]
+command = "graph"
+priority = 1
+args.layout = "$0"
 
 # This previously was doing a broken thing to try and avoid creating a weird
 # situation if this was specified before "calls-to", but it didn't actually do
