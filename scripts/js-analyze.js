@@ -593,7 +593,8 @@ let Analyzer = {
              // await is valid at the top-level in modules, so re-parse as a
              // module in this case too
              ex.message.includes("await is only valid in") ||
-             ex.message.includes("import.meta may only appear in a module")) &&
+             ex.message.includes("import.meta may only appear in a module") ||
+             text.includes("await import")) &&
             gParsedAs === "script") {
           gParsedAs = "module";
           ast = Reflect.parse(text, { loc: true, source: filename, line, target: gParsedAs });
