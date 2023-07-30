@@ -31,7 +31,9 @@ TREE_NAME=$2
 #
 # Note that another option would be to just have the scip-indexer directly
 # access the information from the config file.  We're not doing that in order to
-# faciliate use-cases like mozilla-central's merge-analyses, etc.
+# faciliate use-cases like mozilla-central's per-platform in
+# process-tc-artifacts.sh.  Note that for these per-platform cases we expect
+# those scripts to just directly invoke `scip-indexer` themselves.
 SCIP_SUBTREE_INFOS=$(jq -Mc ".trees[\"${TREE_NAME}\"].scip_subtrees | to_entries | .[]?" ${CONFIG_FILE})
 
 # Note: This structuring avoids use of a pipe and sub-shells which allows us to

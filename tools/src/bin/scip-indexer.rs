@@ -41,7 +41,7 @@ fn create_output_dir(output_file: &Path) -> io::Result<()> {
 }
 
 #[derive(Parser)]
-struct RustIndexerCli {
+struct ScipIndexerCli {
     /// Path to the variable-expanded config file
     #[clap(value_parser)]
     config_file: String,
@@ -58,6 +58,10 @@ struct RustIndexerCli {
     /// be ".", otherwise it should be the relative path like "js-subtree/".
     #[arg(long, value_parser)]
     subtree_root: String,
+
+    /// Platform name if this is per-platform.
+    #[arg(long, value_parser)]
+    platform: Option<String>,
 
     /// rustc analysis directories or scip inputs
     #[arg(value_parser)]
@@ -369,6 +373,7 @@ fn analyze_using_scip(
     tree_config: &config::TreeConfig,
     subtree_name: &str,
     subtree_root: &str,
+    platform: &Option<String>,
     scip_file: PathBuf,
 ) {
     use protobuf::Message;
@@ -867,7 +872,10 @@ fn analyze_using_scip(
         }
     }
 
-    let analysis_root = Path::new(&tree_config.paths.index_path).join("analysis");
+    let analysis_root = Path::new(&tree_config.paths.index_path).join(match platform {
+        None => "analysis".to_string(),
+        Some(platform) => format!("analysis-{}", platform),
+    });
 
     for doc in &index.documents {
         let searchfox_path = Path::new(&doc.relative_path).to_owned();
@@ -1202,13 +1210,13 @@ fn analyze_using_scip(
 fn main() {
     env_logger::init();
 
-    let cli = RustIndexerCli::parse();
+    let cli = ScipIndexerCli::parse();
 
     let tree_name = &cli.tree_name;
     let cfg = config::load(&cli.config_file, false, Some(&tree_name));
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     for file in cli.inputs {
-        analyze_using_scip(&tree_config, &cli.subtree_name, &cli.subtree_root, file);
+        analyze_using_scip(&tree_config, &cli.subtree_name, &cli.subtree_root, &cli.platform, file);
     }
 }
