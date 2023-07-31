@@ -206,6 +206,17 @@ impl OntologyMappingConfig {
                             return results;
                         } else if token.as_str() == "class" || token.as_str() == "struct" {
                             cur_type.is_tag = true;
+                        } else if token.chars().all(char::is_numeric) {
+                            // If our current token is just numeric then we're quite
+                            // possibly looking at something like
+                            // "1 << sizeof(AnonymousContentKey) * 8" as a template
+                            // arg.  This is a complex case that I think really
+                            // emphasizes we should just move to having clang give
+                            // us a structured representation of the types and stop
+                            // fooling around.  So we're just going to early return
+                            // in this case rather than go down a shoddy parsing
+                            // rabbit hole.
+                            return results;
                         } else {
                             if cur_type.identifier.len() > 0 {
                                 warn!(
@@ -548,6 +559,11 @@ kind = "contains"
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("class mozilla::Maybe<class nsTString<char16_t> >"),
+        vec![]
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("Array<std::pair<uint8_t, uint8_t>, 1 << sizeof(AnonymousContentKey) * 8>"),
         vec![]
     );
 }
