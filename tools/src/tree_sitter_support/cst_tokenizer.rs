@@ -3,6 +3,8 @@ use std::path::Path;
 
 use include_dir::{include_dir, Dir};
 
+use crate::file_format::history::syntax_files_struct::FileStructureRow;
+
 static QUERIES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/tokenizer_queries");
 
 fn load_language_queries(
@@ -23,16 +25,24 @@ fn load_language_queries(
     }
 }
 
+pub struct HyperTokenized {
+    pub tokenized: Vec<String>,
+    pub structure: Vec<FileStructureRow>,
+}
+
+/// Process a source file with tree-sitter to derive the structurally-bound
+/// syntax tokens and an outline of the structure of the file.
 pub fn hypertokenize_source_file(
     filename: &str,
     source_contents: &str,
-) -> Result<Vec<String>, String> {
+) -> Result<HyperTokenized, String> {
     let ext = match Path::new(filename).extension() {
         Some(ext) => ext.to_str().unwrap(),
         None => "",
     };
 
     let mut tokenized = Vec::new();
+    let mut structure = Vec::new();
 
     let mut parser = tree_sitter::Parser::new();
     // ### atom_nodes ###
@@ -76,14 +86,16 @@ pub fn hypertokenize_source_file(
             parser
                 .set_language(tree_sitter_typescript::language_typescript())
                 .expect("Error loading Typescript grammar");
-            let query = load_language_queries(tree_sitter_typescript::language_typescript(), "typescript")?;
+            let query =
+                load_language_queries(tree_sitter_typescript::language_typescript(), "typescript")?;
             (query, vec![], vec![])
         }
         "jsx" | "tsx" => {
             parser
                 .set_language(tree_sitter_typescript::language_tsx())
                 .expect("Error loading TSX grammar");
-            let query = load_language_queries(tree_sitter_typescript::language_tsx(), "typescript")?;
+            let query =
+                load_language_queries(tree_sitter_typescript::language_tsx(), "typescript")?;
             (query, vec![], vec![])
         }
         "py" | "build" | "configure" => {
@@ -146,6 +158,8 @@ pub fn hypertokenize_source_file(
     }
 
     let mut context_stack: Vec<String> = vec![];
+    let empty_context = "%".to_string();
+    let mut context_pretty = empty_context.clone();
     let mut id_stack: Vec<usize> = vec![];
 
     loop {
@@ -160,6 +174,11 @@ pub fn hypertokenize_source_file(
                 if let Some(container_id) = id_stack.last() {
                     if cursor.node().id() == *container_id {
                         context_stack.pop();
+                        context_pretty = if context_stack.is_empty() {
+                            empty_context.clone()
+                        } else {
+                            context_stack.join("::")
+                        };
                         id_stack.pop();
                     }
                 }
@@ -172,13 +191,43 @@ pub fn hypertokenize_source_file(
 
             // Handle if this is our next container.
             if node.id() == next_container_id {
+                let pattern_index = next_container_match.as_ref().unwrap().pattern_index;
                 let name_node = next_container_match
+                    .as_ref()
                     .unwrap()
                     .nodes_for_capture_index(name_capture_ix)
                     .next()
                     .unwrap();
                 let name = name_node.utf8_text(source_contents.as_bytes()).unwrap();
                 context_stack.push(name.to_string());
+                context_pretty = if context_stack.is_empty() {
+                    empty_context.clone()
+                } else {
+                    context_stack.join("::")
+                };
+                // We're assuming there's only one `#set!` directive right now and that it's
+                // "structure.kind" and that it exists.  We do require it to exist, but...
+                // TODO: It likely makes sense to preprocess the query by iterating over
+                // its patterns and explicitly mapping based on the key so that we can
+                // have the kind already available as a string we can clone.
+                let structure_kind = container_query
+                    .property_settings(pattern_index)
+                    .first()
+                    .unwrap()
+                    .value
+                    .as_ref()
+                    .unwrap()
+                    .to_string();
+                structure.push(FileStructureRow {
+                    pretty: context_pretty.clone(),
+                    // TODO: This should come from a `#set!` directive too but this nuance
+                    // won't matter for a bit, so I'm punting because there's a potential
+                    // the SCM queries would need to get a little more complex in order to
+                    // differentiate between decl and def and when making the change it
+                    // would probably be ideal to add more test coverage.
+                    is_def: true,
+                    kind: structure_kind.to_string(),
+                });
                 id_stack.push(next_container_id);
 
                 next_container_match = query_matches.next();
@@ -213,25 +262,18 @@ pub fn hypertokenize_source_file(
                         if piece.is_empty() {
                             continue;
                         }
-                        tokenized.push(format!(
-                            "{}{} {}",
-                            if context_stack.is_empty() { "%" } else { "" },
-                            context_stack.join("::"),
-                            piece
-                        ));
+                        tokenized.push(format!("{} {}", context_pretty, piece));
                     }
                 } else {
-                    tokenized.push(format!(
-                        "{}{} {}",
-                        if context_stack.is_empty() { "%" } else { "" },
-                        context_stack.join("::"),
-                        token.trim()
-                    ));
+                    tokenized.push(format!("{} {}", context_pretty, token.trim()));
                 }
                 visited_children = true;
             }
         }
     }
 
-    return Ok(tokenized);
+    return Ok(HyperTokenized {
+        tokenized,
+        structure,
+    });
 }
