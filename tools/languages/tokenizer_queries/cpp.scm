@@ -10,13 +10,15 @@
 ;; captured node in our code, but with the C++ "::" delimiter baked in to the
 ;; string.
 
-(struct_specifier
+(((struct_specifier
   name: (type_identifier) @name
-  body:(_)) @container
+  body:(_)) @container)
+  (#set! structure.kind "struct"))
 
-(declaration
+(((declaration
   type: (union_specifier
-    name: (type_identifier) @name)) @container
+    name: (type_identifier) @name)) @container)
+  (#set! structure.kind "union"))
 
 ;; We explicitly don't provide a type for the "@name"; this lets us cover all of
 ;; - `identifier`: top-level function (not part of a class/struct)
@@ -35,36 +37,43 @@
 ;;
 ;; Also, `function_definition` is for inline definitions, whereas
 ;; `field_declaration` is for when it's just a decl and the def is elsewhere.
-(function_definition
+(((function_definition
   declarator: (function_declarator
-    declarator: (_) @name)) @container
+    declarator: (_) @name)) @container)
+  (#set! structure.kind "method"))
 
-(field_declaration
+(((field_declaration
   declarator: (function_declarator
-    declarator: (_) @name)) @container
+    declarator: (_) @name)) @container)
+  (#set! structure.kind "field"))
 
 ;; Field definitions for members will just have a field_identifier (versus the
 ;; `function_declarator` above.  This also provides containment for any
 ;; `default_value`.
-(field_declaration
-  declarator: (field_identifier) @name) @container
+(((field_declaration
+  declarator: (field_identifier) @name) @container)
+  (#set! structure.kind "field"))
 
 ;; Note that we can end up with multiple declarators as in the example
 ;; `typedef struct {int a; int b;} S, *pS;` from
 ;; https://en.cppreference.com/w/cpp/language/typedef but if we just favor the
 ;; first thing matching the given root container node, that should be fine.
 ;; (Also, this should be a rare idiom hopefully!)
-(type_definition
-  declarator: (type_identifier) @name) @container
+(((type_definition
+  declarator: (type_identifier) @name) @container)
+  (#set! structure.kind "typedef"))
 
-(enum_specifier
-  name: (type_identifier) @name) @container
+(((enum_specifier
+  name: (type_identifier) @name) @container)
+  (#set! structure.kind "enum"))
 
-(class_specifier
-  name: (type_identifier) @name) @container
+(((class_specifier
+  name: (type_identifier) @name) @container)
+  (#set! structure.kind "class"))
 
 ;; For `namespace foo {}` the name is an `identifier`, but for
 ;; `namespace foo::bar` the name is an `namespace_definition_name` which has
 ;; multiple `identifier` children.
-(namespace_definition
-  name: (_) @name) @container
+(((namespace_definition
+  name: (_) @name) @container)
+  (#set! structure.kind "namespace"))

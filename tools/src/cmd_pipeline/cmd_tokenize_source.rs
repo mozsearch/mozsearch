@@ -1,11 +1,17 @@
 use async_trait::async_trait;
-use clap::Args;
+use clap::{Args, ValueEnum};
 
-use super::interface::{PipelineCommand, PipelineValues, TextFile};
+use super::interface::{JsonValue, JsonValueList, PipelineCommand, PipelineValues, TextFile};
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     tree_sitter_support::cst_tokenizer::hypertokenize_source_file,
 };
+
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum TokenizeMode {
+    Tokenize,
+    Outline,
+}
 
 /// Tokenize the given source file using the syntax-token-tree tokenizer.  We
 /// do also have the HTML formatting hand-rolled tokenizers, but they aren't
@@ -15,6 +21,9 @@ pub struct TokenizeSource {
     /// Tree-relative source file path or directory.
     #[clap(value_parser)]
     file: String,
+
+    #[clap(long, value_enum, default_value_t=TokenizeMode::Tokenize)]
+    mode: TokenizeMode,
 }
 
 #[derive(Debug)]
@@ -41,9 +50,20 @@ impl PipelineCommand for TokenizeSourceCommand {
             }
         };
 
-        Ok(PipelineValues::TextFile(TextFile {
-            mime_type: "text/plain".to_string(),
-            contents: token_lines.join("\n"),
-        }))
+        match self.args.mode {
+            TokenizeMode::Tokenize => Ok(PipelineValues::TextFile(TextFile {
+                mime_type: "text/plain".to_string(),
+                contents: token_lines.tokenized.join("\n"),
+            })),
+            TokenizeMode::Outline => Ok(PipelineValues::JsonValueList(JsonValueList {
+                values: token_lines
+                    .structure
+                    .iter()
+                    .map(|fsr| JsonValue {
+                        value: serde_json::to_value(fsr).unwrap(),
+                    })
+                    .collect(),
+            })),
+        }
     }
 }

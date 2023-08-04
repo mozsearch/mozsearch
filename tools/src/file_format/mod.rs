@@ -1,3 +1,5 @@
+pub mod history;
+
 pub mod analysis;
 pub mod analysis_manglings;
 pub mod config;

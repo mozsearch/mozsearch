@@ -273,6 +273,10 @@ Raw record info.  These are attributes that will be found in the analysis files.
     symbol and this just provides the `parentsym` necessary to get to that info.
     But this potentially needs more thought.  TODO: Think more on this!
   - `ipc`: An IPC function where there's a send method and a recv method.
+  - `namespace`: We currently don't emit this for structured records from the
+    C++ indexer, but we probably want to start to; currently adding this for
+    tree-sitter based tokenization where it's potentially useful to be able to
+    refer to namespaces.
 - `parentsym`: For methods and fields, the symbol of the record to which they
   belong.  The current intent is that this is not populated for namespace
   purposes.  (That is, for a class "Bar" in namespace "foo" with pretty name
