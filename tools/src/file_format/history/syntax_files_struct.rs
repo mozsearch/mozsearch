@@ -29,7 +29,7 @@ pub struct FileStructureHeader {
 /// Accordingly, we don't encode any position information since we would expect
 /// these to be subject to churn which makes diffs derived from the changes in
 /// this file harder to usefully derive information from.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct FileStructureRow {
     /// The pretty identifier for this symbol.  It's currently assumed that we
     /// can get the pretty identifier for the containing namespace/class by

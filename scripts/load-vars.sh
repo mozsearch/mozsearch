@@ -17,6 +17,7 @@ export FILES_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].files_path" ${CONFIG_FILE})
 export OBJDIR=$(jq -r ".trees[\"${TREE_NAME}\"].objdir_path" ${CONFIG_FILE})
 export GIT_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_path" ${CONFIG_FILE})
 export BLAME_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_blame_path" ${CONFIG_FILE})
+export HISTORY_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].history_path" ${CONFIG_FILE})
 export TREE_ON_ERROR=$(jq -r ".trees[\"${TREE_NAME}\"].on_error" ${CONFIG_FILE})
 export TREE_CACHING=$(jq -r ".trees[\"${TREE_NAME}\"].cache" ${CONFIG_FILE})
 

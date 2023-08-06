@@ -10,8 +10,7 @@ extern crate log;
 extern crate num_cpus;
 extern crate tools;
 
-use std::borrow::{Borrow, Cow};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -20,9 +19,14 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
-use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
-use tools::blame::LineData;
+use git2::{ObjectType, Oid, Repository, Sort};
 use tools::file_format::config::index_blame;
+use tools::file_format::history::io_helpers::{
+    read_record_file_contents, record_file_contents_to_string,
+};
+use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
+use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
+use tools::tree_sitter_support::cst_tokenizer::{hypertokenize_source_file, HyperTokenized};
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     write!(helper.stdin.as_mut().unwrap(), "{}\n", git_oid).unwrap();
@@ -81,12 +85,12 @@ fn start_fast_import(git_repo: &Repository) -> Child {
 /// blame repo (and for which we have an oid) or that was written
 /// earlier in the stream (and has a mark).
 #[derive(Clone, Copy, Debug)]
-enum BlameRepoCommit {
+enum SyntaxRepoCommit {
     Commit(git2::Oid),
     Mark(usize),
 }
 
-impl fmt::Display for BlameRepoCommit {
+impl fmt::Display for SyntaxRepoCommit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Commit(oid) => write!(f, "{}", oid),
@@ -102,7 +106,7 @@ impl fmt::Display for BlameRepoCommit {
 /// https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Readingfromanamedtree
 fn read_path_oid(
     import_helper: &mut Child,
-    commit: &BlameRepoCommit,
+    commit: &SyntaxRepoCommit,
     path: &Path,
 ) -> Option<String> {
     write!(
@@ -136,7 +140,7 @@ fn read_path_oid(
 /// https://git-scm.com/docs/git-fast-import#_cat_blob
 fn read_path_blob(
     import_helper: &mut Child,
-    commit: &BlameRepoCommit,
+    commit: &SyntaxRepoCommit,
     path: &Path,
 ) -> Option<Vec<u8>> {
     let oid = read_path_oid(import_helper, commit, path)?;
@@ -199,151 +203,11 @@ fn test_sanitize() {
     assert_eq!(sanitize(&p4), "\"internal/lf/\\\n/needs/escaping\"");
 }
 
-fn count_lines(blob: &git2::Blob) -> usize {
-    let data = blob.content();
-    if data.is_empty() {
-        return 0;
-    }
-    let mut linecount = 0;
-    for b in data {
-        if *b == b'\n' {
-            linecount += 1;
-        }
-    }
-    if data[data.len() - 1] != b'\n' {
-        linecount += 1;
-    }
-    linecount
-}
-
-fn unmodified_lines(
-    blob: &git2::Blob,
-    parent_blob: &git2::Blob,
-) -> Result<Vec<(usize, usize)>, git2::Error> {
-    let mut unchanged = Vec::new();
-
-    let patch = Patch::from_blobs(parent_blob, None, blob, None, None)?;
-
-    if patch.delta().flags().is_binary() {
-        return Ok(unchanged);
-    }
-
-    fn add_delta(lineno: usize, delta: i32) -> usize {
-        ((lineno as i32) + delta) as usize
-    }
-
-    let mut latest_line: usize = 0;
-    let mut delta: i32 = 0;
-
-    for hunk_index in 0..patch.num_hunks() {
-        for line_index in 0..patch.num_lines_in_hunk(hunk_index)? {
-            let line = patch.line_in_hunk(hunk_index, line_index)?;
-
-            if let Some(lineno) = line.new_lineno() {
-                let lineno = lineno as usize;
-                for i in latest_line..lineno - 1 {
-                    unchanged.push((i, add_delta(i, delta)));
-                }
-                latest_line = (lineno - 1) + 1;
-            }
-
-            match line.origin() {
-                '+' => delta -= 1,
-                '-' => delta += 1,
-                ' ' => {
-                    assert_eq!(
-                        line.old_lineno().unwrap() as usize,
-                        add_delta(line.new_lineno().unwrap() as usize, delta)
-                    );
-                    unchanged.push((
-                        (line.new_lineno().unwrap() - 1) as usize,
-                        (line.old_lineno().unwrap() - 1) as usize,
-                    ));
-                }
-                _ => (),
-            };
-        }
-    }
-
-    let linecount = count_lines(blob);
-    for i in latest_line..linecount {
-        unchanged.push((i, add_delta(i, delta)));
-    }
-    Ok(unchanged)
-}
-
-fn blame_for_path(
-    diff_data: &DiffData,
-    commit: &git2::Commit,
-    blob: &git2::Blob,
-    import_helper: &mut Child,
-    blame_parents: &[BlameRepoCommit],
-    path: &Path,
-) -> Result<String, git2::Error> {
-    let linecount = count_lines(&blob);
-    let mut line_data = LineData {
-        rev: Cow::Owned(commit.id().to_string()),
-        path: LineData::path_unchanged(),
-        lineno: Cow::Owned(String::new()),
-    };
-    let mut blame = Vec::with_capacity(linecount);
-    for line in 1..=linecount {
-        line_data.lineno = Cow::Owned(line.to_string());
-        blame.push(line_data.serialize());
-    }
-
-    for (parent, blame_parent) in commit.parents().zip(blame_parents.iter()).rev() {
-        let parent_path = diff_data
-            .file_movement
-            .as_ref()
-            .and_then(|m| m.get(&blob.id()))
-            .map(|p| p.borrow())
-            .unwrap_or(path);
-        let unmodified_lines = match diff_data
-            .unmodified_lines
-            .get(&(parent.id(), path.to_path_buf()))
-        {
-            Some(entry) => entry,
-            _ => continue,
-        };
-        let parent_blame_blob = match read_path_blob(import_helper, blame_parent, parent_path) {
-            Some(blob) => blob,
-            _ => continue,
-        };
-        let parent_blame = std::str::from_utf8(&parent_blame_blob)
-            .unwrap() // We only ever put ascii in the blame blob (for now)
-            .lines()
-            .collect::<Vec<&str>>();
-
-        let path_unchanged = path == parent_path;
-        for (lineno, parent_lineno) in unmodified_lines {
-            if path_unchanged {
-                blame[*lineno] = String::from(parent_blame[*parent_lineno]);
-                continue;
-            }
-            let mut line_data = LineData::deserialize(parent_blame[*parent_lineno]);
-            if line_data.is_path_unchanged() {
-                line_data.path = Cow::Borrowed(parent_path.to_str().unwrap());
-            }
-            blame[*lineno] = line_data.serialize();
-        }
-    }
-    // Extra entry so the `join` call after adds a trailing newline
-    blame.push(String::new());
-    Ok(blame.join("\n"))
-}
-
-// This recursively walks the tree for the given commit, skipping over unmodified
-// entries, exactly like build_blame_tree does. However, instead of building the
-// blame tree, this simply computes the unmodified_lines for each blob that was
-// modified in `commit`, relative to all the parents. The results are populated
-// into the `results` HashMap.
-fn find_unmodified_lines(
-    file_movement: Option<&HashMap<Oid, PathBuf>>,
+fn process_modified_files(
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     mut path: PathBuf,
-    results: &mut HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
+    results: &mut HashMap<PathBuf, HyperTokenized>,
 ) -> Result<(), git2::Error> {
     let tree_at_path = if path == PathBuf::new() {
         commit.tree()?
@@ -368,26 +232,15 @@ fn find_unmodified_lines(
         match entry.kind() {
             Some(ObjectType::Blob) => {
                 let blob = entry.to_object(git_repo)?.peel_to_blob()?;
-                for parent in commit.parents() {
-                    let parent_path = file_movement
-                        .and_then(|m| m.get(&blob.id()))
-                        .map(|p| p.borrow())
-                        .unwrap_or(&path);
-                    let parent_blob = match parent.tree()?.get_path(parent_path) {
-                        Ok(t) if t.kind() == Some(ObjectType::Blob) => {
-                            t.to_object(git_repo)?.peel_to_blob()?
-                        }
-                        _ => continue,
-                    };
-
-                    results.insert(
-                        (parent.id(), path.clone()),
-                        unmodified_lines(&blob, &parent_blob)?,
-                    );
+                let path_str = path.as_os_str().to_string_lossy();
+                if let Ok(blob_as_str) = std::str::from_utf8(blob.content()) {
+                    if let Ok(hypertokenized) = hypertokenize_source_file(&path_str, blob_as_str) {
+                        results.insert(path.clone(), hypertokenized);
+                    }
                 }
             }
             Some(ObjectType::Tree) => {
-                find_unmodified_lines(file_movement, git_repo, commit, path.clone(), results)?;
+                process_modified_files(git_repo, commit, path.clone(), results)?;
             }
             _ => (),
         };
@@ -398,19 +251,54 @@ fn find_unmodified_lines(
     Ok(())
 }
 
-fn build_blame_tree(
-    diff_data: &DiffData,
+/// Per-symdex symbol scratchpad for regenerating impacted symdex files.
+#[derive(Default)]
+struct SymbolNotes {
+    /// The list of source files that referenced this symbol in their previous
+    /// contents and that we need to filter out of the symdex file before adding
+    /// our new records before.  This is all naive and we're not doing any
+    /// diffing, so it's possible our changes end up as a net no-op.
+    files_to_filter: HashSet<PathBuf>,
+    /// The list of the records we want to insert into the given symdex file.
+    symdex_records: Vec<SymdexRecord>,
+}
+
+/// Recursively process a subtree of the source tree, populating the derived
+/// syntax repo "files" and "file-struct" subtrees as we go and accumulating
+/// info in `symdex` for a post-pass once the root invocation of this method has
+/// finished.
+///
+/// Broadly, we walk the contents of the current source tree subtree and for
+/// each subtree (dir) or blob (file), we check if they've changed relative to
+/// the parent revisions.  If they haven't changed, then we can just propagate
+/// the existing syntax tree nodes.  A nice simplification here is that we don't
+/// actually need to walk the syntax repo "files" and "files-struct" subtrees;
+/// we can just look up their contents when we're propagating them.
+fn recursively_process_source_tree(
+    syntax_data: &SyntaxTreeData,
+    symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     tree_at_path: &git2::Tree,
     parent_trees: &[Option<git2::Tree>],
     import_helper: &mut Child,
-    blame_parents: &[BlameRepoCommit],
+    syntax_parents: &[SyntaxRepoCommit],
     mut path: PathBuf,
 ) -> Result<(), git2::Error> {
+    let files_root = PathBuf::from("files");
+    let files_struct_root = PathBuf::from("files-struct");
+
     'outer: for entry in tree_at_path.iter() {
         let entry_name = entry.name().unwrap();
         path.push(entry_name);
+        info!(" - Considering {}", path.display());
+
+        let mut tokenize_path = files_root.clone();
+        tokenize_path.push(&path);
+
+        let mut struct_path = files_struct_root.clone();
+        struct_path.push(&path);
+
         for (i, parent_tree) in parent_trees.iter().enumerate() {
             let parent_tree = match parent_tree {
                 None => continue, // This parent doesn't even have a tree at this path
@@ -419,16 +307,51 @@ fn build_blame_tree(
             if let Some(parent_entry) = parent_tree.get_name(entry_name) {
                 if parent_entry.id() == entry.id() {
                     // Item at `path` is the same in the tree for `commit` as in
-                    // `parent_trees[i]`, so the blame must be the same too
-                    let oid = read_path_oid(import_helper, &blame_parents[i], &path).unwrap();
+                    // `parent_trees[i]` so we can propagate our existing derived
+                    // "files" and "files-struct" entries which will not have
+                    // changed.  This works for trees/blobs/everything.
+
+                    info!(
+                        "  For {} with id {} trying to propagate {} and {}",
+                        path.display(),
+                        entry.id(),
+                        tokenize_path.display(),
+                        struct_path.display()
+                    );
+
+                    // "files" entry
+                    let oid = match
+                        read_path_oid(import_helper, &syntax_parents[i], &tokenize_path) {
+                        Some(oid) => oid,
+                        // If we lack existing history for this entry and nothing has changed in it,
+                        // just skip the entry, because there's nothing we can do to make it have
+                        // have history.
+                        _ => {
+                            path.pop();
+                            continue 'outer
+                        }
+                    };
                     write!(
                         import_helper.stdin.as_mut().unwrap(),
                         "M {:06o} {} {}\n",
                         entry.filemode(),
                         oid,
-                        sanitize(&path)
+                        sanitize(&tokenize_path)
                     )
                     .unwrap();
+
+                    // "files-struct" entry
+                    let oid =
+                        read_path_oid(import_helper, &syntax_parents[i], &struct_path).unwrap();
+                    write!(
+                        import_helper.stdin.as_mut().unwrap(),
+                        "M {:06o} {} {}\n",
+                        entry.filemode(),
+                        oid,
+                        sanitize(&struct_path)
+                    )
+                    .unwrap();
+
                     path.pop();
                     continue 'outer;
                 }
@@ -437,47 +360,109 @@ fn build_blame_tree(
 
         match entry.kind() {
             Some(ObjectType::Blob) => {
-                let blame_text = blame_for_path(
-                    diff_data,
-                    commit,
-                    &entry.to_object(git_repo)?.peel_to_blob()?,
-                    import_helper,
-                    blame_parents,
-                    &path,
-                )?;
+                // ## Load any old "files-struct" entries to populate SymbolNotes::files_to_filter
+                for syntax_parent in syntax_parents {
+                    let parent_syntax_struct_blob =
+                        match read_path_blob(import_helper, syntax_parent, &struct_path) {
+                            Some(blob) => blob,
+                            _ => continue,
+                        };
+                    let parsed_file: Option<(FileStructureHeader, Vec<FileStructureRow>)> =
+                        read_record_file_contents(&parent_syntax_struct_blob);
+                    if let Some((header, records)) = parsed_file {
+                        let lang = match header.lang {
+                            Some(lang) => lang,
+                            _ => continue,
+                        };
+                        let by_lang = symdex.entry(lang.clone()).or_insert_with(|| HashMap::new());
+                        for record in records {
+                            let sym_notes = by_lang
+                                .entry(record.pretty.clone())
+                                .or_insert_with(|| SymbolNotes::default());
+                            sym_notes.files_to_filter.insert(path.clone());
+                        }
+                    }
+                }
+
+                // ## Process the new hypertokenized data, if any
+
                 // For the inline data format documentation, refer to
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Inlinedataformat
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Exactbytecountformat
-                let blame_bytes = blame_text.as_bytes();
                 let import_stream = import_helper.stdin.as_mut().unwrap();
-                write!(
-                    import_stream,
-                    "M {:06o} inline {}\n",
-                    entry.filemode(),
-                    sanitize(&path)
-                )
-                .unwrap();
-                write!(import_stream, "data {}\n", blame_bytes.len()).unwrap();
-                import_stream.write(blame_bytes).unwrap();
+
+                if let Some(hypertokenized) = syntax_data.hypertokenized_files.get(&path) {
+                    info!(
+                        "  Writing out {} and {}",
+                        tokenize_path.display(),
+                        struct_path.display()
+                    );
+
+                    // ## Write the tokenized file contents
+                    let tokenized_text = hypertokenized.tokenized.join("\n");
+                    let tokenized_bytes = tokenized_text.as_bytes();
+                    write!(
+                        import_stream,
+                        "M {:06o} inline {}\n",
+                        entry.filemode(),
+                        sanitize(&tokenize_path)
+                    )
+                    .unwrap();
+                    write!(import_stream, "data {}\n", tokenized_bytes.len()).unwrap();
+                    import_stream.write(tokenized_bytes).unwrap();
+                    // We skip the optional trailing LF character here since in practice it
+                    // wasn't particularly useful for debugging. Also the blame blobs we write
+                    // here always have a trailing LF anyway.
+
+                    // ## Write the files-struct contents
+                    let struct_text = record_file_contents_to_string(
+                        &FileStructureHeader {
+                            lang: Some(hypertokenized.lang.clone()),
+                        },
+                        &hypertokenized.structure,
+                    );
+                    let struct_bytes = struct_text.as_bytes();
+
+                    write!(
+                        import_stream,
+                        "M {:06o} inline {}\n",
+                        entry.filemode(),
+                        sanitize(&struct_path)
+                    )
+                    .unwrap();
+                    write!(import_stream, "data {}\n", struct_bytes.len()).unwrap();
+                    import_stream.write(struct_bytes).unwrap();
+                    // (skipping trailing LF again)
+
+                    // ## Accumulate the symdex data.
+                    if hypertokenized.structure.len() > 0 {
+                        let by_lang = symdex
+                            .entry(hypertokenized.lang.clone())
+                            .or_insert_with(|| HashMap::new());
+                        let source_path = path.to_str().unwrap();
+                        for record in &hypertokenized.structure {
+                            let sym_notes = by_lang
+                                .entry(record.pretty.clone())
+                                .or_insert_with(|| SymbolNotes::default());
+                            sym_notes.symdex_records.push(SymdexRecord {
+                                file_row: record.clone(),
+                                path: source_path.to_string(),
+                            });
+                        }
+                    }
+                } else {
+                    warn!("  Did not find hypertokenized version of {}", path.display());
+                }
                 // We skip the optional trailing LF character here since in practice it
                 // wasn't particularly useful for debugging. Also the blame blobs we write
                 // here always have a trailing LF anyway.
             }
             Some(ObjectType::Commit) => {
-                // This is a submodule. We insert a corresponding submodule entry in the blame
-                // repo. The oid that we use doesn't really matter here but for hash-compatibility
-                // with the old (pre-fast-import) code, we use the same hash that the old code
-                // used, which corresponds to an empty directory.
-                // For the external ref data format documentation, refer to
-                // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Externaldataformat
-                assert_eq!(entry.filemode(), 0o160000);
-                write!(
-                    import_helper.stdin.as_mut().unwrap(),
-                    "M {:06o} 4b825dc642cb6eb9a060e54bf8d69288fbee4904 {}\n",
-                    entry.filemode(),
-                    sanitize(&path)
-                )
-                .unwrap();
+                // This is a submodule.  We don't create any entries for these
+                // because we already won't have entries for things like binary
+                // files.  This can be revisited in the future, but for now it
+                // likely makes sense to not handle them and leave it up to the
+                // normal boring "git log" functionality.
             }
             Some(ObjectType::Tree) => {
                 let mut parent_subtrees = Vec::with_capacity(parent_trees.len());
@@ -500,14 +485,15 @@ fn build_blame_tree(
                     };
                     parent_subtrees.push(parent_subtree);
                 }
-                build_blame_tree(
-                    diff_data,
+                recursively_process_source_tree(
+                    syntax_data,
+                    symdex,
                     git_repo,
                     commit,
                     &entry.to_object(git_repo)?.peel_to_tree()?,
                     &parent_subtrees,
                     import_helper,
-                    blame_parents,
+                    syntax_parents,
                     path.clone(),
                 )?;
             }
@@ -527,22 +513,93 @@ fn build_blame_tree(
     Ok(())
 }
 
-struct DiffData {
-    // The commit for which this DiffData holds data.
+/// Process the symdex data populated by `recursively_process_source_tree` by
+/// modifying the contents of the "symdex" subtree of the syntax repo.
+///
+/// Because the files in the "symdex" subtree are aggregations of data from both
+/// files that may have been modified as well as files that have not been
+/// modified, our implementation approach in this file needs to deviate from the
+/// more straightforward process used in the line-centric "build-blame.rs".
+/// Specifically, in "build-blame" we use the "deleteall" command and then
+/// propagate what exists in the tree, allowing deletions to be emergently
+/// effected by deleted content not being propagated.
+///
+/// But for our symdex, we want to propagate everything that hasn't been
+/// changed.  So our revised approach is to only issue deletion directives for
+/// our "files" and "files-struct" subdirs and then re-propagate them
+/// "build-blame" style.  This should net out the same for them, but this will
+/// leave around our "symdex" subdir.  We can then issue explicit "filemodify"
+/// commands for changed files and "filedelete" commands for files which would
+/// have 0 records after the header after being filtered.  (Although maybe we
+/// never actually want to delete those?  Need to figure out how easy it is for
+/// the next stage to explicitly notice the deletions.)
+fn process_symdex_tree(
+    symdex: HashMap<String, HashMap<String, SymbolNotes>>,
+    import_helper: &mut Child,
+    syntax_parents: &[SyntaxRepoCommit],
+) -> Result<(), git2::Error> {
+    for (lang, lang_symbols) in symdex {
+        for (pretty, mut notes) in lang_symbols {
+            let sym_path = PathBuf::from(format!("symdex/{}/{}", lang, pretty.replace("::", "/")));
+
+            for syntax_parent in syntax_parents {
+                let parent_symdex_blob =
+                    match read_path_blob(import_helper, syntax_parent, &sym_path) {
+                        Some(blob) => blob,
+                        _ => continue,
+                    };
+                let parsed_file: Option<(SymdexHeader, Vec<SymdexRecord>)> =
+                    read_record_file_contents(&parent_symdex_blob);
+                let records = if let Some((_header, mut records)) = parsed_file {
+                    let mut filtered: Vec<SymdexRecord> = records
+                        .drain(0..)
+                        .filter(|rec| !notes.files_to_filter.contains(&PathBuf::from(&rec.path)))
+                        .collect();
+                    filtered.append(&mut notes.symdex_records);
+                    filtered.sort();
+                    filtered
+                } else {
+                    notes.symdex_records.sort();
+                    notes.symdex_records
+                };
+
+                let header = SymdexHeader {};
+
+                // Delete the file if we no longer have any records for the file.
+                if records.len() == 0 {
+                    write!(
+                        import_helper.stdin.as_mut().unwrap(),
+                        "D {}\n",
+                        sanitize(&sym_path)
+                    )
+                    .unwrap();
+                } else {
+                    let symdex_text = record_file_contents_to_string(&header, &records);
+                    let symdex_bytes = symdex_text.as_bytes();
+
+                    let import_stream = import_helper.stdin.as_mut().unwrap();
+
+                    write!(import_stream, "M 100644 inline {}\n", sanitize(&sym_path)).unwrap();
+                    write!(import_stream, "data {}\n", symdex_bytes.len()).unwrap();
+                    import_stream.write(symdex_bytes).unwrap();
+                    // (skipping trailing LF again)
+                }
+
+                // Stop now that we've processed the file (and consumed `notes`)
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+struct SyntaxTreeData {
+    /// The commit for which this DiffData holds data.
     revision: git2::Oid,
-    // Map from file (blob) id in the child rev to the path that the file was
-    // at in the parent revision, for files that got moved. Set to None if the
-    // child rev has multiple parents.
-    file_movement: Option<HashMap<Oid, PathBuf>>,
-    // Map to find unmodified lines for modified files in a revision (files that
-    // are not modified don't have entries here). The key is of the map is a
-    // tuple containing the parent commit id and path to the file (in the child
-    // revision). The parent commit id is needed in the case of merge commits,
-    // where a file that is modified may have different sets of unmodified lines
-    // with respect to the different parent commits.
-    // The value in the map is a vec of line mappings as produced by the
-    // `unmodified_lines` function.
-    unmodified_lines: HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
+
+    /// The hypertokenized state for each modified source path.
+    hypertokenized_files: HashMap<PathBuf, HyperTokenized>,
 }
 
 // Does the CPU-intensive work required for blame computation of a given revision.
@@ -551,63 +608,21 @@ struct DiffData {
 fn compute_diff_data(
     git_repo: &git2::Repository,
     git_oid: &git2::Oid,
-) -> Result<DiffData, git2::Error> {
+) -> Result<SyntaxTreeData, git2::Error> {
     let commit = git_repo.find_commit(*git_oid).unwrap();
-    let file_movement = if commit.parent_count() == 1 {
-        let mut movement = HashMap::new();
-        let mut diff = git_repo
-            .diff_tree_to_tree(
-                Some(&commit.parent(0).unwrap().tree().unwrap()),
-                Some(&commit.tree().unwrap()),
-                None,
-            )
-            .unwrap();
-        diff.find_similar(Some(
-            DiffFindOptions::new()
-                .copies(true)
-                .copy_threshold(30)
-                .renames(true)
-                .rename_threshold(30)
-                .rename_limit(1000000)
-                .break_rewrites(true)
-                .break_rewrites_for_renames_only(true),
-        ))
-        .unwrap();
-        for delta in diff.deltas() {
-            if !delta.old_file().id().is_zero()
-                && !delta.new_file().id().is_zero()
-                && delta.old_file().path() != delta.new_file().path()
-            {
-                movement.insert(
-                    delta.new_file().id(),
-                    delta.old_file().path().unwrap().to_path_buf(),
-                );
-            }
-        }
-        Some(movement)
-    } else {
-        None
-    };
 
-    let mut unmodified_lines = HashMap::new();
-    find_unmodified_lines(
-        file_movement.as_ref(),
-        git_repo,
-        &commit,
-        PathBuf::new(),
-        &mut unmodified_lines,
-    )?;
+    let mut hypertokenized_files = HashMap::new();
+    process_modified_files(git_repo, &commit, PathBuf::new(), &mut hypertokenized_files)?;
 
-    Ok(DiffData {
+    Ok(SyntaxTreeData {
         revision: *git_oid,
-        file_movement,
-        unmodified_lines,
+        hypertokenized_files,
     })
 }
 
 struct ComputeThread {
     query_tx: Sender<git2::Oid>,
-    response_rx: Receiver<DiffData>,
+    response_rx: Receiver<SyntaxTreeData>,
 }
 
 impl ComputeThread {
@@ -629,7 +644,7 @@ impl ComputeThread {
         self.query_tx.send(*rev).unwrap();
     }
 
-    fn read_result(&self) -> DiffData {
+    fn read_result(&self) -> SyntaxTreeData {
         match self.response_rx.try_recv() {
             Ok(result) => result,
             Err(_) => {
@@ -642,7 +657,7 @@ impl ComputeThread {
 
 fn compute_thread_main(
     query_rx: Receiver<git2::Oid>,
-    response_tx: Sender<DiffData>,
+    response_tx: Sender<SyntaxTreeData>,
     git_repo_path: String,
 ) {
     let git_repo = Repository::open(git_repo_path).unwrap();
@@ -676,11 +691,12 @@ fn main() {
         let (blame_map, _) = index_blame(&blame_repo, Some(oid));
         blame_map
             .into_iter()
-            .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
-            .collect::<HashMap<git2::Oid, BlameRepoCommit>>()
+            .map(|(k, v)| (k, SyntaxRepoCommit::Commit(v)))
+            .collect::<HashMap<git2::Oid, SyntaxRepoCommit>>()
     } else {
         HashMap::new()
     };
+    info!("  Blame map has {} existing entries.", blame_map.len());
 
     let mut walk = git_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
@@ -778,7 +794,7 @@ fn main() {
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             write!(import_stream, "commit {}\n", blame_ref).unwrap();
             write!(import_stream, "mark :{}\n", rev_done).unwrap();
-            blame_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
+            blame_map.insert(*git_oid, SyntaxRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -824,20 +840,23 @@ fn main() {
             for additional_parent in blame_parents.iter().skip(1) {
                 write!(import_stream, "merge {}\n", additional_parent).unwrap();
             }
-            // For each commit, we start with a clean slate (all files deleted), and then
-            // the build_blame_tree call below will add new files or link pre-existing
-            // unmodified files/folders from older commits into the new commit's tree.
-            // This is the recommended approach by the git-fast-import documentation at
-            // https://git-scm.com/docs/git-fast-import#_filedeleteall and works
-            // well for us, particularly in the case of merge commits where we might
-            // need to pull some entries from one parent and other entries from the other
-            // parent.
-            write!(import_stream, "deleteall\n").unwrap();
+            // In a change from "build-blame.rs", we don't use "deleteall" because we
+            // want to retain the existing contents of the "symdex" subdir.  However,
+            // we do want the semantics of starting from deletion for "files" and
+            // "files-struct", so we do explicitly delete those subdirectories.
+            write!(import_stream, "D files\n").unwrap();
+            write!(import_stream, "D files-struct\n").unwrap();
             import_stream.flush().unwrap();
         }
 
-        build_blame_tree(
+        // Keying:
+        // - language ("cxx", "rust", etc.) as returned by `hypertokenize_source_file`
+        // - "pretty" symbol identifier
+        let mut symdex: HashMap<String, HashMap<String, SymbolNotes>> = HashMap::new();
+
+        recursively_process_source_tree(
             &diff_data,
+            &mut symdex,
             &git_repo,
             &commit,
             &commit.tree().unwrap(),
@@ -847,6 +866,8 @@ fn main() {
             PathBuf::new(),
         )
         .unwrap();
+
+        process_symdex_tree(symdex, &mut import_helper, &blame_parents).unwrap();
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
