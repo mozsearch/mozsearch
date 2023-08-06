@@ -4,11 +4,26 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-rm -f $INDEX_ROOT/searchfox
+# I think we used to try and delete the whole dir but we were messing it up.
+#rm -rf $INDEX_ROOT
 
+rm -rf $BLAME_ROOT
 mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
 $MOZSEARCH_PATH/tools/target/release/build-blame $GIT_ROOT $BLAME_ROOT
+
+# When actively developing it's nice to purge the existing contents, but the rest
+# of the time it's nice to not reprocess it all.
+rm -rf $HISTORY_ROOT
+
+mkdir -p $HISTORY_ROOT
+mkdir -p $HISTORY_ROOT/syntax
+git init $HISTORY_ROOT/syntax
+mkdir -p $HISTORY_ROOT/timeline
+git init $HISTORY_ROOT/timeline
+mkdir -p $HISTORY_ROOT/rev-summaries
+$MOZSEARCH_PATH/tools/target/release/build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax
+
 
 # Link over the fake metadata and test file information as well.
 ln -s -f $CONFIG_REPO/searchfox/metadata/code-coverage-report.json $INDEX_ROOT

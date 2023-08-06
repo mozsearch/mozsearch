@@ -26,6 +26,7 @@ fn load_language_queries(
 }
 
 pub struct HyperTokenized {
+    pub lang: String,
     pub tokenized: Vec<String>,
     pub structure: Vec<FileStructureRow>,
 }
@@ -70,7 +71,7 @@ pub fn hypertokenize_source_file(
     // C preprocessor nodes currently are weird and include the trailing
     // newline.  For our purposes, we never actually want to emit a newline
     // token, so it's easy enough for us to just forbid that node.
-    let (container_query, atom_nodes, ignore_nodes) = match ext {
+    let (lang, container_query, atom_nodes, ignore_nodes) = match ext {
         "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" => {
             parser
                 .set_language(tree_sitter_mozcpp::language())
@@ -80,7 +81,7 @@ pub fn hypertokenize_source_file(
             let string_literal = lang.id_for_node_kind("string_literal", true);
             let char_literal = lang.id_for_node_kind("char_literal", true);
             let newline = lang.id_for_node_kind("\n", false);
-            (query, vec![string_literal, char_literal], vec![newline])
+            ("cxx", query, vec![string_literal, char_literal], vec![newline])
         }
         "js" | "jsm" | "json" | "mjs" | "sjs" | "ts" => {
             parser
@@ -88,7 +89,7 @@ pub fn hypertokenize_source_file(
                 .expect("Error loading Typescript grammar");
             let query =
                 load_language_queries(tree_sitter_typescript::language_typescript(), "typescript")?;
-            (query, vec![], vec![])
+            ("js", query, vec![], vec![])
         }
         "jsx" | "tsx" => {
             parser
@@ -96,24 +97,34 @@ pub fn hypertokenize_source_file(
                 .expect("Error loading TSX grammar");
             let query =
                 load_language_queries(tree_sitter_typescript::language_tsx(), "typescript")?;
-            (query, vec![], vec![])
+            ("js", query, vec![], vec![])
         }
         "py" | "build" | "configure" => {
             parser
                 .set_language(tree_sitter_python::language())
                 .expect("Error loading Python grammar");
             let query = load_language_queries(tree_sitter_python::language(), "python")?;
-            (query, vec![], vec![])
+            ("py", query, vec![], vec![])
         }
         "rs" => {
             parser
                 .set_language(tree_sitter_rust::language())
                 .expect("Error loading Rust grammar");
             let query = load_language_queries(tree_sitter_rust::language(), "rust")?;
-            (query, vec![], vec![])
+            ("rust", query, vec![], vec![])
+        }
+        // Explicitly skip things we know are binary; this list copied from "langauages.rs"
+        "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
+        | "icns" | "ico" | "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" | "class"
+        | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" => {
+            return Err("Binary files can't be tokenized".to_string());
         }
         _ => {
-            return Err(format!("Unsupported file format: {}", ext));
+            return Ok(HyperTokenized {
+                lang: "none".to_string(),
+                tokenized: source_contents.split_whitespace().map(|s| format!("% {}", s)).collect(),
+                structure: vec![],
+            });
         }
     };
     let name_capture_ix = container_query.capture_index_for_name("name").unwrap();
@@ -249,7 +260,7 @@ pub fn hypertokenize_source_file(
                 visited_children = false;
                 _depth += 1;
             } else {
-                let token = node.utf8_text(source_contents.as_bytes()).unwrap();
+                let token = node.utf8_text(source_contents.as_bytes()).unwrap().trim();
                 // Comments don't get further tokenized and are marked as extra, so for now we
                 // only perform additional whitespace tokenization for "extra" nodes.  This
                 // may turn out to be wrong.
@@ -265,7 +276,7 @@ pub fn hypertokenize_source_file(
                         tokenized.push(format!("{} {}", context_pretty, piece));
                     }
                 } else {
-                    tokenized.push(format!("{} {}", context_pretty, token.trim()));
+                    tokenized.push(format!("{} {}", context_pretty, token));
                 }
                 visited_children = true;
             }
@@ -273,6 +284,7 @@ pub fn hypertokenize_source_file(
     }
 
     return Ok(HyperTokenized {
+        lang: lang.to_string(),
         tokenized,
         structure,
     });

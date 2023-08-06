@@ -60,6 +60,9 @@ pub struct TreeConfigPaths {
     /// Absolute path to where the blame repo is which should be a sub-directory
     /// of the `index_path`.
     pub git_blame_path: Option<String>,
+    /// Absolute path to where the history sub-tree lives; this should be a
+    /// sub-directory of the `index_path`.
+    pub history_path: Option<String>,
     /// Absolute path to where generated files can be found, and which will then
     /// be mapped into `"__GENERATED__"`.  This will usually be a sub-directory
     /// of the `index_path` but exceptions could be possible.

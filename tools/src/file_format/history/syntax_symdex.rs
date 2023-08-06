@@ -38,7 +38,7 @@ pub struct SymdexHeader {
 }
 
 /// The contents of a FileStructuredRow with a path added.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct SymdexRecord {
     #[serde(flatten)]
     pub file_row: FileStructureRow,
