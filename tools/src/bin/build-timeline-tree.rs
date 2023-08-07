@@ -1,10 +1,5 @@
-// This file is the historical line-centric blame implementation and has been
-// forked to:
-// - build-syntax-token-tree.rs - This converts the source tree into the
-//   tree-sitter alternate representation of the tree state at any given point
-//   in time.  This is not a blame tree.
-// - build-timeline-tree.rs - This converts the syntax token tree into the
-//   token-centric blame tree and other derived history data.
+// This binary consumes the "syntax" repo built by `build-syntax-token-tree.rs`
+// to produce the "timeline" repo.
 
 extern crate env_logger;
 extern crate git2;
@@ -374,6 +369,7 @@ fn find_unmodified_lines(
                 for parent in commit.parents() {
                     let parent_path = file_movement
                         .and_then(|m| m.get(&blob.id()))
+                        .map(|p| p.borrow())
                         .unwrap_or(&path);
                     let parent_blob = match parent.tree()?.get_path(parent_path) {
                         Ok(t) if t.kind() == Some(ObjectType::Blob) => {
