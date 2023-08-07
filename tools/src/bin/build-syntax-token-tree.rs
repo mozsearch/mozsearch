@@ -320,15 +320,15 @@ fn recursively_process_source_tree(
                     );
 
                     // "files" entry
-                    let oid = match
-                        read_path_oid(import_helper, &syntax_parents[i], &tokenize_path) {
+                    let oid = match read_path_oid(import_helper, &syntax_parents[i], &tokenize_path)
+                    {
                         Some(oid) => oid,
                         // If we lack existing history for this entry and nothing has changed in it,
                         // just skip the entry, because there's nothing we can do to make it have
                         // have history.
                         _ => {
                             path.pop();
-                            continue 'outer
+                            continue 'outer;
                         }
                     };
                     write!(
@@ -393,9 +393,11 @@ fn recursively_process_source_tree(
 
                 if let Some(hypertokenized) = syntax_data.hypertokenized_files.get(&path) {
                     info!(
-                        "  Writing out {} and {}",
+                        "  Writing out {} and {} (tokens: {} structure: {})",
                         tokenize_path.display(),
-                        struct_path.display()
+                        struct_path.display(),
+                        hypertokenized.tokenized.len(),
+                        hypertokenized.structure.len(),
                     );
 
                     // ## Write the tokenized file contents
@@ -441,6 +443,21 @@ fn recursively_process_source_tree(
                             .or_insert_with(|| HashMap::new());
                         let source_path = path.to_str().unwrap();
                         for record in &hypertokenized.structure {
+                            // Place the record on its parent if it has one too.
+                            // XXX Currently we do this for all symbol types even the ones where
+                            // maybe the parent doesn't really want the child present, but I think
+                            // I came around to believing the linkage might be useful.
+                            if let Some((parent, _)) = record.pretty.rsplit_once("::") {
+                                let sym_notes = by_lang
+                                    .entry(parent.to_string())
+                                    .or_insert_with(|| SymbolNotes::default());
+                                sym_notes.symdex_records.push(SymdexRecord {
+                                    file_row: record.clone(),
+                                    path: source_path.to_string(),
+                                });
+                            }
+
+                            // Add the entry for the symbol itself.
                             let sym_notes = by_lang
                                 .entry(record.pretty.clone())
                                 .or_insert_with(|| SymbolNotes::default());
@@ -451,7 +468,10 @@ fn recursively_process_source_tree(
                         }
                     }
                 } else {
-                    warn!("  Did not find hypertokenized version of {}", path.display());
+                    warn!(
+                        "  Did not find hypertokenized version of {}",
+                        path.display()
+                    );
                 }
                 // We skip the optional trailing LF character here since in practice it
                 // wasn't particularly useful for debugging. Also the blame blobs we write
@@ -538,9 +558,20 @@ fn process_symdex_tree(
     import_helper: &mut Child,
     syntax_parents: &[SyntaxRepoCommit],
 ) -> Result<(), git2::Error> {
+    info!("Processing symdex tree.");
     for (lang, lang_symbols) in symdex {
+        info!(
+            "Processing symdex lang {} with {} symbols.",
+            lang,
+            lang_symbols.len()
+        );
         for (pretty, mut notes) in lang_symbols {
-            let sym_path = PathBuf::from(format!("symdex/{}/{}", lang, pretty.replace("::", "/")));
+            let sym_path = PathBuf::from(format!(
+                "symdex/{}/{}.ndjson",
+                lang,
+                pretty.replace("::", "/")
+            ));
+            let mut records: Vec<SymdexRecord> = vec![];
 
             for syntax_parent in syntax_parents {
                 let parent_symdex_blob =
@@ -550,46 +581,51 @@ fn process_symdex_tree(
                     };
                 let parsed_file: Option<(SymdexHeader, Vec<SymdexRecord>)> =
                     read_record_file_contents(&parent_symdex_blob);
-                let records = if let Some((_header, mut records)) = parsed_file {
-                    let mut filtered: Vec<SymdexRecord> = records
+                records = if let Some((_header, mut records)) = parsed_file {
+                    records
                         .drain(0..)
                         .filter(|rec| !notes.files_to_filter.contains(&PathBuf::from(&rec.path)))
-                        .collect();
-                    filtered.append(&mut notes.symdex_records);
-                    filtered.sort();
-                    filtered
+                        .collect()
                 } else {
-                    notes.symdex_records.sort();
-                    notes.symdex_records
+                    records
                 };
 
-                let header = SymdexHeader {};
-
-                // Delete the file if we no longer have any records for the file.
-                if records.len() == 0 {
-                    write!(
-                        import_helper.stdin.as_mut().unwrap(),
-                        "D {}\n",
-                        sanitize(&sym_path)
-                    )
-                    .unwrap();
-                } else {
-                    let symdex_text = record_file_contents_to_string(&header, &records);
-                    let symdex_bytes = symdex_text.as_bytes();
-
-                    let import_stream = import_helper.stdin.as_mut().unwrap();
-
-                    write!(import_stream, "M 100644 inline {}\n", sanitize(&sym_path)).unwrap();
-                    write!(import_stream, "data {}\n", symdex_bytes.len()).unwrap();
-                    import_stream.write(symdex_bytes).unwrap();
-                    // (skipping trailing LF again)
-                }
-
-                // Stop now that we've processed the file (and consumed `notes`)
                 break;
+            }
+
+            records.append(&mut notes.symdex_records);
+            records.sort();
+
+            let header = SymdexHeader {};
+
+            // Delete the file if we no longer have any records for the file.
+            if records.len() == 0 {
+                info!("  Deleting moot symdex file {}", sym_path.display());
+                write!(
+                    import_helper.stdin.as_mut().unwrap(),
+                    "D {}\n",
+                    sanitize(&sym_path)
+                )
+                .unwrap();
+            } else {
+                let symdex_text = record_file_contents_to_string(&header, &records);
+                let symdex_bytes = symdex_text.as_bytes();
+
+                info!(
+                    "  Writing symdex file {} with {} entries.",
+                    sym_path.display(),
+                    records.len()
+                );
+                let import_stream = import_helper.stdin.as_mut().unwrap();
+
+                write!(import_stream, "M 100644 inline {}\n", sanitize(&sym_path)).unwrap();
+                write!(import_stream, "data {}\n", symdex_bytes.len()).unwrap();
+                import_stream.write(symdex_bytes).unwrap();
+                // (skipping trailing LF again)
             }
         }
     }
+    info!("Done processing symdex.");
 
     Ok(())
 }

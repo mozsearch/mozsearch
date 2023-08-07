@@ -81,7 +81,12 @@ pub fn hypertokenize_source_file(
             let string_literal = lang.id_for_node_kind("string_literal", true);
             let char_literal = lang.id_for_node_kind("char_literal", true);
             let newline = lang.id_for_node_kind("\n", false);
-            ("cxx", query, vec![string_literal, char_literal], vec![newline])
+            (
+                "cpp",
+                query,
+                vec![string_literal, char_literal],
+                vec![newline],
+            )
         }
         "js" | "jsm" | "json" | "mjs" | "sjs" | "ts" => {
             parser
@@ -122,7 +127,10 @@ pub fn hypertokenize_source_file(
         _ => {
             return Ok(HyperTokenized {
                 lang: "none".to_string(),
-                tokenized: source_contents.split_whitespace().map(|s| format!("% {}", s)).collect(),
+                tokenized: source_contents
+                    .split_whitespace()
+                    .map(|s| format!("% {}", s))
+                    .collect(),
                 structure: vec![],
             });
         }
