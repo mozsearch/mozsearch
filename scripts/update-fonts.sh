@@ -75,13 +75,14 @@ FONT_ROOT=$(ls -d .fontello.src/fontello-*)
 FONT_DIR=${FONT_ROOT}/font
 CSS_DIR=${FONT_ROOT}/css
 FONT_NAME=icons
-SF_FONT=static/fonts
+SF_FONT=static/font
 SF_CSS=static/css
 
 # The config may have changed, update it.
 mv ${FONT_ROOT}/config.json scripts/fontello-config.json
 
-mv ${FONT_ROOT}/LICENSE.txt ${SF_FONT}
+mkdir -p ${SF_FONT}
+mv ${FONT_ROOT}/LICENSE.txt ${SF_FONT}/LICENSE.txt
 mv ${FONT_DIR}/${FONT_NAME}.eot ${SF_FONT}/icons.eot
 mv ${FONT_DIR}/${FONT_NAME}.svg ${SF_FONT}/icons.svg
 mv ${FONT_DIR}/${FONT_NAME}.ttf ${SF_FONT}/icons.ttf
