@@ -530,7 +530,7 @@ impl NamedSymbolGraph {
         self.node_id_to_ix.contains_key(&sym_id.0)
     }
 
-    fn ensure_node(&mut self, sym_id: SymbolGraphNodeId) -> NodeIndex {
+    pub fn ensure_node(&mut self, sym_id: SymbolGraphNodeId) -> NodeIndex {
         if let Some(idx) = self.node_id_to_ix.get(&sym_id.0) {
             return NodeIndex::new(*idx as usize);
         }

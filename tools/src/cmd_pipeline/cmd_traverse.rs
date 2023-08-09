@@ -154,6 +154,10 @@ impl PipelineCommand for TraverseCommand {
 
             let (sym_node_id, _info) =
                 sym_node_set.add_symbol(DerivedSymbolInfo::new(info.symbol, info.crossref_info));
+            // Explicitly put the node in the graph so if we don't find any
+            // edges, we still display the node.  This is important for things
+            // like "class-diagram" where showing nothing is very confusing.
+            graph.ensure_node(sym_node_id.clone());
             // TODO: do something to limit the size of the root-set.  The
             // combinatorial explosion for something like nsGlobalWindowInner is
             // just too silly.  This can added as an overload.
