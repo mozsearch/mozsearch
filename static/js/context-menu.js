@@ -208,14 +208,42 @@ var ContextMenu = new (class ContextMenu {
 
         if (Settings.diagramming.enabled) {
           for (const jumpref of diagrammableSyms) {
-            const queryString = `calls-to:'${jumpref.pretty}' depth:4`;
+            // Always offer to diagram uses of things
+            let queryString = `calls-to:'${jumpref.pretty}' depth:4`;
             //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
             extraMenuItems.push({
-              html: this.fmt("Diagram uses of _", jumpref.pretty),
+              html: this.fmt("Uses diagram of _", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "search"
             });
+
+            // Offer class diagrams for classes
+            if (jumpref?.meta?.kind === "class") {
+              queryString = `class-diagram:'${jumpref.pretty}' depth:4`;
+              //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
+              extraMenuItems.push({
+                html: this.fmt("Class diagram of _", jumpref.pretty),
+                href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+                icon: "search"
+              });
+            }
+
+            // Offer inheritance diagrams for methods that are involved in an
+            // override hierarchy.  This does not currently work for classes
+            // despite the name demanding it.  (cmd_traverse would like a minor
+            // cleanup.)
+            if (jumpref?.meta?.kind === "method" &&
+                (jumpref?.meta?.overrides?.length || jumpref?.meta?.overriddenBy.length)) {
+              queryString = `inheritance-diagram:'${jumpref.pretty}' depth:4`;
+              //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
+              extraMenuItems.push({
+                html: this.fmt("Inheritance diagram of _", jumpref.pretty),
+                href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+                icon: "search"
+              });
+            }
           }
+
         }
       }
     }

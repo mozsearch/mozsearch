@@ -173,6 +173,7 @@ async fn main() {
         .collect();
 
     // ## Ingest Repo-Wide Information
+    
     // This will buffer ALL of the tracing logging in our crate between now
     // and when we retrieve it to emit diagnostics.  To this end, we want
     // verbose logging to be conditioned on our "probe" mechanism, which means

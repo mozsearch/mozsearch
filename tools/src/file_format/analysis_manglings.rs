@@ -11,7 +11,12 @@ pub fn mangle_file(filename: &str) -> String {
     }).to_string()
 }
 
+pub fn make_file_sym_from_path(path: &str) -> String {
+    format!("FILE_{}", mangle_file(path))
+}
+
 #[test]
 fn test_mangle_file() {
-    assert_eq!(mangle_file("path/foo.h"), "path/foo@2Eh")
+    assert_eq!(mangle_file("path/foo.h"), "path/foo@2Eh");
+    assert_eq!(make_file_sym_from_path("path/foo.h"), "FILE_path/foo@2Eh");
 }
