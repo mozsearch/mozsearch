@@ -105,25 +105,28 @@ var ContextMenu = new (class ContextMenu {
           }
           if (jumpref.jumps.idl && jumpref.jumps.idl !== sourceLineClicked) {
             jumpMenuItems.push({
-              html: this.fmt("Go to IDL definition of _", pretty),
+              html: this.fmt("Go to IDL definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.idl}`,
-              icon: "search",
+              icon: "export",
+              section: "jumps",
             });
           }
 
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
             jumpMenuItems.push({
-              html: this.fmt("Go to definition of _", pretty),
+              html: this.fmt("Go to definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.def}`,
-              icon: "search",
+              icon: "export",
+              section: "jumps",
             });
           }
 
           if (jumpref.jumps.decl && jumpref.jumps.decl !== sourceLineClicked) {
             jumpMenuItems.push({
-              html: this.fmt("Go to declaration of _", pretty),
+              html: this.fmt("Go to declaration of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.decl}`,
-              icon: "search",
+              icon: "export",
+              section: "jumps",
             });
           }
         }
@@ -198,11 +201,12 @@ var ContextMenu = new (class ContextMenu {
 
         for (const search of searches) {
           searchMenuItems.push({
-            html: this.fmt("Search for _", search[0]),
+            html: this.fmt("Search for <strong>_</strong>", search[0]),
             href: `/${tree}/search?q=symbol:${encodeURIComponent(
               search[1]
             )}&redirect=false`,
             icon: "search",
+            section: "symbol-searches",
           });
         }
 
@@ -212,9 +216,10 @@ var ContextMenu = new (class ContextMenu {
             let queryString = `calls-to:'${jumpref.pretty}' depth:4`;
             //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
             extraMenuItems.push({
-              html: this.fmt("Uses diagram of _", jumpref.pretty),
+              html: this.fmt("Uses diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-              icon: "search"
+              icon: "brush",
+              section: "diagrams",
             });
 
             // Offer class diagrams for classes
@@ -222,9 +227,10 @@ var ContextMenu = new (class ContextMenu {
               queryString = `class-diagram:'${jumpref.pretty}' depth:4`;
               //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
               extraMenuItems.push({
-                html: this.fmt("Class diagram of _", jumpref.pretty),
+                html: this.fmt("Class diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-                icon: "search"
+                icon: "brush",
+                section: "diagrams",
               });
             }
 
@@ -233,13 +239,14 @@ var ContextMenu = new (class ContextMenu {
             // despite the name demanding it.  (cmd_traverse would like a minor
             // cleanup.)
             if (jumpref?.meta?.kind === "method" &&
-                (jumpref?.meta?.overrides?.length || jumpref?.meta?.overriddenBy.length)) {
+                (jumpref?.meta?.overrides?.length || jumpref?.meta?.overriddenBy?.length)) {
               queryString = `inheritance-diagram:'${jumpref.pretty}' depth:4`;
               //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
               extraMenuItems.push({
-                html: this.fmt("Inheritance diagram of _", jumpref.pretty),
+                html: this.fmt("Inheritance diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-                icon: "search"
+                icon: "brush",
+                section: "diagrams",
               });
             }
           }
@@ -256,7 +263,8 @@ var ContextMenu = new (class ContextMenu {
       menuItems.push({
         html: this.fmt("Search for the substring <strong>_</strong>", word),
         href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
-        icon: "search",
+        icon: "font",
+        section: "text-searches",
       });
     }
 
@@ -266,6 +274,8 @@ var ContextMenu = new (class ContextMenu {
       menuItems.push({
         html: "Sticky highlight",
         href: `javascript:Hover.stickyHighlight('${symbols}', '${visibleToken}')`,
+        icon: "tasks",
+        section: "highlights",
       });
     }
 
@@ -276,34 +286,28 @@ var ContextMenu = new (class ContextMenu {
     }
 
     this.menu.innerHTML = "";
+    let lastSection = null;
     for (let item of menuItems) {
       let li = document.createElement("li");
+      li.classList.add("contextmenu-row")
+      if (lastSection === null) {
+        lastSection = item.section;
+      } else if (lastSection === item.section) {
+        // nothing to do for the same section
+        li.classList.add("contextmenu-same-section");
+      } else {
+        li.classList.add("contextmenu-new-section");
+        lastSection = item.section;
+      }
+
       let link = li.appendChild(document.createElement("a"));
       link.href = item.href;
-      link.classList.add("mimetype-fixed-container");
-      // Cancel out the default "unknown" icon we get from the above so there's
-      // no icon displayed (by default but also in conjunction with the below).
-      link.classList.add("mimetype-no-icon");
-      // So for a long time we would display a search icon in the context menu,
-      // but only ever a search icon because that's the only thing we hardcode
-      // in the menuItems we would push in the logic above.
-      //
-      // But we accidentally removed the icon in
-      // 6c35b409a1d4dde7581a59bbad317a472732c15c in late 2021, so we haven't
-      // had the icon around anymore, so the context menu has had the whitespace
-      // where an icon would go, but we wouldn't display any.  The other icons
-      // removed at the same time were intended for the context menu to
-      // differentiate between searches, jumps, etc.
-      //
-      // In order to maintain the existing status quo, I'm commenting out the
-      // logic below so we don't have an icon, but we should probably strongly
-      // consider bringing icons back in a way that provides for the ability to
-      // visually distinguish stuff.
-      /*
+
+      link.classList.add("contextmenu-link");
       if (item.icon) {
-        link.classList.add(item.icon);
+        link.classList.add(`icon-${item.icon}`);
       }
-      */
+
       link.innerHTML = item.html;
       this.menu.appendChild(li);
     }

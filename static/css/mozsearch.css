@@ -14,6 +14,7 @@ table {
 :root {
   --page-background: #fff;
   --page-foreground: #333;
+  --page-subtle-foreground: #666;
   --page-border-color: #333;
 
   --button-color: var(--page-color);
@@ -46,6 +47,9 @@ table {
   --blame-popup-color: #fff;
   --blame-light-gray: lightgray;
   --blame-dark-gray: darkgray;
+
+  --context-menu-new-section: #ccc;
+  --context-menu-same-section: #f8f8f8;
 
   --line-highlight-background: rgb(255, 255, 204);
   --line-stuck-background: #ffe;
@@ -84,6 +88,7 @@ table {
   :root {
     --page-background: rgb(28, 27, 34);
     --page-foreground: rgb(251, 251, 254);
+    --page-subtle-foreground: #ccc;
     --page-border-color: ThreeDLightShadow;
 
     --search-box-background-image: linear-gradient(to bottom, #444, #333);
@@ -109,6 +114,9 @@ table {
 
     --blame-light-gray: #595959;
     --blame-dark-gray: #393939;
+
+    --context-menu-new-section: #444;
+    --context-menu-same-section: #181818;
 
     --line-highlight-background: #3c3111;
     --line-stuck-background: #221c09;
@@ -165,7 +173,6 @@ a:hover {
 
 /* Some links look like list items */
 .panel section .item,
-.context-menu a,
 .folder-content a {
   text-decoration: none;
   color: unset;
@@ -715,6 +722,27 @@ span[data-symbols].hovered {
 }
 .intro td[yes]::before {
   content: "\2713";
+}
+
+.contextmenu-link:before {
+  padding-right: 0.4em;
+}
+.context-menu .contextmenu-link {
+  text-decoration: none;
+  color: var(--page-subtle-foreground);
+  padding: 0.5em;
+}
+.contextmenu-link > strong {
+  color: var(--page-foreground);
+  font-weight: normal;
+}
+
+.contextmenu-row ~ .contextmenu-row.contextmenu-same-section  {
+  border-top: 1px solid var(--context-menu-same-section);
+}
+
+.contextmenu-row ~ .contextmenu-row.contextmenu-new-section  {
+  border-top: 1px solid var(--context-menu-new-section);
 }
 
 /* ## Line number goto ##
