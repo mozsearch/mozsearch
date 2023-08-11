@@ -6,6 +6,7 @@ use std::process::Command;
 use std::time::Instant;
 
 use crate::blame;
+use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::file_format::crossref_converter::extra_binding_slot_syms_from_jumpref;
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::git_ops;
@@ -41,7 +42,7 @@ pub struct FormattedLine {
 pub fn format_code(
     jumpref_lookup: &Option<CrossrefLookupMap>,
     format: FormatAs,
-    _path: &str,
+    path: &str,
     input: &str,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
 ) -> (Vec<FormattedLine>, String) {
@@ -84,6 +85,14 @@ pub fn format_code(
     // generated "jumps" file as well as "source records" at the point of each
     // token.
     let mut generated_sym_info = BTreeMap::new();
+
+    // Stuff the file's own info in the symbol info map.
+    if let Some(lookup) = jumpref_lookup {
+        let file_sym = make_file_sym_from_path(path);
+        if let Ok(jumpref) = lookup.lookup(&file_sym) {
+            generated_sym_info.insert(ustr(&file_sym), jumpref);
+        }
+    }
 
     let mut last_pos = 0;
 
@@ -413,7 +422,7 @@ pub fn format_file_data(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, path)?;
+    output::generate_breadcrumbs(&opt, writer, path, !analysis.is_empty())?;
 
     output::generate_panel(&opt, writer, panel)?;
 

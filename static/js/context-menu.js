@@ -35,7 +35,11 @@ var ContextMenu = new (class ContextMenu {
       return;
     }
 
-    if (!event.target.closest("code") && !event.target.closest("svg")) {
+    // We expect to find symbols in:
+    // - source listings ("code")
+    // - diagrams ("svg")
+    // - breadcrumbs ("breadcrumbs")
+    if (!event.target.closest("code") && !event.target.closest("svg") && !event.target.closest(".breadcrumbs")) {
       return;
     }
 
@@ -217,6 +221,16 @@ var ContextMenu = new (class ContextMenu {
             //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
             extraMenuItems.push({
               html: this.fmt("Uses diagram of <strong>_</strong>", jumpref.pretty),
+              href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+              icon: "brush",
+              section: "diagrams",
+            });
+
+            // Always offer to diagram uses of things
+            queryString = `calls-from:'${jumpref.pretty}' depth:4`;
+            //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
+            extraMenuItems.push({
+              html: this.fmt("Calls diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "brush",
               section: "diagrams",

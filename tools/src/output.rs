@@ -7,6 +7,8 @@ use std::io::Write;
 use std::path::Path;
 
 extern crate chrono;
+use crate::file_format::analysis_manglings::make_file_sym_from_path;
+
 use self::chrono::{DateTime, Local};
 
 pub struct Options<'a> {
@@ -45,6 +47,7 @@ pub fn generate_breadcrumbs(
     opt: &Options,
     writer: &mut dyn Write,
     path: &str,
+    generate_symbol: bool,
 ) -> Result<(), &'static str> {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
@@ -58,6 +61,13 @@ pub fn generate_breadcrumbs(
             name
         ));
         path_so_far.push('/');
+    }
+
+    if generate_symbol {
+        breadcrumbs.push_str(&format!(
+            "  <span data-symbols=\"{}\">(file symbol)</span>",
+            make_file_sym_from_path(path)
+        ));
     }
 
     write!(
@@ -136,11 +146,13 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     let mut head_seq = vec![
         F::S(r#"<meta charset="utf-8" />"#),
         F::S(r#"<meta name="color-scheme" content="light dark">"#),
-        F::T(format!(r#"<link href="/{}/static/icons/search.png" rel="shortcut icon">"#, opt.tree_name)),
+        F::T(format!(
+            r#"<link href="/{}/static/icons/search.png" rel="shortcut icon">"#,
+            opt.tree_name
+        )),
         F::T(format!("<title>{}</title>", opt.title)),
     ];
     head_seq.extend(css_tags);
-
 
     let fieldset = vec![
         F::S(r#"<div id="query-section">"#),
@@ -206,7 +218,9 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         F::S("<fieldset>"),
         F::Indent(fieldset),
         F::S("</fieldset>"),
-        F::S("<!-- disabled to avoid enter-submits behavior that conflicts with JS search logic -->"),
+        F::S(
+            "<!-- disabled to avoid enter-submits behavior that conflicts with JS search logic -->",
+        ),
         F::S(r#"<input type="submit" value="Search" disabled class="visually-hidden" />"#),
         F::S(r#"<div id="revision">"#),
         F::Indent(revision),
@@ -280,7 +294,12 @@ pub fn generate_footer(
     ];
     let script_tags: Vec<_> = scripts
         .iter()
-        .map(|s| F::T(format!(r#"<script src="/{}/static/js/{}"></script>"#, opt.tree_name, s)))
+        .map(|s| {
+            F::T(format!(
+                r#"<script src="/{}/static/js/{}"></script>"#,
+                opt.tree_name, s
+            ))
+        })
         .collect();
 
     let f = F::Seq(vec![
@@ -319,7 +338,8 @@ pub struct PanelSection {
     pub raw_items: Vec<String>,
 }
 
-static COPY_ICONS: &str = r#"<span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span>"#;
+static COPY_ICONS: &str =
+    r#"<span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span>"#;
 
 /// Generate HTML for a panel containing the given sections and write it to the
 /// provided writer.  This is expected to be called once per document.
@@ -356,19 +376,12 @@ pub fn generate_panel(
                                 COPY_ICONS
                             )
                         } else {
-                            format!(
-                                r#"<span class="icon copy indicator">{}</span>"#,
-                                COPY_ICONS
-                            )
+                            format!(r#"<span class="icon copy indicator">{}</span>"#, COPY_ICONS)
                         }
                     } else {
                         String::new()
                     };
-                    let tag = if is_link {
-                        "a"
-                    } else {
-                        "button"
-                    };
+                    let tag = if is_link { "a" } else { "button" };
                     let href = if is_link {
                         format!(r#" href="{}""#, item.link)
                     } else {
@@ -385,9 +398,11 @@ pub fn generate_panel(
                 })
                 .collect::<Vec<_>>();
 
-            let raw_items = section.raw_items.iter().map(|raw_item| {
-                F::T(raw_item.to_string())
-            }).collect::<Vec<_>>();
+            let raw_items = section
+                .raw_items
+                .iter()
+                .map(|raw_item| F::T(raw_item.to_string()))
+                .collect::<Vec<_>>();
 
             F::Seq(vec![
                 F::T(format!("<h4>{}</h4>", section.name)),
@@ -404,10 +419,14 @@ pub fn generate_panel(
         F::Indent(vec![
             F::S(r#"<button id="panel-toggle">"#),
             F::Indent(vec![
-                F::S(r#"<span class="navpanel-icon icon-down-dir expanded" aria-hidden="false"></span>"#),
+                F::S(
+                    r#"<span class="navpanel-icon icon-down-dir expanded" aria-hidden="false"></span>"#,
+                ),
                 F::S("Navigation"),
-                F::T(format!(r#"<a id="show-settings" title="Go to settings page" href="/{}/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>"#,
-                     opt.tree_name)),
+                F::T(format!(
+                    r#"<a id="show-settings" title="Go to settings page" href="/{}/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>"#,
+                    opt.tree_name
+                )),
             ]),
             F::S("</button>"),
             F::S(r#"<section id="panel-content" aria-expanded="true" aria-hidden="false">"#),
