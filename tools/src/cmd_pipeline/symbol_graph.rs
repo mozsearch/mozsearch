@@ -101,6 +101,16 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
     match semantic_kind {
         "function" => true,
         "method" => true,
+        // XXX this is to enable visualizing include deps using "calls-to"; this
+        // makes some sense, but really it does imply that this should be a
+        // pairwise function if we're going to overload "calls-to" like this.
+        // It potentially seems reasonable to do this because it would be a bit
+        // pedantic to demand people manually pick the right term; our whole
+        // reason for calls-to/calls-from is mainly because "uses" is just so
+        // ambiguous.  Also, this is really about avoiding "calls-from" showing
+        // fields being referenced when we're talking about control-flow.  That
+        // might suggest an orthogonal diagram setting or something.
+        "file" => true,
         _ => false,
     }
 }

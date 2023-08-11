@@ -22,6 +22,7 @@ args.positional = "$0"
 command = "traverse"
 args.edge = "uses"
 
+
 [term.calls-between]
 [[term.calls-between.group.graph-build]]
 command = "search-identifiers"
@@ -34,6 +35,22 @@ args.methods = true
 command = "traverse"
 args.edge = "uses"
 args.paths-between = true
+
+
+# XXX I intentionally had not exposed this previously because of the potential
+# for way too many results as it could get lost in the weeds, but I want to
+# experiment with this for now...
+[term.calls-from]
+[[term.calls-from.group.graph-build]]
+command = "search-identifiers"
+args.positional = "$0"
+args.exact-match = true
+[[term.calls-from.group.graph-build]]
+command = "crossref-lookup"
+[[term.calls-from.group.graph-build]]
+command = "traverse"
+args.edge = "callees"
+
 
 # "inheritance-diagram" is a quick hack to show the full transitive overrides/
 # overriddenBy relationship.

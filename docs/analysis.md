@@ -262,6 +262,12 @@ Raw record info.  These are attributes that will be found in the analysis files.
 - `pretty`: The pretty name/identifier for this structured symbol info.
 - `sym`: The searchfox symbol for this symbol.
 - `kind`: A string with one of the following values:
+  - `file`: This is a synthetic symbol for the file (`FILE_normalized_blah`) for
+    purposes like diagramming where we always operate in symbol space.  Keep in
+    mind that we also store per-file info in `concise-per-file-info.json` and
+    which corresponds to `ConcisePerFileInfo` structures.  That representation
+    is intended for file-centric queries, but we can absolutely mirror data from
+    that rep into this rep when needed/appropriate.
   - `enum`: XPIDL enums do this at least
   - `class`
   - `struct`

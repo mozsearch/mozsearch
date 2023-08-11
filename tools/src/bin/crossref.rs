@@ -15,9 +15,12 @@ extern crate clap;
 use clap::Parser;
 use serde_json::{json, Map};
 extern crate tools;
+use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::OntologySlotInfo;
 use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::analysis::StructuredPointerInfo;
+use tools::file_format::analysis::StructuredTag;
+use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::config;
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
 use tools::file_format::ontology_mapping::OntologyMappingIngestion;
@@ -318,15 +321,24 @@ async fn main() {
             })
             .collect();
 
+        let file_sym = ustr(&make_file_sym_from_path(path));
+
         for datum in analysis {
             // pieces are all `AnalysisTarget` instances.
-            for piece in datum.data {
+            for mut piece in datum.data {
                 // If we're going to experience a bad line, skip out before
                 // creating any structure.
                 let lineno = (datum.loc.lineno - 1) as usize;
                 if lineno >= lines.len() {
                     print!("Bad line number in file {} (line {})\n", path, lineno);
                     continue;
+                }
+
+                // XXX temporary include hack; we should fix this in the C++ indexer, but I want to
+                // see how it works out.
+                if piece.sym.starts_with("FILE_") && piece.contextsym.is_empty() {
+                    piece.context = path.clone();
+                    piece.contextsym = file_sym.clone();
                 }
 
                 let t1 = table.entry(piece.sym).or_insert(BTreeMap::new());
@@ -379,6 +391,39 @@ async fn main() {
         }
 
         let concise_info = ingestion.state.concise_per_file.get(path);
+
+        if let Some(concise) = concise_info {
+            let file_structured = AnalysisStructured {
+                structured: StructuredTag::Structured,
+                pretty: path.clone(),
+                sym: file_sym.clone(),
+                type_pretty: None,
+                kind: ustr("file"),
+                subsystem: concise.subsystem.clone(),
+                // For most analytical purposes, we want to think of files as atomic,
+                // so I don't think there is any upside to modeling the containing
+                // directory as a parent.  Especially since we don't yet have a
+                // `DIR_blah` symbol type yet or a clear reason to want one.
+                parent_sym: None,
+                slot_owner: None,
+                impl_kind: ustr("impl"),
+                size_bytes: None,
+                binding_slots: vec![],
+                ontology_slots: vec![],
+                supers: vec![],
+                methods: vec![],
+                fields: vec![],
+                overrides: vec![],
+                props: vec![],
+                labels: BTreeSet::default(),
+
+                idl_sym: None,
+                subclass_syms: vec![],
+                overridden_by_syms: vec![],
+                extra: Map::default(),
+            };
+            meta_table.insert(file_structured.sym.clone(), file_structured);
+        }
 
         let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
         for datum in structured_analysis {
