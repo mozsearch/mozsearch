@@ -61,11 +61,11 @@ pub struct Traverse {
     /// Maximum number of nodes in a resulting graph.  When paths are involved,
     /// we may opt to add the entirety of the path that puts the graph over the
     /// node limit rather than omitting it.
-    #[clap(long, value_parser, default_value = "256")]
+    #[clap(long, value_parser = clap::value_parser!(u32).range(16..=512), default_value = "256")]
     pub node_limit: u32,
     /// Maximum number of nodes in a graph being built to be processed by
     /// paths-between.
-    #[clap(long, value_parser, default_value = "8192")]
+    #[clap(long, value_parser = clap::value_parser!(u32).range(16..=16384), default_value = "8192")]
     pub paths_between_node_limit: u32,
 
     /// If we see "uses" with this many paths with hits, do not process any of
