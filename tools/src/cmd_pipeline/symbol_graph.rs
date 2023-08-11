@@ -80,7 +80,7 @@ is working.
 */
 
 pub fn make_safe_port_id(dubious_id: &str) -> String {
-    return dubious_id.replace(|x| x == '<' || x == '>' || x == ':', "_");
+    return dubious_id.replace(|x| x == '<' || x == '>' || x == ':' || x == '"', "_");
 }
 
 /// A symbol and its cross-reference information plus caching helpers.
@@ -206,8 +206,24 @@ impl Serialize for SymbolGraphCollection {
     }
 }
 
+/// Escape double-quotes to safely use a string as an `esc` tagged value.
+///
+/// Although graphviz-rust's dot-generator has a concept of `esc`, this does not
+/// actually perform any escaping of quotes at the current time. Instead, it
+/// just wraps the string in double quotes.  But if we fail to escape any double
+/// quotes in the value, they will not be escaped and the graphviz parse will
+/// fail.
+fn escape_quotes(s: &str) -> String {
+    // We're using a raw string so this backslash is propagated as a backslash
+    // and is not escaping the double-quote.
+    s.replace('"', r#"\""#)
+}
+
+/// Helper for cases where we want a NodeId that's escaped because there currently
+/// is no macro support for this.  We automatically call `escape_quotes` to
+/// escape any double-quotes that might be in the identifier.
 fn escaped_node_id(id: &str) -> NodeId {
-    NodeId(Id::Escaped(format!("\"{}\"", id)), None)
+    NodeId(Id::Escaped(format!("\"{}\"", escape_quotes(id))), None)
 }
 
 impl SymbolGraphCollection {
@@ -323,7 +339,7 @@ impl SymbolGraphCollection {
             let source_sym = source_info.symbol.clone();
             if nodes.insert(source_sym.clone()) {
                 let mut node =
-                    node!(esc source_sym.clone(); attr!("label", esc source_info.get_pretty()));
+                    node!(esc source_sym.clone(); attr!("label", esc escape_quotes(&source_info.get_pretty())));
                 node_decorate(&mut node, source_info);
                 dot_graph.add_stmt(stmt!(node));
             }
@@ -332,7 +348,7 @@ impl SymbolGraphCollection {
             let target_sym = target_info.symbol.clone();
             if nodes.insert(target_sym.clone()) {
                 let mut node =
-                    node!(esc target_sym.clone(); attr!("label", esc target_info.get_pretty()));
+                    node!(esc target_sym.clone(); attr!("label", esc escape_quotes(&target_info.get_pretty())));
                 node_decorate(&mut node, target_info);
                 dot_graph.add_stmt(stmt!(node));
             }
@@ -983,7 +999,7 @@ impl HierarchicalNode {
             be_cluster = true;
         } else {
             let node_id_str = self.derive_id(node_set, state);
-            let id = node_id!(esc node_id_str);
+            let id = node_id!(esc escape_quotes(&node_id_str));
             state.register_symbol_edge_targets(&self.symbols, id.clone(), id);
             self.action = Some(HierarchicalLayoutAction::Node(node_id_str));
         }
@@ -1093,7 +1109,7 @@ impl HierarchicalNode {
                 }
             }
             HierarchicalLayoutAction::Cluster(cluster_id, placeholder_id) => {
-                let mut sg = subgraph!(esc cluster_id; attr!("cluster", "true"), attr!("label", esc self.display_name));
+                let mut sg = subgraph!(esc cluster_id; attr!("cluster", "true"), attr!("label", esc escape_quotes(&self.display_name)));
                 sg.stmts.push(stmt!(
                     node!(esc placeholder_id; attr!("shape", "point"), attr!("style", "invis"))
                 ));
@@ -1191,7 +1207,7 @@ impl HierarchicalNode {
             }
             HierarchicalLayoutAction::Node(node_id) => {
                 result.push(stmt!(
-                    node!(esc node_id; attr!("label", esc self.display_name))
+                    node!(esc node_id; attr!("label", esc escape_quotes(&self.display_name)))
                 ));
             }
         }
