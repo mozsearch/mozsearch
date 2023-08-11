@@ -164,9 +164,11 @@ impl IdentMap {
             let mut id = pieces.next().unwrap().to_string();
             let symbol = pieces.next().unwrap();
 
-            {
+            // We only need to worry about suffix-related cases if the needle is
+            // shorter than the identifier.
+            if needle.len() < id.len() {
                 let suffix = &id[needle.len()..];
-                if suffix.contains(':') || suffix.contains('.') || (exact_match && suffix.len() > 0)
+                if exact_match || suffix.contains(':') || suffix.contains('.')
                 {
                     continue;
                 }
