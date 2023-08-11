@@ -114,6 +114,21 @@ args.layout = "$0"
 command = "traverse"
 args.max-depth = "$0"
 
+# We enforce a range of [16, 512] in our clap definition, so this is fine to
+# expose.
+[term.node-limit]
+[[term.node-limit.group.graph-build]]
+command = "traverse"
+args.node-limit = "$0"
+
+# This is an opt-out for the heuristic that ignores uses with a ton of paths.
+# We do not enforce a range limit on this because the node-limit ends up
+# dominating.
+[term.path-limit]
+[[term.path-limit.group.graph-build]]
+command = "traverse"
+args.skip-uses-at-path-count = "$0"
+
 [term.context]
 [[term.context.group.display]]
 command = "augment-results"
