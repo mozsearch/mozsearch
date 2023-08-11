@@ -160,9 +160,10 @@ impl IdentMap {
 
         for line in slice.lines() {
             let line = line.unwrap();
-            let mut pieces = line.split(' ');
-            let mut id = pieces.next().unwrap().to_string();
-            let symbol = pieces.next().unwrap();
+            let (mut id, symbol) = match line.rsplit_once(' ') {
+                Some((id, symbol)) => (id.to_string(), symbol),
+                None => continue,
+            };
 
             // We only need to worry about suffix-related cases if the needle is
             // shorter than the identifier.
