@@ -629,6 +629,12 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td><a href="/tests/source/tricky_symbol_names.cpp" class="mimetype-fixed-container mimetype-icon-cpp">tricky_symbol_names.cpp</a></td>
+          <td class="description"><a href="/tests/source/tricky_symbol_names.cpp" title=""></td>
+          <td><a href="/tests/source/tricky_symbol_names.cpp">319</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/using.cpp" class="mimetype-fixed-container mimetype-icon-cpp">using.cpp</a></td>
           <td class="description"><a href="/tests/source/using.cpp" title=""></td>
           <td><a href="/tests/source/using.cpp">245</a></td>
