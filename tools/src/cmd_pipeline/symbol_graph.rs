@@ -17,7 +17,7 @@ use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    file_format::crossref_converter::convert_crossref_value_to_sym_info_rep,
+    file_format::{crossref_converter::convert_crossref_value_to_sym_info_rep, analysis_manglings::split_pretty},
 };
 
 use super::{interface::OverloadInfo, cmd_graph::GraphLayout};
@@ -382,7 +382,7 @@ impl SymbolGraphCollection {
         };
 
         let mut root = HierarchicalNode {
-            segment: HierarchySegment::PrettySegment("".to_string()),
+            segment: HierarchySegment::PrettySegment("".to_string(), ""),
             display_name: "".to_string(),
             symbols: vec![],
             action: None,
@@ -396,17 +396,21 @@ impl SymbolGraphCollection {
 
         // ## Populate the hierarchy nodes.
         for sym_id in graph.list_nodes() {
-            let sym_pretty = self.node_set.get(&sym_id).get_pretty();
+            let (sym, sym_pretty) = {
+                let node_info = self.node_set.get(&sym_id);
+                (node_info.symbol.as_str(), node_info.get_pretty().as_str())
+            };
             let mut pretty_so_far = "".to_string();
             let mut segments = vec![];
             trace!(sym = %sym_pretty, "processing symbol");
-            for piece in sym_pretty.split("::") {
+            let (pieces, pretty_delim) = split_pretty(sym_pretty, sym);
+            for piece in pieces {
                 trace!(piece = %piece, "processing piece");
-                segments.push(HierarchySegment::PrettySegment(piece.to_string()));
+                segments.push(HierarchySegment::PrettySegment(piece.clone(), pretty_delim));
                 pretty_so_far = if pretty_so_far.is_empty() {
-                    piece.to_string()
+                    piece
                 } else {
-                    format!("{}::{}", pretty_so_far, piece)
+                    format!("{}{}{}", pretty_so_far, pretty_delim, piece)
                 };
                 let ustr_so_far = ustr(&pretty_so_far);
 
@@ -451,21 +455,29 @@ impl SymbolGraphCollection {
 
         // ## Populate the hierarchy edges
         for (from_id, to_id) in graph.list_edges() {
-            let from_pretty = self.node_set.get(&from_id).get_pretty();
-            let from_pieces = from_pretty.split("::");
-            let to_pretty = self.node_set.get(&to_id).get_pretty();
-            let to_pieces = to_pretty.split("::");
+            let (from_sym, from_pretty) = {
+                let node_info = self.node_set.get(&from_id);
+                (node_info.symbol.as_str(), node_info.get_pretty().as_str())
+            };
+            let (from_pieces, from_delim) = split_pretty(from_pretty, from_sym);
+
+            let (to_sym, to_pretty) = {
+                let node_info = self.node_set.get(&to_id);
+                (node_info.symbol.as_str(), node_info.get_pretty().as_str())
+            };
+            let (to_pieces, to_delim) = split_pretty(to_pretty, to_sym);
 
             let mut common_path: Vec<HierarchySegment> = from_pieces
-                .zip(to_pieces)
+                .into_iter()
+                .zip(to_pieces.into_iter())
                 .take_while(|(a, b)| a == b)
-                .map(|(a, _)| HierarchySegment::PrettySegment(a.to_string()))
+                .map(|(a, _)| HierarchySegment::PrettySegment(a, from_delim))
                 .collect();
             // If one is an ancestor of the other, then put the edge above the
             // outer ancestor by popping off a segment.  This allows us to use a
             // table where we might otherwise fall back to a cluster.
-            if from_pretty.starts_with(&format!("{}::", to_pretty.as_str()))
-                || to_pretty.starts_with(&format!("{}::", from_pretty.as_str()))
+            if from_delim == to_delim && (from_pretty.starts_with(&format!("{}{}", to_pretty, from_delim))
+                || to_pretty.starts_with(&format!("{}{}", from_pretty, to_delim)))
             {
                 common_path.pop();
             }
@@ -719,13 +731,13 @@ pub enum HierarchicalLayoutAction {
 /// - Subsystem / subcomponent / submodule
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub enum HierarchySegment {
-    PrettySegment(String),
+    PrettySegment(String, &'static str),
 }
 
 impl HierarchySegment {
     pub fn to_human_readable(&self) -> String {
         match self {
-            Self::PrettySegment(p) => p.clone(),
+            Self::PrettySegment(p, _) => p.clone(),
         }
     }
 }
@@ -930,8 +942,15 @@ impl HierarchicalNode {
             if !kid_is_class {
                 self.action = Some(HierarchicalLayoutAction::Collapse);
                 if !self.display_name.is_empty() {
+                    // There are 2 potential delimiters in play here, although it's really only
+                    // the synthetic root where we don't have a useful delimiter and we need to
+                    // favor the kid, but this seems like a reasonable policy that the kid knows
+                    // its best delimiter.
+                    let delim = match &sole_kid.segment {
+                        HierarchySegment::PrettySegment(_, delim) => delim,
+                    };
                     sole_kid.display_name =
-                        format!("{}::{}", self.display_name, sole_kid.display_name);
+                        format!("{}{}{}", self.display_name, delim, sole_kid.display_name);
                     self.display_name = "".to_string();
                 }
                 sole_kid.compile(

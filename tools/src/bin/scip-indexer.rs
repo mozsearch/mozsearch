@@ -489,6 +489,12 @@ fn analyse_symbol(
                 // Pretty: For JS/TS the namespace includes the file path which
                 // ends up way too verbose and now how humans would describe
                 // things.
+                //
+                // TODO: Handle scip-typescript emitting symbols for file names
+                // since our explicit heuristic above ends up leaving them
+                // entirely with an empty pretty, and in that case we do want
+                // to emit the path as a pretty, but we also want to emit a
+                // "FILE_" symbol instead of a scip "S_" symbol.
                 (
                     format!("{}/", escaped),
                     match lang {
