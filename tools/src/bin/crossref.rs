@@ -21,6 +21,7 @@ use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
+use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
 use tools::file_format::ontology_mapping::OntologyMappingIngestion;
@@ -44,56 +45,6 @@ use ustr::ustr;
 /// newline) at which we store it externally in `crossref-extra` instead of
 /// inline in the `crossref` file itself.
 const EXTERNAL_STORAGE_THRESHOLD: usize = 1024 * 3;
-
-/// Splits "pretty" identifiers into their scope components based on C++ style
-/// `::` delimiters, ignoring anything that looks like a template param inside
-/// (potentially nested) `<` and `>` pairs.
-///
-/// Note that although searchfox effectively understands JS-style "Foo.bar"
-/// hierarchy, this is currently accomplished via `js-analyze.js` emitting 2
-/// records: `{ pretty: "Foo", sym: "#Foo", ...}` and `{ pretty: "Foo.bar", sym:
-/// "Foo#bar", ...}`.  This approach will likely be revisited when we move to
-/// using LSIF/similar indexing, in which case this method will likely want to
-/// become language aware and we would start only emitting a single record for
-/// a single symbol.
-fn split_scopes(pretty: &str) -> Vec<&str> {
-    fn to_scope(component: &str) -> &str {
-        component.trim_matches(|c| matches!(c, '(' | ')' | '.'))
-    }
-
-    let mut result = Vec::new();
-    let mut start = 0;
-    let mut argument_nesting = 0;
-    for (index, m) in pretty.match_indices(|c| matches!(c,  ':' | '<' | '>' | '#' | '(' | ')' | ' ')) {
-        if m == "<" || m == "(" {
-            argument_nesting += 1;
-            continue;
-        }
-        if m == ">" || m == ")" {
-            argument_nesting -= 1;
-            continue;
-        }
-        if m == " " {
-            start = index + 1;
-            continue;
-        }
-        if argument_nesting != 0 {
-            continue;
-        }
-        if start != index {
-            let scope = to_scope(&pretty[start..index]);
-            if !scope.is_empty() {
-                result.push(scope);
-            }
-        }
-        start = index + 1;
-    }
-    let scope = to_scope(&pretty[start..]);
-    if !scope.is_empty() {
-        result.push(scope);
-    }
-    result
-}
 
 #[derive(Parser)]
 struct CrossrefCli {
@@ -334,6 +285,11 @@ async fn main() {
                     continue;
                 }
 
+                if piece.pretty.is_empty() {
+                    info!("Skipping empty pretty for symbol {}", piece.sym);
+                    continue;
+                }
+
                 // XXX temporary include hack; we should fix this in the C++ indexer, but I want to
                 // see how it works out.
                 if piece.sym.starts_with("FILE_") && piece.contextsym.is_empty() {
@@ -375,11 +331,22 @@ async fn main() {
                 // we can't include them.)
                 let ch = piece.sym.chars().nth(0).unwrap();
                 if !(ch >= '0' && ch <= '9') && !piece.sym.contains(' ') {
-                    // We now do the component explosion ahead of time:
-                    let components = split_scopes(&piece.pretty.as_str());
+                    // Split the pretty identifier into parts so for "foo::bar::Baz"
+                    // we can emit ["foo::bar::Baz", "bar::Baz", "Baz"] into our
+                    // identifiers table so people don't have to always type out
+                    // the full identifier.
+                    //
+                    // NOTE: We are passing "" as the symbol here in order to
+                    // avoid splitting paths (which detects a "FILE_" prefix),
+                    // but we may want to support multiple pretty delimiters
+                    // beyond "::" here in the future.  (Although there's
+                    // something to be said for normalizing on use of "::" for
+                    // everything but paths, and we sorta do this for scip-indexer
+                    // already.)
+                    let (components, delim) = split_pretty(&piece.pretty.as_str(), "");
                     for i in 0..components.len() {
                         let sub = &components[i..components.len()];
-                        let sub = sub.join("::");
+                        let sub = sub.join(delim);
 
                         if !sub.is_empty() {
                             let t1 = id_table.entry(ustr(&sub)).or_insert(UstrSet::default());
@@ -423,6 +390,9 @@ async fn main() {
                 extra: Map::default(),
             };
             meta_table.insert(file_structured.sym.clone(), file_structured);
+            pretty_table.insert(file_sym.clone(), path.clone());
+            let t1 = id_table.entry(path.clone()).or_insert_with(|| UstrSet::default());
+            t1.insert(file_sym.clone());
         }
 
         let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
