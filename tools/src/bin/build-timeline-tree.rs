@@ -369,7 +369,6 @@ fn find_unmodified_lines(
                 for parent in commit.parents() {
                     let parent_path = file_movement
                         .and_then(|m| m.get(&blob.id()))
-                        .map(|p| p.borrow())
                         .unwrap_or(&path);
                     let parent_blob = match parent.tree()?.get_path(parent_path) {
                         Ok(t) if t.kind() == Some(ObjectType::Blob) => {
