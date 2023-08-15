@@ -74,6 +74,28 @@ var ContextMenu = new (class ContextMenu {
       // For debugging/investigation purposes, expose the symbols that got
       // clicked on on the window global.
       const exposeSymbolsForDebugging = window.CLICKED_SYMBOLS = [];
+
+      // ## First pass: Process symbols and potentially filter out implicit constructors
+      //
+      // In the future we can potentially use this pass to do more clever things,
+      // but right now the main interesting situation that can arise is that the
+      // user is clicking on a constructor where we have both the constructor
+      // symbol plus all of the implicit constructors that will be invoked as
+      // part of the constructor and we are weirdly attributing to the constructor.
+      //
+      // We can detect this case because we can detect when the user is clicking
+      // on a line that's already the target of a definition jump.  And then in
+      // that case we can filter out all the symbols that aren't definition jumps.
+      //
+      // In general, we only expect to see multiple symbols here when the symbol
+      // varies per platform or as a result of implicit constructors like this.
+      // Our logic to remove implicit constructors here will not affect the
+      // platform case because all symbols will have the line as a definition.
+      // (For other platforms where the definition is on a different line, the
+      // symbol won't be present here because it won't have been mered in by the
+      // merge-analyses step.)
+      let filteredSymPairs = [];
+      let sawDef = false;
       for (const sym of symbols) {
         // Avoid processing the same symbol more than once.
         if (seenSyms.has(sym)) {
@@ -86,6 +108,24 @@ var ContextMenu = new (class ContextMenu {
           continue;
         }
 
+        // The symInfo is self-identifying via `pretty` and `sym` so we don't
+        // need to try and include any extra context.
+        exposeSymbolsForDebugging.push(symInfo);
+
+        if (symInfo?.jumps?.idl === sourceLineClicked ||
+            symInfo?.jumps?.def === sourceLineClicked ) {
+          if (!sawDef) {
+            // Transition to "kick out the implicit constructors" mode.
+            sawDef = true;
+            filteredSymPairs = [];
+          }
+          filteredSymPairs.push([sym, symInfo]);
+        } else if (!sawDef) {
+          filteredSymPairs.push([sym, symInfo]);
+        }
+      }
+
+      for (const [sym, symInfo] of filteredSymPairs) {
         // TODO: Revisit this as the diagramming mechanism better understands how
         // to deal with slots.  There are some complications related to this
         // because currently the JS XPIDL binding situation is such that there are
@@ -97,10 +137,6 @@ var ContextMenu = new (class ContextMenu {
         // we're an IDL symbol and we have binding slots, we instead will just use
         // the C++ binding symbols.
         let diagrammableSyms = [symInfo];
-
-        // The symInfo is self-identifying via `pretty` and `sym` so we don't
-        // need to try and include any extra context.
-        exposeSymbolsForDebugging.push(symInfo);
 
         // Define a helper we can also use for the binding slots below.
         const jumpify = (jumpref, pretty) => {
