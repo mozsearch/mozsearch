@@ -71,6 +71,12 @@
       "css": "brush",
       "code": 59400,
       "src": "typicons"
+    },
+    {
+      "uid": "13b9eebfea581ad8e756ee7a18a7cba8",
+      "css": "export-alt",
+      "code": 61773,
+      "src": "fontawesome"
     }
   ]
 }

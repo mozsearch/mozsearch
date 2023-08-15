@@ -111,7 +111,7 @@ var ContextMenu = new (class ContextMenu {
             jumpMenuItems.push({
               html: this.fmt("Go to IDL definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.idl}`,
-              icon: "export",
+              icon: "export-alt",
               section: "jumps",
             });
           }
@@ -120,7 +120,7 @@ var ContextMenu = new (class ContextMenu {
             jumpMenuItems.push({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.def}`,
-              icon: "export",
+              icon: "export-alt",
               section: "jumps",
             });
           }
