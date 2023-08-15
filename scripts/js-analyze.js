@@ -54,6 +54,15 @@ const ERROR_INTERVENTIONS = [
     severity: "INFO",
     prepend: "(unsupported) import assertions can parse this way: "
   },
+  // This warning started appearing after https://bugzilla.mozilla.org/show_bug.cgi?id=1845085
+  // which imported some new web-platform tests with a new import syntax that looks
+  // like `import "./hello.js#3" with { type: "js" };`. It appears that this syntax is not
+  // yet supported by our parser but may be supported in the future.
+  {
+    includes: "unexpected token: keyword 'with'",
+    severity: "INFO",
+    prepend: "(unsupported) import attributes can parse this way: "
+  },
   {
     includes: "redeclaration of import",
     severity: "INFO",
