@@ -495,6 +495,10 @@ fn analyse_symbol(
                 // entirely with an empty pretty, and in that case we do want
                 // to emit the path as a pretty, but we also want to emit a
                 // "FILE_" symbol instead of a scip "S_" symbol.
+                //
+                // TODO: it would also be good to emit a "namespace" kind and/or
+                // symbol for rust modules as we go? (For C++ we don't
+                // emit a structured record but do emit an "NS_"-prefixed sym.)
                 (
                     format!("{}/", escaped),
                     match lang {

@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+use std::iter::FromIterator;
+
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use dot_generator::*;
@@ -12,7 +15,7 @@ use graphviz_rust::printer::{DotPrinter, PrinterContext};
 use super::interface::{
     GraphResultsBundle, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
 };
-use super::symbol_graph::DerivedSymbolInfo;
+use super::symbol_graph::{DerivedSymbolInfo, HierarchyDefaultSummarizePolicy, HierarchyPolicies};
 
 use crate::abstract_server::{AbstractServer, Result};
 
@@ -31,11 +34,25 @@ pub enum GraphFormat {
 }
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
-pub enum GraphMode {
+pub enum GraphHierarchy {
     /// No hierarchy, everything is a node, there are no clusters.
     Flat,
-    /// Derive a hierarchical relationship with clusters from the input graph.
-    Hier,
+    /// Derive hierarchy from the pretty identifier hierarchy exclusively.
+    Pretty,
+    /// Derive hierarchy from the subsystem and class structure, skipping
+    /// explicit C++ namespaces.
+    Subsystem,
+    /// Derive hierarchy from the full file paths containing definitions, noting
+    /// that this inherently may fragment a C++ class so that the class is
+    /// defined in a header file and many of its methods are defined in a cpp
+    /// file.
+    File,
+    /// Derive hierarchy from the directories that contain the files symbols
+    /// are defined in, but ignoring the actual filename.  This should keep C++
+    /// classes and their methods together.
+    /// TODO: Make sure we always map installed headers back to their origin
+    /// location.
+    Dir,
 }
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -52,13 +69,13 @@ pub enum GraphLayout {
 /// includes embedded crossref information.
 #[derive(Debug, Args)]
 pub struct Graph {
-    #[clap(long, short, value_parser, value_enum, default_value = "svg")]
+    #[clap(long, value_parser, value_enum, default_value = "svg")]
     pub format: GraphFormat,
 
-    #[clap(long, short, value_parser, value_enum, default_value = "hier")]
-    pub mode: GraphMode,
+    #[clap(long, value_parser, value_enum, default_value = "pretty")]
+    pub hier: GraphHierarchy,
 
-    #[clap(long, short, value_parser, value_enum, default_value = "dot")]
+    #[clap(long, value_parser, value_enum, default_value = "dot")]
     pub layout: GraphLayout,
 
     /// Enable debug mode which currently means forcing the format to be Json.
@@ -69,6 +86,20 @@ pub struct Graph {
     /// something explicit and for the explicit use of the query syntax.
     #[clap(long, value_parser)]
     pub debug: bool,
+
+    /// When to summarize clusters in hierarchical diagrams.
+    #[clap(long, value_parser, value_enum, default_value = "none")]
+    pub summarize: HierarchyDefaultSummarizePolicy,
+
+    /// Force summarize clusters with the given pretty identifiers.  This
+    /// overrrides the defaults provided by "summarize".
+    #[clap(long, value_parser)]
+    pub collapse: Vec<String>,
+
+    /// Force expand clusters with the given pretty identifiers.  This
+    /// overrides the defaults provided by "summarize".
+    #[clap(long, value_parser)]
+    pub expand: Vec<String>,
 
     #[clap(long, value_parser)]
     pub colorize_callees: Vec<String>,
@@ -167,30 +198,37 @@ pub struct GraphCommand {
 fn transform_svg(svg: &str) -> String {
     lazy_static! {
         static ref RE_TITLE: Regex = Regex::new(">\n<title>([^<]+)</title>").unwrap();
-        static ref RE_XLINK: Regex = Regex::new(r#"<a xlink:href="([^"]+)" xlink:title="[^"]+">"#).unwrap();
+        static ref RE_XLINK: Regex =
+            Regex::new(r#"<a xlink:href="([^"]+)" xlink:title="[^"]+">"#).unwrap();
     }
-    let titled = RE_TITLE
-        .replace_all(svg, |caps: &Captures| {
-            let captured = caps.get(1).unwrap().as_str();
-            // Do not transform the `g` title of "g" to data-symbols.  Although
-            // maybe we should be providing it a better title?  Although maybe
-            // a straight-up heading explaining the graph is even better, as I
-            // think this is where we're going to want to put the dual UI.
-            if captured == "g" || captured.starts_with("SYN_") {
-                ">".to_string()
-            } else {
-                format!(" data-symbols=\"{}\">", urlencoding::decode(captured).unwrap_or_default())
-            }
-        });
+    let titled = RE_TITLE.replace_all(svg, |caps: &Captures| {
+        let captured = caps.get(1).unwrap().as_str();
+        // Do not transform the `g` title of "g" to data-symbols.  Although
+        // maybe we should be providing it a better title?  Although maybe
+        // a straight-up heading explaining the graph is even better, as I
+        // think this is where we're going to want to put the dual UI.
+        if captured == "g" || captured.starts_with("SYN_") {
+            ">".to_string()
+        } else {
+            format!(
+                " data-symbols=\"{}\">",
+                urlencoding::decode(captured).unwrap_or_default()
+            )
+        }
+    });
     RE_XLINK
         .replace_all(&titled, |caps: &Captures| {
             let captured = caps.get(1).unwrap().as_str();
             if captured.starts_with("SYN_") {
                 "<g>".to_string()
             } else {
-                format!("<g data-symbols=\"{}\">", urlencoding::decode(captured).unwrap_or_default())
+                format!(
+                    "<g data-symbols=\"{}\">",
+                    urlencoding::decode(captured).unwrap_or_default()
+                )
             }
-        }).replace("</a>", "</g>")
+        })
+        .replace("</a>", "</g>")
 }
 
 #[async_trait]
@@ -225,14 +263,28 @@ impl PipelineCommand for GraphCommand {
             }
         };
 
-        let dot_graph = match self.args.mode {
-            GraphMode::Flat => {
+        let dot_graph = match &self.args.hier {
+            GraphHierarchy::Flat => {
                 graphs.graph_to_graphviz(graphs.graphs.len() - 1, decorate_node)
             }
-            GraphMode::Hier => {
-                graphs.derive_hierarchical_graph(graphs.graphs.len() - 1, server).await?;
+            hier_mode => {
+                let policies = HierarchyPolicies {
+                    grouping: hier_mode.clone(),
+                    summarize: self.args.summarize.clone(),
+                    force_summarize_pretties: HashSet::from_iter(
+                        self.args.collapse.iter().cloned(),
+                    ),
+                    force_expand_pretties: HashSet::from_iter(self.args.expand.iter().cloned()),
+                };
+                graphs
+                    .derive_hierarchical_graph(&policies, graphs.graphs.len() - 1, server)
+                    .await?;
                 //return Ok(PipelineValues::SymbolGraphCollection(graphs));
-                graphs.hierarchical_graph_to_graphviz(graphs.hierarchical_graphs.len() - 1, &self.args.layout)
+                graphs.hierarchical_graph_to_graphviz(
+                    &policies,
+                    graphs.hierarchical_graphs.len() - 1,
+                    &self.args.layout,
+                )
             }
         };
         if self.args.format == GraphFormat::RawDot {
@@ -247,7 +299,7 @@ impl PipelineCommand for GraphCommand {
         // as JSON.
         let use_format = match (self.args.debug, &self.args.format) {
             (true, _) => GraphFormat::Json,
-            (_, format) => format.clone()
+            (_, format) => format.clone(),
         };
 
         let (format, mime_type) = match &use_format {
@@ -261,15 +313,9 @@ impl PipelineCommand for GraphCommand {
             GraphLayout::Neato => CommandArg::Layout(Layout::Neato),
             GraphLayout::Fdp => CommandArg::Layout(Layout::Fdp),
         });
-        let graph_contents = exec(
-            dot_graph,
-            &mut PrinterContext::default(),
-            exec_commands,
-        )?;
+        let graph_contents = exec(dot_graph, &mut PrinterContext::default(), exec_commands)?;
         match use_format {
-            GraphFormat::Json => {
-                Ok(PipelineValues::SymbolGraphCollection(graphs))
-            }
+            GraphFormat::Json => Ok(PipelineValues::SymbolGraphCollection(graphs)),
             GraphFormat::Mozsearch => Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
                 graphs: vec![RenderedGraph {
                     graph: transform_svg(&graph_contents),

@@ -1,1 +1,1 @@
-search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --format=raw-dot --mode=flat
+search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --format=raw-dot --hier=flat

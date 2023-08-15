@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use clap::ValueEnum;
 use dot_generator::*;
 use dot_structures::*;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
@@ -13,14 +14,20 @@ use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{json, to_value, Value};
 use tracing::trace;
-use ustr::{ustr, Ustr, UstrMap, UstrSet};
+use ustr::{ustr, Ustr, UstrMap};
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    file_format::{crossref_converter::convert_crossref_value_to_sym_info_rep, analysis_manglings::split_pretty},
+    file_format::{
+        analysis_manglings::split_pretty,
+        crossref_converter::convert_crossref_value_to_sym_info_rep,
+    },
 };
 
-use super::{interface::OverloadInfo, cmd_graph::GraphLayout};
+use super::{
+    cmd_graph::{GraphHierarchy, GraphLayout},
+    interface::OverloadInfo,
+};
 
 /**
 Graph abstraction for symbols built on top of petgraph.
@@ -139,6 +146,17 @@ impl DerivedSymbolInfo {
         }
     }
 
+    /// For hierarchy purposes we want to skip over namespace or namespace-like
+    /// symbols in certain modes of operation, this centralizes the heuristic
+    /// for that.  Right now this is C++ specific.
+    ///
+    /// TODO: handle rust and other types from SCIP; as noted in scip-indexer
+    /// we probably need to do work there too.  Definitely a case for some unit
+    /// tests.
+    pub fn is_namespace(&self) -> bool {
+        self.symbol.starts_with("NS_")
+    }
+
     pub fn get_pretty(&self) -> Ustr {
         match self.crossref_info.pointer("/meta/pretty") {
             Some(Value::String(pretty)) => ustr(pretty),
@@ -161,6 +179,23 @@ impl DerivedSymbolInfo {
             }
         }
         None
+    }
+
+    pub fn get_subsystem(&self) -> Option<Ustr> {
+        match self.crossref_info.pointer("/meta/subsystem") {
+            Some(Value::String(subsystem)) => Some(ustr(subsystem)),
+            _ => None,
+        }
+    }
+
+    /// Find the path that contains a "def" record for this symbol.  (There
+    /// should ideally only be a single definition path, even if we might have
+    /// multiple line hits at the path because of #ifdefs.)
+    pub fn get_def_path(&self) -> Option<&String> {
+        match self.crossref_info.pointer("/defs/0/path") {
+            Some(Value::String(path)) => Some(path),
+            _ => None,
+        }
     }
 }
 
@@ -338,8 +373,7 @@ impl SymbolGraphCollection {
             let source_info = self.node_set.get(&source_id);
             let source_sym = source_info.symbol.clone();
             if nodes.insert(source_sym.clone()) {
-                let mut node =
-                    node!(esc source_sym.clone(); attr!("label", esc escape_quotes(&source_info.get_pretty())));
+                let mut node = node!(esc source_sym.clone(); attr!("label", esc escape_quotes(&source_info.get_pretty())));
                 node_decorate(&mut node, source_info);
                 dot_graph.add_stmt(stmt!(node));
             }
@@ -347,8 +381,7 @@ impl SymbolGraphCollection {
             let target_info = self.node_set.get(&target_id);
             let target_sym = target_info.symbol.clone();
             if nodes.insert(target_sym.clone()) {
-                let mut node =
-                    node!(esc target_sym.clone(); attr!("label", esc escape_quotes(&target_info.get_pretty())));
+                let mut node = node!(esc target_sym.clone(); attr!("label", esc escape_quotes(&target_info.get_pretty())));
                 node_decorate(&mut node, target_info);
                 dot_graph.add_stmt(stmt!(node));
             }
@@ -370,6 +403,7 @@ impl SymbolGraphCollection {
 
     pub async fn derive_hierarchical_graph(
         &mut self,
+        policies: &HierarchyPolicies,
         graph_idx: usize,
         server: &Box<dyn AbstractServer + Send + Sync>,
     ) -> Result<()> {
@@ -392,38 +426,61 @@ impl SymbolGraphCollection {
             height: 0,
         };
 
-        let mut checked_pretties = UstrSet::default();
+        let mut checked_pretties = UstrMap::default();
+        let mut sym_segments: HashMap<SymbolGraphNodeId, Vec<HierarchySegment>> = HashMap::default();
 
         // ## Populate the hierarchy nodes.
+        //
+        // We have a few major modes of operation here:
+        // - (Flat doesn't count; this method won't be called.)
+        // - For GraphHierarchy::Pretty we just split everything by the pretty
+        //   and try to lookup the pretty in case there is a symbol associated
+        //   with it.  In some cases, we may not have symbol information.
+        // - For everything else we want to figure out the topmost non-namespace
+        //   symbol.  That is, if we have "foo::bar::OuterClass::InnerClass::method"
+        //   then we want to lose "foo::bar::" but retain
+        //   "OuterClass::InnerClass::method".  We would then prepend the
+        //   subsystem/file/dir.  Our structured information does not currently
+        //   provide an explicit relationship between nested classes and their
+        //   containing classes, so the pretty splicing is our best option at
+        //   this time.
+        //
+        // Because of the commonality of needing to potentially consider every
+        // level of pretty symbol, we run this as a 3-pass approach:
+        // 1. We parse the pretty symbols and attempt to perform a symbol lookup
+        //    for every piece
+        // 2. We branch based on the GraphHierarchy requested to populate the
+        //    segments.
+        // 3. We process the segments to populate the nodes.
+
         for sym_id in graph.list_nodes() {
             let (sym, sym_pretty) = {
                 let node_info = self.node_set.get(&sym_id);
                 (node_info.symbol.as_str(), node_info.get_pretty().as_str())
             };
             let mut pretty_so_far = "".to_string();
-            let mut segments = vec![];
             trace!(sym = %sym_pretty, "processing symbol");
-            let (pieces, pretty_delim) = split_pretty(sym_pretty, sym);
+            let (pieces, delim) = split_pretty(sym_pretty, sym);
+            let mut pieces_and_syms = vec![];
             for piece in pieces {
                 trace!(piece = %piece, "processing piece");
-                segments.push(HierarchySegment::PrettySegment(piece.clone(), pretty_delim));
                 pretty_so_far = if pretty_so_far.is_empty() {
-                    piece
+                    piece.clone()
                 } else {
-                    format!("{}{}{}", pretty_so_far, pretty_delim, piece)
+                    format!("{}{}{}", pretty_so_far, delim, piece)
                 };
                 let ustr_so_far = ustr(&pretty_so_far);
 
                 // If this is a partial pretty, then we only need to perform a lookup
                 // for it once, but if it's a full pretty then we need to process it
                 // because overloads exist (and have the same pretty)!
-                if sym_pretty == pretty_so_far || checked_pretties.insert(ustr_so_far) {
+                if sym_pretty == pretty_so_far || !checked_pretties.contains_key(&ustr_so_far) {
                     // We haven't checked this before, so process it.
 
                     // See if we can find a symbol for this identifier.
-                    let use_sym_id = if sym_pretty == pretty_so_far {
+                    if sym_pretty == pretty_so_far {
                         trace!(pretty = %pretty_so_far, "reusing known symbol");
-                        sym_id.clone()
+                        pieces_and_syms.push((piece, Some(sym_id.clone())));
                     } else {
                         // TODO: Either don't set the limit to 1 or provide a better
                         // explanation or some assert on why this is okay.  In
@@ -438,47 +495,131 @@ impl SymbolGraphCollection {
                         {
                             let (match_sym_id, _) =
                                 self.node_set.ensure_symbol(&match_sym, server).await?;
-                            match_sym_id
+                            checked_pretties.insert(ustr_so_far, Some(match_sym_id.clone()));
+                            pieces_and_syms.push((piece, Some(match_sym_id)));
                         } else {
                             trace!(pretty = %pretty_so_far, "failed to locate symbol for identifier");
-                            continue;
+                            checked_pretties.insert(ustr_so_far, None);
+                            pieces_and_syms.push((piece, None));
                         }
                     };
-
-                    let mut reversed_segments = segments.clone();
-                    reversed_segments.reverse();
-                    trace!(pretty = %pretty_so_far, "placing found symbol");
-                    root.place_sym(reversed_segments, use_sym_id);
+                } else {
+                    pieces_and_syms.push((
+                        piece,
+                        checked_pretties
+                            .get(&ustr_so_far)
+                            .unwrap_or_else(|| &None)
+                            .clone(),
+                    ));
                 }
             }
+
+            let first_real_sym = pieces_and_syms
+                .iter()
+                .position(|(_piece, maybe_sym)| {
+                    if let Some(sym) = maybe_sym {
+                        let info = self.node_set.get(sym);
+                        !info.is_namespace()
+                    } else {
+                        false
+                    }
+                })
+                .unwrap_or_else(|| pieces_and_syms.len() - 1);
+            let segments_and_syms =
+                match &policies.grouping {
+                    GraphHierarchy::Flat | GraphHierarchy::Pretty => pieces_and_syms
+                        .into_iter()
+                        .map(|(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym))
+                        .collect_vec(),
+                    GraphHierarchy::Subsystem => {
+                        // For subsystem we always use the subsystem of the first
+                        // symbol we find now in order to avoid weird cases where
+                        // the methods in a symbol are defined in a different cpp
+                        // file that is technically part of a different subsystem.
+                        //
+                        // This is different than the decision we've made for dir/file
+                        // where we do allow fragmentation (but where the class pretty
+                        // containment will mean that the class shows up in both the
+                        // right place and also the wrong place(s)).
+                        let subsystem = match &pieces_and_syms[first_real_sym].1 {
+                            Some(sym) => self
+                                .node_set
+                                .get(&sym)
+                                .get_subsystem()
+                                .map(|x| x.as_str())
+                                .unwrap_or(""),
+                            None => "",
+                        };
+                        let segs = subsystem.split("/").map(|piece| {
+                            (
+                                HierarchySegment::PrettySegment(piece.to_string(), "/"),
+                                None,
+                            )
+                        });
+                        segs.chain(pieces_and_syms.into_iter().skip(first_real_sym).map(
+                            |(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym),
+                        ))
+                        .collect_vec()
+                    }
+                    grouping @ GraphHierarchy::File | grouping @ GraphHierarchy::Dir => {
+                        // We use the most-specific symbol here.
+                        let path = match &pieces_and_syms[pieces_and_syms.len() - 1].1 {
+                            Some(sym) => self
+                                .node_set
+                                .get(&sym)
+                                .get_def_path()
+                                .map(|x| x.as_str())
+                                .unwrap_or(""),
+                            None => "",
+                        };
+                        let mut segs = path.split("/").collect_vec();
+                        if let GraphHierarchy::Dir = grouping {
+                            segs.pop();
+                        };
+                        segs.into_iter()
+                            .map(|piece| {
+                                (
+                                    HierarchySegment::PrettySegment(piece.to_string(), "/"),
+                                    None,
+                                )
+                            })
+                            .chain(pieces_and_syms.into_iter().skip(first_real_sym).map(
+                                |(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym),
+                            ))
+                            .collect_vec()
+                    }
+                };
+
+            let mut segments_so_far = vec![];
+            for (segment, maybe_sym) in segments_and_syms {
+                segments_so_far.push(segment);
+                let mut reversed_segments = segments_so_far.clone();
+                reversed_segments.reverse();
+                if let Some(sym_id) = maybe_sym {
+                    //trace!(pretty = %segments_so_far, "placing found symbol");
+                    root.place_sym(reversed_segments, sym_id);
+                }
+            }
+
+            sym_segments.insert(sym_id, segments_so_far);
         }
 
         // ## Populate the hierarchy edges
         for (from_id, to_id) in graph.list_edges() {
-            let (from_sym, from_pretty) = {
-                let node_info = self.node_set.get(&from_id);
-                (node_info.symbol.as_str(), node_info.get_pretty().as_str())
-            };
-            let (from_pieces, from_delim) = split_pretty(from_pretty, from_sym);
+            let from_segments = sym_segments.get(&from_id).unwrap();
+            let to_segments = sym_segments.get(&to_id).unwrap();
 
-            let (to_sym, to_pretty) = {
-                let node_info = self.node_set.get(&to_id);
-                (node_info.symbol.as_str(), node_info.get_pretty().as_str())
-            };
-            let (to_pieces, to_delim) = split_pretty(to_pretty, to_sym);
-
-            let mut common_path: Vec<HierarchySegment> = from_pieces
-                .into_iter()
-                .zip(to_pieces.into_iter())
+            let mut common_path: Vec<HierarchySegment> = from_segments
+                .iter()
+                .zip(to_segments.iter())
                 .take_while(|(a, b)| a == b)
-                .map(|(a, _)| HierarchySegment::PrettySegment(a, from_delim))
+                .map(|(a, _)| a.clone())
                 .collect();
+
             // If one is an ancestor of the other, then put the edge above the
             // outer ancestor by popping off a segment.  This allows us to use a
             // table where we might otherwise fall back to a cluster.
-            if from_delim == to_delim && (from_pretty.starts_with(&format!("{}{}", to_pretty, from_delim))
-                || to_pretty.starts_with(&format!("{}{}", from_pretty, to_delim)))
-            {
+            if common_path.len() == from_segments.len() || common_path.len() == to_segments.len() {
                 common_path.pop();
             }
             common_path.reverse();
@@ -494,7 +635,12 @@ impl SymbolGraphCollection {
     }
 
     /// Convert the graph with the given index to a graphviz rep.
-    pub fn hierarchical_graph_to_graphviz(&mut self, graph_idx: usize, graph_layout: &GraphLayout) -> Graph {
+    pub fn hierarchical_graph_to_graphviz(
+        &mut self,
+        policies: &HierarchyPolicies,
+        graph_idx: usize,
+        graph_layout: &GraphLayout,
+    ) -> Graph {
         trace!(graph_idx = %graph_idx, "hierarchical_graph_to_graphviz");
         let graph = match self.hierarchical_graphs.get_mut(graph_idx) {
             Some(g) => g,
@@ -511,7 +657,9 @@ impl SymbolGraphCollection {
             next_synthetic_id: 0,
             sym_to_edges: HashMap::default(),
         };
-        graph.root.compile(0, 0, false, &self.node_set, &mut state);
+        graph
+            .root
+            .compile(&policies, 0, 0, false, &self.node_set, &mut state);
 
         let mut dot_graph = Graph::DiGraph {
             id: id!("g"),
@@ -694,6 +842,26 @@ impl LabelRow {
     }
 }
 
+/// Default policy for when to summarize clusters in the hierarchical diagram;
+/// specific overrides can be set in both directions.
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum HierarchyDefaultSummarizePolicy {
+    /// Summarize everything so we can just have an overview.
+    All,
+    /// Summarize nothing; everything is expanded.
+    None,
+    /// Summarize clusters that don't have a root node in them.
+    Other,
+}
+
+/// Policies to guide the hierarchy creation and rendering.
+pub struct HierarchyPolicies {
+    pub grouping: GraphHierarchy,
+    pub summarize: HierarchyDefaultSummarizePolicy,
+    pub force_summarize_pretties: HashSet<String>,
+    pub force_expand_pretties: HashSet<String>,
+}
+
 pub enum HierarchicalLayoutAction {
     /// Used for the root node; its contents are rendered at the same level as
     /// the parent and the parent is not rendered.
@@ -729,8 +897,18 @@ pub enum HierarchicalLayoutAction {
 /// part of a pretty identifier, in the future this may include:
 /// - Process Type (Parent, Content, Network, etc.)
 /// - Subsystem / subcomponent / submodule
+///
+/// XXX for now we're just going to use `PrettySegment` for everything because
+/// it containing the delimiter will let us get away with a lot, and we
+/// explicitly associate symbols with the `HierarchicalNode` instances, which
+/// means we don't need them on the segment here, but it could make sense to
+/// revisit.
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub enum HierarchySegment {
+    /// The pretty identifier segment and the delimiter that should be used to
+    /// join it to its parent.  Note that in some cases like paths we choose to
+    /// include the delimeter as part of the segment string and the delimiter
+    /// may accordingly be an empty string.
     PrettySegment(String, &'static str),
 }
 
@@ -738,6 +916,17 @@ impl HierarchySegment {
     pub fn to_human_readable(&self) -> String {
         match self {
             Self::PrettySegment(p, _) => p.clone(),
+        }
+    }
+
+    pub fn join_with_str(&self, existing_str: &str) -> String {
+        if existing_str.is_empty() {
+            return self.to_human_readable();
+        }
+        match self {
+            Self::PrettySegment(piece, delim) => {
+                format!("{}{}{}", existing_str, delim, piece)
+            }
         }
     }
 }
@@ -908,6 +1097,7 @@ impl HierarchicalNode {
 
     pub fn compile(
         &mut self,
+        policies: &HierarchyPolicies,
         depth: usize,
         collapsed_ancestors: u32,
         has_class_ancestor: bool,
@@ -954,6 +1144,7 @@ impl HierarchicalNode {
                     self.display_name = "".to_string();
                 }
                 sole_kid.compile(
+                    policies,
                     depth + 1,
                     collapsed_ancestors + 1,
                     be_class,
@@ -969,7 +1160,14 @@ impl HierarchicalNode {
         if is_root {
             self.action = Some(HierarchicalLayoutAction::Flatten);
             for kid in self.children.values_mut() {
-                kid.compile(depth + 1, collapsed_ancestors, be_class, node_set, state);
+                kid.compile(
+                    policies,
+                    depth + 1,
+                    collapsed_ancestors,
+                    be_class,
+                    node_set,
+                    state,
+                );
             }
         } else if self.edges.len() > 0 && self.children.len() > 0 {
             // If there are edges at this level, it does not make sense to be a
@@ -1042,7 +1240,7 @@ impl HierarchicalNode {
             );
 
             for kid in self.children.values_mut() {
-                kid.compile(depth + 1, 0, be_class, node_set, state);
+                kid.compile(policies, depth + 1, 0, be_class, node_set, state);
             }
         }
     }
@@ -1158,7 +1356,7 @@ impl HierarchicalNode {
                 for kid in self.children.values() {
                     sg.stmts.extend(kid.render(node_set, state));
 
-                    if !kid.symbols.iter().any(|id| { internal_targets.contains(&id)}) {
+                    if !kid.symbols.iter().any(|id| internal_targets.contains(&id)) {
                         match &kid.action {
                             Some(HierarchicalLayoutAction::Node(kid_id)) => {
                                 top_nodes.stmts.push(stmt!(node!(esc kid_id)));
