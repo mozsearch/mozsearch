@@ -745,7 +745,8 @@
       // defer onattribute events until all attributes have been seen
       // so any new bindings can take effect. preserve attribute order
       // so deferred events can be emitted in document order
-      parser.attribList.push([parser.attribName, parser.attribValue])
+      parser.attribList.push([parser.attribName, parser.attribValue,
+                              parser.line, parser.column, parser.position])
     } else {
       // in non-xmlns mode, we can emit the event right away
       parser.tag.attributes[parser.attribName] = parser.attribValue
@@ -785,6 +786,10 @@
         })
       }
 
+      var savedLine = parser.line
+      var savedColumn = parser.column
+      var savedPosition = parser.position
+
       // handle deferred onattribute events
       // Note: do not apply default ns to attributes:
       //   http://www.w3.org/TR/REC-xml-names/#defaulting
@@ -792,6 +797,9 @@
         var nv = parser.attribList[i]
         var name = nv[0]
         var value = nv[1]
+        var line = nv[2]
+        var column = nv[3]
+        var position = nv[4]
         var qualName = qname(name, true)
         var prefix = qualName.prefix
         var local = qualName.local
@@ -812,9 +820,15 @@
           a.uri = prefix
         }
         parser.tag.attributes[name] = a
+        parser.line = line
+        parser.column = column
+        parser.position = position
         emitNode(parser, 'onattribute', a)
       }
       parser.attribList.length = 0
+      parser.line = savedLine
+      parser.column = savedColumn
+      parser.position = savedPosition
     }
 
     parser.tag.isSelfClosing = !!selfClosing
