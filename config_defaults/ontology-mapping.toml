@@ -8,6 +8,12 @@
 # "traverse" command instead of getting into the infrastructure boilerplate
 # around runnables.
 #
+# This heuristic can also be used for general callback interfaces like
+# nsIRequestObserver on each of its listener methods as the effects are
+# additive.  For example, a reference to a constructor then becomes a reference
+# to both OnStartRequest and OnStopRequest assuming both methods were marked
+# as runnable.
+#
 # TODO: Need to deal with situations like
 # https://searchfox.org/mozilla-central/rev/6220909421e5cdb2e706a87f77ba7c6f4f21e4d0/dom/quota/ActorsParent.cpp#7064
 # where we have an explicit call to Run made from inside the class.  Although we
@@ -28,6 +34,24 @@ runnable = true
 runnable = true
 
 [pretty."mozilla::dom::WorkerThreadProxySyncRunnable::RunOnMainThread"]
+runnable = true
+
+[pretty."nsIProgressEventSink::OnProgress"]
+runnable = true
+
+[pretty."nsIProgressEventSink::OnStatus"]
+runnable = true
+
+[pretty."nsIRequestObserver::OnStartRequest"]
+runnable = true
+
+[pretty."nsIRequestObserver::OnStopRequest"]
+runnable = true
+
+[pretty."nsIStreamListener::OnDataAavailable"]
+runnable = true
+
+[pretty."nsIStreamLoaderObserver::OnStreamComplete"]
 runnable = true
 
 [pretty."nsIGlobalObject"]
