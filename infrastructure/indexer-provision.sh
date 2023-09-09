@@ -10,6 +10,9 @@ sudo apt-get install -y zlib1g-dev
 # Install python2 and six (needed for cinnabar and idl-analyze.py)
 sudo apt-get install -y python2.7 python-six
 
+# Building LLVM likes to have ninja; pernosco also can use it if we ever index that.
+sudo apt-get install -y ninja-build
+
 # cargo-insta makes it possible to use the UI documented at
 # https://insta.rs/docs/cli/ to review changes to "check" scripts.  For the test
 # repo, this is used by `make review-test-repo`.  It's not expected that this
