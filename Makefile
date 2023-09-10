@@ -90,6 +90,22 @@ serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
+# Notes:
+# - If you want to use a modified version of mozsearch-mozilla, such as one
+#   checked out under "config" in the check-out repo, you can create a symlink
+#   in the VM's home directory via `pushd ~; ln -s /vagrant/config llvm-config`.
+build-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/llvm-config
+	mkdir -p ~/llvm-index
+	/vagrant/infrastructure/indexer-setup.sh ~/llvm-config just-llvm.json ~/llvm-index
+	/vagrant/infrastructure/indexer-run.sh ~/llvm-config ~/llvm-index
+	/vagrant/infrastructure/web-server-setup.sh ~/llvm-config just-llvm.json ~/llvm-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~
+
+serve-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	/vagrant/infrastructure/web-server-setup.sh ~/llvm-config just-llvm.json ~/llvm-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~
+
 build-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/trees-index
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tree-configs config.json ~/trees-index
