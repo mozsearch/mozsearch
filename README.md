@@ -241,7 +241,9 @@ https://chat.mozilla.org/
   `infrastructure/aws/ssh.py` command and successfully get a list of active VMs.
   In particular, you will probably need to type:
   - `. env/bin/activate`
-  - `eval $(maws -o awscli --profile default)`
+  - `aws sso login` (this assumes your "env/bin/activate" script above sets the
+    `AWS_PROFILE` env variable; in our docs referenced above we added that to
+    the activate script).
 - Push your changes to your mozsearch branch and your mozsearch-mozilla branch,
   if appropriate.
   - It's usually a good idea to explicitly make sure you've saved all your
