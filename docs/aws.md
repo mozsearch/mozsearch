@@ -25,7 +25,7 @@ where the index will be stored. The following paragraphs explain the
 lifecycle of a single indexer and its web server; the lifecycle applies
 to each indexer instance.
 
-Note that as of this writing, config1.json, config2.json, and config4.json
+Note that as of this writing, config1.json, config2.json, config4.json, and config5.json
 are processed via the above-described Lambda task/indexer every day.
 config3.json contains "archived" repositories (ones
 which are not getting any more code updates). This one is not run
@@ -62,11 +62,22 @@ The AWS console allows you to manually control AWS resources. To log
 in, you need to be a member of the
 [searchfox-aws](https://mozillians.org/en-US/group/searchfox-aws/)
 Mozillians access group.
+
+### Fast way
+
+The following is a perma-link that the slow way will also get you:
+https://mozilla-aws.awsapps.com/start/#/saml/custom/653057761566%20%28Searchfox%20%28Mozilla%29%29/MzI5NTY3MTc5NDM2X2lucy0xMjRlYmMyMGY2ZGZhOTBkX3AtYTlkNGEyNTlkMjNhMjRkYw%3D%3D
+
+### Slow way
+
 Once you are a member, you can use your Mozilla SSO authentication to
-log in to AWS by going to https://aws.sso.mozilla.com. Once you get past the
-SSO authentication, you'll be asked to pick a role - the admin role is generally
-the one you will want, as it gives you access to make changes whereas the other
-ones are read-only type roles.
+log in to AWS by going to https://mozilla-aws.awsapps.com/start. Once you get past the
+SSO authentication, you'll be asked to pick a role - the "AdministratorAccess"
+role is almost always the one you will want, as it gives you access to make
+changes whereas the other ones are read-only type roles.  Note that this URL
+has changed with the retirement of the "maws" infrastructure.
+
+### Once you're logged in.
 
 After you've logged in, you need to [change the AWS region in the top right
 corner](http://docs.aws.amazon.com/awsconsolehelpdocs/latest/gsg/getting-started.html#select-region). The
@@ -79,69 +90,136 @@ you might be looking for.
 
 Mozsearch uses a lot of scripts that use the AWS API to start and stop
 indexing, provision servers, etc. It is recommended that you run these
-scripts **outside** the VM, as that is where the commands below have been tested.
-In particular, the `maws` authentication flow opens a web browser which might
-not work properly in a headless VM, but if you do that flow outside the VM and
-copy the resulting credentials into the VM that might work.
+scripts **outside** the VM, as that is where the commands below have been tested
+and the SSO flows involve opening a web browser which is at best awkward from
+inside the VM/docker instance.
 
-To start, you'll need to create some AWS configuration files in your
-home directory, and set up a python3 venv environment with some AWS-related
-packages.  See https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
+We previously used `maws`, but consistent with the docs at
+https://mozilla-hub.atlassian.net/l/cp/GH1kL2zg this mechanism has been retired
+due to changes at our SSO provider.  In these docs, searchfox always falls under
+"Mozilla IT".  If you have an existing maws setup and want to know how to
+upgrade it, see the next markdown header section.
+
+The first step is to install the AWS CLI v2.  Amazon intentionally does not
+make this available as a package we can install via PIP, although there is a
+third-party packaging available as a python package, that seems a bit like a
+scary avenue for compromise, so I'm going to suggest:
+- Linux:
+  - Ubuntu: Upgrade to at least 23.04 (lunar), at which point the "awscli"
+    package becomes v2.
+  - Debian: Yeah, v2 is available on some versions, `apt show awscli` and see if
+    the major version is >= 2.  Keep upgrading until that's true.
+- OS X:
+  - In the #iam channel, using "brew" was recommended.
+- Everything else, or if the above didn't work for you:
+  - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+Now when you run `aws --version` you should see something like (this is what I
+see on Ubuntu 23.04):
+```
+$ aws --version
+aws-cli/2.9.19 Python/3.11.4 Linux/6.2.0-32-generic source/x86_64.ubuntu.23 prompt/off
+```
+
+Now we are going to login to SSO.  We are going to run `aws configure sso` and
+enter the following values.  Note that there's also a variation of this command,
+`aws configure sso-session` and my eyes glazed over when trying to understand
+the differences.  If you care, the docs are at
+https://docs.aws.amazon.com/cli/latest/userguide/sso-configure-profile-token.html
+and https://mozilla-hub.atlassian.net/l/cp/GH1kL2zg also I think tries to explain
+the difference.
+
+- For `SSO session name (Recommended):` enter `mozilla`
+- For `SSO start URL [None]:` enter `https://mozilla-aws.awsapps.com/start`
+- For `SSO region [None]:` enter `us-west-2`
+- This will now attempt to open a web page and show a code that you should
+  confirm is also present in the browser window.  (This ensures you're granting
+  access to the CLI and not some other simultaneously popped up rogue auth
+  request.)  Verify the code and press the button on the web page to advance.
+- This will now ask "Allow botocore-client-mozilla to access your data?" and
+  you should hit the allow button.
+- You should now be done with the webpage, moving back to the CLI:
+- It should indicate the AWS account id for searchfox is available to you,
+  probably only that one.  If you're not sure which one to use (I'm avoiding
+  listing the account id here), do the "Logging into the AWS console" section
+  guidance above which will show you a list of account IDs and their actual
+  account names.
+- It will ask you which role you want to use.  Pick "AdministratorAccess".
+- For `CLI default client Region [None]:` enter `us-west-2` again.
+- For `CLI default output format [None]:` I just hit enter.
+- For `CLI profile name [AdministratorAccess-###]:` I suggest using `searchfox`.
+
+The CLI should then print something like:
+```
+To use this profile, specify the profile name using --profile, as shown:
+
+aws s3 ls --profile searchfox
+```
+
+Run that command, and we should see something like the following:
+```
+$ aws s3 ls --profile searchfox
+2020-06-27 09:19:43 indexer-logs
+2022-08-06 13:48:44 searchfox-web-logs
+2020-06-27 19:22:01 searchfox.repositories
+```
+
+Because we need the boto3 lib and a few other things, we're going to set up a
+python venv now.  See https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
 for more on installing venv, but on ubuntu you should be able to run
 `apt install python3-venv`.
 
 ```
 # RUN THESE COMMANDS OUTSIDE THE VM!
 
-mkdir ~/.aws
-
-cat > ~/.aws/config <<"THEEND"
-[default]
-region = us-west-2
-THEEND
-
 python3 -m venv env
-source env/bin/activate
-pip install boto3 awscli rich mozilla-aws-cli-mozilla
+# if you chose a different profile name above, use that instead!
+echo "export AWS_PROFILE=searchfox" >> env/bin/activate
+# "." is the same as "source"
+. env/bin/activate
+pip install boto3 rich
 # Make sure that we have an up-to-date version of certifi for certificate
 # validation.  See comments in build-lambda-indexer-start.sh for more context.
 pip install --upgrade certifi
 ```
 
-With this in place, you can use the `maws` (Mozilla-AWS) tool to obtain
-access credentials, by running the command below. This will open a web browser
-and request you to log in to Mozilla's SSO. As described in the AWS web console
-section above, you will be need to be a member of the
-[searchfox-aws](https://mozillians.org/en-US/group/searchfox-aws/)
-Mozillians group, and will be prompted to pick a role after authentication.
+Okay, now we're going to just validate that SSO credential refresh mechanism
+works.  Run `aws sso login` and repeat the prompt flow where you have to:
+- On the first page, verify that the code in the browser matches the code in the
+  CLI and allow it.
+- Allow "botocore-client-mozilla" access again.
+
+Now we can run `infrastructure/aws/channel-tool.py list` or any other command.
+But please run that one to make sure you see a list of our nodes, etc.
+
+## Upgrading an existing maws configuration
+
+The easiest option is to just `rm -rf env` the venv you previously created and
+start over, especially if you just upgraded your distribution and pip may be in
+a weird state.
+
+That said, it's also possible you may have some weird system cruft built-up that
+may need addressing, especially if you ever set things up before we started to
+use venvs.  In that case you may do something like run "aws" and see something
+like `-bash: /PATH/TO/.local/bin/aws: cannot execute: required file not found`.
+In that case a fun thing to do is `rm ~/.local/bin/aws*`.  On bash, you will
+likely then need to invoke `hash -r` so bash realizes those files have been
+removed.
+
+If you are deeply attached to your current venv, then you can:
 
 ```
-eval $(maws -o awscli --profile default)
+# use the venv; we'll assume this is active from here on out
+. env/bin/activate
+
+# uninstall the old maws mechanism, you'll need to say yes.
+pip uninstall mozilla-aws-cli-mozilla
+
+# uninstall v1 awscli (binary "aws"), you'll need to say yes
+pip uninstall awscli
 ```
 
-The `maws` command will write your access credentials into a `~/.aws/credentials`
-file (that is what the `-o awscli` option does); the `boto3` library and `aws`
-binary both read credentials from this file and so the AWS scripts that use
-these things will Just Work. The `--profile default` argument to `maws` tells it
-what section name to put the credentials in your `~/.aws/credentials` file. If
-you have multiple sets of AWS credentials that you switch between, you may want
-to use a different profile name, and also manually add `region = us-west-2` into
-that section of the file.
-
-Once the `maws` command completes, your command prompt will be augmented with
-the role (or profile, if it's not `default`) name that you are working with.
-When your access token expires (in 24 hours) it changes to indicate that,
-and you need to re-run the `eval` command above to refresh
-your access token.
-
-Note that you can run `maws-logout` to clear your prompt decorations, but that
-doesn't actually invalidate your AWS credentials. (If you run `maws` with one
-of the other `-o` options, the access tokens are stored in different places, and
-some of those can be erased by running `maws-logout`.) You can safely delete your
-`~/.aws/credentials` file if you want to remove your access, and re-run
-the `eval` command above to get it back.
-
-All later AWS commands should be run within the virtual environment.
+Now go back to the previous section and install awscli.
 
 ## SSHing into AWS machines
 
