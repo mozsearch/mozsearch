@@ -213,7 +213,10 @@ expression: "&to_value(grb).unwrap()"
           }
         ],
         "overrides": [],
-        "props": []
+        "props": [],
+        "labels": [
+          "cc"
+        ]
       },
       "jumps": {
         "def": "big_cpp.cpp#227"

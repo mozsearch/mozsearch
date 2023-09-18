@@ -106,6 +106,9 @@ label = "cc-unlink"
 #
 # Okay, so, uh, these are only for testing.
 
+[[pretty."outerNS::CycleCollectingMagic".label_containing_class.labels]]
+label = "cc"
+
 [[pretty."outerNS::CycleCollectingMagic".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::unlink"
 label = "cc:unlink"
