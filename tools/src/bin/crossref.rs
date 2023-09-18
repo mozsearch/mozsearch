@@ -24,6 +24,7 @@ use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
+use tools::file_format::ontology_mapping::OntologyLabelOwningClass;
 use tools::file_format::ontology_mapping::OntologyMappingIngestion;
 use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::logging::LoggedSpan;
@@ -174,6 +175,22 @@ async fn main() {
         let output = explain_template.render(&globals).unwrap();
         std::fs::write(ingestion_diag_path, output).unwrap();
     }
+
+    // ## Load Ontology Config
+    //
+    // I moved this before the analysis ingestion thinking we might process some
+    // rules as we ingest data.  (Specifically for `label_owning_class`.)  But
+    // now it seems like it's probably reasonable to process that at the normal
+    // post-analysis-ingestion time to avoid limiting our options there.  But
+    // I'm leaving this loading ahead of the analysis ingestion because it does
+    // seem preferable that if we're going to throw a fatal error due to a
+    // misconfiguration that it's much better for us to do it earlier.
+    let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
+    let ontology_entered = logged_ontology_span.span.clone().entered();
+
+    let ontology_toml_str = cfg.read_tree_config_file_with_default("ontology-mapping.toml").unwrap();
+    let ontology = OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues");
+    drop(ontology_entered);
 
     // ## Process all the analysis files
     let xref_file = format!("{}/crossref", tree_config.paths.index_path);
@@ -456,14 +473,19 @@ async fn main() {
         }
     }
 
-    // ## Process Ontology config
-    let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
+    // ## Run Ontology Processing
     let ontology_entered = logged_ontology_span.span.clone().entered();
 
-    let ontology_toml_str = cfg.read_tree_config_file_with_default("ontology-mapping.toml").unwrap();
-    let ontology = OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues");
+    info!("Processing ontology now that all analysis files have been read in.");
 
-    info!("Parsed ontology-mapping.toml, processing now.");
+    // ### Extract field-processing rules to run over every class.
+    let mut field_owning_class_rules: UstrMap<OntologyLabelOwningClass> = UstrMap::default();
+
+    for (pretty_id, rule) in ontology.config.pretty.iter() {
+        if let Some(label_owning_class) = &rule.label_owning_class {
+            field_owning_class_rules.insert(pretty_id.clone(), label_owning_class.clone());
+        }
+    }
 
     // ### Process class/fields using ontology type information
     for meta in meta_table.values_mut() {
@@ -474,6 +496,13 @@ async fn main() {
                 if field.type_sym.is_empty() {
                     continue;
                 }
+
+                if let Some(rule) = field_owning_class_rules.get(&field.type_pretty) {
+                    for label_rule in &rule.labels {
+                        meta.labels.insert(label_rule.label.clone());
+                    }
+                }
+
                 for (ptr_kind, pointee_pretty) in ontology.config.maybe_parse_type_as_pointer(&field.type_pretty) {
                     if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
                         // We need to find the first symbol that's referring to a type.
@@ -599,14 +628,12 @@ async fn main() {
             }
         }
 
-        // #### Field Labeling
+        // #### Class Labeling (Some)
         //
-        // We start from an ancestral class and find all of its subclasses and all of their fields.
-        // For each field, we check its uses and see if they match the rules.  If so, we will plan
-        // to add a label to the field on its class.  (Currently we do not do anythign to the
-        // structured info for field symbol itself.)
-        if let Some(label_rule) = &rule.label_field_uses {
-            info!(" Processing pretty label_field_uses rule for: {}", pretty_id);
+        // Some rules are processed as we process structured fields above.
+
+        if let Some(label_rule) = &rule.label_containing_class {
+            info!(" Processing pretty label_containing_class for: {}", pretty_id);
             if let Some(root_class_syms) = id_table.get(&pretty_id) {
                 let mut investigate_class_syms = vec![];
                 // We don't care about the root itself, just its subclasses.
@@ -619,7 +646,7 @@ async fn main() {
                 }
 
                 while let Some(class_sym) = investigate_class_syms.pop() {
-                    let sym_meta = match meta_table.get_mut(&class_sym) {
+                    let sym_meta = match meta_table.get(&class_sym) {
                         Some(m) => m,
                         None => continue,
                     };
@@ -628,14 +655,82 @@ async fn main() {
                         investigate_class_syms.push(sub.clone());
                     }
 
-                    for field in &mut sym_meta.fields {
-                        if let Some(kind_map) = table.get(&field.sym) {
-                            if let Some(path_hits) = kind_map.get(&AnalysisKind::Use) {
-                                for hits in path_hits.values() {
-                                    for hit in hits {
-                                        for rule in &label_rule.labels {
-                                            if hit.context.ends_with(rule.context_sym_suffix.as_str()) {
-                                                field.labels.insert(rule.label.clone());
+                    // The structured record currently doesn't have a reference
+                    // to its containing symbol; we need to pop the last pretty
+                    // segment and perform a lookup.
+                    let (pieces, delim) = split_pretty(&sym_meta.pretty, &sym_meta.sym);
+                    let containing_pieces = match pieces.split_last() {
+                        Some((_, rest)) => rest,
+                        None => continue,
+                    };
+                    let containing_pretty = containing_pieces.join(delim);
+                    let containing_pretty_ustr = ustr(&containing_pretty);
+                    if let Some(containing_syms) = id_table.get(&containing_pretty_ustr) {
+                        for sym in containing_syms {
+                            if let Some(containing_meta) = meta_table.get_mut(&sym) {
+                                for rule in &label_rule.labels {
+                                    containing_meta.labels.insert(rule.label.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // #### Field Labeling
+        //
+        // We start from an ancestral class and find all of its subclasses and all of their fields.
+        // For each field, we check its uses and see if they match the rules.  If so, we will plan
+        // to add a label to the field on its class.  (Currently we do not do anythign to the
+        // structured info for field symbol itself.)
+        if let Some(label_rule) = &rule.label_containing_class_field_uses {
+            info!(" Processing pretty label_containing_class_field_uses rule for: {}", pretty_id);
+            if let Some(root_class_syms) = id_table.get(&pretty_id) {
+                let mut investigate_class_syms = vec![];
+                // We don't care about the root itself, just its subclasses.
+                for sym in root_class_syms {
+                    if let Some(sym_meta) = meta_table.get(&sym) {
+                        for sub in &sym_meta.subclass_syms {
+                            investigate_class_syms.push(sub.clone());
+                        }
+                    }
+                }
+
+                while let Some(class_sym) = investigate_class_syms.pop() {
+                    let sym_meta = match meta_table.get(&class_sym) {
+                        Some(m) => m,
+                        None => continue,
+                    };
+
+                    for sub in &sym_meta.subclass_syms {
+                        investigate_class_syms.push(sub.clone());
+                    }
+
+                    // The structured record currently doesn't have a reference
+                    // to its containing symbol; we need to pop the last pretty
+                    // segment and perform a lookup.
+                    let (pieces, delim) = split_pretty(&sym_meta.pretty, &sym_meta.sym);
+                    let containing_pieces = match pieces.split_last() {
+                        Some((_, rest)) => rest,
+                        None => continue,
+                    };
+                    let containing_pretty = containing_pieces.join(delim);
+                    let containing_pretty_ustr = ustr(&containing_pretty);
+                    if let Some(containing_syms) = id_table.get(&containing_pretty_ustr) {
+                        for sym in containing_syms {
+                            if let Some(containing_meta) = meta_table.get_mut(&sym) {
+                                for field in &mut containing_meta.fields {
+                                    if let Some(kind_map) = table.get(&field.sym) {
+                                        if let Some(path_hits) = kind_map.get(&AnalysisKind::Use) {
+                                            for hits in path_hits.values() {
+                                                for hit in hits {
+                                                    for rule in &label_rule.labels {
+                                                        if hit.context.ends_with(rule.context_sym_suffix.as_str()) {
+                                                            field.labels.insert(rule.label.clone());
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -649,7 +744,7 @@ async fn main() {
     }
 
     // Consume the ontology logged span, pass it through our ontology-ingestion
-    // explainer template, and write it do sik.
+    // explainer template, and write it to disk.
     drop(ontology_entered);
     {
         let ingestion_json = logged_ontology_span.retrieve_serde_json().await;

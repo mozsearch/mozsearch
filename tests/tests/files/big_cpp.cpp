@@ -133,6 +133,11 @@ namespace outerNS {
 
 #define HUMAN_HP 100
 
+class CycleCollectingMagic {
+  virtual void unlink(void *raw) {
+  }
+};
+
 class Thing {
   protected:
   // Finally, an example class that could evolve into a MUD!
@@ -161,9 +166,6 @@ class Thing {
       mDefunct = true;
       damage = 0;
     }
-  }
-
-  virtual void unlink() {
   }
 };
 
@@ -344,10 +346,16 @@ class OuterCat : Thing {
 
   public:
 
-  void unlink() override {
-    mOwner = nullptr;
-    mFavoriteCouch = nullptr;
-  }
+  class CycleCollectingCat : CycleCollectingMagic {
+    void unlink(void *raw) override {
+      OuterCat *cat = (OuterCat *)raw;
+      cat->mOwner = nullptr;
+      cat->mFavoriteCouch = nullptr;
+    }
+  };
+
+  friend class CycleCollectingCat;
+
 
   void meet(Human &human) {
     human.ignore();

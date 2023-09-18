@@ -13,7 +13,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 451,
+                "lno": 459,
                 "bounds": [
                   6,
                   20
@@ -21,7 +21,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class StackArtHolder {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "451-451"
+                "peekRange": "459-459"
               }
             ]
           }

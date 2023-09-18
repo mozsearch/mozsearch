@@ -39,7 +39,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#157"
+        "def": "big_cpp.cpp#162"
       }
     },
     "_ZN7outerNS8OuterCat4meetERNS_5CouchE": {
@@ -74,7 +74,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#363"
+        "def": "big_cpp.cpp#371"
       }
     },
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
@@ -109,7 +109,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#402"
+        "def": "big_cpp.cpp#410"
       }
     },
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
@@ -144,7 +144,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#409"
+        "def": "big_cpp.cpp#417"
       }
     }
   },

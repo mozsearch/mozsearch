@@ -9,7 +9,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 436,
+            "lno": 444,
             "bounds": [
               13,
               18
@@ -17,7 +17,7 @@ expression: "&jv.value"
             "line": "virtual void beArt() = 0;",
             "context": "outerNS::AbstractArt",
             "contextsym": "T_outerNS::AbstractArt",
-            "peekRange": "434-436"
+            "peekRange": "442-444"
           }
         ]
       }
@@ -27,7 +27,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 445,
+            "lno": 453,
             "bounds": [
               5,
               10
@@ -35,7 +35,7 @@ expression: "&jv.value"
             "line": "void beArt() override {",
             "context": "outerNS::PracticalArt",
             "contextsym": "T_outerNS::PracticalArt",
-            "peekRange": "444-445",
+            "peekRange": "452-453",
             "upsearch": "symbol:_ZN7outerNS12PracticalArt5beArtEv"
           }
         ]

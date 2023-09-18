@@ -62,6 +62,12 @@ enum SplitState {
 /// using LSIF/similar indexing, in which case this method will likely want to
 /// become language aware and we would start only emitting a single record for
 /// a single symbol.
+///
+/// ## Observed problems:
+///
+/// On LLVM:
+/// - "In arg state with depth 1 when ran out of chars." seems to be happening
+///   on "llvm::raw_ostream::operator<<".
 pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
     // Split files based on their path delimiter.  It would be too weird for us
     // to map them to using "::".  We're also now using split_inclusive so the

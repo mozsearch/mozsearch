@@ -13,7 +13,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 170,
+                "lno": 172,
                 "bounds": [
                   5,
                   10
@@ -23,7 +23,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5Thing6ignoreEv"
               },
               {
-                "lno": 183,
+                "lno": 185,
                 "bounds": [
                   20,
                   25
@@ -33,7 +33,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Human"
               },
               {
-                "lno": 187,
+                "lno": 189,
                 "bounds": [
                   2,
                   7
@@ -43,7 +43,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5HumanC1Ev"
               },
               {
-                "lno": 209,
+                "lno": 211,
                 "bounds": [
                   21,
                   26
@@ -53,7 +53,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Couch"
               },
               {
-                "lno": 213,
+                "lno": 215,
                 "bounds": [
                   2,
                   7
@@ -63,7 +63,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5CouchC1Ei"
               },
               {
-                "lno": 225,
+                "lno": 227,
                 "bounds": [
                   17,
                   22
@@ -73,7 +73,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::OuterCat"
               },
               {
-                "lno": 265,
+                "lno": 267,
                 "bounds": [
                   2,
                   7
@@ -83,7 +83,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
               },
               {
-                "lno": 402,
+                "lno": 410,
                 "bounds": [
                   11,
                   16
@@ -93,7 +93,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
               },
               {
-                "lno": 409,
+                "lno": 417,
                 "bounds": [
                   13,
                   18
@@ -103,7 +103,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
               },
               {
-                "lno": 429,
+                "lno": 437,
                 "bounds": [
                   27,
                   32
@@ -113,7 +113,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::AbstractArt"
               },
               {
-                "lno": 432,
+                "lno": 440,
                 "bounds": [
                   2,
                   7
@@ -131,7 +131,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 136,
+                "lno": 141,
                 "bounds": [
                   6,
                   11
@@ -139,7 +139,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class Thing {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "136-136"
+                "peekRange": "141-141"
               }
             ]
           }
@@ -190,16 +190,6 @@ expression: "&to_value(scil).unwrap()"
             {
               "pretty": "outerNS::Thing::takeDamage",
               "sym": "_ZN7outerNS5Thing10takeDamageEi",
-              "props": [
-                "instance",
-                "virtual",
-                "user"
-              ],
-              "args": []
-            },
-            {
-              "pretty": "outerNS::Thing::unlink",
-              "sym": "_ZN7outerNS5Thing6unlinkEv",
               "props": [
                 "instance",
                 "virtual",

@@ -75,16 +75,6 @@ expression: "&to_value(grb).unwrap()"
             "args": []
           },
           {
-            "pretty": "outerNS::OuterCat::unlink",
-            "sym": "_ZN7outerNS8OuterCat6unlinkEv",
-            "props": [
-              "instance",
-              "virtual",
-              "user"
-            ],
-            "args": []
-          },
-          {
             "pretty": "outerNS::OuterCat::meet",
             "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
             "props": [
@@ -226,7 +216,7 @@ expression: "&to_value(grb).unwrap()"
         "props": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#225"
+        "def": "big_cpp.cpp#227"
       }
     },
     "T_outerNS::Thing": {
@@ -266,16 +256,6 @@ expression: "&to_value(grb).unwrap()"
           {
             "pretty": "outerNS::Thing::takeDamage",
             "sym": "_ZN7outerNS5Thing10takeDamageEi",
-            "props": [
-              "instance",
-              "virtual",
-              "user"
-            ],
-            "args": []
-          },
-          {
-            "pretty": "outerNS::Thing::unlink",
-            "sym": "_ZN7outerNS5Thing6unlinkEv",
             "props": [
               "instance",
               "virtual",
@@ -361,7 +341,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#136"
+        "def": "big_cpp.cpp#141"
       }
     },
     "_ZN7outerNS5Thing10takeDamageEi": {
@@ -399,7 +379,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#157"
+        "def": "big_cpp.cpp#162"
       }
     },
     "_ZN7outerNS8OuterCat4meetERNS_5CouchE": {
@@ -434,7 +414,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#363"
+        "def": "big_cpp.cpp#371"
       }
     },
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
@@ -469,7 +449,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#402"
+        "def": "big_cpp.cpp#410"
       }
     },
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
@@ -504,7 +484,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#409"
+        "def": "big_cpp.cpp#417"
       }
     }
   }
