@@ -13,7 +13,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 436,
+                "lno": 444,
                 "bounds": [
                   13,
                   18
@@ -21,7 +21,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "virtual void beArt() = 0;",
                 "context": "outerNS::AbstractArt",
                 "contextsym": "T_outerNS::AbstractArt",
-                "peekRange": "434-436"
+                "peekRange": "442-444"
               }
             ]
           }

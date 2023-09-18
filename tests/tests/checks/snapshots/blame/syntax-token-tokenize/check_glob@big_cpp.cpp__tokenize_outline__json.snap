@@ -69,6 +69,20 @@ expression: "&to_value(jvl).unwrap()"
     },
     {
       "value": {
+        "pretty": "outerNS::CycleCollectingMagic",
+        "isDef": true,
+        "kind": "class"
+      }
+    },
+    {
+      "value": {
+        "pretty": "outerNS::CycleCollectingMagic::unlink",
+        "isDef": true,
+        "kind": "method"
+      }
+    },
+    {
+      "value": {
         "pretty": "outerNS::Thing",
         "isDef": true,
         "kind": "class"
@@ -105,13 +119,6 @@ expression: "&to_value(jvl).unwrap()"
     {
       "value": {
         "pretty": "outerNS::Thing::takeDamage",
-        "isDef": true,
-        "kind": "method"
-      }
-    },
-    {
-      "value": {
-        "pretty": "outerNS::Thing::unlink",
         "isDef": true,
         "kind": "method"
       }
@@ -230,7 +237,14 @@ expression: "&to_value(jvl).unwrap()"
     },
     {
       "value": {
-        "pretty": "outerNS::OuterCat::unlink",
+        "pretty": "outerNS::OuterCat::CycleCollectingCat",
+        "isDef": true,
+        "kind": "class"
+      }
+    },
+    {
+      "value": {
+        "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink",
         "isDef": true,
         "kind": "method"
       }

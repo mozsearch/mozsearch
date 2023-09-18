@@ -4,7 +4,7 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00136:6-11",
+    "loc": "00141:6-11",
     "structured": 1,
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
@@ -31,15 +31,6 @@ expression: "&json_results"
       {
         "pretty": "outerNS::Thing::takeDamage",
         "sym": "_ZN7outerNS5Thing10takeDamageEi",
-        "props": [
-          "instance",
-          "virtual",
-          "user"
-        ]
-      },
-      {
-        "pretty": "outerNS::Thing::unlink",
-        "sym": "_ZN7outerNS5Thing6unlinkEv",
         "props": [
           "instance",
           "virtual",

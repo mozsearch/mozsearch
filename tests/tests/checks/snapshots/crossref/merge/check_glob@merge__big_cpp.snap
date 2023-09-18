@@ -194,45 +194,63 @@ expression: "&json_results"
     "sym": "M_4b46282064ef3d77"
   },
   {
-    "loc": "00136:6-11",
+    "loc": "00136:6-26",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::CycleCollectingMagic",
+    "sym": "T_outerNS::CycleCollectingMagic",
+    "peekRange": "136-136"
+  },
+  {
+    "loc": "00137:15-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::CycleCollectingMagic::unlink",
+    "sym": "_ZN7outerNS20CycleCollectingMagic6unlinkEPv",
+    "context": "outerNS::CycleCollectingMagic",
+    "contextsym": "T_outerNS::CycleCollectingMagic",
+    "peekRange": "137-137"
+  },
+  {
+    "loc": "00141:6-11",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "peekRange": "136-136"
+    "peekRange": "141-141"
   },
   {
-    "loc": "00142:6-9",
+    "loc": "00147:6-9",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Thing::mHP",
     "sym": "F_<T_outerNS::Thing>_mHP",
     "context": "outerNS::Thing",
     "contextsym": "T_outerNS::Thing",
-    "peekRange": "138-142"
+    "peekRange": "143-147"
   },
   {
-    "loc": "00146:7-15",
+    "loc": "00151:7-15",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Thing::mDefunct",
     "sym": "F_<T_outerNS::Thing>_mDefunct",
     "context": "outerNS::Thing",
     "contextsym": "T_outerNS::Thing",
-    "peekRange": "144-146"
+    "peekRange": "149-151"
   },
   {
-    "loc": "00149:2-7",
+    "loc": "00154:2-7",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei",
     "context": "outerNS::Thing",
     "contextsym": "T_outerNS::Thing",
-    "peekRange": "149-149"
+    "peekRange": "154-154"
   },
   {
-    "loc": "00150:4-7",
+    "loc": "00155:4-7",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::mHP",
@@ -241,7 +259,7 @@ expression: "&json_results"
     "contextsym": "T_outerNS::Thing"
   },
   {
-    "loc": "00151:4-12",
+    "loc": "00156:4-12",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::mDefunct",
@@ -250,27 +268,27 @@ expression: "&json_results"
     "contextsym": "T_outerNS::Thing"
   },
   {
-    "loc": "00155:7-13",
+    "loc": "00160:7-13",
     "target": 1,
     "kind": "decl",
     "pretty": "outerNS::Thing::ignore",
     "sym": "_ZN7outerNS5Thing6ignoreEv",
     "context": "outerNS::Thing",
     "contextsym": "T_outerNS::Thing",
-    "peekRange": "155-155"
+    "peekRange": "160-160"
   },
   {
-    "loc": "00157:15-25",
+    "loc": "00162:15-25",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Thing::takeDamage",
     "sym": "_ZN7outerNS5Thing10takeDamageEi",
     "context": "outerNS::Thing",
     "contextsym": "T_outerNS::Thing",
-    "peekRange": "157-157"
+    "peekRange": "162-162"
   },
   {
-    "loc": "00158:4-7",
+    "loc": "00163:4-7",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::mHP",
@@ -279,7 +297,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
   },
   {
-    "loc": "00161:6-14",
+    "loc": "00166:6-14",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::mDefunct",
@@ -288,25 +306,15 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
   },
   {
-    "loc": "00166:15-21",
-    "target": 1,
-    "kind": "def",
-    "pretty": "outerNS::Thing::unlink",
-    "sym": "_ZN7outerNS5Thing6unlinkEv",
-    "context": "outerNS::Thing",
-    "contextsym": "T_outerNS::Thing",
-    "peekRange": "166-166"
-  },
-  {
-    "loc": "00170:12-18",
+    "loc": "00172:12-18",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Thing::ignore",
     "sym": "_ZN7outerNS5Thing6ignoreEv",
-    "peekRange": "170-170"
+    "peekRange": "172-172"
   },
   {
-    "loc": "00170:5-10",
+    "loc": "00172:5-10",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -315,7 +323,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5Thing6ignoreEv"
   },
   {
-    "loc": "00183:20-25",
+    "loc": "00185:20-25",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -324,15 +332,15 @@ expression: "&json_results"
     "contextsym": "T_outerNS::Human"
   },
   {
-    "loc": "00183:6-11",
+    "loc": "00185:6-11",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Human",
     "sym": "T_outerNS::Human",
-    "peekRange": "183-183"
+    "peekRange": "185-185"
   },
   {
-    "loc": "00186:2-7",
+    "loc": "00188:2-7",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Human::Human",
@@ -341,14 +349,14 @@ expression: "&json_results"
     "contextsym": "T_outerNS::Human"
   },
   {
-    "loc": "00187:10-18",
+    "loc": "00189:10-18",
     "target": 1,
     "kind": "use",
     "pretty": "HUMAN_HP",
     "sym": "M_4b46282064ef3d77"
   },
   {
-    "loc": "00187:4-9",
+    "loc": "00189:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -357,7 +365,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5HumanC1Ev"
   },
   {
-    "loc": "00187:4-9",
+    "loc": "00189:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::Thing",
@@ -366,7 +374,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5HumanC1Ev"
   },
   {
-    "loc": "00192:25-30",
+    "loc": "00194:25-30",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human",
@@ -375,15 +383,15 @@ expression: "&json_results"
     "contextsym": "T_outerNS::Superhero"
   },
   {
-    "loc": "00192:6-15",
+    "loc": "00194:6-15",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Superhero",
     "sym": "T_outerNS::Superhero",
-    "peekRange": "192-192"
+    "peekRange": "194-194"
   },
   {
-    "loc": "00195:2-11",
+    "loc": "00197:2-11",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Superhero::Superhero",
@@ -392,7 +400,7 @@ expression: "&json_results"
     "contextsym": "T_outerNS::Superhero"
   },
   {
-    "loc": "00196:4-9",
+    "loc": "00198:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human",
@@ -401,7 +409,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS9SuperheroC1Ev"
   },
   {
-    "loc": "00196:4-9",
+    "loc": "00198:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human::Human",
@@ -410,17 +418,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS9SuperheroC1Ev"
   },
   {
-    "loc": "00200:7-17",
+    "loc": "00202:7-17",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Superhero::takeDamage",
     "sym": "_ZN7outerNS9Superhero10takeDamageEi",
     "context": "outerNS::Superhero",
     "contextsym": "T_outerNS::Superhero",
-    "peekRange": "200-200"
+    "peekRange": "202-202"
   },
   {
-    "loc": "00209:21-26",
+    "loc": "00211:21-26",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -429,25 +437,25 @@ expression: "&json_results"
     "contextsym": "T_outerNS::Couch"
   },
   {
-    "loc": "00209:6-11",
+    "loc": "00211:6-11",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Couch",
     "sym": "T_outerNS::Couch",
-    "peekRange": "209-209"
+    "peekRange": "211-211"
   },
   {
-    "loc": "00212:2-7",
+    "loc": "00214:2-7",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::Couch::Couch",
     "sym": "_ZN7outerNS5CouchC1Ei",
     "context": "outerNS::Couch",
     "contextsym": "T_outerNS::Couch",
-    "peekRange": "212-212"
+    "peekRange": "214-214"
   },
   {
-    "loc": "00213:4-9",
+    "loc": "00215:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -456,7 +464,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00213:4-9",
+    "loc": "00215:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::Thing",
@@ -465,7 +473,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00214:14-22",
+    "loc": "00216:14-22",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Superhero::Superhero",
@@ -474,7 +482,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00214:4-13",
+    "loc": "00216:4-13",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Superhero",
@@ -483,7 +491,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00215:20-29",
+    "loc": "00217:20-29",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Superhero",
@@ -492,7 +500,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00215:31-37",
+    "loc": "00217:31-37",
     "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector::WhatsYourVector<T>",
@@ -501,7 +509,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00215:4-19",
+    "loc": "00217:4-19",
     "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector",
@@ -510,7 +518,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00217:10-13",
+    "loc": "00219:10-13",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human::Human",
@@ -519,7 +527,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00217:4-9",
+    "loc": "00219:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human",
@@ -528,7 +536,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00218:20-25",
+    "loc": "00220:20-25",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human",
@@ -537,7 +545,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00218:27-45",
+    "loc": "00220:27-45",
     "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector::WhatsYourVector<T>",
@@ -546,7 +554,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00218:4-19",
+    "loc": "00220:4-19",
     "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector",
@@ -555,7 +563,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
-    "loc": "00220:11-51",
+    "loc": "00222:11-51",
     "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
@@ -563,11 +571,11 @@ expression: "&json_results"
     "context": "outerNS::Couch::Couch",
     "contextsym": "_ZN7outerNS5CouchC1Ei",
     "argRanges": [
-      "220:52-220:52"
+      "222:52-222:52"
     ]
   },
   {
-    "loc": "00221:23-63",
+    "loc": "00223:23-63",
     "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
@@ -575,11 +583,11 @@ expression: "&json_results"
     "context": "outerNS::Couch::Couch",
     "contextsym": "_ZN7outerNS5CouchC1Ei",
     "argRanges": [
-      "221:64-221:64"
+      "223:64-223:64"
     ]
   },
   {
-    "loc": "00225:17-22",
+    "loc": "00227:17-22",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -588,35 +596,35 @@ expression: "&json_results"
     "contextsym": "T_outerNS::OuterCat"
   },
   {
-    "loc": "00225:6-14",
+    "loc": "00227:6-14",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
-    "peekRange": "225-225"
+    "peekRange": "227-227"
   },
   {
-    "loc": "00239:7-18",
+    "loc": "00241:7-18",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::mIsFriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "227-239"
+    "peekRange": "229-241"
   },
   {
-    "loc": "00240:7-28",
+    "loc": "00242:7-28",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "240-240"
+    "peekRange": "242-242"
   },
   {
-    "loc": "00242:18-23",
+    "loc": "00244:18-23",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human",
@@ -625,17 +633,17 @@ expression: "&json_results"
     "contextsym": "T_outerNS::OuterCat"
   },
   {
-    "loc": "00242:25-31",
+    "loc": "00244:25-31",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::mOwner",
     "sym": "F_<T_outerNS::OuterCat>_mOwner",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "242-242"
+    "peekRange": "244-244"
   },
   {
-    "loc": "00242:7-17",
+    "loc": "00244:7-17",
     "target": 1,
     "kind": "use",
     "pretty": "std::shared_ptr",
@@ -644,7 +652,7 @@ expression: "&json_results"
     "contextsym": "T_outerNS::OuterCat"
   },
   {
-    "loc": "00243:2-7",
+    "loc": "00245:2-7",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Couch",
@@ -653,27 +661,27 @@ expression: "&json_results"
     "contextsym": "T_outerNS::OuterCat"
   },
   {
-    "loc": "00243:9-23",
+    "loc": "00245:9-23",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "243-243"
+    "peekRange": "245-245"
   },
   {
-    "loc": "00255:2-10",
+    "loc": "00257:2-10",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::OuterCat",
     "sym": "_ZN7outerNS8OuterCatC1Ebb",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "246-261"
+    "peekRange": "248-263"
   },
   {
-    "loc": "00255:2-10",
+    "loc": "00257:2-10",
     "target": 1,
     "kind": "use",
     "pretty": "std::shared_ptr::shared_ptr<_Tp>",
@@ -682,14 +690,14 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
   },
   {
-    "loc": "00265:14-22",
+    "loc": "00267:14-22",
     "target": 1,
     "kind": "use",
     "pretty": "HUMAN_HP",
     "sym": "M_4b46282064ef3d77"
   },
   {
-    "loc": "00265:4-9",
+    "loc": "00267:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -698,7 +706,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
   },
   {
-    "loc": "00265:4-9",
+    "loc": "00267:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::Thing",
@@ -707,7 +715,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
   },
   {
-    "loc": "00266:4-15",
+    "loc": "00268:4-15",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::mIsFriendly",
@@ -716,7 +724,7 @@ expression: "&json_results"
     "contextsym": "T_outerNS::OuterCat"
   },
   {
-    "loc": "00270:4-25",
+    "loc": "00272:4-25",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
@@ -725,17 +733,17 @@ expression: "&json_results"
     "contextsym": "T_outerNS::OuterCat"
   },
   {
-    "loc": "00318:7-20",
+    "loc": "00320:7-20",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::isFriendlyCat",
     "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "308-318"
+    "peekRange": "310-320"
   },
   {
-    "loc": "00319:11-22",
+    "loc": "00321:11-22",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::mIsFriendly",
@@ -744,17 +752,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat13isFriendlyCatEv"
   },
   {
-    "loc": "00322:7-27",
+    "loc": "00324:7-27",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
     "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "322-322"
+    "peekRange": "324-324"
   },
   {
-    "loc": "00334:11-32",
+    "loc": "00336:11-32",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
@@ -763,17 +771,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv"
   },
   {
-    "loc": "00337:7-38",
+    "loc": "00339:7-38",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
     "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "337-337"
+    "peekRange": "339-339"
   },
   {
-    "loc": "00338:8-28",
+    "loc": "00340:8-28",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
@@ -782,7 +790,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv"
   },
   {
-    "loc": "00342:11-24",
+    "loc": "00344:11-24",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::isFriendlyCat",
@@ -791,57 +799,103 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv"
   },
   {
-    "loc": "00347:7-13",
+    "loc": "00349:29-49",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::CycleCollectingMagic",
+    "sym": "T_outerNS::CycleCollectingMagic",
+    "context": "outerNS::OuterCat::CycleCollectingCat",
+    "contextsym": "T_outerNS::OuterCat::CycleCollectingCat"
+  },
+  {
+    "loc": "00349:8-26",
     "target": 1,
     "kind": "def",
-    "pretty": "outerNS::OuterCat::unlink",
-    "sym": "_ZN7outerNS8OuterCat6unlinkEv",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat",
+    "sym": "T_outerNS::OuterCat::CycleCollectingCat",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "347-347"
+    "peekRange": "349-349"
   },
   {
-    "loc": "00348:11-12",
+    "loc": "00350:9-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "sym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv",
+    "context": "outerNS::OuterCat::CycleCollectingCat",
+    "contextsym": "T_outerNS::OuterCat::CycleCollectingCat",
+    "peekRange": "350-350"
+  },
+  {
+    "loc": "00351:23-31",
     "target": 1,
     "kind": "use",
-    "pretty": "std::shared_ptr::operator=",
-    "sym": "_ZNSt10shared_ptraSEOSt10shared_ptrIT_E",
-    "context": "outerNS::OuterCat::unlink",
-    "contextsym": "_ZN7outerNS8OuterCat6unlinkEv",
-    "argRanges": [
-      "348:4-348:4",
-      "348:13-348:13"
-    ]
+    "pretty": "outerNS::OuterCat",
+    "sym": "T_outerNS::OuterCat",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
   },
   {
-    "loc": "00348:13-20",
+    "loc": "00351:6-14",
     "target": 1,
     "kind": "use",
-    "pretty": "std::shared_ptr::shared_ptr<_Tp>",
-    "sym": "_ZNSt10shared_ptrC1EDn",
-    "context": "outerNS::OuterCat::unlink",
-    "contextsym": "_ZN7outerNS8OuterCat6unlinkEv"
+    "pretty": "outerNS::OuterCat",
+    "sym": "T_outerNS::OuterCat",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
   },
   {
-    "loc": "00348:4-10",
+    "loc": "00352:11-17",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::mOwner",
     "sym": "F_<T_outerNS::OuterCat>_mOwner",
-    "context": "outerNS::OuterCat::unlink",
-    "contextsym": "_ZN7outerNS8OuterCat6unlinkEv"
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
   },
   {
-    "loc": "00349:4-18",
+    "loc": "00352:18-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "std::shared_ptr::operator=",
+    "sym": "_ZNSt10shared_ptraSEOSt10shared_ptrIT_E",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv",
+    "argRanges": [
+      "352:6-352:11",
+      "352:20-352:20"
+    ]
+  },
+  {
+    "loc": "00352:20-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "std::shared_ptr::shared_ptr<_Tp>",
+    "sym": "_ZNSt10shared_ptrC1EDn",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
+  },
+  {
+    "loc": "00353:11-25",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
-    "context": "outerNS::OuterCat::unlink",
-    "contextsym": "_ZN7outerNS8OuterCat6unlinkEv"
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
   },
   {
-    "loc": "00352:12-17",
+    "loc": "00357:15-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat",
+    "sym": "T_outerNS::OuterCat::CycleCollectingCat",
+    "context": "outerNS::OuterCat",
+    "contextsym": "T_outerNS::OuterCat"
+  },
+  {
+    "loc": "00360:12-17",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Human",
@@ -850,17 +904,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
   },
   {
-    "loc": "00352:7-11",
+    "loc": "00360:7-11",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "352-352"
+    "peekRange": "360-360"
   },
   {
-    "loc": "00353:10-16",
+    "loc": "00361:10-16",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::ignore",
@@ -869,7 +923,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
   },
   {
-    "loc": "00363:12-17",
+    "loc": "00371:12-17",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Couch",
@@ -878,17 +932,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
   },
   {
-    "loc": "00363:7-11",
+    "loc": "00371:7-11",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "356-363"
+    "peekRange": "364-371"
   },
   {
-    "loc": "00364:4-9",
+    "loc": "00372:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::shred",
@@ -896,11 +950,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::meet",
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
     "argRanges": [
-      "364:10-364:10"
+      "372:10-372:10"
     ]
   },
   {
-    "loc": "00366:9-22",
+    "loc": "00374:9-22",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::isFriendlyCat",
@@ -909,7 +963,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
   },
   {
-    "loc": "00374:6-13",
+    "loc": "00382:6-13",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::destroy",
@@ -917,11 +971,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::meet",
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
     "argRanges": [
-      "374:14-374:14"
+      "382:14-382:14"
     ]
   },
   {
-    "loc": "00375:15-46",
+    "loc": "00383:15-46",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
@@ -930,7 +984,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
   },
   {
-    "loc": "00395:6-13",
+    "loc": "00403:6-13",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::destroy",
@@ -938,11 +992,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::meet",
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
     "argRanges": [
-      "395:14-395:14"
+      "403:14-403:14"
     ]
   },
   {
-    "loc": "00402:13-18",
+    "loc": "00410:13-18",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -951,17 +1005,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
   },
   {
-    "loc": "00402:7-12",
+    "loc": "00410:7-12",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "399-402"
+    "peekRange": "407-410"
   },
   {
-    "loc": "00403:10-20",
+    "loc": "00411:10-20",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::takeDamage",
@@ -969,11 +1023,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::shred",
     "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "argRanges": [
-      "403:21-403:21"
+      "411:21-411:21"
     ]
   },
   {
-    "loc": "00409:15-20",
+    "loc": "00417:15-20",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -982,17 +1036,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
   },
   {
-    "loc": "00409:7-14",
+    "loc": "00417:7-14",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "406-409"
+    "peekRange": "414-417"
   },
   {
-    "loc": "00411:4-9",
+    "loc": "00419:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::shred",
@@ -1000,11 +1054,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::destroy",
     "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "argRanges": [
-      "411:10-411:10"
+      "419:10-419:10"
     ]
   },
   {
-    "loc": "00414:4-9",
+    "loc": "00422:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::shred",
@@ -1012,11 +1066,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::destroy",
     "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "argRanges": [
-      "414:10-414:10"
+      "422:10-422:10"
     ]
   },
   {
-    "loc": "00417:4-9",
+    "loc": "00425:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::shred",
@@ -1024,11 +1078,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::destroy",
     "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "argRanges": [
-      "417:10-417:10"
+      "425:10-425:10"
     ]
   },
   {
-    "loc": "00420:4-9",
+    "loc": "00428:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::shred",
@@ -1036,11 +1090,11 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::destroy",
     "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "argRanges": [
-      "420:10-420:10"
+      "428:10-428:10"
     ]
   },
   {
-    "loc": "00423:4-9",
+    "loc": "00431:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::shred",
@@ -1048,18 +1102,18 @@ expression: "&json_results"
     "context": "outerNS::OuterCat::destroy",
     "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "argRanges": [
-      "423:10-423:10"
+      "431:10-431:10"
     ]
   },
   {
-    "loc": "00427:8-14",
+    "loc": "00435:8-14",
     "target": 1,
     "kind": "def",
     "pretty": "ART_HP",
-    "sym": "M_99e28b2064ef3d77"
+    "sym": "M_872b8b2064ef3d77"
   },
   {
-    "loc": "00429:27-32",
+    "loc": "00437:27-32",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -1068,15 +1122,15 @@ expression: "&json_results"
     "contextsym": "T_outerNS::AbstractArt"
   },
   {
-    "loc": "00429:6-17",
+    "loc": "00437:6-17",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::AbstractArt",
     "sym": "T_outerNS::AbstractArt",
-    "peekRange": "429-429"
+    "peekRange": "437-437"
   },
   {
-    "loc": "00431:2-13",
+    "loc": "00439:2-13",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::AbstractArt::AbstractArt",
@@ -1085,14 +1139,14 @@ expression: "&json_results"
     "contextsym": "T_outerNS::AbstractArt"
   },
   {
-    "loc": "00432:10-16",
+    "loc": "00440:10-16",
     "target": 1,
     "kind": "use",
     "pretty": "ART_HP",
-    "sym": "M_99e28b2064ef3d77"
+    "sym": "M_872b8b2064ef3d77"
   },
   {
-    "loc": "00432:4-9",
+    "loc": "00440:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing",
@@ -1101,7 +1155,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS11AbstractArtC1Ev"
   },
   {
-    "loc": "00432:4-9",
+    "loc": "00440:4-9",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::Thing",
@@ -1110,17 +1164,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS11AbstractArtC1Ev"
   },
   {
-    "loc": "00436:15-20",
+    "loc": "00444:15-20",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::AbstractArt::beArt",
     "sym": "_ZN7outerNS11AbstractArt5beArtEv",
     "context": "outerNS::AbstractArt",
     "contextsym": "T_outerNS::AbstractArt",
-    "peekRange": "434-436"
+    "peekRange": "442-444"
   },
   {
-    "loc": "00439:28-39",
+    "loc": "00447:28-39",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::AbstractArt",
@@ -1129,15 +1183,15 @@ expression: "&json_results"
     "contextsym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00439:6-18",
+    "loc": "00447:6-18",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::PracticalArt",
     "sym": "T_outerNS::PracticalArt",
-    "peekRange": "439-439"
+    "peekRange": "447-447"
   },
   {
-    "loc": "00441:2-14",
+    "loc": "00449:2-14",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::PracticalArt::PracticalArt",
@@ -1146,7 +1200,7 @@ expression: "&json_results"
     "contextsym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00442:4-15",
+    "loc": "00450:4-15",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::AbstractArt",
@@ -1155,7 +1209,7 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS12PracticalArtC1Ev"
   },
   {
-    "loc": "00442:4-15",
+    "loc": "00450:4-15",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::AbstractArt::AbstractArt",
@@ -1164,17 +1218,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS12PracticalArtC1Ev"
   },
   {
-    "loc": "00445:7-12",
+    "loc": "00453:7-12",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::PracticalArt::beArt",
     "sym": "_ZN7outerNS12PracticalArt5beArtEv",
     "context": "outerNS::PracticalArt",
     "contextsym": "T_outerNS::PracticalArt",
-    "peekRange": "444-445"
+    "peekRange": "452-453"
   },
   {
-    "loc": "00447:4-7",
+    "loc": "00455:4-7",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::mHP",
@@ -1183,25 +1237,25 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS12PracticalArt5beArtEv"
   },
   {
-    "loc": "00451:6-20",
+    "loc": "00459:6-20",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::StackArtHolder",
     "sym": "T_outerNS::StackArtHolder",
-    "peekRange": "451-451"
+    "peekRange": "459-459"
   },
   {
-    "loc": "00452:16-24",
+    "loc": "00460:16-24",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::StackArtHolder::mHeldArt",
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
     "context": "outerNS::StackArtHolder",
     "contextsym": "T_outerNS::StackArtHolder",
-    "peekRange": "452-452"
+    "peekRange": "460-460"
   },
   {
-    "loc": "00452:2-14",
+    "loc": "00460:2-14",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::PracticalArt",
@@ -1210,7 +1264,7 @@ expression: "&json_results"
     "contextsym": "T_outerNS::StackArtHolder"
   },
   {
-    "loc": "00455:17-29",
+    "loc": "00463:17-29",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::PracticalArt",
@@ -1219,17 +1273,17 @@ expression: "&json_results"
     "contextsym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE"
   },
   {
-    "loc": "00455:2-16",
+    "loc": "00463:2-16",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::StackArtHolder::StackArtHolder",
     "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
     "context": "outerNS::StackArtHolder",
     "contextsym": "T_outerNS::StackArtHolder",
-    "peekRange": "455-455"
+    "peekRange": "463-463"
   },
   {
-    "loc": "00455:39-47",
+    "loc": "00463:39-47",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::StackArtHolder::mHeldArt",
@@ -1238,43 +1292,43 @@ expression: "&json_results"
     "contextsym": "T_outerNS::StackArtHolder"
   },
   {
-    "loc": "00458:10-17",
+    "loc": "00466:10-17",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS",
     "sym": "NS_outerNS::innerNS"
   },
   {
-    "loc": "00460:6-14",
+    "loc": "00468:6-14",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS::InnerCat",
     "sym": "T_outerNS::innerNS::InnerCat",
-    "peekRange": "460-460"
+    "peekRange": "468-468"
   },
   {
-    "loc": "00466:6-13",
+    "loc": "00474:6-13",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
-    "peekRange": "466-466"
+    "peekRange": "474-474"
   },
   {
-    "loc": "00478:6-21",
+    "loc": "00486:6-21",
     "target": 1,
     "kind": "def",
     "pretty": "outerNS::innerNS::NondebugAnonCat",
     "sym": "T_outerNS::innerNS::NondebugAnonCat",
-    "peekRange": "478-478"
+    "peekRange": "486-486"
   },
   {
-    "loc": "00491:5-33",
+    "loc": "00499:5-33",
     "target": 1,
     "kind": "def",
     "pretty": "i_was_declared_in_the_header",
     "sym": "i_was_declared_in_the_header",
-    "peekRange": "491-491"
+    "peekRange": "499-499"
   },
   {
     "loc": "00001:0",
@@ -1480,7 +1534,7 @@ expression: "&json_results"
     "syntax": "def,namespace",
     "pretty": "namespace outerNS",
     "sym": "NS_outerNS",
-    "nestingRange": "132:19-488:0"
+    "nestingRange": "132:19-496:0"
   },
   {
     "loc": "00134:8-16",
@@ -1490,15 +1544,41 @@ expression: "&json_results"
     "sym": "M_4b46282064ef3d77"
   },
   {
-    "loc": "00136:6-11",
+    "loc": "00136:6-26",
+    "source": 1,
+    "syntax": "def,type",
+    "pretty": "type outerNS::CycleCollectingMagic",
+    "sym": "T_outerNS::CycleCollectingMagic",
+    "nestingRange": "136:27-139:0"
+  },
+  {
+    "loc": "00137:15-21",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function outerNS::CycleCollectingMagic::unlink",
+    "sym": "_ZN7outerNS20CycleCollectingMagic6unlinkEPv",
+    "nestingRange": "137:33-138:2",
+    "type": "void (void *)"
+  },
+  {
+    "loc": "00137:28-31",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable raw",
+    "sym": "V_9cf90d25607c3527_fc4a88b",
+    "no_crossref": 1,
+    "type": "void *"
+  },
+  {
+    "loc": "00141:6-11",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "nestingRange": "136:12-168:0"
+    "nestingRange": "141:12-170:0"
   },
   {
-    "loc": "00142:6-9",
+    "loc": "00147:6-9",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field outerNS::Thing::mHP",
@@ -1506,7 +1586,7 @@ expression: "&json_results"
     "type": "int"
   },
   {
-    "loc": "00146:7-15",
+    "loc": "00151:7-15",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field outerNS::Thing::mDefunct",
@@ -1514,25 +1594,25 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00149:2-7",
+    "loc": "00154:2-7",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei",
-    "nestingRange": "151:20-153:2",
+    "nestingRange": "156:20-158:2",
     "type": "void (int)"
   },
   {
-    "loc": "00149:12-18",
+    "loc": "00154:12-18",
     "source": 1,
     "syntax": "",
     "pretty": "variable baseHP",
-    "sym": "V_5e0d3e25607c3527_812a493f256",
+    "sym": "V_18b23f25607c3527_812a493f256",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00150:4-7",
+    "loc": "00155:4-7",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::Thing::mHP",
@@ -1540,16 +1620,16 @@ expression: "&json_results"
     "type": "int"
   },
   {
-    "loc": "00150:8-14",
+    "loc": "00155:8-14",
     "source": 1,
     "syntax": "",
     "pretty": "variable baseHP",
-    "sym": "V_5e0d3e25607c3527_812a493f256",
+    "sym": "V_18b23f25607c3527_812a493f256",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00151:4-12",
+    "loc": "00156:4-12",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::Thing::mDefunct",
@@ -1557,7 +1637,7 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00155:7-13",
+    "loc": "00160:7-13",
     "source": 1,
     "syntax": "decl,function",
     "pretty": "function outerNS::Thing::ignore",
@@ -1565,25 +1645,25 @@ expression: "&json_results"
     "type": "void (void)"
   },
   {
-    "loc": "00157:15-25",
+    "loc": "00162:15-25",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::Thing::takeDamage",
     "sym": "_ZN7outerNS5Thing10takeDamageEi",
-    "nestingRange": "157:38-164:2",
+    "nestingRange": "162:38-169:2",
     "type": "void (int)"
   },
   {
-    "loc": "00157:30-36",
+    "loc": "00162:30-36",
     "source": 1,
     "syntax": "",
     "pretty": "variable damage",
-    "sym": "V_4e0d4f25607c3527_42c9b38f256",
+    "sym": "V_08b24035607c3527_42c9b38f256",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00158:4-7",
+    "loc": "00163:4-7",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::Thing::mHP",
@@ -1591,25 +1671,25 @@ expression: "&json_results"
     "type": "int"
   },
   {
-    "loc": "00158:11-17",
+    "loc": "00163:11-17",
     "source": 1,
     "syntax": "",
     "pretty": "variable damage",
-    "sym": "V_4e0d4f25607c3527_42c9b38f256",
+    "sym": "V_08b24035607c3527_42c9b38f256",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00160:8-14",
+    "loc": "00165:8-14",
     "source": 1,
     "syntax": "",
     "pretty": "variable damage",
-    "sym": "V_4e0d4f25607c3527_42c9b38f256",
+    "sym": "V_08b24035607c3527_42c9b38f256",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00161:6-14",
+    "loc": "00166:6-14",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::Thing::mDefunct",
@@ -1617,25 +1697,16 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00162:6-12",
+    "loc": "00167:6-12",
     "source": 1,
     "syntax": "",
     "pretty": "variable damage",
-    "sym": "V_4e0d4f25607c3527_42c9b38f256",
+    "sym": "V_08b24035607c3527_42c9b38f256",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00166:15-21",
-    "source": 1,
-    "syntax": "def,function",
-    "pretty": "function outerNS::Thing::unlink",
-    "sym": "_ZN7outerNS5Thing6unlinkEv",
-    "nestingRange": "166:24-167:2",
-    "type": "void (void)"
-  },
-  {
-    "loc": "00170:5-10",
+    "loc": "00172:5-10",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -1644,24 +1715,24 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00170:12-18",
+    "loc": "00172:12-18",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::Thing::ignore",
     "sym": "_ZN7outerNS5Thing6ignoreEv",
-    "nestingRange": "170:21-181:0",
+    "nestingRange": "172:21-183:0",
     "type": "void (void)"
   },
   {
-    "loc": "00183:6-11",
+    "loc": "00185:6-11",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
-    "nestingRange": "183:26-190:0"
+    "nestingRange": "185:26-192:0"
   },
   {
-    "loc": "00183:20-25",
+    "loc": "00185:20-25",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -1670,23 +1741,23 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00186:2-7",
+    "loc": "00188:2-7",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::Human::Human",
     "sym": "_ZN7outerNS5HumanC1Ev",
-    "nestingRange": "187:20-189:2",
+    "nestingRange": "189:20-191:2",
     "type": "void (void)"
   },
   {
-    "loc": "00187:4-9",
+    "loc": "00189:4-9",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
   {
-    "loc": "00187:4-9",
+    "loc": "00189:4-9",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -1695,22 +1766,22 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00187:10-18",
+    "loc": "00189:10-18",
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
     "sym": "M_4b46282064ef3d77"
   },
   {
-    "loc": "00192:6-15",
+    "loc": "00194:6-15",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::Superhero",
     "sym": "T_outerNS::Superhero",
-    "nestingRange": "192:31-207:0"
+    "nestingRange": "194:31-209:0"
   },
   {
-    "loc": "00192:25-30",
+    "loc": "00194:25-30",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
@@ -1719,23 +1790,23 @@ expression: "&json_results"
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00195:2-11",
+    "loc": "00197:2-11",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::Superhero::Superhero",
     "sym": "_ZN7outerNS9SuperheroC1Ev",
-    "nestingRange": "196:12-198:2",
+    "nestingRange": "198:12-200:2",
     "type": "void (void)"
   },
   {
-    "loc": "00196:4-9",
+    "loc": "00198:4-9",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::Human::Human",
     "sym": "_ZN7outerNS5HumanC1Ev"
   },
   {
-    "loc": "00196:4-9",
+    "loc": "00198:4-9",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
@@ -1744,33 +1815,33 @@ expression: "&json_results"
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00200:7-17",
+    "loc": "00202:7-17",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::Superhero::takeDamage",
     "sym": "_ZN7outerNS9Superhero10takeDamageEi",
-    "nestingRange": "200:39-206:2",
+    "nestingRange": "202:39-208:2",
     "type": "void (int)"
   },
   {
-    "loc": "00200:22-28",
+    "loc": "00202:22-28",
     "source": 1,
     "syntax": "",
     "pretty": "variable damage",
-    "sym": "V_a38abe45607c3527_42c9b38f256",
+    "sym": "V_cf0cce45607c3527_42c9b38f256",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00209:6-11",
+    "loc": "00211:6-11",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::Couch",
     "sym": "T_outerNS::Couch",
-    "nestingRange": "209:27-223:0"
+    "nestingRange": "211:27-225:0"
   },
   {
-    "loc": "00209:21-26",
+    "loc": "00211:21-26",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -1779,32 +1850,32 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00212:2-7",
+    "loc": "00214:2-7",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::Couch::Couch",
     "sym": "_ZN7outerNS5CouchC1Ei",
-    "nestingRange": "213:20-222:2",
+    "nestingRange": "215:20-224:2",
     "type": "void (int)"
   },
   {
-    "loc": "00212:12-19",
+    "loc": "00214:12-19",
     "source": 1,
     "syntax": "",
     "pretty": "variable couchHP",
-    "sym": "V_c59def45607c3527_f4afee3d1b0d",
+    "sym": "V_e12fff45607c3527_f4afee3d1b0d",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00213:4-9",
+    "loc": "00215:4-9",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
   {
-    "loc": "00213:4-9",
+    "loc": "00215:4-9",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -1813,16 +1884,16 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00213:11-18",
+    "loc": "00215:11-18",
     "source": 1,
     "syntax": "",
     "pretty": "variable couchHP",
-    "sym": "V_c59def45607c3527_f4afee3d1b0d",
+    "sym": "V_e12fff45607c3527_f4afee3d1b0d",
     "no_crossref": 1,
     "type": "int"
   },
   {
-    "loc": "00214:4-13",
+    "loc": "00216:4-13",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Superhero",
@@ -1831,31 +1902,31 @@ expression: "&json_results"
     "typesym": "T_outerNS::Superhero"
   },
   {
-    "loc": "00214:14-22",
+    "loc": "00216:14-22",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::Superhero::Superhero",
     "sym": "_ZN7outerNS9SuperheroC1Ev"
   },
   {
-    "loc": "00214:14-22",
+    "loc": "00216:14-22",
     "source": 1,
     "syntax": "",
     "pretty": "variable superBob",
-    "sym": "V_022fff45607c3527_74bc848dc87ea1",
+    "sym": "V_2ea01055607c3527_74bc848dc87ea1",
     "no_crossref": 1,
     "type": "Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
-    "loc": "00215:4-19",
+    "loc": "00217:4-19",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type WhatsYourVector",
     "sym": "T_WhatsYourVector"
   },
   {
-    "loc": "00215:20-29",
+    "loc": "00217:20-29",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Superhero",
@@ -1864,34 +1935,34 @@ expression: "&json_results"
     "typesym": "T_outerNS::Superhero"
   },
   {
-    "loc": "00215:31-37",
+    "loc": "00217:31-37",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor WhatsYourVector::WhatsYourVector<T>",
     "sym": "_ZN15WhatsYourVectorC1EPT_"
   },
   {
-    "loc": "00215:31-37",
+    "loc": "00217:31-37",
     "source": 1,
     "syntax": "",
     "pretty": "variable victor",
-    "sym": "V_0ce70055607c3527_c9114c22356",
+    "sym": "V_28791055607c3527_c9114c22356",
     "no_crossref": 1,
     "type": "WhatsYourVector<Superhero>",
     "typesym": "T_WhatsYourVector"
   },
   {
-    "loc": "00215:39-47",
+    "loc": "00217:39-47",
     "source": 1,
     "syntax": "",
     "pretty": "variable superBob",
-    "sym": "V_022fff45607c3527_74bc848dc87ea1",
+    "sym": "V_2ea01055607c3527_74bc848dc87ea1",
     "no_crossref": 1,
     "type": "Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
-    "loc": "00217:4-9",
+    "loc": "00219:4-9",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
@@ -1900,31 +1971,31 @@ expression: "&json_results"
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00217:10-13",
+    "loc": "00219:10-13",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::Human::Human",
     "sym": "_ZN7outerNS5HumanC1Ev"
   },
   {
-    "loc": "00217:10-13",
+    "loc": "00219:10-13",
     "source": 1,
     "syntax": "",
     "pretty": "variable bob",
-    "sym": "V_f3791055607c3527_872688b",
+    "sym": "V_100b2055607c3527_872688b",
     "no_crossref": 1,
     "type": "Human",
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00218:4-19",
+    "loc": "00220:4-19",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type WhatsYourVector",
     "sym": "T_WhatsYourVector"
   },
   {
-    "loc": "00218:20-25",
+    "loc": "00220:20-25",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
@@ -1933,44 +2004,44 @@ expression: "&json_results"
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00218:27-45",
+    "loc": "00220:27-45",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor WhatsYourVector::WhatsYourVector<T>",
     "sym": "_ZN15WhatsYourVectorC1EPT_"
   },
   {
-    "loc": "00218:27-45",
+    "loc": "00220:27-45",
     "source": 1,
     "syntax": "",
     "pretty": "variable goodReferenceRight",
-    "sym": "V_8c322055607c3527_bbca21f4b95005a5",
+    "sym": "V_149df055607c3527_bbca21f4b95005a5",
     "no_crossref": 1,
     "type": "WhatsYourVector<Human>",
     "typesym": "T_WhatsYourVector"
   },
   {
-    "loc": "00218:47-50",
+    "loc": "00220:47-50",
     "source": 1,
     "syntax": "",
     "pretty": "variable bob",
-    "sym": "V_f3791055607c3527_872688b",
+    "sym": "V_100b2055607c3527_872688b",
     "no_crossref": 1,
     "type": "Human",
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00220:4-10",
+    "loc": "00222:4-10",
     "source": 1,
     "syntax": "",
     "pretty": "variable victor",
-    "sym": "V_0ce70055607c3527_c9114c22356",
+    "sym": "V_28791055607c3527_c9114c22356",
     "no_crossref": 1,
     "type": "WhatsYourVector<Superhero>",
     "typesym": "T_WhatsYourVector"
   },
   {
-    "loc": "00220:11-51",
+    "loc": "00222:11-51",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
@@ -1978,21 +2049,21 @@ expression: "&json_results"
     "type": "elem_type",
     "typesym": "T_outerNS::Superhero",
     "argRanges": [
-      "220:52-220:52"
+      "222:52-222:52"
     ]
   },
   {
-    "loc": "00221:4-22",
+    "loc": "00223:4-22",
     "source": 1,
     "syntax": "",
     "pretty": "variable goodReferenceRight",
-    "sym": "V_8c322055607c3527_bbca21f4b95005a5",
+    "sym": "V_149df055607c3527_bbca21f4b95005a5",
     "no_crossref": 1,
     "type": "WhatsYourVector<Human>",
     "typesym": "T_WhatsYourVector"
   },
   {
-    "loc": "00221:23-63",
+    "loc": "00223:23-63",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
@@ -2000,19 +2071,19 @@ expression: "&json_results"
     "type": "elem_type",
     "typesym": "T_outerNS::Human",
     "argRanges": [
-      "221:64-221:64"
+      "223:64-223:64"
     ]
   },
   {
-    "loc": "00225:6-14",
+    "loc": "00227:6-14",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
-    "nestingRange": "225:23-425:0"
+    "nestingRange": "227:23-433:0"
   },
   {
-    "loc": "00225:17-22",
+    "loc": "00227:17-22",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -2021,7 +2092,7 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00239:7-18",
+    "loc": "00241:7-18",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field outerNS::OuterCat::mIsFriendly",
@@ -2029,7 +2100,7 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00240:7-28",
+    "loc": "00242:7-28",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field outerNS::OuterCat::mIsSecretlyUnfriendly",
@@ -2037,14 +2108,14 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00242:7-17",
+    "loc": "00244:7-17",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type std::shared_ptr",
     "sym": "T_std::shared_ptr"
   },
   {
-    "loc": "00242:18-23",
+    "loc": "00244:18-23",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
@@ -2053,7 +2124,7 @@ expression: "&json_results"
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00242:25-31",
+    "loc": "00244:25-31",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field outerNS::OuterCat::mOwner",
@@ -2062,7 +2133,7 @@ expression: "&json_results"
     "typesym": "T_std::shared_ptr"
   },
   {
-    "loc": "00243:2-7",
+    "loc": "00245:2-7",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Couch",
@@ -2071,7 +2142,7 @@ expression: "&json_results"
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00243:9-23",
+    "loc": "00245:9-23",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field outerNS::OuterCat::mFavoriteCouch",
@@ -2080,48 +2151,48 @@ expression: "&json_results"
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00255:2-10",
+    "loc": "00257:2-10",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor std::shared_ptr::shared_ptr<_Tp>",
     "sym": "_ZNSt10shared_ptrC1Ev"
   },
   {
-    "loc": "00255:2-10",
+    "loc": "00257:2-10",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::OuterCat::OuterCat",
     "sym": "_ZN7outerNS8OuterCatC1Ebb",
-    "nestingRange": "270:48-304:2",
+    "nestingRange": "272:48-306:2",
     "type": "void (_Bool, _Bool)"
   },
   {
-    "loc": "00255:16-26",
+    "loc": "00257:16-26",
     "source": 1,
     "syntax": "",
     "pretty": "variable beFriendly",
-    "sym": "V_780e8455607c3527_925a094997a10727",
+    "sym": "V_949f9455607c3527_925a094997a10727",
     "no_crossref": 1,
     "type": "_Bool"
   },
   {
-    "loc": "00261:9-29",
+    "loc": "00263:9-29",
     "source": 1,
     "syntax": "",
     "pretty": "variable beSecretlyUnfriendly",
-    "sym": "V_6951692064ef3d77_75b6f44f1cbf596d",
+    "sym": "V_81e1692064ef3d77_75b6f44f1cbf596d",
     "no_crossref": 1,
     "type": "_Bool"
   },
   {
-    "loc": "00265:4-9",
+    "loc": "00267:4-9",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
   {
-    "loc": "00265:4-9",
+    "loc": "00267:4-9",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -2130,14 +2201,14 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00265:14-22",
+    "loc": "00267:14-22",
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
     "sym": "M_4b46282064ef3d77"
   },
   {
-    "loc": "00266:4-15",
+    "loc": "00268:4-15",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsFriendly",
@@ -2145,16 +2216,16 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00266:16-26",
+    "loc": "00268:16-26",
     "source": 1,
     "syntax": "",
     "pretty": "variable beFriendly",
-    "sym": "V_780e8455607c3527_925a094997a10727",
+    "sym": "V_949f9455607c3527_925a094997a10727",
     "no_crossref": 1,
     "type": "_Bool"
   },
   {
-    "loc": "00270:4-25",
+    "loc": "00272:4-25",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsSecretlyUnfriendly",
@@ -2162,25 +2233,25 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00270:26-46",
+    "loc": "00272:26-46",
     "source": 1,
     "syntax": "",
     "pretty": "variable beSecretlyUnfriendly",
-    "sym": "V_6951692064ef3d77_75b6f44f1cbf596d",
+    "sym": "V_81e1692064ef3d77_75b6f44f1cbf596d",
     "no_crossref": 1,
     "type": "_Bool"
   },
   {
-    "loc": "00318:7-20",
+    "loc": "00320:7-20",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::OuterCat::isFriendlyCat",
     "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
-    "nestingRange": "318:23-320:2",
+    "nestingRange": "320:23-322:2",
     "type": "_Bool (void)"
   },
   {
-    "loc": "00319:11-22",
+    "loc": "00321:11-22",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsFriendly",
@@ -2188,16 +2259,16 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00322:7-27",
+    "loc": "00324:7-27",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::OuterCat::isSecretlyUnfriendly",
     "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
-    "nestingRange": "322:30-335:2",
+    "nestingRange": "324:30-337:2",
     "type": "_Bool (void)"
   },
   {
-    "loc": "00334:11-32",
+    "loc": "00336:11-32",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mIsSecretlyUnfriendly",
@@ -2205,16 +2276,16 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00337:7-38",
+    "loc": "00339:7-38",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
     "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
-    "nestingRange": "337:41-343:2",
+    "nestingRange": "339:41-345:2",
     "type": "_Bool (void)"
   },
   {
-    "loc": "00338:8-28",
+    "loc": "00340:8-28",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isSecretlyUnfriendly",
@@ -2222,7 +2293,7 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00342:11-24",
+    "loc": "00344:11-24",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isFriendlyCat",
@@ -2230,16 +2301,89 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00347:7-13",
+    "loc": "00349:8-26",
     "source": 1,
-    "syntax": "def,function",
-    "pretty": "function outerNS::OuterCat::unlink",
-    "sym": "_ZN7outerNS8OuterCat6unlinkEv",
-    "nestingRange": "347:25-350:2",
-    "type": "void (void)"
+    "syntax": "def,type",
+    "pretty": "type outerNS::OuterCat::CycleCollectingCat",
+    "sym": "T_outerNS::OuterCat::CycleCollectingCat",
+    "nestingRange": "349:50-355:2"
   },
   {
-    "loc": "00348:4-10",
+    "loc": "00349:29-49",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type outerNS::CycleCollectingMagic",
+    "sym": "T_outerNS::CycleCollectingMagic",
+    "type": "class outerNS::CycleCollectingMagic",
+    "typesym": "T_outerNS::CycleCollectingMagic"
+  },
+  {
+    "loc": "00350:9-15",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function outerNS::OuterCat::CycleCollectingCat::unlink",
+    "sym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv",
+    "nestingRange": "350:36-354:4",
+    "type": "void (void *)"
+  },
+  {
+    "loc": "00350:22-25",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable raw",
+    "sym": "V_06b4b975607c3527_fc4a88b",
+    "no_crossref": 1,
+    "type": "void *"
+  },
+  {
+    "loc": "00351:6-14",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type outerNS::OuterCat",
+    "sym": "T_outerNS::OuterCat",
+    "type": "class outerNS::OuterCat",
+    "typesym": "T_outerNS::OuterCat"
+  },
+  {
+    "loc": "00351:16-19",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable cat",
+    "sym": "V_4a7db975607c3527_df4688b",
+    "no_crossref": 1,
+    "type": "OuterCat *",
+    "typesym": "T_outerNS::OuterCat"
+  },
+  {
+    "loc": "00351:23-31",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type outerNS::OuterCat",
+    "sym": "T_outerNS::OuterCat",
+    "type": "class outerNS::OuterCat",
+    "typesym": "T_outerNS::OuterCat"
+  },
+  {
+    "loc": "00351:34-37",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable raw",
+    "sym": "V_06b4b975607c3527_fc4a88b",
+    "no_crossref": 1,
+    "type": "void *"
+  },
+  {
+    "loc": "00352:6-9",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable cat",
+    "sym": "V_4a7db975607c3527_df4688b",
+    "no_crossref": 1,
+    "type": "OuterCat *",
+    "typesym": "T_outerNS::OuterCat"
+  },
+  {
+    "loc": "00352:11-17",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mOwner",
@@ -2248,7 +2392,7 @@ expression: "&json_results"
     "typesym": "T_std::shared_ptr"
   },
   {
-    "loc": "00348:11-12",
+    "loc": "00352:18-19",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function std::shared_ptr::operator=",
@@ -2256,19 +2400,29 @@ expression: "&json_results"
     "type": "shared_ptr<Human> &",
     "typesym": "T_std::shared_ptr",
     "argRanges": [
-      "348:4-348:4",
-      "348:13-348:13"
+      "352:6-352:11",
+      "352:20-352:20"
     ]
   },
   {
-    "loc": "00348:13-20",
+    "loc": "00352:20-27",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor std::shared_ptr::shared_ptr<_Tp>",
     "sym": "_ZNSt10shared_ptrC1EDn"
   },
   {
-    "loc": "00349:4-18",
+    "loc": "00353:6-9",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable cat",
+    "sym": "V_4a7db975607c3527_df4688b",
+    "no_crossref": 1,
+    "type": "OuterCat *",
+    "typesym": "T_outerNS::OuterCat"
+  },
+  {
+    "loc": "00353:11-25",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mFavoriteCouch",
@@ -2277,16 +2431,25 @@ expression: "&json_results"
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00352:7-11",
+    "loc": "00357:15-33",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type outerNS::OuterCat::CycleCollectingCat",
+    "sym": "T_outerNS::OuterCat::CycleCollectingCat",
+    "type": "class outerNS::OuterCat::CycleCollectingCat",
+    "typesym": "T_outerNS::OuterCat::CycleCollectingCat"
+  },
+  {
+    "loc": "00360:7-11",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
-    "nestingRange": "352:26-354:2",
+    "nestingRange": "360:26-362:2",
     "type": "void (Human &)"
   },
   {
-    "loc": "00352:12-17",
+    "loc": "00360:12-17",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
@@ -2295,27 +2458,27 @@ expression: "&json_results"
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00352:19-24",
+    "loc": "00360:19-24",
     "source": 1,
     "syntax": "",
     "pretty": "variable human",
-    "sym": "V_8046c975607c3527_e79fa9f013",
+    "sym": "V_7c36da75607c3527_e79fa9f013",
     "no_crossref": 1,
     "type": "Human &",
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00353:4-9",
+    "loc": "00361:4-9",
     "source": 1,
     "syntax": "",
     "pretty": "variable human",
-    "sym": "V_8046c975607c3527_e79fa9f013",
+    "sym": "V_7c36da75607c3527_e79fa9f013",
     "no_crossref": 1,
     "type": "Human &",
     "typesym": "T_outerNS::Human"
   },
   {
-    "loc": "00353:10-16",
+    "loc": "00361:10-16",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::Thing::ignore",
@@ -2323,16 +2486,16 @@ expression: "&json_results"
     "type": "void"
   },
   {
-    "loc": "00363:7-11",
+    "loc": "00371:7-11",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
-    "nestingRange": "363:26-397:2",
+    "nestingRange": "371:26-405:2",
     "type": "void (Couch &)"
   },
   {
-    "loc": "00363:12-17",
+    "loc": "00371:12-17",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Couch",
@@ -2341,38 +2504,38 @@ expression: "&json_results"
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00363:19-24",
+    "loc": "00371:19-24",
     "source": 1,
     "syntax": "",
     "pretty": "variable couch",
-    "sym": "V_ae80fa75607c3527_7f65d3f013",
+    "sym": "V_9a800c75607c3527_7f65d3f013",
     "no_crossref": 1,
     "type": "Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00364:4-9",
+    "loc": "00372:4-9",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "type": "void",
     "argRanges": [
-      "364:10-364:10"
+      "372:10-372:10"
     ]
   },
   {
-    "loc": "00364:10-15",
+    "loc": "00372:10-15",
     "source": 1,
     "syntax": "",
     "pretty": "variable couch",
-    "sym": "V_ae80fa75607c3527_7f65d3f013",
+    "sym": "V_9a800c75607c3527_7f65d3f013",
     "no_crossref": 1,
     "type": "Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00366:9-22",
+    "loc": "00374:9-22",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isFriendlyCat",
@@ -2380,28 +2543,28 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00374:6-13",
+    "loc": "00382:6-13",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "type": "void",
     "argRanges": [
-      "374:14-374:14"
+      "382:14-382:14"
     ]
   },
   {
-    "loc": "00374:14-19",
+    "loc": "00382:14-19",
     "source": 1,
     "syntax": "",
     "pretty": "variable couch",
-    "sym": "V_ae80fa75607c3527_7f65d3f013",
+    "sym": "V_9a800c75607c3527_7f65d3f013",
     "no_crossref": 1,
     "type": "Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00375:15-46",
+    "loc": "00383:15-46",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
@@ -2409,37 +2572,37 @@ expression: "&json_results"
     "type": "_Bool"
   },
   {
-    "loc": "00395:6-13",
+    "loc": "00403:6-13",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "type": "void",
     "argRanges": [
-      "395:14-395:14"
+      "403:14-403:14"
     ]
   },
   {
-    "loc": "00395:14-19",
+    "loc": "00403:14-19",
     "source": 1,
     "syntax": "",
     "pretty": "variable couch",
-    "sym": "V_ae80fa75607c3527_7f65d3f013",
+    "sym": "V_9a800c75607c3527_7f65d3f013",
     "no_crossref": 1,
     "type": "Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
-    "loc": "00402:7-12",
+    "loc": "00410:7-12",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
-    "nestingRange": "402:27-404:2",
+    "nestingRange": "410:27-412:2",
     "type": "void (Thing &)"
   },
   {
-    "loc": "00402:13-18",
+    "loc": "00410:13-18",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -2448,60 +2611,11 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00402:20-25",
+    "loc": "00410:20-25",
     "source": 1,
     "syntax": "",
     "pretty": "variable thing",
-    "sym": "V_c3217995607c3527_f3fec60113",
-    "no_crossref": 1,
-    "type": "Thing &",
-    "typesym": "T_outerNS::Thing"
-  },
-  {
-    "loc": "00403:4-9",
-    "source": 1,
-    "syntax": "",
-    "pretty": "variable thing",
-    "sym": "V_c3217995607c3527_f3fec60113",
-    "no_crossref": 1,
-    "type": "Thing &",
-    "typesym": "T_outerNS::Thing"
-  },
-  {
-    "loc": "00403:10-20",
-    "source": 1,
-    "syntax": "function,use",
-    "pretty": "function outerNS::Thing::takeDamage",
-    "sym": "_ZN7outerNS5Thing10takeDamageEi",
-    "type": "void",
-    "argRanges": [
-      "403:21-403:21"
-    ]
-  },
-  {
-    "loc": "00409:7-14",
-    "source": 1,
-    "syntax": "def,function",
-    "pretty": "function outerNS::OuterCat::destroy",
-    "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
-    "nestingRange": "409:29-424:2",
-    "type": "void (Thing &)"
-  },
-  {
-    "loc": "00409:15-20",
-    "source": 1,
-    "syntax": "type,use",
-    "pretty": "type outerNS::Thing",
-    "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
-    "typesym": "T_outerNS::Thing"
-  },
-  {
-    "loc": "00409:22-27",
-    "source": 1,
-    "syntax": "",
-    "pretty": "variable thing",
-    "sym": "V_5e8ea995607c3527_f3fec60113",
+    "sym": "V_bf118a95607c3527_f3fec60113",
     "no_crossref": 1,
     "type": "Thing &",
     "typesym": "T_outerNS::Thing"
@@ -2509,125 +2623,35 @@ expression: "&json_results"
   {
     "loc": "00411:4-9",
     "source": 1,
-    "syntax": "function,use",
-    "pretty": "function outerNS::OuterCat::shred",
-    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
-    "type": "void",
-    "argRanges": [
-      "411:10-411:10"
-    ]
-  },
-  {
-    "loc": "00411:10-15",
-    "source": 1,
     "syntax": "",
     "pretty": "variable thing",
-    "sym": "V_5e8ea995607c3527_f3fec60113",
+    "sym": "V_bf118a95607c3527_f3fec60113",
     "no_crossref": 1,
     "type": "Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00414:4-9",
+    "loc": "00411:10-20",
     "source": 1,
     "syntax": "function,use",
-    "pretty": "function outerNS::OuterCat::shred",
-    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+    "pretty": "function outerNS::Thing::takeDamage",
+    "sym": "_ZN7outerNS5Thing10takeDamageEi",
     "type": "void",
     "argRanges": [
-      "414:10-414:10"
+      "411:21-411:21"
     ]
   },
   {
-    "loc": "00414:10-15",
+    "loc": "00417:7-14",
     "source": 1,
-    "syntax": "",
-    "pretty": "variable thing",
-    "sym": "V_5e8ea995607c3527_f3fec60113",
-    "no_crossref": 1,
-    "type": "Thing &",
-    "typesym": "T_outerNS::Thing"
+    "syntax": "def,function",
+    "pretty": "function outerNS::OuterCat::destroy",
+    "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+    "nestingRange": "417:29-432:2",
+    "type": "void (Thing &)"
   },
   {
-    "loc": "00417:4-9",
-    "source": 1,
-    "syntax": "function,use",
-    "pretty": "function outerNS::OuterCat::shred",
-    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
-    "type": "void",
-    "argRanges": [
-      "417:10-417:10"
-    ]
-  },
-  {
-    "loc": "00417:10-15",
-    "source": 1,
-    "syntax": "",
-    "pretty": "variable thing",
-    "sym": "V_5e8ea995607c3527_f3fec60113",
-    "no_crossref": 1,
-    "type": "Thing &",
-    "typesym": "T_outerNS::Thing"
-  },
-  {
-    "loc": "00420:4-9",
-    "source": 1,
-    "syntax": "function,use",
-    "pretty": "function outerNS::OuterCat::shred",
-    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
-    "type": "void",
-    "argRanges": [
-      "420:10-420:10"
-    ]
-  },
-  {
-    "loc": "00420:10-15",
-    "source": 1,
-    "syntax": "",
-    "pretty": "variable thing",
-    "sym": "V_5e8ea995607c3527_f3fec60113",
-    "no_crossref": 1,
-    "type": "Thing &",
-    "typesym": "T_outerNS::Thing"
-  },
-  {
-    "loc": "00423:4-9",
-    "source": 1,
-    "syntax": "function,use",
-    "pretty": "function outerNS::OuterCat::shred",
-    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
-    "type": "void",
-    "argRanges": [
-      "423:10-423:10"
-    ]
-  },
-  {
-    "loc": "00423:10-15",
-    "source": 1,
-    "syntax": "",
-    "pretty": "variable thing",
-    "sym": "V_5e8ea995607c3527_f3fec60113",
-    "no_crossref": 1,
-    "type": "Thing &",
-    "typesym": "T_outerNS::Thing"
-  },
-  {
-    "loc": "00427:8-14",
-    "source": 1,
-    "syntax": "def,macro",
-    "pretty": "macro ART_HP",
-    "sym": "M_99e28b2064ef3d77"
-  },
-  {
-    "loc": "00429:6-17",
-    "source": 1,
-    "syntax": "def,type",
-    "pretty": "type outerNS::AbstractArt",
-    "sym": "T_outerNS::AbstractArt",
-    "nestingRange": "429:33-437:0"
-  },
-  {
-    "loc": "00429:27-32",
+    "loc": "00417:15-20",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -2636,23 +2660,162 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00431:2-13",
+    "loc": "00417:22-27",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable thing",
+    "sym": "V_4a8eba95607c3527_f3fec60113",
+    "no_crossref": 1,
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
+  },
+  {
+    "loc": "00419:4-9",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function outerNS::OuterCat::shred",
+    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+    "type": "void",
+    "argRanges": [
+      "419:10-419:10"
+    ]
+  },
+  {
+    "loc": "00419:10-15",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable thing",
+    "sym": "V_4a8eba95607c3527_f3fec60113",
+    "no_crossref": 1,
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
+  },
+  {
+    "loc": "00422:4-9",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function outerNS::OuterCat::shred",
+    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+    "type": "void",
+    "argRanges": [
+      "422:10-422:10"
+    ]
+  },
+  {
+    "loc": "00422:10-15",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable thing",
+    "sym": "V_4a8eba95607c3527_f3fec60113",
+    "no_crossref": 1,
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
+  },
+  {
+    "loc": "00425:4-9",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function outerNS::OuterCat::shred",
+    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+    "type": "void",
+    "argRanges": [
+      "425:10-425:10"
+    ]
+  },
+  {
+    "loc": "00425:10-15",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable thing",
+    "sym": "V_4a8eba95607c3527_f3fec60113",
+    "no_crossref": 1,
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
+  },
+  {
+    "loc": "00428:4-9",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function outerNS::OuterCat::shred",
+    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+    "type": "void",
+    "argRanges": [
+      "428:10-428:10"
+    ]
+  },
+  {
+    "loc": "00428:10-15",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable thing",
+    "sym": "V_4a8eba95607c3527_f3fec60113",
+    "no_crossref": 1,
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
+  },
+  {
+    "loc": "00431:4-9",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function outerNS::OuterCat::shred",
+    "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+    "type": "void",
+    "argRanges": [
+      "431:10-431:10"
+    ]
+  },
+  {
+    "loc": "00431:10-15",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable thing",
+    "sym": "V_4a8eba95607c3527_f3fec60113",
+    "no_crossref": 1,
+    "type": "Thing &",
+    "typesym": "T_outerNS::Thing"
+  },
+  {
+    "loc": "00435:8-14",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro ART_HP",
+    "sym": "M_872b8b2064ef3d77"
+  },
+  {
+    "loc": "00437:6-17",
+    "source": 1,
+    "syntax": "def,type",
+    "pretty": "type outerNS::AbstractArt",
+    "sym": "T_outerNS::AbstractArt",
+    "nestingRange": "437:33-445:0"
+  },
+  {
+    "loc": "00437:27-32",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type outerNS::Thing",
+    "sym": "T_outerNS::Thing",
+    "type": "class outerNS::Thing",
+    "typesym": "T_outerNS::Thing"
+  },
+  {
+    "loc": "00439:2-13",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::AbstractArt::AbstractArt",
     "sym": "_ZN7outerNS11AbstractArtC1Ev",
-    "nestingRange": "432:18-432:19",
+    "nestingRange": "440:18-440:19",
     "type": "void (void)"
   },
   {
-    "loc": "00432:4-9",
+    "loc": "00440:4-9",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei"
   },
   {
-    "loc": "00432:4-9",
+    "loc": "00440:4-9",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
@@ -2661,14 +2824,14 @@ expression: "&json_results"
     "typesym": "T_outerNS::Thing"
   },
   {
-    "loc": "00432:10-16",
+    "loc": "00440:10-16",
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro ART_HP",
-    "sym": "M_99e28b2064ef3d77"
+    "sym": "M_872b8b2064ef3d77"
   },
   {
-    "loc": "00436:15-20",
+    "loc": "00444:15-20",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::AbstractArt::beArt",
@@ -2676,15 +2839,15 @@ expression: "&json_results"
     "type": "void (void)"
   },
   {
-    "loc": "00439:6-18",
+    "loc": "00447:6-18",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::PracticalArt",
     "sym": "T_outerNS::PracticalArt",
-    "nestingRange": "439:40-449:0"
+    "nestingRange": "447:40-457:0"
   },
   {
-    "loc": "00439:28-39",
+    "loc": "00447:28-39",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::AbstractArt",
@@ -2693,23 +2856,23 @@ expression: "&json_results"
     "typesym": "T_outerNS::AbstractArt"
   },
   {
-    "loc": "00441:2-14",
+    "loc": "00449:2-14",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::PracticalArt::PracticalArt",
     "sym": "_ZN7outerNS12PracticalArtC1Ev",
-    "nestingRange": "442:18-442:19",
+    "nestingRange": "450:18-450:19",
     "type": "void (void)"
   },
   {
-    "loc": "00442:4-15",
+    "loc": "00450:4-15",
     "source": 1,
     "syntax": "constructor,use",
     "pretty": "constructor outerNS::AbstractArt::AbstractArt",
     "sym": "_ZN7outerNS11AbstractArtC1Ev"
   },
   {
-    "loc": "00442:4-15",
+    "loc": "00450:4-15",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::AbstractArt",
@@ -2718,16 +2881,16 @@ expression: "&json_results"
     "typesym": "T_outerNS::AbstractArt"
   },
   {
-    "loc": "00445:7-12",
+    "loc": "00453:7-12",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::PracticalArt::beArt",
     "sym": "_ZN7outerNS12PracticalArt5beArtEv",
-    "nestingRange": "445:24-448:2",
+    "nestingRange": "453:24-456:2",
     "type": "void (void)"
   },
   {
-    "loc": "00447:4-7",
+    "loc": "00455:4-7",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::Thing::mHP",
@@ -2735,15 +2898,15 @@ expression: "&json_results"
     "type": "int"
   },
   {
-    "loc": "00451:6-20",
+    "loc": "00459:6-20",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::StackArtHolder",
     "sym": "T_outerNS::StackArtHolder",
-    "nestingRange": "451:21-456:0"
+    "nestingRange": "459:21-464:0"
   },
   {
-    "loc": "00452:2-14",
+    "loc": "00460:2-14",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::PracticalArt",
@@ -2752,7 +2915,7 @@ expression: "&json_results"
     "typesym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00452:16-24",
+    "loc": "00460:16-24",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field outerNS::StackArtHolder::mHeldArt",
@@ -2761,16 +2924,16 @@ expression: "&json_results"
     "typesym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00455:2-16",
+    "loc": "00463:2-16",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function outerNS::StackArtHolder::StackArtHolder",
     "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
-    "nestingRange": "455:54-455:55",
+    "nestingRange": "463:54-463:55",
     "type": "void (PracticalArt &)"
   },
   {
-    "loc": "00455:17-29",
+    "loc": "00463:17-29",
     "source": 1,
     "syntax": "type,use",
     "pretty": "type outerNS::PracticalArt",
@@ -2779,17 +2942,17 @@ expression: "&json_results"
     "typesym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00455:31-35",
+    "loc": "00463:31-35",
     "source": 1,
     "syntax": "",
     "pretty": "variable aArt",
-    "sym": "V_60233f95607c3527_de3639c71",
+    "sym": "V_5c1340a5607c3527_de3639c71",
     "no_crossref": 1,
     "type": "PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00455:39-47",
+    "loc": "00463:39-47",
     "source": 1,
     "syntax": "field,use",
     "pretty": "field outerNS::StackArtHolder::mHeldArt",
@@ -2798,58 +2961,58 @@ expression: "&json_results"
     "typesym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00455:48-52",
+    "loc": "00463:48-52",
     "source": 1,
     "syntax": "",
     "pretty": "variable aArt",
-    "sym": "V_60233f95607c3527_de3639c71",
+    "sym": "V_5c1340a5607c3527_de3639c71",
     "no_crossref": 1,
     "type": "PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
-    "loc": "00458:10-17",
+    "loc": "00466:10-17",
     "source": 1,
     "syntax": "def,namespace",
     "pretty": "namespace outerNS::innerNS",
     "sym": "NS_outerNS::innerNS",
-    "nestingRange": "458:19-486:0"
+    "nestingRange": "466:19-494:0"
   },
   {
-    "loc": "00460:6-14",
+    "loc": "00468:6-14",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::innerNS::InnerCat",
     "sym": "T_outerNS::innerNS::InnerCat",
-    "nestingRange": "460:15-462:0"
+    "nestingRange": "468:15-470:0"
   },
   {
-    "loc": "00466:6-13",
+    "loc": "00474:6-13",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
-    "nestingRange": "466:14-468:0"
+    "nestingRange": "474:14-476:0"
   },
   {
-    "loc": "00478:6-21",
+    "loc": "00486:6-21",
     "source": 1,
     "syntax": "def,type",
     "pretty": "type outerNS::innerNS::NondebugAnonCat",
     "sym": "T_outerNS::innerNS::NondebugAnonCat",
-    "nestingRange": "478:22-480:0"
+    "nestingRange": "486:22-488:0"
   },
   {
-    "loc": "00491:5-33",
+    "loc": "00499:5-33",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function i_was_declared_in_the_header",
     "sym": "i_was_declared_in_the_header",
-    "nestingRange": "491:36-495:0",
+    "nestingRange": "499:36-503:0",
     "type": "void (void)"
   },
   {
-    "loc": "00243:9-23",
+    "loc": "00245:9-23",
     "structured": 1,
     "pretty": "outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
@@ -2868,7 +3031,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00239:7-18",
+    "loc": "00241:7-18",
     "structured": 1,
     "pretty": "outerNS::OuterCat::mIsFriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
@@ -2887,7 +3050,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00240:7-28",
+    "loc": "00242:7-28",
     "structured": 1,
     "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
@@ -2906,7 +3069,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00242:25-31",
+    "loc": "00244:25-31",
     "structured": 1,
     "pretty": "outerNS::OuterCat::mOwner",
     "sym": "F_<T_outerNS::OuterCat>_mOwner",
@@ -2925,7 +3088,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00452:16-24",
+    "loc": "00460:16-24",
     "structured": 1,
     "pretty": "outerNS::StackArtHolder::mHeldArt",
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
@@ -2944,7 +3107,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00146:7-15",
+    "loc": "00151:7-15",
     "structured": 1,
     "pretty": "outerNS::Thing::mDefunct",
     "sym": "F_<T_outerNS::Thing>_mDefunct",
@@ -2963,7 +3126,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00142:6-9",
+    "loc": "00147:6-9",
     "structured": 1,
     "pretty": "outerNS::Thing::mHP",
     "sym": "F_<T_outerNS::Thing>_mHP",
@@ -3074,7 +3237,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00429:6-17",
+    "loc": "00437:6-17",
     "structured": 1,
     "pretty": "outerNS::AbstractArt",
     "sym": "T_outerNS::AbstractArt",
@@ -3164,7 +3327,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00209:6-11",
+    "loc": "00211:6-11",
     "structured": 1,
     "pretty": "outerNS::Couch",
     "sym": "T_outerNS::Couch",
@@ -3224,7 +3387,65 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00183:6-11",
+    "loc": "00136:6-26",
+    "structured": 1,
+    "pretty": "outerNS::CycleCollectingMagic",
+    "sym": "T_outerNS::CycleCollectingMagic",
+    "type_pretty": null,
+    "kind": "class",
+    "subsystem": null,
+    "implKind": "",
+    "sizeBytes": 8,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [
+      {
+        "pretty": "outerNS::CycleCollectingMagic::unlink",
+        "sym": "_ZN7outerNS20CycleCollectingMagic6unlinkEPv",
+        "props": [
+          "instance",
+          "virtual",
+          "user"
+        ],
+        "args": []
+      },
+      {
+        "pretty": "outerNS::CycleCollectingMagic::operator=",
+        "sym": "_ZN7outerNS20CycleCollectingMagicaSERKS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ],
+        "args": []
+      },
+      {
+        "pretty": "outerNS::CycleCollectingMagic::operator=",
+        "sym": "_ZN7outerNS20CycleCollectingMagicaSEOS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ],
+        "args": []
+      },
+      {
+        "pretty": "outerNS::CycleCollectingMagic::~CycleCollectingMagic",
+        "sym": "_ZN7outerNS20CycleCollectingMagicD1Ev",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "args": []
+      }
+    ],
+    "fields": [],
+    "overrides": [],
+    "props": []
+  },
+  {
+    "loc": "00185:6-11",
     "structured": 1,
     "pretty": "outerNS::Human",
     "sym": "T_outerNS::Human",
@@ -3304,7 +3525,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00225:6-14",
+    "loc": "00227:6-14",
     "structured": 1,
     "pretty": "outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
@@ -3354,16 +3575,6 @@ expression: "&json_results"
         "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
         "props": [
           "instance",
-          "user"
-        ],
-        "args": []
-      },
-      {
-        "pretty": "outerNS::OuterCat::unlink",
-        "sym": "_ZN7outerNS8OuterCat6unlinkEv",
-        "props": [
-          "instance",
-          "virtual",
           "user"
         ],
         "args": []
@@ -3492,7 +3703,70 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00439:6-18",
+    "loc": "00349:8-26",
+    "structured": 1,
+    "pretty": "outerNS::OuterCat::CycleCollectingCat",
+    "sym": "T_outerNS::OuterCat::CycleCollectingCat",
+    "type_pretty": null,
+    "kind": "class",
+    "subsystem": null,
+    "implKind": "",
+    "sizeBytes": 8,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [
+      {
+        "sym": "T_outerNS::CycleCollectingMagic",
+        "props": []
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink",
+        "sym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv",
+        "props": [
+          "instance",
+          "virtual",
+          "user"
+        ],
+        "args": []
+      },
+      {
+        "pretty": "outerNS::OuterCat::CycleCollectingCat::operator=",
+        "sym": "_ZN7outerNS8OuterCat18CycleCollectingCataSERKS1_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ],
+        "args": []
+      },
+      {
+        "pretty": "outerNS::OuterCat::CycleCollectingCat::operator=",
+        "sym": "_ZN7outerNS8OuterCat18CycleCollectingCataSEOS1_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ],
+        "args": []
+      },
+      {
+        "pretty": "outerNS::OuterCat::CycleCollectingCat::~CycleCollectingCat",
+        "sym": "_ZN7outerNS8OuterCat18CycleCollectingCatD1Ev",
+        "props": [
+          "instance",
+          "defaulted"
+        ],
+        "args": []
+      }
+    ],
+    "fields": [],
+    "overrides": [],
+    "props": []
+  },
+  {
+    "loc": "00447:6-18",
     "structured": 1,
     "pretty": "outerNS::PracticalArt",
     "sym": "T_outerNS::PracticalArt",
@@ -3562,7 +3836,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00451:6-20",
+    "loc": "00459:6-20",
     "structured": 1,
     "pretty": "outerNS::StackArtHolder",
     "sym": "T_outerNS::StackArtHolder",
@@ -3600,7 +3874,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00192:6-15",
+    "loc": "00194:6-15",
     "structured": 1,
     "pretty": "outerNS::Superhero",
     "sym": "T_outerNS::Superhero",
@@ -3690,7 +3964,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00136:6-11",
+    "loc": "00141:6-11",
     "structured": 1,
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
@@ -3724,16 +3998,6 @@ expression: "&json_results"
       {
         "pretty": "outerNS::Thing::takeDamage",
         "sym": "_ZN7outerNS5Thing10takeDamageEi",
-        "props": [
-          "instance",
-          "virtual",
-          "user"
-        ],
-        "args": []
-      },
-      {
-        "pretty": "outerNS::Thing::unlink",
-        "sym": "_ZN7outerNS5Thing6unlinkEv",
         "props": [
           "instance",
           "virtual",
@@ -3813,7 +4077,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00466:6-13",
+    "loc": "00474:6-13",
     "structured": 1,
     "pretty": "outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
@@ -3831,7 +4095,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00460:6-14",
+    "loc": "00468:6-14",
     "structured": 1,
     "pretty": "outerNS::innerNS::InnerCat",
     "sym": "T_outerNS::innerNS::InnerCat",
@@ -3849,7 +4113,7 @@ expression: "&json_results"
     "props": []
   },
   {
-    "loc": "00478:6-21",
+    "loc": "00486:6-21",
     "structured": 1,
     "pretty": "outerNS::innerNS::NondebugAnonCat",
     "sym": "T_outerNS::innerNS::NondebugAnonCat",
@@ -4005,7 +4269,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00436:15-20",
+    "loc": "00444:15-20",
     "structured": 1,
     "pretty": "outerNS::AbstractArt::beArt",
     "sym": "_ZN7outerNS11AbstractArt5beArtEv",
@@ -4029,7 +4293,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00431:2-13",
+    "loc": "00439:2-13",
     "structured": 1,
     "pretty": "outerNS::AbstractArt::AbstractArt",
     "sym": "_ZN7outerNS11AbstractArtC1Ev",
@@ -4052,7 +4316,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00445:7-12",
+    "loc": "00453:7-12",
     "structured": 1,
     "pretty": "outerNS::PracticalArt::beArt",
     "sym": "_ZN7outerNS12PracticalArt5beArtEv",
@@ -4080,7 +4344,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00441:2-14",
+    "loc": "00449:2-14",
     "structured": 1,
     "pretty": "outerNS::PracticalArt::PracticalArt",
     "sym": "_ZN7outerNS12PracticalArtC1Ev",
@@ -4103,7 +4367,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00455:2-16",
+    "loc": "00463:2-16",
     "structured": 1,
     "pretty": "outerNS::StackArtHolder::StackArtHolder",
     "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
@@ -4132,7 +4396,36 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00212:2-7",
+    "loc": "00137:15-21",
+    "structured": 1,
+    "pretty": "outerNS::CycleCollectingMagic::unlink",
+    "sym": "_ZN7outerNS20CycleCollectingMagic6unlinkEPv",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "parentsym": "T_outerNS::CycleCollectingMagic",
+    "implKind": "",
+    "sizeBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [
+      "instance",
+      "virtual",
+      "user"
+    ],
+    "args": [
+      {
+        "name": "raw",
+        "type": "void *"
+      }
+    ]
+  },
+  {
+    "loc": "00214:2-7",
     "structured": 1,
     "pretty": "outerNS::Couch::Couch",
     "sym": "_ZN7outerNS5CouchC1Ei",
@@ -4160,7 +4453,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00186:2-7",
+    "loc": "00188:2-7",
     "structured": 1,
     "pretty": "outerNS::Human::Human",
     "sym": "_ZN7outerNS5HumanC1Ev",
@@ -4183,7 +4476,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00157:15-25",
+    "loc": "00162:15-25",
     "structured": 1,
     "pretty": "outerNS::Thing::takeDamage",
     "sym": "_ZN7outerNS5Thing10takeDamageEi",
@@ -4212,7 +4505,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00170:12-18",
+    "loc": "00172:12-18",
     "structured": 1,
     "pretty": "outerNS::Thing::ignore",
     "sym": "_ZN7outerNS5Thing6ignoreEv",
@@ -4235,31 +4528,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00166:15-21",
-    "structured": 1,
-    "pretty": "outerNS::Thing::unlink",
-    "sym": "_ZN7outerNS5Thing6unlinkEv",
-    "type_pretty": null,
-    "kind": "method",
-    "subsystem": null,
-    "parentsym": "T_outerNS::Thing",
-    "implKind": "",
-    "sizeBytes": null,
-    "bindingSlots": [],
-    "ontologySlots": [],
-    "supers": [],
-    "methods": [],
-    "fields": [],
-    "overrides": [],
-    "props": [
-      "instance",
-      "virtual",
-      "user"
-    ],
-    "args": []
-  },
-  {
-    "loc": "00149:2-7",
+    "loc": "00154:2-7",
     "structured": 1,
     "pretty": "outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei",
@@ -4287,7 +4556,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00318:7-20",
+    "loc": "00320:7-20",
     "structured": 1,
     "pretty": "outerNS::OuterCat::isFriendlyCat",
     "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
@@ -4310,7 +4579,40 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00322:7-27",
+    "loc": "00350:9-15",
+    "structured": 1,
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "sym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "parentsym": "T_outerNS::OuterCat::CycleCollectingCat",
+    "implKind": "",
+    "sizeBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [
+      {
+        "sym": "_ZN7outerNS20CycleCollectingMagic6unlinkEPv"
+      }
+    ],
+    "props": [
+      "instance",
+      "virtual",
+      "user"
+    ],
+    "args": [
+      {
+        "name": "raw",
+        "type": "void *"
+      }
+    ]
+  },
+  {
+    "loc": "00324:7-27",
     "structured": 1,
     "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
     "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
@@ -4333,7 +4635,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00337:7-38",
+    "loc": "00339:7-38",
     "structured": 1,
     "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
     "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
@@ -4356,7 +4658,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00363:7-11",
+    "loc": "00371:7-11",
     "structured": 1,
     "pretty": "outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
@@ -4385,7 +4687,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00352:7-11",
+    "loc": "00360:7-11",
     "structured": 1,
     "pretty": "outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
@@ -4414,7 +4716,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00402:7-12",
+    "loc": "00410:7-12",
     "structured": 1,
     "pretty": "outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
@@ -4443,35 +4745,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00347:7-13",
-    "structured": 1,
-    "pretty": "outerNS::OuterCat::unlink",
-    "sym": "_ZN7outerNS8OuterCat6unlinkEv",
-    "type_pretty": null,
-    "kind": "method",
-    "subsystem": null,
-    "parentsym": "T_outerNS::OuterCat",
-    "implKind": "",
-    "sizeBytes": null,
-    "bindingSlots": [],
-    "ontologySlots": [],
-    "supers": [],
-    "methods": [],
-    "fields": [],
-    "overrides": [
-      {
-        "sym": "_ZN7outerNS5Thing6unlinkEv"
-      }
-    ],
-    "props": [
-      "instance",
-      "virtual",
-      "user"
-    ],
-    "args": []
-  },
-  {
-    "loc": "00409:7-14",
+    "loc": "00417:7-14",
     "structured": 1,
     "pretty": "outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
@@ -4500,7 +4774,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00255:2-10",
+    "loc": "00257:2-10",
     "structured": 1,
     "pretty": "outerNS::OuterCat::OuterCat",
     "sym": "_ZN7outerNS8OuterCatC1Ebb",
@@ -4532,7 +4806,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00200:7-17",
+    "loc": "00202:7-17",
     "structured": 1,
     "pretty": "outerNS::Superhero::takeDamage",
     "sym": "_ZN7outerNS9Superhero10takeDamageEi",
@@ -4565,7 +4839,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00195:2-11",
+    "loc": "00197:2-11",
     "structured": 1,
     "pretty": "outerNS::Superhero::Superhero",
     "sym": "_ZN7outerNS9SuperheroC1Ev",
@@ -4588,7 +4862,7 @@ expression: "&json_results"
     "args": []
   },
   {
-    "loc": "00491:5-33",
+    "loc": "00499:5-33",
     "structured": 1,
     "pretty": "i_was_declared_in_the_header",
     "sym": "i_was_declared_in_the_header",

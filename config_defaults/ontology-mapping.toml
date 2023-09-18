@@ -63,19 +63,50 @@ labels = ["class-diagram:stop"]
 [pretty."mozilla::dom::WorkerPrivate"]
 labels = ["class-diagram:stop"]
 
+# ### Refcounted Types ###
+
+[[pretty."nsAutoRefCnt".label_owning_class.labels]]
+label = "rc"
+
+# (Label atomic refcounted things as both "rc" and "arc".)
+[[pretty."mozilla::ThreadSafeAutoRefCnt".label_owning_class.labels]]
+label = "rc"
+[[pretty."mozilla::ThreadSafeAutoRefCnt".label_owning_class.labels]]
+label = "arc"
+
+[[pretty."nsCycleCollectingAutoRefCnt".label_owning_class.labels]]
+label = "rc"
+[[pretty."nsCycleCollectingAutoRefCnt".label_owning_class.labels]]
+label = "ccrc"
+
+[[pretty."mozilla::RefCounted".label_subclasses.labels]]
+label = "rc"
+
+# (Label atomic refcounted things as both "rc" and "arc".)
+[[pretty."mozilla::AtomicRefCounted".label_subclasses.labels]]
+label = "rc"
+[[pretty."mozilla::AtomicRefCounted".label_subclasses.labels]]
+label = "arc"
+
 # ### Cycle Collection ###
-[[pretty."nsXPCOMCycleCollectionParticipant".label_field_uses.labels]]
+# We use a containing class rule here because the participant is an inner class
+# of the cycle collected class.  Compare with the refcount objects which are
+# fields on the refcounted class.
+[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class.labels]]
+label = "cc"
+
+[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::cycleCollection::TraverseNative"
-label = "cc:traverse"
-[[pretty."nsXPCOMCycleCollectionParticipant".label_field_uses.labels]]
+label = "cc-traverse"
+[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::cycleCollection::Unlink"
-label = "cc:unlink"
+label = "cc-unlink"
 
 # ### Label Testing ###
 #
 # Okay, so, uh, these are only for testing.
 
-[[pretty."outerNS::Thing".label_field_uses.labels]]
+[[pretty."outerNS::CycleCollectingMagic".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::unlink"
 label = "cc:unlink"
 

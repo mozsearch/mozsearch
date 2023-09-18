@@ -16,19 +16,55 @@ pub struct OntologyRule {
     /// ontology slots allocated to point to the concrete constructors.
     #[serde(default)]
     pub runnable: bool,
-    pub label_field_uses: Option<OntologyLabelFieldUses>,
+    /// Given a base class, find all of its subclasses which are expected to be
+    /// inner classes and label the outer class that contains them.  This mainly
+    /// exists for detecting cycle collection where we have an inner class that
+    /// is glued to the containing class by macros.
+    pub label_containing_class: Option<OntologyLabelContainingClass>,
+    /// Given a base class, find all of its subclasses which are expected to be
+    /// inner classes, walk out to the containing class, then process all of its
+    /// fields' uses to see if any of them have a contextsym matching the given
+    /// "context_sym_suffix" and apply the labels if so.
+    ///
+    /// This very much exists for labeling cycle collected fields where the
+    /// traversal/unlink logic lives on an inner class that's glued to the
+    /// outer class with macros.  This could potentially be less hacky in terms
+    /// of the suffix mechanism, but there's not a clear upside at this point.
+    pub label_containing_class_field_uses: Option<OntologyLabelContainingClassFieldUses>,
+    /// Given a class that can be directly used as a field on objects, whenever
+    /// we see a field with this type, label the owning class with the given
+    /// labels.
+    pub label_owning_class: Option<OntologyLabelOwningClass>,
+    /// Labels that we always apply to the class.
     #[serde(default)]
     pub labels: Vec<Ustr>,
 }
 
 #[derive(Deserialize)]
-pub struct OntologyLabelFieldUses {
+pub struct OntologyLabelContainingClassFieldUses {
     #[serde(default)]
-    pub labels: Vec<OntologyLabelRule>,
+    pub labels: Vec<OntologyContextSymLabelRule>,
 }
 
 #[derive(Deserialize)]
-pub struct OntologyLabelRule {
+pub struct OntologyLabelContainingClass {
+    #[serde(default)]
+    pub labels: Vec<OntologyAlwaysLabelRule>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct OntologyLabelOwningClass {
+    #[serde(default)]
+    pub labels: Vec<OntologyAlwaysLabelRule>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct OntologyAlwaysLabelRule {
+    pub label: Ustr,
+}
+
+#[derive(Deserialize)]
+pub struct OntologyContextSymLabelRule {
     pub context_sym_suffix: Ustr,
     pub label: Ustr,
 }
@@ -139,7 +175,11 @@ impl OntologyMappingConfig {
     ///   - Atom for atomic: U+269B \u269B
     ///   -
     ///
-    /// Pending issues:
+    /// Definitely real issues from llvm:
+    /// - `llvm::MachineInstrBundleIterator::operator->` we get confused:
+    ///   "Saw '>' when not in an argument"
+    ///
+    /// XXX Previously Pending issues that maybe I fixed some:
     /// - closing state hates commas and then the new type:
     ///   `AutoTArray<RefPtr<nsFrameSelection>, 1>`
     /// - `NotNull<nsCOMPtr<mozIStorageConnection> >` getting id clobber
