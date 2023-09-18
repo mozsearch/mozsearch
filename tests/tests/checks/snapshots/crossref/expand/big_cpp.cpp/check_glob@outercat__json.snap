@@ -279,7 +279,10 @@ expression: "&to_value(scil).unwrap()"
             }
           ],
           "overrides": [],
-          "props": []
+          "props": [],
+          "labels": [
+            "cc"
+          ]
         }
       },
       "relation": "Queried",
