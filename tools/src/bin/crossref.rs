@@ -48,26 +48,43 @@ const EXTERNAL_STORAGE_THRESHOLD: usize = 1024 * 3;
 /// using LSIF/similar indexing, in which case this method will likely want to
 /// become language aware and we would start only emitting a single record for
 /// a single symbol.
-fn split_scopes(id: &str) -> Vec<String> {
+fn split_scopes(pretty: &str) -> Vec<&str> {
+    fn to_scope(component: &str) -> &str {
+        component.trim_matches(|c| matches!(c, '(' | ')' | '.'))
+    }
+
     let mut result = Vec::new();
     let mut start = 0;
     let mut argument_nesting = 0;
-    for (index, m) in id.match_indices(|c| c == ':' || c == '<' || c == '>') {
-        if m == ":" && argument_nesting == 0 {
-            if start != index {
-                result.push(id[start..index].to_owned());
-                start = index + 1;
-            } else {
-                start = index + 1;
-            }
-        } else if m == "<" {
+    for (index, m) in pretty.match_indices(|c| matches!(c,  ':' | '<' | '>' | '#' | '(' | ')' | ' ')) {
+        if m == "<" || m == "(" {
             argument_nesting += 1;
-        } else if m == ">" {
-            argument_nesting -= 1;
+            continue;
         }
+        if m == ">" || m == ")" {
+            argument_nesting -= 1;
+            continue;
+        }
+        if m == " " {
+            start = index + 1;
+            continue;
+        }
+        if argument_nesting != 0 {
+            continue;
+        }
+        if start != index {
+            let scope = to_scope(&pretty[start..index]);
+            if !scope.is_empty() {
+                result.push(scope);
+            }
+        }
+        start = index + 1;
     }
-    result.push(id[start..].to_owned());
-    return result;
+    let scope = to_scope(&pretty[start..]);
+    if !scope.is_empty() {
+        result.push(scope);
+    }
+    result
 }
 
 #[derive(Parser)]
@@ -522,7 +539,6 @@ async fn main() {
             for i in 0..components.len() {
                 let sub = &components[i..components.len()];
                 let sub = sub.join("::");
-
                 if !sub.is_empty() {
                     let line = format!("{} {}\n", sub, sym);
                     let _ = idf.write_all(line.as_bytes());
