@@ -6,6 +6,7 @@
 
   "trees": {
     "tests": {
+      "alias": "old-tests",
       "priority": 100,
       "on_error": "halt",
       "cache": "everything",
