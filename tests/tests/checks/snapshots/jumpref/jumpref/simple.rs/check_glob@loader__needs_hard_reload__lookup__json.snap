@@ -6,8 +6,8 @@ expression: "&to_value(jvl).unwrap()"
   "values": [
     {
       "value": {
-        "sym": "simple::<Loader>::needs_hard_reload",
-        "pretty": "simple::<Loader>::needs_hard_reload",
+        "sym": "rust_analyzer::cargo::files::0_1_0::Loader::needs_hard_reload",
+        "pretty": "files Loader#needs_hard_reload().",
         "jumps": {
           "def": "simple.rs#45"
         }
