@@ -19,6 +19,25 @@ export CARGO_TARGET_DIR=$OBJDIR
 cargo clean
 cargo build
 
+# TODO: Uncomment once https://github.com/rust-lang/rust-analyzer/pull/15633 is
+# merged.
+#
+# cat <<EOF >$OBJDIR/rust-analyzer.json
+# {
+#   "rust-analyzer.server.extraEnv": {
+#     "CARGO_TARGET_DIR": "$OBJDIR"
+#   }
+# }
+# EOF
+#
+# rust-analyzer scip . --output $OBJDIR/rust.scip --config-path $OBJDIR/rust-analyzer.json
+
+rust-analyzer scip . --output $OBJDIR/rust.scip
+
+# Remove artifacts in the wrong target directory created by rust-analyzer.
+# TODO: Remove once we can give it a target dir as per the above.
+rm -rf target/
+
 ## XPIDL Stuff
 XPIDL_SAVED_GENERATED_FILES=$MOZSEARCH_PATH/tests/tests/mc-generated
 XPIDL_SAVED_ANALYSIS_FILES=$MOZSEARCH_PATH/tests/tests/mc-analysis

@@ -7,7 +7,7 @@ expression: "&json_results"
     "loc": "00014:11-17",
     "target": 1,
     "kind": "def",
-    "pretty": "test_rust_dependency::<MyType>::do_foo",
-    "sym": "test_rust_dependency::<MyType>::do_foo"
+    "pretty": "test_rust_dependency MyType#do_foo().",
+    "sym": "rust_analyzer::cargo::test_rust_dependency::0_1_0::MyType::do_foo"
   }
 ]

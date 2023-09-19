@@ -26,7 +26,6 @@ flags_str = " ".join([ '-Xclang {}'.format(flag) for flag in flags ])
 env = {
     'CC': "clang %s" % flags_str,
     'CXX': "clang++ %s" % flags_str,
-    'RUSTFLAGS': "-Zsave-analysis",
 }
 
 for (k, v) in env.items():

@@ -69,12 +69,6 @@ expression: "&fb.contents"
     </thead>
     <tbody>
         <tr>
-          <td><a href="/tests/source/__GENERATED__/__RUST_BUILD_SCRIPT__" class="mimetype-fixed-container mimetype-icon-folder">__RUST_BUILD_SCRIPT__</a></td>
-          <td class="description"><a href="/tests/source/__GENERATED__/__RUST_BUILD_SCRIPT__" title=""></td>
-          <td><a href="/tests/source/__GENERATED__/__RUST_BUILD_SCRIPT__"></a></td>
-        </tr>
-
-        <tr>
           <td><a href="/tests/source/__GENERATED__/dist" class="mimetype-fixed-container mimetype-icon-folder">dist</a></td>
           <td class="description"><a href="/tests/source/__GENERATED__/dist" title=""></td>
           <td><a href="/tests/source/__GENERATED__/dist"></a></td>
