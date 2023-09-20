@@ -49,7 +49,7 @@ FONTELLO_ROOT=https://fontello.com
 # will be written to `.fontello-sid`.  We only need to do this if we don't have
 # a sufficiently recent SID.  We use `-mmin -1440` to express less than 24
 # hours because `-mtime` quantizes to days, and we use less than and negation
-# because we want to creat the file if it doesn't exist in addition to it being
+# because we want to create the file if it doesn't exist in addition to it being
 # too old.
 if [ ! "$(find .fontello-sid -mmin -1440)" ]; then
     curl --silent --show-error --fail --output .fontello-sid \
