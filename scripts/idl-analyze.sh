@@ -22,6 +22,18 @@ else
     TREE_PYMODULES="/tmp/pymodules"
     PULL_FROM_MC=1
 fi
+
+# Delete the temp dir if xpidl.py is older than a day (in minutes to avoid
+# quantization weirdness).  We'll also try and delete the dir if the file just
+# doesn't exist, which also means if the directory doesn't exist.  (We could
+# have instead done `-mmin +1440` for affirmative confirmation it's old, but
+# since our next check is just for the existence of the directory, this is least
+# likely to result in weirdness.)
+if [ ! "$(find $TREE_PYMODULES/xpidl.py -mmin -1440)" ]; then
+    rm -rf $TREE_PYMODULES
+fi
+
+# download/copy as needed
 if [ ! -d "${TREE_PYMODULES}" ]; then
     mkdir "${TREE_PYMODULES}"
     pushd "${TREE_PYMODULES}"
