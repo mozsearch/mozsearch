@@ -63,6 +63,22 @@ sudo pip3 install yq
 # dos2unix is used to normalize generated files from windows
 sudo apt-get install -y dos2unix
 
+# graphviz for diagramming
+#
+# The most recent release version is 9.0 but the version available in 22.04 is
+# 2.x, so we donwload and use the official packages provided by the graphviz
+# project on gitlab.
+GRAPHVIZ_DEB_BUNDLE=ubuntu_22.04_graphviz-9.0.0-debs.tar.xz
+if [ ! -d $HOME/graphviz-install ]; then
+  mkdir -p $HOME/graphviz-install
+  pushd $HOME/graphviz-install
+  curl -O https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/9.0.0/$GRAPHVIZ_DEB_BUNDLE
+  tar xvf $GRAPHVIZ_DEB_BUNDLE
+  # using constrained wildcards here to not care too much about these versions
+  sudo apt-get install -y ./graphviz_*_amd64.deb ./libgraphviz4_*_amd64.deb ./libgraphviz-dev_*_amd64.deb
+  popd
+fi
+
 # Prior livegrep deps, now rust wants libssl-dev still
 sudo apt-get install -y unzip libssl-dev
 
@@ -128,9 +144,6 @@ if [ ! -d livegrep ]; then
   mkdir -p "$SITEDIR"
   echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 fi
-
-# graphviz for diagramming
-sudo apt-get install -y graphviz
 
 # Install AWS scripts and command-line tool.
 #
