@@ -4,145 +4,148 @@ Mozsearch is the backend for the [Searchfox](https://searchfox.org)
 code indexing tool. Searchfox runs inside AWS, but you can develop on
 Searchfox locally using Vagrant.
 
-## Local Deps for VSCode development with rust-analyzer
+## Docker Setup For Local Development
 
-rust-analyzer is pretty great and works well.  You will probably have it installed
-if you've used VSCode with mozilla-central via `mach ide vscode`.  But because
-we've configured our build to use `lld` as the linker, you will need `lld` installed.
+We've moved from using Vagrant to docker for development because it's comparably
+painless and because, especially on linux, it's great for the searchfox container
+to be able to use all your CPU cores and only use memory when it needs it
+(instead of all the time).
 
-On Ubuntu, you can install this via:
-```
-apt install lld
-```
+That said, if you want to use something else, that's fine.  If you look at our
+docker scripts, they're just a bunch of shell scripts we run under Ubuntu and
+they're basically the same as they were under Vagrant.  And we also just run
+those scripts on top of a basic Ubuntu AMI for provisioning our instances.  If
+you can run Ubuntu under a VM, you can run Searchfox in there.
 
-If you don't install `lld`, it's not the end of the world, but rust-analyzer will
-be a little unhappy and have trouble with proc macros.  We can revisit this if
-people have trouble, but the development speed-up is currently quite nice.
+Could you run searchfox outside of a container/VM?  Probably?  But, dependencies
+are a hassle.
 
-## Vagrant setup for local development
+### Install docker.io
 
-### Setting up the VM
+Can you already run "docker" on your command line and have it work?  Then you
+can skip this section!
 
-We use Vagrant to setup a virtual machine.  This may be the most frustrating part of
-working with Searchfox.  If you can help provide better/more explicit instructions
-for your platform, please do!
+#### Important Docker Licensing Notes
 
-#### Linux
+Docker has changed their licensing of their "Docker Desktop" packages.  We do
+not recommend using Docker Desktop; you don't need it as long as you already
+are able to run Ubuntu directly or under (para)virtualization like WSL2.
 
-Important note: In order to expose the Searchfox source directory into the VM, we
-need to be able to export it via NFS.  If you are using a FUSE-style filesystem
-like `eCryptFS` which is a means of encrypting your home directory, things will not
-work.  You will need to move searchfox to a partition that's a normal block device
-(which includes LUKS-style encrypted partitions, etc.)
+If you do want to use it and you work at Mozilla, you should acquire a license
+through Service Desk before doing anything else.  If you already have a license,
+that's fine too.
 
-##### Ubuntu
+#### Installing on macOS/OS X
 
-```shell
-# make sure the apt package database is up-to-date
-sudo apt update
-# vagrant will also install vagrant-libvirt which is the vagrant provider we use.
-# virt-manager is a UI that helps inspect that your VM got created
-# The rest are related to enabling libvirt and KVM-based virtualization
-sudo apt install vagrant virt-manager qemu libvirt-daemon-system libvirt-clients
+I don't think anyone has tried this yet, but it seems like there are a variety
+of options.  Here are some I've just briefly researched:
+- Use podman.  https://podman.io/docs/installation explains how to use QEMU on
+  macOS.  Note that we don't currently have native podman docs or support, but
+  it's something that's come up a number of times, so this is something we
+  could support.
+- Use Colima: https://github.com/abiosoft/colima
+- Use lima, the thing that colima wraps: https://github.com/lima-vm/lima
 
-git clone https://github.com/mozsearch/mozsearch
-cd mozsearch
-git submodule update --init
-vagrant up
-```
-##### Other Linux
-Note: VirtualBox is an option on linux, but not recommended.
+If you use a thing and it works, please let us know and we can update these
+docs.  Or better yet, you can submit a pull request for this doc!
 
-1. [install Vagrant](https://www.vagrantup.com/downloads.html).
-2. Install libvirt via [vagrant-libvirt](https://github.com/vagrant-libvirt/vagrant-libvirt).
-   Follow the [installation instructions](https://github.com/vagrant-libvirt/vagrant-libvirt#installation).
-  - Note that if you didn't already have libvirt installed, then a new `libvirt`
-    group may just have been created and your existing logins won't have the
-    permissions necessary to talk to the management socket.  If you do
-    `exec su -l $USER` you can get access to your newly assigned group.
-  - See troubleshooting below if you have problems.
-  
-Once that's installed:
-```shell
-git clone https://github.com/mozsearch/mozsearch
-cd mozsearch
-git submodule update --init
-vagrant up
-```
+#### Installing on WSL2 on Windows 10 or Windows 11
 
-If vagrant up times out in the "Mounting NFS shared folders..." step, chances
-are that you cannot access nfs from the virtual machine.
+First, you need Ubuntu installed under WSL2.  If you already have a sufficiently
+up-to-date version (I would suggest Ubuntu 22.04 or later), you can skip this
+next step.
 
-Under stock Fedora 31, you probably need to allow libvirt to access nfs:
+From the windows store, install "Ubuntu 22.04.1 LTS" or whatever updated version
+there is.  Then I launched the "Terminal" app (which you may need to also
+install from the Windows store).  I used the drop-down arrow to the right of the
+add a tab "+" button and picked "Ubuntu 22.04.1 LTS".  This launched an
+installer that ran for ~30 seconds and then prompted me to be okay to switch
+back to the terminal.  Specific steps:
+- I picked my language (“English”)
+- I picked my username and entered a user password
+- On the “WSL configuration options” I left things at their default (“/mnt/” as the mount
+  location, empty mount option, and “enable host generation” and “enable resolv.conf”
+  generation checked.)
+- I chose the reboot option.
+- After the reboot, the terminal showed a terminal logged in as my user.
 
-```
-firewall-cmd --permanent --add-service=nfs --zone=libvirt
-firewall-cmd --permanent --add-service=rpc-bind --zone=libvirt
-firewall-cmd --permanent --add-service=mountd --zone=libvirt
-firewall-cmd --reload
-```
+Now let's keep going through the next sections.
 
-#### OS X and Windows
+#### Installing docker.io on WSL2 and Linux
 
-Note: The current Homebrew version of Vagrant is currently not able to use the most
-recent version of VirtualBox so it's recommended to install things directly via their
-installers.
+Run the following commands in your normal Linux terminal on Linux, and under
+WSL2 on Windows, use the Terminal app with your "Ubuntu 22.04.1 LTS" tab open.
 
-1. [install Vagrant](https://www.vagrantup.com/downloads.html).
-2. Figure out the right virtualization option for you.
-  - OS X:
-    - Are you on an M1 mac?  Then you probably need to get a license for Parallels
-      and use it, maybe.  And then you can do `vagrant plugin install vagrant-parallels`
-      below.
-    - Maybe get a license for parallels anyways?
-    - Otherwise do the virtualbox thing below.
-  - Windows,  Visit the [VirtualBox downloads page](https://www.virtualbox.org/wiki/Downloads) and
-    follow the instructions for your OS.  You do not need and should not install
-    any extra extensions.  You only need the Open Source piece and should avoid
-    installing anything closed source or with a commercial license.
+- `sudo apt update` to update the package registry, you may need to enter your
+  password because you’re using sudo.
+- `sudo apt install -y docker.io`
+- `sudo adduser $USER docker` to add yourself to the docker group.
+- Unfortunately you won’t effectively be in the group until you are running
+  under a fresh login.  There are 2 easy ways to do this and 1 annoying way:
+  1. If you are using windows terminal, you can close the existing tab and open
+     a new tab.  In the new tab, you should then see “docker” when you run
+     `groups`.
+  2. Run `su - $USER` and this will dump you in a freshly logged in shell where
+     you should see “docker” when you run `groups`.
+  3. Logout and login again.
+- Under WSL2: `sudo update-alternatives --config iptables` and pick the
+  “iptables-legacy” option, probably by hitting 1 and hitting enter.  This
+  switches iptables to legacy mode.  This was necessary to make docker.io happy
+  under WSL2 for me.
 
-Then clone Mozsearch and provision a Vagrant instance:
-```
-git clone https://github.com/mozsearch/mozsearch
-cd mozsearch
-git submodule update --init
+#### Installing deps that will make VS Code happy
 
-# If using VirtualBox; if using Parallels, install `vagrant-parallels`
-vagrant plugin install vagrant-vbguest
-vagrant up
-```
+VS Code is a very nice editor and it hooks up quite nicely to rust-analyzer via
+the language server protocol (LSP).  Rust-analyzer needs to run somewhere and
+VS code's remote support is quite excellent.  I personally do the following on
+these platforms:
+- On Windows, I install the following dependencies in the "Ubuntu 22.04.1 LTS"
+  install and then connect to it via VS code's support for connecting to WSL(2)
+  instances.  This results in rust-analyzer running in the WSL2 instance but not
+  inside the docker instance.  (I've never tried having it run inside docker;
+  that might not be a bad idea?)
+- On linux I just run VS code locally with no remote connections which means
+  rust-analyzer is running locally (and outside of the docker instance).  Having
+  the following things installed is still useful.
 
-### Once vagrant up has started...
+Installation steps:
+- Go to https://rustup.rs/ and copy and paste its command into your terminal.
+  What could go wrong?
+- `sudo apt install -y clang pkg-config libssl-dev cmake`
 
-The last step will take some time (10 or 15 minutes on a fast laptop)
-to download a lot of dependencies and build some tools locally.  **Note
-that this step can fail!**  Say, if you're at a Mozilla All-Hands and the
-network isn't exceedingly reliable.  In particular, if you are seeing
-errors related to host resolution and you have access to a VPN, it may
-be advisable to connect to the VPN.
+### Check out mozsearch
 
-A successful provisioning run will end with `mv update-log provision-update-log-2`.
+- Change into whatever directory you want to keep your “mozsearch” checkout in.
+- `git clone https://github.com/mozsearch/mozsearch.git` to check out searchfox
+  if you haven’t already
+- `git submodule update --init --recursive` to check out the relevant submodules
 
-In the event of failure you will want to run
-`vagrant destroy` to completely delete the VM and then
-run `vagrant up` again to re-create it.  The base image gets cached on
-your system, so you'll save ~1GB of download, but all the Ubuntu package
-installation will be re-done.
+### Now you can build and run the mozsearch docker container!
 
-After `vagrant up` completes, ssh into the VM as follows. From this point
-onward, all commands should be executed inside the VM.
+- Run `./build-docker.sh` to provision and setup the “VM” / container.  This
+  will run our shell scripts to create multiple layers of filesystem.  Note that
+  the "livegrep" build phase may seem to hang for several minutes at one point
+  when it's looking for boost dependencies and this is unfortunately expected.
+  Don't ctrl-c out (although it's harmless if you do, you can re-run the command
+  later).
+- Run `./run-docker.sh` to start up the VM/container.  It will shutdown when you
+  exit from the shell so leave the shell running to keep the web-server
+  accessible.
+- If you want more shells inside the VM, you can invoke `./run-docker.sh` from
+  other terminal tabs and they will connect to that same running container.
+  Note that if you log out of the first invocation that actually started the
+  container, it will close all the other terminals.
 
-```
-vagrant ssh
-```
-
-At this point, your Mozsearch git directory has been mounted into a
-shared folder at `/vagrant` in the VM. Any changes made from inside or
-outside the VM will be mirrored to the other side. Generally I find it
-best to edit code outside the VM, but any commands to build or run
-scripts must run inside the VM.
+Those scripts have default container, image, and volume names ("searchfox",
+"searchfox", "searchfox-vol") that can be overridden.  You would usually only do
+this if you want multiple orthogonal searchfox checkouts on the same machine.
+(But do note that currently the script does not make it possible to override the
+decision to use port 16995, so you can't run both containers at the same time.)
 
 ## Instant Fun with the Test Repo
+
+Once you are able to successfully `./run-docker.sh`, once you are inside at that
+shell, you can do the following:
 
 ```
 cd /vagrant
