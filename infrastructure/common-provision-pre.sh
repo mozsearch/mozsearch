@@ -63,6 +63,9 @@ sudo pip3 install yq
 # dos2unix is used to normalize generated files from windows
 sudo apt-get install -y dos2unix
 
+# emoji font so graphviz/pango understands emoji font metrics
+sudo apt-get install -y fonts-noto-color-emoji
+
 # graphviz for diagramming
 #
 # The most recent release version is 9.0 but the version available in 22.04 is
