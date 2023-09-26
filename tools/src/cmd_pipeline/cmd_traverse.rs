@@ -10,15 +10,20 @@ use ustr::{ustr, Ustr};
 use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues},
     symbol_graph::{
-        DerivedSymbolInfo, NamedSymbolGraph, SymbolBadge, SymbolGraphCollection, SymbolGraphNodeSet,
+        DerivedSymbolInfo, NamedSymbolGraph, SymbolBadge, SymbolGraphCollection,
+        SymbolGraphEdgeSet, SymbolGraphNodeSet,
     },
 };
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    file_format::analysis::{
-        BindingSlotKind, OntologySlotInfo, OntologySlotKind, StructuredBindingSlotInfo,
-        StructuredFieldInfo,
+    cmd_pipeline::symbol_graph::{EdgeDetail, EdgeKind},
+    file_format::{
+        analysis::{
+            BindingSlotKind, OntologySlotInfo, OntologySlotKind, StructuredBindingSlotInfo,
+            StructuredFieldInfo,
+        },
+        ontology_mapping::{label_to_badge_info, pointer_kind_to_badge_info},
     },
 };
 
@@ -27,21 +32,8 @@ use crate::{
 /// traversed symbols.
 #[derive(Debug, Args)]
 pub struct Traverse {
-    /// The edge to traverse, currently "uses" or "callees".
-    ///
-    /// ### SPECULATIVELY WRITTEN BUT LET'S SEE HOW WE HANDLE THE ABOVE FIRST ###
-    ///
-    /// The edge to traverse, this is either a 'kind' ("uses", "defs", "assignments",
-    /// "decls", "forwards", "idl", "ipc") or one of the synthetic edges ("calls-from",
-    /// "calls-to").
-    ///
-    /// The "calls-from" and "calls-to" synthetic edges have special behaviors:
-    /// - Ignores edges to nodes that are not 'callable' as indicated by their
-    ///   structured analysis "kind" being "function" or "method".
-    /// - Ignores edges to nodes that don't seem to be inside the same
-    ///
-    /// The fancy prototype previously did but we don't do yet:
-    /// - Ignores edges to nodes that are 'boring' as determined by hardcoded
+    /// The edge to traverse, currently one of: "uses", "callees", "class",
+    /// "inheritance".
     #[clap(long, short, value_parser, default_value = "callees")]
     edge: String,
 
@@ -67,6 +59,12 @@ pub struct Traverse {
     /// paths-between.
     #[clap(long, value_parser = clap::value_parser!(u32).range(16..=16384), default_value = "8192")]
     pub paths_between_node_limit: u32,
+    /// Maximum number of paths to consider for paths-between.  This value has
+    /// not been tested but is based on figuring 16 roots is a reasonable number
+    /// of roots, and then we could allow growing that by 4.  No clue how this
+    /// relates to actual performance.
+    #[clap(long, value_parser = clap::value_parser!(u32).range(16..=1024), default_value = "256")]
+    pub paths_limit: u32,
 
     /// If we see "uses" with this many paths with hits, do not process any of
     /// the uses.  This is path-centric because uses are hierarchically
@@ -105,16 +103,17 @@ pub struct TraverseCommand {
 /// we might use some combination of pre-computation which could involve bulk /
 /// batch processing.
 ///
-/// TODO continue this thought train, particularly as it relates to enumeration
-/// and consideration of edges.  A good comparison is the evolved processing we
-/// do in `cmd_crossref_expand.rs` now.  Via a helper it is able to separate the
-/// policy/domain logic from the boilerplate while also avoiding borrow
-/// problems.  It does have a simpler model where currently each node only needs
-/// to be considered at most once where the first relationship to reach a node
-/// via breadth-first search gets to define how the node is considered.  This is
-/// believed to be okay because there we're currently just trying to provide
-/// limited context for the returned symbols with a bias towards faceting,
-/// rather than big picture context.
+/// ### Specific traversals
+///
+/// We potentially traverse all of the following crossref paths:
+/// - "calls"
+/// - "meta/fields":
+/// - "meta/ontologySlots":
+/// - "meta/overrides":
+/// - "meta/overriddenBy":
+/// - "meta/slotOwner":
+/// - "uses":
+///
 #[async_trait]
 impl PipelineCommand for TraverseCommand {
     async fn execute(
@@ -134,6 +133,7 @@ impl PipelineCommand for TraverseCommand {
         };
 
         let mut sym_node_set = SymbolGraphNodeSet::new();
+        let mut sym_edge_set = SymbolGraphEdgeSet::new();
         let mut graph = NamedSymbolGraph::new("only".to_string());
 
         // A to-do list of nodes we have not yet traversed.
@@ -170,6 +170,38 @@ impl PipelineCommand for TraverseCommand {
             self.args.node_limit
         };
 
+        let stop_at_class_label = match self.args.edge.as_str() {
+            "class" => Some("class-diagram:stop"),
+            _ => None,
+        };
+
+        let traverse_callees = match self.args.edge.as_str() {
+            "callees" => true,
+            _ => false,
+        };
+        let traverse_fields = match self.args.edge.as_str() {
+            "class" => true,
+            _ => false,
+        };
+        let traverse_overridden_by = match self.args.edge.as_str() {
+            "inheritance" => true,
+            _ => false,
+        };
+        let traverse_overrides = match self.args.edge.as_str() {
+            "inheritance" => true,
+            "uses" => true,
+            _ => false,
+        };
+        let traverse_superclasses = match self.args.edge.as_str() {
+            "class" => true,
+            "inheritance" => true,
+            _ => false,
+        };
+        let traverse_uses = match self.args.edge.as_str() {
+            "uses" => true,
+            _ => false,
+        };
+
         // General operation:
         // - We pull a node to be traversed off the queue.  This ends up depth
         //   first.
@@ -194,68 +226,93 @@ impl PipelineCommand for TraverseCommand {
             };
 
             trace!(sym = %sym, depth, "processing");
+            let next_depth = depth + 1;
+            // Note that we will regularly end up dropping our `sym_info` borrow
+            // as we issue other calls to `ensure_symbol`.  In those cases, we
+            // can efficiently re-acquire a reference to our sym_info through
+            // `sym_node_set.get` or `sym_node_set.get_mut`.  Because we
+            // regularly go async, using `Rc` isn't a great alternative because
+            // it's not Send so we would need to step up to `Arc` and we don't
+            // really need that.
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
 
-            // Clone the edges now before engaging in additional borrows.
-            let edges = sym_info.crossref_info[&self.args.edge].clone();
-
-            let overrides = sym_info
-                .crossref_info
-                .pointer("/meta/overrides")
-                .unwrap_or(&Value::Null)
-                .clone();
-
-            let overridden_by = sym_info
-                .crossref_info
-                .pointer("/meta/overriddenBy")
-                .unwrap_or(&Value::Null)
-                .clone();
-
-            let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
-
-            if self.args.edge.as_str() == "class" {
+            if let Some(stop_at_label) = &stop_at_class_label {
                 if let Some(labels_json) = sym_info.crossref_info.pointer("/meta/labels").cloned() {
                     let labels: Vec<Ustr> = from_value(labels_json).unwrap();
                     let mut skip_symbol = false;
                     for label in labels {
-                        if label.as_str() == "class-diagram:stop" {
+                        if label.as_str() == *stop_at_label {
                             // Don't process the fields if we see a stop.  This is something
                             // manually specified in ontology-mapping.toml currently.
                             skip_symbol = true;
                         }
                     }
-                    if skip_symbol {
+                    // only skip if this isn't the requested symbol (depth == 0)
+                    if depth > 0 && skip_symbol {
                         continue;
                     }
                 }
+            }
+
+            // ## Clone the edges now before engaging in additional borrows.
+            let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
+
+            if traverse_fields {
                 if let Some(fields_json) = sym_info.crossref_info.pointer("/meta/fields").cloned() {
                     let fields: Vec<StructuredFieldInfo> = from_value(fields_json).unwrap();
                     for field in fields {
                         let mut show_field = field.labels.len() > 0;
 
-                        let mut target_ids = vec![];
+                        let mut targets = vec![];
                         for ptr_info in field.pointer_info {
                             show_field = true;
                             let (target_id, _) =
                                 sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
-                            if depth < max_depth && considered.insert(ptr_info.sym.clone()) {
+                            if next_depth < max_depth && considered.insert(ptr_info.sym.clone()) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
-                                to_traverse.push((ptr_info.sym.clone(), depth + 1));
+                                to_traverse.push((ptr_info.sym.clone(), next_depth));
                             }
-                            target_ids.push(target_id);
+
+                            // XXX consider moving the mapping here to the ontology file
+                            // or something that's not source code.
+                            let (pri, edge_kind, use_badge, use_class) =
+                                pointer_kind_to_badge_info(&ptr_info.kind);
+                            targets.push((
+                                target_id,
+                                pri,
+                                edge_kind,
+                                use_badge,
+                                vec![EdgeDetail::HoverClass(use_class.to_string())],
+                            ));
                         }
 
                         if show_field {
                             let (field_id, field_info) =
                                 sym_node_set.ensure_symbol(&field.sym, server).await?;
                             for label in field.labels {
+                                // XXX like above, consider moving the emoji label mapping here to
+                                // the ontology file or elsewhere.
+                                if let Some((pri, shorter_label)) = label_to_badge_info(&label) {
+                                    field_info.badges.push(SymbolBadge {
+                                        pri,
+                                        label: ustr(shorter_label),
+                                        source_jump: None,
+                                    });
+                                }
+                            }
+                            for (tgt_id, pri, edge_kind, ptr_badge, edge_details) in targets {
                                 field_info.badges.push(SymbolBadge {
-                                    label,
+                                    pri,
+                                    label: ustr(ptr_badge),
                                     source_jump: None,
                                 });
-                            }
-                            for tgt_id in target_ids {
-                                graph.add_edge(field_id.clone(), tgt_id);
+                                sym_edge_set.ensure_edge_in_graph(
+                                    field_id.clone(),
+                                    tgt_id,
+                                    edge_kind,
+                                    edge_details,
+                                    &mut graph,
+                                );
                             }
                         }
                     }
@@ -302,10 +359,17 @@ impl PipelineCommand for TraverseCommand {
                         if let Some(send_sym) = idl_info.get_binding_slot_sym("send") {
                             let (send_id, send_info) =
                                 sym_node_set.ensure_symbol(&send_sym, server).await?;
-                            graph.add_edge(send_id, sym_id.clone());
-                            if depth < max_depth && considered.insert(send_info.symbol.clone()) {
+                            sym_edge_set.ensure_edge_in_graph(
+                                send_id,
+                                sym_id.clone(),
+                                EdgeKind::IPC,
+                                vec![],
+                                &mut graph,
+                            );
+                            if next_depth < max_depth && considered.insert(send_info.symbol.clone())
+                            {
                                 trace!(sym = send_info.symbol.as_str(), "scheduling send slot sym");
-                                to_traverse.push((send_info.symbol.clone(), depth + 1));
+                                to_traverse.push((send_info.symbol.clone(), next_depth));
                             }
                         }
                         continue;
@@ -313,10 +377,16 @@ impl PipelineCommand for TraverseCommand {
                         // And so here we're, uh, just going to name-check the
                         // parent.
                         // TODO: further implement binding slot magic.
-                        graph.add_edge(idl_id, sym_id.clone());
-                        if depth < max_depth && considered.insert(idl_info.symbol.clone()) {
+                        sym_edge_set.ensure_edge_in_graph(
+                            idl_id,
+                            sym_id.clone(),
+                            EdgeKind::Implementation,
+                            vec![],
+                            &mut graph,
+                        );
+                        if next_depth < max_depth && considered.insert(idl_info.symbol.clone()) {
                             trace!(sym = idl_info.symbol.as_str(), "scheduling owner slot sym");
-                            to_traverse.push((idl_info.symbol.clone(), depth + 1));
+                            to_traverse.push((idl_info.symbol.clone(), next_depth));
                         }
                     }
                 }
@@ -340,13 +410,25 @@ impl PipelineCommand for TraverseCommand {
                         for rel_sym in slot.syms {
                             let (rel_id, _) = sym_node_set.ensure_symbol(&rel_sym, server).await?;
                             if upwards {
-                                graph.add_edge(rel_id, sym_id.clone());
+                                sym_edge_set.ensure_edge_in_graph(
+                                    rel_id,
+                                    sym_id.clone(),
+                                    EdgeKind::Default,
+                                    vec![],
+                                    &mut graph,
+                                );
                             } else {
-                                graph.add_edge(sym_id.clone(), rel_id);
+                                sym_edge_set.ensure_edge_in_graph(
+                                    sym_id.clone(),
+                                    rel_id,
+                                    EdgeKind::Default,
+                                    vec![],
+                                    &mut graph,
+                                );
                             }
-                            if depth < max_depth && considered.insert(rel_sym.clone()) {
+                            if next_depth < max_depth && considered.insert(rel_sym.clone()) {
                                 trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
-                                to_traverse.push((rel_sym.clone(), depth + 1));
+                                to_traverse.push((rel_sym.clone(), next_depth));
                             }
                         }
                         // For the case of runnables the override hierarchy is arguably a
@@ -362,14 +444,45 @@ impl PipelineCommand for TraverseCommand {
                 }
             }
 
-            // ## Handle "overrides" and "overriddenBy"
-            //
-            // We currently only walk up "overrides" for "uses" but we now will
-            // also process "overriddenBy" for "inheritance".
-            //
-            // Note that the logic below is highly duplicative
+            if traverse_superclasses {
+                let bad_data = || {
+                    ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::DataLayer,
+                        message: format!("Bad edge info in sym {sym} on meta superclasses"),
+                    })
+                };
 
-            if let Some(sym_edges) = overrides.as_array() {
+                let sym_info = sym_node_set.get(&sym_id);
+                let overrides = sym_info
+                    .crossref_info
+                    .pointer("/meta/supers")
+                    .unwrap_or(&Value::Array(vec![]))
+                    .clone();
+
+                for target in overrides.as_array().unwrap() {
+                    // overrides is { sym, pretty, props }
+                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
+                    let target_sym = ustr(target_sym_str);
+
+                    let (target_id, target_info) =
+                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+
+                    sym_edge_set.ensure_edge_in_graph(
+                        sym_id.clone(),
+                        target_id,
+                        EdgeKind::Inheritance,
+                        vec![],
+                        &mut graph,
+                    );
+
+                    if next_depth < max_depth && considered.insert(target_info.symbol.clone()) {
+                        trace!(sym = target_sym_str, "scheduling super");
+                        to_traverse.push((target_info.symbol.clone(), next_depth));
+                    }
+                }
+            }
+
+            if traverse_overrides {
                 let bad_data = || {
                     ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::DataLayer,
@@ -377,7 +490,14 @@ impl PipelineCommand for TraverseCommand {
                     })
                 };
 
-                for target in sym_edges {
+                let sym_info = sym_node_set.get(&sym_id);
+                let overrides = sym_info
+                    .crossref_info
+                    .pointer("/meta/overrides")
+                    .unwrap_or(&Value::Array(vec![]))
+                    .clone();
+
+                for target in overrides.as_array().unwrap() {
                     // overrides is { sym, pretty }
                     let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
                     let target_sym = ustr(target_sym_str);
@@ -385,145 +505,190 @@ impl PipelineCommand for TraverseCommand {
                     let (target_id, target_info) =
                         sym_node_set.ensure_symbol(&target_sym, server).await?;
 
-                    if target_info.is_callable() {
-                        if considered.insert(target_info.symbol.clone()) {
-                            // As a quasi-hack, only add this edge if we didn't
-                            // already queue the class for consideration to avoid
-                            // getting this edge twice thanks to the reciprocal
-                            // relationship we will see when considering it.
-                            //
-                            // This is only necessary because this is a case
-                            // where we are doing bi-directional traversal
-                            // because overrides are an equivalence class from
-                            // our perspective (right now, before actually
-                            // checking the definition of equivalence class. ;)
-                            graph.add_edge(target_id, sym_id.clone());
-                            if depth < max_depth {
-                                trace!(sym = target_sym_str, "scheduling overrides");
-                                to_traverse.push((target_info.symbol.clone(), depth + 1));
-                            }
+                    if considered.insert(target_info.symbol.clone()) {
+                        // As a quasi-hack, only add this edge if we didn't
+                        // already queue the class for consideration to avoid
+                        // getting this edge twice thanks to the reciprocal
+                        // relationship we will see when considering it.
+                        //
+                        // This is only necessary because this is a case
+                        // where we are doing bi-directional traversal
+                        // because overrides are an equivalence class from
+                        // our perspective (right now, before actually
+                        // checking the definition of equivalence class. ;)
+                        sym_edge_set.ensure_edge_in_graph(
+                            target_id,
+                            sym_id.clone(),
+                            EdgeKind::Inheritance,
+                            vec![],
+                            &mut graph,
+                        );
+                        if next_depth < max_depth {
+                            trace!(sym = target_sym_str, "scheduling overrides");
+                            to_traverse.push((target_info.symbol.clone(), next_depth));
                         }
                     }
                 }
             }
 
-            if self.args.edge.as_str() == "inheritance" {
-                if let Some(sym_edges) = overridden_by.as_array() {
-                    let bad_data = || {
-                        ServerError::StickyProblem(ErrorDetails {
-                            layer: ErrorLayer::DataLayer,
-                            message: format!("Bad edge info in sym {sym} on meta overriddenBy"),
-                        })
-                    };
-
-                    for target in sym_edges {
-                        // overriddenBy is just a bare symbol name currently
-                        let target_sym_str = target.as_str().ok_or_else(bad_data)?;
-                        let target_sym = ustr(target_sym_str);
-
-                        let (target_id, target_info) =
-                            sym_node_set.ensure_symbol(&target_sym, server).await?;
-
-                        if target_info.is_callable() {
-                            if considered.insert(target_info.symbol.clone()) {
-                                // Same rationale on avoiding a duplicate edge.
-                                graph.add_edge(target_id, sym_id.clone());
-                                if depth < max_depth {
-                                    trace!(sym = target_sym_str, "scheduling overridenBy");
-                                    to_traverse.push((target_info.symbol.clone(), depth + 1));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ## Handle the explicit edges
-            if let Some(sym_edges) = edges.as_array() {
+            if traverse_overridden_by {
                 let bad_data = || {
-                    let edge = self.args.edge.clone();
                     ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on edge {edge}"),
+                        message: format!("Bad edge info in sym {sym} on meta overriddenBy"),
                     })
                 };
-                match self.args.edge.as_str() {
-                    // Callees are synthetically derived from crossref and is a
-                    // flat list of { kind, pretty, sym }.  This differs from
-                    // most other edges which are path hit-lists.
-                    "callees" => {
-                        for target in sym_edges {
-                            let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
-                            let target_sym = ustr(target_sym_str);
-                            //let target_kind = target["kind"].as_str().ok_or_else(bad_data)?;
 
-                            let (target_id, target_info) =
-                                sym_node_set.ensure_symbol(&target_sym, server).await?;
+                let sym_info = sym_node_set.get(&sym_id);
+                let overridden_by = sym_info
+                    .crossref_info
+                    .pointer("/meta/overriddenBy")
+                    .unwrap_or(&Value::Array(vec![]))
+                    .clone();
 
-                            if target_info.is_callable() {
-                                graph.add_edge(sym_id.clone(), target_id);
-                                if depth < max_depth
-                                    && considered.insert(target_info.symbol.clone())
-                                {
-                                    trace!(sym = target_sym_str, "scheduling callees");
-                                    to_traverse.push((target_info.symbol.clone(), depth + 1));
-                                }
-                            }
+                for target in overridden_by.as_array().unwrap() {
+                    // overriddenBy is just a bare symbol name currently
+                    let target_sym_str = target.as_str().ok_or_else(bad_data)?;
+                    let target_sym = ustr(target_sym_str);
+
+                    let (target_id, target_info) =
+                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+
+                    if considered.insert(target_info.symbol.clone()) {
+                        // Same rationale on avoiding a duplicate edge.
+                        sym_edge_set.ensure_edge_in_graph(
+                            target_id,
+                            sym_id.clone(),
+                            EdgeKind::Inheritance,
+                            vec![],
+                            &mut graph,
+                        );
+                        if next_depth < max_depth {
+                            trace!(sym = target_sym_str, "scheduling overridenBy");
+                            to_traverse.push((target_info.symbol.clone(), next_depth));
                         }
                     }
-                    // Uses are path-hitlists and each array item has the form
-                    // { path, lines: [ { context, contextsym }] } eliding some
-                    // of the hit fields.  We really just care about the
-                    // contextsym.
-                    "uses" => {
-                        // Do not process the uses if there are more paths than our skip limit.
-                        if sym_edges.len() as u32 >= self.args.skip_uses_at_path_count {
-                            overloads_hit.push(OverloadInfo {
-                                kind: OverloadKind::UsesPaths,
-                                sym: Some(sym.to_string()),
-                                exist: sym_edges.len() as u32,
-                                included: 0,
-                                local_limit: self.args.skip_uses_at_path_count,
-                                global_limit: 0,
-                            });
+                }
+            }
+
+            if traverse_callees {
+                let bad_data = || {
+                    ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::DataLayer,
+                        message: format!("Bad edge info in sym {sym} on callees"),
+                    })
+                };
+
+                let sym_info = sym_node_set.get(&sym_id);
+                let callees = sym_info
+                    .crossref_info
+                    .pointer("/callees")
+                    .unwrap_or(&Value::Array(vec![]))
+                    .clone();
+
+                // Callees are synthetically derived from crossref and is a
+                // flat list of { kind, pretty, sym }.  This differs from
+                // most other edges which are path hit-lists.
+                for target in callees.as_array().unwrap() {
+                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
+                    let target_sym = ustr(target_sym_str);
+                    //let target_kind = target["kind"].as_str().ok_or_else(bad_data)?;
+
+                    let mut edge_info = vec![];
+                    if let Some(Value::String(jump)) = target.get("jump") {
+                        edge_info.push(EdgeDetail::Jump(jump.clone()));
+                    }
+
+                    let (target_id, target_info) =
+                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+
+                    if target_info.is_callable() {
+                        sym_edge_set.ensure_edge_in_graph(
+                            sym_id.clone(),
+                            target_id,
+                            EdgeKind::Default,
+                            edge_info,
+                            &mut graph,
+                        );
+                        if next_depth < max_depth && considered.insert(target_info.symbol.clone()) {
+                            trace!(sym = target_sym_str, "scheduling callees");
+                            to_traverse.push((target_info.symbol.clone(), next_depth));
+                        }
+                    }
+                }
+            }
+
+            if traverse_uses {
+                let bad_data = || {
+                    ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::DataLayer,
+                        message: format!("Bad edge info in sym {sym} on callees"),
+                    })
+                };
+
+                let sym_info = sym_node_set.get(&sym_id);
+                let uses_val = sym_info
+                    .crossref_info
+                    .pointer("/uses")
+                    .unwrap_or(&Value::Array(vec![]))
+                    .clone();
+                let uses = uses_val.as_array().unwrap();
+
+                // Do not process the uses if there are more paths than our skip limit.
+                if uses.len() as u32 >= self.args.skip_uses_at_path_count {
+                    overloads_hit.push(OverloadInfo {
+                        kind: OverloadKind::UsesPaths,
+                        sym: Some(sym.to_string()),
+                        exist: uses.len() as u32,
+                        included: 0,
+                        local_limit: self.args.skip_uses_at_path_count,
+                        global_limit: 0,
+                    });
+                    continue;
+                }
+
+                // We may see a use edge multiple times so we want to suppress it,
+                // but we don't want to use `considered` for this because that would
+                // hide cycles in the graph!
+                let mut use_considered = HashSet::new();
+
+                // Uses are path-hitlists and each array item has the form
+                // { path, lines: [ { context, contextsym }] } eliding some
+                // of the hit fields.  We really just care about the
+                // contextsym.
+                for path_hits in uses {
+                    let hits = path_hits["lines"].as_array().ok_or_else(bad_data)?;
+                    for source in hits {
+                        let source_sym_str = source["contextsym"].as_str().unwrap_or("");
+                        //let source_kind = source["kind"].as_str().ok_or_else(bad_data)?;
+
+                        if source_sym_str.is_empty() {
                             continue;
                         }
+                        let source_sym = ustr(source_sym_str);
 
-                        // We may see a use edge multiple times so we want to suppress it,
-                        // but we don't want to use `considered` for this because that would
-                        // hide cycles in the graph!
-                        let mut use_considered = HashSet::new();
-                        for path_hits in sym_edges {
-                            let hits = path_hits["lines"].as_array().ok_or_else(bad_data)?;
-                            for source in hits {
-                                let source_sym_str = source["contextsym"].as_str().unwrap_or("");
-                                //let source_kind = source["kind"].as_str().ok_or_else(bad_data)?;
+                        let (source_id, source_info) =
+                            sym_node_set.ensure_symbol(&source_sym, server).await?;
 
-                                if source_sym_str.is_empty() {
-                                    continue;
-                                }
-                                let source_sym = ustr(source_sym_str);
-
-                                let (source_id, source_info) =
-                                    sym_node_set.ensure_symbol(&source_sym, server).await?;
-
-                                if source_info.is_callable() {
-                                    // Only process this given use edge once.
-                                    if use_considered.insert(source_info.symbol.clone()) {
-                                        graph.add_edge(source_id, sym_id.clone());
-                                        if depth < max_depth
-                                            && considered.insert(source_info.symbol.clone())
-                                        {
-                                            trace!(sym = source_sym_str, "scheduling uses");
-                                            to_traverse
-                                                .push((source_info.symbol.clone(), depth + 1));
-                                        }
-                                    }
+                        if source_info.is_callable() {
+                            // Only process this given use edge once.
+                            if use_considered.insert(source_info.symbol.clone()) {
+                                sym_edge_set.ensure_edge_in_graph(
+                                    source_id,
+                                    sym_id.clone(),
+                                    EdgeKind::Default,
+                                    vec![],
+                                    &mut graph,
+                                );
+                                if next_depth < max_depth
+                                    && considered.insert(source_info.symbol.clone())
+                                {
+                                    trace!(sym = source_sym_str, "scheduling uses");
+                                    to_traverse.push((source_info.symbol.clone(), next_depth));
                                 }
                             }
                         }
                     }
-                    _ => {}
                 }
             }
         }
@@ -534,15 +699,22 @@ impl PipelineCommand for TraverseCommand {
             // expect it to have an order of magnitude more data than we want
             // in the result set.  So we build a new node set and graph.
             let mut paths_node_set = SymbolGraphNodeSet::new();
+            let mut paths_edge_set = SymbolGraphEdgeSet::new();
             let mut paths_graph = NamedSymbolGraph::new("paths".to_string());
             let mut suppression = HashSet::new();
-            for (source_node, target_node) in root_set.iter().tuple_combinations() {
+            for (source_node, target_node) in root_set
+                .iter()
+                .tuple_combinations()
+                .take(self.args.paths_limit as usize)
+            {
                 let node_paths = graph.all_simple_paths(source_node.clone(), target_node.clone());
                 trace!(path_count = node_paths.len(), "forward paths found");
                 sym_node_set.propagate_paths(
                     node_paths,
+                    &sym_edge_set,
                     &mut paths_graph,
                     &mut paths_node_set,
+                    &mut paths_edge_set,
                     &mut suppression,
                 );
 
@@ -550,13 +722,16 @@ impl PipelineCommand for TraverseCommand {
                 trace!(path_count = node_paths.len(), "reverse paths found");
                 sym_node_set.propagate_paths(
                     node_paths,
+                    &sym_edge_set,
                     &mut paths_graph,
                     &mut paths_node_set,
+                    &mut paths_edge_set,
                     &mut suppression,
                 );
             }
             SymbolGraphCollection {
                 node_set: paths_node_set,
+                edge_set: paths_edge_set,
                 graphs: vec![paths_graph],
                 overloads_hit,
                 hierarchical_graphs: vec![],
@@ -564,6 +739,7 @@ impl PipelineCommand for TraverseCommand {
         } else {
             SymbolGraphCollection {
                 node_set: sym_node_set,
+                edge_set: sym_edge_set,
                 graphs: vec![graph],
                 overloads_hit,
                 hierarchical_graphs: vec![],

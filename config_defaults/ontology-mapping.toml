@@ -60,6 +60,12 @@ labels = ["class-diagram:stop"]
 [pretty."nsGlobalWindowInner"]
 labels = ["class-diagram:stop"]
 
+[pretty."nsPIDOMWindowInner"]
+labels = ["class-diagram:stop"]
+
+[pretty."mozilla::DOMEventTargetHelper"]
+labels = ["class-diagram:stop"]
+
 [pretty."mozilla::dom::WorkerPrivate"]
 labels = ["class-diagram:stop"]
 
@@ -96,6 +102,9 @@ label = "arc"
 label = "cc"
 
 [[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
+context_sym_suffix = "::cycleCollection::Trace"
+label = "cc-trace"
+[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::cycleCollection::TraverseNative"
 label = "cc-traverse"
 [[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
@@ -111,7 +120,7 @@ label = "cc"
 
 [[pretty."outerNS::CycleCollectingMagic".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::unlink"
-label = "cc:unlink"
+label = "cc-unlink"
 
 # ### Value Types ###
 #
@@ -224,3 +233,18 @@ kind = "weak"
 
 [types."nsRefPtrHashKey".pointer]
 kind = "strong"
+
+[types."JS::Handle".pointer]
+kind = "gcref"
+
+[types."JS::Heap".pointer]
+kind = "gcref"
+
+[types."JS::TenuredHeap".pointer]
+kind = "gcref"
+
+[types."JS::MutableHandle".pointer]
+kind = "gcref"
+
+[types."JS::Rooted".pointer]
+kind = "gcref"

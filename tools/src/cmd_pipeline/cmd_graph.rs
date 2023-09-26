@@ -182,7 +182,7 @@ pub struct GraphCommand {
 /// Convert tunneled symbol identifiers in the SVG into `data-symbols`
 /// attributes.  Specific conversions:
 /// - `<title>` tags holding the node identifiers.
-/// - `<a xlink...>` tags holding links resulting from HTML labels./
+/// - `<a xlink...>` tags holding links resulting from HTML labels.
 ///
 /// Currently our general behavior is to drop anything that has an identifier
 /// that starts with "SYN_" and to assume that everything else is a valid

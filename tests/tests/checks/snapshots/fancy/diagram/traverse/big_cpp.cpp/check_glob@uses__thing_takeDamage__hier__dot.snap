@@ -14,14 +14,14 @@ digraph g {
             cluster=true
             label="OuterCat"
             "SYN_1"[shape=point,style=invis]
-            "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"[label="destroy"]
-            "_ZN7outerNS8OuterCat4meetERNS_5CouchE"[label="meet"]
-            "_ZN7outerNS8OuterCat5shredERNS_5ThingE"[label="shred"]
+            "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"[id=Gidn3,label="destroy"]
+            "_ZN7outerNS8OuterCat4meetERNS_5CouchE"[id=Gidn2,label="meet"]
+            "_ZN7outerNS8OuterCat5shredERNS_5ThingE"[id=Gidn1,label="shred"]
         }
-        "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" 
-        "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" 
-        "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" 
-        "T_outerNS::Thing"[shape=none,label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td href="T_outerNS%3A%3AThing" port="T_outerNS__Thing" align="left"><b>Thing</b></td></tr><tr><td href="_ZN7outerNS5Thing10takeDamageEi" port="_ZN7outerNS5Thing10takeDamageEi" align="left">&nbsp;takeDamage</td></tr></table>>]
+        "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" [style=solid,arrowhead=normal,id=Gide1]
+        "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" -> "_ZN7outerNS8OuterCat5shredERNS_5ThingE" [style=solid,arrowhead=normal,id=Gide2]
+        "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" [style=solid,arrowhead=normal,id=Gide3]
+        "T_outerNS::Thing"[shape=none,label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn5" href="T_outerNS%3A%3AThing" port="T_outerNS__Thing" align="left"><b>Thing</b></td></tr><tr><td id="Gidn0" href="_ZN7outerNS5Thing10takeDamageEi" port="_ZN7outerNS5Thing10takeDamageEi" align="left">&nbsp;takeDamage</td></tr></table>>]
     }
-    "_ZN7outerNS8OuterCat5shredERNS_5ThingE" -> "T_outerNS::Thing":"_ZN7outerNS5Thing10takeDamageEi":w 
+    "_ZN7outerNS8OuterCat5shredERNS_5ThingE" -> "T_outerNS::Thing":"_ZN7outerNS5Thing10takeDamageEi":w [style=solid,arrowhead=normal,id=Gide0]
 }

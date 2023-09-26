@@ -35,6 +35,12 @@ impl From<regex::Error> for ServerError {
 
 impl From<tokio::task::JoinError> for ServerError {
     fn from(err: tokio::task::JoinError) -> ServerError {
+        /*
+        if let Ok(reason) = err.try_into_panic() {
+            // Resume the panic on the main task
+            std::panic::resume_unwind(reason);
+        }
+        */
         ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::RuntimeInvariantViolation,
             message: format!("task panicked?: {}", err.to_string()),

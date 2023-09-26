@@ -1124,3 +1124,34 @@ input::placeholder {
 .cov-log10-9 {
   background-color: var(--cov-hit-unhovered-background, var(--cov-hit-background-5));
 }
+
+/* ## Class Diagram Styling ## */
+/* Everything about diagrams needs some kind of dark mode support.
+ *
+ * Our diagram pointer background colors come from the ColorBrewer2 diverging
+ * PiYG scheme with 11 steps: https://colorbrewer2.org/#type=diverging&scheme=PiYG&n=11
+ */
+g.ptr-strong > polygon {
+  fill: #7fbc41;
+}
+g.ptr-unique > polygon {
+  fill: #b8e186;
+}
+g.ptr-weak > polygon {
+  fill: #fde0ef;
+}
+g.ptr-raw > polygon {
+  fill: #f1b6da;
+}
+g.ptr-ref > polygon, g.ptr-contains > polygon {
+  fill: #e6f5d0;
+}
+
+g.hovered-out-edge > path {
+  stroke: blue;
+  stroke-width: 2px;
+}
+g.hovered-in-edge > path {
+  stroke: green;
+  stroke-width: 2px;
+}

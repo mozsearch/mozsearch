@@ -20,7 +20,7 @@ use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     file_format::{
         analysis_manglings::split_pretty,
-        crossref_converter::convert_crossref_value_to_sym_info_rep,
+        crossref_converter::convert_crossref_value_to_sym_info_rep, ontology_mapping::label_to_badge_info,
     },
 };
 
@@ -98,9 +98,13 @@ pub struct DerivedSymbolInfo {
     pub badges: Vec<SymbolBadge>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SymbolBadge {
+    // Priority for us to mess with the ordering of badges.
+    pub pri: i32,
     pub label: Ustr,
+    // XXX this doesn't work yet; we'll need to tunnel the extra metadata about
+    // these through the cell's id.
     pub source_jump: Option<String>,
 }
 
@@ -213,6 +217,7 @@ impl DerivedSymbolInfo {
 /// per-symbol information across the graphs.
 pub struct SymbolGraphCollection {
     pub node_set: SymbolGraphNodeSet,
+    pub edge_set: SymbolGraphEdgeSet,
     pub graphs: Vec<NamedSymbolGraph>,
     pub overloads_hit: Vec<OverloadInfo>,
     pub hierarchical_graphs: Vec<HierarchicalSymbolGraph>,
@@ -316,9 +321,12 @@ impl SymbolGraphCollection {
         // I am biasing for code readability over performance.  In particular,
         // note that we need not infer the nodes from the edges, but it's less
         // code this way.
+        //
+        // XXX currently we're not serializing the edge information here either,
+        // but probably should.
         let mut nodes = BTreeSet::new();
         let mut edges = BTreeMap::new();
-        for (source_id, target_id) in graph.list_edges() {
+        for (source_id, target_id, _edge_id) in graph.list_edges() {
             let source_info = self.node_set.get(&source_id);
             nodes.insert(source_info.symbol.clone());
             let source_sym = source_info.symbol.clone();
@@ -369,7 +377,7 @@ impl SymbolGraphCollection {
         };
 
         let mut nodes = BTreeSet::new();
-        for (source_id, target_id) in graph.list_edges() {
+        for (source_id, target_id, _edge_id) in graph.list_edges() {
             let source_info = self.node_set.get(&source_id);
             let source_sym = source_info.symbol.clone();
             if nodes.insert(source_sym.clone()) {
@@ -427,7 +435,8 @@ impl SymbolGraphCollection {
         };
 
         let mut checked_pretties = UstrMap::default();
-        let mut sym_segments: HashMap<SymbolGraphNodeId, Vec<HierarchySegment>> = HashMap::default();
+        let mut sym_segments: HashMap<SymbolGraphNodeId, Vec<HierarchySegment>> =
+            HashMap::default();
 
         // ## Populate the hierarchy nodes.
         //
@@ -605,7 +614,7 @@ impl SymbolGraphCollection {
         }
 
         // ## Populate the hierarchy edges
-        for (from_id, to_id) in graph.list_edges() {
+        for (from_id, to_id, edge_id) in graph.list_edges() {
             let from_segments = sym_segments.get(&from_id).unwrap();
             let to_segments = sym_segments.get(&to_id).unwrap();
 
@@ -623,7 +632,7 @@ impl SymbolGraphCollection {
                 common_path.pop();
             }
             common_path.reverse();
-            root.place_edge(common_path, from_id, to_id);
+            root.place_edge(common_path, from_id, to_id, edge_id);
         }
 
         self.hierarchical_graphs.push(HierarchicalSymbolGraph {
@@ -653,10 +662,7 @@ impl SymbolGraphCollection {
             }
         };
 
-        let mut state = HierarchicalRenderState {
-            next_synthetic_id: 0,
-            sym_to_edges: HashMap::default(),
-        };
+        let mut state = HierarchicalRenderState::new();
         graph
             .root
             .compile(&policies, 0, 0, false, &self.node_set, &mut state);
@@ -681,7 +687,7 @@ impl SymbolGraphCollection {
         }
 
         // Note that the root node renders the default style directives.
-        let stmts = graph.root.render(&self.node_set, &mut state);
+        let stmts = graph.root.render(&self.node_set, &self.edge_set, &mut state);
         for stmt in stmts {
             dot_graph.add_stmt(stmt);
         }
@@ -693,7 +699,7 @@ impl SymbolGraphCollection {
 /// A graph whose nodes are symbols from a `SymbolGraphNodeSet`.
 pub struct NamedSymbolGraph {
     pub name: String,
-    graph: PetGraph<u32, (), Directed>,
+    graph: PetGraph<u32, SymbolGraphEdgeId, Directed>,
     /// Maps SymbolGraphNodeId values to NodeIndex values when the node is
     /// present in the graph.  Exclusively used by ensure_node and it's likely
     /// this could be improved to more directly use NodeIndex.
@@ -735,13 +741,18 @@ impl NamedSymbolGraph {
             .collect()
     }
 
-    pub fn add_edge(&mut self, source: SymbolGraphNodeId, target: SymbolGraphNodeId) {
+    pub fn ensure_edge(
+        &mut self,
+        source: SymbolGraphNodeId,
+        target: SymbolGraphNodeId,
+        edge: SymbolGraphEdgeId,
+    ) {
         let source_ix = self.ensure_node(source);
         let target_ix = self.ensure_node(target);
-        self.graph.add_edge(source_ix, target_ix, ());
+        self.graph.update_edge(source_ix, target_ix, edge);
     }
 
-    pub fn list_edges(&self) -> Vec<(SymbolGraphNodeId, SymbolGraphNodeId)> {
+    pub fn list_edges(&self) -> Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)> {
         let mut id_edges = vec![];
         for edge in self.graph.raw_edges() {
             let source_id = self
@@ -752,7 +763,11 @@ impl NamedSymbolGraph {
                 .node_ix_to_id
                 .get(&(edge.target().index() as u32))
                 .unwrap();
-            id_edges.push((SymbolGraphNodeId(*source_id), SymbolGraphNodeId(*target_id)));
+            id_edges.push((
+                SymbolGraphNodeId(*source_id),
+                SymbolGraphNodeId(*target_id),
+                edge.weight.clone(),
+            ));
         }
         id_edges
     }
@@ -761,15 +776,25 @@ impl NamedSymbolGraph {
         &mut self,
         source: SymbolGraphNodeId,
         target: SymbolGraphNodeId,
-    ) -> Vec<Vec<SymbolGraphNodeId>> {
+    ) -> Vec<Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>> {
         let source_ix = self.ensure_node(source);
         let target_ix = self.ensure_node(target);
         let paths = all_simple_paths(&self.graph, source_ix, target_ix, 0, None);
         let node_paths = paths
             .map(|v: Vec<_>| {
                 v.into_iter()
-                    .map(|idx| {
-                        SymbolGraphNodeId(*self.node_ix_to_id.get(&(idx.index() as u32)).unwrap())
+                    .tuple_windows()
+                    .map(|(src, tgt)| {
+                        let edge_ix = self.graph.find_edge(src, tgt).unwrap();
+                        (
+                            SymbolGraphNodeId(
+                                *self.node_ix_to_id.get(&(src.index() as u32)).unwrap(),
+                            ),
+                            SymbolGraphNodeId(
+                                *self.node_ix_to_id.get(&(tgt.index() as u32)).unwrap(),
+                            ),
+                            self.graph[edge_ix].clone(),
+                        )
                     })
                     .collect()
             })
@@ -792,7 +817,9 @@ pub struct LabelRow {
 }
 
 pub struct LabelCell {
+    pub id: Option<String>,
     pub contents: String,
+    pub badges: Vec<SymbolBadge>,
     pub symbol: String,
     pub port: String,
     pub indent_level: u32,
@@ -830,12 +857,20 @@ impl LabelRow {
         let mut row_pieces = vec![];
         for cell in &self.cells {
             let indent_str = "&nbsp;".repeat(cell.indent_level as usize);
+            let maybe_id = match &cell.id {
+                Some(idval) => format!("id=\"{}\" ", idval),
+                None => "".to_string(),
+            };
+            let badge_reps = cell.badges.iter().map(|b| format!("<U>{}</U>", b.label)).collect_vec();
             row_pieces.push(format!(
-                r#"<td href="{}" port="{}" align="left">{}{}</td>"#,
+                r#"<td {}href="{}" port="{}" align="left">{}{}{}{}</td>"#,
+                maybe_id,
                 urlencoding::encode(&cell.symbol),
                 cell.port,
                 indent_str,
-                cell.contents
+                cell.contents,
+                if badge_reps.is_empty() { "" } else { "  " },
+                badge_reps.join(""),
             ));
         }
         format!("<tr>{}</tr>", row_pieces.join(""))
@@ -966,7 +1001,7 @@ pub struct HierarchicalNode {
     /// amongst its descendants and avoid creating (too many) edges between
     /// table rows/cells.  It also results in a better organized dot file which
     /// is nice for readability.
-    pub edges: Vec<(SymbolGraphNodeId, SymbolGraphNodeId)>,
+    pub edges: Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>,
     /// How many edges are contained in the descendants of this node (but not
     /// including this node's own edges).
     pub descendant_edge_count: u32,
@@ -1025,7 +1060,10 @@ impl HierarchicalNode {
         let edges: Vec<Value> = self
             .edges
             .iter()
-            .map(|(from_id, to_id)| {
+            .map(|(from_id, to_id, _edge_id)| {
+                // TODO: consider propagating the edge info; it's not essential
+                // to validating graph correctness right now, but probably
+                // should be something the tests should ensure is stable.
                 json!({
                     "from": node_set.get(from_id).symbol.clone(),
                     "to": node_set.get(to_id).symbol.clone(),
@@ -1081,17 +1119,18 @@ impl HierarchicalNode {
         mut reversed_segments: Vec<HierarchySegment>,
         from_id: SymbolGraphNodeId,
         to_id: SymbolGraphNodeId,
+        edge_id: SymbolGraphEdgeId,
     ) {
         if let Some(next_seg) = reversed_segments.pop() {
             if let Some(kid) = self.children.get_mut(&next_seg) {
                 // The edge will go in our descendant, so we bump the count.
                 self.descendant_edge_count += 1;
-                kid.place_edge(reversed_segments, from_id, to_id);
+                kid.place_edge(reversed_segments, from_id, to_id, edge_id);
             }
         } else {
             // We do not modify the descendant_edge_count because it's our own
             // edge.
-            self.edges.push((from_id, to_id));
+            self.edges.push((from_id, to_id, edge_id));
         }
     }
 
@@ -1271,6 +1310,7 @@ impl HierarchicalNode {
     pub fn render(
         &self,
         node_set: &SymbolGraphNodeSet,
+        edge_set: &SymbolGraphEdgeSet,
         state: &mut HierarchicalRenderState,
     ) -> Vec<Stmt> {
         let action = match &self.action {
@@ -1317,12 +1357,12 @@ impl HierarchicalNode {
                 )));
                 result.push(stmt!(node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))));
                 for kid in self.children.values() {
-                    result.extend(kid.render(node_set, state));
+                    result.extend(kid.render(node_set, edge_set, state));
                 }
             }
             HierarchicalLayoutAction::Collapse => {
                 for kid in self.children.values() {
-                    result.extend(kid.render(node_set, state));
+                    result.extend(kid.render(node_set, edge_set, state));
                 }
             }
             HierarchicalLayoutAction::Cluster(cluster_id, placeholder_id) => {
@@ -1347,14 +1387,21 @@ impl HierarchicalNode {
                 // has external edges to it and a node that has no edges to it at all.  But we only
                 // expect that to happen in overview situations, and those probably want additional
                 // specializations that we can deal with then.
+                //
+                // XXX In some cases this may be leading to weird artifacts where nodes that have
+                // an edge to nodes that are being floated upward end up with the same rank.  This
+                // may be a result of not having an up-to-date graphviz on the live servers,
+                // however.  (The original motivation for updating my docker copy was crashes, and
+                // I believe I have seen that on the live server, but they have been less common
+                // than I was worried about.)
                 let mut internal_targets: HashSet<SymbolGraphNodeId> = HashSet::new();
-                for (_, to_id) in &self.edges {
+                for (_, to_id, _) in &self.edges {
                     internal_targets.insert(to_id.clone());
                 }
                 let mut top_nodes = subgraph!(; attr!("rank", "same"), attr!("cluster", "false"), attr!("label", esc ""));
 
                 for kid in self.children.values() {
-                    sg.stmts.extend(kid.render(node_set, state));
+                    sg.stmts.extend(kid.render(node_set, edge_set, state));
 
                     if !kid.symbols.iter().any(|id| internal_targets.contains(&id)) {
                         match &kid.action {
@@ -1382,7 +1429,9 @@ impl HierarchicalNode {
 
                 table.rows.push(LabelRow {
                     cells: vec![LabelCell {
+                        id: Some(state.id_for_nodes(&self.symbols)),
                         contents: format!("<b>{}</b>", self.display_name),
+                        badges: node_set.get_merged_badges_for_symbols(&self.symbols),
                         symbol: node_id.clone(),
                         port: make_safe_port_id(node_id),
                         indent_level: 0,
@@ -1395,14 +1444,16 @@ impl HierarchicalNode {
                         let kid_port_name = make_safe_port_id(kid_id);
                         table.rows.push(LabelRow {
                             cells: vec![LabelCell {
+                                id: Some(state.id_for_nodes(&kid.symbols)),
                                 contents: kid.display_name.clone(),
+                                badges: node_set.get_merged_badges_for_symbols(&kid.symbols),
                                 symbol: kid_id.clone(),
                                 port: kid_port_name,
                                 indent_level: 1,
                             }],
                         });
 
-                        for (from_id, to_id) in &kid.edges {
+                        for (from_id, to_id, _edge_id) in &kid.edges {
                             if let Some((from_node, to_node)) = state.lookup_edge(from_id, to_id) {
                                 kid_edges.push(stmt!(edge!(from_node => to_node)));
                             }
@@ -1413,6 +1464,8 @@ impl HierarchicalNode {
                 table.compile();
                 let table_html = table.render();
 
+                // We don't put a custom "id" on this because we only want the rows to have our
+                // identifiers.
                 let node =
                     node!(esc node_id; attr!("shape", "none"), attr!("label", html table_html));
                 result.push(stmt!(node));
@@ -1424,14 +1477,14 @@ impl HierarchicalNode {
             }
             HierarchicalLayoutAction::Node(node_id) => {
                 result.push(stmt!(
-                    node!(esc node_id; attr!("label", esc escape_quotes(&self.display_name)))
+                    node!(esc node_id; attr!("id", state.id_for_nodes(&self.symbols)), attr!("label", esc escape_quotes(&self.display_name)))
                 ));
             }
         }
 
         let mut emitted_edges = HashSet::new();
         let mut ctx = PrinterContext::default();
-        for (from_id, to_id) in &self.edges {
+        for (from_id, to_id, edge_id) in &self.edges {
             if let Some((from_node, to_node)) = state.lookup_edge(from_id, to_id) {
                 // We de-duplicate on what the string rep ends up looking like because the NodeId type
                 // and its sub-types don't really want to get put in a set.
@@ -1439,10 +1492,43 @@ impl HierarchicalNode {
                 // The need to de-duplicate currently arises from multiple symbols being associated
                 // with a single node/pretty identifier due to multiple platforms.  Which is to say
                 // that we have already de-duplicated edges on a symbol basis upstream, but only
-                // now are we de-duplicating in node space.
-                let maybe_edge = stmt!(edge!(from_node => to_node));
+                // now are we de-duplicating in (pretty) node space.
+                //
+                // TODO: Do a better job of handling unification of EdgeDetails for these de-duped
+                // edges.  Right now we just use the details of the first edge we end up emitting.
+                // As long as the de-duplication is just dealing with platform variations, the net
+                // result should be the same, but it would be preferable to have explicitly had an
+                // edge unification step when doing the hierarchical processing.
+                let edge_info = edge_set.get(edge_id);
+
+                let (style, loc, arrow) = match edge_info.kind {
+                    EdgeKind::Default => ("solid", "arrowhead", "normal"),
+                    EdgeKind::Inheritance => ("solid", "arrowhead", "onormal"),
+                    EdgeKind::Implementation => ("dashed", "arrowhead", "onormal"),
+                    EdgeKind::Composition => ("solid", "arrowtail", "diamond"),
+                    EdgeKind::Aggregation => ("solid", "arrowtail", "odiamond"),
+                    EdgeKind::IPC => ("dotted", "arrowhead", "vee"),
+                };
+
+                let mut maybe_edge =
+                    edge!(from_node => to_node; attr!("style", style), attr!(loc, arrow));
+                // arrowtail only works if dir=back or dir=both
+                // XXX eh, make this more efficient maybe.
+                if loc == "arrowtail" {
+                    maybe_edge.attributes.push(attr!("dir", "back"));
+                }
                 if emitted_edges.insert(maybe_edge.print(&mut ctx)) {
-                    result.push(maybe_edge);
+                    // As per the TODO above, here is us now translating the edge details.  In
+                    // theory we could do this above if we expect the data to always be the same,
+                    // but it's better to err on the side of not creating multiple edges if we're
+                    // wrong about that.
+                    maybe_edge
+                        .attributes
+                        .push(attr!("id", state.id_for_edge(edge_id)));
+
+                    state.set_edge_metadata(from_id, to_id, edge_id, &edge_info.data);
+
+                    result.push(stmt!(maybe_edge));
                 }
             }
         }
@@ -1451,13 +1537,83 @@ impl HierarchicalNode {
     }
 }
 
+/// Rendering pass shared state.  This object is passed through the recursive
+/// call trees for the hierarchical objects which can't have a durable reference
+/// to global state because then the object hierarchy wouldn't be a clean tree.
+///
+/// Of particular importance is the `sym_to_edges` mapping which is used to
+/// store a mapping from `SymbolGraphNodeId` (one per underlying symbol) to
+/// the graphviz identifiers that should use when drawing an edge into the node
+/// and out of the node.  This is necessary for several reasons:
+/// - We map multiple symbols onto a single visual node (usually based on
+///   pretty identifier), which means a mapping is necessary somewhere.
+/// - We use record-style labels and currently have edges enter on the left and
+///   exit on the right.
+///
+/// ### SVG Metadata
+///
+/// The object also accumulates state that is subsequently used to fix-up the
+/// graphviz SVG output to include extra metadata.  Long term, it would likely
+/// be preferable to contribute fixes to graphviz upstream to let specific
+/// attributes be propagated through SVG layout; from the discourse server
+/// discussion I believe there has been interest in generally supporting the
+/// propagation of user-defined attributes more generally.
+///
+/// Note that this is a new second way that we are propagating data to the UI.
+/// We currently perform regexp transforms on title and xlink nodes to turn
+/// those into "data-symbols" attributes.  This is desirable for legibility of
+/// the resulting SVG doc, as these are data payloads.  It would be nice not to
+/// need to use regexps for this, but it doesn't look like lol_html
+/// intentionally supports SVG (there's very trivial test coverage where it's
+/// not really clear what's intended to be supported), and it doesn't seem worth
+/// the work to more properly support XML streaming.
+///
+/// This info is generally more like metadata, and so a JSON sidecar keyed by
+/// newly generated node/edge identifiers is workable.  (The dot SVG output
+/// layer right now is making identifiers we can't predict, but if we manually
+/// assign identifiers, it will use them, and so we use that.)
 pub struct HierarchicalRenderState {
     next_synthetic_id: u32,
     /// Maps the SymbolGraphNodeId to (in-edge id, out-edge-id)
     sym_to_edges: HashMap<u32, (NodeId, NodeId)>,
+    /// Maps node identifiers to data for hover purposes; value tuple is:
+    svg_node_extra: HashMap<String, SvgNodeExtra>,
+    svg_edge_extra: HashMap<String, SvgEdgeExtra>,
+}
+
+#[derive(Default, Serialize)]
+pub struct SvgNodeExtra {
+    /// List of edge identifiers for edges that should be highlighted with the
+    /// in-edge color on hover.
+    pub in_edges: Vec<String>,
+    /// List of pairs of:
+    /// - node identifier for input/source nodes with higlighting
+    /// - List of CSS classes to apply to the nodes on hover if specific colors
+    ///   should be used.  If the list is empty, a default hover style will be
+    ///   used.
+    pub in_nodes: Vec<(String, Vec<String>)>,
+    /// List of edge identifiers for edges that should be highlighted with the
+    /// out-edge color on hover.
+    pub out_edges: Vec<String>,
+    /// See `in_nodes`.
+    pub out_nodes: Vec<(String, Vec<String>)>,
+}
+
+#[derive(Serialize)]
+pub struct SvgEdgeExtra {
+    pub jump: String,
 }
 
 impl HierarchicalRenderState {
+    pub fn new() -> Self {
+        Self {
+            next_synthetic_id: 0,
+            sym_to_edges: HashMap::default(),
+            svg_node_extra: HashMap::default(),
+            svg_edge_extra: HashMap::default(),
+        }
+    }
+
     pub fn issue_new_synthetic_id(&mut self) -> String {
         let use_id = self.next_synthetic_id;
         self.next_synthetic_id += 1;
@@ -1476,6 +1632,8 @@ impl HierarchicalRenderState {
         }
     }
 
+    /// Given an edge defined by symbol node id's, look-up the correct graphviz
+    /// out-edge id and graphviz in-edge id, respectively.
     pub fn lookup_edge(
         &self,
         from_id: &SymbolGraphNodeId,
@@ -1493,6 +1651,66 @@ impl HierarchicalRenderState {
             _ => None,
         }
     }
+
+    pub fn id_for_node(&self, node_id: &SymbolGraphNodeId) -> String {
+        format!("Gidn{}", node_id.0)
+    }
+
+    /// Return a node identifier for the set of nodes.  We just pick the first
+    /// one.
+    pub fn id_for_nodes(&self, nodes: &Vec<SymbolGraphNodeId>) -> String {
+        format!("Gidn{}", nodes[0].0)
+    }
+
+    pub fn id_for_edge(&self, edge_id: &SymbolGraphEdgeId) -> String {
+        format!("Gide{}", edge_id.0)
+    }
+
+    pub fn set_edge_metadata(
+        &mut self,
+        from_id: &SymbolGraphNodeId,
+        to_id: &SymbolGraphNodeId,
+        edge_id: &SymbolGraphEdgeId,
+        edge_data: &Vec<EdgeDetail>,
+    ) {
+        let from_eid = self.id_for_node(from_id);
+        let to_eid = self.id_for_node(to_id);
+        let edge_eid = self.id_for_edge(edge_id);
+
+        let mut hover_classes = vec![];
+        let mut jump = "".to_string();
+        for detail in edge_data {
+            match detail {
+                EdgeDetail::Jump(jump_detail) => {
+                    jump = jump_detail.clone();
+                }
+                EdgeDetail::HoverClass(class_detail) => {
+                    hover_classes.push(class_detail.clone());
+                }
+            }
+        }
+
+        let from_extra = self
+            .svg_node_extra
+            .entry(from_eid.clone())
+            .or_insert_with(|| SvgNodeExtra::default());
+        from_extra.out_edges.push(edge_eid.clone());
+        from_extra.out_nodes.push((to_eid.clone(), hover_classes));
+
+        if let Some(extra) = self.svg_edge_extra.get_mut(&edge_eid) {
+            extra.jump = jump;
+        } else {
+            self.svg_edge_extra
+                .insert(edge_eid.clone(), SvgEdgeExtra { jump });
+        }
+
+        let to_extra = self
+            .svg_node_extra
+            .entry(to_eid)
+            .or_insert_with(|| SvgNodeExtra::default());
+        to_extra.in_edges.push(edge_eid);
+        to_extra.in_nodes.push((from_eid, vec![]));
+    }
 }
 
 /// Wrapped u32 identifier for DerivedSymbolInfo nodes in a SymbolGraphNodeSet
@@ -1501,9 +1719,50 @@ impl HierarchicalRenderState {
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct SymbolGraphNodeId(u32);
 
+/// Wrapped u32 identifier for EdgeInfo objects in a SymbolGraphNodeSet for type
+/// safety.  The values correspond to the index of the edge in the
+/// `edge_infos` vec in `SymbolGraphNodeSet`.
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub struct SymbolGraphEdgeId(u32);
+
 pub struct SymbolGraphNodeSet {
     pub symbol_crossref_infos: Vec<DerivedSymbolInfo>,
     pub symbol_to_index_map: UstrMap<u32>,
+}
+
+pub struct SymbolGraphEdgeSet {
+    pub edge_infos: Vec<EdgeInfo>,
+    edge_lookup: HashMap<(u32, u32), u32>,
+}
+
+#[derive(Clone)]
+pub enum EdgeKind {
+    Default, // solid line, closed arrow ("normal")
+    // These value are meant to be UML-ish
+    Inheritance,    // solid line, open arrow ("onormal")
+    Implementation, // dashed line, open arrow ("onormal")
+    Composition,    // solid line, closed diamond ("diamond")
+    Aggregation,    // solid line, open diamond ("odiamond")
+    // These are more specific searchfox concepts
+    IPC, // dotted line, weird vee arrow ("vee")
+}
+
+#[derive(Clone, PartialEq)]
+pub enum EdgeDetail {
+    /// Provide a source code jump.
+    Jump(String),
+    /// Hover class for the target node when the source node is hovered.  This
+    /// could also be applied to the edge if desired.
+    HoverClass(String),
+}
+
+/// Information about the edge between two nodes that is something we either
+/// want for debugging, layout, or to explicitly present to the user.
+pub struct EdgeInfo {
+    pub from_id: SymbolGraphNodeId,
+    pub to_id: SymbolGraphNodeId,
+    pub kind: EdgeKind,
+    pub data: Vec<EdgeDetail>,
 }
 
 fn make_data_invariant_err() -> ServerError {
@@ -1515,7 +1774,7 @@ fn make_data_invariant_err() -> ServerError {
 
 impl SymbolGraphNodeSet {
     pub fn new() -> Self {
-        SymbolGraphNodeSet {
+        Self {
             symbol_crossref_infos: vec![],
             symbol_to_index_map: UstrMap::default(),
         }
@@ -1527,34 +1786,75 @@ impl SymbolGraphNodeSet {
         self.symbol_crossref_infos.get(node_id.0 as usize).unwrap()
     }
 
+    pub fn get_mut(&mut self, node_id: &SymbolGraphNodeId) -> &mut DerivedSymbolInfo {
+        // It's very much an invariant that only we mint SymbolGraphNodeId's, so
+        // the entry should always exist.
+        self.symbol_crossref_infos
+            .get_mut(node_id.0 as usize)
+            .unwrap()
+    }
+
+    pub fn get_merged_badges_for_symbols(&self, nodes: &Vec<SymbolGraphNodeId>) -> Vec<SymbolBadge> {
+        let mut badges: BTreeSet<SymbolBadge> = BTreeSet::default();
+        for sym_id in nodes {
+            let sym_info = self.get(sym_id);
+            for badge in &sym_info.badges {
+                badges.insert(badge.clone());
+            }
+        }
+        badges.into_iter().collect()
+    }
+
     pub fn propagate_paths(
         &self,
-        paths: Vec<Vec<SymbolGraphNodeId>>,
+        paths: Vec<Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>>,
+        edge_set: &SymbolGraphEdgeSet,
         new_graph: &mut NamedSymbolGraph,
         new_symbol_set: &mut SymbolGraphNodeSet,
+        new_edge_set: &mut SymbolGraphEdgeSet,
         suppression: &mut HashSet<(u32, u32)>,
     ) {
         for path in paths {
-            for (path_source, path_target) in path.into_iter().tuple_windows() {
+            for (path_source, path_target, edge_id) in path {
                 if suppression.insert((path_source.0, path_target.0)) {
-                    self.propagate_edge(&path_source, &path_target, new_graph, new_symbol_set);
+                    self.propagate_edge(
+                        edge_set,
+                        &path_source,
+                        &path_target,
+                        &edge_id,
+                        new_graph,
+                        new_symbol_set,
+                        new_edge_set,
+                    );
                 }
             }
         }
     }
 
     /// Given a pair of symbols in the current set, ensure that they exist in
-    /// the new node set and create an edge in the new graph as well.
+    /// the new node set and propagate the edge and its info in the new graph as well.
     pub fn propagate_edge(
         &self,
+        edge_set: &SymbolGraphEdgeSet,
         source: &SymbolGraphNodeId,
         target: &SymbolGraphNodeId,
+        edge_id: &SymbolGraphEdgeId,
         new_graph: &mut NamedSymbolGraph,
         new_symbol_set: &mut SymbolGraphNodeSet,
+        new_edge_set: &mut SymbolGraphEdgeSet,
     ) {
         let new_source_node = self.propagate_sym(source, new_symbol_set);
         let new_target_node = self.propagate_sym(target, new_symbol_set);
-        new_graph.add_edge(new_source_node, new_target_node);
+        let old_edge_info = &edge_set.edge_infos[edge_id.0 as usize];
+        let edge_index = new_edge_set.edge_infos.len();
+        new_edge_set.edge_infos.push(EdgeInfo {
+            from_id: new_source_node.clone(),
+            to_id: new_target_node.clone(),
+            kind: old_edge_info.kind.clone(),
+            data: old_edge_info.data.clone(),
+        });
+        let new_edge_id = SymbolGraphEdgeId(edge_index as u32);
+        new_graph.ensure_edge(new_source_node, new_target_node, new_edge_id);
     }
 
     fn propagate_sym(
@@ -1583,8 +1883,32 @@ impl SymbolGraphNodeSet {
     /// Add a symbol and return the unwrapped data that lookup_symbol would have provided.
     pub fn add_symbol(
         &mut self,
-        sym_info: DerivedSymbolInfo,
+        mut sym_info: DerivedSymbolInfo,
     ) -> (SymbolGraphNodeId, &mut DerivedSymbolInfo) {
+        // Propagate any labels from the symbol's structured information into
+        // badges set.
+        // XXX this is a somewhat weird conflation of presentation logic with
+        // more abstract logic.  Also, this on its own isn't entirely sufficient
+        // because of how "fields" on a class are a special case.  (In
+        // particular, as of writing this, we store information on the class's
+        // structured "fields" that we don't store on the structured info for
+        // each individual field, and that's weird.  This may or may not change,
+        // since there is also some sense in field (meta)data being most
+        // useful in the context of the class.)
+        if let Some(Value::Array(labels_json)) = sym_info.crossref_info.pointer("/meta/labels") {
+            for label in labels_json {
+                if let Value::String(label) = label {
+                    if let Some((pri, shorter_label)) = label_to_badge_info(&label) {
+                        sym_info.badges.push(SymbolBadge {
+                            pri,
+                            label: ustr(shorter_label),
+                            source_jump: None,
+                        });
+                    }
+                }
+            }
+        }
+        // Insert the symbol and issue a node id.
         let index = self.symbol_crossref_infos.len();
         let symbol = sym_info.symbol.clone();
         self.symbol_crossref_infos.push(sym_info);
@@ -1610,5 +1934,58 @@ impl SymbolGraphNodeSet {
 
         let info = server.crossref_lookup(&sym).await?;
         Ok(self.add_symbol(DerivedSymbolInfo::new(sym.clone(), info)))
+    }
+}
+
+impl SymbolGraphEdgeSet {
+    pub fn new() -> Self {
+        Self {
+            edge_infos: vec![],
+            edge_lookup: HashMap::default(),
+        }
+    }
+
+    pub fn get(&self, edge_id: &SymbolGraphEdgeId) -> &EdgeInfo {
+        &self.edge_infos[edge_id.0 as usize]
+    }
+
+    pub fn get_mut(&mut self, edge_id: &SymbolGraphEdgeId) -> &mut EdgeInfo {
+        &mut self.edge_infos[edge_id.0 as usize]
+    }
+
+    /// Merge the provided edge metadata for any existing edge between the
+    /// provided symbol, creating the edge metadata if it does not already
+    /// exist.  Then calls ensure_edge on the underlying graph using the
+    /// underlying SymbolGraphEdgeId.
+    ///
+    /// Currently we don't return the SymbolGraphEdgeId but we could if callers
+    /// needed it.
+    pub fn ensure_edge_in_graph(
+        &mut self,
+        source: SymbolGraphNodeId,
+        target: SymbolGraphNodeId,
+        kind: EdgeKind,
+        data: Vec<EdgeDetail>,
+        graph: &mut NamedSymbolGraph,
+    ) {
+        let edge_id = if let Some(idx) = self.edge_lookup.get(&(source.0, target.0)) {
+            let info = self.edge_infos.get_mut(*idx as usize).unwrap();
+            for detail in data {
+                if !info.data.iter().contains(&detail) {
+                    info.data.push(detail);
+                }
+            }
+            SymbolGraphEdgeId(*idx)
+        } else {
+            let index = self.edge_infos.len();
+            self.edge_infos.push(EdgeInfo {
+                from_id: source.clone(),
+                to_id: target.clone(),
+                kind,
+                data,
+            });
+            SymbolGraphEdgeId(index as u32)
+        };
+        graph.ensure_edge(source, target, edge_id);
     }
 }

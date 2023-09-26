@@ -414,6 +414,8 @@ var ContextMenu = new (class ContextMenu {
 var Hover = new (class Hover {
   constructor() {
     this.items = [];
+    this.graphItems = [];
+    this.hoveredElem = null;
     this.sticky = false;
     window.addEventListener("mousedown", () => {
       if (this.sticky) {
@@ -429,18 +431,41 @@ var Hover = new (class Hover {
       return;
     }
 
-    let symbols = event.target?.closest("[data-symbols]");
-    if (!symbols) {
+    let elem = event.target?.closest("[data-symbols]");
+    // Don't recompute things if we're still hovering over the same element.
+    if (elem === this.hoveredElem) {
+      return;
+    }
+    if (!elem) {
       return this.deactivate();
     }
 
-    this.activate(symbols.getAttribute("data-symbols"), symbols.textContent);
+
+    let symbolNames = this.symbolsFromString(elem.getAttribute("data-symbols"));
+    // We're hovering over a graph so we also want to hover related graph nodes.
+    // We will still also potentially want to highlight any document spans as
+    // well.
+    if (elem.tagName === "g") {
+      this.activateDiagram(symbolNames);
+    }
+
+    this.activate(symbolNames, elem.textContent);
+    this.hoveredElem = elem;
+  }
+
+  symbolsFromString(symbolStr) {
+    if (!symbolStr || symbolStr == "?") {
+      // XXX why the `?` special-case?
+      return [];
+    }
+    return symbolStr.split(",");
   }
 
   deactivate() {
     for (let item of this.items) {
       item.classList.remove("hovered");
     }
+    this.hoveredElem = null;
     this.items = [];
     this.sticky = false;
   }
@@ -453,21 +478,12 @@ var Hover = new (class Hover {
     }
   }
 
-  findReferences(symbols, visibleToken) {
-    function symbolsFromString(symbols) {
-      if (!symbols || symbols == "?") {
-        // XXX why the `?` special-case?
-        return [];
-      }
-      return symbols.split(",");
-    }
-
-    symbols = symbolsFromString(symbols);
-    if (!symbols.length) {
+  findReferences(symbolNames, visibleToken) {
+    if (!symbolNames.length) {
       return [];
     }
 
-    symbols = new Set(symbols);
+    let symbols = new Set(symbolNames);
 
     return [...document.querySelectorAll("span[data-symbols]")].filter(span => {
       // XXX The attribute check is cheaper, probably should be before.
@@ -478,6 +494,10 @@ var Hover = new (class Hover {
         )
       );
     });
+  }
+
+  activateDiagram(symbolNames) {
+
   }
 
   stickyHighlight(symbols, visibleToken) {
