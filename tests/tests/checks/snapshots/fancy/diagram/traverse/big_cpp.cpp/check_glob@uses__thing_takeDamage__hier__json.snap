@@ -178,7 +178,7 @@ expression: sgc.to_json()
             "bitPositions": null,
             "sizeBytes": 16,
             "labels": [
-              "cc:unlink"
+              "cc-unlink"
             ],
             "pointerInfo": [
               {
@@ -196,7 +196,7 @@ expression: sgc.to_json()
             "bitPositions": null,
             "sizeBytes": 8,
             "labels": [
-              "cc:unlink"
+              "cc-unlink"
             ],
             "pointerInfo": [
               {

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use ustr::{ustr, Ustr, UstrMap};
 
+use crate::cmd_pipeline::symbol_graph::EdgeKind;
+
 #[derive(Deserialize)]
 pub struct OntologyMappingConfig {
     #[serde(default)]
@@ -93,6 +95,8 @@ pub enum OntologyPointerKind {
     Weak,
     Raw,
     Ref,
+    // Ex: JS::{Handle, Heap, MutableHandle, Rooted}.
+    GCRef,
     Contains,
 }
 
@@ -129,6 +133,48 @@ struct ShoddyType {
     args: Vec<ShoddyType>,
     // We set this to true if we've already put it in the results list,
     consumed: bool,
+}
+
+pub fn pointer_kind_to_badge_info(
+    kind: &OntologyPointerKind,
+) -> (i32, EdgeKind, &'static str, &'static str) {
+    match kind {
+        OntologyPointerKind::Strong => (0, EdgeKind::Aggregation, "\u{1f4aa}", "ptr-strong"),
+        OntologyPointerKind::Unique => (0, EdgeKind::Aggregation, "\u{2744}\u{fe0f}", "ptr-unique"),
+        // A calendar contains a week, right?  I'm sorry.  I have no idea
+        // what to do here.
+        OntologyPointerKind::Weak => (0, EdgeKind::Aggregation, "\u{1f4d3}\u{fe0f}", "ptr-weak"),
+        // Eh, raw pointers are bad.  Face screaming in fear.
+        OntologyPointerKind::Raw => (0, EdgeKind::Aggregation, "\u{1f631}", "ptr-raw"),
+        OntologyPointerKind::Ref => (0, EdgeKind::Aggregation, "&amp;", "ptr-ref"),
+        // "ginger" (it's a root!)
+        OntologyPointerKind::GCRef => (0, EdgeKind::Aggregation, "\u{1fada}", "ptr-ref"),
+        OntologyPointerKind::Contains => (0, EdgeKind::Composition, "\u{1f4e6}", "ptr-contains"),
+    }
+}
+
+pub fn label_to_badge_info(label: &str) -> Option<(i32, &str)> {
+    match label {
+        // Ignore "stop" labels.
+        "class-diagram:stop" => None,
+
+        // "atom symbol" for atomic refcount.  We also will have an "rc"
+        // label, so we don't bother including its label
+        "arc" => Some((10, "\u{269b}\u{fe0f}")),
+        // "link symbol" for "cc"
+        "cc" => Some((11, "\u{1f517}")),
+        // chains for ccrc; I think maybe "cc" and "ccrc" may be redundant
+        "ccrc" => Some((5, "\u{26d3}\u{fe0f}")),
+        // Link followed by a pencil, for "tracing"
+        "cc-trace" => Some((20, "\u{1f517}\u{270f}\u{fe0f}")),
+        // Link followed by a left-pointing magnifying glass
+        "cc-traverse" => Some((21, "\u{1f517}\u{1f50d}")),
+        // "Broken Chain" is an emoji 15.1 ZWJ sequence of chains and collision
+        "cc-unlink" => Some((22, "\u{26d3}\u{fe0f}\u{200d}\u{1f4a5}")),
+        // "abacus" for reference counted.
+        "rc" => Some((11, "\u{1f9ee}")),
+        _ => Some((100, label)),
+    }
 }
 
 impl OntologyMappingConfig {
@@ -372,8 +418,7 @@ impl OntologyMappingConfig {
                                 );
 
                                 if arg_type.is_tag
-                                    && self.types.get(&pointee_name)
-                                        != Some(&OntologyType::Value)
+                                    && self.types.get(&pointee_name) != Some(&OntologyType::Value)
                                 {
                                     results.push((ptr.kind.clone(), pointee_name));
                                 }
@@ -603,7 +648,9 @@ kind = "contains"
     );
 
     assert_eq!(
-        c.maybe_parse_type_as_pointer("Array<std::pair<uint8_t, uint8_t>, 1 << sizeof(AnonymousContentKey) * 8>"),
+        c.maybe_parse_type_as_pointer(
+            "Array<std::pair<uint8_t, uint8_t>, 1 << sizeof(AnonymousContentKey) * 8>"
+        ),
         vec![]
     );
 }

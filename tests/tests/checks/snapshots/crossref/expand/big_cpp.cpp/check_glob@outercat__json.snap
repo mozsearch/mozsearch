@@ -56,31 +56,37 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#268",
             "kind": "field",
             "pretty": "outerNS::OuterCat::mIsFriendly",
             "sym": "F_<T_outerNS::OuterCat>_mIsFriendly"
           },
           {
+            "jump": "big_cpp.cpp#272",
             "kind": "field",
             "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
             "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly"
           },
           {
+            "jump": "big_cpp.cpp#245",
             "kind": "class",
             "pretty": "outerNS::Couch",
             "sym": "T_outerNS::Couch"
           },
           {
+            "jump": "big_cpp.cpp#244",
             "kind": "class",
             "pretty": "outerNS::Human",
             "sym": "T_outerNS::Human"
           },
           {
+            "jump": "big_cpp.cpp#357",
             "kind": "class",
             "pretty": "outerNS::OuterCat::CycleCollectingCat",
             "sym": "T_outerNS::OuterCat::CycleCollectingCat"
           },
           {
+            "jump": "big_cpp.cpp#227",
             "kind": "class",
             "pretty": "outerNS::Thing",
             "sym": "T_outerNS::Thing"
@@ -250,7 +256,7 @@ expression: "&to_value(scil).unwrap()"
               "bitPositions": null,
               "sizeBytes": 16,
               "labels": [
-                "cc:unlink"
+                "cc-unlink"
               ],
               "pointerInfo": [
                 {
@@ -268,7 +274,7 @@ expression: "&to_value(scil).unwrap()"
               "bitPositions": null,
               "sizeBytes": 8,
               "labels": [
-                "cc:unlink"
+                "cc-unlink"
               ],
               "pointerInfo": [
                 {
@@ -431,11 +437,13 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#156",
             "kind": "field",
             "pretty": "outerNS::Thing::mDefunct",
             "sym": "F_<T_outerNS::Thing>_mDefunct"
           },
           {
+            "jump": "big_cpp.cpp#155",
             "kind": "field",
             "pretty": "outerNS::Thing::mHP",
             "sym": "F_<T_outerNS::Thing>_mHP"
@@ -661,9 +669,22 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#185",
             "kind": "class",
             "pretty": "outerNS::Thing",
             "sym": "T_outerNS::Thing"
+          }
+        ],
+        "field-member-uses": [
+          {
+            "sym": "T_outerNS::OuterCat",
+            "pretty": "outerNS::OuterCat",
+            "fields": [
+              {
+                "pretty": "outerNS::OuterCat::mOwner",
+                "ptr": "strong"
+              }
+            ]
           }
         ],
         "meta": {
@@ -810,9 +831,22 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#211",
             "kind": "class",
             "pretty": "outerNS::Thing",
             "sym": "T_outerNS::Thing"
+          }
+        ],
+        "field-member-uses": [
+          {
+            "sym": "T_outerNS::OuterCat",
+            "pretty": "outerNS::OuterCat",
+            "fields": [
+              {
+                "pretty": "outerNS::OuterCat::mFavoriteCouch",
+                "ptr": "raw"
+              }
+            ]
           }
         ],
         "meta": {
@@ -936,6 +970,7 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#437",
             "kind": "class",
             "pretty": "outerNS::Thing",
             "sym": "T_outerNS::Thing"
@@ -1095,6 +1130,7 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#194",
             "kind": "class",
             "pretty": "outerNS::Human",
             "sym": "T_outerNS::Human"
@@ -1251,9 +1287,22 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#447",
             "kind": "class",
             "pretty": "outerNS::AbstractArt",
             "sym": "T_outerNS::AbstractArt"
+          }
+        ],
+        "field-member-uses": [
+          {
+            "sym": "T_outerNS::StackArtHolder",
+            "pretty": "outerNS::StackArtHolder",
+            "fields": [
+              {
+                "pretty": "outerNS::StackArtHolder::mHeldArt",
+                "ptr": "ref"
+              }
+            ]
           }
         ],
         "meta": {

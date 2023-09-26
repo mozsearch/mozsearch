@@ -13,6 +13,7 @@ extern crate tracing;
 
 extern crate clap;
 use clap::Parser;
+use itertools::Itertools;
 use serde_json::{json, Map};
 extern crate tools;
 use tools::file_format::analysis::AnalysisStructured;
@@ -232,11 +233,22 @@ async fn main() {
     // the file 2x; maybe it would be better to read it once and have the
     // records grouped by type so we can improve that).
     let mut meta_table = BTreeMap::new();
-    // Maps (raw) symbol to a BTreeSet of the (raw) symbols it "calls".  (The
-    // term makes most sense when dealing with functions/similar.  This was
-    // formerly dubbed "consumes" in prototyping, but that was even more
-    // confusing.  This may want to get renamed again.)
+    // Maps the (raw) symbol making the calls to a BTreeMap whose keys are the
+    // symbols being called and whose values are a tuple of the path where the
+    // calls are happening and a BTreeSet of the lines in the path where these
+    // calls happen.  This is used so that on graphs we can have the edges have
+    // a source link that highlights all of the lines where the calls are
+    // happening.
+    //
+    // The term "callees" used here makes most sense when dealing with
+    // functions/similar, but it's not just for those cases.  We also use it for
+    // field accesses, etc.  This was formerly dubbed "consumes" in prototyping,
+    // but that was even more confusing.  Another rename may be in order.
     let mut callees_table = BTreeMap::new();
+    // Maps the (raw) symbol corresponding to a type to a BTreeMap whose key
+    // is the class referencing the type and whose values are a vec of tuples of
+    // the form (field pretty, pointer kind).
+    let mut field_member_use_table = BTreeMap::new();
 
     // As we process the source entries and build the SourceMeta, we keep a running list of what
     // cross-SourceMeta links need to be established.  We then process this after all of the files
@@ -314,9 +326,9 @@ async fn main() {
                     piece.contextsym = file_sym.clone();
                 }
 
-                let t1 = table.entry(piece.sym).or_insert(BTreeMap::new());
-                let t2 = t1.entry(piece.kind).or_insert(BTreeMap::new());
-                let t3 = t2.entry(path.clone()).or_insert(Vec::new());
+                let t1 = table.entry(piece.sym).or_insert_with(|| BTreeMap::new());
+                let t2 = t1.entry(piece.kind).or_insert_with(|| BTreeMap::new());
+                let t3 = t2.entry(path.clone()).or_insert_with(|| Vec::new());
 
                 let (line, offset) = lines[lineno].clone();
 
@@ -328,10 +340,17 @@ async fn main() {
                 // to be the symbol in question; it's not useful to name the context symbol
                 // redundantly when it's the symbol we're attaching data to.
                 if piece.kind == AnalysisKind::Use && !piece.contextsym.is_empty() {
-                    let callees = callees_table
+                    let callee_syms = callees_table
                         .entry(piece.contextsym)
-                        .or_insert(BTreeSet::new());
-                    callees.insert(piece.sym);
+                        .or_insert_with(|| BTreeMap::new());
+                    let (from_path, callee_jump_lines) = callee_syms
+                        .entry(piece.sym)
+                        .or_insert_with(|| (path.clone(), BTreeSet::new()));
+                    if from_path == path {
+                        callee_jump_lines.insert(datum.loc.lineno);
+                    }
+                    // XXX otherwise weird things are happening, but I'm not
+                    // sure we need to warn on this.
                 }
 
                 t3.push(SearchResult {
@@ -515,9 +534,17 @@ async fn main() {
                         let best_sym = pointee_syms.iter().find(|s| s.starts_with("T_"));
                         if let Some(sym) = best_sym {
                             field.pointer_info.push(StructuredPointerInfo {
-                                kind: ptr_kind,
+                                kind: ptr_kind.clone(),
                                 sym: sym.clone(),
                             });
+
+                            let member_uses = field_member_use_table
+                                .entry(sym.clone())
+                                .or_insert_with(|| BTreeMap::new());
+                            let use_details = member_uses
+                                .entry(meta.sym.clone())
+                                .or_insert_with(|| Vec::new());
+                            use_details.push((field.pretty.clone(), ptr_kind));
                         }
                     } else {
                         warn!(pretty=pointee_pretty.as_str(), "Unable to map pretty identifier to symbols.");
@@ -817,18 +844,39 @@ async fn main() {
         }
         if let Some(callee_syms) = callees_table.get(&id) {
             let mut callees = Vec::new();
-            for callee_sym in callee_syms {
+            for (callee_sym, (call_path, call_lines)) in callee_syms {
                 if let Some(meta) = meta_table.get(callee_sym) {
                     let mut obj = BTreeMap::new();
-                    obj.insert("sym".to_string(), callee_sym);
+                    obj.insert("sym".to_string(), callee_sym.to_string());
                     if let Some(pretty) = pretty_table.get(callee_sym) {
-                        obj.insert("pretty".to_string(), pretty);
+                        obj.insert("pretty".to_string(), pretty.to_string());
                     }
-                    obj.insert("kind".to_string(), &meta.kind);
+                    obj.insert("kind".to_string(), meta.kind.to_string());
+                    obj.insert("jump".to_string(), format!("{}#{}", call_path, call_lines.iter().join(",")));
                     callees.push(json!(obj));
                 }
             }
             kindmap.insert("callees".to_string(), json!(callees));
+        }
+        if let Some(fmu_syms) = field_member_use_table.get(&id) {
+            let mut fmus = Vec::new();
+            for (fmu_sym, fmu_field_infos) in fmu_syms {
+                if let Some(meta) = meta_table.get(fmu_sym) {
+                    let mut fields = vec![];
+                    for (field_pretty, ptr_kind) in fmu_field_infos {
+                        fields.push(json!({
+                            "pretty": field_pretty,
+                            "ptr": ptr_kind,
+                        }));
+                    }
+                    fmus.push(json!({
+                        "sym": fmu_sym,
+                        "pretty": meta.pretty,
+                        "fields": fields,
+                    }));
+                }
+            }
+            kindmap.insert("field-member-uses".to_string(), json!(fmus));
         }
         // Put the metadata in there too.
         let mut fallback_pretty = None;

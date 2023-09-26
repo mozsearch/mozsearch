@@ -146,11 +146,13 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
+            "jump": "big_cpp.cpp#156",
             "kind": "field",
             "pretty": "outerNS::Thing::mDefunct",
             "sym": "F_<T_outerNS::Thing>_mDefunct"
           },
           {
+            "jump": "big_cpp.cpp#155",
             "kind": "field",
             "pretty": "outerNS::Thing::mHP",
             "sym": "F_<T_outerNS::Thing>_mHP"
