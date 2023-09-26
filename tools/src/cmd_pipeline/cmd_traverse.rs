@@ -258,6 +258,9 @@ impl PipelineCommand for TraverseCommand {
             let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
 
             if traverse_fields {
+                // Traverse the fields out of this class
+                // Note that depth won't stop us from showing a class's fields,
+                // just whether we process the target symbol!
                 if let Some(fields_json) = sym_info.crossref_info.pointer("/meta/fields").cloned() {
                     let fields: Vec<StructuredFieldInfo> = from_value(fields_json).unwrap();
                     for field in fields {
@@ -315,6 +318,46 @@ impl PipelineCommand for TraverseCommand {
                                 );
                             }
                         }
+                    }
+                }
+            }
+
+            if traverse_fields && next_depth < depth {
+                let bad_data = || {
+                    ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::DataLayer,
+                        message: format!("Bad edge info in sym {sym} on field-member-uses"),
+                    })
+                };
+
+                // Find the places where this type is used as a field member.
+                //
+                // A hack/simplification we do here is just add the class and leave
+                // it up to the traversal of the class to generate the field edge
+                // for us.  We don't need to worry about weirdness with the depth
+                // threshold here because our logic above will always process the
+                // class's fields; the field traversal is not a separate step with
+                // its own depth addition.
+                let sym_info = sym_node_set.get(&sym_id);
+                let overrides = sym_info
+                    .crossref_info
+                    .pointer("/field-member-uses")
+                    .unwrap_or(&Value::Array(vec![]))
+                    .clone();
+
+                for target in overrides.as_array().unwrap() {
+                    // fmu is { sym, pretty, fields }
+                    // The sym is the class referencing our type.
+                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
+                    let target_sym = ustr(target_sym_str);
+
+                    let (_target_id, target_info) =
+                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+
+                    // we already considered depth in the outer condition
+                    if considered.insert(target_info.symbol.clone()) {
+                        trace!(sym = target_sym_str, "scheduling field-member-use");
+                        to_traverse.push((target_info.symbol.clone(), next_depth));
                     }
                 }
             }
