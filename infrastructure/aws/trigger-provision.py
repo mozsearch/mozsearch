@@ -9,11 +9,18 @@
 from __future__ import absolute_import
 import boto3
 from datetime import datetime, timedelta
+import re
 import sys
 import os.path
 
-kind = sys.argv[1]
-provisioners = sys.argv[2:]
+# behold the world's most sophisticated and non-hacky argument parsing!
+dry_run = '--dry-run' in sys.argv
+# argv0 is this script itself
+use_args = [x for x in sys.argv[1:] if not x.startswith('--')]
+
+# (we no longer have argv0 here, so we are zero-indexed)
+kind = use_args[0]
+provisioners = use_args[1:]
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
@@ -111,6 +118,26 @@ echo "Email sent.  Sleeping for a minute, then terminating." >> ~ubuntu/provisio
 sleep 60
 aws ec2 terminate-instances --region $AWS_REGION --instance-ids $INSTANCE_ID
 '''
+
+## Shrink user_data to remain under the AWS 16384 byte user data limit
+#
+# We uncovered a 16384 byte limit on the user data that we weren't actively
+# aware of.  Our current hacky fix is to remove comments from the payload we're
+# sending.
+
+# this converts comment lines into empty lines, but uses a negative lookahead
+# assertion to leave lines that start with `#!` because those are potentially
+# load-bearing.
+RE_EXCLUDE_COMMENTS = re.compile('^#(?!!)[^\n]*$', re.MULTILINE)
+# this merges multiple empty lines into a single line
+RE_MERGE_EMPTY_LINES = re.compile('\n\n\n*')
+user_data = RE_EXCLUDE_COMMENTS.sub('', user_data)
+user_data = RE_MERGE_EMPTY_LINES.sub('\n\n', user_data)
+
+if dry_run:
+    print('User Data is below the line:')
+    print(user_data)
+    sys.exit(0)
 
 # Performing lookup from https://cloud-images.ubuntu.com/locator/ec2/ by
 # searching on "20.04 us-west-2 amd64" we get:
