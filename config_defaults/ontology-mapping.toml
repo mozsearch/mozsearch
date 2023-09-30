@@ -54,8 +54,15 @@ runnable = true
 [pretty."nsIStreamLoaderObserver::OnStreamComplete"]
 runnable = true
 
+[pretty."JSObject"]
+labels = ["class-diagram:stop"]
+
 [pretty."nsIGlobalObject"]
 labels = ["class-diagram:stop"]
+
+# This will get both `T_nsISupports` and `XPIDL_nsISupports`
+[pretty."nsISupports"]
+labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsI"]
 
 [pretty."nsGlobalWindowInner"]
 labels = ["class-diagram:stop"]
@@ -63,10 +70,22 @@ labels = ["class-diagram:stop"]
 [pretty."nsPIDOMWindowInner"]
 labels = ["class-diagram:stop"]
 
+[pretty."nsWrapperCache"]
+labels = ["class-diagram:stop", "class-diagram:elide-and-badge:WC"]
+
 [pretty."mozilla::DOMEventTargetHelper"]
 labels = ["class-diagram:stop"]
 
 [pretty."mozilla::dom::WorkerPrivate"]
+labels = ["class-diagram:stop"]
+
+[pretty."mozilla::ipc::IProtocol"]
+labels = ["class-diagram:stop"]
+
+[pretty."mozilla::Runnable"]
+labels = ["class-diagram:stop"]
+
+[pretty."mozilla::SupportsWeakPtr"]
 labels = ["class-diagram:stop"]
 
 # ### Refcounted Types ###
@@ -98,16 +117,16 @@ label = "arc"
 # We use a containing class rule here because the participant is an inner class
 # of the cycle collected class.  Compare with the refcount objects which are
 # fields on the refcounted class.
-[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class.labels]]
+[[pretty."nsCycleCollectionParticipant".label_containing_class.labels]]
 label = "cc"
 
-[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
+[[pretty."nsCycleCollectionParticipant".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::cycleCollection::Trace"
 label = "cc-trace"
-[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
+[[pretty."nsCycleCollectionParticipant".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::cycleCollection::TraverseNative"
 label = "cc-traverse"
-[[pretty."nsXPCOMCycleCollectionParticipant".label_containing_class_field_uses.labels]]
+[[pretty."nsCycleCollectionParticipant".label_containing_class_field_uses.labels]]
 context_sym_suffix = "::cycleCollection::Unlink"
 label = "cc-unlink"
 

@@ -20,7 +20,8 @@ use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     file_format::{
         analysis_manglings::split_pretty,
-        crossref_converter::convert_crossref_value_to_sym_info_rep, ontology_mapping::label_to_badge_info,
+        crossref_converter::convert_crossref_value_to_sym_info_rep,
+        ontology_mapping::label_to_badge_info,
     },
 };
 
@@ -131,6 +132,9 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
 pub fn semantic_kind_is_class(semantic_kind: &str) -> bool {
     match semantic_kind {
         "class" => true,
+        // Gecko has many structs that are basically classes; also, for our
+        // purposes in general, anything with fields is a class.
+        "struct" => true,
         _ => false,
     }
 }
@@ -461,6 +465,18 @@ impl SymbolGraphCollection {
         // 2. We branch based on the GraphHierarchy requested to populate the
         //    segments.
         // 3. We process the segments to populate the nodes.
+        //
+        // Extra complications:
+        // - Inner classes (a class defined within another class) are a major
+        //   practical problem because visually we would like to represent a
+        //   class and its fields as a "record"-type HTML label display, but
+        //   if we nest the inner class under the root class, this causes our
+        //   heuristics to not fire.  We address this problem by aggregating
+        //   the outer class name onto the inner class name.  A class "Foo" in
+        //   the namespace "ns" which has an inner class "InnerFoo" would end
+        //   up with Foo having pretty segments of ["ns", "Foo"] and InnerFoo
+        //   having pretty segments of ["ns", "Foo::Innerfoo"] with no potential
+        //   for "Foo::InnerFoo" to be split an additional time.
 
         for sym_id in graph.list_nodes() {
             let (sym, sym_pretty) = {
@@ -471,7 +487,7 @@ impl SymbolGraphCollection {
             trace!(sym = %sym_pretty, "processing symbol");
             let (pieces, delim) = split_pretty(sym_pretty, sym);
             let mut pieces_and_syms = vec![];
-            for piece in pieces {
+            for mut piece in pieces {
                 trace!(piece = %piece, "processing piece");
                 pretty_so_far = if pretty_so_far.is_empty() {
                     piece.clone()
@@ -486,9 +502,26 @@ impl SymbolGraphCollection {
                 if sym_pretty == pretty_so_far || !checked_pretties.contains_key(&ustr_so_far) {
                     // We haven't checked this before, so process it.
 
+                    // inner class handling help
+                    // (needs to borrow from node_set, so invoke before ensure_symbol below)
+                    let container_is_class = match pieces_and_syms.last() {
+                        Some((_, Some(container_sym_id))) => {
+                            let container_info = self.node_set.get(container_sym_id);
+                            container_info.is_class()
+                        }
+                        _ => false,
+                    };
+
                     // See if we can find a symbol for this identifier.
                     if sym_pretty == pretty_so_far {
                         trace!(pretty = %pretty_so_far, "reusing known symbol");
+
+                        if container_is_class && self.node_set.get(&sym_id).is_class() {
+                            if let Some((container_piece, _)) = pieces_and_syms.pop() {
+                                trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
+                                piece = format!("{}{}{}", container_piece, delim, piece);
+                            }
+                        }
                         pieces_and_syms.push((piece, Some(sym_id.clone())));
                     } else {
                         // TODO: Either don't set the limit to 1 or provide a better
@@ -502,9 +535,21 @@ impl SymbolGraphCollection {
                             .iter()
                             .next()
                         {
-                            let (match_sym_id, _) =
+                            let (match_sym_id, match_sym_info) =
                                 self.node_set.ensure_symbol(&match_sym, server).await?;
-                            checked_pretties.insert(ustr_so_far, Some(match_sym_id.clone()));
+
+                            let needs_pop = if container_is_class && match_sym_info.is_class() {
+                                if let Some((container_piece, _)) = pieces_and_syms.pop() {
+                                    trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
+                                    piece = format!("{}{}{}", container_piece, delim, piece);
+                                }
+                                true
+                            } else {
+                                false
+                            };
+
+                            checked_pretties
+                                .insert(ustr_so_far, Some((match_sym_id.clone(), needs_pop)));
                             pieces_and_syms.push((piece, Some(match_sym_id)));
                         } else {
                             trace!(pretty = %pretty_so_far, "failed to locate symbol for identifier");
@@ -513,13 +558,20 @@ impl SymbolGraphCollection {
                         }
                     };
                 } else {
-                    pieces_and_syms.push((
-                        piece,
-                        checked_pretties
-                            .get(&ustr_so_far)
-                            .unwrap_or_else(|| &None)
-                            .clone(),
-                    ));
+                    match checked_pretties.get(&ustr_so_far) {
+                        Some(Some((use_sym_id, needs_pop))) => {
+                            if *needs_pop {
+                                if let Some((container_piece, _)) = pieces_and_syms.pop() {
+                                    trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
+                                    piece = format!("{}{}{}", container_piece, delim, piece);
+                                }
+                            }
+                            pieces_and_syms.push((piece, Some(use_sym_id.clone())));
+                        }
+                        _ => {
+                            pieces_and_syms.push((piece, None));
+                        }
+                    }
                 }
             }
 
@@ -687,7 +739,9 @@ impl SymbolGraphCollection {
         }
 
         // Note that the root node renders the default style directives.
-        let stmts = graph.root.render(&self.node_set, &self.edge_set, &mut state);
+        let stmts = graph
+            .root
+            .render(&self.node_set, &self.edge_set, &mut state);
         for stmt in stmts {
             dot_graph.add_stmt(stmt);
         }
@@ -861,7 +915,11 @@ impl LabelRow {
                 Some(idval) => format!("id=\"{}\" ", idval),
                 None => "".to_string(),
             };
-            let badge_reps = cell.badges.iter().map(|b| format!("<U>{}</U>", b.label)).collect_vec();
+            let badge_reps = cell
+                .badges
+                .iter()
+                .map(|b| format!("<U>{}</U>", b.label))
+                .collect_vec();
             row_pieces.push(format!(
                 r#"<td {}href="{}" port="{}" align="left">{}{}{}{}</td>"#,
                 maybe_id,
@@ -1476,8 +1534,14 @@ impl HierarchicalNode {
                 // Records will be handled by their parent table.
             }
             HierarchicalLayoutAction::Node(node_id) => {
+                let badges = node_set.get_merged_badges_for_symbols(&self.symbols);
+                let maybe_labels = if !badges.is_empty() {
+                    format!(" {}", badges.into_iter().map(|b| format!("<U>{}</U>", b.label)).collect_vec().join(""))
+                } else {
+                    "".to_string()
+                };
                 result.push(stmt!(
-                    node!(esc node_id; attr!("id", state.id_for_nodes(&self.symbols)), attr!("label", esc escape_quotes(&self.display_name)))
+                    node!(esc node_id; attr!("id", state.id_for_nodes(&self.symbols)), attr!("label", html format!("<{}{}>", &self.display_name, maybe_labels)))
                 ));
             }
         }
@@ -1794,7 +1858,10 @@ impl SymbolGraphNodeSet {
             .unwrap()
     }
 
-    pub fn get_merged_badges_for_symbols(&self, nodes: &Vec<SymbolGraphNodeId>) -> Vec<SymbolBadge> {
+    pub fn get_merged_badges_for_symbols(
+        &self,
+        nodes: &Vec<SymbolGraphNodeId>,
+    ) -> Vec<SymbolBadge> {
         let mut badges: BTreeSet<SymbolBadge> = BTreeSet::default();
         for sym_id in nodes {
             let sym_info = self.get(sym_id);

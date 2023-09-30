@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use bitflags::bitflags;
 use clap::Args;
 use itertools::Itertools;
 use serde_json::{from_value, Value};
@@ -53,7 +54,7 @@ pub struct Traverse {
     /// Maximum number of nodes in a resulting graph.  When paths are involved,
     /// we may opt to add the entirety of the path that puts the graph over the
     /// node limit rather than omitting it.
-    #[clap(long, value_parser = clap::value_parser!(u32).range(16..=512), default_value = "256")]
+    #[clap(long, value_parser = clap::value_parser!(u32).range(16..=1024), default_value = "256")]
     pub node_limit: u32,
     /// Maximum number of nodes in a graph being built to be processed by
     /// paths-between.
@@ -80,6 +81,14 @@ pub struct Traverse {
 #[derive(Debug)]
 pub struct TraverseCommand {
     pub args: Traverse,
+}
+
+bitflags! {
+    #[derive(Clone, Copy)]
+    pub struct Traversals: u32 {
+        const Super    = 0b00000001;
+        const Subclass = 0b00000010;
+    }
 }
 
 /// ### Theory of Operation
@@ -146,10 +155,12 @@ impl PipelineCommand for TraverseCommand {
 
         let mut overloads_hit = vec![];
 
+        let all_traversals_valid = Traversals::Super | Traversals::Subclass;
+
         // Propagate the starting symbols into the graph and queue them up for
         // traversal.
         for info in cil.symbol_crossref_infos {
-            to_traverse.push((info.symbol.clone(), 0));
+            to_traverse.push((info.symbol.clone(), 0, all_traversals_valid));
             considered.insert(info.symbol.clone());
 
             let (sym_node_id, _info) =
@@ -192,6 +203,11 @@ impl PipelineCommand for TraverseCommand {
             "uses" => true,
             _ => false,
         };
+        let traverse_subclasses = match self.args.edge.as_str() {
+            "class" => true,
+            "inheritance" => true,
+            _ => false,
+        };
         let traverse_superclasses = match self.args.edge.as_str() {
             "class" => true,
             "inheritance" => true,
@@ -210,7 +226,7 @@ impl PipelineCommand for TraverseCommand {
         //   set of symbols we're traversing from which we already have cached
         //   values for and the new edges we discover, but it's not a concern.
         // - We traverse the list of edges.
-        while let Some((sym, depth)) = to_traverse.pop() {
+        while let Some((sym, depth, cur_traversals)) = to_traverse.pop() {
             if sym_node_set.symbol_crossref_infos.len() as u32 >= node_limit {
                 trace!(sym = %sym, depth, "stopping because of node limit");
                 overloads_hit.push(OverloadInfo {
@@ -237,6 +253,14 @@ impl PipelineCommand for TraverseCommand {
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
 
             if let Some(stop_at_label) = &stop_at_class_label {
+                // XXX remove these after the next crossref rebuild with the new markers.
+                match sym_info.symbol.as_str() {
+                    "T_nsWrapperCache" | "T_nsISupports" | "XPIDL_nsISupports" | "T_mozilla::SupportsWeakPtr" | "T_JSObject" |
+                    "T_mozilla::Runnable" => {
+                        continue;
+                    }
+                    _ => {}
+                };
                 if let Some(labels_json) = sym_info.crossref_info.pointer("/meta/labels").cloned() {
                     let labels: Vec<Ustr> = from_value(labels_json).unwrap();
                     let mut skip_symbol = false;
@@ -273,7 +297,7 @@ impl PipelineCommand for TraverseCommand {
                                 sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
                             if next_depth < max_depth && considered.insert(ptr_info.sym.clone()) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
-                                to_traverse.push((ptr_info.sym.clone(), next_depth));
+                                to_traverse.push((ptr_info.sym.clone(), next_depth, all_traversals_valid));
                             }
 
                             // XXX consider moving the mapping here to the ontology file
@@ -357,7 +381,7 @@ impl PipelineCommand for TraverseCommand {
                     // we already considered depth in the outer condition
                     if considered.insert(target_info.symbol.clone()) {
                         trace!(sym = target_sym_str, "scheduling field-member-use");
-                        to_traverse.push((target_info.symbol.clone(), next_depth));
+                        to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
                     }
                 }
             }
@@ -412,7 +436,7 @@ impl PipelineCommand for TraverseCommand {
                             if next_depth < max_depth && considered.insert(send_info.symbol.clone())
                             {
                                 trace!(sym = send_info.symbol.as_str(), "scheduling send slot sym");
-                                to_traverse.push((send_info.symbol.clone(), next_depth));
+                                to_traverse.push((send_info.symbol.clone(), next_depth, all_traversals_valid));
                             }
                         }
                         continue;
@@ -429,7 +453,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth && considered.insert(idl_info.symbol.clone()) {
                             trace!(sym = idl_info.symbol.as_str(), "scheduling owner slot sym");
-                            to_traverse.push((idl_info.symbol.clone(), next_depth));
+                            to_traverse.push((idl_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -471,7 +495,7 @@ impl PipelineCommand for TraverseCommand {
                             }
                             if next_depth < max_depth && considered.insert(rel_sym.clone()) {
                                 trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
-                                to_traverse.push((rel_sym.clone(), next_depth));
+                                to_traverse.push((rel_sym.clone(), next_depth, all_traversals_valid));
                             }
                         }
                         // For the case of runnables the override hierarchy is arguably a
@@ -487,7 +511,48 @@ impl PipelineCommand for TraverseCommand {
                 }
             }
 
-            if traverse_superclasses {
+            if traverse_subclasses && cur_traversals.contains(Traversals::Subclass) {
+                let bad_data = || {
+                    ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::DataLayer,
+                        message: format!("Bad edge info in sym {sym} on meta subclasses"),
+                    })
+                };
+
+                let sym_info = sym_node_set.get(&sym_id);
+                let overrides = sym_info
+                    .crossref_info
+                    .pointer("/meta/subclasses")
+                    .unwrap_or(&Value::Array(vec![]))
+                    .clone();
+
+                for target in overrides.as_array().unwrap() {
+                    // subclasses are just the raw symbol, not an object dict.
+                    let target_sym_str = target.as_str().ok_or_else(bad_data)?;
+                    let target_sym = ustr(target_sym_str);
+
+                    let (target_id, target_info) =
+                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+
+                    sym_edge_set.ensure_edge_in_graph(
+                        target_id,
+                        sym_id.clone(),
+                        EdgeKind::Inheritance,
+                        vec![],
+                        &mut graph,
+                    );
+
+                    if next_depth < max_depth && considered.insert(target_info.symbol.clone()) {
+                        trace!(sym = target_sym_str, "scheduling subclass");
+                        // If we're going in the subclass direction continue only going in the subclass
+                        // direction; don't change direction and perform superclass traversals.
+                        // XXX we should potentially be tying this into "considered" somehow.
+                        to_traverse.push((target_info.symbol.clone(), next_depth, Traversals::Subclass));
+                    }
+                }
+            }
+
+            if traverse_superclasses && cur_traversals.contains(Traversals::Super) {
                 let bad_data = || {
                     ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::DataLayer,
@@ -502,13 +567,29 @@ impl PipelineCommand for TraverseCommand {
                     .unwrap_or(&Value::Array(vec![]))
                     .clone();
 
-                for target in overrides.as_array().unwrap() {
+                'target: for target in overrides.as_array().unwrap() {
                     // overrides is { sym, pretty, props }
                     let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
                     let target_sym = ustr(target_sym_str);
 
                     let (target_id, target_info) =
                         sym_node_set.ensure_symbol(&target_sym, server).await?;
+
+                    if let Some(Value::Array(labels_json)) = target_info.crossref_info.pointer("/meta/labels").cloned() {
+                        for label in labels_json {
+                            if let Value::String(label) = label {
+                                if let Some(badge_label) = label.strip_prefix("class-diagram:elide-and-badge:") {
+                                    let sym_info = sym_node_set.get_mut(&sym_id);
+                                    sym_info.badges.push(SymbolBadge {
+                                        pri: 50,
+                                        label: ustr(&badge_label),
+                                        source_jump: None,
+                                    });
+                                    continue 'target;
+                                }
+                            }
+                        }
+                    }
 
                     sym_edge_set.ensure_edge_in_graph(
                         sym_id.clone(),
@@ -520,7 +601,10 @@ impl PipelineCommand for TraverseCommand {
 
                     if next_depth < max_depth && considered.insert(target_info.symbol.clone()) {
                         trace!(sym = target_sym_str, "scheduling super");
-                        to_traverse.push((target_info.symbol.clone(), next_depth));
+                        // If we're going in the superclass direction, continue only going in the
+                        // superclass direction; don't allow going back down subclasses!
+                        // XXX we should potentially be tying this into "considered" somehow
+                        to_traverse.push((target_info.symbol.clone(), next_depth, Traversals::Super));
                     }
                 }
             }
@@ -568,7 +652,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth {
                             trace!(sym = target_sym_str, "scheduling overrides");
-                            to_traverse.push((target_info.symbol.clone(), next_depth));
+                            to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -608,7 +692,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth {
                             trace!(sym = target_sym_str, "scheduling overridenBy");
-                            to_traverse.push((target_info.symbol.clone(), next_depth));
+                            to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -655,7 +739,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth && considered.insert(target_info.symbol.clone()) {
                             trace!(sym = target_sym_str, "scheduling callees");
-                            to_traverse.push((target_info.symbol.clone(), next_depth));
+                            to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -727,7 +811,7 @@ impl PipelineCommand for TraverseCommand {
                                     && considered.insert(source_info.symbol.clone())
                                 {
                                     trace!(sym = source_sym_str, "scheduling uses");
-                                    to_traverse.push((source_info.symbol.clone(), next_depth));
+                                    to_traverse.push((source_info.symbol.clone(), next_depth, all_traversals_valid));
                                 }
                             }
                         }
