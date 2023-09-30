@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::fs::create_dir_all;
+use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
@@ -21,6 +21,10 @@ use tools::file_format::analysis::OntologySlotInfo;
 use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
+use tools::file_format::analysis::{
+    read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
+    StructuredBindingSlotInfo,
+};
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
@@ -28,20 +32,14 @@ use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_r
 use tools::file_format::ontology_mapping::OntologyLabelOwningClass;
 use tools::file_format::ontology_mapping::OntologyMappingIngestion;
 use tools::file_format::repo_data_ingestion::RepoIngestion;
-use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
+use tools::logging::LoggedSpan;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
 use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
-use tools::{
-    file_format::analysis::{
-        read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
-        StructuredBindingSlotInfo,
-    },
-};
+use ustr::ustr;
 use ustr::Ustr;
 use ustr::UstrMap;
 use ustr::UstrSet;
-use ustr::ustr;
 
 /// The size for a payload line (inclusive of leading indicating character and
 /// newline) at which we store it externally in `crossref-extra` instead of
@@ -109,10 +107,11 @@ async fn main() {
     let analysis_filenames_file = &cli.analysis_files_list_path;
 
     // This is just the list of analysis files.
-    let analysis_relative_paths: Vec<Ustr> = BufReader::new(File::open(analysis_filenames_file).unwrap())
-        .lines()
-        .map(|x| ustr(&x.unwrap()))
-        .collect();
+    let analysis_relative_paths: Vec<Ustr> =
+        BufReader::new(File::open(analysis_filenames_file).unwrap())
+            .lines()
+            .map(|x| ustr(&x.unwrap()))
+            .collect();
 
     let all_files_list_path = format!("{}/all-files", tree_config.paths.index_path);
     let all_files_paths: Vec<Ustr> = fs::read_to_string(all_files_list_path)
@@ -129,7 +128,7 @@ async fn main() {
         .collect();
 
     // ## Ingest Repo-Wide Information
-    
+
     // This will buffer ALL of the tracing logging in our crate between now
     // and when we retrieve it to emit diagnostics.  To this end, we want
     // verbose logging to be conditioned on our "probe" mechanism, which means
@@ -141,14 +140,19 @@ async fn main() {
     let logged_ingestion_span = LoggedSpan::new_logged_span("repo_ingestion");
     let ingestion_entered = logged_ingestion_span.span.clone().entered();
 
-    let per_file_info_toml_str = cfg.read_tree_config_file_with_default("per-file-info.toml").unwrap();
-    let mut ingestion = RepoIngestion::new(&per_file_info_toml_str).expect("Your per-file-info.toml file has issues");
+    let per_file_info_toml_str = cfg
+        .read_tree_config_file_with_default("per-file-info.toml")
+        .unwrap();
+    let mut ingestion = RepoIngestion::new(&per_file_info_toml_str)
+        .expect("Your per-file-info.toml file has issues");
     ingestion.ingest_file_list_and_apply_heuristics(&all_files_paths, tree_config);
     ingestion.ingest_dir_list(&all_dirs_paths);
 
-    ingestion.ingest_files(|root: &str, file: &str| {
-        cfg.maybe_read_file_from_given_root(&cli.tree_name, root, file)
-    }).unwrap();
+    ingestion
+        .ingest_files(|root: &str, file: &str| {
+            cfg.maybe_read_file_from_given_root(&cli.tree_name, root, file)
+        })
+        .unwrap();
 
     // After this point we will only have the concise information populated.
     // We're doing this to minimize our peak memory usage here, but if we find
@@ -158,7 +162,9 @@ async fn main() {
     // through the analysis files we consume, for now we're only storing the
     // coverage info and it might be reasonable to not bother writing out the
     // detailed files until the end when we write out the concise file.
-    ingestion.state.write_out_and_drop_detailed_file_info(&tree_config.paths.index_path);
+    ingestion
+        .state
+        .write_out_and_drop_detailed_file_info(&tree_config.paths.index_path);
 
     // Consume the ingestion logged span, pass it through our repo-ingestion
     // explainer template, and write it do sik.
@@ -189,8 +195,11 @@ async fn main() {
     let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
     let ontology_entered = logged_ontology_span.span.clone().entered();
 
-    let ontology_toml_str = cfg.read_tree_config_file_with_default("ontology-mapping.toml").unwrap();
-    let ontology = OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues");
+    let ontology_toml_str = cfg
+        .read_tree_config_file_with_default("ontology-mapping.toml")
+        .unwrap();
+    let ontology = OntologyMappingIngestion::new(&ontology_toml_str)
+        .expect("ontology-mapping.toml has issues");
     drop(ontology_entered);
 
     // ## Process all the analysis files
@@ -395,7 +404,7 @@ async fn main() {
 
         let concise_info = ingestion.state.concise_per_file.get(path);
 
-        if let Some(concise) = concise_info {
+        let subsystem = if let Some(concise) = concise_info {
             let file_structured = AnalysisStructured {
                 structured: StructuredTag::Structured,
                 pretty: path.clone(),
@@ -427,9 +436,14 @@ async fn main() {
             };
             meta_table.insert(file_structured.sym.clone(), file_structured);
             pretty_table.insert(file_sym.clone(), path.clone());
-            let t1 = id_table.entry(path.clone()).or_insert_with(|| UstrSet::default());
+            let t1 = id_table
+                .entry(path.clone())
+                .or_insert_with(|| UstrSet::default());
             t1.insert(file_sym.clone());
-        }
+            concise.subsystem.clone()
+        } else {
+            None
+        };
 
         let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
         for datum in structured_analysis {
@@ -448,15 +462,13 @@ async fn main() {
                     // We remove all bindings infos from AnalysisStructured instances here
                     // but add them back both ways when we iterate over xref_link_slots.
                     for slot_info in piece.binding_slots.drain(..) {
-                        xref_link_slots.insert((piece.sym, slot_info.sym), slot_info.props);
+                        xref_link_slots.insert((piece.sym, slot_info.sym), (slot_info.props, subsystem.clone()));
                     }
                     if let Some(slot_info) = piece.slot_owner.take() {
-                        xref_link_slots.insert((slot_info.sym, piece.sym), slot_info.props);
+                        xref_link_slots.insert((slot_info.sym, piece.sym), (slot_info.props, subsystem.clone()));
                     }
 
-                    if let Some(concise) = concise_info {
-                        piece.subsystem = concise.subsystem.clone();
-                    }
+                    piece.subsystem = subsystem.clone();
 
                     piece
                 });
@@ -477,18 +489,22 @@ async fn main() {
         }
     }
 
-    for ((owner_sym, slotted_sym), props) in xref_link_slots {
+    for ((owner_sym, slotted_sym), (props, subsystem)) in xref_link_slots {
         if let Some(owner) = meta_table.get_mut(&owner_sym) {
             owner.binding_slots.push(StructuredBindingSlotInfo {
                 sym: slotted_sym,
                 props,
             });
+            if owner.subsystem.is_none() {
+                owner.subsystem = subsystem.clone();
+            }
         }
         if let Some(slotted) = meta_table.get_mut(&slotted_sym) {
             slotted.slot_owner = Some(StructuredBindingSlotInfo {
                 sym: owner_sym,
                 props,
             });
+            slotted.subsystem = subsystem;
         }
     }
 
@@ -502,7 +518,12 @@ async fn main() {
 
     for (pretty_id, rule) in ontology.config.pretty.iter() {
         if let Some(label_owning_class) = &rule.label_owning_class {
-            field_owning_class_rules.insert(pretty_id.clone(), label_owning_class.clone());
+            // We lookup by the type_pretty which currently will have "class " or "struct ""
+            // prefixes.  In the interest of not having to mangle every type field, create
+            // "class "-prefixed variants.  I'm not creating "struct "-prefixed variants
+            // right now because most things should be classes.
+            let type_prettied = format!("class {}", pretty_id);
+            field_owning_class_rules.insert(ustr(&type_prettied), label_owning_class.clone());
         }
     }
 
@@ -516,13 +537,18 @@ async fn main() {
                     continue;
                 }
 
+                // Note that the type_pretty will have a "class " prefix which is why we already
+                // pre-transformed our rules when populating the rule map.
                 if let Some(rule) = field_owning_class_rules.get(&field.type_pretty) {
                     for label_rule in &rule.labels {
                         meta.labels.insert(label_rule.label.clone());
                     }
                 }
 
-                for (ptr_kind, pointee_pretty) in ontology.config.maybe_parse_type_as_pointer(&field.type_pretty) {
+                for (ptr_kind, pointee_pretty) in ontology
+                    .config
+                    .maybe_parse_type_as_pointer(&field.type_pretty)
+                {
                     if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
                         // We need to find the first symbol that's referring to a type.
                         // Conveniently, for C++, these will always start with `T_`,
@@ -547,7 +573,10 @@ async fn main() {
                             use_details.push((field.pretty.clone(), ptr_kind));
                         }
                     } else {
-                        warn!(pretty=pointee_pretty.as_str(), "Unable to map pretty identifier to symbols.");
+                        warn!(
+                            pretty = pointee_pretty.as_str(),
+                            "Unable to map pretty identifier to symbols."
+                        );
                     }
                 }
             }
@@ -615,11 +644,14 @@ async fn main() {
                         let class_name = class_meta.pretty.rsplit("::").next().unwrap();
                         // We expect the constructors to have the same name as the class; currently
                         // for C++ we don't actually emit a special "props" "constructor" value.
-                        let constructor_pretty = ustr(&format!("{}::{}", class_meta.pretty, class_name));
+                        let constructor_pretty =
+                            ustr(&format!("{}::{}", class_meta.pretty, class_name));
                         for method in &class_meta.methods {
                             // Skip constructors that aren't known; this can happen for the copy
                             // constructor/etc.
-                            if method.pretty == constructor_pretty && table.contains_key(&method.sym){
+                            if method.pretty == constructor_pretty
+                                && table.contains_key(&method.sym)
+                            {
                                 syms.push(method.sym);
                             }
                         }
@@ -660,7 +692,10 @@ async fn main() {
         // Some rules are processed as we process structured fields above.
 
         if let Some(label_rule) = &rule.label_containing_class {
-            info!(" Processing pretty label_containing_class for: {}", pretty_id);
+            info!(
+                " Processing pretty label_containing_class for: {}",
+                pretty_id
+            );
             if let Some(root_class_syms) = id_table.get(&pretty_id) {
                 let mut investigate_class_syms = vec![];
                 // We don't care about the root itself, just its subclasses.
@@ -712,7 +747,10 @@ async fn main() {
         // to add a label to the field on its class.  (Currently we do not do anythign to the
         // structured info for field symbol itself.)
         if let Some(label_rule) = &rule.label_containing_class_field_uses {
-            info!(" Processing pretty label_containing_class_field_uses rule for: {}", pretty_id);
+            info!(
+                " Processing pretty label_containing_class_field_uses rule for: {}",
+                pretty_id
+            );
             if let Some(root_class_syms) = id_table.get(&pretty_id) {
                 let mut investigate_class_syms = vec![];
                 // We don't care about the root itself, just its subclasses.
@@ -753,7 +791,9 @@ async fn main() {
                                             for hits in path_hits.values() {
                                                 for hit in hits {
                                                     for rule in &label_rule.labels {
-                                                        if hit.context.ends_with(rule.context_sym_suffix.as_str()) {
+                                                        if hit.context.ends_with(
+                                                            rule.context_sym_suffix.as_str(),
+                                                        ) {
                                                             field.labels.insert(rule.label.clone());
                                                         }
                                                     }
@@ -786,7 +826,6 @@ async fn main() {
         let output = explain_template.render(&globals).unwrap();
         std::fs::write(ingestion_diag_path, output).unwrap();
     }
-
 
     // ## Write out the crossref and jumpref databases.
     let mut xref_out = File::create(xref_file).unwrap();
@@ -852,7 +891,10 @@ async fn main() {
                         obj.insert("pretty".to_string(), pretty.to_string());
                     }
                     obj.insert("kind".to_string(), meta.kind.to_string());
-                    obj.insert("jump".to_string(), format!("{}#{}", call_path, call_lines.iter().join(",")));
+                    obj.insert(
+                        "jump".to_string(),
+                        format!("{}#{}", call_path, call_lines.iter().join(",")),
+                    );
                     callees.push(json!(obj));
                 }
             }
@@ -956,5 +998,7 @@ async fn main() {
         }
     }
 
-    ingestion.state.write_out_concise_file_info(&tree_config.paths.index_path);
+    ingestion
+        .state
+        .write_out_concise_file_info(&tree_config.paths.index_path);
 }

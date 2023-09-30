@@ -289,15 +289,20 @@ impl PipelineCommand for TraverseCommand {
                     let fields: Vec<StructuredFieldInfo> = from_value(fields_json).unwrap();
                     for field in fields {
                         let mut show_field = field.labels.len() > 0;
+                        let mut effective_subsystem = None;
 
                         let mut targets = vec![];
                         for ptr_info in field.pointer_info {
                             show_field = true;
-                            let (target_id, _) =
+                            let (target_id, target_info) =
                                 sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
                             if next_depth < max_depth && considered.insert(ptr_info.sym.clone()) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
                                 to_traverse.push((ptr_info.sym.clone(), next_depth, all_traversals_valid));
+                            }
+
+                            if effective_subsystem.is_none() {
+                                effective_subsystem = target_info.get_subsystem();
                             }
 
                             // XXX consider moving the mapping here to the ontology file
@@ -316,6 +321,7 @@ impl PipelineCommand for TraverseCommand {
                         if show_field {
                             let (field_id, field_info) =
                                 sym_node_set.ensure_symbol(&field.sym, server).await?;
+                            field_info.effective_subsystem = effective_subsystem;
                             for label in field.labels {
                                 // XXX like above, consider moving the emoji label mapping here to
                                 // the ontology file or elsewhere.

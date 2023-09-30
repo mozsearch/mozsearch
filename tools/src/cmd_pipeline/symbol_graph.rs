@@ -97,6 +97,11 @@ pub struct DerivedSymbolInfo {
     pub symbol: Ustr,
     pub crossref_info: Value,
     pub badges: Vec<SymbolBadge>,
+    /// For symbols that are fields with pointer_infos, we set the effective
+    /// subsystem to be the subsystem of the first pointer_info payload.  We
+    /// use this as a first attempt at grouping fields, but it might make sense
+    /// instead to store the SymbolNodeId of the first target here instead.
+    pub effective_subsystem: Option<Ustr>,
 }
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -213,6 +218,7 @@ impl DerivedSymbolInfo {
             symbol,
             crossref_info,
             badges: vec![],
+            effective_subsystem: None,
         }
     }
 }
@@ -741,7 +747,7 @@ impl SymbolGraphCollection {
         // Note that the root node renders the default style directives.
         let stmts = graph
             .root
-            .render(&self.node_set, &self.edge_set, &mut state);
+            .render(policies, &self.node_set, &self.edge_set, &mut state);
         for stmt in stmts {
             dot_graph.add_stmt(stmt);
         }
@@ -872,6 +878,7 @@ pub struct LabelRow {
 
 pub struct LabelCell {
     pub id: Option<String>,
+    pub bg_color: Option<&'static str>,
     pub contents: String,
     pub badges: Vec<SymbolBadge>,
     pub symbol: String,
@@ -915,14 +922,19 @@ impl LabelRow {
                 Some(idval) => format!("id=\"{}\" ", idval),
                 None => "".to_string(),
             };
+            let maybe_styling = match &cell.bg_color {
+                Some(bgcolor) => format!("bgcolor=\"{}\" ", bgcolor),
+                None => "".to_string()
+            };
             let badge_reps = cell
                 .badges
                 .iter()
                 .map(|b| format!("<U>{}</U>", b.label))
                 .collect_vec();
             row_pieces.push(format!(
-                r#"<td {}href="{}" port="{}" align="left">{}{}{}{}</td>"#,
+                r#"<td {}{}href="{}" port="{}" align="left">{}{}{}{}</td>"#,
                 maybe_id,
+                maybe_styling,
                 urlencoding::encode(&cell.symbol),
                 cell.port,
                 indent_str,
@@ -953,6 +965,8 @@ pub struct HierarchyPolicies {
     pub summarize: HierarchyDefaultSummarizePolicy,
     pub force_summarize_pretties: HashSet<String>,
     pub force_expand_pretties: HashSet<String>,
+    pub group_fields_at: u32,
+    pub use_port_dirs: bool,
 }
 
 pub enum HierarchicalLayoutAction {
@@ -1294,16 +1308,32 @@ impl HierarchicalNode {
             let parent_id_str = self.derive_id(node_set, state);
             {
                 let port_id_str = make_safe_port_id(&parent_id_str);
-                let in_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "w"));
-                let out_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"));
+                let in_target = if policies.use_port_dirs {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str), "w"))
+                } else {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
+                };
+                let out_target =  if policies.use_port_dirs {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"))
+                } else {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
+                };
                 state.register_symbol_edge_targets(&self.symbols, in_target, out_target);
             }
 
             for kid in self.children.values_mut() {
                 let kid_id_str = kid.derive_id(node_set, state);
                 let port_id_str = make_safe_port_id(&kid_id_str);
-                let in_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "w"));
-                let out_target = node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"));
+                let in_target = if policies.use_port_dirs {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str), "w"))
+                } else {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
+                };
+                let out_target =  if policies.use_port_dirs {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"))
+                } else {
+                    node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
+                };
                 state.register_symbol_edge_targets(&kid.symbols, in_target, out_target);
                 kid.action = Some(HierarchicalLayoutAction::Record(kid_id_str));
             }
@@ -1367,6 +1397,7 @@ impl HierarchicalNode {
 
     pub fn render(
         &self,
+        policies: &HierarchyPolicies,
         node_set: &SymbolGraphNodeSet,
         edge_set: &SymbolGraphEdgeSet,
         state: &mut HierarchicalRenderState,
@@ -1415,12 +1446,12 @@ impl HierarchicalNode {
                 )));
                 result.push(stmt!(node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))));
                 for kid in self.children.values() {
-                    result.extend(kid.render(node_set, edge_set, state));
+                    result.extend(kid.render(policies, node_set, edge_set, state));
                 }
             }
             HierarchicalLayoutAction::Collapse => {
                 for kid in self.children.values() {
-                    result.extend(kid.render(node_set, edge_set, state));
+                    result.extend(kid.render(policies, node_set, edge_set, state));
                 }
             }
             HierarchicalLayoutAction::Cluster(cluster_id, placeholder_id) => {
@@ -1459,7 +1490,8 @@ impl HierarchicalNode {
                 let mut top_nodes = subgraph!(; attr!("rank", "same"), attr!("cluster", "false"), attr!("label", esc ""));
 
                 for kid in self.children.values() {
-                    sg.stmts.extend(kid.render(node_set, edge_set, state));
+                    sg.stmts
+                        .extend(kid.render(policies, node_set, edge_set, state));
 
                     if !kid.symbols.iter().any(|id| internal_targets.contains(&id)) {
                         match &kid.action {
@@ -1488,32 +1520,78 @@ impl HierarchicalNode {
                 table.rows.push(LabelRow {
                     cells: vec![LabelCell {
                         id: Some(state.id_for_nodes(&self.symbols)),
+                        bg_color: None,
                         contents: format!("<b>{}</b>", self.display_name),
                         badges: node_set.get_merged_badges_for_symbols(&self.symbols),
                         symbol: node_id.clone(),
                         port: make_safe_port_id(node_id),
                         indent_level: 0,
-                    }],
+                    }]
                 });
 
-                let mut kid_edges = vec![];
-                for kid in self.children.values() {
-                    if let Some(HierarchicalLayoutAction::Record(kid_id)) = &kid.action {
-                        let kid_port_name = make_safe_port_id(kid_id);
-                        table.rows.push(LabelRow {
-                            cells: vec![LabelCell {
-                                id: Some(state.id_for_nodes(&kid.symbols)),
-                                contents: kid.display_name.clone(),
-                                badges: node_set.get_merged_badges_for_symbols(&kid.symbols),
-                                symbol: kid_id.clone(),
-                                port: kid_port_name,
-                                indent_level: 1,
-                            }],
-                        });
+                let grouped_kids = if self.children.len() >= policies.group_fields_at as usize {
+                    let mut grouped = self.children
+                        .values()
+                        .into_group_map_by(|kid| {
+                            if let Some(kid_sym_id) = kid.symbols.first() {
+                                let kid_info = node_set.get(kid_sym_id);
+                                kid_info.effective_subsystem.or_else(|| kid_info.get_subsystem())
+                            } else {
+                                None
+                            }
+                        })
+                        .into_iter()
+                        .collect_vec();
+                    grouped.sort_by_cached_key(|(g, _)| g.clone());
+                    grouped
+                } else {
+                    self.children
+                        .values()
+                        .into_group_map_by(|_| -> Option<Ustr> { None })
+                        .into_iter()
+                        .collect_vec()
+                };
 
-                        for (from_id, to_id, _edge_id) in &kid.edges {
-                            if let Some((from_node, to_node)) = state.lookup_edge(from_id, to_id) {
-                                kid_edges.push(stmt!(edge!(from_node => to_node)));
+                let mut kid_edges = vec![];
+                // Only show group headers if there's more than 1 group!
+                let use_groups = grouped_kids.len() > 1;
+                for (group, ordered_kids) in grouped_kids {
+                    if let Some(group_name) = group {
+                        if use_groups {
+                            table.rows.push(LabelRow {
+                                cells: vec![LabelCell {
+                                    id: None,
+                                    bg_color: Some("#eee"),
+                                    contents: format!("<I>{}</I>", group_name),
+                                    badges: vec![],
+                                    port: "".to_string(),
+                                    symbol: "".to_string(),
+                                    indent_level: 0,
+                                }],
+                            });
+                        }
+                    }
+                    for kid in ordered_kids {
+                        if let Some(HierarchicalLayoutAction::Record(kid_id)) = &kid.action {
+                            let kid_port_name = make_safe_port_id(kid_id);
+                            table.rows.push(LabelRow {
+                                cells: vec![LabelCell {
+                                    id: Some(state.id_for_nodes(&kid.symbols)),
+                                    bg_color: None,
+                                    contents: kid.display_name.clone(),
+                                    badges: node_set.get_merged_badges_for_symbols(&kid.symbols),
+                                    symbol: kid_id.clone(),
+                                    port: kid_port_name,
+                                    indent_level: 1,
+                                }],
+                            });
+
+                            for (from_id, to_id, _edge_id) in &kid.edges {
+                                if let Some((from_node, to_node)) =
+                                    state.lookup_edge(from_id, to_id)
+                                {
+                                    kid_edges.push(stmt!(edge!(from_node => to_node)));
+                                }
                             }
                         }
                     }
@@ -1536,7 +1614,14 @@ impl HierarchicalNode {
             HierarchicalLayoutAction::Node(node_id) => {
                 let badges = node_set.get_merged_badges_for_symbols(&self.symbols);
                 let maybe_labels = if !badges.is_empty() {
-                    format!(" {}", badges.into_iter().map(|b| format!("<U>{}</U>", b.label)).collect_vec().join(""))
+                    format!(
+                        " {}",
+                        badges
+                            .into_iter()
+                            .map(|b| format!("<U>{}</U>", b.label))
+                            .collect_vec()
+                            .join("")
+                    )
                 } else {
                     "".to_string()
                 };

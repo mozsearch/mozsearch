@@ -101,6 +101,11 @@ pub struct Graph {
     #[clap(long, value_parser)]
     pub expand: Vec<String>,
 
+    /// How many (pointer-like) fields should have a class have before we group
+    /// its fields by subsystem.
+    #[clap(long, value_parser = clap::value_parser!(u32).range(0..=1024), default_value = "6")]
+    pub group_fields_at: u32,
+
     #[clap(long, value_parser)]
     pub colorize_callees: Vec<String>,
 }
@@ -275,6 +280,8 @@ impl PipelineCommand for GraphCommand {
                         self.args.collapse.iter().cloned(),
                     ),
                     force_expand_pretties: HashSet::from_iter(self.args.expand.iter().cloned()),
+                    group_fields_at: self.args.group_fields_at,
+                    use_port_dirs: false,
                 };
                 graphs
                     .derive_hierarchical_graph(&policies, graphs.graphs.len() - 1, server)
