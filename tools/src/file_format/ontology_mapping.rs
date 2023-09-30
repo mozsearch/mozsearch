@@ -154,10 +154,12 @@ pub fn pointer_kind_to_badge_info(
 }
 
 pub fn label_to_badge_info(label: &str) -> Option<(i32, &str)> {
-    match label {
-        // Ignore "stop" labels.
-        "class-diagram:stop" => None,
+    // Ignore all class-diagram directives, these are processed by cmd_traverse.
+    if label.starts_with("class-diagram:") {
+        return None;
+    }
 
+    match label {
         // "atom symbol" for atomic refcount.  We also will have an "rc"
         // label, so we don't bother including its label
         "arc" => Some((10, "\u{269b}\u{fe0f}")),

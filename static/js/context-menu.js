@@ -440,7 +440,6 @@ var Hover = new (class Hover {
       return this.deactivate();
     }
 
-
     let symbolNames = this.symbolsFromString(elem.getAttribute("data-symbols"));
     // We're hovering over a graph so we also want to hover related graph nodes.
     // We will still also potentially want to highlight any document spans as
@@ -489,7 +488,7 @@ var Hover = new (class Hover {
       // XXX The attribute check is cheaper, probably should be before.
       return (
         span.textContent == visibleToken &&
-        symbolsFromString(span.getAttribute("data-symbols")).some(symbol =>
+        this.symbolsFromString(span.getAttribute("data-symbols")).some(symbol =>
           symbols.has(symbol)
         )
       );
