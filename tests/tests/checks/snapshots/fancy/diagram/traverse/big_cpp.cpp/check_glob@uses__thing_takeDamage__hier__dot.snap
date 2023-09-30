@@ -23,5 +23,5 @@ digraph g {
         "_ZN7outerNS8OuterCat4meetERNS_5CouchE" -> "_ZN7outerNS8OuterCat7destroyERNS_5ThingE" [style=solid,arrowhead=normal,id=Gide3]
         "T_outerNS::Thing"[shape=none,label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn5" href="T_outerNS%3A%3AThing" port="T_outerNS__Thing" align="left"><b>Thing</b></td></tr><tr><td id="Gidn0" href="_ZN7outerNS5Thing10takeDamageEi" port="_ZN7outerNS5Thing10takeDamageEi" align="left">&nbsp;takeDamage</td></tr></table>>]
     }
-    "_ZN7outerNS8OuterCat5shredERNS_5ThingE" -> "T_outerNS::Thing":"_ZN7outerNS5Thing10takeDamageEi":w [style=solid,arrowhead=normal,id=Gide0]
+    "_ZN7outerNS8OuterCat5shredERNS_5ThingE" -> "T_outerNS::Thing":"_ZN7outerNS5Thing10takeDamageEi" [style=solid,arrowhead=normal,id=Gide0]
 }
