@@ -28,6 +28,14 @@ var ContextMenu = new (class ContextMenu {
     return s.replace("_", data);
   }
 
+  fmtLang(lang) {
+      lang = lang.toUpperCase();
+      if (lang === "CPP") {
+        lang = "C++";
+      }
+      return lang;
+  }
+
   tryShowOnClick(event) {
     // Don't display the context menu if there's a selection.
     // User could be trying to select something and the context menu will undo it.
@@ -171,19 +179,40 @@ var ContextMenu = new (class ContextMenu {
           }
         }
 
-        jumpify(symInfo, symInfo.pretty);
+        let searches = [];
 
-        // Slot owner
+        // If we have a slotOwner, it can help make our "go to def" description
+        // more descriptive and identical to what would be generated for when
+        // the bindingSlot that refers to us from our slotOwner would describe.
         if (symInfo.meta?.slotOwner) {
           let slotOwner = symInfo.meta.slotOwner;
           let ownerJumpref = SYM_INFO[slotOwner.sym];
           // XXX Ignore no_crossref data that's currently not useful/used.
           if (ownerJumpref && ownerJumpref.sym && ownerJumpref.pretty) {
+            let implKind = ownerJumpref.meta.implKind || "impl";
+            if (implKind === "idl") {
+              implKind = "IDL";
+              diagrammableSyms = [];
+            }
+
+            let maybeLang = "";
+            if (slotOwner.slotLang) {
+              maybeLang = ` ${this.fmtLang(slotOwner.slotLang)}`;
+            }
+
+            const canonLabel = `${implKind}${maybeLang} ${slotOwner.slotKind} ${symInfo.pretty}`;
+            jumpify(symInfo, canonLabel);
+            searches.push([ canonLabel, sym ])
             jumpify(ownerJumpref, ownerJumpref.pretty);
+          } else {
+            jumpify(symInfo, symInfo.pretty);
+            searches.push([ symInfo.pretty, sym ]);
           }
+        } else {
+          jumpify(symInfo, symInfo.pretty);
+          searches.push([ symInfo.pretty, sym ]);
         }
 
-        let searches = [[ symInfo.pretty, sym ]];
         // Binding slots
         if (symInfo.meta?.bindingSlots) {
           let implKind = symInfo.meta.implKind || "impl";
@@ -203,12 +232,11 @@ var ContextMenu = new (class ContextMenu {
 
             let maybeLang = "";
             if (slot.slotLang) {
-              let lang = slot.slotLang.toUpperCase();
-              if (lang === "CPP") {
-                lang = "C++";
+              const lang = slot.slotLang;
+              if (lang === "cpp") {
                 diagrammableSyms.push(slotJumpref);
               }
-              maybeLang = ` ${lang}`;
+              maybeLang = ` ${this.fmtLang(lang)}`;
             }
 
             // Favor the slot's pretty if available.
@@ -335,9 +363,20 @@ var ContextMenu = new (class ContextMenu {
       return;
     }
 
+    let suppression = new Set();
     this.menu.innerHTML = "";
     let lastSection = null;
     for (let item of menuItems) {
+      // Avoid adding anything we've definitely added before.  This currently
+      // can happen for hierarchical diagrams where we unify based on the
+      // "pretty" and in particular for IDL interfaces/methods where the iface
+      // pretties will be the same as the C++ impl pretty.
+      let itemAsJson = JSON.stringify(item);
+      if (suppression.has(itemAsJson)) {
+        continue;
+      }
+      suppression.add(itemAsJson);
+
       let li = document.createElement("li");
       li.classList.add("contextmenu-row")
       if (lastSection === null) {
