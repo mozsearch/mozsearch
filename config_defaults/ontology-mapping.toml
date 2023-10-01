@@ -60,9 +60,23 @@ labels = ["class-diagram:stop"]
 [pretty."nsIGlobalObject"]
 labels = ["class-diagram:stop"]
 
+[pretty."nsIInterfaceRequestor"]
+labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsIIReq"]
+
+[pretty."nsIObserver"]
+labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsIObs"]
+
 # This will get both `T_nsISupports` and `XPIDL_nsISupports`
 [pretty."nsISupports"]
 labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsI"]
+
+# nsIRunnable is not as bad as nsISupports, but it's sufficiently common that
+# it will create a layout cluster that we really don't need/want.
+[pretty."nsIRunnable"]
+labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsIRun"]
+
+[pretty."nsSupportsWeakReference"]
+labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsSupWeak"]
 
 [pretty."nsGlobalWindowInner"]
 labels = ["class-diagram:stop"]

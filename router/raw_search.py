@@ -89,6 +89,9 @@ class RawSearchResults(object):
             if kind == 'callees':
                 sym_info['callees'] = path_line_pairs
                 continue
+            if kind == 'field-member-uses':
+                sym_info['field-member-uses'] = path_line_pairs
+                continue
             
             for path_lines in path_line_pairs:
                 path = path_lines['path']

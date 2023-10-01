@@ -356,3 +356,86 @@ var Panel = new (class Panel {
     this.updateMarkdownState();
   }
 })();
+
+// Blurring magic based on the quite useful article by Antony Garand from
+// Dec 7, 2020 at https://dev.to/antogarand/svg-metaballs-35pj that's about
+// implementing metaballs in SVG with SVG filters.
+//
+// My initial desire for this implementation was to provide for a means of
+// allowing clustering in the "neato" layout view where we fundamentally lose
+// our clusters and having graphviz just draw a bounding box around things is
+// insufficient.  Metaballs are a way to potentially handle that.  But
+// especially with our changes to generate tables more often and neato's
+// ability to handle tables, this has been less of a concern.
+//
+// I ended up doing the initial experimental hookup to instead try and visually
+// express which nodes in the graph are "close" to the initial diagram request
+// in terms of depth.  See the invocation of this method that follows it for
+// more comments.
+function blurrifyDiagram() {
+  const diag = document.querySelector("svg");
+  if (!diag) {
+    return;
+  }
+
+  const createSVGElem = (name) => {
+    return document.createElementNS("http://www.w3.org/2000/svg", name);
+  };
+
+  let trueDiag = diag.children[0];
+  // disable the background white layer (for both modes)
+  trueDiag.children[0].setAttribute("style", "display: none;")
+
+  let blurDiag = trueDiag.cloneNode(true);
+  blurDiag.setAttribute("class", "blurry depth-mode");
+
+  // Put the filters in
+  let filtRoot = createSVGElem("filter");
+  filtRoot.setAttribute("id", "blur_bg");
+
+  let filtBlurGrow = createSVGElem("feGaussianBlur");
+  filtBlurGrow.setAttribute("in", "SourceGraphic");
+  filtBlurGrow.setAttribute("result", "blur1");
+  filtBlurGrow.setAttribute("stdDeviation", "15");
+  filtRoot.appendChild(filtBlurGrow);
+
+  let filtThresh = createSVGElem("feColorMatrix");
+  filtThresh.setAttribute("in", "blur1");
+  filtThresh.setAttribute("result", "matrix");
+  filtThresh.setAttribute("type", "matrix");
+  let transformMatrix = [
+    [1, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0],
+    [0, 0, 1, 0, 0],
+    [0, 0, 0, 50, -15]
+  ];
+  filtThresh.setAttribute("values", transformMatrix.flat().join(" "));
+  filtRoot.appendChild(filtThresh);
+
+  let filtBlurProper = createSVGElem("feGaussianBlur");
+  filtBlurProper.setAttribute("in", "matrix");
+  filtBlurProper.setAttribute("result", "blur2");
+  filtBlurProper.setAttribute("stdDeviation", "10");
+  filtRoot.appendChild(filtBlurProper);
+
+  diag.insertBefore(filtRoot, trueDiag);
+
+  // Enable the filter on the blur diagram
+  blurDiag.setAttribute("filter", "url(#blur_bg");
+
+  // ### Make the normal diagram normal-ish
+  trueDiag.classList.add("true-diag");
+
+  diag.insertBefore(blurDiag, trueDiag);
+}
+// The initial attempt at blurring based on depth is not feeling particularly
+// useful and has a wildly non-trivial performance cost, but I want to be able
+// to activate it on the fly for A/B investigations, so I'm leaving it around
+// so one can just invoke the command below.
+//
+// Hm, in fact, it seems like the performance impact is nightmarish on the
+// context menu, at least when it's being shown or hidden; if you click
+// elsewhere when it's already open, the performance is fine.  I wonder if the
+// fact that we're cloning nodes that have identifiers which creates duplicate
+// identifiers is creating a pathological situation?
+//blurrifyDiagram();

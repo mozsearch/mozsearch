@@ -102,6 +102,7 @@ pub struct DerivedSymbolInfo {
     /// use this as a first attempt at grouping fields, but it might make sense
     /// instead to store the SymbolNodeId of the first target here instead.
     pub effective_subsystem: Option<Ustr>,
+    pub depth: u32,
 }
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -213,12 +214,13 @@ impl DerivedSymbolInfo {
 }
 
 impl DerivedSymbolInfo {
-    pub fn new(symbol: Ustr, crossref_info: Value) -> Self {
+    pub fn new(symbol: Ustr, crossref_info: Value, depth: u32) -> Self {
         DerivedSymbolInfo {
             symbol,
             crossref_info,
             badges: vec![],
             effective_subsystem: None,
+            depth,
         }
     }
 }
@@ -267,6 +269,14 @@ fn escape_quotes(s: &str) -> String {
     // We're using a raw string so this backslash is propagated as a backslash
     // and is not escaping the double-quote.
     s.replace('"', r#"\""#)
+}
+
+/// Perform the necessary escaping for `html` tagged value contents that aren't
+/// supposed to be HTML.
+fn escape_html(s: &str) -> String {
+    s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
 }
 
 /// Helper for cases where we want a NodeId that's escaped because there currently
@@ -484,6 +494,11 @@ impl SymbolGraphCollection {
         //   having pretty segments of ["ns", "Foo::Innerfoo"] with no potential
         //   for "Foo::InnerFoo" to be split an additional time.
 
+        // For synthetic nodes / clusters, give them a depth of 13 right now
+        // which is current our last depth enum, although we saturate depth
+        // visually at 10 right now.
+        const SYNTHETIC_DEPTH: u32 = 13;
+
         for sym_id in graph.list_nodes() {
             let (sym, sym_pretty) = {
                 let node_info = self.node_set.get(&sym_id);
@@ -541,8 +556,10 @@ impl SymbolGraphCollection {
                             .iter()
                             .next()
                         {
-                            let (match_sym_id, match_sym_info) =
-                                self.node_set.ensure_symbol(&match_sym, server).await?;
+                            let (match_sym_id, match_sym_info) = self
+                                .node_set
+                                .ensure_symbol(&match_sym, server, SYNTHETIC_DEPTH)
+                                .await?;
 
                             let needs_pop = if container_is_class && match_sym_info.is_class() {
                                 if let Some((container_piece, _)) = pieces_and_syms.pop() {
@@ -919,17 +936,17 @@ impl LabelRow {
         for cell in &self.cells {
             let indent_str = "&nbsp;".repeat(cell.indent_level as usize);
             let maybe_id = match &cell.id {
-                Some(idval) => format!("id=\"{}\" ", idval),
+                Some(idval) => format!("id=\"{}\" ", escape_quotes(idval)),
                 None => "".to_string(),
             };
             let maybe_styling = match &cell.bg_color {
                 Some(bgcolor) => format!("bgcolor=\"{}\" ", bgcolor),
-                None => "".to_string()
+                None => "".to_string(),
             };
             let badge_reps = cell
                 .badges
                 .iter()
-                .map(|b| format!("<U>{}</U>", b.label))
+                .map(|b| format!("<U>{}</U>", escape_html(&b.label)))
                 .collect_vec();
             row_pieces.push(format!(
                 r#"<td {}{}href="{}" port="{}" align="left">{}{}{}{}</td>"#,
@@ -938,6 +955,8 @@ impl LabelRow {
                 urlencoding::encode(&cell.symbol),
                 cell.port,
                 indent_str,
+                // The contents can explicitly contain HTML and so the populator is responsible to
+                // escape as appropriate.
                 cell.contents,
                 if badge_reps.is_empty() { "" } else { "  " },
                 badge_reps.join(""),
@@ -1313,7 +1332,7 @@ impl HierarchicalNode {
                 } else {
                     node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
                 };
-                let out_target =  if policies.use_port_dirs {
+                let out_target = if policies.use_port_dirs {
                     node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"))
                 } else {
                     node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
@@ -1329,7 +1348,7 @@ impl HierarchicalNode {
                 } else {
                     node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
                 };
-                let out_target =  if policies.use_port_dirs {
+                let out_target = if policies.use_port_dirs {
                     node_id!(esc parent_id_str, port!(id!(esc port_id_str), "e"))
                 } else {
                     node_id!(esc parent_id_str, port!(id!(esc port_id_str)))
@@ -1521,21 +1540,24 @@ impl HierarchicalNode {
                     cells: vec![LabelCell {
                         id: Some(state.id_for_nodes(&self.symbols)),
                         bg_color: None,
-                        contents: format!("<b>{}</b>", self.display_name),
+                        contents: format!("<b>{}</b>", escape_html(&self.display_name)),
                         badges: node_set.get_merged_badges_for_symbols(&self.symbols),
                         symbol: node_id.clone(),
                         port: make_safe_port_id(node_id),
                         indent_level: 0,
-                    }]
+                    }],
                 });
 
                 let grouped_kids = if self.children.len() >= policies.group_fields_at as usize {
-                    let mut grouped = self.children
+                    let mut grouped = self
+                        .children
                         .values()
                         .into_group_map_by(|kid| {
                             if let Some(kid_sym_id) = kid.symbols.first() {
                                 let kid_info = node_set.get(kid_sym_id);
-                                kid_info.effective_subsystem.or_else(|| kid_info.get_subsystem())
+                                kid_info
+                                    .effective_subsystem
+                                    .or_else(|| kid_info.get_subsystem())
                             } else {
                                 None
                             }
@@ -1562,7 +1584,7 @@ impl HierarchicalNode {
                                 cells: vec![LabelCell {
                                     id: None,
                                     bg_color: Some("#eee"),
-                                    contents: format!("<I>{}</I>", group_name),
+                                    contents: format!("<I>{}</I>", escape_html(&group_name)),
                                     badges: vec![],
                                     port: "".to_string(),
                                     symbol: "".to_string(),
@@ -1578,7 +1600,7 @@ impl HierarchicalNode {
                                 cells: vec![LabelCell {
                                     id: Some(state.id_for_nodes(&kid.symbols)),
                                     bg_color: None,
-                                    contents: kid.display_name.clone(),
+                                    contents: escape_html(&kid.display_name),
                                     badges: node_set.get_merged_badges_for_symbols(&kid.symbols),
                                     symbol: kid_id.clone(),
                                     port: kid_port_name,
@@ -1603,7 +1625,10 @@ impl HierarchicalNode {
                 // We don't put a custom "id" on this because we only want the rows to have our
                 // identifiers.
                 let node =
-                    node!(esc node_id; attr!("shape", "none"), attr!("label", html table_html));
+                    node!(esc node_id;
+                          attr!("shape", "none"),
+                          attr!("label", html table_html),
+                          attr!("class", esc format!("diagram-depth-{}", node_set.get_min_depth_for_symbols(&self.symbols))));
                 result.push(stmt!(node));
 
                 result.extend(kid_edges);
@@ -1618,7 +1643,7 @@ impl HierarchicalNode {
                         " {}",
                         badges
                             .into_iter()
-                            .map(|b| format!("<U>{}</U>", b.label))
+                            .map(|b| format!("<U>{}</U>", escape_html(&b.label)))
                             .collect_vec()
                             .join("")
                     )
@@ -1626,7 +1651,10 @@ impl HierarchicalNode {
                     "".to_string()
                 };
                 result.push(stmt!(
-                    node!(esc node_id; attr!("id", state.id_for_nodes(&self.symbols)), attr!("label", html format!("<{}{}>", &self.display_name, maybe_labels)))
+                    node!(esc node_id;
+                          attr!("id", state.id_for_nodes(&self.symbols)),
+                          attr!("label", html format!("<{}{}>", escape_html(&self.display_name), maybe_labels)),
+                          attr!("class", esc format!("diagram-depth-{}", node_set.get_min_depth_for_symbols(&self.symbols))))
                 ));
             }
         }
@@ -1652,7 +1680,7 @@ impl HierarchicalNode {
 
                 let (style, loc, arrow) = match edge_info.kind {
                     EdgeKind::Default => ("solid", "arrowhead", "normal"),
-                    EdgeKind::Inheritance => ("solid", "arrowhead", "onormal"),
+                    EdgeKind::Inheritance => ("solid", "arrowtail", "onormal"),
                     EdgeKind::Implementation => ("dashed", "arrowhead", "onormal"),
                     EdgeKind::Composition => ("solid", "arrowtail", "diamond"),
                     EdgeKind::Aggregation => ("solid", "arrowtail", "odiamond"),
@@ -1957,6 +1985,18 @@ impl SymbolGraphNodeSet {
         badges.into_iter().collect()
     }
 
+    pub fn get_min_depth_for_symbols(&self, nodes: &Vec<SymbolGraphNodeId>) -> u32 {
+        // Currently 13 is the highest depth we can report.
+        let mut min_depth: u32 = 13;
+        for sym_id in nodes {
+            let sym_info = self.get(sym_id);
+            if sym_info.depth < min_depth {
+                min_depth = sym_info.depth;
+            }
+        }
+        min_depth
+    }
+
     pub fn propagate_paths(
         &self,
         paths: Vec<Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>>,
@@ -2075,6 +2115,7 @@ impl SymbolGraphNodeSet {
         &'a mut self,
         sym: &'a Ustr,
         server: &'a Box<dyn AbstractServer + Send + Sync>,
+        depth: u32,
     ) -> Result<(SymbolGraphNodeId, &mut DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {
             let sym_info = self
@@ -2085,7 +2126,7 @@ impl SymbolGraphNodeSet {
         }
 
         let info = server.crossref_lookup(&sym).await?;
-        Ok(self.add_symbol(DerivedSymbolInfo::new(sym.clone(), info)))
+        Ok(self.add_symbol(DerivedSymbolInfo::new(sym.clone(), info, depth)))
     }
 }
 

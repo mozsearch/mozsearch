@@ -520,14 +520,20 @@ private:
         return std::string("V_") + mangleLocation(Decl->getLocation()) +
                std::string("_") + hash(std::string(Decl->getName()));
       }
-    } else if (isa<TagDecl>(Decl) || isa<TypedefNameDecl>(Decl) ||
-               isa<ObjCInterfaceDecl>(Decl)) {
+    } else if (isa<TagDecl>(Decl) || isa<ObjCInterfaceDecl>(Decl)) {
       if (!Decl->getIdentifier()) {
         // Anonymous.
         return std::string("T_") + mangleLocation(Decl->getLocation());
       }
 
       return std::string("T_") + mangleQualifiedName(getQualifiedName(Decl));
+    } else if (isa<TypedefNameDecl>(Decl)) {
+      if (!Decl->getIdentifier()) {
+        // Anonymous.
+        return std::string("TA_") + mangleLocation(Decl->getLocation());
+      }
+
+      return std::string("TA_") + mangleQualifiedName(getQualifiedName(Decl));
     } else if (isa<NamespaceDecl>(Decl) || isa<NamespaceAliasDecl>(Decl)) {
       if (!Decl->getIdentifier()) {
         // Anonymous.
@@ -1736,6 +1742,7 @@ public:
     // The nesting range identifies the left brace and right brace, which
     // heavily depends on the AST node type.
     SourceRange NestingRange;
+    QualType qtype = QualType();
     if (FunctionDecl *D2 = dyn_cast<FunctionDecl>(D)) {
       if (D2->isTemplateInstantiation()) {
         wasTemplate = true;
@@ -1774,10 +1781,11 @@ public:
       } else {
         PeekRange = SourceRange();
       }
-    } else if (isa<TypedefNameDecl>(D)) {
-      Kind = "def";
+    } else if (TypedefNameDecl *D2 = dyn_cast<TypedefNameDecl>(D)) {
+      Kind = "alias";
       PrettyKind = "type";
       PeekRange = SourceRange(Loc, Loc);
+      qtype = D2->getUnderlyingType();
     } else if (VarDecl *D2 = dyn_cast<VarDecl>(D)) {
       if (D2->isLocalVarDeclOrParm()) {
         Flags = NoCrossref;
@@ -1808,7 +1816,6 @@ public:
       return true;
     }
 
-    QualType qtype = QualType();
     if (ValueDecl *D2 = dyn_cast<ValueDecl>(D)) {
       qtype = D2->getType();
     }
