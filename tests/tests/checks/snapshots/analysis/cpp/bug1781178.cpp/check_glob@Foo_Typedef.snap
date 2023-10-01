@@ -6,16 +6,17 @@ expression: "&json_results"
   {
     "loc": "00044:8-15",
     "source": 1,
-    "syntax": "def,type",
+    "syntax": "alias,type",
+    "type": "int",
     "pretty": "type Foo::Typedef",
-    "sym": "T_Foo::Typedef"
+    "sym": "TA_Foo::Typedef"
   },
   {
     "loc": "00044:8-15",
     "target": 1,
-    "kind": "def",
+    "kind": "alias",
     "pretty": "Foo::Typedef",
-    "sym": "T_Foo::Typedef",
+    "sym": "TA_Foo::Typedef",
     "context": "Foo",
     "contextsym": "T_Foo"
   },
@@ -25,14 +26,14 @@ expression: "&json_results"
     "syntax": "use,type",
     "type": "int",
     "pretty": "type Foo::Typedef",
-    "sym": "T_Foo::Typedef"
+    "sym": "TA_Foo::Typedef"
   },
   {
     "loc": "00047:57-64",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Typedef",
-    "sym": "T_Foo::Typedef",
+    "sym": "TA_Foo::Typedef",
     "context": "TemplateFunc",
     "contextsym": "_Z12TemplateFuncN3FooIT_E7TypedefE"
   }

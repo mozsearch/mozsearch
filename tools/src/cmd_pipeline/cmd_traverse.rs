@@ -164,7 +164,7 @@ impl PipelineCommand for TraverseCommand {
             considered.insert(info.symbol.clone());
 
             let (sym_node_id, _info) =
-                sym_node_set.add_symbol(DerivedSymbolInfo::new(info.symbol, info.crossref_info));
+                sym_node_set.add_symbol(DerivedSymbolInfo::new(info.symbol, info.crossref_info, 0));
             // Explicitly put the node in the graph so if we don't find any
             // edges, we still display the node.  This is important for things
             // like "class-diagram" where showing nothing is very confusing.
@@ -250,7 +250,7 @@ impl PipelineCommand for TraverseCommand {
             // regularly go async, using `Rc` isn't a great alternative because
             // it's not Send so we would need to step up to `Arc` and we don't
             // really need that.
-            let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
+            let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server, depth).await?;
 
             if let Some(stop_at_label) = &stop_at_class_label {
                 // XXX remove these after the next crossref rebuild with the new markers.
@@ -295,7 +295,7 @@ impl PipelineCommand for TraverseCommand {
                         for ptr_info in field.pointer_info {
                             show_field = true;
                             let (target_id, target_info) =
-                                sym_node_set.ensure_symbol(&ptr_info.sym, server).await?;
+                                sym_node_set.ensure_symbol(&ptr_info.sym, server, next_depth).await?;
                             if next_depth < max_depth && considered.insert(ptr_info.sym.clone()) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
                                 to_traverse.push((ptr_info.sym.clone(), next_depth, all_traversals_valid));
@@ -320,7 +320,7 @@ impl PipelineCommand for TraverseCommand {
 
                         if show_field {
                             let (field_id, field_info) =
-                                sym_node_set.ensure_symbol(&field.sym, server).await?;
+                                sym_node_set.ensure_symbol(&field.sym, server, next_depth).await?;
                             field_info.effective_subsystem = effective_subsystem;
                             for label in field.labels {
                                 // XXX like above, consider moving the emoji label mapping here to
@@ -382,7 +382,7 @@ impl PipelineCommand for TraverseCommand {
                     let target_sym = ustr(target_sym_str);
 
                     let (_target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+                        sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
 
                     // we already considered depth in the outer condition
                     if considered.insert(target_info.symbol.clone()) {
@@ -423,7 +423,7 @@ impl PipelineCommand for TraverseCommand {
                 };
                 if should_traverse {
                     let (idl_id, idl_info) =
-                        sym_node_set.ensure_symbol(&slot_owner.sym, server).await?;
+                        sym_node_set.ensure_symbol(&slot_owner.sym, server, next_depth).await?;
 
                     // So if this was the recv, let's look through to the send
                     // and add an edge to that instead and then continue the
@@ -431,7 +431,7 @@ impl PipelineCommand for TraverseCommand {
                     if slot_owner.props.slot_kind == BindingSlotKind::Recv {
                         if let Some(send_sym) = idl_info.get_binding_slot_sym("send") {
                             let (send_id, send_info) =
-                                sym_node_set.ensure_symbol(&send_sym, server).await?;
+                                sym_node_set.ensure_symbol(&send_sym, server, next_depth).await?;
                             sym_edge_set.ensure_edge_in_graph(
                                 send_id,
                                 sym_id.clone(),
@@ -466,7 +466,7 @@ impl PipelineCommand for TraverseCommand {
             }
 
             // Check whether we have any ontology shortcuts to handle.
-            let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server).await?;
+            let sym_info = sym_node_set.get(&sym_id);
             if let Some(Value::Array(slots)) = sym_info
                 .crossref_info
                 .pointer("/meta/ontologySlots")
@@ -481,7 +481,7 @@ impl PipelineCommand for TraverseCommand {
                     };
                     if should_traverse {
                         for rel_sym in slot.syms {
-                            let (rel_id, _) = sym_node_set.ensure_symbol(&rel_sym, server).await?;
+                            let (rel_id, _) = sym_node_set.ensure_symbol(&rel_sym, server, next_depth).await?;
                             if upwards {
                                 sym_edge_set.ensure_edge_in_graph(
                                     rel_id,
@@ -538,7 +538,7 @@ impl PipelineCommand for TraverseCommand {
                     let target_sym = ustr(target_sym_str);
 
                     let (target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+                        sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
 
                     sym_edge_set.ensure_edge_in_graph(
                         target_id,
@@ -579,7 +579,7 @@ impl PipelineCommand for TraverseCommand {
                     let target_sym = ustr(target_sym_str);
 
                     let (target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+                        sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
 
                     if let Some(Value::Array(labels_json)) = target_info.crossref_info.pointer("/meta/labels").cloned() {
                         for label in labels_json {
@@ -598,8 +598,8 @@ impl PipelineCommand for TraverseCommand {
                     }
 
                     sym_edge_set.ensure_edge_in_graph(
-                        sym_id.clone(),
                         target_id,
+                        sym_id.clone(),
                         EdgeKind::Inheritance,
                         vec![],
                         &mut graph,
@@ -636,7 +636,7 @@ impl PipelineCommand for TraverseCommand {
                     let target_sym = ustr(target_sym_str);
 
                     let (target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+                        sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
 
                     if considered.insert(target_info.symbol.clone()) {
                         // As a quasi-hack, only add this edge if we didn't
@@ -685,7 +685,7 @@ impl PipelineCommand for TraverseCommand {
                     let target_sym = ustr(target_sym_str);
 
                     let (target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+                        sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
 
                     if considered.insert(target_info.symbol.clone()) {
                         // Same rationale on avoiding a duplicate edge.
@@ -733,7 +733,7 @@ impl PipelineCommand for TraverseCommand {
                     }
 
                     let (target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server).await?;
+                        sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
 
                     if target_info.is_callable() {
                         sym_edge_set.ensure_edge_in_graph(
@@ -801,7 +801,7 @@ impl PipelineCommand for TraverseCommand {
                         let source_sym = ustr(source_sym_str);
 
                         let (source_id, source_info) =
-                            sym_node_set.ensure_symbol(&source_sym, server).await?;
+                            sym_node_set.ensure_symbol(&source_sym, server, next_depth).await?;
 
                         if source_info.is_callable() {
                             // Only process this given use edge once.

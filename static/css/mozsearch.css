@@ -81,6 +81,8 @@ table {
   --diff-plus-line-background: rgb(153, 204, 255);
 
   --result-context-color: royalblue;
+
+  --diagram-depth-hue: 270deg;
 }
 
 @supports (color-scheme: dark) {
@@ -1154,4 +1156,72 @@ g.hovered-out-edge > path {
 g.hovered-in-edge > path {
   stroke: green;
   stroke-width: 2px;
+}
+
+g.blurry g.edge polygon,
+g.blurry g.edge path {
+  stroke: none
+}
+
+g.blurry g.node text {
+  fill: none;
+}
+
+g.blurry g.cluster polygon {
+  stroke: none;
+}
+g.blurry g.cluster text {
+  fill: none;
+}
+
+.diagram-depth-0 {
+  --diagram-depth: 0;
+}
+.diagram-depth-1 {
+  --diagram-depth: 1;
+}
+.diagram-depth-2 {
+  --diagram-depth: 2;
+}
+.diagram-depth-3 {
+  --diagram-depth: 3;
+}
+.diagram-depth-4 {
+  --diagram-depth: 4;
+}
+.diagram-depth-5 {
+  --diagram-depth: 5;
+}
+.diagram-depth-6 {
+  --diagram-depth: 6;
+}
+.diagram-depth-7 {
+  --diagram-depth: 7;
+}
+.diagram-depth-8 {
+  --diagram-depth: 8;
+}
+.diagram-depth-9 {
+  --diagram-depth: 9;
+}
+.diagram-depth-10 {
+  --diagram-depth: 10;
+}
+.diagram-depth-11 {
+  --diagram-depth: 10;
+}
+.diagram-depth-12 {
+  --diagram-depth: 10;
+}
+.diagram-depth-13 {
+  --diagram-depth: 10;
+}
+
+g.blurry.depth-mode g.node polygon {
+  fill: hwb(var(--diagram-depth-hue) calc(40% + 60% * var(--diagram-depth) / 3) 0%);
+  stroke: hwb(var(--diagram-depth-hue) calc(40% + 60% * var(--diagram-depth) / 3) 0%);
+}
+
+g.true-diag g.node polygon {
+  fill: white;
 }

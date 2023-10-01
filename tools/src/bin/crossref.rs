@@ -878,6 +878,7 @@ async fn main() {
                 AnalysisKind::Decl => "decls",
                 AnalysisKind::Forward => "forwards",
                 AnalysisKind::Idl => "idl",
+                AnalysisKind::Alias => "aliases",
             };
             kindmap.insert(kindstr.to_string(), json!(result));
         }

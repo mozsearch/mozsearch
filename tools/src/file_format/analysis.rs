@@ -108,6 +108,7 @@ pub enum AnalysisKind {
     Decl,
     Forward,
     Idl,
+    Alias,
 }
 
 impl AnalysisKind {
@@ -120,6 +121,7 @@ impl AnalysisKind {
             AnalysisKind::Decl => ustr("decl"),
             AnalysisKind::Forward => ustr("forward"),
             AnalysisKind::Idl => ustr("idl"),
+            AnalysisKind::Alias => ustr("alias"),
         }
     }
 }
