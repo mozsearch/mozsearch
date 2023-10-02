@@ -3,7 +3,6 @@ source: tests/test_check_insta.rs
 expression: "&fb.contents"
 ---
 digraph g {
-    concentrate=true
     graph[fontname="Courier New",fontsize=12,compound=true]
     node[shape=box,fontname="Courier New",fontsize=10]
     subgraph "NS_outerNS" {

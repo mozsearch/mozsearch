@@ -9,6 +9,8 @@
   {%- endfor -%}
 </ul>
 {%- endif -%}
+<script>var GRAPH_EXTRA = [];</script>
 {% for graph in results.GraphResultsBundle.graphs %}
 {{ graph.graph }}
+<script>GRAPH_EXTRA.push({{ graph.extra | json }});</script>
 {% endfor %}

@@ -476,6 +476,7 @@ var Hover = new (class Hover {
       return;
     }
     if (!elem) {
+      this.deactivateDiagram();
       return this.deactivate();
     }
 
@@ -484,7 +485,7 @@ var Hover = new (class Hover {
     // We will still also potentially want to highlight any document spans as
     // well.
     if (elem.tagName === "g") {
-      this.activateDiagram(symbolNames);
+      this.activateDiagram(elem);
     }
 
     this.activate(symbolNames, elem.textContent);
@@ -534,8 +535,69 @@ var Hover = new (class Hover {
     });
   }
 
-  activateDiagram(symbolNames) {
+  activateDiagram(elem) {
+    this.deactivateDiagram();
 
+    let id;
+    if (elem.id) {
+      id = elem.id;
+    } else {
+      id = elem.parentElement.id;
+    }
+    if (id.startsWith("a_")) {
+      id = id.substring(2);
+    }
+    let nodeExtra = GRAPH_EXTRA[0].nodes[id];
+    if (!nodeExtra) {
+      return;
+    }
+
+    const applyStyling = (targetId, clazzes) => {
+      let maybeTarget = document.getElementById(targetId);
+      // For the table rows, the id ends up on a "g" container with an "a_"
+      // prefix.  We want to locate the a_ prefix and then adjust to its sole
+      // child for consistency.
+      if (!maybeTarget) {
+        maybeTarget = document.getElementById(`a_${targetId}`);
+        if (!maybeTarget) {
+          return;
+        }
+        maybeTarget = maybeTarget.children[0];
+      }
+      maybeTarget.classList.add(...clazzes);
+
+      this.graphItems.push([maybeTarget, clazzes])
+    };
+
+    const curNodeHover = ["hovered-cur-node"];
+    elem.classList.add(...curNodeHover);
+    this.graphItems.push([elem, curNodeHover]);
+
+    const defaultInNodeHover = ["hovered-in-node"];
+    for (const [nid, clazzes] of nodeExtra.in_nodes) {
+      applyStyling(nid, clazzes.length ? clazzes : defaultInNodeHover);
+    }
+    const defaultOutNodeHover = ["hovered-out-node"];
+    for (const [nid, clazzes] of nodeExtra.out_nodes) {
+      applyStyling(nid, clazzes.length ? clazzes : defaultOutNodeHover);
+    }
+
+    const inEdgeHover = ["hovered-in-edge"];
+    for (const eid of nodeExtra.in_edges) {
+      applyStyling(eid, inEdgeHover);
+    }
+
+    const outEdgeHover = ["hovered-out-edge"];
+    for (const eid of nodeExtra.out_edges) {
+      applyStyling(eid, outEdgeHover);
+    }
+  }
+
+  deactivateDiagram() {
+    for (const [item, clazzes] of this.graphItems) {
+      item.classList.remove(...clazzes);
+    }
+    this.graphItems = [];
   }
 
   stickyHighlight(symbols, visibleToken) {

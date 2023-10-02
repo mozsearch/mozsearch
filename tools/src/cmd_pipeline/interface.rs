@@ -540,6 +540,7 @@ pub struct GraphResultsBundle {
 #[derive(Serialize)]
 pub struct RenderedGraph {
     pub graph: String,
+    pub extra: Value,
 }
 
 /// JSON records are raw analysis records from a single file (for now)
