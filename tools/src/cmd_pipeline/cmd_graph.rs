@@ -6,7 +6,7 @@ use clap::{Args, ValueEnum};
 use dot_generator::*;
 use dot_structures::*;
 use regex::{self, Captures, Regex};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use graphviz_rust::cmd::{CommandArg, Format, Layout};
 use graphviz_rust::exec;
@@ -15,7 +15,9 @@ use graphviz_rust::printer::{DotPrinter, PrinterContext};
 use super::interface::{
     GraphResultsBundle, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
 };
-use super::symbol_graph::{DerivedSymbolInfo, HierarchyDefaultSummarizePolicy, HierarchyPolicies};
+use super::symbol_graph::{
+    DerivedSymbolInfo, HierarchicalRenderState, HierarchyDefaultSummarizePolicy, HierarchyPolicies,
+};
 
 use crate::abstract_server::{AbstractServer, Result};
 
@@ -268,10 +270,11 @@ impl PipelineCommand for GraphCommand {
             }
         };
 
-        let dot_graph = match &self.args.hier {
-            GraphHierarchy::Flat => {
-                graphs.graph_to_graphviz(graphs.graphs.len() - 1, decorate_node)
-            }
+        let (dot_graph, render_state) = match &self.args.hier {
+            GraphHierarchy::Flat => (
+                graphs.graph_to_graphviz(graphs.graphs.len() - 1, decorate_node),
+                HierarchicalRenderState::new(),
+            ),
             hier_mode => {
                 let policies = HierarchyPolicies {
                     grouping: hier_mode.clone(),
@@ -326,6 +329,10 @@ impl PipelineCommand for GraphCommand {
             GraphFormat::Mozsearch => Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
                 graphs: vec![RenderedGraph {
                     graph: transform_svg(&graph_contents),
+                    extra: json!({
+                        "nodes": render_state.svg_node_extra,
+                        "edges": render_state.svg_edge_extra,
+                    }),
                 }],
                 symbols: graphs.symbols_meta_to_jumpref_json_destructive(),
                 overloads_hit: graphs.overloads_hit,

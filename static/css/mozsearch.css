@@ -1149,13 +1149,31 @@ g.ptr-ref > polygon, g.ptr-contains > polygon {
   fill: #e6f5d0;
 }
 
-g.hovered-out-edge > path {
+g.hovered-cur-node > polygon {
+  fill: #fbf;
+}
+g.hovered-out-node > polygon {
+  fill: #bbf;
+}
+g.hovered-in-node > polygon {
+  fill: #bfb;
+}
+
+g.edge.hovered-out-edge > path,
+g.edge.hovered-out-edge > polygon {
   stroke: blue;
   stroke-width: 2px;
+  stroke-opacity: 1;
 }
-g.hovered-in-edge > path {
+g.edge.hovered-in-edge > path,
+g.edge.hovered-in-edge > polygon {
   stroke: green;
   stroke-width: 2px;
+  stroke-opacity: 1;
+}
+
+g.edge > path {
+  stroke-opacity: 0.2;
 }
 
 g.blurry g.edge polygon,

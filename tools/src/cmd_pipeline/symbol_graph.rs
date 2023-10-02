@@ -724,20 +724,23 @@ impl SymbolGraphCollection {
         policies: &HierarchyPolicies,
         graph_idx: usize,
         graph_layout: &GraphLayout,
-    ) -> Graph {
+    ) -> (Graph, HierarchicalRenderState) {
         trace!(graph_idx = %graph_idx, "hierarchical_graph_to_graphviz");
+        let mut state = HierarchicalRenderState::new();
         let graph = match self.hierarchical_graphs.get_mut(graph_idx) {
             Some(g) => g,
             None => {
                 trace!("no such graph");
-                return graph!(
-                    di id!("g");
-                    node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))
+                return (
+                    graph!(
+                        di id!("g");
+                        node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))
+                    ),
+                    state,
                 );
             }
         };
 
-        let mut state = HierarchicalRenderState::new();
         graph
             .root
             .compile(&policies, 0, 0, false, &self.node_set, &mut state);
@@ -769,7 +772,7 @@ impl SymbolGraphCollection {
             dot_graph.add_stmt(stmt);
         }
 
-        dot_graph
+        (dot_graph, state)
     }
 }
 
@@ -1439,7 +1442,9 @@ impl HierarchicalNode {
                 // result in wackier looking edges as we end up with more spline segments and each
                 // segment can do its own wiggly thing, so concentrated edges can seem to wiggle for
                 // no good reason.
-                result.push(stmt!(attr!("concentrate", "true")));
+                //
+                // XXX turned this off because it messes up edge hover highlighting.
+                //result.push(stmt!(attr!("concentrate", "true")));
 
                 // Decidedly not better, but interesting!
                 // (As discussed extensively on discourse, the LR is a rotation of the TD that
@@ -1624,8 +1629,7 @@ impl HierarchicalNode {
 
                 // We don't put a custom "id" on this because we only want the rows to have our
                 // identifiers.
-                let node =
-                    node!(esc node_id;
+                let node = node!(esc node_id;
                           attr!("shape", "none"),
                           attr!("label", html table_html),
                           attr!("class", esc format!("diagram-depth-{}", node_set.get_min_depth_for_symbols(&self.symbols))));
@@ -1754,8 +1758,8 @@ pub struct HierarchicalRenderState {
     /// Maps the SymbolGraphNodeId to (in-edge id, out-edge-id)
     sym_to_edges: HashMap<u32, (NodeId, NodeId)>,
     /// Maps node identifiers to data for hover purposes; value tuple is:
-    svg_node_extra: HashMap<String, SvgNodeExtra>,
-    svg_edge_extra: HashMap<String, SvgEdgeExtra>,
+    pub svg_node_extra: BTreeMap<String, SvgNodeExtra>,
+    pub svg_edge_extra: BTreeMap<String, SvgEdgeExtra>,
 }
 
 #[derive(Default, Serialize)]
@@ -1786,8 +1790,8 @@ impl HierarchicalRenderState {
         Self {
             next_synthetic_id: 0,
             sym_to_edges: HashMap::default(),
-            svg_node_extra: HashMap::default(),
-            svg_edge_extra: HashMap::default(),
+            svg_node_extra: BTreeMap::default(),
+            svg_edge_extra: BTreeMap::default(),
         }
     }
 

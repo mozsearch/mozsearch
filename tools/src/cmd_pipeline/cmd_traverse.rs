@@ -541,8 +541,8 @@ impl PipelineCommand for TraverseCommand {
                         sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
 
                     sym_edge_set.ensure_edge_in_graph(
-                        target_id,
                         sym_id.clone(),
+                        target_id,
                         EdgeKind::Inheritance,
                         vec![],
                         &mut graph,
