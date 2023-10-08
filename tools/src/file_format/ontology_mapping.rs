@@ -74,6 +74,11 @@ pub struct OntologyContextSymLabelRule {
 #[derive(Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OntologyType {
+    /// A type like Atomic or IntializedOnce that provides notable semantics and
+    /// so we should apply a label, but where the decorator type itself is not
+    /// the underlying type of interest and we should continue processing its
+    /// arguments like they existed without the decorator.
+    Decorator(OntologyTypeDecorator),
     Pointer(OntologyTypePointer),
     Value,
     Variant,
@@ -85,6 +90,11 @@ pub struct OntologyTypePointer {
     pub kind: OntologyPointerKind,
     #[serde(default)]
     pub arg_index: u32,
+}
+
+#[derive(Eq, PartialEq, Deserialize)]
+pub struct OntologyTypeDecorator {
+    pub labels: Vec<Ustr>,
 }
 
 #[derive(Eq, PartialEq, Clone, Debug, Deserialize, Serialize)]
@@ -163,6 +173,9 @@ pub fn label_to_badge_info(label: &str) -> Option<(i32, &str)> {
         // "atom symbol" for atomic refcount.  We also will have an "rc"
         // label, so we don't bother including its label
         "arc" => Some((10, "\u{269b}\u{fe0f}")),
+        // "atomic" symbol for fields where there was an Atomic<>, although
+        // usually these will be value types and won't show up in diagrams.
+        "atomic" => Some((10, "\u{269b}\u{fe0f}")),
         // "link symbol" for "cc"
         "cc" => Some((11, "\u{1f517}")),
         // chains for ccrc; I think maybe "cc" and "ccrc" may be redundant
@@ -263,7 +276,10 @@ impl OntologyMappingConfig {
     ///
     /// Complex scenarios:
     /// - `HashSet<gc::Cell *, DefaultHasher<gc::Cell *>, SystemAllocPolicy>` hates the closing state
-    pub fn maybe_parse_type_as_pointer(&self, type_str: &str) -> Vec<(OntologyPointerKind, Ustr)> {
+    pub fn maybe_parse_type_as_pointer(
+        &self,
+        type_str: &str,
+    ) -> (Vec<(OntologyPointerKind, Ustr)>, Vec<Ustr>) {
         let mut c = type_str.chars();
         let mut state = TypeParseState::Typish;
         let mut type_stack: Vec<ShoddyType> = vec![];
@@ -271,6 +287,8 @@ impl OntologyMappingConfig {
         let mut token = String::new();
 
         let mut results: Vec<(OntologyPointerKind, Ustr)> = vec![];
+
+        let mut labels_to_apply = vec![];
 
         loop {
             let next_c = c.next();
@@ -288,10 +306,10 @@ impl OntologyMappingConfig {
                             cur_type.is_const = true;
                         } else if token.as_str() == "union" {
                             // we can't do anything useful with unions.
-                            return results;
+                            return (results, labels_to_apply);
                         } else if token.as_str() == "enum" {
                             // we can't do anything useful with enums.
-                            return results;
+                            return (results, labels_to_apply);
                         } else if token.as_str() == "class" || token.as_str() == "struct" {
                             cur_type.is_tag = true;
                         } else if token.chars().all(char::is_numeric) {
@@ -304,7 +322,7 @@ impl OntologyMappingConfig {
                             // fooling around.  So we're just going to early return
                             // in this case rather than go down a shoddy parsing
                             // rabbit hole.
-                            return results;
+                            return (results, labels_to_apply);
                         } else {
                             if cur_type.identifier.len() > 0 {
                                 warn!(
@@ -374,7 +392,7 @@ impl OntologyMappingConfig {
                         cur_type = ShoddyType::default();
                     } else {
                         warn!(type_str, "Hit comma with no parent type!");
-                        return results;
+                        return (results, labels_to_apply);
                     }
                 }
                 (TypeParseState::Typish, Some('>')) | (TypeParseState::Closing, Some('>')) => {
@@ -401,14 +419,21 @@ impl OntologyMappingConfig {
                         Some(t) => t,
                         None => {
                             warn!(type_str, "Unpaired '>' encountered!");
-                            return results;
+                            return (results, labels_to_apply);
                         }
                     };
                     cur_type.args.push(done_type);
 
                     // Evaluate the types now that cur_type is updated.
                     let parent_name = ustr(&cur_type.identifier);
-                    match self.types.get(&parent_name) {
+                    let process_args = match self.types.get(&parent_name) {
+                        Some(OntologyType::Decorator(dec)) => {
+                            for label in &dec.labels {
+                                labels_to_apply.push(label.clone());
+                            }
+                            // Process the arguments on their own still.
+                            true
+                        }
                         Some(OntologyType::Pointer(ptr)) => {
                             if let Some(arg_type) = cur_type.args.get(ptr.arg_index as usize) {
                                 let pointee_name = ustr(&arg_type.identifier);
@@ -426,41 +451,52 @@ impl OntologyMappingConfig {
                                 }
                                 cur_type.consumed = true;
                             }
+                            // We've notionally consumed the argument(s) here.  If the pointer type
+                            // itself was something like a refcounted data structure type that in
+                            // turn can hold other types (and is defined as a pointer), then we
+                            // would have already processed tha type at its ">".
+                            false
                         }
                         Some(OntologyType::Variant) => {
-                            // Push all the non-nothing types that weren't already pushed.
-                            for arg_type in &cur_type.args {
-                                if arg_type.consumed || arg_type.is_nothing {
-                                    continue;
-                                }
-                                if arg_type.is_pointer {
-                                    results.push((
-                                        OntologyPointerKind::Raw,
-                                        ustr(&arg_type.identifier),
-                                    ));
-                                } else if arg_type.is_ref {
-                                    results.push((
-                                        OntologyPointerKind::Ref,
-                                        ustr(&arg_type.identifier),
-                                    ));
-                                } else if arg_type.is_tag {
-                                    if let Some(OntologyType::Value) =
-                                        self.types.get(&ustr(&arg_type.identifier))
-                                    {
-                                        // If the type is a value type, like nsTString, fall through to None.
-                                    } else {
-                                        results.push((
-                                            OntologyPointerKind::Contains,
-                                            ustr(&arg_type.identifier),
-                                        ));
-                                    }
-                                }
-                            }
+                            true
                         }
                         Some(OntologyType::Nothing) => {
                             cur_type.is_nothing = true;
+                            false
                         }
-                        _ => {}
+                        _ => {
+                            false
+                        }
+                    };
+                    if process_args {
+                        // Push all the non-nothing types that weren't already pushed.
+                        for arg_type in &cur_type.args {
+                            if arg_type.consumed || arg_type.is_nothing {
+                                continue;
+                            }
+                            if arg_type.is_pointer {
+                                results.push((
+                                    OntologyPointerKind::Raw,
+                                    ustr(&arg_type.identifier),
+                                ));
+                            } else if arg_type.is_ref {
+                                results.push((
+                                    OntologyPointerKind::Ref,
+                                    ustr(&arg_type.identifier),
+                                ));
+                            } else if arg_type.is_tag {
+                                if let Some(OntologyType::Value) =
+                                    self.types.get(&ustr(&arg_type.identifier))
+                                {
+                                    // We don't record value types.
+                                } else {
+                                    results.push((
+                                        OntologyPointerKind::Contains,
+                                        ustr(&arg_type.identifier),
+                                    ));
+                                }
+                            }
+                        }
                     }
 
                     state = TypeParseState::Closing;
@@ -482,7 +518,7 @@ impl OntologyMappingConfig {
                         cur_type = ShoddyType::default();
                     } else {
                         warn!(type_str, "Hit comma with no parent type!");
-                        return results;
+                        return (results, labels_to_apply);
                     }
                     // We're no longer closing.
                     state = TypeParseState::Typish;
@@ -527,7 +563,7 @@ impl OntologyMappingConfig {
             }
         }
 
-        results
+        (results, labels_to_apply)
     }
 }
 
@@ -559,6 +595,9 @@ arg_index = 1
 
 [types."nsTString".value]
 
+[types."mozilla::Atomic".decorator]
+labels = ["atomic"]
+
 # ### Variant Types ###
 [types."mozilla::Variant".variant]
 
@@ -571,88 +610,114 @@ kind = "contains"
     let ingestion = OntologyMappingIngestion::new(test_config).unwrap();
     let c = &ingestion.config;
 
-    assert_eq!(c.maybe_parse_type_as_pointer("_Bool"), vec![]);
+    assert_eq!(c.maybe_parse_type_as_pointer("_Bool"), (vec![], vec![]));
 
     // Note that some of these real-world examples pre-date our change to use the
     // canonical type which gets us fully qualified namespaces, so these won't
     // match reality.
     assert_eq!(
         c.maybe_parse_type_as_pointer("class RefPtr<class outer::inner::Actual>"),
-        vec![(OntologyPointerKind::Strong, ustr("outer::inner::Actual"))]
+        (
+            vec![(OntologyPointerKind::Strong, ustr("outer::inner::Actual"))],
+            vec![]
+        )
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("UniquePtr<class Poodle, JS::FreePolicy>"),
-        vec![(OntologyPointerKind::Unique, ustr("Poodle"))]
+        (vec![(OntologyPointerKind::Unique, ustr("Poodle"))], vec![])
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("AutoTArray<RefPtr<class nsFrameSelection>, 1>"),
-        vec![(OntologyPointerKind::Strong, ustr("nsFrameSelection"))]
+        (
+            vec![(OntologyPointerKind::Strong, ustr("nsFrameSelection"))],
+            vec![]
+        )
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("NotNull<nsCOMPtr<class mozIStorageConnection> >"),
-        vec![(OntologyPointerKind::Strong, ustr("mozIStorageConnection"))]
+        (
+            vec![(OntologyPointerKind::Strong, ustr("mozIStorageConnection"))],
+            vec![]
+        )
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("NotNull<nsCOMPtr<class mozIStorageConnection> >"),
-        vec![(OntologyPointerKind::Strong, ustr("mozIStorageConnection"))]
+        (
+            vec![(OntologyPointerKind::Strong, ustr("mozIStorageConnection"))],
+            vec![]
+        )
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("union AllocInfo::(anonymous at /builds/worker/checkouts/gecko/memory/build/mozjemalloc.cpp:3508:3)"),
-        vec![]
+        (vec![], vec![])
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer(
             "class nsClassHashtable<class nsCStringHashKey, class RegistrationDataPerPrincipal>"
         ),
-        vec![(
-            OntologyPointerKind::Unique,
-            ustr("RegistrationDataPerPrincipal")
-        )]
+        (
+            vec![(
+                OntologyPointerKind::Unique,
+                ustr("RegistrationDataPerPrincipal")
+            )],
+            vec![]
+        )
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("HashSet<RefPtr<class ServiceWorkerRegistrationInfo>, class PointerHasher<ServiceWorkerRegistrationInfo*>>"),
-        vec![(OntologyPointerKind::Strong, ustr("ServiceWorkerRegistrationInfo"))]
+        (vec![(OntologyPointerKind::Strong, ustr("ServiceWorkerRegistrationInfo"))], vec![])
     );
 
     // const struct mozilla::dom::locks::LockRequest
     assert_eq!(
         c.maybe_parse_type_as_pointer("const struct mozilla::dom::locks::LockRequest"),
-        vec![(
-            OntologyPointerKind::Contains,
-            ustr("mozilla::dom::locks::LockRequest")
-        )]
+        (
+            vec![(
+                OntologyPointerKind::Contains,
+                ustr("mozilla::dom::locks::LockRequest")
+            )],
+            vec![]
+        )
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("class nsTString<char16_t>"),
-        vec![]
+        (vec![], vec![])
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("class mozilla::Variant<struct mozilla::Nothing, class RefPtr<class nsPIDOMWindowInner>, class nsCOMPtr<class nsIDocShell>, class mozilla::dom::WorkerPrivate *>"),
-        vec![
+        (vec![
             (OntologyPointerKind::Strong, ustr("nsPIDOMWindowInner")),
             (OntologyPointerKind::Strong, ustr("nsIDocShell")),
             (OntologyPointerKind::Raw, ustr("mozilla::dom::WorkerPrivate"))
-        ]
+        ], vec![])
     );
 
     assert_eq!(
+        c.maybe_parse_type_as_pointer("class mozilla::Atomic<class mozilla::dom::WorkerPrivate *>"),
+        (vec![
+            (OntologyPointerKind::Raw, ustr("mozilla::dom::WorkerPrivate"))
+        ], vec![ustr("atomic")])
+    );
+
+
+    assert_eq!(
         c.maybe_parse_type_as_pointer("class mozilla::Maybe<class nsTString<char16_t> >"),
-        vec![]
+        (vec![], vec![])
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer(
             "Array<std::pair<uint8_t, uint8_t>, 1 << sizeof(AnonymousContentKey) * 8>"
         ),
-        vec![]
+        (vec![], vec![])
     );
 }

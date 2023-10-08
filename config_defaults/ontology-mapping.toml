@@ -54,7 +54,35 @@ runnable = true
 [pretty."nsIStreamLoaderObserver::OnStreamComplete"]
 runnable = true
 
+# ### Class Diagram Directives ###
+#
+# - "class-diagram:stop" - This is used for cases where the type is notable and
+#   it's potentially worth displaying, but we definitely do not want to traverse
+#   the type because it has so much going on that it will swamp everything else
+#   going on.  An exception is made if the class is explicitly a root of the
+#   diagram (depth is zero).
+#   - It's possible that many uses of this label could be removed by use of
+#     heuristics like:
+#     - Overload heuristics.  We have some of these already, but the core idea
+#       is that sometimes something should not be traversed without explicit
+#       user interaction.
+#     - Subsystem-crossing heuristics.  In many cases, problematic classes live
+#       in other subsystems from what a user is investigating, so a heuristic
+#       that doesn't expand or possibly even show the classes would work.
+#   - It's also possible that more explicit display of the types of fields
+#     either directly in the diagram or contextually via super sidebar/similar
+#     could moot the need to display a number of classes that don't contribute
+#     to the graph topology.
+# - "class-diagram:elide-and-badge:" prefix - A more extensive intervention for
+#   cases where including the class in the graph creates an unhelpful layout
+#   nexus.  For example, tons of things subclass "nsISupports" and "nsIRunnable"
+#   so we use this mechanism to suppress the edge and instead put "nsI" and
+#   "nsIRun" labels on the classes when we would have instead added an edge.
+
 [pretty."JSObject"]
+labels = ["class-diagram:stop"]
+
+[pretty."nsIEventTarget"]
 labels = ["class-diagram:stop"]
 
 [pretty."nsIGlobalObject"]
@@ -66,14 +94,20 @@ labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsIIReq"]
 [pretty."nsIObserver"]
 labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsIObs"]
 
-# This will get both `T_nsISupports` and `XPIDL_nsISupports`
-[pretty."nsISupports"]
-labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsI"]
-
 # nsIRunnable is not as bad as nsISupports, but it's sufficiently common that
 # it will create a layout cluster that we really don't need/want.
 [pretty."nsIRunnable"]
 labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsIRun"]
+
+[pretty."nsISerialEventTarget"]
+labels = ["class-diagram:stop"]
+
+# This will get both `T_nsISupports` and `XPIDL_nsISupports`
+[pretty."nsISupports"]
+labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsI"]
+
+[pretty."nsIThreadPool"]
+labels = ["class-diagram:stop"]
 
 [pretty."nsSupportsWeakReference"]
 labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsSupWeak"]
@@ -96,11 +130,18 @@ labels = ["class-diagram:stop"]
 [pretty."mozilla::ipc::IProtocol"]
 labels = ["class-diagram:stop"]
 
+[pretty."mozilla::ipc::PBackgroundParent"]
+labels = ["class-diagram:stop"]
+
 [pretty."mozilla::Runnable"]
 labels = ["class-diagram:stop"]
 
 [pretty."mozilla::SupportsWeakPtr"]
 labels = ["class-diagram:stop"]
+
+
+
+
 
 # ### Refcounted Types ###
 
@@ -155,9 +196,39 @@ label = "cc"
 context_sym_suffix = "::unlink"
 label = "cc-unlink"
 
+# ### Decorator Types ###
+#
+# A type like Atomic or IntializedOnce that provides notable semantics and
+# so we should apply a label, but where the decorator type itself is not
+# the underlying type of interest and we should continue processing its
+# arguments like they existed without the decorator.
+
+[types."mozilla::Atomic".decorator]
+labels = ["atomic"]
+
+[types."std::atomic".decorator]
+labels = ["atomic"]
+
+[types."mozilla::DataMutex".decorator]
+labels = ["synchronized"]
+
+# should this have a "static" label, or is it redundant because the field will
+# be static?
+[types."mozilla::StaticDataMutex".decorator]
+labels = ["synchronized"]
+
+[types."mozilla::ThreadBound".decorator]
+labels = ["threadbound"]
+
+
 # ### Value Types ###
 #
-# Types like nsString don't need to be called out.
+# Marking something as a value excludes it from being considered for
+# pointer_info purposes and thereby not something that "class-diagram" will
+# show because there's no potential graph edge to generate.  For example, URIs
+# are very interesting properties, but there is nothing interesting about the
+# relationship between a document and its URI fields.  The same for strings.
+
 [types."nsTString".value]
 
 [types."nsPoint".value]
@@ -172,6 +243,12 @@ label = "cc-unlink"
 
 [types."std::tuple".value]
 
+# A mutex itself just a value and not inherently interesting, although I wonder
+# if "label_owning_class" should be used to mark a class as having some internal
+# synchronization going on.  Although that might be something that's best done
+# as a first-class thing so that clicking on it would immediately show what
+# fields are guarded and what the guarding relationships are.
+[types."mozilla::Mutex".value]
 
 [types."mozilla::TimeStamp".value]
 
@@ -222,22 +299,13 @@ kind = "strong"
 [types."mozilla::SafeRefPtr".pointer]
 kind = "strong"
 
-[types."SafeRefPtr".pointer]
-kind = "strong"
-
 [types."mozilla::ThreadSafeWeakPtr".pointer]
 kind = "weak"
 
 [types."mozilla::CheckedUnsafePtr".pointer]
 kind = "raw"
 
-[types."ThreadSafeWeakPtr".pointer]
-kind = "weak"
-
 [types."mozilla::UniquePtr".pointer]
-kind = "unique"
-
-[types."UniquePtr".pointer]
 kind = "unique"
 
 [types."mozilla::WeakPtr".pointer]
