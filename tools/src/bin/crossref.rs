@@ -545,9 +545,13 @@ async fn main() {
                     }
                 }
 
-                for (ptr_kind, pointee_pretty) in ontology
-                    .config
-                    .maybe_parse_type_as_pointer(&field.type_pretty)
+                let (ptr_infos, type_labels) = ontology
+                .config
+                .maybe_parse_type_as_pointer(&field.type_pretty);
+                for label in type_labels {
+                    meta.labels.insert(label);
+                }
+                for (ptr_kind, pointee_pretty) in ptr_infos
                 {
                     if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
                         // We need to find the first symbol that's referring to a type.
