@@ -36,14 +36,16 @@ SCIP_SUBTREE_INFOS=$(jq -Mc ".trees[\"${TREE_NAME}\"].scip_subtrees | to_entries
 
 # Note: This structuring avoids use of a pipe and sub-shells which allows us to
 # mutate global variables if we want.
-while read -r subtree_obj; do
-  scip_tree_name=$(jq -Mr '.key' <<< "$subtree_obj")
-  scip_index_path=$(jq -Mr '.value.scip_index_path' <<< "$subtree_obj")
-  subtree_root=$(jq -Mr '.value.subtree_root' <<< "$subtree_obj")
-  $MOZSEARCH_PATH/tools/target/release/scip-indexer \
-    "$CONFIG_FILE" \
-    "$TREE_NAME" \
-    --subtree-name "${scip_tree_name}" \
-    --subtree-root "${subtree_root}" \
-    "${scip_index_path}"
-done <<< "$SCIP_SUBTREE_INFOS"
+if [[ $SCIP_SUBTREE_INFOS ]]; then
+  while read -r subtree_obj; do
+    scip_tree_name=$(jq -Mr '.key' <<< "$subtree_obj")
+    scip_index_path=$(jq -Mr '.value.scip_index_path' <<< "$subtree_obj")
+    subtree_root=$(jq -Mr '.value.subtree_root' <<< "$subtree_obj")
+    $MOZSEARCH_PATH/tools/target/release/scip-indexer \
+      "$CONFIG_FILE" \
+      "$TREE_NAME" \
+      --subtree-name "${scip_tree_name}" \
+      --subtree-root "${subtree_root}" \
+      "${scip_index_path}"
+  done <<< "$SCIP_SUBTREE_INFOS"
+fi
