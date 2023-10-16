@@ -200,6 +200,7 @@ pub enum OverloadKind {
     /// paths which is a temporary thing (and we should change to Uses when
     /// correcting).
     UsesPaths,
+    FieldMemberUses,
     NodeLimit,
 }
 

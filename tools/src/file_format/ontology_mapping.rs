@@ -80,6 +80,10 @@ pub enum OntologyType {
     /// arguments like they existed without the decorator.
     Decorator(OntologyTypeDecorator),
     Pointer(OntologyTypePointer),
+    /// Currently we assume a container has a >1 multiplicity.  We don't bother
+    /// with pointer kind because we expect that to be a characteristic of the
+    /// contained type.
+    Container,
     Value,
     Variant,
     Nothing,
@@ -149,14 +153,17 @@ pub fn pointer_kind_to_badge_info(
     kind: &OntologyPointerKind,
 ) -> (i32, EdgeKind, &'static str, &'static str) {
     match kind {
+        // the muscle arm thing
         OntologyPointerKind::Strong => (0, EdgeKind::Aggregation, "\u{1f4aa}", "ptr-strong"),
+        // a snowflake, which is unique
         OntologyPointerKind::Unique => (0, EdgeKind::Aggregation, "\u{2744}\u{fe0f}", "ptr-unique"),
         // A calendar contains a week, right?  I'm sorry.  I have no idea
         // what to do here.
         OntologyPointerKind::Weak => (0, EdgeKind::Aggregation, "\u{1f4d3}\u{fe0f}", "ptr-weak"),
         // Eh, raw pointers are bad.  Face screaming in fear.
         OntologyPointerKind::Raw => (0, EdgeKind::Aggregation, "\u{1f631}", "ptr-raw"),
-        OntologyPointerKind::Ref => (0, EdgeKind::Aggregation, "&amp;", "ptr-ref"),
+        // The "&" gets escaped so we if we use "&amp;" here we see "&amp;" in the UI.
+        OntologyPointerKind::Ref => (0, EdgeKind::Aggregation, "&", "ptr-ref"),
         // "ginger" (it's a root!)
         OntologyPointerKind::GCRef => (0, EdgeKind::Aggregation, "\u{1fada}", "ptr-ref"),
         OntologyPointerKind::Contains => (0, EdgeKind::Composition, "\u{1f4e6}", "ptr-contains"),
@@ -434,6 +441,13 @@ impl OntologyMappingConfig {
                             // Process the arguments on their own still.
                             true
                         }
+                        Some(OntologyType::Container) => {
+                            // TODO: we should be setting a multiplicity flag that
+                            // should be propagated to the pointer info.
+
+                            // Process the arguments on their own still.
+                            true
+                        }
                         Some(OntologyType::Pointer(ptr)) => {
                             if let Some(arg_type) = cur_type.args.get(ptr.arg_index as usize) {
                                 let pointee_name = ustr(&arg_type.identifier);
@@ -464,7 +478,25 @@ impl OntologyMappingConfig {
                             cur_type.is_nothing = true;
                             false
                         }
-                        _ => {
+                        Some(OntologyType::Value) => {
+                            // With the introduction of "container" we now intentionally want to
+                            // ignore the arguments, although we have not yet done anything to
+                            // precldue nested arguments from being suppressed.  It's still
+                            // currently the case that a value type could have a `RefPtr<Foo>` and
+                            // we'd process that.  It probably makes sense to wait for an example
+                            // where that happens and we definitely don't want to process that.
+                            //
+                            // Another possibility is to consider the types in this case but
+                            // generate some kind of diagnostic marker that the type defies our
+                            // expectations and should potentially be reconsidered.  If those
+                            // cases where this happens should indeed suppress the nested type,
+                            // we would add a field to value or an alternate form of value that
+                            // explicitly is intentionally suppressing its contents.
+                            false
+                        }
+                        None => {
+                            // We have no information about the parent type, so we're not
+                            // going to do anything about its argument(s).
                             false
                         }
                     };
@@ -593,6 +625,7 @@ kind = "weak"
 kind = "unique"
 arg_index = 1
 
+[types."nsTArray".container]
 [types."nsTString".value]
 
 [types."mozilla::Atomic".decorator]
@@ -668,6 +701,16 @@ kind = "contains"
             )],
             vec![]
         )
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("nsTArray<RefPtr<class SyntheticExample> >"),
+        (vec![(OntologyPointerKind::Strong, ustr("SyntheticExample"))], vec![])
+    );
+
+    assert_eq!(
+        c.maybe_parse_type_as_pointer("nsTArray<class SyntheticExample *>"),
+        (vec![(OntologyPointerKind::Raw, ustr("SyntheticExample"))], vec![])
     );
 
     assert_eq!(

@@ -81,6 +81,11 @@ command = "crossref-lookup"
 command = "traverse"
 args.edge = "class"
 
+[term.fmus-through-depth]
+[[term.fmus-through-depth.group.graph-build]]
+command = "traverse"
+args.traverse-field-member-uses = "$0"
+
 [term.hier]
 [[term.hier.group.graph-render]]
 command = "graph"
