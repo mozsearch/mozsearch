@@ -456,8 +456,14 @@ var Hover = new (class Hover {
     this.graphItems = [];
     this.hoveredElem = null;
     this.sticky = false;
-    window.addEventListener("mousedown", () => {
-      if (this.sticky) {
+    window.addEventListener("mousedown", (evt) => {
+      // Constrain de-highlighting to the primary mouse button; in particular,
+      // scrolling via the middle mouse button should not disable the sticky
+      // state.  Unfortunately I think scrolling with the primary mouse button
+      // on the modern normally-hidden scrollbars, but I'm being conservative
+      // with this change.
+      if (this.sticky && evt.button === 0) {
+        this.deactivateDiagram();
         this.deactivate();
       }
     });

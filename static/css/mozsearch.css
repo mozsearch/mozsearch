@@ -1192,8 +1192,14 @@ g.blurry g.cluster text {
   fill: none;
 }
 
+/* The depth mechanism was initially introduce for experimental metablob
+ * blurring, but we can use the 0 depth to help emphasize the roots of the
+ * graph without the blurring and in a way that doesn't conflict with uses of
+ * color.
+ */
 .diagram-depth-0 {
   --diagram-depth: 0;
+  stroke-width: 2;
 }
 .diagram-depth-1 {
   --diagram-depth: 1;

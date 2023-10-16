@@ -223,13 +223,28 @@ labels = ["threadbound"]
 
 # ### Value Types ###
 #
-# Marking something as a value excludes it from being considered for
-# pointer_info purposes and thereby not something that "class-diagram" will
+# Marking something as a value excludes that type itself from being considered
+# for pointer_info purposes and thereby not something that "class-diagram" will
 # show because there's no potential graph edge to generate.  For example, URIs
 # are very interesting properties, but there is nothing interesting about the
 # relationship between a document and its URI fields.  The same for strings.
+#
+# Because the current processing algorithm only potentially looks at a given
+# template arg and its parent, marking something as a value doesn't stop us
+# from potentially processing nested arguments; like if we marked nsTArray as
+# a value, then `nsTArray<RefPtr<Foo> >` would not stop us from seeing the
+# contained RefPtr right now.  Note that nsTArray is explicitly now a container
+# and one should not mark things as values depending on that behavior, as we
+# will potentially fix that problem.
+# TODO: fix that problem
+#
+# Note that we also hope to automatically mark types that only contain value
+# types themselves as values, although it's unclear if we should only do that
+# for primitive types or also inductively for types we've explicitly marked as
+# values here.
 
 [types."nsTString".value]
+[types."nsTSubstring".value]
 
 [types."nsPoint".value]
 
@@ -240,8 +255,6 @@ labels = ["threadbound"]
 [types."nsIReferrerInfo".value]
 
 [types."mozilla::ipc::IPDLStructMemberWrapper".value]
-
-[types."std::tuple".value]
 
 # A mutex itself just a value and not inherently interesting, although I wonder
 # if "label_owning_class" should be used to mark a class as having some internal
@@ -254,23 +267,48 @@ labels = ["threadbound"]
 
 [types."mozilla::dom::IdType".value]
 
-# The refcount and owning thread are boring and usually there.  These could
-# potentially make sense as badges.
+# The refcount and owning thread are boring and usually there.  These get badged
+# via `pretty` rules.
 [types."nsCycleCollectingAutoRefCnt".value]
 [types."nsAutoRefCnt".value]
 [types."nsAutoOwningThread".value]
+[types."ThreadSafeAutoRefCnt".value]
+
+# ### Containers ###
+#
+# Container types are themselves not interesting classes, but their payloads are
+# and we assume containers have a multiplicity of >1.  For something like
+# "mozilla::Maybe", we currently just model that as a pointer, but we could
+# probably do better.
 
 # Maps/Sets are interesting if their values are interesting, so let's mark
 # them as values right now.
 # TODO: Potentially have this (and arrays) annotate multiplicity.
-[types."nsBaseHashtable".value]
-[types."nsTBaseHashSet".value]
+[types."nsBaseHashtable".container]
+[types."nsTBaseHashSet".container]
 
-[types."nsTArray".value]
-[types."AutoTArray".value]
-[types."mozilla::Vector".value]
-[types."HashSet".value]
+[types."std::tuple".container]
 
+[types."nsTArray".container]
+[types."AutoTArray".container]
+[types."mozilla::Vector".container]
+[types."HashSet".container]
+
+# nsClassHashtable is somewhat unique in terms of baking in a UniquePtr, so we
+# define it as a pointer.
+# XXX we probably want to be able to specify multiplicity for pointers then.
+[types."nsClassHashtable".pointer]
+kind = "unique"
+arg_index = 1
+
+# ManagedContainer should be a container, but it bakes in retained raw pointers
+# that are conceptually strong but structurally raw.  Notionally, these could
+# probably be considered weak pointers where the ActorLifecycleProxy holds the
+# strong reference, but I think we may be eliding that right now.
+#
+# TODO: Figure out what's going on with ActorLifecycleProxy
+[types."mozilla::ManagedContainer".pointer]
+kind = "strong"
 
 # ### Variant Types ###
 [types."mozilla::Variant".variant]
@@ -281,9 +319,6 @@ labels = ["threadbound"]
 # ### Pointer Types ###
 #
 # These inform our processing of class fields.
-#
-# Note that we currently do need to manually provide the namespaced and
-# un-namespaced variations of a type.
 
 # Doing this for Maybe<ServiceWorkerDescriptor> right now.
 [types."mozilla::Maybe".pointer]

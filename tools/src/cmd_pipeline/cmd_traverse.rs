@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use async_trait::async_trait;
 use bitflags::bitflags;
@@ -76,6 +76,15 @@ pub struct Traverse {
     /// experimenting.
     #[clap(long, value_parser, default_value = "16")]
     pub skip_uses_at_path_count: u32,
+
+    /// Traverse field member uses when the depth has this value or less.
+    #[clap(long, value_parser = clap::value_parser!(i32).range(-1..=16), default_value = "-1")]
+    pub traverse_field_member_uses: i32,
+
+    /// If we see "field-member-uses" with this many hits, do not process any
+    /// of the uses.
+    #[clap(long, value_parser, default_value = "24")]
+    pub skip_field_member_uses_at_count: u32,
 }
 
 #[derive(Debug)]
@@ -146,7 +155,7 @@ impl PipelineCommand for TraverseCommand {
         let mut graph = NamedSymbolGraph::new("only".to_string());
 
         // A to-do list of nodes we have not yet traversed.
-        let mut to_traverse = Vec::new();
+        let mut to_traverse = VecDeque::new();
         // Nodes that have been scheduled to be traversed or ruled out.  A node
         // in this set should not be added to `to_traverse`.
         let mut considered = HashSet::new();
@@ -160,7 +169,7 @@ impl PipelineCommand for TraverseCommand {
         // Propagate the starting symbols into the graph and queue them up for
         // traversal.
         for info in cil.symbol_crossref_infos {
-            to_traverse.push((info.symbol.clone(), 0, all_traversals_valid));
+            to_traverse.push_back((info.symbol.clone(), 0, all_traversals_valid));
             considered.insert(info.symbol.clone());
 
             let (sym_node_id, _info) =
@@ -194,6 +203,19 @@ impl PipelineCommand for TraverseCommand {
             "class" => true,
             _ => false,
         };
+        // Being able to see the field-member-uses is potentially invaluable,
+        // but this really needs additional hueristics to be usable, so only
+        // turn this on if explicitly specified for now.
+        //
+        // TODO: Improve heuristics to allow use of field-member-uses.
+        //
+        // The general issues:
+        // - The fan-out is potentially graph-ruining.  Using an example of
+        //   `BlobImpl`, we really do want to show `Blob`
+        let traverse_field_member_uses = match self.args.edge.as_str() {
+            "class" => self.args.traverse_field_member_uses,
+            _ => -1,
+        };
         let traverse_overridden_by = match self.args.edge.as_str() {
             "inheritance" => true,
             _ => false,
@@ -219,14 +241,14 @@ impl PipelineCommand for TraverseCommand {
         };
 
         // General operation:
-        // - We pull a node to be traversed off the queue.  This ends up depth
+        // - We pull a node to be traversed off the queue.  This ends up breadth
         //   first.
         // - We check if we already have the crossref info for the symbol and
         //   look it up if not.  There's an asymmetry here between the initial
         //   set of symbols we're traversing from which we already have cached
         //   values for and the new edges we discover, but it's not a concern.
         // - We traverse the list of edges.
-        while let Some((sym, depth, cur_traversals)) = to_traverse.pop() {
+        while let Some((sym, depth, cur_traversals)) = to_traverse.pop_front() {
             if sym_node_set.symbol_crossref_infos.len() as u32 >= node_limit {
                 trace!(sym = %sym, depth, "stopping because of node limit");
                 overloads_hit.push(OverloadInfo {
@@ -289,6 +311,10 @@ impl PipelineCommand for TraverseCommand {
                     let fields: Vec<StructuredFieldInfo> = from_value(fields_json).unwrap();
                     for field in fields {
                         let mut show_field = field.labels.len() > 0;
+                        // Attempt to mark the fields with the subsystem of the field's target class
+                        // so that we can group fields by which subsystem they're related to.
+                        // Because we propagate subsystems from IDL definitions through to their
+                        // bindings, this should also end up working for generated bindings.
                         let mut effective_subsystem = None;
 
                         let mut targets = vec![];
@@ -298,9 +324,13 @@ impl PipelineCommand for TraverseCommand {
                                 sym_node_set.ensure_symbol(&ptr_info.sym, server, next_depth).await?;
                             if next_depth < max_depth && considered.insert(ptr_info.sym.clone()) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
-                                to_traverse.push((ptr_info.sym.clone(), next_depth, all_traversals_valid));
+                                to_traverse.push_back((ptr_info.sym.clone(), next_depth, all_traversals_valid));
                             }
 
+                            // In cases where we have multiple pointer_infos for a field, we
+                            // arbitrarily picking the first one for now.
+                            // XXX For maps, we probably should be favoring the value over the key,
+                            // which would suggest we should pick the last va
                             if effective_subsystem.is_none() {
                                 effective_subsystem = target_info.get_subsystem();
                             }
@@ -352,7 +382,7 @@ impl PipelineCommand for TraverseCommand {
                 }
             }
 
-            if traverse_fields && next_depth < depth {
+            if depth as i32 <= traverse_field_member_uses && next_depth < max_depth {
                 let bad_data = || {
                     ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::DataLayer,
@@ -369,25 +399,40 @@ impl PipelineCommand for TraverseCommand {
                 // class's fields; the field traversal is not a separate step with
                 // its own depth addition.
                 let sym_info = sym_node_set.get(&sym_id);
-                let overrides = sym_info
+                let member_uses_storage = sym_info
                     .crossref_info
                     .pointer("/field-member-uses")
                     .unwrap_or(&Value::Array(vec![]))
                     .clone();
+                let member_uses = member_uses_storage
+                    .as_array()
+                    .unwrap();
 
-                for target in overrides.as_array().unwrap() {
-                    // fmu is { sym, pretty, fields }
-                    // The sym is the class referencing our type.
-                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
-                    let target_sym = ustr(target_sym_str);
+                if member_uses.len() as u32 >= self.args.skip_field_member_uses_at_count {
+                    overloads_hit.push(OverloadInfo {
+                        kind: OverloadKind::FieldMemberUses,
+                        sym: Some(sym.to_string()),
+                        exist: member_uses.len() as u32,
+                        included: 0,
+                        local_limit: self.args.skip_field_member_uses_at_count,
+                        global_limit: 0,
+                    });
 
-                    let (_target_id, target_info) =
-                        sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
+                } else {
+                    for target in member_uses {
+                        // fmu is { sym, pretty, fields }
+                        // The sym is the class referencing our type.
+                        let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
+                        let target_sym = ustr(target_sym_str);
 
-                    // we already considered depth in the outer condition
-                    if considered.insert(target_info.symbol.clone()) {
-                        trace!(sym = target_sym_str, "scheduling field-member-use");
-                        to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
+                        let (_target_id, target_info) =
+                            sym_node_set.ensure_symbol(&target_sym, server, next_depth).await?;
+
+                        // we already considered depth in the outer condition
+                        if considered.insert(target_info.symbol.clone()) {
+                            trace!(sym = target_sym_str, "scheduling field-member-use");
+                            to_traverse.push_back((target_info.symbol.clone(), next_depth, all_traversals_valid));
+                        }
                     }
                 }
             }
@@ -442,7 +487,7 @@ impl PipelineCommand for TraverseCommand {
                             if next_depth < max_depth && considered.insert(send_info.symbol.clone())
                             {
                                 trace!(sym = send_info.symbol.as_str(), "scheduling send slot sym");
-                                to_traverse.push((send_info.symbol.clone(), next_depth, all_traversals_valid));
+                                to_traverse.push_back((send_info.symbol.clone(), next_depth, all_traversals_valid));
                             }
                         }
                         continue;
@@ -459,7 +504,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth && considered.insert(idl_info.symbol.clone()) {
                             trace!(sym = idl_info.symbol.as_str(), "scheduling owner slot sym");
-                            to_traverse.push((idl_info.symbol.clone(), next_depth, all_traversals_valid));
+                            to_traverse.push_back((idl_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -501,7 +546,7 @@ impl PipelineCommand for TraverseCommand {
                             }
                             if next_depth < max_depth && considered.insert(rel_sym.clone()) {
                                 trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
-                                to_traverse.push((rel_sym.clone(), next_depth, all_traversals_valid));
+                                to_traverse.push_back((rel_sym.clone(), next_depth, all_traversals_valid));
                             }
                         }
                         // For the case of runnables the override hierarchy is arguably a
@@ -553,7 +598,7 @@ impl PipelineCommand for TraverseCommand {
                         // If we're going in the subclass direction continue only going in the subclass
                         // direction; don't change direction and perform superclass traversals.
                         // XXX we should potentially be tying this into "considered" somehow.
-                        to_traverse.push((target_info.symbol.clone(), next_depth, Traversals::Subclass));
+                        to_traverse.push_back((target_info.symbol.clone(), next_depth, Traversals::Subclass));
                     }
                 }
             }
@@ -610,7 +655,7 @@ impl PipelineCommand for TraverseCommand {
                         // If we're going in the superclass direction, continue only going in the
                         // superclass direction; don't allow going back down subclasses!
                         // XXX we should potentially be tying this into "considered" somehow
-                        to_traverse.push((target_info.symbol.clone(), next_depth, Traversals::Super));
+                        to_traverse.push_back((target_info.symbol.clone(), next_depth, Traversals::Super));
                     }
                 }
             }
@@ -658,7 +703,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth {
                             trace!(sym = target_sym_str, "scheduling overrides");
-                            to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
+                            to_traverse.push_back((target_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -698,7 +743,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth {
                             trace!(sym = target_sym_str, "scheduling overridenBy");
-                            to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
+                            to_traverse.push_back((target_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -745,7 +790,7 @@ impl PipelineCommand for TraverseCommand {
                         );
                         if next_depth < max_depth && considered.insert(target_info.symbol.clone()) {
                             trace!(sym = target_sym_str, "scheduling callees");
-                            to_traverse.push((target_info.symbol.clone(), next_depth, all_traversals_valid));
+                            to_traverse.push_back((target_info.symbol.clone(), next_depth, all_traversals_valid));
                         }
                     }
                 }
@@ -817,7 +862,7 @@ impl PipelineCommand for TraverseCommand {
                                     && considered.insert(source_info.symbol.clone())
                                 {
                                     trace!(sym = source_sym_str, "scheduling uses");
-                                    to_traverse.push((source_info.symbol.clone(), next_depth, all_traversals_valid));
+                                    to_traverse.push_back((source_info.symbol.clone(), next_depth, all_traversals_valid));
                                 }
                             }
                         }
