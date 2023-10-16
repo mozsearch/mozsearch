@@ -4,7 +4,13 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-rm -rf $INDEX_ROOT/analysis
+# Remove the analysis dir and any platform variations.
+rm -rf $INDEX_ROOT/analysis*
+# Remove any objdir variants; in general we expect the "objdir" itself to
+# potentially have been created during the "setup" step, or at least that's the
+# case for m-c.
+rm -rf $INDEX_ROOT/objdir-*
+rm -rf $INDEX_ROOT/generated-*
 rm -rf $INDEX_ROOT/file
 rm -rf $INDEX_ROOT/dir
 rm -rf $INDEX_ROOT/description
