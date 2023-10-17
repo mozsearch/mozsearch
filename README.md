@@ -35,14 +35,24 @@ If you do want to use it and you work at Mozilla, you should acquire a license
 through Service Desk before doing anything else.  If you already have a license,
 that's fine too.
 
+#### Alternative to Docker: Podman
+
+Podman can be used almost as a drop-in replacement to Docker. Just make sure
+that:
+- You have a podman wrapper or symlink named docker in your PATH, the scripts
+  call docker extensively.
+- You set the environment variable PODMAN_USERNS="keep-id" − or the equavalent
+  option in containers.conf. The source repository is bind-mounted inside the
+  container and the user in the container gets the same UID/GID as the caller.
+  This makes sure that the vagrant user in the container can read/write inside
+  the bind mount at /vagrant.
+
 #### Installing on macOS/OS X
 
 I don't think anyone has tried this yet, but it seems like there are a variety
 of options.  Here are some I've just briefly researched:
 - Use podman.  https://podman.io/docs/installation explains how to use QEMU on
-  macOS.  Note that we don't currently have native podman docs or support, but
-  it's something that's come up a number of times, so this is something we
-  could support.
+  macOS.
 - Use Colima: https://github.com/abiosoft/colima
 - Use lima, the thing that colima wraps: https://github.com/lima-vm/lima
 
