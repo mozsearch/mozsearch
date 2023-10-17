@@ -45,6 +45,12 @@ rsync -av $XPIDL_SAVED_GENERATED_FILES/ $OBJDIR
 mkdir -p $INDEX_ROOT/analysis/
 rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
 
+## Java stuff
+./gradlew --no-daemon clean build
+scip-java index-semanticdb build/semanticdb-targetroot --output=$OBJDIR/gradle.scip
+./gradlew --no-daemon clean
+rm -rf build/
+
 ## C++ Build Stuff
 for f in *.cpp
 do

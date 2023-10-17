@@ -19,6 +19,10 @@
         "rust": {
           "scip_index_path": "$WORKING/tests/objdir/rust.scip",
           "subtree_root": "."
+        },
+        "gradle": {
+          "scip_index_path": "$WORKING/tests/objdir/gradle.scip",
+          "subtree_root": "."
         }
       }
     }

@@ -75,6 +75,18 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/.gitattributes" class="mimetype-fixed-container mimetype-icon-gitattributes">.gitattributes</a></td>
+          <td class="description"><a href="/tests/source/.gitattributes" title=""></td>
+          <td><a href="/tests/source/.gitattributes">214</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/.gitignore" class="mimetype-fixed-container mimetype-icon-gitignore">.gitignore</a></td>
+          <td class="description"><a href="/tests/source/.gitignore" title=""></td>
+          <td><a href="/tests/source/.gitignore">103</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/__GENERATED__" class="mimetype-fixed-container mimetype-icon-folder">__GENERATED__</a></td>
           <td class="description"><a href="/tests/source/__GENERATED__" title=""></td>
           <td><a href="/tests/source/__GENERATED__"></a></td>
@@ -195,6 +207,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/build.gradle.kts" class="mimetype-fixed-container mimetype-icon-kts">build.gradle.kts</a></td>
+          <td class="description"><a href="/tests/source/build.gradle.kts" title=""></td>
+          <td><a href="/tests/source/build.gradle.kts">2368</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/build.rs" class="mimetype-fixed-container mimetype-icon-rs">build.rs</a></td>
           <td class="description"><a href="/tests/source/build.rs" title=""></td>
           <td><a href="/tests/source/build.rs">337</a></td>
@@ -246,6 +264,24 @@ expression: "&fb.contents"
           <td><a href="/tests/source/GeckoApp.java" class="mimetype-fixed-container mimetype-icon-java">GeckoApp.java</a></td>
           <td class="description"><a href="/tests/source/GeckoApp.java" title=""></td>
           <td><a href="/tests/source/GeckoApp.java">104036</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gradle" class="mimetype-fixed-container mimetype-icon-folder">gradle</a></td>
+          <td class="description"><a href="/tests/source/gradle" title=""></td>
+          <td><a href="/tests/source/gradle"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gradlew" class="mimetype-fixed-container mimetype-icon-">gradlew</a></td>
+          <td class="description"><a href="/tests/source/gradlew" title=""></td>
+          <td><a href="/tests/source/gradlew">8692</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gradlew.bat" class="mimetype-fixed-container mimetype-icon-bat">gradlew.bat</a></td>
+          <td class="description"><a href="/tests/source/gradlew.bat" title=""></td>
+          <td><a href="/tests/source/gradlew.bat">2868</a></td>
         </tr>
 
         <tr>
@@ -470,6 +506,12 @@ Spread over multiple lines.
           <td><a href="/tests/source/spaces  are bad.txt" class="mimetype-fixed-container mimetype-icon-txt">spaces  are bad.txt</a></td>
           <td class="description"><a href="/tests/source/spaces  are bad.txt" title=""></td>
           <td><a href="/tests/source/spaces  are bad.txt">84</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/src" class="mimetype-fixed-container mimetype-icon-folder">src</a></td>
+          <td class="description"><a href="/tests/source/src" title=""></td>
+          <td><a href="/tests/source/src"></a></td>
         </tr>
 
         <tr>
