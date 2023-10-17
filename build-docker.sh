@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # See `run-docker.sh` for context; it uses these defs too. Yes, we could source.
 IMAGE_NAME=${SEARCHFOX_DOCKER_IMAGE_NAME:-searchfox}

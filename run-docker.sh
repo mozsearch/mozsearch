@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This command tries to start up your searchfox docker container, creating it
 # from the image created in `build.docker.sh` if it doesn't already exist, and
@@ -40,7 +40,7 @@ OUTSIDE_CONTAINER_PORT=16995
 # which is served at this port inside the container
 INSIDE_CONTAINER_PORT=80
 
-SHELL=/usr/bin/bash
+SHELL=bash
 
 container_exists() {
     docker container inspect ${CONTAINER_NAME} &> /dev/null
@@ -73,7 +73,7 @@ else
     LINKMOUNTS=()
     while read -r link; do
       LINKMOUNTS+=( --mount type=bind,source=$(readlink -f ${link}),target=/vagrant/${link} )
-    done < <(/usr/bin/find trees -type l)
+    done < <(find trees -type l)
 
     # Mount the home directory volume if it exists.  The docker docs say that
     # if there is anything already at that location prior to us passing this

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Helper to download one of the following date ranges' worth of logs to the
 # current directory, as given by the argument to give to this script:

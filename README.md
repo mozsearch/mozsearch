@@ -47,6 +47,8 @@ that:
   This makes sure that the vagrant user in the container can read/write inside
   the bind mount at /vagrant.
 
+> Note for Nix users: the devShell in flake.nix provides both of those requirements.
+
 #### Installing on macOS/OS X
 
 I don't think anyone has tried this yet, but it seems like there are a variety

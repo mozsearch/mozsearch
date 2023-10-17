@@ -15,7 +15,7 @@ apt-get install -y apt-utils lsb-release sudo curl wget
 
 USERNAME=vagrant
 useradd -u $USE_UID -o -ms /bin/bash $USERNAME
-groupmod -g $USE_GID $USERNAME
+groupmod -o -g $USE_GID $USERNAME
 usermod -aG sudo $USERNAME && echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME
 chmod 0440 /etc/sudoers.d/$USERNAME
 

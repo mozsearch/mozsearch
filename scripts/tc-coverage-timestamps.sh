@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This is a script to determine when mozilla-central code coverage artifacts
 # were uploaded.

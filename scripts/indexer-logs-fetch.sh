@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # AFAICT in order to download a specific set of files, we need to use recursive
 # and exclude everything and then only include what we want.  The following

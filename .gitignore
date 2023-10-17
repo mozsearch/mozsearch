@@ -25,3 +25,4 @@ addons
 !/trees/README.md
 /tree-configs/*
 !/tree-configs/README.md
+.direnv
