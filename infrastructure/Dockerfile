@@ -16,6 +16,11 @@ RUN /infrastructure/common-provision-pre.sh
 ENV PATH=/home/vagrant/.cargo/bin:$PATH
 
 RUN /infrastructure/indexer-provision.sh
+
+# indexer-provision.sh installed Coursier, make sure the path is available for
+# the next commands
+ENV PATH=$PATH:/home/vagrant/.local/share/coursier/bin
+
 RUN /infrastructure/web-server-provision.sh
 RUN /infrastructure/common-provision-post.sh
 

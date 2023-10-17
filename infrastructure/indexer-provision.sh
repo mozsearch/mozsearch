@@ -43,6 +43,17 @@ rtx exec nodejs@18 -- npm install -g @sourcegraph/scip-typescript
 # Install scip-python under node.js v18 as well
 rtx exec nodejs@18 -- npm install -g @sourcegraph/scip-python
 
+# Install a JDK and Coursier.
+sudo apt install -y openjdk-19-jdk
+curl -fL "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz" | gzip -d > cs
+chmod +x cs
+./cs setup --yes
+# Coursier adds itself to the path from ~/.profile, but add it now too
+PATH="$PATH:$HOME/.local/share/coursier/bin"
+
+# Install scip-java
+cs install --contrib scip-java
+
 # Create update script.
 cat > update.sh <<"THEEND"
 #!/usr/bin/env bash
