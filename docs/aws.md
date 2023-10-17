@@ -109,6 +109,7 @@ scary avenue for compromise, so I'm going to suggest:
     package becomes v2.
   - Debian: Yeah, v2 is available on some versions, `apt show awscli` and see if
     the major version is >= 2.  Keep upgrading until that's true.
+  - Nix: the devShell in our flake.nix provides awscli2. Just call `nix develop`.
 - OS X:
   - In the #iam channel, using "brew" was recommended.
 - Everything else, or if the above didn't work for you:
@@ -168,6 +169,9 @@ Because we need the boto3 lib and a few other things, we're going to set up a
 python venv now.  See https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
 for more on installing venv, but on ubuntu you should be able to run
 `apt install python3-venv`.
+
+> Note for Nix users: you don't need to setup a venv, the right Python packages
+> are provided by our devShell.
 
 ```
 # RUN THESE COMMANDS OUTSIDE THE VM!
