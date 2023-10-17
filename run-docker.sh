@@ -80,7 +80,7 @@ else
     # directive, it will be copied into the volume.
     VOLMOUNTS=()
     if volume_exists; then
-      VOLMOUNTS+=( --mount source=${VOLUME_NAME},target=/home/vagrant )
+      VOLMOUNTS+=( --mount type=volume,source=${VOLUME_NAME},target=/home/vagrant )
     fi
 
     # flags:
