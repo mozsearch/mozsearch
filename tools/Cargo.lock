@@ -1143,7 +1143,8 @@ dependencies = [
 [[package]]
 name = "lalrpop"
 version = "0.19.8"
-source = "git+https://github.com/mozsearch/lalrpop?branch=mozsearch-version1#393688d6295f50479c5a99fccb52eb6bd38785b5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b30455341b0e18f276fa64540aff54deafb54c589de6aca68659c63dd2d5d823"
 dependencies = [
  "ascii-canvas",
  "atty",
@@ -1164,8 +1165,9 @@ dependencies = [
 
 [[package]]
 name = "lalrpop-util"
-version = "0.19.8"
-source = "git+https://github.com/mozsearch/lalrpop?branch=mozsearch-version1#393688d6295f50479c5a99fccb52eb6bd38785b5"
+version = "0.19.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3c48237b9604c5a4702de6b824e02006c3214327564636aef27c1028a8fa0ed"
 dependencies = [
  "regex 1.5.5",
 ]
