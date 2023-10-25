@@ -1163,7 +1163,7 @@ fn analyze_using_scip(
                 write_line(
                     &mut file,
                     &WithLocation {
-                        data: sinfo.clone(),
+                        data: sinfo,
                         loc,
                     },
                 );
