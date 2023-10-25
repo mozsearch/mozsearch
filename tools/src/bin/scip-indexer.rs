@@ -941,10 +941,7 @@ fn analyze_using_scip(
         let name_capture_ix = ts_query.capture_index_for_name("name").unwrap();
         let body_capture_ix = ts_query.capture_index_for_name("body").unwrap();
 
-        // XXX Currently cloning source_contents because the query_cursor needs the
-        // text for its predicate magic; this should probably be Cowed or something
-        // like that to avoid the duplication.
-        let parse_tree = match parser.parse(source_contents.clone(), None) {
+        let parse_tree = match parser.parse(&source_contents[..], None) {
             Some(t) => t,
             _ => {
                 warn!("tree-sitter parse failed, skipping file.");
