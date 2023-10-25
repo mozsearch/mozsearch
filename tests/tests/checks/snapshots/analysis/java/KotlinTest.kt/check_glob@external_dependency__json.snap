@@ -1,0 +1,13 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sl).unwrap()"
+---
+{
+  "symbols": [
+    {
+      "symbol": "S_java_gradle_kotlin/test/Test#",
+      "quality": "ExactIdentifier",
+      "from_identifier": "kotlin::test::Test"
+    }
+  ]
+}

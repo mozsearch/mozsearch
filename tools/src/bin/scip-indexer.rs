@@ -401,6 +401,241 @@ fn compile_nesting_queries(
     tree_sitter::Query::new(lang, &query_pats.join("\n")).unwrap()
 }
 
+// ### Process SCIP Descriptors
+//
+// Map the descriptor individually to build up canonical
+// mozsearch symbol name.  In general, we maintain the SCIP
+// descriptor syntax because there's no reason not to.  The main
+// exception is we don't re-wrap backtick-enclosed values.
+// (Interestingly, the scip lib's format_symbol_with method also
+// does not re-wrap descriptors, but this is probably an
+// oversight.)
+//
+// Note that this implementation inherently looks a lot like
+// part of the scip crate's format_symbol_with impl out of
+// necessity (we're reversing an explicit spec).  We don't call
+// that method with a format option to just request the
+// descriptors because that method is destructive and we both
+// want to ensure stability and control of this mapping, like
+// not emitting backticks.  This is very much a one-way mapping
+// with policy decisions made here.
+struct SymbolAnalysis {
+    kind: Option<&'static str>,
+    pretty: Ustr,
+    norm_sym: Ustr,
+    parent_sym: Option<Ustr>,
+    contributes_to_parent: bool,
+}
+
+fn analyse_symbol(
+    symbol: &scip::types::Symbol,
+    lang: &ScipLang,
+    lang_name: &str,
+    subtree_name: &str,
+    relative_path: &str,
+    doc_name: Option<&str>,
+    doc_namespace: Option<&str>)
+-> SymbolAnalysis {
+    let mut pretty_pieces = vec![];
+    let mut sym_pieces = vec![];
+    let mut last_kind = None;
+    let mut last_contributes_to_parent = false;
+    let mut prev_kind = None;
+
+    for descriptor in &symbol.descriptors {
+        // Ignore descriptor enums from the future, skipping them.
+        let suffix = match descriptor.suffix.enum_value() {
+            // UnspecifiedSuffix is weird because it's an in-domain
+            // value (it's explicitly part of the protobuf schema
+            // for suffix), but since currently the suffix is only
+            // built by parsing a string encoding of the enum, it
+            // logically is similar in nature to the enum_value
+            // being an Err.  Regardless, we skip it.
+            Ok(Suffix::UnspecifiedSuffix) => {
+                warn!("Experienced unspecified suffix on {}", symbol);
+                continue;
+            }
+            Ok(v) => v,
+            Err(_) => {
+                warn!("Experienced weird suffix error on {}", symbol);
+                continue;
+            }
+        };
+        let escaped = sanitize_symbol(&descriptor.name);
+
+        let (sym_piece, pretty_action, maybe_kind, contributes_to_parent) = match suffix
+        {
+            // Confusingly, package is deprecated in favor of
+            // namespace, but right now the SCIP crate parses '/'
+            // as Package, not Namespace.
+            Suffix::Package | Suffix::Namespace => {
+                // Pretty: For JS/TS the namespace includes the file path which
+                // ends up way too verbose and now how humans would describe
+                // things.
+                (
+                    format!("{}/", escaped),
+                    match lang {
+                        ScipLang::Typescript => PrettyAction::Omit,
+                        _ => PrettyAction::Append,
+                    },
+                    None,
+                    false,
+                )
+            }
+            Suffix::Type => (
+                format!("{}#", escaped),
+                PrettyAction::Append,
+                Some("class"),
+                false,
+            ),
+            Suffix::Term => (
+                format!("{}.", escaped),
+                PrettyAction::Append,
+                Some("field"),
+                true,
+            ),
+            Suffix::Method => (
+                format!(
+                    "{}({}).",
+                    escaped,
+                    sanitize_symbol(&descriptor.disambiguator)
+                ),
+                PrettyAction::Append,
+                Some("method"),
+                true,
+            ),
+            Suffix::TypeParameter => {
+                // Not sure what cases this is used in...
+                (
+                    format!("[{}]", escaped),
+                    PrettyAction::ResetAndUse,
+                    None,
+                    false,
+                )
+            }
+            Suffix::Parameter => {
+                // For now, at least, arguments don't get tracked by the parent.
+                (
+                    format!("({})", escaped),
+                    PrettyAction::ResetAndUse,
+                    Some("arg"),
+                    false,
+                )
+            }
+            Suffix::Macro => (
+                format!("{}!", escaped),
+                PrettyAction::Append,
+                Some("macro"),
+                false,
+            ),
+            Suffix::Meta => {
+                // We see this used for fields in JS, at least when
+                // preceded by a `Type#`.
+                (
+                    format!("{}:", escaped),
+                    PrettyAction::Append,
+                    Some("field"),
+                    true,
+                )
+            }
+            // Local is special because the symbol's "scheme" is
+            // "local", so the suffix is interesting as a marker,
+            // but doesn't actually exist on the descriptor as
+            // an actual string suffix.
+            Suffix::Local => {
+                // We prefix the local with the relative path of the
+                // doc, which should be the same as scip-typescript.
+                // Conceptually, this is similar to what we do with
+                // C++ where we hash over the filename/line and the
+                // variable name.
+                //
+                // We also put a "#" on there to try and do a little
+                // extra name-spacing.
+                (
+                    format!("{}/#{}", sanitize_symbol(relative_path), escaped),
+                    PrettyAction::UseAlternateSource,
+                    None,
+                    false,
+                )
+            }
+            // Suffix::UnspecifiedSuffix is not possible because we
+            // excluded it above, but rust doesn't know that.
+            Suffix::UnspecifiedSuffix => {
+                ("".to_owned(), PrettyAction::Omit, None, false)
+            }
+        };
+        prev_kind = last_kind;
+        last_kind = maybe_kind;
+        last_contributes_to_parent = contributes_to_parent;
+
+        sym_pieces.push(sym_piece);
+
+        match pretty_action {
+            PrettyAction::Omit => {}
+            PrettyAction::Append => {
+                pretty_pieces.push(descriptor.name.clone());
+            }
+            PrettyAction::ResetAndUse => {
+                pretty_pieces.clear();
+                pretty_pieces.push(descriptor.name.clone());
+            }
+            PrettyAction::UseAlternateSource => {
+                pretty_pieces.clear();
+                if let Some(name) = doc_name {
+                    pretty_pieces.push(name.to_string());
+                } else {
+                    pretty_pieces.push("unknown".to_string());
+                }
+            }
+        }
+    }
+
+    // If we have an explicit doc namespace that provides context
+    // the descriptors do not provide, then use that for all
+    // pieces except the last piece we get from the descriptor.
+    if let Some(namespace) = doc_namespace {
+        if let Some(last_piece) = pretty_pieces.pop() {
+            pretty_pieces = namespace.split("::").map(|s| s.to_string()).collect();
+            pretty_pieces.push(last_piece);
+        }
+    }
+
+    // We've standardized on "::" as the delimiter here even though
+    // one might argue on a convention of using ".".  But crossref
+    // currently requires "::" and this seems like a reasonable
+    // convention.  Especially as the introduction of private JS
+    // symbols prefixed with "#" has mooted the hacky syntax
+    // previously used by mozsearch and used as a convention on MDN
+    // URLs.
+    let pretty = ustr(&pretty_pieces.join("::"));
+    let norm_sym = ustr(&format!(
+        "S_{}_{}_{}",
+        lang_name,
+        subtree_name,
+        sym_pieces.join("")
+    ));
+
+    // Infer a parent sym if it seems to be a slice
+    let parent_sym = if prev_kind == Some("class") && sym_pieces.len() >= 2 {
+        Some(ustr(&format!(
+            "S_{}_{}_{}",
+            lang_name,
+            subtree_name,
+            sym_pieces[..sym_pieces.len() - 1].join("")
+        )))
+    } else {
+        None
+    };
+
+    SymbolAnalysis {
+        kind: last_kind,
+        pretty,
+        norm_sym,
+        parent_sym,
+        contributes_to_parent: last_contributes_to_parent,
+    }
+}
+
 fn analyze_using_scip(
     tree_config: &config::TreeConfig,
     subtree_name: &str,
@@ -594,213 +829,15 @@ fn analyze_using_scip(
                     //use yet.
                 }
 
-                // ### Process SCIP Descriptors
-                //
-                // Map the descriptor individually to build up canonical
-                // mozsearch symbol name.  In general, we maintain the SCIP
-                // descriptor syntax because there's no reason not to.  The main
-                // exception is we don't re-wrap backtick-enclosed values.
-                // (Interestingly, the scip lib's format_symbol_with method also
-                // does not re-wrap descriptors, but this is probably an
-                // oversight.)
-                //
-                // Note that this implementation inherently looks a lot like
-                // part of the scip crate's format_symbol_with impl out of
-                // necessity (we're reversing an explicit spec).  We don't call
-                // that method with a format option to just request the
-                // descriptors because that method is destructive and we both
-                // want to ensure stability and control of this mapping, like
-                // not emitting backticks.  This is very much a one-way mapping
-                // with policy decisions made here.
-                let mut pretty_pieces = vec![];
-                let mut sym_pieces = vec![];
-                let mut last_kind = None;
-                let mut last_contributes_to_parent = false;
-                let mut prev_kind = None;
-                for desc_piece in &scip_sym.descriptors {
-                    // Ignore descriptor enums from the future, skipping them.
-                    let suffix = match desc_piece.suffix.enum_value() {
-                        // UnspecifiedSuffix is weird because it's an in-domain
-                        // value (it's explicitly part of the protobuf schema
-                        // for suffix), but since currently the suffix is only
-                        // built by parsing a string encoding of the enum, it
-                        // logically is similar in nature to the enum_value
-                        // being an Err.  Regardless, we skip it.
-                        Ok(Suffix::UnspecifiedSuffix) => {
-                            warn!("Experienced unspecified suffix on {}", scip_sym_info.symbol);
-                            continue;
-                        }
-                        Ok(v) => v,
-                        Err(_) => {
-                            warn!("Experienced weird suffix error on {}", scip_sym_info.symbol);
-                            continue;
-                        }
-                    };
-                    let escaped = sanitize_symbol(&desc_piece.name);
-
-                    let (sym_piece, pretty_action, maybe_kind, contributes_to_parent) = match suffix
-                    {
-                        // Confusingly, package is deprecated in favor of
-                        // namespace, but right now the SCIP crate parses '/'
-                        // as Package, not Namespace.
-                        Suffix::Package | Suffix::Namespace => {
-                            // Pretty: For JS/TS the namespace includes the file path which
-                            // ends up way too verbose and now how humans would describe
-                            // things.
-                            (
-                                format!("{}/", escaped),
-                                match &lang {
-                                    ScipLang::Typescript => PrettyAction::Omit,
-                                    _ => PrettyAction::Append,
-                                },
-                                None,
-                                false,
-                            )
-                        }
-                        Suffix::Type => (
-                            format!("{}#", escaped),
-                            PrettyAction::Append,
-                            Some("class"),
-                            false,
-                        ),
-                        Suffix::Term => (
-                            format!("{}.", escaped),
-                            PrettyAction::Append,
-                            Some("field"),
-                            true,
-                        ),
-                        Suffix::Method => (
-                            format!(
-                                "{}({}).",
-                                escaped,
-                                sanitize_symbol(&desc_piece.disambiguator)
-                            ),
-                            PrettyAction::Append,
-                            Some("method"),
-                            true,
-                        ),
-                        Suffix::TypeParameter => {
-                            // Not sure what cases this is used in...
-                            (
-                                format!("[{}]", escaped),
-                                PrettyAction::ResetAndUse,
-                                None,
-                                false,
-                            )
-                        }
-                        Suffix::Parameter => {
-                            // For now, at least, arguments don't get tracked by the parent.
-                            (
-                                format!("({})", escaped),
-                                PrettyAction::ResetAndUse,
-                                Some("arg"),
-                                false,
-                            )
-                        }
-                        Suffix::Macro => (
-                            format!("{}!", escaped),
-                            PrettyAction::Append,
-                            Some("macro"),
-                            false,
-                        ),
-                        Suffix::Meta => {
-                            // We see this used for fields in JS, at least when
-                            // preceded by a `Type#`.
-                            (
-                                format!("{}:", escaped),
-                                PrettyAction::Append,
-                                Some("field"),
-                                true,
-                            )
-                        }
-                        // Local is special because the symbol's "scheme" is
-                        // "local", so the suffix is interesting as a marker,
-                        // but doesn't actually exist on the descriptor as
-                        // an actual string suffix.
-                        Suffix::Local => {
-                            // We prefix the local with the relative path of the
-                            // doc, which should be the same as scip-typescript.
-                            // Conceptually, this is similar to what we do with
-                            // C++ where we hash over the filename/line and the
-                            // variable name.
-                            //
-                            // We also put a "#" on there to try and do a little
-                            // extra name-spacing.
-                            (
-                                format!("{}/#{}", sanitize_symbol(&doc.relative_path), escaped),
-                                PrettyAction::UseAlternateSource,
-                                None,
-                                false,
-                            )
-                        }
-                        // Suffix::UnspecifiedSuffix is not possible because we
-                        // excluded it above, but rust doesn't know that.
-                        Suffix::UnspecifiedSuffix => {
-                            ("".to_owned(), PrettyAction::Omit, None, false)
-                        }
-                    };
-                    prev_kind = last_kind;
-                    last_kind = maybe_kind;
-                    last_contributes_to_parent = contributes_to_parent;
-
-                    sym_pieces.push(sym_piece);
-
-                    match pretty_action {
-                        PrettyAction::Omit => {}
-                        PrettyAction::Append => {
-                            pretty_pieces.push(desc_piece.name.clone());
-                        }
-                        PrettyAction::ResetAndUse => {
-                            pretty_pieces.clear();
-                            pretty_pieces.push(desc_piece.name.clone());
-                        }
-                        PrettyAction::UseAlternateSource => {
-                            pretty_pieces.clear();
-                            if let Some(name) = &doc_name {
-                                pretty_pieces.push(name.clone());
-                            } else {
-                                pretty_pieces.push("unknown".to_string());
-                            }
-                        }
-                    }
-                }
-
-                // If we have an explicit doc namespace that provides context
-                // the descriptors do not provide, then use that for all
-                // pieces except the last piece we get from the descriptor.
-                if let Some(namespace) = doc_namespace {
-                    if let Some(last_piece) = pretty_pieces.pop() {
-                        pretty_pieces = namespace.split("::").map(|s| s.to_string()).collect();
-                        pretty_pieces.push(last_piece);
-                    }
-                }
-
-                // We've standardized on "::" as the delimiter here even though
-                // one might argue on a convention of using ".".  But crossref
-                // currently requires "::" and this seems like a reasonable
-                // convention.  Especially as the introduction of private JS
-                // symbols prefixed with "#" has mooted the hacky syntax
-                // previously used by mozsearch and used as a convention on MDN
-                // URLs.
-                let pretty = ustr(&pretty_pieces.join("::"));
-                let norm_sym = ustr(&format!(
-                    "S_{}_{}_{}",
-                    lang_name,
-                    subtree_name,
-                    sym_pieces.join("")
-                ));
-
-                // Infer a parent sym if it seems to be a slice
-                let parent_sym = if prev_kind == Some("class") && sym_pieces.len() >= 2 {
-                    Some(ustr(&format!(
-                        "S_{}_{}_{}",
-                        lang_name,
-                        subtree_name,
-                        sym_pieces[..sym_pieces.len() - 1].join("")
-                    )))
-                } else {
-                    None
-                };
+                let symbol_info = analyse_symbol(
+                    &scip_sym,
+                    &lang,
+                    &lang_name,
+                    &subtree_name,
+                    &doc.relative_path,
+                    doc_name.as_deref(),
+                    doc_namespace.as_deref()
+                );
 
                 let mut supers = vec![];
                 let mut overrides = vec![];
@@ -810,7 +847,7 @@ fn analyze_using_scip(
                 // so only process the first element.
                 if let Some(rel) = scip_sym_info.relationships.first() {
                     if let Some(rel_sinfo) = scip_symbol_to_structured.get(&rel.symbol) {
-                        match last_kind {
+                        match symbol_info.kind {
                             Some("class") => {
                                 supers.push(StructuredSuperInfo {
                                     pretty: rel_sinfo.pretty.clone(),
@@ -831,11 +868,11 @@ fn analyze_using_scip(
 
                 let structured = AnalysisStructured {
                     structured: StructuredTag::Structured,
-                    pretty,
-                    sym: norm_sym,
+                    pretty: symbol_info.pretty,
+                    sym: symbol_info.norm_sym,
                     type_pretty,
-                    kind: ustr(last_kind.or(fallback_kind).unwrap_or("")),
-                    parent_sym,
+                    kind: ustr(symbol_info.kind.or(fallback_kind).unwrap_or("")),
+                    parent_sym: symbol_info.parent_sym,
                     slot_owner: None,
                     impl_kind: ustr("impl"),
                     size_bytes: if size_bytes > 0 {
@@ -858,29 +895,29 @@ fn analyze_using_scip(
                 // for local symbols we use our own symbol because the SCIP symbol is not
                 // actually unique; we also need to update our helper mapping.
                 if scip_sym_info.symbol.starts_with("local ") {
-                    scip_symbol_to_structured.insert(norm_sym.to_string(), structured);
-                    our_symbol_to_scip_sym.insert(norm_sym, norm_sym.to_string());
+                    scip_symbol_to_structured.insert(symbol_info.norm_sym.to_string(), structured);
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, symbol_info.norm_sym.to_string());
                 } else {
                     scip_symbol_to_structured.insert(scip_sym_info.symbol.clone(), structured);
-                    our_symbol_to_scip_sym.insert(norm_sym, scip_sym_info.symbol.clone());
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, scip_sym_info.symbol.clone());
                 }
 
-                if last_contributes_to_parent {
-                    if let Some(psym) = parent_sym {
+                if symbol_info.contributes_to_parent {
+                    if let Some(psym) = symbol_info.parent_sym {
                         if let Some(scip_psym) = our_symbol_to_scip_sym.get(&psym) {
                             if let Some(pstruct) = scip_symbol_to_structured.get_mut(scip_psym) {
-                                match &last_kind {
+                                match &symbol_info.kind {
                                     Some("method") => {
                                         pstruct.methods.push(StructuredMethodInfo {
-                                            pretty,
-                                            sym: norm_sym,
+                                            pretty: symbol_info.pretty,
+                                            sym: symbol_info.norm_sym,
                                             props: vec![],
                                         });
                                     }
                                     Some("field") => {
                                         pstruct.fields.push(StructuredFieldInfo {
-                                            pretty,
-                                            sym: norm_sym,
+                                            pretty: symbol_info.pretty,
+                                            sym: symbol_info.norm_sym,
                                             type_pretty: type_pretty.unwrap_or_else(|| ustr("")),
                                             type_sym: ustr(""),
                                             offset_bytes,
@@ -1047,45 +1084,38 @@ fn analyze_using_scip(
             let sinfo = match scip_symbol_to_structured.get(&norm_scip_sym) {
                 Some(s) => s,
                 None => {
-                    if is_local {
-                        // For locals that don't exist, we create a new structured
-                        // fake, save it, and return it.
+                    // For occurences that don't match any symbol, we create a new structured fake,
+                    // save it, and return it.
 
-                        let norm_scip_sym_ustr = ustr(&norm_scip_sym);
-                        let fake = AnalysisStructured {
-                            structured: StructuredTag::Structured,
-                            // XXX we should really try and extract the underlying token as the pretty.
-                            pretty: ustr(&occurrence.symbol),
-                            sym: norm_scip_sym_ustr,
-                            type_pretty: None,
-                            kind: ustr("local"),
-                            parent_sym: None,
-                            slot_owner: None,
-                            impl_kind: ustr("impl"),
-                            size_bytes: None,
-                            binding_slots: vec![],
-                            supers: vec![],
-                            methods: vec![],
-                            fields: vec![],
-                            overrides: vec![],
-                            props: vec![],
+                    let symbol = scip::symbol::parse_symbol(&occurrence.symbol).unwrap();
 
-                            idl_sym: None,
-                            subclass_syms: vec![],
-                            overridden_by_syms: vec![],
-                            extra: Map::default(),
+                    let symbol_info = analyse_symbol(&symbol, &lang, lang_name, subtree_name, &doc.relative_path, None, None);
 
-                        };
-                        scip_symbol_to_structured.insert(norm_scip_sym.clone(), fake);
-                        our_symbol_to_scip_sym.insert(norm_scip_sym_ustr, norm_scip_sym.clone());
-                        scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
-                    } else {
-                        warn!(
-                            "Unable to find structured data for symbol: {}",
-                            norm_scip_sym
-                        );
-                        continue;
-                    }
+                    let fake = AnalysisStructured {
+                        structured: StructuredTag::Structured,
+                        pretty: symbol_info.pretty,
+                        sym: symbol_info.norm_sym,
+                        type_pretty: None,
+                        kind: ustr(symbol_info.kind.unwrap_or("")),
+                        parent_sym: symbol_info.parent_sym,
+                        slot_owner: None,
+                        impl_kind: ustr("impl"),
+                        size_bytes: None,
+                        binding_slots: vec![],
+                        supers: vec![],
+                        methods: vec![],
+                        fields: vec![],
+                        overrides: vec![],
+                        props: vec![],
+
+                        idl_sym: None,
+                        subclass_syms: vec![],
+                        overridden_by_syms: vec![],
+                        extra: Map::default(),
+                    };
+                    scip_symbol_to_structured.insert(norm_scip_sym.clone(), fake);
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.clone());
+                    scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
                 }
             };
             let loc = scip_range_to_searchfox_location(&occurrence.range);
