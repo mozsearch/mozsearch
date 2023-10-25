@@ -2867,6 +2867,8 @@ dependencies = [
  "tracing-forest",
  "tracing-subscriber",
  "tree-sitter",
+ "tree-sitter-java",
+ "tree-sitter-kotlin",
  "tree-sitter-python",
  "tree-sitter-rust",
  "tree-sitter-typescript",
@@ -3041,6 +3043,25 @@ checksum = "d4423c784fe11398ca91e505cdc71356b07b1a924fc8735cfab5333afe3e18bc"
 dependencies = [
  "cc",
  "regex 1.5.5",
+]
+
+[[package]]
+name = "tree-sitter-java"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2adc5696bf5abf761081d7457d2bb82d0e3b28964f4214f63fd7e720ef462653"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-kotlin"
+version = "0.3.2"
+source = "git+https://github.com/fwcd/tree-sitter-kotlin.git#0ef87892401bb01c84b40916e1f150197bc134b1"
+dependencies = [
+ "cc",
+ "tree-sitter",
 ]
 
 [[package]]

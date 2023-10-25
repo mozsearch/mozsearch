@@ -152,6 +152,7 @@ enum ScipLang {
     Python,
     Rust,
     Typescript,
+    Java,
 }
 
 enum PrettyAction {
@@ -328,6 +329,37 @@ lazy_static! {
             body_field: "body",
         },
     ];
+    // https://github.com/tree-sitter/tree-sitter-java/blob/master/queries/tags.scm
+    static ref JAVA_NESTING: Vec<SitterNesting> = vec![
+        SitterNesting {
+            root_node_type: vec!["class_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["method_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["interface_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+    ];
+    // no tags.scm in tree-sitter-kotlin
+    static ref KOTLIN_NESTING: Vec<SitterNesting> = vec![
+        SitterNesting {
+            root_node_type: vec!["class_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+        SitterNesting {
+            root_node_type: vec!["function_declaration"],
+            name_field: "name",
+            body_field: "body",
+        },
+    ];
 }
 
 struct NestedSymbol {
@@ -392,6 +424,7 @@ fn analyze_using_scip(
         "rust-analyzer" => ("rs", ScipLang::Rust),
         "scip-python" => ("py", ScipLang::Python),
         "scip-typescript" => ("js", ScipLang::Typescript),
+        "scip-java" => ("java", ScipLang::Java),
         _ => {
             warn!("Unsupported language; we need tree-sitter support.");
             return;
@@ -551,6 +584,9 @@ fn analyze_using_scip(
                                         doc_name = Some(s.as_str().to_string());
                                     }
                                 }
+                            }
+                            ScipLang::Java => {
+                                // TODO: try and extract some info from here;
                             }
                         }
                     }
@@ -915,6 +951,7 @@ fn analyze_using_scip(
         // XXX Because typescript has different languages for typescript and tsx,
         // we currently need to create the parser and the queries on a per-file
         // basis.  We should revisit this if profiling shows this is a big problem.
+        // Same thing with Java and Kotlin
         let mut parser = tree_sitter::Parser::new();
         let ts_query = match &lang {
             ScipLang::Python => {
@@ -943,6 +980,19 @@ fn analyze_using_scip(
                         tree_sitter_typescript::language_typescript(),
                         &JS_NESTING,
                     )
+                }
+            }
+            ScipLang::Java => {
+                if doc.relative_path.ends_with(".kt") {
+                    parser
+                        .set_language(tree_sitter_kotlin::language())
+                        .expect("Error loading Kotlin grammar");
+                    compile_nesting_queries(tree_sitter_kotlin::language(), &KOTLIN_NESTING)
+                } else {
+                    parser
+                        .set_language(tree_sitter_java::language())
+                        .expect("Error loading Java grammar");
+                    compile_nesting_queries(tree_sitter_java::language(), &JAVA_NESTING)
                 }
             }
         };
