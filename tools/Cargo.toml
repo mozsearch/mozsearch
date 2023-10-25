@@ -61,6 +61,8 @@ tree-sitter = "0.20.9"
 tree-sitter-python = "0.20.2"
 tree-sitter-rust = "0.20.3"
 tree-sitter-typescript = "0.20.2"
+tree-sitter-java = "0.20.2"
+tree-sitter-kotlin = { git = "https://github.com/fwcd/tree-sitter-kotlin.git" }
 toml = "0.5.9"
 tonic = "0.7.1"
 tracing = "0.1.37"
