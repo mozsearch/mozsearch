@@ -515,11 +515,14 @@ fn analyze_using_scip(
                     }
                 }
 
-                let pretty = ustr(&pretty_pieces.join(match &lang {
-                    ScipLang::Rust => "::",
-                    ScipLang::Typescript => ".",
-                    ScipLang::Other => "::",
-                }));
+                // We've standardized on "::" as the delimiter here even though
+                // one might argue on a convention of using ".".  But crossref
+                // currently requires "::" and this seems like a reasonable
+                // convention.  Especially as the introduction of private JS
+                // symbols prefixed with "#" has mooted the hacky syntax
+                // previously used by mozsearch and used as a convention on MDN
+                // URLs.
+                let pretty = ustr(&pretty_pieces.join("::"));
                 let norm_sym = ustr(&format!(
                     "S_{}_{}_{}",
                     lang_name,
