@@ -16,7 +16,12 @@
       "git_blame_path": "$WORKING/searchfox/blame",
       "codesearch_path": "$WORKING/searchfox/livegrep.idx",
       "codesearch_port": 8081,
-      "scip_subtrees": {}
+      "scip_subtrees": {
+        "rust": {
+          "scip_index_path": "$WORKING/searchfox/objdir/tools/rust.scip",
+          "subtree_root": "tools"
+        }
+      }
     }
   }
 }
