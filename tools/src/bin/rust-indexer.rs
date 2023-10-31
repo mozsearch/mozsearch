@@ -967,9 +967,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                     // symbol, so...
                     Cow::Owned(SymbolInformation {
                         symbol: s.to_owned(),
-                        documentation: vec![],
-                        relationships: vec![],
-                        special_fields: Default::default(),
+                        ..Default::default()
                     })
                 }
             }
