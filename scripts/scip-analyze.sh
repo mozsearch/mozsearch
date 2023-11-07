@@ -34,7 +34,7 @@ TREE_NAME=$2
 # faciliate use-cases like mozilla-central's per-platform in
 # process-tc-artifacts.sh.  Note that for these per-platform cases we expect
 # those scripts to just directly invoke `scip-indexer` themselves.
-SCIP_SUBTREE_INFOS=$(jq -Mc ".trees[\"${TREE_NAME}\"].scip_subtrees | to_entries | .[]?" ${CONFIG_FILE})
+SCIP_SUBTREE_INFOS=$(jq -Mc ".trees[\"${TREE_NAME}\"].scip_subtrees | to_entries? | .[]?" ${CONFIG_FILE})
 
 # Note: This structuring avoids use of a pipe and sub-shells which allows us to
 # mutate global variables if we want.
