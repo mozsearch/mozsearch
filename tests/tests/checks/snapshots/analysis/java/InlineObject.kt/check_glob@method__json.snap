@@ -1,0 +1,48 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00010:21-33",
+    "structured": 1,
+    "pretty": "someFunction",
+    "sym": "S_java_gradle_src/main/kotlin/sample/InlineObject.kt/#0",
+    "type_pretty": null,
+    "kind": "method",
+    "implKind": "impl",
+    "sizeBytes": null,
+    "bindingSlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [
+      {
+        "pretty": "sample::Interface::someFunction",
+        "sym": "S_java_gradle_sample/Interface#someFunction()."
+      }
+    ],
+    "props": []
+  },
+  {
+    "loc": "00016:21-33",
+    "structured": 1,
+    "pretty": "someFunction",
+    "sym": "S_java_gradle_src/main/kotlin/sample/InlineObject.kt/#2",
+    "type_pretty": null,
+    "kind": "method",
+    "implKind": "impl",
+    "sizeBytes": null,
+    "bindingSlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [
+      {
+        "pretty": "sample::Interface::someFunction",
+        "sym": "S_java_gradle_sample/Interface#someFunction()."
+      }
+    ],
+    "props": []
+  }
+]

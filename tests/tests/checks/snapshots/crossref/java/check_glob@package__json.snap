@@ -25,6 +25,22 @@ expression: "&to_value(scil).unwrap()"
             ]
           },
           {
+            "path": "src/main/kotlin/sample/InlineObject.kt",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
             "path": "src/main/kotlin/sample/KotlinLibrary.kt",
             "path_kind": "Normal",
             "lines": [
