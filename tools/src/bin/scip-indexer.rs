@@ -756,6 +756,9 @@ fn analyze_using_scip(
                     // used for modules, classes
                     static ref RE_TS_UNTYPED: Regex =
                         Regex::new(r"^```ts\n([^ ]+) (.+)\n```$").unwrap();
+                    // used for modules, classes
+                    static ref RE_KT_FUNCTION: Regex =
+                        Regex::new(r"^```kt\n([^ ]+) ([^ ]+) fun ([^ ]+)\(.*\)(?:: (.*))?\n```$").unwrap();
                 }
 
                 for (i, doc) in scip_sym_info.documentation.iter().enumerate() {
@@ -821,7 +824,12 @@ fn analyze_using_scip(
                                 }
                             }
                             ScipLang::Java => {
-                                // TODO: try and extract some info from here;
+                                if let Some(caps) = RE_KT_FUNCTION.captures(doc) {
+                                    fallback_kind = Some("method");
+                                    if let Some(s) = caps.get(3) {
+                                        doc_name = Some(s.as_str().to_string());
+                                    }
+                                }
                             }
                         }
                     }
@@ -829,7 +837,7 @@ fn analyze_using_scip(
                     //use yet.
                 }
 
-                let symbol_info = analyse_symbol(
+                let mut symbol_info = analyse_symbol(
                     &scip_sym,
                     &lang,
                     &lang_name,
@@ -847,6 +855,11 @@ fn analyze_using_scip(
                 // so only process the first element.
                 if let Some(rel) = scip_sym_info.relationships.first() {
                     if let Some(rel_sinfo) = scip_symbol_to_structured.get(&rel.symbol) {
+                        // If our symbol is a local (or if we failed to unwrap its kind for any reason),
+                        // fallback to the kind of the symbol it is related to
+                        if symbol_info.kind.is_none() {
+                            symbol_info.kind = Some(rel_sinfo.kind.as_str());
+                        }
                         match symbol_info.kind {
                             Some("class") => {
                                 supers.push(StructuredSuperInfo {
@@ -1212,6 +1225,8 @@ fn analyze_using_scip(
                 None
             };
 
+            let no_crossref = is_local && sinfo.supers.is_empty() && sinfo.overrides.is_empty();
+
             {
                 let mut syntax = vec![kind.to_ustr()];
                 if !sinfo.kind.is_empty() {
@@ -1223,7 +1238,7 @@ fn analyze_using_scip(
                         syntax,
                         pretty: ustr(&format!("{} {}", sinfo.kind, sinfo.pretty)),
                         sym: vec![sinfo.sym.clone()],
-                        no_crossref: is_local,
+                        no_crossref,
                         nesting_range: if let Some(nest) = &starts_nest {
                             nest.nesting_range.clone()
                         } else {
@@ -1251,7 +1266,7 @@ fn analyze_using_scip(
 
             // TODO: Contextual info.
 
-            if !is_local {
+            if !no_crossref {
                 let (contextsym, context) = if let Some(nested) = nesting_stack.last() {
                     (nested.sym.clone(), nested.pretty.clone())
                 } else {
