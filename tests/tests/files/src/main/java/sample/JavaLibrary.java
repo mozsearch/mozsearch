@@ -7,4 +7,7 @@ public class JavaLibrary {
     public boolean someLibraryMethod() {
         return true;
     }
+
+    interface B extends A {}
+    interface A {}
 }

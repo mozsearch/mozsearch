@@ -47,7 +47,7 @@ rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
 
 ## Java stuff
 ./gradlew --no-daemon clean build
-scip-java index-semanticdb build/semanticdb-targetroot --output=$OBJDIR/gradle.scip
+scip-java index-semanticdb build/semanticdb-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
 ./gradlew --no-daemon clean
 rm -rf build/
 
