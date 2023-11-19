@@ -1150,6 +1150,11 @@ let Analyzer = {
     case "ObjectExpression":
     case "ObjectPattern":
       for (let prop of expr.properties) {
+        if (prop.type === "SpreadExpression") {
+          this.expression(prop.expression);
+          continue;
+        }
+
         let name;
 
         if (prop.key) {
