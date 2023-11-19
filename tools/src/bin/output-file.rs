@@ -317,6 +317,13 @@ fn main() {
                     accel_key: Some('Y'),
                     copyable: true,
                 });
+                vcs_panel_items.push(PanelItem {
+                    title: "Remove the Permalink".to_owned(),
+                    link: format!("/{}/source/{}", tree_name, path),
+                    update_link_lineno: "#{}",
+                    accel_key: None,
+                    copyable: false,
+                });
                 if let Some(ref hg_root) = tree_config.paths.hg_root {
                     vcs_panel_items.push(PanelItem {
                         title: "Log".to_owned(),

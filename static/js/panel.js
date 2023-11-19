@@ -12,6 +12,7 @@ var Panel = new (class Panel {
     this.accelEnabledCheckbox = document.getElementById("panel-accel-enable");
 
     this.permalinkNode = this.findItem("Permalink");
+    this.unpermalinkNode = this.findItem("Remove the Permalink");
     this.logNode = this.findItem("Log");
     this.rawNode = this.findItem("Raw");
 
@@ -76,6 +77,20 @@ var Panel = new (class Panel {
       });
     }
 
+    const updateUnpermalink = () => {
+      if (/^\/[^\/]+\/rev\//.test(document.location.pathname)) {
+        if (this.unpermalinkNode) {
+           this.unpermalinkNode.classList.remove("disabled");
+        }
+      } else {
+        if (this.unpermalinkNode) {
+           this.unpermalinkNode.classList.add("disabled");
+        }
+      }
+    };
+
+    updateUnpermalink();
+
     if (this.permalinkNode) {
       this.permalinkNode.addEventListener("click", event => {
         if (
@@ -93,6 +108,30 @@ var Panel = new (class Panel {
           event.target.href
         );
         event.preventDefault();
+
+        updateUnpermalink();
+      });
+    }
+
+    if (this.unpermalinkNode) {
+      this.unpermalinkNode.addEventListener("click", event => {
+        if (
+          event.defaultPrevented ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey
+        ) {
+          return;
+        }
+        window.history.pushState(
+          {},
+          window.title,
+          event.target.href
+        );
+        event.preventDefault();
+
+        updateUnpermalink();
       });
     }
 
