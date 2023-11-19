@@ -649,7 +649,8 @@ tr.after-context-line + tr.before-context-line {
   border: unset;
   text-align: unset;
 }
-.panel section .item:disabled {
+.panel section .item:disabled,
+.panel section .item.disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
