@@ -1930,6 +1930,6 @@ fileIndex = scriptArgs[0];
 mozSearchRoot = scriptArgs[1];
 localFile = scriptArgs[2];
 
-run(mozSearchRoot + "/sax/sax.js");
+load(mozSearchRoot + "/sax/sax.js");
 
 analyzeFile(localFile);
