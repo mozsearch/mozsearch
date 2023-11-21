@@ -851,9 +851,9 @@ fn analyze_using_scip(
                 let mut overrides = vec![];
 
                 // SCIP provides the full transitive closure of relationships,
-                // but our current model favors only having the immediate links,
-                // so only process the first element.
-                if let Some(rel) = scip_sym_info.relationships.first() {
+                // but our current model favors only having the immediate links.
+                // TODO: filter out indirect ancestors
+                for rel in &scip_sym_info.relationships {
                     let parent_symbol_info = analyse_symbol(
                         &scip::symbol::parse_symbol(&rel.symbol).unwrap(),
                         &lang,

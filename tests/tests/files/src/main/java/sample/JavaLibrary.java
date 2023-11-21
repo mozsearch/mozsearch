@@ -10,4 +10,8 @@ public class JavaLibrary {
 
     interface B extends A {}
     interface A {}
+
+    interface I0 {}
+    interface I1 {}
+    final class C implements I0, I1 {}
 }
