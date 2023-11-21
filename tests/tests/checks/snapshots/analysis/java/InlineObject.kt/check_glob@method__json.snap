@@ -18,7 +18,6 @@ expression: "&json_results"
     "fields": [],
     "overrides": [
       {
-        "pretty": "sample::Interface::someFunction",
         "sym": "S_java_gradle_sample/Interface#someFunction()."
       }
     ],
@@ -39,7 +38,6 @@ expression: "&json_results"
     "fields": [],
     "overrides": [
       {
-        "pretty": "sample::Interface::someFunction",
         "sym": "S_java_gradle_sample/Interface#someFunction()."
       }
     ],

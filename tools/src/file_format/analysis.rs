@@ -162,8 +162,6 @@ pub enum StructuredTag {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredSuperInfo {
     #[serde(default)]
-    pub pretty: Ustr,
-    #[serde(default)]
     pub sym: Ustr,
     #[serde(default)]
     pub props: Vec<Ustr>,
@@ -187,8 +185,6 @@ pub struct StructuredBitPositionInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredOverrideInfo {
-    #[serde(default)]
-    pub pretty: Ustr,
     #[serde(default)]
     pub sym: Ustr,
 }
