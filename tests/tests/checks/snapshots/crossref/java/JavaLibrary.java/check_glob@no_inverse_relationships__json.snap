@@ -57,7 +57,10 @@ expression: "&to_value(scil).unwrap()"
           "methods": [],
           "fields": [],
           "overrides": [],
-          "props": []
+          "props": [],
+          "subclasses": [
+            "S_java_gradle_sample/JavaLibrary#B#"
+          ]
         }
       },
       "relation": "Queried",
