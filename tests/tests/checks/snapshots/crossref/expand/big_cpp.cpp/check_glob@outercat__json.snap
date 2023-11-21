@@ -54,7 +54,6 @@ expression: "&to_value(scil).unwrap()"
           "bindingSlots": [],
           "supers": [
             {
-              "pretty": "outerNS::Thing",
               "sym": "T_outerNS::Thing",
               "props": []
             }
@@ -545,7 +544,6 @@ expression: "&to_value(scil).unwrap()"
           "bindingSlots": [],
           "supers": [
             {
-              "pretty": "outerNS::Thing",
               "sym": "T_outerNS::Thing",
               "props": []
             }
@@ -677,7 +675,6 @@ expression: "&to_value(scil).unwrap()"
           "bindingSlots": [],
           "supers": [
             {
-              "pretty": "outerNS::Thing",
               "sym": "T_outerNS::Thing",
               "props": []
             }
@@ -798,7 +795,6 @@ expression: "&to_value(scil).unwrap()"
           "bindingSlots": [],
           "supers": [
             {
-              "pretty": "outerNS::Thing",
               "sym": "T_outerNS::Thing",
               "props": []
             }
@@ -949,7 +945,6 @@ expression: "&to_value(scil).unwrap()"
           "bindingSlots": [],
           "supers": [
             {
-              "pretty": "outerNS::Human",
               "sym": "T_outerNS::Human",
               "props": []
             }
@@ -1069,7 +1064,6 @@ expression: "&to_value(scil).unwrap()"
           "bindingSlots": [],
           "supers": [
             {
-              "pretty": "outerNS::AbstractArt",
               "sym": "T_outerNS::AbstractArt",
               "props": []
             }

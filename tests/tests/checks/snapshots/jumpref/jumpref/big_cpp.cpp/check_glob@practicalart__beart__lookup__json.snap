@@ -23,7 +23,6 @@ expression: "&to_value(jvl).unwrap()"
           "fields": [],
           "overrides": [
             {
-              "pretty": "outerNS::AbstractArt::beArt",
               "sym": "_ZN7outerNS11AbstractArt5beArtEv"
             }
           ],

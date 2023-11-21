@@ -863,14 +863,12 @@ fn analyze_using_scip(
                         match symbol_info.kind {
                             Some("class") => {
                                 supers.push(StructuredSuperInfo {
-                                    pretty: rel_sinfo.pretty.clone(),
                                     sym: rel_sinfo.sym.clone(),
                                     props: vec![],
                                 });
                             }
                             Some("method") => {
                                 overrides.push(StructuredOverrideInfo {
-                                    pretty: rel_sinfo.pretty.clone(),
                                     sym: rel_sinfo.sym.clone(),
                                 });
                             }

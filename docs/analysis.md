@@ -300,7 +300,6 @@ Raw record info.  These are attributes that will be found in the analysis files.
   - `slotLang`: See `BindingSlotLang`
   - `sym`
 - `supers`: For class-like symbols, an array of:
-  - `pretty`: The pretty name/identifier for this super.
   - `sym`: The searchfox symbol for this super.
   - `props`: An array of strings whose presence indicates a semantic attribute:
     - `virtual`: It's a virtual base class if present.
@@ -328,7 +327,6 @@ Raw record info.  These are attributes that will be found in the analysis files.
     - `width`
   - `sizeBytes`: Only present in non-bit-fields.  The size of the fieldin bytes.
 - `overrides`: For methods, an array of method signatures that are overridden.
-  - `pretty`: The pretty name/identifier for the referenced method.
   - `sym`: The searchfox symbol for the referenced method.
 - `props`: For methods, an array of strings whose presence indicates a semantic
   attribute.  These are the same as the props under a class-like symbol's

@@ -236,7 +236,6 @@ def handle_interface(methods, enums, iface):
         base_loc = '%d:%d-%d' % (lineno, colno, colno + len(iface.base))
 
         iface_supers.append({
-            'pretty': iface.base,
             'sym': base_idl_sym,
         })
 
