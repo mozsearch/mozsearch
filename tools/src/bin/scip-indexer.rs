@@ -854,26 +854,34 @@ fn analyze_using_scip(
                 // but our current model favors only having the immediate links,
                 // so only process the first element.
                 if let Some(rel) = scip_sym_info.relationships.first() {
-                    if let Some(rel_sinfo) = scip_symbol_to_structured.get(&rel.symbol) {
-                        // If our symbol is a local (or if we failed to unwrap its kind for any reason),
-                        // fallback to the kind of the symbol it is related to
-                        if symbol_info.kind.is_none() {
-                            symbol_info.kind = Some(rel_sinfo.kind.as_str());
+                    let parent_symbol_info = analyse_symbol(
+                        &scip::symbol::parse_symbol(&rel.symbol).unwrap(),
+                        &lang,
+                        &lang_name,
+                        &subtree_name,
+                        &doc.relative_path,
+                        None,
+                        None
+                    );
+
+                    // If our symbol is a local (or if we failed to unwrap its kind for any reason),
+                    // fallback to the kind of the symbol it is related to
+                    if symbol_info.kind.is_none() {
+                        symbol_info.kind = parent_symbol_info.kind;
+                    }
+                    match symbol_info.kind {
+                        Some("class") => {
+                            supers.push(StructuredSuperInfo {
+                                sym: ustr(&parent_symbol_info.norm_sym),
+                                props: vec![],
+                            });
                         }
-                        match symbol_info.kind {
-                            Some("class") => {
-                                supers.push(StructuredSuperInfo {
-                                    sym: rel_sinfo.sym.clone(),
-                                    props: vec![],
-                                });
-                            }
-                            Some("method") => {
-                                overrides.push(StructuredOverrideInfo {
-                                    sym: rel_sinfo.sym.clone(),
-                                });
-                            }
-                            _ => {}
+                        Some("method") => {
+                            overrides.push(StructuredOverrideInfo {
+                                sym: ustr(&parent_symbol_info.norm_sym),
+                            });
                         }
+                        _ => {}
                     }
                 }
 
