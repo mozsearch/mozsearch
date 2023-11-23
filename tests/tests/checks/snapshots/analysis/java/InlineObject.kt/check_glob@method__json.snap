@@ -7,7 +7,7 @@ expression: "&json_results"
     "loc": "00010:21-33",
     "structured": 1,
     "pretty": "someFunction",
-    "sym": "S_java_gradle_src/main/kotlin/sample/InlineObject.kt/#0",
+    "sym": "S_java_src/main/kotlin/sample/InlineObject.kt/#0",
     "type_pretty": null,
     "kind": "method",
     "implKind": "impl",
@@ -18,7 +18,7 @@ expression: "&json_results"
     "fields": [],
     "overrides": [
       {
-        "sym": "S_java_gradle_sample/Interface#someFunction()."
+        "sym": "S_java_sample/Interface#someFunction()."
       }
     ],
     "props": []
@@ -27,7 +27,7 @@ expression: "&json_results"
     "loc": "00016:21-33",
     "structured": 1,
     "pretty": "someFunction",
-    "sym": "S_java_gradle_src/main/kotlin/sample/InlineObject.kt/#2",
+    "sym": "S_java_src/main/kotlin/sample/InlineObject.kt/#2",
     "type_pretty": null,
     "kind": "method",
     "implKind": "impl",
@@ -38,7 +38,7 @@ expression: "&json_results"
     "fields": [],
     "overrides": [
       {
-        "sym": "S_java_gradle_sample/Interface#someFunction()."
+        "sym": "S_java_sample/Interface#someFunction()."
       }
     ],
     "props": []

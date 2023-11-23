@@ -5,7 +5,7 @@ expression: "&to_value(scil).unwrap()"
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_java_gradle_sample/KotlinLibrary#<init>().",
+      "symbol": "S_java_sample/KotlinLibrary#<init>().",
       "crossref_info": {
         "uses": [
           {
@@ -20,7 +20,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "KotlinLibrary classUnderTest = new KotlinLibrary();",
                 "context": "sample::JavaTest::someKotlinLibraryMethodReturnsTrue",
-                "contextsym": "S_java_gradle_sample/JavaTest#someKotlinLibraryMethodReturnsTrue()."
+                "contextsym": "S_java_sample/JavaTest#someKotlinLibraryMethodReturnsTrue()."
               }
             ]
           },
@@ -36,7 +36,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "val classUnderTest = KotlinLibrary()",
                 "context": "sample::KotlinTest::someKotlinLibraryMethodReturnsTrue",
-                "contextsym": "S_java_gradle_sample/KotlinTest#someKotlinLibraryMethodReturnsTrue()."
+                "contextsym": "S_java_sample/KotlinTest#someKotlinLibraryMethodReturnsTrue()."
               }
             ]
           }
@@ -54,7 +54,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "class KotlinLibrary {",
                 "context": "sample::KotlinLibrary",
-                "contextsym": "S_java_gradle_sample/KotlinLibrary#"
+                "contextsym": "S_java_sample/KotlinLibrary#"
               }
             ]
           }
@@ -62,10 +62,10 @@ expression: "&to_value(scil).unwrap()"
         "meta": {
           "structured": 1,
           "pretty": "sample::KotlinLibrary::<init>",
-          "sym": "S_java_gradle_sample/KotlinLibrary#<init>().",
+          "sym": "S_java_sample/KotlinLibrary#<init>().",
           "type_pretty": null,
           "kind": "method",
-          "parentsym": "S_java_gradle_sample/KotlinLibrary#",
+          "parentsym": "S_java_sample/KotlinLibrary#",
           "implKind": "impl",
           "sizeBytes": null,
           "bindingSlots": [],

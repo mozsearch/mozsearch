@@ -8,7 +8,7 @@ expression: "&json_results"
     "source": 1,
     "syntax": "def,method",
     "pretty": "method test_rust_dependency::MyType::do_foo",
-    "sym": "S_rs_rust_MyType#do_foo().",
+    "sym": "S_rs_MyType#do_foo().",
     "nestingRange": "14:34-16:5",
     "type": "pub fn do_foo(self) -> MyType"
   },
@@ -17,8 +17,8 @@ expression: "&json_results"
     "target": 1,
     "kind": "def",
     "pretty": "test_rust_dependency::MyType::do_foo",
-    "sym": "S_rs_rust_MyType#do_foo().",
+    "sym": "S_rs_MyType#do_foo().",
     "context": "test_rust_dependency::MyType",
-    "contextsym": "S_rs_rust_MyType#"
+    "contextsym": "S_rs_MyType#"
   }
 ]

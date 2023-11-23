@@ -5,7 +5,7 @@ expression: "&to_value(scil).unwrap()"
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_java_gradle_sample/",
+      "symbol": "S_java_sample/",
       "crossref_info": {
         "uses": [
           {
