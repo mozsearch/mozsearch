@@ -5,7 +5,7 @@ expression: "&to_value(scil).unwrap()"
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_java_gradle_sample/JavaLibrary#<init>().",
+      "symbol": "S_java_sample/JavaLibrary#<init>().",
       "crossref_info": {
         "uses": [
           {
@@ -20,7 +20,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "JavaLibrary classUnderTest = new JavaLibrary();",
                 "context": "sample::JavaTest::someJavaLibraryMethodReturnsTrue",
-                "contextsym": "S_java_gradle_sample/JavaTest#someJavaLibraryMethodReturnsTrue()."
+                "contextsym": "S_java_sample/JavaTest#someJavaLibraryMethodReturnsTrue()."
               }
             ]
           },
@@ -36,7 +36,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "val classUnderTest = JavaLibrary()",
                 "context": "sample::KotlinTest::someJavaLibraryMethodReturnsTrue",
-                "contextsym": "S_java_gradle_sample/KotlinTest#someJavaLibraryMethodReturnsTrue()."
+                "contextsym": "S_java_sample/KotlinTest#someJavaLibraryMethodReturnsTrue()."
               }
             ]
           }
@@ -54,7 +54,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "public class JavaLibrary {",
                 "context": "sample::JavaLibrary",
-                "contextsym": "S_java_gradle_sample/JavaLibrary#"
+                "contextsym": "S_java_sample/JavaLibrary#"
               }
             ]
           }
@@ -62,10 +62,10 @@ expression: "&to_value(scil).unwrap()"
         "meta": {
           "structured": 1,
           "pretty": "sample::JavaLibrary::<init>",
-          "sym": "S_java_gradle_sample/JavaLibrary#<init>().",
+          "sym": "S_java_sample/JavaLibrary#<init>().",
           "type_pretty": null,
           "kind": "method",
-          "parentsym": "S_java_gradle_sample/JavaLibrary#",
+          "parentsym": "S_java_sample/JavaLibrary#",
           "implKind": "impl",
           "sizeBytes": null,
           "bindingSlots": [],

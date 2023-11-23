@@ -50,6 +50,17 @@ rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
 scip-java index-semanticdb build/semanticdb-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
 ./gradlew --no-daemon clean
 rm -rf build/
+$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+  "$CONFIG_FILE" \
+  "$TREE_NAME" \
+  --subtree-root "." \
+  "$OBJDIR/gradle.scip"
+
+$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+  "$CONFIG_FILE" \
+  "$TREE_NAME" \
+  --subtree-root "." \
+  "$OBJDIR/rust.scip"
 
 ## C++ Build Stuff
 for f in *.cpp

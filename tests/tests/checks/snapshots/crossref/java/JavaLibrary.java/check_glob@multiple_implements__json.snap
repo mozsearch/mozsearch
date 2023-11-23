@@ -5,7 +5,7 @@ expression: "&to_value(scil).unwrap()"
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_java_gradle_sample/JavaLibrary#C#",
+      "symbol": "S_java_sample/JavaLibrary#C#",
       "crossref_info": {
         "defs": [
           {
@@ -20,7 +20,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "final class C implements I0, I1 {}",
                 "context": "sample::JavaLibrary::<init>",
-                "contextsym": "S_java_gradle_sample/JavaLibrary#<init>()."
+                "contextsym": "S_java_sample/JavaLibrary#<init>()."
               }
             ]
           }
@@ -28,27 +28,27 @@ expression: "&to_value(scil).unwrap()"
         "meta": {
           "structured": 1,
           "pretty": "sample::JavaLibrary::C",
-          "sym": "S_java_gradle_sample/JavaLibrary#C#",
+          "sym": "S_java_sample/JavaLibrary#C#",
           "type_pretty": null,
           "kind": "class",
-          "parentsym": "S_java_gradle_sample/JavaLibrary#",
+          "parentsym": "S_java_sample/JavaLibrary#",
           "implKind": "impl",
           "sizeBytes": null,
           "bindingSlots": [],
           "supers": [
             {
-              "sym": "S_java_gradle_sample/JavaLibrary#I0#",
+              "sym": "S_java_sample/JavaLibrary#I0#",
               "props": []
             },
             {
-              "sym": "S_java_gradle_sample/JavaLibrary#I1#",
+              "sym": "S_java_sample/JavaLibrary#I1#",
               "props": []
             }
           ],
           "methods": [
             {
               "pretty": "sample::JavaLibrary::C::<init>",
-              "sym": "S_java_gradle_sample/JavaLibrary#C#<init>().",
+              "sym": "S_java_sample/JavaLibrary#C#<init>().",
               "props": []
             }
           ],

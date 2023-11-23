@@ -15,16 +15,7 @@
       "wpt_root": "testing/web-platform",
       "codesearch_path": "$WORKING/tests/livegrep.idx",
       "codesearch_port": 8080,
-      "scip_subtrees": {
-        "rust": {
-          "scip_index_path": "$WORKING/tests/objdir/rust.scip",
-          "subtree_root": "."
-        },
-        "gradle": {
-          "scip_index_path": "$WORKING/tests/objdir/gradle.scip",
-          "subtree_root": "."
-        }
-      }
+      "scip_subtrees": {}
     }
   }
 }

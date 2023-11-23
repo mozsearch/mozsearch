@@ -51,7 +51,7 @@ struct ScipIndexerCli {
     tree_name: String,
 
     #[arg(long, value_parser)]
-    subtree_name: String,
+    subtree_name: Option<String>,
 
     /// Relative path from the root of the searchfox source tree to the SCIP
     /// index's contents.  If the SCIP index is from the root then this should
@@ -427,11 +427,28 @@ struct SymbolAnalysis {
     contributes_to_parent: bool,
 }
 
+fn symbol_name(lang_name: &str, subtree_name: Option<&str>, scip_symbol: &str) -> Ustr {
+    if let Some(subtree_name) = subtree_name {
+        ustr(&format!(
+            "S_{}_{}_{}",
+            lang_name,
+            subtree_name,
+            scip_symbol
+        ))
+    } else {
+        ustr(&format!(
+            "S_{}_{}",
+            lang_name,
+            scip_symbol
+        ))
+    }
+}
+
 fn analyse_symbol(
     symbol: &scip::types::Symbol,
     lang: &ScipLang,
     lang_name: &str,
-    subtree_name: &str,
+    subtree_name: Option<&str>,
     relative_path: &str,
     doc_name: Option<&str>,
     doc_namespace: Option<&str>)
@@ -608,21 +625,11 @@ fn analyse_symbol(
     // previously used by mozsearch and used as a convention on MDN
     // URLs.
     let pretty = ustr(&pretty_pieces.join("::"));
-    let norm_sym = ustr(&format!(
-        "S_{}_{}_{}",
-        lang_name,
-        subtree_name,
-        sym_pieces.join("")
-    ));
+    let norm_sym = symbol_name(lang_name, subtree_name, &sym_pieces.join(""));
 
     // Infer a parent sym if it seems to be a slice
     let parent_sym = if prev_kind == Some("class") && sym_pieces.len() >= 2 {
-        Some(ustr(&format!(
-            "S_{}_{}_{}",
-            lang_name,
-            subtree_name,
-            sym_pieces[..sym_pieces.len() - 1].join("")
-        )))
+        Some(symbol_name(lang_name, subtree_name, &sym_pieces[..sym_pieces.len() - 1].join("")))
     } else {
         None
     };
@@ -638,7 +645,7 @@ fn analyse_symbol(
 
 fn analyze_using_scip(
     tree_config: &config::TreeConfig,
-    subtree_name: &str,
+    subtree_name: Option<&str>,
     subtree_root: &str,
     platform: &Option<String>,
     scip_file: PathBuf,
@@ -841,7 +848,7 @@ fn analyze_using_scip(
                     &scip_sym,
                     &lang,
                     &lang_name,
-                    &subtree_name,
+                    subtree_name,
                     &doc.relative_path,
                     doc_name.as_deref(),
                     doc_namespace.as_deref()
@@ -858,7 +865,7 @@ fn analyze_using_scip(
                         &scip::symbol::parse_symbol(&rel.symbol).unwrap(),
                         &lang,
                         &lang_name,
-                        &subtree_name,
+                        subtree_name,
                         &doc.relative_path,
                         None,
                         None
@@ -1092,19 +1099,17 @@ fn analyze_using_scip(
             let (is_local, norm_scip_sym) = if occurrence.symbol.starts_with("local ") {
                 (
                     true,
-                    format!(
-                        "S_{}_{}_{}/#{}",
+                    symbol_name(
                         lang_name,
                         subtree_name,
-                        sanitize_symbol(&doc.relative_path),
-                        &occurrence.symbol[6..]
+                        &format!("{}/#{}", sanitize_symbol(&doc.relative_path), &occurrence.symbol[6..])
                     ),
                 )
             } else {
-                (false, occurrence.symbol.clone())
+                (false, ustr(&occurrence.symbol))
             };
 
-            let sinfo = match scip_symbol_to_structured.get(&norm_scip_sym) {
+            let sinfo = match scip_symbol_to_structured.get(norm_scip_sym.as_str()) {
                 Some(s) => s,
                 None => {
                     // For occurences that don't match any symbol, we create a new structured fake,
@@ -1136,9 +1141,9 @@ fn analyze_using_scip(
                         overridden_by_syms: vec![],
                         extra: Map::default(),
                     };
-                    scip_symbol_to_structured.insert(norm_scip_sym.clone(), fake);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.clone());
-                    scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
+                    scip_symbol_to_structured.insert(norm_scip_sym.to_owned(), fake);
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.to_owned());
+                    scip_symbol_to_structured.get(norm_scip_sym.as_str()).unwrap()
                 }
             };
             let loc = scip_range_to_searchfox_location(&occurrence.range);
@@ -1322,6 +1327,6 @@ fn main() {
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     for file in cli.inputs {
-        analyze_using_scip(&tree_config, &cli.subtree_name, &cli.subtree_root, &cli.platform, file);
+        analyze_using_scip(&tree_config, cli.subtree_name.as_deref(), &cli.subtree_root, &cli.platform, file);
     }
 }

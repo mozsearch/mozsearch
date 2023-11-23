@@ -8,7 +8,7 @@ expression: "&json_results"
     "source": 1,
     "syntax": "def,method",
     "pretty": "method simple::Loader::new",
-    "sym": "S_rs_rust_Loader#new().",
+    "sym": "S_rs_Loader#new().",
     "nestingRange": "37:42-43:5",
     "type": "pub fn new(deps_dir: PathBuf) -> Self"
   },
@@ -17,8 +17,8 @@ expression: "&json_results"
     "target": 1,
     "kind": "def",
     "pretty": "simple::Loader::new",
-    "sym": "S_rs_rust_Loader#new().",
+    "sym": "S_rs_Loader#new().",
     "context": "Loader",
-    "contextsym": "S_rs_rust_Loader#"
+    "contextsym": "S_rs_Loader#"
   }
 ]
