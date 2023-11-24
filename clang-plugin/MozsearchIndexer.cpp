@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "BindingOperations.h"
 #include "FileOperations.h"
 #include "StringOperations.h"
 #include "from-clangd/HeuristicResolver.h"
@@ -1054,6 +1055,8 @@ public:
 
     J.attribute("sizeBytes", Layout.getSize().getQuantity());
 
+    emitBindingAttributes(J, *decl);
+
     auto cxxDecl = dyn_cast<CXXRecordDecl>(decl);
 
     if (cxxDecl) {
@@ -1196,6 +1199,8 @@ public:
     J.attribute("structured", 1);
     J.attribute("pretty", getQualifiedName(decl));
     J.attribute("sym", getMangledName(CurMangleContext, decl));
+
+    emitBindingAttributes(J, *decl);
 
     auto cxxDecl = dyn_cast<CXXMethodDecl>(decl);
 
@@ -1340,6 +1345,8 @@ public:
     if (parentDecl) {
       J.attribute("parentsym", getMangledName(CurMangleContext, parentDecl));
     }
+
+    emitBindingAttributes(J, *decl);
 
     // End the top-level object.
     J.objectEnd();

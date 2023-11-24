@@ -252,6 +252,7 @@ pub enum BindingSlotLang {
     Cpp,
     JS,
     Rust,
+    Jvm,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -261,6 +262,7 @@ pub enum BindingOwnerLang {
     Cpp,
     JS,
     Rust,
+    Jvm,
 }
 
 /// The binding slot mechanism is used to describe the exclusive relationship

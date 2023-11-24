@@ -333,6 +333,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/jni.cpp" class="mimetype-fixed-container mimetype-icon-cpp">jni.cpp</a></td>
+          <td class="description"><a href="/tests/source/jni.cpp" title=""></td>
+          <td><a href="/tests/source/jni.cpp">1466</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/js" class="mimetype-fixed-container mimetype-icon-folder">js</a></td>
           <td class="description"><a href="/tests/source/js" title=""></td>
           <td><a href="/tests/source/js"></a></td>
