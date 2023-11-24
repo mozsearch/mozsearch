@@ -7,9 +7,11 @@
 
 #include <clang/AST/Attr.h>
 #include <clang/AST/Expr.h>
+#include <clang/AST/RecursiveASTVisitor.h>
 
 #include <algorithm>
 #include <array>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -24,6 +26,71 @@ template<typename T> using optional = clang::Optional<T>;
 using namespace clang;
 
 namespace {
+
+template<typename InputIt>
+bool hasReverseQualifiedName(InputIt first, InputIt last, const NamedDecl &tag)
+{
+  const NamedDecl *currentDecl = &tag;
+  InputIt currentName;
+  for (currentName = first; currentName != last; currentName++) {
+    if (!currentDecl || !currentDecl->getIdentifier() || currentDecl->getName() != *currentName)
+      return false;
+
+    currentDecl = dyn_cast<NamedDecl>(currentDecl->getDeclContext());
+  }
+  if (currentName != last)
+    return false;
+
+  if (currentDecl != nullptr)
+    return false;
+
+  return true;
+}
+
+bool isMozillaJniObjectBase(const CXXRecordDecl &klass)
+{
+  const auto qualifiedName = std::array<StringRef, 3>{"mozilla", "jni", "ObjectBase"};
+  return hasReverseQualifiedName(qualifiedName.crbegin(), qualifiedName.crend(), klass);
+}
+
+bool isMozillaJniNativeImpl(const CXXRecordDecl &klass)
+{
+  const auto qualifiedName = std::array<StringRef, 3>{"mozilla", "jni", "NativeImpl"};
+  return hasReverseQualifiedName(qualifiedName.crbegin(), qualifiedName.crend(), klass);
+}
+
+const NamedDecl *fieldNamed(StringRef name, const RecordDecl &strukt)
+{
+  for (const auto *decl : strukt.decls()) {
+    const auto *namedDecl = dyn_cast<VarDecl>(decl);
+    if (!namedDecl)
+      continue;
+
+    if (!namedDecl->getIdentifier() || namedDecl->getName() != name)
+      continue;
+
+    return namedDecl;
+  }
+
+  return {};
+}
+
+optional<StringRef> nameFieldValue(const RecordDecl &strukt)
+{
+  const auto *nameField = dyn_cast_or_null<VarDecl>(fieldNamed("name", strukt));
+  if (!nameField)
+    return {};
+
+  const auto *def = nameField->getDefinition();
+  if (!def)
+    return {};
+
+  const auto *name = dyn_cast_or_null<StringLiteral>(def->getInit());
+  if (!name)
+    return {};
+
+  return name->getString();
+}
 
 struct AbstractBinding {
   // Subset of tools/analysis/BindingSlotLang
@@ -177,6 +244,118 @@ std::vector<BoundAs> getBoundAs(const Decl &decl)
   return found;
 }
 
+class FindCallCall : private RecursiveASTVisitor<FindCallCall>
+{
+public:
+  struct Result {
+    using Kind = AbstractBinding::Kind;
+
+    Kind kind;
+    StringRef name;
+  };
+
+  static optional<Result> search(Stmt *statement)
+  {
+    FindCallCall finder;
+    finder.TraverseStmt(statement);
+    return finder.result;
+  }
+
+private:
+  optional<Result> result;
+
+  friend RecursiveASTVisitor<FindCallCall>;
+
+  optional<Result> tryParseCallCall(CallExpr *callExpr){
+    const auto *callee = dyn_cast_or_null<CXXMethodDecl>(callExpr->getDirectCallee());
+    if (!callee)
+      return {};
+
+    if (!callee->getIdentifier())
+      return {};
+
+    const auto action = callee->getIdentifier()->getName();
+
+    if (action != "Call" && action != "Get" && action != "Set")
+      return {};
+
+    const auto *parentClass = dyn_cast_or_null<ClassTemplateSpecializationDecl>(callee->getParent());
+
+    if (!parentClass)
+      return {};
+
+    const auto *parentTemplate = parentClass->getTemplateInstantiationPattern();
+
+    if (!parentTemplate || !parentTemplate->getIdentifier())
+      return {};
+
+    const auto parentName = parentTemplate->getIdentifier()->getName();
+
+    AbstractBinding::Kind kind;
+    if (action == "Call") {
+      if (parentName == "Constructor" || parentName == "Method") {
+        kind = AbstractBinding::Kind::Method;
+      } else {
+        return {};
+      }
+    } else if (parentName == "Field") {
+      if (action == "Get") {
+        kind = AbstractBinding::Kind::Getter;
+      } else if (action == "Set") {
+        kind = AbstractBinding::Kind::Setter;
+      } else {
+        return {};
+      }
+    } else {
+      return {};
+    }
+
+    const auto *templateArg = parentClass->getTemplateArgs().get(0).getAsType()->getAsRecordDecl();
+
+    if (!templateArg)
+      return {};
+
+    const auto name = nameFieldValue(*templateArg);
+    if (!name)
+      return {};
+
+    return Result {
+      .kind = kind,
+      .name = *name,
+    };
+
+    return {};
+  }
+  bool VisitCallExpr(CallExpr *callExpr)
+  {
+    return !(result = tryParseCallCall(callExpr));
+  }
+};
+
+constexpr StringRef JVM_SCIP_SYMBOL_PREFIX = "S_jvm_";
+
+std::string javaScipSymbol(StringRef prefix, StringRef name, AbstractBinding::Kind kind)
+{
+  auto symbol = (prefix + name).str();
+
+  switch (kind) {
+  case AbstractBinding::Kind::Class:
+    std::replace(symbol.begin(), symbol.end(), '$', '#');
+    symbol += "#";
+    break;
+  case AbstractBinding::Kind::Method:
+    symbol += "().";
+    break;
+  case AbstractBinding::Kind::Const:
+  case AbstractBinding::Kind::Getter:
+  case AbstractBinding::Kind::Setter:
+    symbol += ".";
+    break;
+  }
+
+  return symbol;
+}
+
 void addSlotOwnerAttribute(llvm::json::OStream &J, const Decl &decl)
 {
   if (const auto bindingTo = getBindingTo(decl)) {
@@ -210,6 +389,249 @@ void addBindingSlotsAttribute(llvm::json::OStream &J, const Decl &decl)
 }
 
 } // anonymous namespace
+
+// class [wrapper] : public mozilla::jni::ObjectBase<[wrapper]>
+// {
+//   static constexpr char name[] = "[nameFieldValue]";
+// }
+void findBindingToJavaClass(ASTContext &C, CXXRecordDecl &klass)
+{
+  for (const auto &baseSpecifier : klass.bases()) {
+    const auto *base = baseSpecifier.getType()->getAsCXXRecordDecl();
+    if (!base)
+      continue;
+
+    if (!isMozillaJniObjectBase(*base))
+      continue;
+
+    const auto name = nameFieldValue(klass);
+    if (!name)
+      continue;
+
+    const auto symbol = javaScipSymbol(JVM_SCIP_SYMBOL_PREFIX, *name, BindingTo::Kind::Class);
+    const auto binding = BindingTo {{
+      .lang = BindingTo::Lang::Jvm,
+      .kind = BindingTo::Kind::Class,
+      .symbol = symbol,
+    }};
+
+    setBindingAttr(C, klass, binding);
+    return;
+  }
+}
+
+// class [parent]
+// {
+//   struct [methodStruct] {
+//     static constexpr char name[] = "[methodNameFieldValue]";
+//   }
+//   [method]
+//   {
+//     ...
+//     mozilla::jni::{Method,Constructor,Field}<[methodStruct]>::{Call,Get,Set}(...)
+//     ...
+//   }
+// }
+void findBindingToJavaMember(ASTContext &C, CXXMethodDecl &method)
+{
+  const auto *parent = method.getParent();
+  if (!parent)
+    return;
+  const auto classBinding = getBindingTo(*parent);
+  if (!classBinding)
+    return;
+
+  auto *body = method.getBody();
+  if (!body)
+    return;
+
+  const auto found = FindCallCall::search(body);
+  if (!found)
+    return;
+
+  const auto symbol = javaScipSymbol(classBinding->symbol, found->name, found->kind);
+  const auto binding = BindingTo {{
+    .lang = BindingTo::Lang::Jvm,
+    .kind = found->kind,
+    .symbol = symbol,
+  }};
+
+  setBindingAttr(C, method, binding);
+}
+
+// class [parent]
+// {
+//   struct [methodStruct] {
+//     static constexpr char name[] = "[methodNameFieldValue]";
+//   }
+//   [method]
+//   {
+//     ...
+//     mozilla::jni::{Method,Constructor,Field}<[methodStruct]>::{Call,Get,Set}(...)
+//     ...
+//   }
+// }
+void findBindingToJavaConstant(ASTContext &C, VarDecl &field)
+{
+  const auto *parent = dyn_cast_or_null<CXXRecordDecl>(field.getDeclContext());
+  if (!parent)
+    return;
+
+  const auto classBinding = getBindingTo(*parent);
+  if (!classBinding)
+    return;
+
+  const auto symbol = javaScipSymbol(classBinding->symbol, field.getName(), BindingTo::Kind::Const);
+  const auto binding = BindingTo {{
+    .lang = BindingTo::Lang::Jvm,
+    .kind = BindingTo::Kind::Const,
+    .symbol = symbol,
+  }};
+
+  setBindingAttr(C, field, binding);
+}
+
+// class [klass] : public [wrapper]::Natives<[klass]> {...}
+// class [wrapper] : public mozilla::jni::ObjectBase<[wrapper]>
+// {
+//   static constexpr char name[] = "[nameFieldValue]";
+//
+//   struct [methodStruct] {
+//     static constexpr char name[] = "[methodNameFieldValue]";
+//   }
+//
+//   template<typename T>
+//   class [wrapper]::Natives : public mozilla::jni::NativeImpl<[wrapper], T> {
+//     static const JNINativeMethod methods[] = {
+//       mozilla::jni::MakeNativeMethod<[wrapper]::[methodStruct]>(
+//               mozilla::jni::NativeStub<[wrapper]::[methodStruct], Impl>
+//               ::template Wrap<&Impl::[method]>),
+//     }
+//   }
+// }
+void findBoundAsJavaClasses(ASTContext &C, CXXRecordDecl &klass)
+{
+  for (const auto &baseSpecifier : klass.bases()) {
+    const auto *base = baseSpecifier.getType()->getAsCXXRecordDecl();
+    if (!base)
+      continue;
+
+    for (const auto &baseBaseSpecifier : base->bases()) {
+      const auto *baseBase = dyn_cast_or_null<ClassTemplateSpecializationDecl>(baseBaseSpecifier.getType()->getAsCXXRecordDecl());
+      if (!baseBase)
+        continue;
+
+      if (!isMozillaJniNativeImpl(*baseBase))
+        continue;
+
+      const auto *wrapper = baseBase->getTemplateArgs().get(0).getAsType()->getAsCXXRecordDecl();
+
+      if (!wrapper)
+        continue;
+
+      const auto name = nameFieldValue(*wrapper);
+      if (!name)
+        continue;
+
+      const auto javaClassSymbol = javaScipSymbol(JVM_SCIP_SYMBOL_PREFIX, *name, BoundAs::Kind::Class);
+      const auto classBinding = BoundAs {{
+        .lang = BoundAs::Lang::Jvm,
+        .kind = BoundAs::Kind::Class,
+        .symbol = javaClassSymbol,
+      }};
+      setBindingAttr(C, klass, classBinding);
+
+      const auto *methodsDecl = dyn_cast_or_null<VarDecl>(fieldNamed("methods", *base));
+      if (!methodsDecl)
+        continue;
+
+      const auto *methodsDef = methodsDecl->getDefinition();
+      if (!methodsDef)
+        continue;
+
+      const auto *inits = dyn_cast_or_null<InitListExpr>(methodsDef->getInit());
+      if (!inits)
+        continue;
+
+      std::set<const CXXMethodDecl *> alreadyBound;
+
+      for (const auto *init : inits->inits()) {
+        const auto *call = dyn_cast<CallExpr>(init->IgnoreUnlessSpelledInSource());
+        if (!call)
+          continue;
+
+        const auto *funcDecl = call->getDirectCallee();
+        if (!funcDecl)
+          continue;
+
+        const auto *templateArgs = funcDecl->getTemplateSpecializationArgs();
+        if (!templateArgs)
+          continue;
+
+        const auto *strukt = dyn_cast_or_null<RecordDecl>(templateArgs->get(0).getAsType()->getAsRecordDecl());
+        if (!strukt)
+          continue;
+
+        const auto *wrapperRef = dyn_cast_or_null<DeclRefExpr>(call->getArg(0)->IgnoreUnlessSpelledInSource());
+        if (!wrapperRef)
+          continue;
+
+        const auto *boundRef = dyn_cast_or_null<UnaryOperator>(wrapperRef->template_arguments().front().getArgument().getAsExpr());
+        if (!boundRef)
+          continue;
+
+        auto addToBound = [&](CXXMethodDecl &boundDecl, uint overloadNum) {
+          const auto methodName = nameFieldValue(*strukt);
+          if (!methodName)
+            return;
+
+          auto javaMethodSymbol = javaClassSymbol;
+          javaMethodSymbol += *methodName;
+          javaMethodSymbol += '(';
+          if (overloadNum > 0) {
+            javaMethodSymbol += '+';
+            javaMethodSymbol += std::to_string(overloadNum);
+          }
+          javaMethodSymbol += ").";
+
+          const auto binding = BoundAs {{
+            .lang = BoundAs::Lang::Jvm,
+            .kind = BoundAs::Kind::Method,
+            .symbol = javaMethodSymbol,
+          }};
+          setBindingAttr(C, boundDecl, binding);
+        };
+
+        if (auto *bound = dyn_cast_or_null<DeclRefExpr>(boundRef->getSubExpr())) {
+          auto *method = dyn_cast_or_null<CXXMethodDecl>(bound->getDecl());
+          if (!method)
+            continue;
+          addToBound(*method, 0);
+        } else if (const auto *bound = dyn_cast_or_null<UnresolvedLookupExpr>(boundRef->getSubExpr())) {
+          // XXX This is hackish
+          // In case of overloads it's not obvious which one we should use
+          // this expects the declaration order between C++ and Java to match
+          auto declarations = std::vector<Decl*>(bound->decls_begin(), bound->decls_end());
+          auto byLocation = [](Decl *a, Decl *b){ return a->getLocation() < b->getLocation(); };
+          std::sort(declarations.begin(), declarations.end(), byLocation);
+
+          uint i = 0;
+          for (auto *decl : declarations) {
+            auto *method = dyn_cast<CXXMethodDecl>(decl);
+            if (!method)
+              continue;
+            if (alreadyBound.find(method) == alreadyBound.end()) {
+              addToBound(*method, i);
+              alreadyBound.insert(method);
+              break;
+            }
+            i++;
+          }
+        }
+      }
+    }
+  }
+}
 
 void emitBindingAttributes(llvm::json::OStream &J, const Decl &decl)
 {
