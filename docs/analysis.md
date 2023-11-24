@@ -283,9 +283,8 @@ Raw record info.  These are attributes that will be found in the analysis files.
   not currently used for any cross-referencing, it's just meta.  (And note that
   target records' `contextsym` should frequently be the same when it's not just
   a namespace.)
-- `slotOwner`: For bindings/implementations of IDL, an optional
-  `StructuredBindingSlotInfo` as found in `bindingSlots` but in the opposite
-  direction and identifying the owning symbol.
+- `slotOwner`: For bindings, an optional `StructuredBindingSlotInfo` as found in
+  `bindingSlots` but in the opposite direction and identifying the owning symbol.
 - `implKind`: Assume to be "impl" if not present.  Reasonable values:
   - `idl`: This is the semantic definition in XPIDL, IPDL, WebIDL, etc.
   - `binding`: Ex: WebIDL binding glue.  Auto-generated and perhaps of interest
@@ -295,9 +294,10 @@ Raw record info.  These are attributes that will be found in the analysis files.
   - `impl`: By default, most things will be "impl".  But when WebIDL/etc. are
     involved this will be the actual implementation.
 - `sizeBytes`: Size in bytes.  Not present for method/function.
-- `bindingSlots`: For IDL definitions, an array of `StructuredBindingSlotInfo`:
+- `bindingSlots`: For binding definitions, an array of `StructuredBindingSlotInfo`:
   - `slotKind`: See `BindingSlotKind`
   - `slotLang`: See `BindingSlotLang`
+  - `ownerLang`: See `BindingOwnerLang`
   - `sym`
 - `supers`: For class-like symbols, an array of:
   - `sym`: The searchfox symbol for this super.
