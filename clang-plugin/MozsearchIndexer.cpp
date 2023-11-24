@@ -1316,6 +1316,40 @@ public:
     F->Output.push_back(std::move(ros.str()));
   }
 
+  /**
+   * Emit structured info for a variable if it is a static class member.
+   */
+  void emitStructuredInfo(SourceLocation Loc, const VarDecl *decl) {
+    const auto *parentDecl = dyn_cast_or_null<RecordDecl>(decl->getDeclContext());
+
+    std::string json_str;
+    llvm::raw_string_ostream ros(json_str);
+    llvm::json::OStream J(ros);
+    // Start the top-level object.
+    J.objectBegin();
+
+    unsigned StartOffset = SM.getFileOffset(Loc);
+    unsigned EndOffset =
+        StartOffset + Lexer::MeasureTokenLength(Loc, SM, CI.getLangOpts());
+    J.attribute("loc", locationToString(Loc, EndOffset - StartOffset));
+    J.attribute("structured", 1);
+    J.attribute("pretty", getQualifiedName(decl));
+    J.attribute("sym", getMangledName(CurMangleContext, decl));
+    J.attribute("kind", "field");
+
+    if (parentDecl) {
+      J.attribute("parentsym", getMangledName(CurMangleContext, parentDecl));
+    }
+
+    // End the top-level object.
+    J.objectEnd();
+
+    FileInfo *F = getFileInfo(Loc);
+    // we want a newline.
+    ros << '\n';
+    F->Output.push_back(std::move(ros.str()));
+  }
+
   // XXX Type annotating.
   // QualType is the type class.  It has helpers like TagDecl via getAsTagDecl.
   // ValueDecl exposes a getType() method.
