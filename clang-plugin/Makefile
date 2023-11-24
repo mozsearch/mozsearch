@@ -11,7 +11,7 @@ build: libclang-index-plugin.so
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-libclang-index-plugin.so: FileOperations.o StringOperations.o MozsearchIndexer.o from-clangd/HeuristicResolver.o
+libclang-index-plugin.so: FileOperations.o StringOperations.o BindingOperations.o MozsearchIndexer.o from-clangd/HeuristicResolver.o
 	$(CXX) $(LDFLAGS) $^ -o $@ -lclangASTMatchers
 
 check: build
