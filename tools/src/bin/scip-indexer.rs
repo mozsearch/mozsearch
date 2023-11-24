@@ -885,6 +885,10 @@ fn analyze_using_scip(
                     }
                 }
 
+                // Ensure that supers and overrides are sorted to avoid flaky tests
+                supers.sort_unstable_by_key(|r| r.sym);
+                overrides.sort_unstable_by_key(|r| r.sym);
+
                 let structured = AnalysisStructured {
                     structured: StructuredTag::Structured,
                     pretty: symbol_info.pretty,
