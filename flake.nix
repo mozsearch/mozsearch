@@ -1,13 +1,19 @@
 {
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs;
+    nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
     flake-utils.url = github:numtide/flake-utils;
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }: (
+  outputs = { self, nixpkgs, flake-utils, fenix }: (
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = nixpkgs.legacyPackages.${system}.extend fenix.overlays.default;
+
+        rustToolchain = pkgs.fenix.stable.toolchain;
 
         # A symlink from `docker` to `podman`, because the scripts call `docker`.
         dockerCompat = pkgs.runCommandNoCC "docker-podman-compat" {} ''
@@ -37,6 +43,21 @@
 
             awscli2
             (python3.withPackages pythonPackages)
+
+            # Dependencies required to build tools
+            rustToolchain
+            openssl
+            cmake
+            pkg-config
+
+            # Dependencies required to build clang-plugin
+            clang
+            llvmPackages_14.libllvm
+            llvmPackages_14.libclang
+
+            scip
+            protobuf
+            clang-tools_16
           ];
 
           PODMAN_USERNS = "keep-id";
