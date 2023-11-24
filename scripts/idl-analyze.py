@@ -196,6 +196,7 @@ def handle_interface(methods, enums, iface):
         {
             'slotKind': 'class',
             'slotLang': 'cpp',
+            'ownerLang': 'idl',
             'sym': iface_cpp_sym,
         }
     ]
@@ -224,6 +225,7 @@ def handle_interface(methods, enums, iface):
         iface_slots.append({
             'slotKind': 'interface_name',
             'slotLang': 'js',
+            'ownerLang': 'idl',
             'sym': iface_js_sym,
         })
 
@@ -298,6 +300,7 @@ def handle_interface(methods, enums, iface):
                 method_slots.append({
                     'slotKind': 'method',
                     'slotLang': 'cpp',
+                    'ownerLang': 'idl',
                     'sym': method_cpp_sym,
                 })
 
@@ -307,6 +310,7 @@ def handle_interface(methods, enums, iface):
                 method_slots.append({
                     'slotKind': 'method',
                     'slotLang': 'js',
+                    'ownerLang': 'idl',
                     'sym': method_js_sym,
                 })
 
@@ -357,6 +361,7 @@ def handle_interface(methods, enums, iface):
                 attr_slots.append({
                     'slotKind': 'getter',
                     'slotLang': 'cpp',
+                    'ownerLang': 'idl',
                     'sym': getter_cpp_sym,
                 })
 
@@ -367,6 +372,7 @@ def handle_interface(methods, enums, iface):
                     attr_slots.append({
                         'slotKind': 'setter',
                         'slotLang': 'cpp',
+                        'ownerLang': 'idl',
                         'sym': setter_cpp_sym,
                     })
 
@@ -375,6 +381,7 @@ def handle_interface(methods, enums, iface):
                 attr_slots.append({
                     'slotKind': 'attribute',
                     'slotLang': 'js',
+                    'ownerLang': 'idl',
                     'sym': attr_js_sym,
                 })
 
@@ -424,6 +431,7 @@ def handle_interface(methods, enums, iface):
                 {
                     'slotKind': 'const',
                     'slotLang': 'cpp',
+                    'ownerLang': 'idl',
                     'sym': const_cpp_sym,
                 }
             ]
@@ -436,6 +444,7 @@ def handle_interface(methods, enums, iface):
                 const_slots.append({
                     'slotKind': 'const',
                     'slotLang': 'js',
+                    'ownerLang': 'idl',
                     'sym': const_js_sym,
                 })
 

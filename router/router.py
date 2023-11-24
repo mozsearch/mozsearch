@@ -150,14 +150,18 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
                 if 'subclasses' in meta:
                     # This is also a derived relationship with only the symbol.
                     merge_defs_from_symbols_as(tree_name, new_keyed, meta['subclasses'], 'Subclasses')
-                # The owner is going to be an IDL parent right now, make sure
-                # we're showing the IDL (def) as IDL.
                 if 'slotOwner' in meta:
-                    merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slotOwner']['sym']], 'IDL')
-                # If we've got an IDL symbol, show all of its related binding
-                # definitions as definitions.
+                    if meta['slotOwner']['ownerLang'] == 'idl':
+                        # The owner is an IDL parent, make sure we're showing the IDL (def) as IDL.
+                        merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slotOwner']['sym']], 'IDL')
+                    else:
+                        # The owner is a definition in a foreign language
+                        merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slotOwner']['sym']], 'Definitions')
                 if 'bindingSlots' in meta:
-                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['bindingSlots']], 'Definitions')
+                    # Show IDL binding slots as definitions.
+                    # But show non-IDL binding slots as bindings.
+                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['bindingSlots'] if x['ownerLang'] == 'idl'], 'Definitions')
+                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['bindingSlots'] if x['ownerLang'] != 'idl'], 'Bindings')
         else:
             del new_keyed['meta']
 
@@ -251,7 +255,7 @@ class SearchResults(object):
     max_count = 1000 * EXTREME_FACTOR
     max_work = 1000 * EXTREME_FACTOR
     path_precedences = ['normal', 'thirdparty', 'test', 'generated']
-    key_precedences = ["Files", "IDL", "Definitions", "Overrides",
+    key_precedences = ["Files", "IDL", "Definitions", "Bindings", "Overrides",
         "Overridden By", "Superclasses", "Subclasses", "Assignments", "Uses",
         "Declarations", "Textual Occurrences"]
 

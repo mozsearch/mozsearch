@@ -254,6 +254,15 @@ pub enum BindingSlotLang {
     Rust,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BindingOwnerLang {
+    Idl,
+    Cpp,
+    JS,
+    Rust,
+}
+
 /// The binding slot mechanism is used to describe the exclusive relationship
 /// between IDL symbols and their bindings as well as the non-exclusive
 /// support relationships like enabling functions.
@@ -275,6 +284,8 @@ pub struct BindingSlotProps {
     pub slot_kind: BindingSlotKind,
     #[serde(rename = "slotLang")]
     pub slot_lang: BindingSlotLang,
+    #[serde(rename = "ownerLang")]
+    pub owner_lang: BindingOwnerLang,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredBindingSlotInfo {

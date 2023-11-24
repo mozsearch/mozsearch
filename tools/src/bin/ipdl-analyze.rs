@@ -152,11 +152,13 @@ fn output_ipc_data(outputf: &mut File, locstr: &str, ipc_pretty: &str, ipc_sym: 
                 {
                     "slotKind": "send",
                     "slotLang": "cpp",
+                    "ownerLang": "idl",
                     "sym": send_datum.sym,
                 },
                 {
                     "slotKind": "recv",
                     "slotLang": "cpp",
+                    "ownerLang": "idl",
                     "sym": recv_datum.sym,
                 },
             ]
