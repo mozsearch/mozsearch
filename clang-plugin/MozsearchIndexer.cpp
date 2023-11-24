@@ -1785,6 +1785,10 @@ public:
           // we can better evaluate what is useful.
           !D2->isDependentType() &&
           !TemplateStack) {
+        if (auto *D3 = dyn_cast<CXXRecordDecl>(D2)) {
+          findBindingToJavaClass(*AstContext, *D3);
+          findBoundAsJavaClasses(*AstContext, *D3);
+        }
         emitStructuredInfo(Loc, D2);
       }
     }
@@ -1796,12 +1800,23 @@ public:
           !wasTemplate &&
           !D2->isFunctionTemplateSpecialization() &&
           !TemplateStack) {
+        if (auto *D3 = dyn_cast<CXXMethodDecl>(D2)) {
+          findBindingToJavaMember(*AstContext, *D3);
+        }
         emitStructuredInfo(Loc, D2);
       }
     }
     if (FieldDecl *D2 = dyn_cast<FieldDecl>(D)) {
       if (!D2->isTemplated() &&
           !TemplateStack) {
+        emitStructuredInfo(Loc, D2);
+      }
+    }
+    if (VarDecl *D2 = dyn_cast<VarDecl>(D)) {
+      if (!D2->isTemplated() &&
+          !TemplateStack &&
+          isa<CXXRecordDecl>(D2->getDeclContext())) {
+        findBindingToJavaConstant(*AstContext, *D2);
         emitStructuredInfo(Loc, D2);
       }
     }
