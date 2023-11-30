@@ -5,7 +5,7 @@ expression: "&to_value(scil).unwrap()"
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_java_sample/JavaLibrary#A#",
+      "symbol": "S_jvm_sample/JavaLibrary#A#",
       "crossref_info": {
         "uses": [
           {
@@ -20,7 +20,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "interface B extends A {}",
                 "context": "sample::JavaLibrary::B",
-                "contextsym": "S_java_sample/JavaLibrary#B#"
+                "contextsym": "S_jvm_sample/JavaLibrary#B#"
               }
             ]
           }
@@ -38,7 +38,7 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "interface A {}",
                 "context": "sample::JavaLibrary::<init>",
-                "contextsym": "S_java_sample/JavaLibrary#<init>()."
+                "contextsym": "S_jvm_sample/JavaLibrary#<init>()."
               }
             ]
           }
@@ -46,10 +46,10 @@ expression: "&to_value(scil).unwrap()"
         "meta": {
           "structured": 1,
           "pretty": "sample::JavaLibrary::A",
-          "sym": "S_java_sample/JavaLibrary#A#",
+          "sym": "S_jvm_sample/JavaLibrary#A#",
           "type_pretty": null,
           "kind": "class",
-          "parentsym": "S_java_sample/JavaLibrary#",
+          "parentsym": "S_jvm_sample/JavaLibrary#",
           "implKind": "impl",
           "sizeBytes": null,
           "bindingSlots": [],
@@ -59,7 +59,7 @@ expression: "&to_value(scil).unwrap()"
           "overrides": [],
           "props": [],
           "subclasses": [
-            "S_java_sample/JavaLibrary#B#"
+            "S_jvm_sample/JavaLibrary#B#"
           ]
         }
       },

@@ -5,7 +5,7 @@ expression: "&to_value(sl).unwrap()"
 {
   "symbols": [
     {
-      "symbol": "S_java_kotlin/test/Test#",
+      "symbol": "S_jvm_kotlin/test/Test#",
       "quality": "ExactIdentifier",
       "from_identifier": "kotlin::test::Test"
     }
