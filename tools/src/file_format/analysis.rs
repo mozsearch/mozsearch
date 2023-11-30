@@ -269,12 +269,17 @@ pub enum BindingSlotLang {
 ///    cross-reference purposes.  In this case the structure is indicating the
 ///    values which describe the relationship from the IDL symbol to the current
 ///    symbol.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct StructuredBindingSlotInfo {
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct BindingSlotProps {
     #[serde(rename = "slotKind")]
     pub slot_kind: BindingSlotKind,
     #[serde(rename = "slotLang")]
     pub slot_lang: BindingSlotLang,
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StructuredBindingSlotInfo {
+    #[serde(flatten)]
+    pub props: BindingSlotProps,
     #[serde(default)]
     pub sym: Ustr,
 }

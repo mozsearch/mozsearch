@@ -36,13 +36,13 @@ expression: "&to_value(scil).unwrap()"
           "bindingSlots": [
             {
               "slotKind": "method",
-              "slotLang": "cpp",
-              "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
+              "slotLang": "js",
+              "sym": "#testOctet"
             },
             {
               "slotKind": "method",
-              "slotLang": "js",
-              "sym": "#testOctet"
+              "slotLang": "cpp",
+              "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
             }
           ],
           "supers": [],

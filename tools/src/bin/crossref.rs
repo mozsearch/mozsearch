@@ -254,8 +254,9 @@ async fn main() {
     let mut xref_link_subclass = Vec::new();
     // Pairs of [parent method sym, overridden by sym] to add the override to the parent.
     let mut xref_link_override = Vec::new();
-
-    let mut xref_link_slots = Vec::new();
+    // (owner symbol, slotted symbol) -> slot props
+    // This is a BTreeMap and not a HashMap to force a stable ordering and avoid flaky tests.
+    let mut xref_link_slots = BTreeMap::new();
 
     for path in &analysis_relative_paths {
         print!("File {}\n", path);
@@ -351,7 +352,7 @@ async fn main() {
         for datum in structured_analysis {
             // pieces are all `AnalysisStructured` instances that were generated alongside source
             // definition records.
-            for piece in datum.data {
+            for mut piece in datum.data {
                 meta_table.entry(piece.sym).or_insert_with(|| {
                     for super_info in &piece.supers {
                         xref_link_subclass.push((super_info.sym, piece.sym));
@@ -361,14 +362,13 @@ async fn main() {
                         xref_link_override.push((override_info.sym, piece.sym));
                     }
 
-                    for slot_info in &piece.binding_slots {
-                        xref_link_slots.push((
-                            slot_info.sym,
-                            StructuredBindingSlotInfo {
-                                slot_kind: slot_info.slot_kind,
-                                slot_lang: slot_info.slot_lang,
-                                sym: piece.sym,
-                            }));
+                    // We remove all bindings infos from AnalysisStructured instances here
+                    // but add them back both ways when we iterate over xref_link_slots.
+                    for slot_info in piece.binding_slots.drain(..) {
+                        xref_link_slots.insert((piece.sym, slot_info.sym), slot_info.props);
+                    }
+                    if let Some(slot_info) = piece.slot_owner.take() {
+                        xref_link_slots.insert((slot_info.sym, piece.sym), slot_info.props);
                     }
 
                     piece
@@ -390,9 +390,18 @@ async fn main() {
         }
     }
 
-    for (slotted_sym, slot_owner) in xref_link_slots {
+    for ((owner_sym, slotted_sym), props) in xref_link_slots {
+        if let Some(owner) = meta_table.get_mut(&owner_sym) {
+            owner.binding_slots.push(StructuredBindingSlotInfo {
+                sym: slotted_sym,
+                props,
+            });
+        }
         if let Some(slotted) = meta_table.get_mut(&slotted_sym) {
-            slotted.slot_owner = Some(slot_owner);
+            slotted.slot_owner = Some(StructuredBindingSlotInfo {
+                sym: owner_sym,
+                props,
+            });
         }
     }
 
