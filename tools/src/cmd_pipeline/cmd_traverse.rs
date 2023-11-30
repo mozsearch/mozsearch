@@ -215,7 +215,7 @@ impl PipelineCommand for TraverseCommand {
                 //    any use of the symbol is terminal and should not be
                 //    (erroneously) treated as somehow triggering the WebIDL
                 //    functions which it is enabling for.
-                let should_traverse = match slot_owner.slot_kind {
+                let should_traverse = match slot_owner.props.slot_kind {
                     // Enabling funcs and constants don't count as interesting
                     // uses in either direction; they are support.
                     BindingSlotKind::EnablingPref
@@ -231,7 +231,7 @@ impl PipelineCommand for TraverseCommand {
                     // So if this was the recv, let's look through to the send
                     // and add an edge to that instead and then continue the
                     // loop so we ignore the other uses.
-                    if slot_owner.slot_kind == BindingSlotKind::Recv {
+                    if slot_owner.props.slot_kind == BindingSlotKind::Recv {
                         if let Some(send_sym) = idl_info.get_binding_slot_sym("send") {
                             let (send_id, send_info) = sym_node_set.ensure_symbol(&send_sym, server).await?;
                             graph.add_edge(send_id, sym_id.clone());
