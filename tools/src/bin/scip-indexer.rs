@@ -152,7 +152,7 @@ enum ScipLang {
     Python,
     Rust,
     Typescript,
-    Java,
+    Jvm,
 }
 
 enum PrettyAction {
@@ -666,7 +666,7 @@ fn analyze_using_scip(
         "rust-analyzer" => ("rs", ScipLang::Rust),
         "scip-python" => ("py", ScipLang::Python),
         "scip-typescript" => ("js", ScipLang::Typescript),
-        "scip-java" => ("java", ScipLang::Java),
+        "scip-java" => ("jvm", ScipLang::Jvm),
         _ => {
             warn!("Unsupported language; we need tree-sitter support.");
             return;
@@ -830,7 +830,7 @@ fn analyze_using_scip(
                                     }
                                 }
                             }
-                            ScipLang::Java => {
+                            ScipLang::Jvm => {
                                 if let Some(caps) = RE_KT_FUNCTION.captures(doc) {
                                     fallback_kind = Some("method");
                                     if let Some(s) = caps.get(3) {
@@ -1049,7 +1049,7 @@ fn analyze_using_scip(
                     )
                 }
             }
-            ScipLang::Java => {
+            ScipLang::Jvm => {
                 if doc.relative_path.ends_with(".kt") {
                     parser
                         .set_language(tree_sitter_kotlin::language())
