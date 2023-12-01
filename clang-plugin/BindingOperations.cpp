@@ -11,8 +11,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cuchar>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #ifdef __cpp_lib_optional
@@ -388,6 +390,134 @@ void addBindingSlotsAttribute(llvm::json::OStream &J, const Decl &decl)
   }
 }
 
+// The mangling scheme is documented at https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/design.html
+// The main takeaways are:
+// - _0xxxx is the utf16 code unit xxxx
+// - _1 is _
+// - _2 is ;
+// - _3 is [
+// - __ is the separator between function name and overload specification
+// - _ is otherwise the separator between packages/classes/methods
+//
+// This method takes a StringRef & and mutates it and can be called twice on a Jnicall function name to get
+//  first the demangled name
+//  second the demangled overload specification
+// But we don't use the later for now because we have no way to map that to how SCIP resolves overloads.
+optional<std::string> demangleJnicallPart(StringRef &remainder)
+{
+  std::string demangled;
+
+  std::mbstate_t ps = {};
+
+  while (!remainder.empty()) {
+    switch (remainder[0]) {
+      case '0': {
+        remainder = remainder.drop_front(1);
+
+        uint16_t codeUnit;
+        const auto ok = remainder.substr(1, 4).getAsInteger(16, codeUnit);
+        remainder = remainder.drop_front(4);
+
+        if (!ok) // failed reading xxxx as hexadecimal from _0xxxx
+          return {};
+
+        std::array<char, MB_LEN_MAX> codePoint;
+        const auto mbLen = std::c16rtomb(codePoint.data(), codeUnit, &ps);
+
+        if (mbLen == -1) // failed converting utf16 to utf8
+          return {};
+
+        demangled += StringRef(codePoint.begin(), mbLen);
+        break;
+      }
+      case '1':
+        remainder = remainder.drop_front(1);
+        ps = {};
+        demangled += '_';
+        break;
+      case '2':
+        remainder = remainder.drop_front(1);
+        ps = {};
+        demangled += ';';
+        break;
+      case '3':
+        remainder = remainder.drop_front(1);
+        ps = {};
+        demangled += '[';
+        break;
+      case '_':
+        remainder = remainder.drop_front(1);
+        ps = {};
+        if (remainder.empty()) // the string ends with _
+          return {};
+
+        switch (remainder[0]) {
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+            demangled += '.';
+            break;
+          default:
+            // either:
+            // * the string began with _[^0-3], which is not supposed to happen; or
+            // * we reached __[^0-3] meaning we finished the first part of the name and remainder holds the overload specification
+            return demangled;
+        }
+      default:
+        ps = {};
+        demangled += '.';
+        break;
+    }
+    StringRef token;
+    std::tie(token, remainder) = remainder.split('_');
+    demangled += token;
+  }
+
+  return demangled;
+}
+
+optional<std::string> scipSymbolFromJnicallFunctionName(StringRef functionName)
+{
+  if (!functionName.consume_front("Java_"))
+    return {};
+
+  const auto demangledName = demangleJnicallPart(functionName);
+
+  if (!demangledName || demangledName->empty())
+    return {};
+
+  // demangleJavaName returns something like .some.package.Class$InnerClass.method
+  // - prepend S_jvm_
+  // - remove the leading dot
+  // - replace the last dot with a #
+  // - replace the other dots with /
+  // - replace $ with #
+  // - add the ([+overloadNumber]). suffix
+  auto symbol = JVM_SCIP_SYMBOL_PREFIX.str();
+  symbol += demangledName->substr(1);
+  const auto lastDot = symbol.rfind('.');
+  if (lastDot != std::string::npos)
+    symbol[lastDot] = '#';
+  std::replace(symbol.begin(), symbol.end(), '.', '/');
+  std::replace(symbol.begin(), symbol.end(), '$', '#');
+
+  // Keep track of how many times we have seen this method, to build the ([+overloadNumber]). suffix.
+  // This assumes this function is called on C function definitions in the same order the matching overloads are declared in Java.
+  static std::unordered_map<std::string, uint> jnicallFunctions;
+  auto &overloadNumber = jnicallFunctions[symbol];
+
+  symbol += '(';
+  if (overloadNumber) {
+    symbol += '+';
+    symbol += overloadNumber;
+    overloadNumber++;
+  }
+  symbol += ").";
+
+  return symbol;
+};
+
 } // anonymous namespace
 
 // class [wrapper] : public mozilla::jni::ObjectBase<[wrapper]>
@@ -418,6 +548,28 @@ void findBindingToJavaClass(ASTContext &C, CXXRecordDecl &klass)
     setBindingAttr(C, klass, binding);
     return;
   }
+}
+
+// When a Java method is marked as native, the JRE looks by default for a function
+// named Java_<mangled method name>[__<mangled overload specification>].
+void findBindingToJavaFunction(ASTContext &C, FunctionDecl &function)
+{
+  const auto *identifier = function.getIdentifier();
+  if (!identifier)
+    return;
+
+  const auto name = identifier->getName();
+  const auto symbol = scipSymbolFromJnicallFunctionName(name);
+  if (!symbol)
+    return;
+
+  const auto binding = BoundAs {{
+    .lang = BindingTo::Lang::Jvm,
+    .kind = BindingTo::Kind::Method,
+    .symbol = *symbol,
+  }};
+
+  setBindingAttr(C, function, binding);
 }
 
 // class [parent]
