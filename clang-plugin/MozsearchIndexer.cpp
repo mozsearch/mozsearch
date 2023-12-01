@@ -1802,6 +1802,8 @@ public:
           !TemplateStack) {
         if (auto *D3 = dyn_cast<CXXMethodDecl>(D2)) {
           findBindingToJavaMember(*AstContext, *D3);
+        } else {
+          findBindingToJavaFunction(*AstContext, *D2);
         }
         emitStructuredInfo(Loc, D2);
       }

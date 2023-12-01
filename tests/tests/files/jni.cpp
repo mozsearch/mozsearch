@@ -1,3 +1,17 @@
+struct JNIEnv {};
+struct jobject {};
+struct jclass {};
+
+static void Java_sample_Jni_autoNativeStaticMethod(JNIEnv *, jclass)
+{
+    // Real code
+}
+
+static void Java_sample_Jni_autoNativeMethod(JNIEnv *, jobject)
+{
+    // Real code
+}
+
 class __attribute__((annotate("binding_to", "jvm", "class", "S_jvm_sample/Jni#"))) Jni
 {
     __attribute__((annotate("binding_to", "jvm", "method", "S_jvm_sample/Jni#javaStaticMethod().")))

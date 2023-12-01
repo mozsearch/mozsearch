@@ -1,6 +1,9 @@
 package sample;
 
 public class Jni {
+    public static native void autoNativeStaticMethod();
+    public native void autoNativeMethod();
+
     public static native void nativeStaticMethod();
     public native void nativeMethod();
 
