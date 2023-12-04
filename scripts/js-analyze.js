@@ -67,6 +67,14 @@ const ERROR_INTERVENTIONS = [
     includes: "redeclaration of import",
     severity: "INFO",
     prepend: "Known buggy code pattern is not a problem: "
+  },
+  // Bug 1858251 landed https://github.com/web-platform-tests/wpt/pull/42467
+  // which tests syntax changes from https://github.com/tc39/proposal-source-phase-imports
+  // which SpiderMonkey doesn't understand yet.
+  {
+    includes: "after import clause",
+    severity: "INFO",
+    prepend: "(unsupported) source phase imports can parse this way: "
   }
 ];
 
@@ -346,17 +354,23 @@ function locBefore(loc1, loc2) {
 
 function locstr(loc)
 {
-  return `${loc.start.line}:${loc.start.column}`;
+  // mozsearch token columns are 0-based but SpiderMonkey's are now 1-based since
+  // bug 1862692.
+  return `${loc.start.line}:${loc.start.column - 1}`;
 }
 
 function locstr2(loc, str)
 {
-  return `${loc.start.line}:${loc.start.column}-${loc.start.column + str.length}`;
+  // mozsearch token columns are 0-based but SpiderMonkey's are now 1-based since
+  // bug 1862692.
+  return `${loc.start.line}:${loc.start.column - 1}-${loc.start.column - 1 + str.length}`;
 }
 
 function locstrFull(startPos, endPos)
 {
-  return `${startPos.line}:${startPos.column}-${endPos.line}:${endPos.column}`;
+  // mozsearch token columns are 0-based but SpiderMonkey's are now 1-based since
+  // bug 1862692.
+  return `${startPos.line}:${startPos.column - 1}-${endPos.line}:${endPos.column - 1}`;
 }
 
 /**
@@ -427,8 +441,14 @@ function nameValid(name)
 
 function memberPropLoc(expr)
 {
+  // XXX this seems sketchy in terms of seeming like it thinks it is performing
+  // a copy followed a mutation but that's not what is happening.  However, this
+  // code is from the initial landing of searchfox so I'm not touching it right
+  // now.
   let idLoc = expr.loc;
   idLoc.start.line = idLoc.end.line;
+  // (we do not change the 1-base column to a 0-based column here; that will
+  // happen in locstr2)
   idLoc.start.column = idLoc.end.column - expr.property.name.length;
   return idLoc;
 }
@@ -495,7 +515,7 @@ let Analyzer = {
 
   /**
    * Given a position, find the first instance of the given string starting
-   * after the position.
+   * after the (exclusive, end) position.
    */
   findStrAfterPosition(str, pos) {
     // (lines are 1-based)
@@ -503,7 +523,9 @@ let Analyzer = {
     if (!lineText) {
       return null;
     }
-    let idx = lineText.indexOf(str, pos.column);
+    // indexOf uses a 0-based position whereas column is 1-based but also
+    // intended to be exclusive, so we subtract 1 off.
+    let idx = lineText.indexOf(str, pos.column - 1);
     if (idx === -1) {
       return null;
     }
@@ -671,13 +693,15 @@ let Analyzer = {
         // closing brace rather than just beyond the closing brace.  This is desired for
         // the nestingRange where the goal is to reference the opening and closing
         // brace tokens directly.
-       let adjustedEnd = { line: nestLoc.end.line, column: nestLoc.end.column };
+        let adjustedEnd = { line: nestLoc.end.line, column: nestLoc.end.column };
         adjustedEnd.column--;
         // Handle the case where we wrap to a previous line as well, ensuring we
         // don't wrap backwards past the start position.
         while (adjustedEnd.column < 0 && posBefore(nestLoc.start, adjustedEnd)) {
           adjustedEnd.line--;
-          adjustedEnd.column = this._lines[adjustedEnd.line - 1].length - 1;
+          // SM columns are now 1-based and locstrFull handles that, so we don't
+          // subtract 1 off the length here.
+          adjustedEnd.column = this._lines[adjustedEnd.line - 1].length;
         }
         obj.nestingRange = locstrFull(nestLoc.start, adjustedEnd);
       }
@@ -1554,6 +1578,11 @@ function replaceEntities(text)
   });
 }
 
+// XXX SpiderMonkey now uses 1-based column numbers since bug 1862692.  The SAX
+// parser is definitely 0-based but I think we just create JS strings that get
+// parsed into the JS universe so it doesn't matter that this parser is using
+// 0-based columns.  But maybe I'm wrong?  I'm doing a quick fix.  Also, we
+// don't really have XUL files anymore...
 class XMLParser {
   constructor(filename, lines, parser) {
     this.filename = filename;

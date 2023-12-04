@@ -4,14 +4,14 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "13:5-11",
+    "loc": "13:4-10",
     "source": 1,
     "syntax": "def,prop",
     "pretty": "property ModuleClass.#error",
     "sym": "ModuleClass##error"
   },
   {
-    "loc": "13:5-11",
+    "loc": "13:4-10",
     "target": 1,
     "kind": "def",
     "pretty": "ModuleClass.#error",
