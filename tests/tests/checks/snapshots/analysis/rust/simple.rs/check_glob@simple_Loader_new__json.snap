@@ -18,7 +18,7 @@ expression: "&json_results"
     "kind": "def",
     "pretty": "simple::Loader::new",
     "sym": "S_rs_rust_Loader#new().",
-    "context": "simple::Loader",
+    "context": "Loader",
     "contextsym": "S_rs_rust_Loader#"
   }
 ]

@@ -1631,7 +1631,7 @@ expression: "&json_results"
     "pretty": "variable superBob",
     "sym": "V_c90cdf45607c3527_74bc848dc87ea1",
     "no_crossref": 1,
-    "type": "class outerNS::Superhero",
+    "type": "Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
@@ -1664,7 +1664,7 @@ expression: "&json_results"
     "pretty": "variable victor",
     "sym": "V_c3d4ef45607c3527_c9114c22356",
     "no_crossref": 1,
-    "type": "WhatsYourVector<class outerNS::Superhero>",
+    "type": "WhatsYourVector<Superhero>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -1674,7 +1674,7 @@ expression: "&json_results"
     "pretty": "variable superBob",
     "sym": "V_c90cdf45607c3527_74bc848dc87ea1",
     "no_crossref": 1,
-    "type": "class outerNS::Superhero",
+    "type": "Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
@@ -1700,7 +1700,7 @@ expression: "&json_results"
     "pretty": "variable bob",
     "sym": "V_bb56ff45607c3527_872688b",
     "no_crossref": 1,
-    "type": "class outerNS::Human",
+    "type": "Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -1733,7 +1733,7 @@ expression: "&json_results"
     "pretty": "variable goodReferenceRight",
     "sym": "V_442fff45607c3527_bbca21f4b95005a5",
     "no_crossref": 1,
-    "type": "WhatsYourVector<class outerNS::Human>",
+    "type": "WhatsYourVector<Human>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -1743,7 +1743,7 @@ expression: "&json_results"
     "pretty": "variable bob",
     "sym": "V_bb56ff45607c3527_872688b",
     "no_crossref": 1,
-    "type": "class outerNS::Human",
+    "type": "Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -1753,7 +1753,7 @@ expression: "&json_results"
     "pretty": "variable victor",
     "sym": "V_c3d4ef45607c3527_c9114c22356",
     "no_crossref": 1,
-    "type": "WhatsYourVector<class outerNS::Superhero>",
+    "type": "WhatsYourVector<Superhero>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -1762,7 +1762,7 @@ expression: "&json_results"
     "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
-    "type": "WhatsYourVector_impl<class outerNS::Superhero, class CoolAlloc>::elem_type"
+    "type": "elem_type"
   },
   {
     "loc": "00217:4-22",
@@ -1771,7 +1771,7 @@ expression: "&json_results"
     "pretty": "variable goodReferenceRight",
     "sym": "V_442fff45607c3527_bbca21f4b95005a5",
     "no_crossref": 1,
-    "type": "WhatsYourVector<class outerNS::Human>",
+    "type": "WhatsYourVector<Human>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -1780,7 +1780,7 @@ expression: "&json_results"
     "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
-    "type": "WhatsYourVector_impl<class outerNS::Human, class CoolAlloc>::elem_type"
+    "type": "elem_type"
   },
   {
     "loc": "00221:6-14",
@@ -1965,7 +1965,7 @@ expression: "&json_results"
     "pretty": "function outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
     "nestingRange": "340:26-342:2",
-    "type": "void (class outerNS::Human &)"
+    "type": "void (Human &)"
   },
   {
     "loc": "00340:12-17",
@@ -1983,7 +1983,7 @@ expression: "&json_results"
     "pretty": "variable human",
     "sym": "V_5c239875607c3527_e79fa9f013",
     "no_crossref": 1,
-    "type": "class outerNS::Human &"
+    "type": "Human &"
   },
   {
     "loc": "00341:4-9",
@@ -1992,7 +1992,7 @@ expression: "&json_results"
     "pretty": "variable human",
     "sym": "V_5c239875607c3527_e79fa9f013",
     "no_crossref": 1,
-    "type": "class outerNS::Human &"
+    "type": "Human &"
   },
   {
     "loc": "00341:10-16",
@@ -2009,7 +2009,7 @@ expression: "&json_results"
     "pretty": "function outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
     "nestingRange": "351:26-385:2",
-    "type": "void (class outerNS::Couch &)"
+    "type": "void (Couch &)"
   },
   {
     "loc": "00351:12-17",
@@ -2027,7 +2027,7 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_7a7db975607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "class outerNS::Couch &"
+    "type": "Couch &"
   },
   {
     "loc": "00352:4-9",
@@ -2044,7 +2044,7 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_7a7db975607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "class outerNS::Couch &"
+    "type": "Couch &"
   },
   {
     "loc": "00354:9-22",
@@ -2069,7 +2069,7 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_7a7db975607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "class outerNS::Couch &"
+    "type": "Couch &"
   },
   {
     "loc": "00363:15-46",
@@ -2094,7 +2094,7 @@ expression: "&json_results"
     "pretty": "variable couch",
     "sym": "V_7a7db975607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "class outerNS::Couch &"
+    "type": "Couch &"
   },
   {
     "loc": "00390:7-12",
@@ -2103,7 +2103,7 @@ expression: "&json_results"
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "nestingRange": "390:27-392:2",
-    "type": "void (class outerNS::Thing &)"
+    "type": "void (Thing &)"
   },
   {
     "loc": "00390:13-18",
@@ -2121,7 +2121,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_26da3e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00391:4-9",
@@ -2130,7 +2130,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_26da3e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00391:10-20",
@@ -2147,7 +2147,7 @@ expression: "&json_results"
     "pretty": "function outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "nestingRange": "397:29-412:2",
-    "type": "void (class outerNS::Thing &)"
+    "type": "void (Thing &)"
   },
   {
     "loc": "00397:15-20",
@@ -2165,7 +2165,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_b0487e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00399:4-9",
@@ -2182,7 +2182,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_b0487e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00402:4-9",
@@ -2199,7 +2199,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_b0487e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00405:4-9",
@@ -2216,7 +2216,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_b0487e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00408:4-9",
@@ -2233,7 +2233,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_b0487e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00411:4-9",
@@ -2250,7 +2250,7 @@ expression: "&json_results"
     "pretty": "variable thing",
     "sym": "V_b0487e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "class outerNS::Thing &"
+    "type": "Thing &"
   },
   {
     "loc": "00415:8-14",

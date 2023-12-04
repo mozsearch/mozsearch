@@ -6,14 +6,14 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="33"></div>
-  <code role="cell" class="source-line">  <span class="syn_def syn_def" data-symbols="##priv_field_num,ClassWithProperties##priv_field_num">#priv_field_num</span> = 10;
+  <code role="cell" class="source-line">  #priv_field_num = 10;
 </code>
 </div>
 <div role="row" id="line-76" class="source-line-with-number">
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="76"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >return</span> <span class="syn_reserved" >this</span>.<span data-symbols="##priv_field_num">#priv_field_num</span>;
+  <code role="cell" class="source-line">    <span class="syn_reserved" >return</span> <span class="syn_reserved" >this</span>.#priv_field_num;
 </code>
 </div>
 

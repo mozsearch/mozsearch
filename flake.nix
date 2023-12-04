@@ -51,9 +51,10 @@
             pkg-config
 
             # Dependencies required to build clang-plugin
+            # Update to llvmPackages_17 when available
             clang
-            llvmPackages_14.libllvm
-            llvmPackages_14.libclang
+            llvmPackages_16.libllvm
+            llvmPackages_16.libclang
 
             scip
             protobuf
