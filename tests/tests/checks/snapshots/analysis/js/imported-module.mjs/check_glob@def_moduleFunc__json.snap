@@ -4,15 +4,15 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "7:16-26",
+    "loc": "7:17-27",
     "source": 1,
     "syntax": "def,prop",
     "pretty": "property moduleFunc",
     "sym": "#moduleFunc",
-    "nestingRange": "7:43-9:0"
+    "nestingRange": "7:44-9:1"
   },
   {
-    "loc": "7:16-26",
+    "loc": "7:17-27",
     "target": 1,
     "kind": "def",
     "pretty": "moduleFunc",

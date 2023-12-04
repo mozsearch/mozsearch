@@ -4,14 +4,14 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "33:2-17",
+    "loc": "33:3-18",
     "source": 1,
     "syntax": "def,prop",
     "pretty": "property #priv_field_num",
     "sym": "##priv_field_num"
   },
   {
-    "loc": "33:2-17",
+    "loc": "33:3-18",
     "target": 1,
     "kind": "def",
     "pretty": "#priv_field_num",
@@ -19,14 +19,14 @@ expression: "&json_results"
     "context": "ClassWithProperties"
   },
   {
-    "loc": "76:16-31",
+    "loc": "76:17-32",
     "source": 1,
     "syntax": "use,prop",
     "pretty": "property #priv_field_num",
     "sym": "##priv_field_num"
   },
   {
-    "loc": "76:16-31",
+    "loc": "76:17-32",
     "target": 1,
     "kind": "use",
     "pretty": "#priv_field_num",
