@@ -4,14 +4,14 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "5:14-25",
+    "loc": "5:13-24",
     "source": 1,
     "syntax": "def,prop",
     "pretty": "property moduleConst",
     "sym": "#moduleConst"
   },
   {
-    "loc": "5:14-25",
+    "loc": "5:13-24",
     "target": 1,
     "kind": "def",
     "pretty": "moduleConst",
