@@ -53,7 +53,9 @@ var ContextMenu = new (class ContextMenu {
       }
     }
 
-    // jumps come first
+    // macro expansions comes first
+    let macroMenuItems = [];
+    // then jumps
     let jumpMenuItems = [];
     // then searches
     let searchMenuItems = [];
@@ -61,6 +63,20 @@ var ContextMenu = new (class ContextMenu {
     // then these extra menu items which are for new/experimental features where
     // we don't want to mess with muscle memory at the top of the list.
     let extraMenuItems = [];
+
+    let expansionToken = event.target.closest("[data-expansions]");
+    if (expansionToken) {
+      const expansions = JSON.parse(expansionToken.dataset.expansions);
+      expansions.forEach((expansion, i) => {
+        macroMenuItems.push({
+          html: `Expansion ${expansion[0]}: <code>${expansion[1]}</code>`,
+          onClick: (_event) => {
+            BlamePopup.expansionNumber = i;
+            BlamePopup.blameElement = expansionToken;
+          },
+        });
+      });
+    }
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
@@ -219,7 +235,10 @@ var ContextMenu = new (class ContextMenu {
       }
     }
 
-    let menuItems = jumpMenuItems.concat(searchMenuItems);
+    let menuItems = [];
+    menuItems.push(...macroMenuItems);
+    menuItems.push(...jumpMenuItems)
+    menuItems.push(...searchMenuItems);
 
     let word = getTargetWord();
     if (word) {

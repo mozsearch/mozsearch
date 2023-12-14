@@ -543,6 +543,7 @@ tr.after-context-line + tr.before-context-line {
   z-index: 102;
   overflow: auto;
   transition: opacity .2s ease;
+  max-width: 600px;
 }
 .context-menu:not(.bottom) {
   border-top-left-radius: 0;
@@ -561,7 +562,13 @@ tr.after-context-line + tr.before-context-line {
   text-align: inherit;
   border: none;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.context-menu code {
+  white-space: nowrap;
+}
+
 .content {
   padding: 1rem 2rem;
 }
@@ -787,6 +794,12 @@ span[data-symbols].hovered {
   text-align: left;
   z-index: 101;
   cursor: auto;
+}
+.blame-popup code {
+  background-color: var(--page-background);
+  display: block;
+  padding: 0.5em;
+  white-space: pre;
 }
 .deemphasize {
   color: GrayText;
