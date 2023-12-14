@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
+use std::collections::BTreeMap;
 
 use itertools::Itertools;
 
@@ -425,11 +426,46 @@ fn bool_is_false(b: &bool) -> bool {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Expansions {
+    Single(String),
+    Multiple(BTreeMap<String, String>),
+}
+
+pub enum ExpansionsIterator<'a> {
+    Single(std::iter::Once<&'a String>),
+    Multiple(<&'a BTreeMap<String, String> as IntoIterator>::IntoIter),
+}
+
+impl<'a> Iterator for ExpansionsIterator<'a> {
+    type Item = (&'a str, &'a str);
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Single(s) => s.next().map(|s| ("", s.as_str())),
+            Self::Multiple(m) => m.next().map(|(k, v)| (k.as_str(), v.as_str())),
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Expansions {
+    type IntoIter = ExpansionsIterator<'a>;
+    type Item = <Self::IntoIter as Iterator>::Item;
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            Expansions::Single(s) => ExpansionsIterator::Single(std::iter::once(s)),
+            Expansions::Multiple(m) => ExpansionsIterator::Multiple(m.iter()),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisSource {
     pub source: SourceTag,
     #[serde(with = "comma_delimited_vec")]
     pub syntax: Vec<Ustr>,
     pub pretty: Ustr,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expansions: Option<Expansions>,
     #[serde(with = "comma_delimited_vec")]
     pub sym: Vec<Ustr>,
     #[serde(default, with = "bool_as_int", skip_serializing_if = "bool_is_false")]
@@ -492,6 +528,13 @@ impl AnalysisSource {
         }
         if let Some(type_sym) = other.type_sym {
             self.type_sym.get_or_insert(type_sym);
+        }
+
+        match (&mut self.expansions, &mut other.expansions) {
+            (_, None) => {},
+            (expansions @ &mut None, e) => *expansions = e.take(),
+            (&mut Some(Expansions::Single(_)), _) | (_, &mut Some(Expansions::Single(_))) => panic!("Both expansions should be converted to Multiple prior to merging."),
+            (&mut Some(Expansions::Multiple(ref mut a)), &mut Some(Expansions::Multiple(ref mut b))) => a.append(b),
         }
     }
 

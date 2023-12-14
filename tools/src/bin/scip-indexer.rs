@@ -1252,6 +1252,7 @@ fn analyze_using_scip(
                         source: SourceTag::Source,
                         syntax,
                         pretty: ustr(&format!("{} {}", sinfo.kind, sinfo.pretty)),
+                        expansions: None,
                         sym: vec![sinfo.sym.clone()],
                         no_crossref,
                         nesting_range: if let Some(nest) = &starts_nest {
