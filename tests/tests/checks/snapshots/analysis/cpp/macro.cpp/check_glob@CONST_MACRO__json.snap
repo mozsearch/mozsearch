@@ -34,6 +34,7 @@ expression: "&json_results"
   {
     "loc": "00021:20-31",
     "source": 1,
+    "expansions": "15",
     "syntax": "use,macro",
     "pretty": "macro CONST_MACRO",
     "sym": "M_b42801c9a44abeec"

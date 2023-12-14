@@ -20,6 +20,7 @@ expression: "&json_results"
   {
     "loc": "00020:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -34,6 +35,7 @@ expression: "&json_results"
   {
     "loc": "00021:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -48,6 +50,7 @@ expression: "&json_results"
   {
     "loc": "00021:33-44",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -62,6 +65,7 @@ expression: "&json_results"
   {
     "loc": "00022:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -76,6 +80,7 @@ expression: "&json_results"
   {
     "loc": "00022:37-48",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -90,6 +95,7 @@ expression: "&json_results"
   {
     "loc": "00023:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -104,6 +110,7 @@ expression: "&json_results"
   {
     "loc": "00023:50-61",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -118,6 +125,7 @@ expression: "&json_results"
   {
     "loc": "00024:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -132,6 +140,7 @@ expression: "&json_results"
   {
     "loc": "00024:34-45",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -146,6 +155,7 @@ expression: "&json_results"
   {
     "loc": "00025:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -160,6 +170,7 @@ expression: "&json_results"
   {
     "loc": "00025:47-58",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -174,6 +185,7 @@ expression: "&json_results"
   {
     "loc": "00026:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -188,6 +200,7 @@ expression: "&json_results"
   {
     "loc": "00026:56-67",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -202,6 +215,7 @@ expression: "&json_results"
   {
     "loc": "00027:0-11",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"
@@ -244,6 +258,7 @@ expression: "&json_results"
   {
     "loc": "00027:83-94",
     "source": 1,
+    "expansions": "",
     "syntax": "use,macro",
     "pretty": "macro EMPTY_MACRO",
     "sym": "M_33c101c9a44abeec"

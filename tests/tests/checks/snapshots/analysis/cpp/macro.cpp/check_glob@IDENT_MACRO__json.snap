@@ -34,6 +34,7 @@ expression: "&json_results"
   {
     "loc": "00022:20-31",
     "source": 1,
+    "expansions": "16",
     "syntax": "use,macro",
     "pretty": "macro IDENT_MACRO",
     "sym": "M_c86801c9a44abeec"
@@ -48,6 +49,7 @@ expression: "&json_results"
   {
     "loc": "00023:20-31",
     "source": 1,
+    "expansions": "17",
     "syntax": "use,macro",
     "pretty": "macro IDENT_MACRO",
     "sym": "M_c86801c9a44abeec"

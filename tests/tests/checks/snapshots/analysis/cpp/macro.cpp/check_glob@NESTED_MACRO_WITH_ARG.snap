@@ -20,6 +20,7 @@ expression: "&json_results"
   {
     "loc": "00025:20-41",
     "source": 1,
+    "expansions": "18",
     "syntax": "use,macro",
     "pretty": "macro NESTED_MACRO_WITH_ARG",
     "sym": "M_354a01c9a44abeec"
@@ -34,6 +35,7 @@ expression: "&json_results"
   {
     "loc": "00026:20-41",
     "source": 1,
+    "expansions": "15",
     "syntax": "use,macro",
     "pretty": "macro NESTED_MACRO_WITH_ARG",
     "sym": "M_354a01c9a44abeec"
@@ -48,6 +50,7 @@ expression: "&json_results"
   {
     "loc": "00027:20-41",
     "source": 1,
+    "expansions": "19",
     "syntax": "use,macro",
     "pretty": "macro NESTED_MACRO_WITH_ARG",
     "sym": "M_354a01c9a44abeec"

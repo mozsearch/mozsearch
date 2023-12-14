@@ -20,6 +20,7 @@ expression: "&json_results"
   {
     "loc": "00024:20-32",
     "source": 1,
+    "expansions": "15",
     "syntax": "use,macro",
     "pretty": "macro NESTED_MACRO",
     "sym": "M_210a01c9a44abeec"
