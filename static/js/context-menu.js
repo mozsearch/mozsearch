@@ -236,7 +236,7 @@ var ContextMenu = new (class ContextMenu {
       let visibleToken = symbolToken.textContent;
       menuItems.push({
         html: "Sticky highlight",
-        href: `javascript:Hover.stickyHighlight('${symbols}', '${visibleToken}')`,
+        onClick: (_event) => Hover.stickyHighlight(symbols, visibleToken),
       });
     }
 
@@ -249,8 +249,15 @@ var ContextMenu = new (class ContextMenu {
     this.menu.innerHTML = "";
     for (let item of menuItems) {
       let li = document.createElement("li");
-      let link = li.appendChild(document.createElement("a"));
-      link.href = item.href;
+      let link;
+      if (item.onClick) {
+        link = li.appendChild(document.createElement("button"));
+        link.addEventListener("click", item.onClick);
+        link.addEventListener("click", () => this.hide());
+      } else {
+        link = li.appendChild(document.createElement("a"));
+        link.href = item.href;
+      }
       link.classList.add("mimetype-fixed-container");
       // Cancel out the default "unknown" icon we get from the above so there's
       // no icon displayed (by default but also in conjunction with the below).
@@ -398,7 +405,6 @@ var Hover = new (class Hover {
   }
 
   stickyHighlight(symbols, visibleToken) {
-    ContextMenu.hide();
     this.activate(symbols, visibleToken);
     this.sticky = true;
   }

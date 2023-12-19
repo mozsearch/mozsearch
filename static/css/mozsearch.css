@@ -166,6 +166,7 @@ a:hover {
 /* Some links look like list items */
 .panel section .item,
 .context-menu a,
+.context-menu button,
 .folder-content a {
   text-decoration: none;
   color: unset;
@@ -173,7 +174,8 @@ a:hover {
 
 /* .folder-content is handled with the whole row getting hover styles, so it doesn't need this. */
 .panel section .item:is(:hover, :focus),
-.context-menu a:is(:hover, :focus) {
+.context-menu a:is(:hover, :focus),
+.context-menu button:is(:hover, :focus) {
   background-color: var(--list-hover-background);
   color: var(--list-hover-color);
   outline: none;
@@ -551,8 +553,14 @@ tr.after-context-line + tr.before-context-line {
 .context-menu:focus {
   outline: none;
 }
-.context-menu a {
+.context-menu a,
+.context-menu button {
   display: block;
+  font: inherit;
+  width: 100%;
+  text-align: inherit;
+  border: none;
+  cursor: pointer;
 }
 .content {
   padding: 1rem 2rem;
