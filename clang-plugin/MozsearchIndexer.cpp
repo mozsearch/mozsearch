@@ -1775,6 +1775,10 @@ public:
                     qtype,
                     getContext(D), Flags, PeekRange, NestingRange);
 
+    visitIdentifier(Kind, PrettyKind, getQualifiedName(D), SourceRange(SM.getExpansionLoc(expandedLoc)), Symbol,
+                    qtype,
+                    getContext(D), Flags, PeekRange, NestingRange);
+
     // In-progress structured info emission.
     if (RecordDecl *D2 = dyn_cast<RecordDecl>(D)) {
       if (D2->isThisDeclarationADefinition() &&
