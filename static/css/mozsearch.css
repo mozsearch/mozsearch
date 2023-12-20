@@ -777,7 +777,7 @@ span[data-symbols].hovered {
   box-shadow: 3px 3px 3px rgba(0, 0, 0, .5);
   border-radius: 3px;
   text-align: left;
-  z-index: 200;
+  z-index: 101;
   cursor: auto;
 }
 .deemphasize {
