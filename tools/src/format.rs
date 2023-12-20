@@ -158,7 +158,7 @@ pub fn format_code(
             None
         };
 
-        let data = match (&token.kind, datum) {
+        match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(None), Some(d)) |
             (&tokenize::TokenKind::StringLiteral, Some(d)) => {
                 for a in d.iter() {
@@ -232,7 +232,16 @@ pub fn format_code(
                         }
                     }
                 }
+            }
+            _ => {}
+        }
 
+        let get_symbols = |token: &tokenize::Token| match (
+            &token.kind,
+            datum,
+        ) {
+            (&tokenize::TokenKind::Identifier(None), Some(d))
+            | (&tokenize::TokenKind::StringLiteral, Some(d)) => {
                 // Build the list of symbols for the highlighter.  We do this for all source
                 // records, even ones marked "no_crossref" because we still want to highlight
                 // locals.  These will be emitted into a `data-symbols` attribute below.
@@ -260,7 +269,7 @@ pub fn format_code(
             _ => String::new(),
         };
 
-        let style = match token.kind {
+        let get_style = |token: &tokenize::Token| match token.kind {
             tokenize::TokenKind::Identifier(None) => match datum {
                 Some(d) => {
                     let classes = d.iter().flat_map(|a| {
@@ -289,6 +298,9 @@ pub fn format_code(
             _ => "".to_owned(),
         };
 
+        let symbols = get_symbols(&token);
+        let style = get_style(&token);
+
         match token.kind {
             tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
                 let mut sanitized = entity_replace(input[last..token.end].to_string());
@@ -299,9 +311,9 @@ pub fn format_code(
                 last = token.end;
             }
             _ => {
-                if style != "" || data != "" {
+                if style != "" || symbols != "" {
                     output.push_str(&entity_replace(input[last..token.start].to_string()));
-                    output.push_str(&format!("<span {}{}>", style, data));
+                    output.push_str(&format!("<span {}{}>", style, symbols));
                     let mut sanitized = entity_replace(input[token.start..token.end].to_string());
                     if token.kind == tokenize::TokenKind::Comment
                         || token.kind == tokenize::TokenKind::StringLiteral
