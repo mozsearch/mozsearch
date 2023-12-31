@@ -54,6 +54,16 @@ runnable = true
 [pretty."nsIStreamLoaderObserver::OnStreamComplete"]
 runnable = true
 
+# Treating nsITimerCallback as a runnable is an improvement on the current
+# behavior of citing `nsTimerImpl::Fire` plus random implementations that
+# directly call the Notify method (like `HTMLCanvasPrintState`), but is mainly
+# useful for small one-off classes of a certain era before lambdas would be
+# used.  For larger monolithic classes, it would be better to specialize on the
+# call to setup the timer, and this would also work for the smaller classes too.
+[pretty."nsITimerCallback::Notify"]
+runnable = true
+
+
 # ### Class Diagram Directives ###
 #
 # - "class-diagram:stop" - This is used for cases where the type is notable and
