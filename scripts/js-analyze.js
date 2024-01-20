@@ -54,6 +54,15 @@ const ERROR_INTERVENTIONS = [
     severity: "INFO",
     prepend: "(unsupported) import assertions can parse this way: "
   },
+  // Another new variation on import assertions for CSS module assertions
+  //
+  // web-platform/tests/html/semantics/scripting-1/the-script-element/css-module-assertions/resources/integrity-matches.js:1
+  // because SyntaxError: unexpected token: 'assert'
+  {
+    includes: "unexpected token: 'assert'",
+    severity: "INFO",
+    prepend: "(unsupported) import assertions can also parse this way: "
+  },
   // This warning started appearing after https://bugzilla.mozilla.org/show_bug.cgi?id=1845085
   // which imported some new web-platform tests with a new import syntax that looks
   // like `import "./hello.js#3" with { type: "js" };`. It appears that this syntax is not
