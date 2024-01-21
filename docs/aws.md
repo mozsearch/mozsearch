@@ -60,7 +60,7 @@ and index volumes. Finally, the indexer instance terminates itself.
 
 The AWS console allows you to manually control AWS resources. To log
 in, you need to be a member of the
-[searchfox-aws](https://mozillians.org/en-US/group/searchfox-aws/)
+[searchfox-aws](https://people.mozilla.org/a/searchfox-aws/)
 Mozillians access group.
 
 ### Fast way
