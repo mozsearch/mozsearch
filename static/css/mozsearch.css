@@ -166,6 +166,7 @@ a:hover {
 /* Some links look like list items */
 .panel section .item,
 .context-menu a,
+.context-menu button,
 .folder-content a {
   text-decoration: none;
   color: unset;
@@ -173,7 +174,8 @@ a:hover {
 
 /* .folder-content is handled with the whole row getting hover styles, so it doesn't need this. */
 .panel section .item:is(:hover, :focus),
-.context-menu a:is(:hover, :focus) {
+.context-menu a:is(:hover, :focus),
+.context-menu button:is(:hover, :focus) {
   background-color: var(--list-hover-background);
   color: var(--list-hover-color);
   outline: none;
@@ -541,6 +543,7 @@ tr.after-context-line + tr.before-context-line {
   z-index: 102;
   overflow: auto;
   transition: opacity .2s ease;
+  max-width: 600px;
 }
 .context-menu:not(.bottom) {
   border-top-left-radius: 0;
@@ -551,9 +554,21 @@ tr.after-context-line + tr.before-context-line {
 .context-menu:focus {
   outline: none;
 }
-.context-menu a {
+.context-menu a,
+.context-menu button {
   display: block;
+  font: inherit;
+  width: 100%;
+  text-align: inherit;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.context-menu code {
+  white-space: nowrap;
+}
+
 .content {
   padding: 1rem 2rem;
 }
@@ -777,8 +792,14 @@ span[data-symbols].hovered {
   box-shadow: 3px 3px 3px rgba(0, 0, 0, .5);
   border-radius: 3px;
   text-align: left;
-  z-index: 200;
+  z-index: 101;
   cursor: auto;
+}
+.blame-popup code {
+  background-color: var(--page-background);
+  display: block;
+  padding: 0.5em;
+  white-space: pre;
 }
 .deemphasize {
   color: GrayText;

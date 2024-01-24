@@ -53,7 +53,9 @@ var ContextMenu = new (class ContextMenu {
       }
     }
 
-    // jumps come first
+    // macro expansions comes first
+    let macroMenuItems = [];
+    // then jumps
     let jumpMenuItems = [];
     // then searches
     let searchMenuItems = [];
@@ -61,6 +63,20 @@ var ContextMenu = new (class ContextMenu {
     // then these extra menu items which are for new/experimental features where
     // we don't want to mess with muscle memory at the top of the list.
     let extraMenuItems = [];
+
+    let expansionToken = event.target.closest("[data-expansions]");
+    if (expansionToken) {
+      const expansions = JSON.parse(expansionToken.dataset.expansions);
+      expansions.forEach((expansion, i) => {
+        macroMenuItems.push({
+          html: `Expansion ${expansion[0]}: <code>${expansion[1]}</code>`,
+          onClick: (_event) => {
+            BlamePopup.expansionNumber = i;
+            BlamePopup.blameElement = expansionToken;
+          },
+        });
+      });
+    }
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
@@ -219,7 +235,10 @@ var ContextMenu = new (class ContextMenu {
       }
     }
 
-    let menuItems = jumpMenuItems.concat(searchMenuItems);
+    let menuItems = [];
+    menuItems.push(...macroMenuItems);
+    menuItems.push(...jumpMenuItems)
+    menuItems.push(...searchMenuItems);
 
     let word = getTargetWord();
     if (word) {
@@ -236,7 +255,7 @@ var ContextMenu = new (class ContextMenu {
       let visibleToken = symbolToken.textContent;
       menuItems.push({
         html: "Sticky highlight",
-        href: `javascript:Hover.stickyHighlight('${symbols}', '${visibleToken}')`,
+        onClick: (_event) => Hover.stickyHighlight(symbols, visibleToken),
       });
     }
 
@@ -249,8 +268,15 @@ var ContextMenu = new (class ContextMenu {
     this.menu.innerHTML = "";
     for (let item of menuItems) {
       let li = document.createElement("li");
-      let link = li.appendChild(document.createElement("a"));
-      link.href = item.href;
+      let link;
+      if (item.onClick) {
+        link = li.appendChild(document.createElement("button"));
+        link.addEventListener("click", item.onClick);
+        link.addEventListener("click", () => this.hide());
+      } else {
+        link = li.appendChild(document.createElement("a"));
+        link.href = item.href;
+      }
       link.classList.add("mimetype-fixed-container");
       // Cancel out the default "unknown" icon we get from the above so there's
       // no icon displayed (by default but also in conjunction with the below).
@@ -398,7 +424,6 @@ var Hover = new (class Hover {
   }
 
   stickyHighlight(symbols, visibleToken) {
-    ContextMenu.hide();
     this.activate(symbols, visibleToken);
     this.sticky = true;
   }

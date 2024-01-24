@@ -158,7 +158,7 @@ pub fn format_code(
             None
         };
 
-        let data = match (&token.kind, datum) {
+        match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(None), Some(d)) |
             (&tokenize::TokenKind::StringLiteral, Some(d)) => {
                 for a in d.iter() {
@@ -232,7 +232,16 @@ pub fn format_code(
                         }
                     }
                 }
+            }
+            _ => {}
+        }
 
+        let get_symbols = |token: &tokenize::Token, pred: &dyn Fn(&&AnalysisSource) -> bool| match (
+            &token.kind,
+            datum,
+        ) {
+            (&tokenize::TokenKind::Identifier(None), Some(d))
+            | (&tokenize::TokenKind::StringLiteral, Some(d)) => {
                 // Build the list of symbols for the highlighter.  We do this for all source
                 // records, even ones marked "no_crossref" because we still want to highlight
                 // locals.  These will be emitted into a `data-symbols` attribute below.
@@ -242,7 +251,7 @@ pub fn format_code(
                     // ANALYSIS_DATA regime where "source" records mapped directly to "searches",
                     // but this may now be moot.
                     let mut seen_syms = Vec::new();
-                    for sym in d.iter().flat_map(|item| item.sym.iter()) {
+                    for sym in d.iter().filter(pred).flat_map(|item| item.sym.iter()) {
                         if seen_syms.contains(sym) {
                             continue;
                         }
@@ -260,7 +269,7 @@ pub fn format_code(
             _ => String::new(),
         };
 
-        let style = match token.kind {
+        let get_style = |token: &tokenize::Token| match token.kind {
             tokenize::TokenKind::Identifier(None) => match datum {
                 Some(d) => {
                     let classes = d.iter().flat_map(|a| {
@@ -289,6 +298,95 @@ pub fn format_code(
             _ => "".to_owned(),
         };
 
+        let symbols = get_symbols(&token, &|_| true);
+        let style = get_style(&token);
+
+        let expansion_to_html = |input: &str| {
+            let mut expansion = String::new();
+
+            let tokens = match format {
+                FormatAs::Binary => panic!("Unexpected binary file"),
+                FormatAs::CSS => tokenize::tokenize_css(input),
+                FormatAs::Plain => tokenize::tokenize_plain(input),
+                FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
+                FormatAs::FormatTagLike(script_spec) => {
+                    tokenize::tokenize_tag_like(input, script_spec)
+                }
+            };
+
+            let mut last = 0;
+
+            for token in tokens {
+                let style = get_style(&token);
+                let symbols = get_symbols(&token, &|item| {
+                    item.pretty.contains(&input[token.start..token.end])
+                });
+
+                match token.kind {
+                    tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
+                        let mut sanitized = entity_replace(input[last..token.end].to_string());
+                        if token.kind == tokenize::TokenKind::PlainText {
+                            sanitized = links::linkify_comment(sanitized);
+                        }
+                        expansion.push_str(&sanitized);
+                        last = token.end;
+                    }
+                    _ => {
+                        if style != "" || symbols != "" {
+                            expansion.push_str(&entity_replace(
+                                input[last..token.start].to_string(),
+                            ));
+                            expansion.push_str(&format!("<span {}{}>", style, symbols));
+                            let mut sanitized =
+                                entity_replace(input[token.start..token.end].to_string());
+                            if token.kind == tokenize::TokenKind::Comment
+                                || token.kind == tokenize::TokenKind::StringLiteral
+                            {
+                                sanitized = links::linkify_comment(sanitized);
+                            }
+                            expansion.push_str(&sanitized);
+                            expansion.push_str("</span>");
+                            last = token.end;
+                        }
+                    }
+                }
+            }
+
+            expansion.push_str(&entity_replace(input[last..].to_string()));
+
+            expansion
+        };
+
+        let mut expansions: Vec<(&str, &str)> = datum
+            .into_iter()
+            .flat_map(|a| a.into_iter())
+            .flat_map(|a| a.expansions.iter())
+            .flat_map(|e| e.into_iter())
+            .collect();
+
+        expansions.sort_by_key(|&(_platform, expansion)| expansion);
+        let expansions = expansions.into_iter().fold(Vec::<(String, &str)>::new(), |mut platforms_expansion, (platform, expansion)| {
+            if let Some(&mut(ref mut platforms, last_expansion)) = platforms_expansion.last_mut() {
+                if last_expansion == expansion {
+                    platforms.push(' ');
+                    platforms.push_str(platform);
+                    return platforms_expansion;
+                }
+            }
+            platforms_expansion.push((platform.to_owned(), expansion));
+            platforms_expansion
+        });
+
+        let expansions: Vec<(String, String)> = expansions.into_iter()
+            .map(|(platform, input)| (if platform.is_empty() { String::from("other") } else { platform }, expansion_to_html(input)))
+            .collect();
+
+        let expansions = if !expansions.is_empty() {
+            format!("data-expansions=\"{}\" ", entity_replace(serde_json::to_string(&expansions).unwrap()).replace("\"", "&quot;"))
+        } else {
+            "".to_owned()
+        };
+
         match token.kind {
             tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
                 let mut sanitized = entity_replace(input[last..token.end].to_string());
@@ -299,9 +397,9 @@ pub fn format_code(
                 last = token.end;
             }
             _ => {
-                if style != "" || data != "" {
+                if expansions != "" || style != "" || symbols != "" {
                     output.push_str(&entity_replace(input[last..token.start].to_string()));
-                    output.push_str(&format!("<span {}{}>", style, data));
+                    output.push_str(&format!("<span {}{}{}>", expansions, style, symbols));
                     let mut sanitized = entity_replace(input[token.start..token.end].to_string());
                     if token.kind == tokenize::TokenKind::Comment
                         || token.kind == tokenize::TokenKind::StringLiteral

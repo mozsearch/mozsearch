@@ -454,6 +454,7 @@ fn visit_common(
             source: SourceTag::Source,
             syntax: vec![],
             pretty: ustr(&pretty),
+            expansions: None,
             sym: vec![ustr(&sanitized)],
             no_crossref: false,
             nesting_range,
@@ -988,6 +989,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                         // TODO: Fill syntax.
                         syntax: vec![],
                         pretty: ustr(&pretty),
+                        expansions: None,
                         sym: vec![ustr(&global)],
                         no_crossref: false,
                         // TODO(bug 1796870): Nesting.

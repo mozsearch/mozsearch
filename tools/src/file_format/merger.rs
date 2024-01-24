@@ -10,6 +10,7 @@ use serde_json::to_value;
 use serde_json::{from_value, json, to_string, Value};
 
 use super::analysis::AnalysisUnion;
+use super::analysis::Expansions;
 use super::analysis::{
     read_analyses, AnalysisSource, AnalysisStructured, Location, WithLocation,
 };
@@ -38,9 +39,14 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String],  platforms: &Vec<Str
   let src_data = read_analyses(filenames, &mut |obj: Value, loc: &Location, i_file: usize| {
       if let Ok(unified) = from_value(obj) {
           match unified {
-              AnalysisUnion::Source(src) => {
+              AnalysisUnion::Source(mut src) => {
                   // return source objects so that they come out of `read_analyses` for
                   // additional processing below.
+                  if let Some(Expansions::Single(expansion)) = src.expansions {
+                      let mut expansions = BTreeMap::new();
+                      expansions.insert(platforms[i_file].clone(), expansion);
+                      src.expansions = Some(Expansions::Multiple(expansions));
+                  }
                   return Some(src);
               }
               AnalysisUnion::Target(tgt) => {

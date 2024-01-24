@@ -1148,6 +1148,10 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro RAND_MAX",
+    "expansions": {
+      "bar-plat": "2147483647",
+      "foo-plat": "2147483647"
+    },
     "sym": "M_99e652bdd3e78849"
   },
   {
@@ -1486,6 +1490,10 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
+    "expansions": {
+      "bar-plat": "100",
+      "foo-plat": "100"
+    },
     "sym": "M_3706282064ef3d77"
   },
   {
@@ -1863,6 +1871,10 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
+    "expansions": {
+      "bar-plat": "100",
+      "foo-plat": "100"
+    },
     "sym": "M_3706282064ef3d77"
   },
   {
@@ -2306,6 +2318,10 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro ART_HP",
+    "expansions": {
+      "bar-plat": "100",
+      "foo-plat": "100"
+    },
     "sym": "M_6b997b2064ef3d77"
   },
   {

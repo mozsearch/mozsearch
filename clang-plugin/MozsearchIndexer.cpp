@@ -14,11 +14,13 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
+#include "clang/Format/Format.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/TokenConcatenation.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
@@ -165,6 +167,15 @@ struct FileInfo {
   bool Generated;
 };
 
+struct MacroExpansionState {
+  Token MacroNameToken;
+  const MacroInfo *MacroInfo;
+  std::string Expansion;
+  SourceRange Range;
+  Token PrevPrevTok;
+  Token PrevTok;
+};
+
 class IndexConsumer;
 
 class PreprocessorHook : public PPCallbacks {
@@ -220,6 +231,9 @@ private:
   MangleContext *CurMangleContext;
   ASTContext *AstContext;
   std::unique_ptr<clangd::HeuristicResolver> Resolver;
+
+  TokenConcatenation ConcatInfo;
+  std::optional<MacroExpansionState> MacroExpansionState;
 
   typedef RecursiveASTVisitor<IndexConsumer> Super;
 
@@ -570,9 +584,12 @@ private:
 public:
   IndexConsumer(CompilerInstance &CI)
       : CI(CI), SM(CI.getSourceManager()), LO(CI.getLangOpts()), CurMangleContext(nullptr),
-        AstContext(nullptr), CurDeclContext(nullptr), TemplateStack(nullptr) {
+        AstContext(nullptr), ConcatInfo(CI.getPreprocessor()), CurDeclContext(nullptr),
+        TemplateStack(nullptr) {
     CI.getPreprocessor().addPPCallbacks(
         make_unique<PreprocessorHook>(this));
+    CI.getPreprocessor().setTokenWatcher(
+        [this](const auto &token) { onTokenLexed(token); });
   }
 
   virtual DiagnosticConsumer *clone(DiagnosticsEngine &Diags) const {
@@ -1377,7 +1394,8 @@ public:
                        QualType MaybeType = QualType(),
                        Context TokenContext = Context(), int Flags = 0,
                        SourceRange PeekRange = SourceRange(),
-                       SourceRange NestingRange = SourceRange()) {
+                       SourceRange NestingRange = SourceRange(),
+                       std::optional<StringRef> Expansion = {}) {
     SourceLocation Loc = LocRange.getBegin();
     if (!shouldVisit(Loc)) {
       return;
@@ -1446,6 +1464,9 @@ public:
 
     J.attribute("loc", RangeStr);
     J.attribute("source", 1);
+
+    if (Expansion)
+      J.attribute("expansions", *Expansion);
 
     if (NestingRange.isValid()) {
       std::string NestingRangeStr = fullRangeToString(NestingRange);
@@ -1772,6 +1793,10 @@ public:
     }
 
     visitIdentifier(Kind, PrettyKind, getQualifiedName(D), SourceRange(Loc), Symbol,
+                    qtype,
+                    getContext(D), Flags, PeekRange, NestingRange);
+
+    visitIdentifier(Kind, PrettyKind, getQualifiedName(D), SourceRange(SM.getExpansionLoc(expandedLoc)), Symbol,
                     qtype,
                     getContext(D), Flags, PeekRange, NestingRange);
 
@@ -2187,7 +2212,7 @@ public:
     }
   }
 
-  void macroUsed(const Token &Tok, const MacroInfo *Macro) {
+  void macroUsed(const Token &Tok, const MacroInfo *Macro, std::optional<StringRef> Expansion = {}) {
     if (!Macro) {
       return;
     }
@@ -2205,8 +2230,88 @@ public:
       std::string Mangled =
           std::string("M_") +
           mangleLocation(Macro->getDefinitionLoc(), std::string(Ident->getName()));
-      visitIdentifier("use", "macro", Ident->getName(), Loc, Mangled);
+      visitIdentifier("use", "macro", Ident->getName(), Loc, Mangled, {}, {}, {}, {}, {}, Expansion);
     }
+  }
+
+  void beginMacroExpansion(const Token &Tok, const MacroInfo *Macro, SourceRange Range) {
+    if (!Macro)
+      return;
+
+    if (Macro->isBuiltinMacro())
+      return;
+
+    if (!Tok.getIdentifierInfo())
+      return;
+
+    auto location = Tok.getLocation();
+    normalizeLocation(&location);
+    if (!isInterestingLocation(location))
+      return;
+
+    if (MacroExpansionState) {
+      const auto InMacroArgs = MacroExpansionState->Range.fullyContains(SM.getExpansionRange(Range).getAsRange());
+      const auto InMacroBody = SM.getExpansionLoc(Tok.getLocation()) == SM.getExpansionLoc(MacroExpansionState->MacroNameToken.getLocation());
+      if (InMacroArgs || InMacroBody) {
+        macroUsed(Tok, Macro);
+        return;
+      }
+
+      endMacroExpansion();
+    }
+
+    MacroExpansionState = ::MacroExpansionState{
+      .MacroNameToken = Tok,
+      .MacroInfo = Macro,
+      .Expansion = {},
+      .Range = Range,
+      .PrevPrevTok = {},
+      .PrevTok = {},
+    };
+  }
+
+  void endMacroExpansion() {
+    const auto replacements = clang::format::reformat(
+      clang::format::getMozillaStyle(),
+      MacroExpansionState->Expansion,
+      {tooling::Range(0, MacroExpansionState->Expansion.length())}
+    );
+    auto formatted = clang::tooling::applyAllReplacements(MacroExpansionState->Expansion, replacements);
+    if (formatted) {
+      MacroExpansionState->Expansion = std::move(formatted.get());
+    }
+
+    macroUsed(MacroExpansionState->MacroNameToken, MacroExpansionState->MacroInfo, MacroExpansionState->Expansion);
+
+    MacroExpansionState.reset();
+  }
+
+  void onTokenLexed(const Token &Tok) {
+    if (!MacroExpansionState)
+      return;
+
+    // check if we exited the macro expansion
+    SourceLocation SLoc = Tok.getLocation();
+    if (!SLoc.isMacroID()) {
+      endMacroExpansion();
+      return;
+    }
+
+    if (ConcatInfo.AvoidConcat(MacroExpansionState->PrevPrevTok, MacroExpansionState->PrevTok, Tok)) {
+      MacroExpansionState->Expansion += ' ';
+    }
+
+    if (Tok.isAnnotation()) {
+      const auto Range = SM.getImmediateExpansionRange(Tok.getLocation());
+      const char *Start = SM.getCharacterData(Range.getBegin());
+      const char *End = SM.getCharacterData(Range.getEnd()) + 1;
+      MacroExpansionState->Expansion += StringRef(Start, End - Start);
+    } else {
+      MacroExpansionState->Expansion += CI.getPreprocessor().getSpelling(Tok);
+    }
+
+    MacroExpansionState->PrevPrevTok = MacroExpansionState->PrevTok;
+    MacroExpansionState->PrevTok = Tok;
   }
 };
 
@@ -2260,7 +2365,7 @@ void PreprocessorHook::MacroDefined(const Token &Tok,
 
 void PreprocessorHook::MacroExpands(const Token &Tok, const MacroDefinition &Md,
                                     SourceRange Range, const MacroArgs *Ma) {
-  Indexer->macroUsed(Tok, Md.getMacroInfo());
+  Indexer->beginMacroExpansion(Tok, Md.getMacroInfo(), Range);
 }
 
 void PreprocessorHook::MacroUndefined(const Token &Tok,
