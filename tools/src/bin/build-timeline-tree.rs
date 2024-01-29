@@ -15,12 +15,14 @@ use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::str::from_utf8;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::blame::LineData;
 use tools::file_format::config::index_blame;
+use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     writeln!(helper.stdin.as_mut().unwrap(), "{}", git_oid).unwrap();
@@ -214,9 +216,17 @@ fn count_lines(blob: &git2::Blob) -> usize {
     linecount
 }
 
-fn unmodified_lines(
+/// Given a blob and its parent, derive the diff and process its hunks in order
+/// to produce the set of unmodified token (line indices) as well as the
+/// removals and additions so we can infer token moves in a subsequent pass once
+/// we've run this logic across all patches.
+///
+/// This method could potentially be naively parallelized.
+fn ingest_diff_accumulating_deltas(
     blob: &git2::Blob,
     parent_blob: &git2::Blob,
+    path: &Path,
+    delter: &mut DeltaMachine,
 ) -> Result<Vec<(usize, usize)>, git2::Error> {
     let mut unchanged = Vec::new();
 
@@ -233,6 +243,8 @@ fn unmodified_lines(
     let mut latest_line: usize = 0;
     let mut delta: i32 = 0;
 
+    let namespace = namespace_for_file(path);
+
     for hunk_index in 0..patch.num_hunks() {
         for line_index in 0..patch.num_lines_in_hunk(hunk_index)? {
             let line = patch.line_in_hunk(hunk_index, line_index)?;
@@ -245,9 +257,17 @@ fn unmodified_lines(
                 latest_line = (lineno - 1) + 1;
             }
 
+            if let Some((context, token)) = from_utf8(line.content()).unwrap().split_once(' ') {
+                delter.push_diff_token(line.origin(), context, token);
+            }
+
             match line.origin() {
-                '+' => delta -= 1,
-                '-' => delta += 1,
+                '+' => {
+                    delta -= 1;
+                }
+                '-' => {
+                    delta += 1;
+                }
                 ' ' => {
                     assert_eq!(
                         line.old_lineno().unwrap() as usize,
@@ -261,6 +281,8 @@ fn unmodified_lines(
                 _ => (),
             };
         }
+
+        delter.flush_hunk();
     }
 
     let linecount = count_lines(blob);
@@ -270,8 +292,29 @@ fn unmodified_lines(
     Ok(unchanged)
 }
 
-fn blame_for_path(
-    diff_data: &DiffData,
+/// Consumes the aggregated output of all `ingest_diff_accumulating_deltas`
+/// processing of the patches in order to detect token movement leveraging their
+/// semantic binding.
+///
+/// This method could potentially be parallelized based naively based on a
+/// language basis first since it's likely pointless to try and bother deriving
+/// the history of a JS implementation of something being written into C++, it
+/// just didn't work.  Then within the language we could dynamic heuristics to
+/// partition.  We expect most larger patches with high amount of token churn
+/// to be the result of automated scripts with high locality like a code
+/// formatter or the conversion of test manifest .ini files to .toml files, it
+/// likely would be fine to not bother applying more expensive heuristics in
+/// cases where there are an overwhelming number of changes or where a simple
+/// top-N histogram of impacted tokens does not satisfy simple rename
+/// heuristics.
+fn infer_token_moves_from_diff_deltas {
+
+}
+
+///
+///
+fn hyperblame_for_path(
+    diff_data: &TimelineData,
     commit: &git2::Commit,
     blob: &git2::Blob,
     import_helper: &mut Child,
@@ -298,7 +341,7 @@ fn blame_for_path(
             .map(|p| p.borrow())
             .unwrap_or(path);
         let unmodified_lines = match diff_data
-            .unmodified_lines
+            .unmodified_tokens
             .get(&(parent.id(), path.to_path_buf()))
         {
             Some(entry) => entry,
@@ -331,17 +374,32 @@ fn blame_for_path(
     Ok(blame.join("\n"))
 }
 
-// This recursively walks the tree for the given commit, skipping over unmodified
-// entries, exactly like build_blame_tree does. However, instead of building the
-// blame tree, this simply computes the unmodified_lines for each blob that was
-// modified in `commit`, relative to all the parents. The results are populated
-// into the `results` HashMap.
-fn find_unmodified_lines(
+// Helper that recursively walks the tree for the given commit, skipping over
+// unmodified entries.  When modified blobs are encountered, the provided
+// `handler` is invoked.
+//
+// XXX wip notes: I think because this traversal is really so close to
+// `build_blame_tree` and this is a pattern we expect to repeat for "files-struct"
+// beyond the default "files" ingestion,
+//
+//
+// XXX so build_blame_tree more sanely is just passing trees around, except for
+// the leaf nodes where it calls blame_for_path and that uses file_movement to
+// find the right predecessor path for the history file and then the import
+// helper to fish out its contents.
+//
+// Because we generally do need to deal with the predecessor files here, we do
+// need to maintain access to at least the "partition" (files, files-struct, etc.)
+// root for the given trees rather than going fully relative.  In order to avoid
+// passing a crap-load more stuff, maybe it makes sense to just stick with this
+// current path-heavy approach but passing the "partition" to handle that aspect.
+fn process_tree_changes(
     file_movement: Option<&HashMap<Oid, PathBuf>>,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     mut path: PathBuf,
     results: &mut HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
+    handler: &mut dyn FnMut()
 ) -> Result<(), git2::Error> {
     let tree_at_path = if path == PathBuf::new() {
         commit.tree()?
@@ -379,12 +437,12 @@ fn find_unmodified_lines(
 
                     results.insert(
                         (parent.id(), path.clone()),
-                        unmodified_lines(&blob, &parent_blob)?,
+                        ingest_diff_accumulating_deltas(&blob, &parent_blob)?,
                     );
                 }
             }
             Some(ObjectType::Tree) => {
-                find_unmodified_lines(file_movement, git_repo, commit, path.clone(), results)?;
+                process_tree_changes(file_movement, git_repo, commit, path.clone(), results)?;
             }
             _ => (),
         };
@@ -397,7 +455,7 @@ fn find_unmodified_lines(
 
 #[allow(clippy::too_many_arguments)]
 fn build_blame_tree(
-    diff_data: &DiffData,
+    diff_data: &TimelineData,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     tree_at_path: &git2::Tree,
@@ -435,7 +493,7 @@ fn build_blame_tree(
 
         match entry.kind() {
             Some(ObjectType::Blob) => {
-                let blame_text = blame_for_path(
+                let blame_text = hyperblame_for_path(
                     diff_data,
                     commit,
                     &entry.to_object(git_repo)?.peel_to_blob()?,
@@ -525,40 +583,195 @@ fn build_blame_tree(
     Ok(())
 }
 
-struct DiffData {
-    // The commit for which this DiffData holds data.
-    revision: git2::Oid,
+struct TimelineData {
+    /// The source tree commit for which this DiffData holds data.
+    source_rev: git2::Oid,
+    /// The source tree hg commit, if we have an associated hg tree.
+    source_hg_rev: Option<String>,
+    // The history syntax tree commit for which this DiffData holds data.
+    syntax_rev: git2::Oid,
+
     // Map from file (blob) id in the child rev to the path that the file was
     // at in the parent revision, for files that got moved. Set to None if the
     // child rev has multiple parents.
     file_movement: Option<HashMap<Oid, PathBuf>>,
-    // Map to find unmodified lines for modified files in a revision (files that
+    // Map to find unmodified tokens for modified files in a revision (files that
     // are not modified don't have entries here). The key is of the map is a
     // tuple containing the parent commit id and path to the file (in the child
     // revision). The parent commit id is needed in the case of merge commits,
-    // where a file that is modified may have different sets of unmodified lines
-    // with respect to the different parent commits.
-    // The value in the map is a vec of line mappings as produced by the
-    // `unmodified_lines` function.
-    unmodified_lines: HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
+    // where a file that is modified may have different sets of unmodified tokens
+    // (by line index) with respect to the different parent commits.
+    // The value in the map is a vec of token mappings as produced by the
+    // `unmodified_tokens` function.
+    unmodified_tokens: HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
 }
 
-// Does the CPU-intensive work required for blame computation of a given revision.
-// This does not mutate anything in `git_repo` and has no other dependencies, so
-// it can be parallelized.
-fn compute_diff_data(
+/// Accumulates raw token statistics for a single revision.
+///
+///
+struct TokenStatsMachine {
+    /// Stats for each token across the whole revision.
+    revision_token_deltas: BTreeMap<String, TokenDelta>,
+
+    /// Map from file to token to deltas for that token in that file.
+    file_token_deltas: BTreeMap<String, BTreeMap<String, TokenDelta>>,
+
+
+}
+
+/// Accumulates deltas from hunks as driven by `ingest_diff_accumulating_deltas`
+/// performing immediate local inference, as well as deriving sufficient state
+/// to allow for move and rename inference in subsequent passes once all diffs
+/// have been ingested.
+///
+/// ## Heuristics
+///
+/// ### Token evolution inferred from isolated changes
+///
+/// If we have a paired token removal and addition with stable context on either
+/// side, we can potentially infer that the token "evolved", especially if the
+/// the removed and added tokens meet other similarity heuristics.  Similarity
+/// heuristics for cases where we have a tree-sitter grammar available could
+/// mean that the token is still known to be a type identifier or a variable
+/// name identifier.  For cases without a grammar, looking like a word in both
+/// cases might be a sufficient metric.
+///
+/// This can also potentially be expanded to runs of tokens, especially in cases
+/// where we do have additional tree-sitter grammar context we can use to know
+/// that a sequence of tokens remains in the same "hole" in the "comby.dev"
+/// terminology.  That is, if an argument "Type argName" changes to "NewType
+/// newArgName", we would ideally be able to model that as "Type" evolving to
+/// "NewType" and "argName" evolving to "newArgName".  And it might still
+/// potentially be the case for a composite series of tokens like "Type"
+/// evolving to "SomeNamespace::NamespacedType" where we would be going from 1
+/// token to 3 tokens but still occupying the same hole, so we could still
+/// potentially say the 3 tokens all evolved from the same 1st token.
+///
+/// ### Token Run Move Inference
+///
+/// In the case of refactorings, we expect a meaningful amount of locality when
+/// it comes to moved chunks of code.  The patch author will likely be
+/// performing cut-and-paste in large sections, potentially followed by targeted
+/// changes.  We do not expect them to move individual tokens piece by piece
+/// like the author is assembling a ransom note.  So it makes little sense for
+/// our approach to act like they do.  To this end, we favor longer runs
+struct DeltaMachine {
+    cur_namespace: &'static str,
+    added_in_run: Vec<(String, String)>,
+    removed_in_run: Vec<(String, String)>,
+
+    namespaces: HashMap<&'static str, DeltaNamespace>,
+}
+
+struct DeltaNamespace {
+    context_clusters: HashMap<String, DeltaContextCluster>,
+}
+
+struct DeltaContextCluster {
+
+}
+
+impl DeltaMachine {
+    fn new() {
+        Self {
+            cur_namespace: "",
+            added_in_run: vec![],
+            removed_in_run: vec![],
+
+            namespaces: HashMap::default(),
+        }
+    }
+
+    fn set_namespace(&mut self, namespace: &'static str) {
+        self.cur_namespace = namespace;
+    }
+
+    /// Report the addition or removal of a symbol with the given pretty symbol
+    /// context in the given semantic namespace, with "%" currently representing
+    /// having no symbol context.  The origin must be either '+' or '-'
+    /// indicating addition or removal.
+    fn push_diff_token(&mut self, origin: char, context: &str, token: &str) {
+        match origin {
+            '+' => {
+                self.added_in_run.push((context.to_owned(), token.to_owned()));
+            },
+            '-' => {
+                self.removed_in_run.push((context.to_owned(), token.to_owned()));
+            },
+            ' ' => {
+                self.flush_run();
+            },
+            _ => return,
+        };
+    }
+
+    fn flush_run(&mut self) {
+        // (we expect to be called like this a lot currently)
+        if self.added_in_run.len() == 0 && self.removed_in_run() == 0 {
+            return;
+        }
+
+        // If we have an added and removed tokens with the same context, then
+        // treat it as an evolution.
+        if self.added_in_run.len() == 1 && self.removed_in_run.len() == 1 &&
+           self.added_in_run[0].0 == self.removed_in_run[0].0 {
+
+        }
+
+        // If this is only removals (we know at least one of added/removed is
+        // non-zero from our check at the top), we want to emit a marker removal
+        // associated with the first token being removed.
+        if self.added_in_run.len() == 0 {
+
+        }
+    }
+
+    /// Called when we're at the end of the current hunk.
+    fn flush_hunk(&mut self) {
+        self.flush_run();
+    }
+}
+
+// Does the CPU-intensive work required for pre-computation of a given revision
+// that can depend on any source tree revision and syntax token tree revisions
+// (which will already have been generated through the current revision), but
+// cannot depend on any revisions timeline revisions because those will not have
+// been created yet.  (Anything that depends on timeline revisions needs to
+// happen in our main thread logic.)
+fn thread_preprocess_revision(
     git_repo: &git2::Repository,
     git_oid: &git2::Oid,
-) -> Result<DiffData, git2::Error> {
+) -> Result<TimelineData, git2::Error> {
     let commit = git_repo.find_commit(*git_oid).unwrap();
+
+    // ## Infer file movement from the "files" tree
+    //
+    // We only need to determine movement once, and using the token rep is our
+    // best option right now.  Note that as we teach the system to understand
+    // renames and other refactorings, it becomes possible for us to use those
+    // heuristics instead, although if we can follow the evolution of tokens
+    // through time it's not clear that the file movement is as important.
     let file_movement = if commit.parent_count() == 1 {
+        let parent_root = commit.parent(0).unwrap().tree().unwrap();
+        let parent_files = parent_root
+            .get_name("files")
+            .unwrap()
+            .to_object(git_repo)
+            .unwrap()
+            .peel_to_tree()
+            .unwrap();
+        let cur_root = commit.tree().unwrap();
+        let cur_files = cur_root
+            .get_name("files")
+            .unwrap()
+            .to_object(git_repo)
+            .unwrap()
+            .peel_to_tree()
+            .unwrap();
+
         let mut movement = HashMap::new();
         let mut diff = git_repo
-            .diff_tree_to_tree(
-                Some(&commit.parent(0).unwrap().tree().unwrap()),
-                Some(&commit.tree().unwrap()),
-                None,
-            )
+            .diff_tree_to_tree(Some(&parent_files), Some(&cur_files), None)
             .unwrap();
         diff.find_similar(Some(
             DiffFindOptions::new()
@@ -587,25 +800,41 @@ fn compute_diff_data(
         None
     };
 
-    let mut unmodified_lines = HashMap::new();
-    find_unmodified_lines(
+    // ## Process the "files" token-centric mapping
+    //
+    // This provides us with the unmodified_tokens mapping as well as
+    // accumulated add/removed tokens so we can try and infer moves in the
+    // next passes.
+    let mut unmodified_tokens = HashMap::new();
+    process_tree_changes(
         file_movement.as_ref(),
         git_repo,
         &commit,
         PathBuf::new(),
-        &mut unmodified_lines,
+        &mut unmodified_tokens,
     )?;
 
-    Ok(DiffData {
-        revision: *git_oid,
+    // ## Process token movement inference
+    //
+    // We now have a
+
+    // ## Process the "file-struct" symbol rep
+
+
+    Ok(TimelineData {
+        source_rev: *git_oid,
+        // XXX this should get filled in downstream
+        source_hg_rev: None,
+        syntax_rev:
+
         file_movement,
-        unmodified_lines,
+        unmodified_tokens,
     })
 }
 
 struct ComputeThread {
     query_tx: Sender<git2::Oid>,
-    response_rx: Receiver<DiffData>,
+    response_rx: Receiver<TimelineData>,
 }
 
 impl ComputeThread {
@@ -627,7 +856,7 @@ impl ComputeThread {
         self.query_tx.send(*rev).unwrap();
     }
 
-    fn read_result(&self) -> DiffData {
+    fn read_result(&self) -> TimelineData {
         match self.response_rx.try_recv() {
             Ok(result) => result,
             Err(_) => {
@@ -640,12 +869,12 @@ impl ComputeThread {
 
 fn compute_thread_main(
     query_rx: Receiver<git2::Oid>,
-    response_tx: Sender<DiffData>,
+    response_tx: Sender<TimelineData>,
     git_repo_path: String,
 ) {
     let git_repo = Repository::open(git_repo_path).unwrap();
     while let Ok(rev) = query_rx.recv() {
-        let result = compute_diff_data(&git_repo, &rev).unwrap();
+        let result = thread_preprocess_revision(&git_repo, &rev).unwrap();
         response_tx.send(result).unwrap();
     }
 }
@@ -656,23 +885,24 @@ fn main() {
     let args: Vec<_> = env::args().collect();
     let git_repo_path = args[1].to_string();
     let git_repo = Repository::open(&git_repo_path).unwrap();
-    let blame_repo = Repository::open(&args[2]).unwrap();
-    let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
-    let mut hg_helper = if use_cinnabar {
-        Some(start_cinnabar_helper(&git_repo))
-    } else {
-        None
-    };
+    let syntax_repo = Repository::open(&args[2]).unwrap();
+    let timeline_repo = Repository::open(&args[3]).unwrap();
+    let rev_summary_root = &args[4];
+
+    // Note that don't do anything with hg or cinnabar in this program; we depend
+    // on build-syntax-token-tree to have included an "hg HGREV" line in the
+    // commit messages it emitted into the syntax_repo.
+
     let blame_ref = env::var("BLAME_REF").ok().unwrap_or("HEAD".to_string());
     let commit_limit = env::var("COMMIT_LIMIT")
         .ok()
         .and_then(|x| x.parse::<usize>().ok())
         .unwrap_or(0);
 
-    info!("Reading existing blame map of ref {}...", blame_ref);
-    let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&blame_ref) {
-        let (blame_map, _, _) = index_blame(&blame_repo, Some(oid));
-        blame_map
+    info!("Reading existing blame map of timeline repo ref {}...", blame_ref);
+    let mut timeline_map = if let Ok(oid) = timeline_repo.refname_to_id(&blame_ref) {
+        let (timeline_map, _, _) = index_blame(&timeline_repo, Some(oid));
+        timeline_map
             .into_iter()
             .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
             .collect::<HashMap<git2::Oid, BlameRepoCommit>>()
@@ -686,7 +916,7 @@ fn main() {
         .unwrap();
     let mut revs_to_process = walk
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
-        .filter(|git_oid| !blame_map.contains_key(git_oid))
+        .filter(|git_oid| !timeline_map.contains_key(git_oid))
         .collect::<Vec<_>>();
     if commit_limit > 0 && commit_limit < revs_to_process.len() {
         info!(
@@ -724,7 +954,7 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&blame_repo);
+    let mut import_helper = start_fast_import(&syntax_repo);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -764,7 +994,7 @@ fn main() {
             .collect::<Vec<_>>();
         let blame_parents = commit
             .parent_ids()
-            .map(|pid| blame_map[&pid])
+            .map(|pid| timeline_map[&pid])
             .collect::<Vec<_>>();
 
         // Scope the import_helper borrow
@@ -776,7 +1006,7 @@ fn main() {
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
             writeln!(import_stream, "mark :{}", rev_done).unwrap();
-            blame_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
+            timeline_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();

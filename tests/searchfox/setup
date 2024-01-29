@@ -48,4 +48,5 @@ mkdir -p $HISTORY_ROOT/timeline
 git init $HISTORY_ROOT/timeline
 mkdir -p $HISTORY_ROOT/rev-summaries
 build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax
+build-timeline-tree $GIT_ROOT $HISTORY_ROOT/syntax $GIT_ROOT $HISTORY_ROOT/timeline $GIT_ROOT $HISTORY_ROOT/rev-summaries
 

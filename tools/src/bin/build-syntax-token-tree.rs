@@ -713,6 +713,9 @@ fn main() {
         .and_then(|x| x.parse::<usize>().ok())
         .unwrap_or(0);
 
+    // TODO: switch this mechanism to using `index_syntax_history` that was introduced for this.
+    // Currently the format is the same for both so it works, but it's appropriate to modernize,
+    // and it will be necessary to update when we remove classic blame support.
     info!("Reading existing blame map of ref {}...", blame_ref);
     let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&blame_ref) {
         let (blame_map, _, _) = index_blame(&blame_repo, Some(oid));

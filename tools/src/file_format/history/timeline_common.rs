@@ -34,7 +34,8 @@ pub struct SummaryRecordRef {
     /// granularity as a second pass, but it's not clear the additional
     /// decimation would be useful.
     ///
-    /// Summary records should never overlap, so sorting
+    /// Summary records should never overlap, so sorting by the tuple should
+    /// work acceptably.
     pub iso_week_range: (u16, u8, u8),
 }
 
@@ -57,25 +58,40 @@ pub struct TokenDeltaDetails {
     /// semantically it might be that some other greater number of changes
     /// should instead be counted as moved.
     pub moved: u32,
+    /// Heuristic concept where we believe this token
+    pub evolved_from: u32,
     /// Counterpart to "added"; the number of times this token was present in a
     /// "-" diff delta that was not attributed to "moved".
     pub removed: u32,
 }
 
-/// Indicate whether a symbol was added/changed/removed.
-/// TODO: Figure out how to express a symbol being renamed.  While we could add
-/// a "Renamed" here, it might instead make sense to stick with "Changed" and
-/// instead have a list of change details (beyond the token_changes) which could
-/// express the rename.
+/// Indicate whether a symbol/token was added/changed/evolved/removed.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ChangeKind {
     /// Newly added symbol/whatever.
     Added,
-    /// The symbol/whatever existed before this and it still exists; look for
-    /// details elsewhere.  This mainly exists to distinguish from added and
-    /// removed which are more immediately useful.
+    /// The symbol/token/whatever existed before this and it still exists, but
+    /// for a symbol, things inside it changed or its position changed, and for
+    /// a token, its position changed.
+    ///
+    /// Arguably for the token, it would be less confusing to call this "moved",
+    /// but from an implementation perspective it seems better to avoid creating
+    /// another kind at this time.
+    ///
+    /// Note that when it comes to diffs, there's always the issue that a
+    /// reordering of [A, B] to [B, A] is inherently semantically different and
+    /// edit distance decides what happens.  We currently don't attempt to do
+    /// anything to mark up what the diff algorithm decides stayed the same;
+    /// we're just explaining what the diff algorithm decided.  This could
+    /// change in the future if there's a good reason to be more clever, but in
+    /// general the idea is that by having semantically bound tokens, we're
+    /// already clever enough to avoid having things be misleading due to
+    /// repurposing of tokens.
     Changed,
+    /// The symbol/token/whatever was renamed or otherwise fundamentally
+    /// changed, but we think we can tell you what the thing was before.
+    Evolved,
     /// The symbol/whatever was removed.
     Removed,
 }

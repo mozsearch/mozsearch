@@ -63,7 +63,7 @@ pub struct RevSummaryRecord {
     /// layer in order to avoid dead-naming people.
     pub unmapped_author: String,
 
-    /// Basically the contents of all the `FileDetlaDetailRecords` for all the
+    /// Basically the contents of all the `FileDeltaDetailRecords` for all the
     /// files changed in this revision.
     pub file_deltas: BTreeMap<String, RevFileSummaryRecord>,
 }

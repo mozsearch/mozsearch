@@ -12,12 +12,42 @@
 //!   multiple patches involved in the term being removed.
 //! - General interest graphs of net changes in use of the token over time,
 //!   aggregated by week.
+//!
+//! These files are intended to primarily serve as the basis for histograms and
+//! serve as a light-weight cross-reference to commits which include the tokens,
+//! so we store relatively little information about changes here.  Instead, the
+//! assumption is that any queries will use the commit references from this
+//! file to look up the rev-summaries for the commit which has an aggregation
+//! of the changes.  This should also allow queries that involve multiple tokens
+//! to efficiently perform filtering by intersecting commit sets before moving
+//! on to look up the commits.
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TokenDetailRecord {}
+pub struct TokenDeltaDetailRecord {
+    #[serde(flatten)]
+    pub desc: DetailRecordRef,
+
+    #[serde(flatten)]
+    pub delta: TokenDeltaDetails,
+}
 
 /// Aggregated statistics
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TokenSummaryRecord {}
+pub struct TokenDeltaSummaryRecord {
+    #[serde(flatten)]
+    pub desc: SummaryRecordRef,
+
+    #[serde(flatten)]
+    pub delta: TokenDeltaDetails,
+}
+
+/// Internally tagged enum for our detail and summary types.  This ends up
+/// serializing as `{"type": "Detail" , ...}` or `{"type": "Summary", ...}`.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum TokenDeltaRecord {
+    Detail(TokenDeltaDetailRecord),
+    Summary(TokenDeltaSummaryRecord),
+}

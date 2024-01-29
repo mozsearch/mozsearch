@@ -394,7 +394,7 @@ impl Config {
     }
 }
 
-/// Ingest the provided blame_repo's provided ref (or HEAD if None), and
+/// Ingest the provided blame_repo's provided ref (or HEAD if None)[1], and
 /// returning 3 maps:
 /// 1. Map from source git rev to blame repo git rev
 /// 2. Map from source git rev to hg repo git rev
@@ -402,6 +402,11 @@ impl Config {
 ///
 /// If changing what we encode in the blame commit, you also need to change
 /// the `extract_info_from_blame_commit` helper below.
+///
+/// 1: We don't load everything that's in the repository; just the notional head
+/// we're displaying.  This is particularly relevant for gecko trees where we
+/// maintain a single super gecko repo, but only intend to serve a single branch
+/// for each server index.
 pub fn index_blame(
     blame_repo: &Repository,
     head_ref: Option<Oid>,
@@ -498,6 +503,107 @@ pub fn extract_info_from_blame_commit(commit: &git2::Commit) -> BlameCommitInfo 
         oldrevs,
     }
 }
+
+pub struct HistorySyntaxCommitMeta {
+    // source_rev is the key of the map that holds this record
+    pub syntax_rev: Oid,
+    pub source_hg_rev: Option<String>,
+}
+
+/// Given a mozsearch token-centric history syntax repository and the head we
+/// plan to serve from, walk its ancestry populating a `syntax_map` freom source
+/// repo OID to a struct containing the syntax repo OID as well as any hg rev id
+/// if such data is present.
+///
+/// Note that unlike the classic line-centric maps built by `index_blame`, this
+/// data is not intended to be used for web-serving.
+pub fn index_syntax_history(
+    syntax_repo: &Repository,
+    head_ref: Option<Oid>,
+) -> HashMap<Oid, HistorySyntaxCommitMeta> {
+    let mut walk = syntax_repo.revwalk().unwrap();
+    if let Some(oid) = head_ref {
+        walk.push(oid).unwrap();
+    } else {
+        walk.push_head().unwrap();
+    }
+
+    let mut syntax_map = HashMap::new();
+
+    for r in walk {
+        let oid = r.unwrap();
+        let commit = syntax_repo.find_commit(oid).unwrap();
+
+        let msg = commit.message().unwrap();
+        let pieces = msg.split_whitespace().collect::<Vec<_>>();
+
+        let orig_oid = Oid::from_str(pieces[1]).unwrap();
+
+        let source_hg_rev = if pieces.len() > 2 {
+            Some(pieces[3].to_owned())
+        } else {
+            None
+        };
+
+        syntax_map.insert(orig_oid, HistorySyntaxCommitMeta {
+            syntax_rev: commit.id(),
+            source_hg_rev,
+        });
+    }
+
+    syntax_map
+}
+
+pub struct HistoryTimelineCommitMeta {
+    // source_rev is the key of the map that holds this record
+    pub syntax_rev: Oid,
+    pub timeline_rev: Oid,
+    pub source_hg_rev: Option<String>,
+}
+
+/// Given a mozsearch token-centric history timeline repository and the head we
+/// plan to serve from, walk its ancestry populating a `timeline_map` from
+/// source repo OID to a HistoryTimelineCommitMeta struct.
+pub fn index_timeline_history(
+    syntax_repo: &Repository,
+    head_ref: Option<Oid>,
+) -> HashMap<Oid, HistoryTimelineCommitMeta> {
+    let mut walk = syntax_repo.revwalk().unwrap();
+    if let Some(oid) = head_ref {
+        walk.push(oid).unwrap();
+    } else {
+        walk.push_head().unwrap();
+    }
+
+    let mut timeline_map = HashMap::new();
+
+    for r in walk {
+        let oid = r.unwrap();
+        let commit = syntax_repo.find_commit(oid).unwrap();
+
+        let msg = commit.message().unwrap();
+        let pieces = msg.split_whitespace().collect::<Vec<_>>();
+
+        let orig_oid = Oid::from_str(pieces[1]).unwrap();
+
+        let syntax_rev = Oid::from_str(pieces[3]).unwrap();
+
+        let source_hg_rev = if pieces.len() > 4 {
+            Some(pieces[5].to_owned())
+        } else {
+            None
+        };
+
+        timeline_map.insert(orig_oid, HistoryTimelineCommitMeta {
+            syntax_rev,
+            source_hg_rev,
+            timeline_rev: commit.id(),
+        });
+    }
+
+    timeline_map
+}
+
 
 pub fn load(
     config_path: &str,
