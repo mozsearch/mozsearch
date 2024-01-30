@@ -91,9 +91,10 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
         match (state, next_c) {
             (_, None) => {
                 if state != SplitState::NotInArg {
-                    warn!(
-                        "In arg state with depth {} when ran out of chars.",
-                        arg_depth
+                    info!(
+                        "In arg state with depth {} when ran out of chars on {}.",
+                        arg_depth,
+                        pretty,
                     );
                 }
                 if !token.is_empty() {
@@ -113,7 +114,11 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
                 token.push('<');
             }
             (SplitState::NotInArg, Some('>')) => {
-                warn!("Saw '>' when not in an argument while parsing {}.", pretty);
+                // Don't warn on operator->, operator>, operator>=, operator>>, etc.
+                // Also, we expect to get called on a bunch of garbage, so no warnings.
+                if !token.starts_with("operator") {
+                    info!("Saw '>' when not in an argument while parsing {}.", pretty);
+                }
                 token.push('>');
             }
             (SplitState::NotInArg, Some(c)) => {
@@ -125,7 +130,11 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
                 state = SplitState::NotInArg;
             }
             (SplitState::NotInArgSawColon, Some(c)) => {
-                warn!(
+                // We expect to be called on a bunch of garbage, so no warnings.
+                // In particular, we will have things like:
+                // NSPRLogModulesParser_RawArg_Test::TestBody::(anonymous)::(lambda at /builds/worker/checkouts/gecko/xpcom/tests/gtest/TestNSPRLogModulesParser.cpp:130:19)
+                // NameTableKey::(anonymous)::(unnamed union at /builds/worker/checkouts/gecko/xpcom/ds/nsStaticNameTable.cpp:33:3)
+                info!(
                     "Saw a single colon when not in arg while parsing {}",
                     pretty
                 );
@@ -172,12 +181,17 @@ fn test_split_pretty() {
 
     assert_eq!(
         split_pretty("foo/bar/Baz.h", "FILE_foo_bar_Baz.h"),
-        (ts(vec!["foo", "bar", "Baz.h"]), "/")
+        (ts(vec!["foo/", "bar/", "Baz.h"]), "")
     );
 
     assert_eq!(
         split_pretty("mozilla::dom::locks::LockRequest", "T_LockRequest"),
         (ts(vec!["mozilla", "dom", "locks", "LockRequest"]), "::")
+    );
+
+    assert_eq!(
+        split_pretty("nsCOMPtr::operator->", "_ZNK8nsCOMPtrptEv&redirect=false"),
+        (ts(vec!["nsCOMPtr", "operator->"]), "::")
     );
 
     assert_eq!(
