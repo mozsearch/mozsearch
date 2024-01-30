@@ -332,7 +332,7 @@ impl OntologyMappingConfig {
                             return (results, labels_to_apply);
                         } else {
                             if cur_type.identifier.len() > 0 {
-                                warn!(
+                                info!(
                                     type_str,
                                     prev_id = cur_type.identifier,
                                     new_id = token,
@@ -354,7 +354,7 @@ impl OntologyMappingConfig {
                 }
                 (TypeParseState::Typish, Some('<')) => {
                     if cur_type.identifier.len() > 0 {
-                        warn!(
+                        info!(
                             type_str,
                             prev_id = cur_type.identifier,
                             new_id = token,
@@ -369,7 +369,7 @@ impl OntologyMappingConfig {
                 }
                 (TypeParseState::Typish, Some(',')) => {
                     if cur_type.identifier.len() > 0 {
-                        warn!(
+                        info!(
                             type_str,
                             prev_id = cur_type.identifier,
                             new_id = token,
@@ -398,7 +398,7 @@ impl OntologyMappingConfig {
                         container_type.args.push(cur_type);
                         cur_type = ShoddyType::default();
                     } else {
-                        warn!(type_str, "Hit comma with no parent type!");
+                        info!(type_str, "Hit comma with no parent type!");
                         return (results, labels_to_apply);
                     }
                 }
@@ -407,7 +407,7 @@ impl OntologyMappingConfig {
                     if state == TypeParseState::Typish {
                         if token.len() > 0 {
                             if cur_type.identifier.len() > 0 {
-                                warn!(
+                                info!(
                                     type_str,
                                     prev_id = cur_type.identifier,
                                     new_id = token,
@@ -425,7 +425,7 @@ impl OntologyMappingConfig {
                     cur_type = match type_stack.pop() {
                         Some(t) => t,
                         None => {
-                            warn!(type_str, "Unpaired '>' encountered!");
+                            info!(type_str, "Unpaired '>' encountered!");
                             return (results, labels_to_apply);
                         }
                     };
@@ -549,7 +549,7 @@ impl OntologyMappingConfig {
                         container_type.args.push(cur_type);
                         cur_type = ShoddyType::default();
                     } else {
-                        warn!(type_str, "Hit comma with no parent type!");
+                        info!(type_str, "Hit comma with no parent type!");
                         return (results, labels_to_apply);
                     }
                     // We're no longer closing.
