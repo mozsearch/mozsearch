@@ -312,12 +312,20 @@ var ContextMenu = new (class ContextMenu {
               });
             }
 
+            let showInheritance = false;
+            if (jumpref?.meta?.kind === "method" &&
+                (jumpref?.meta?.overrides?.length || jumpref?.meta?.overriddenBy?.length)) {
+              showInheritance = true;
+            } else if (jumpref?.meta?.kind === "class" &&
+                       (jumpref?.meta?.supers?.length || jumpref?.meta?.subclasses?.length)) {
+              showInheritance = true;
+            }
+
             // Offer inheritance diagrams for methods that are involved in an
             // override hierarchy.  This does not currently work for classes
             // despite the name demanding it.  (cmd_traverse would like a minor
             // cleanup.)
-            if (jumpref?.meta?.kind === "method" &&
-                (jumpref?.meta?.overrides?.length || jumpref?.meta?.overriddenBy?.length)) {
+            if (showInheritance) {
               queryString = `inheritance-diagram:'${jumpref.pretty}' depth:4`;
               //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
               extraMenuItems.push({
@@ -328,7 +336,6 @@ var ContextMenu = new (class ContextMenu {
               });
             }
           }
-
         }
       }
     }
