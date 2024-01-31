@@ -577,7 +577,7 @@ async fn main() {
                             use_details.push((field.pretty.clone(), ptr_kind));
                         }
                     } else {
-                        warn!(
+                        info!(
                             pretty = pointee_pretty.as_str(),
                             "Unable to map pretty identifier to symbols."
                         );
