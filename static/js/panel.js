@@ -439,3 +439,10 @@ function blurrifyDiagram() {
 // fact that we're cloning nodes that have identifiers which creates duplicate
 // identifiers is creating a pathological situation?
 //blurrifyDiagram();
+
+// Scroll the first root node of the diagram so that it's centered.
+document.querySelector(".diagram-depth-0 polygon")?.scrollIntoView({
+  behavior: "instant",
+  block: "center",
+  inline: "center"
+});
