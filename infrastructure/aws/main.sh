@@ -33,7 +33,7 @@ handle_error() {
     # Send failure email and shut down. Release channel failures get sent to the
     # default email address, other channel failures get sent to the author of
     # the head commit.
-    $AWS_ROOT/send-failure-email.py "[${EMAIL_PREFIX}]" "${DEST_EMAIL}"
+    $AWS_ROOT/send-failure-email.py "${EMAIL_PREFIX}" "${DEST_EMAIL}"
 
     # Need to terminate the script on error explicitly, otherwise bash
     # will continue the script after running the trap handler.
@@ -79,7 +79,7 @@ STOP
 # Create a crontab entry to send failure email if TARGETSCRIPT takes too long. This
 # is basically a failsafe for if this instance doesn't shut down within
 # 10 hours.
-${AWS_ROOT}/make-crontab.py "[${EMAIL_PREFIX}/timeout]" "${DEST_EMAIL}" ${MAXHOURS}
+${AWS_ROOT}/make-crontab.py "${EMAIL_PREFIX}/timeout" "${DEST_EMAIL}" ${MAXHOURS}
 
 # Daily cron jobs can include things like the `locate` `updatedb` script which
 # can end up tying up the indexer's mount point.  These are run via `run-parts`

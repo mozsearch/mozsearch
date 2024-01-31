@@ -123,7 +123,7 @@ release* )
     ;;
 esac
 
-$AWS_ROOT/send-warning-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
+$AWS_ROOT/send-warning-email.py "$CHANNEL/$BRANCH" "$DEST_EMAIL"
 
 gzip -k ~ubuntu/index-log
 $AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "index-$(date -Iminutes)_${CHANNEL}_${CONFIG_FILE_NAME%.*}.gz"
@@ -133,7 +133,7 @@ release* )
     # Don't send completion email notification for release channel.
     ;;
 * )
-    $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
+    $AWS_ROOT/send-done-email.py "$CHANNEL/$BRANCH" "$DEST_EMAIL"
     ;;
 esac
 
