@@ -440,7 +440,15 @@ function blurrifyDiagram() {
 // identifiers is creating a pathological situation?
 //blurrifyDiagram();
 
-// Scroll the first root node of the diagram so that it's centered.
+// Scroll the first root node of the diagram so that it's centered.  Through use
+// of `?.` this won't freak out if there are no matches.  According to
+// performance.now(), this takes 3ms on the 20,765 line indexedDB/ActorsParent.cpp
+// right now.
+//
+// This file is loaded at the bottom of the HTML file so the DOM is available,
+// although I'm not entirely sure this is wise versus hooking the load event.
+//
+// TODO: Be more wise.
 document.querySelector(".diagram-depth-0 polygon")?.scrollIntoView({
   behavior: "instant",
   block: "center",
