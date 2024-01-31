@@ -70,13 +70,14 @@ var ContextMenu = new (class ContextMenu {
     // then searches
     let searchMenuItems = [];
     // the the text search and sticky highlight option
+    let stickyItems = [];
     // then these extra menu items which are for new/experimental features where
     // we don't want to mess with muscle memory at the top of the list.
     let extraMenuItems = [];
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
-      let symbols = symbolToken.getAttribute("data-symbols").split(",");
+      const symbols = symbolToken.getAttribute("data-symbols").split(",");
 
       const seenSyms = new Set();
       // For debugging/investigation purposes, expose the symbols that got
@@ -338,6 +339,14 @@ var ContextMenu = new (class ContextMenu {
           }
         }
       }
+
+      const tokenText = symbolToken.textContent;
+      stickyItems.push({
+        html: "Sticky highlight",
+        action: () => { Hover.stickyHighlight(symbols, tokenText); },
+        icon: "tasks",
+        section: "highlights",
+      });
     }
 
     let menuItems = jumpMenuItems.concat(searchMenuItems);
@@ -353,16 +362,7 @@ var ContextMenu = new (class ContextMenu {
       });
     }
 
-    if (symbolToken) {
-      let symbols = symbolToken.getAttribute("data-symbols");
-      let visibleToken = symbolToken.textContent;
-      menuItems.push({
-        html: "Sticky highlight",
-        href: `javascript:Hover.stickyHighlight('${symbols}', '${visibleToken}')`,
-        icon: "tasks",
-        section: "highlights",
-      });
-    }
+    menuItems.push(...stickyItems);
 
     menuItems.push(...extraMenuItems);
 
@@ -373,7 +373,7 @@ var ContextMenu = new (class ContextMenu {
     let suppression = new Set();
     this.menu.innerHTML = "";
     let lastSection = null;
-    for (let item of menuItems) {
+    for (const item of menuItems) {
       // Avoid adding anything we've definitely added before.  This currently
       // can happen for hierarchical diagrams where we unify based on the
       // "pretty" and in particular for IDL interfaces/methods where the iface
@@ -397,7 +397,19 @@ var ContextMenu = new (class ContextMenu {
       }
 
       let link = li.appendChild(document.createElement("a"));
-      link.href = item.href;
+      if (item.action) {
+        link.addEventListener("click", (evt) => {
+          evt.preventDefault();
+          evt.stopPropagation();
+          item.action();
+        }, {
+          // Debounce by only letting us hear one click.
+          once: true
+        });
+        link.href = "#";
+      } else if (item.href) {
+        link.href = item.href;
+      }
 
       link.classList.add("contextmenu-link");
       if (item.icon) {
