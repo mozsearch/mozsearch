@@ -79,7 +79,7 @@ build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 #   that have the relevant jobs scheduled on them.  In particular:
 #   `./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"`
 build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
+	[ -e ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 	mkdir -p ~/mozilla-index
 	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
@@ -95,7 +95,7 @@ serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 #   checked out under "config" in the check-out repo, you can create a symlink
 #   in the VM's home directory via `pushd ~; ln -s /vagrant/config llvm-config`.
 build-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/llvm-config
+	[ -e ~/llvm-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/llvm-config
 	mkdir -p ~/llvm-index
 	/vagrant/infrastructure/indexer-setup.sh ~/llvm-config just-llvm.json ~/llvm-index
 	/vagrant/infrastructure/indexer-run.sh ~/llvm-config ~/llvm-index
@@ -105,6 +105,22 @@ build-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
 serve-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/llvm-config just-llvm.json ~/llvm-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~
+
+# Notes:
+# - If you want to use a modified version of mozsearch-mozilla, such as one
+#   checked out under "config" in the check-out repo, you can create a symlink
+#   in the VM's home directory via `pushd ~; ln -s /vagrant/config graphviz-config`.
+build-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	[ -e ~/graphviz-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/graphviz-config
+	mkdir -p ~/graphviz-index
+	/vagrant/infrastructure/indexer-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index
+	/vagrant/infrastructure/indexer-run.sh ~/graphviz-config ~/graphviz-index
+	/vagrant/infrastructure/web-server-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~
+
+serve-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	/vagrant/infrastructure/web-server-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~
 
 build-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/trees-index
