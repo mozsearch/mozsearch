@@ -302,7 +302,7 @@ var ContextMenu = new (class ContextMenu {
             });
 
             // Offer class diagrams for classes
-            if (jumpref?.meta?.kind === "class") {
+            if (jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") {
               queryString = `class-diagram:'${jumpref.pretty}' depth:4`;
               //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
               extraMenuItems.push({
