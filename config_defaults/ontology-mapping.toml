@@ -178,6 +178,17 @@ label = "rc"
 [[pretty."mozilla::AtomicRefCounted".label_subclasses.labels]]
 label = "arc"
 
+# #### Webkit
+
+# This is transitive and gets RefCounted too.
+[[pretty."WTF::RefCountedBase".label_subclasses.labels]]
+label = "rc"
+
+[[pretty."WTF::ThreadSafeRefCounted".label_subclasses.labels]]
+label = "rc"
+[[pretty."WTF::ThreadSafeRefCounted".label_subclasses.labels]]
+label = "arc"
+
 # ### Cycle Collection ###
 # We use a containing class rule here because the participant is an inner class
 # of the cycle collected class.  Compare with the refcount objects which are
@@ -230,6 +241,13 @@ labels = ["synchronized"]
 [types."mozilla::ThreadBound".decorator]
 labels = ["threadbound"]
 
+# #### Webkit
+
+[types."WTF::Atomic".decorator]
+labels = ["atomic"]
+
+[types."WTF::DataMutex".decorator]
+labels = ["synchronized"]
 
 # ### Value Types ###
 #
@@ -284,6 +302,17 @@ labels = ["threadbound"]
 [types."nsAutoOwningThread".value]
 [types."ThreadSafeAutoRefCnt".value]
 
+# #### Webkit
+
+[types."WTF::ApproximateTime".value]
+# this is somewhat notable but not useful to be called out
+[types."WTF::Lock".value]
+[types."WTF::MonotonicTime".value]
+[types."WTF::Seconds".value]
+[types."WTF::String".value]
+[types."WTF::WallTime".value]
+
+
 # ### Containers ###
 #
 # Container types are themselves not interesting classes, but their payloads are
@@ -297,7 +326,29 @@ labels = ["threadbound"]
 [types."nsBaseHashtable".container]
 [types."nsTBaseHashSet".container]
 
-[types."std::tuple".container]
+[types."std::array".container]
+[types."std::deque".container]
+[types."std::flat_map".container]
+[types."std::flat_set".container]
+[types."std::flat_multimap".container]
+[types."std::flat_multiset".container]
+[types."std::forward_list".container]
+[types."std::list".container]
+[types."std::map".container]
+[types."std::multiset".container]
+[types."std::multimap".container]
+[types."std::priority_queue".container]
+[types."std::queue".container]
+[types."std::set".container]
+# we really need ownership for this one
+[types."std::span".container]
+[types."std::stack".container]
+[types."std::unordered_map".container]
+[types."std::unordered_set".container]
+[types."std::unordered_multimap".container]
+[types."std::unordered_multiset".container]
+[types."std::vector".container]
+
 
 [types."nsTArray".container]
 [types."AutoTArray".container]
@@ -320,8 +371,63 @@ arg_index = 1
 [types."mozilla::ManagedContainer".pointer]
 kind = "strong"
 
+# #### Webkit
+
+[types."WTF::Bag".container]
+[types."WTF::Deque".container]
+[types."WTF::DoublyLinkedList".container]
+# the values are the 2nd arg, don't have container support for this yet.
+[types."WTF::EnumeratedArray".pointer]
+kind = "contains"
+arg_index = 1
+[types."WTF::HashCountedSet".container]
+[types."WTF::HashMap".container]
+[types."WTF::HashSet".container]
+[types."WTF::HashTable".container]
+# the value is the 2nd arg which goes in an underlying Vector
+[types."WTF::IndexMap".pointer]
+kind = "contains"
+arg_index = 1
+# IndexSet has no payload; the underlying storage is just a BitVector
+[types."WTF::ListHashSet".container]
+[types."WTF::LocklessBag".container]
+[types."WTF::MessageQueue".container]
+[types."WTF::PriorityQueue".container]
+[types."WTF::RefCountedFixedVector".container]
+[types."WTF::ReferenceWrapperVector".container]
+# This is a WTF::Vector of WTF::Refs and so this throws away our pointer info;
+# maybe it would be better to not define this and instead heuristically
+# understand what it's subclassing?
+[types."WTF::RefVector".container]
+[types."WTF::SegmentedVector".container]
+[types."WTF::SentinelLinkedList".container]
+[types."WTF::SinglyLinkedList".container]
+[types."WTF::SinglyLinkedListWithTail".container]
+[types."WTF::SmallSet".container]
+[types."WTF::SortedArrayMap".container]
+[types."WTF::ThreadSafeWeakHashSet".container]
+[types."WTF::UniqueArray".container]
+[types."WTF::UniqueRefVector".container]
+[types."WTF::WeakHashCountedSet".container]
+[types."WTF::WeakHashMap".container]
+[types."WTF::WeakListHashSet".container]
+
+[types."WTF::WeakHashSet".container]
+[types."WTF::Vector".container]
+
 # ### Variant Types ###
 [types."mozilla::Variant".variant]
+
+# XXX pair is not a variant, but for our purposes we just want all of its types
+[types."std::pair".variant]
+[types."std::tuple".variant]
+[types."std::variant".variant]
+
+# #### Webkit
+
+# like std::pair, we just want both types
+[types."WTF::KeyValuePair".variant]
+
 
 # ### Sentinel Nothing Types ###
 [types."mozilla::Nothing".nothing]
@@ -332,6 +438,9 @@ kind = "strong"
 
 # Doing this for Maybe<ServiceWorkerDescriptor> right now.
 [types."mozilla::Maybe".pointer]
+kind = "contains"
+
+[types."std::optional".pointer]
 kind = "contains"
 
 [types."nsCOMPtr".pointer]
@@ -394,3 +503,79 @@ kind = "gcref"
 
 [types."JS::Rooted".pointer]
 kind = "gcref"
+
+# #### Webkit
+#
+# Note that a shocking number of the header files provide no documentation and
+# so the kinds are potentially vibe-based.
+
+[types."WTF::Box".pointer]
+kind = "strong"
+
+[types."WTF::BoxPtr".pointer]
+kind = "strong"
+
+[types."WTF::CagedPtr".pointer]
+kind = "raw"
+
+[types."WTF::CagedUniquePtr".pointer]
+kind = "unique"
+
+[types."WTF::CheckedPtr".pointer]
+kind = "raw"
+
+[types."WTF::CheckedRef".pointer]
+kind = "ref"
+
+[types."WTF::CodePtr".pointer]
+kind = "raw"
+
+[types."WTF::CompactPtr".pointer]
+kind = "raw"
+
+[types."WTF::CompactRefPtr".pointer]
+kind = "strong"
+
+[types."WTF::DataRef".pointer]
+kind = "strong"
+
+# this doesn't do destruction so it feels wrong to call it unique
+[types."WTF::MallocPtr".pointer]
+kind = "raw"
+
+[types."WTF::NakedPtr".pointer]
+kind = "raw"
+
+[types."WTF::NakedRef".pointer]
+kind = "ref"
+
+[types."WTF::Packed".pointer]
+kind = "contains"
+
+[types."WTF::RawPointer".pointer]
+kind = "raw"
+
+[types."WTF::RawPointer".pointer]
+kind = "raw"
+
+# RefPtr but no support for null
+[types."WTF::Ref".pointer]
+kind = "strong"
+
+[types."WTF::RefPtr".pointer]
+kind = "strong"
+
+[types."WTF::SignedPtr".pointer]
+kind = "raw"
+
+[types."WTF::ThreadSafeWeakPtr".pointer]
+kind = "weak"
+
+[types."WTF::UniqueRef".pointer]
+kind = "unique"
+
+[types."WTF::WeakPtr".pointer]
+kind = "weak"
+
+[types."WTF::WeakObjCPtr".pointer]
+kind = "weak"
