@@ -555,9 +555,6 @@ kind = "contains"
 [types."WTF::RawPointer".pointer]
 kind = "raw"
 
-[types."WTF::RawPointer".pointer]
-kind = "raw"
-
 # RefPtr but no support for null
 [types."WTF::Ref".pointer]
 kind = "strong"
