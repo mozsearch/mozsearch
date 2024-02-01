@@ -15,6 +15,10 @@ export TREE_NAME=$2
 export INDEX_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].index_path" ${CONFIG_FILE})
 export FILES_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].files_path" ${CONFIG_FILE})
 export OBJDIR=$(jq -r ".trees[\"${TREE_NAME}\"].objdir_path" ${CONFIG_FILE})
+# This is usually the same as FILES_ROOT, but its presence does serve as a marker
+# that we have revision control data.  There are cases like the "tests" repo
+# where we don't have revision-control data.  Accordingly, it usually makes more
+# sense to use $FILES_ROOT.
 export GIT_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_path" ${CONFIG_FILE})
 export BLAME_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_blame_path" ${CONFIG_FILE})
 export HISTORY_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].history_path" ${CONFIG_FILE})
