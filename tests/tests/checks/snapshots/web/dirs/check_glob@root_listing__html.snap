@@ -128,6 +128,7 @@ expression: "&fb.contents"
    block open to be off of the screen so that a &quot;position:sticky&quot; style
    display would be appropriate.
  - Call structures potentially look interesting if you graph them.
+
  This is accomplished by:
  - Many silly comment blocks.
  - Tons of copy and pasting and search and replace.
@@ -140,6 +141,7 @@ expression: "&fb.contents"
    block open to be off of the screen so that a &quot;position:sticky&quot; style
    display would be appropriate.
  - Call structures potentially look interesting if you graph them.
+
  This is accomplished by:
  - Many silly comment blocks.
  - Tons of copy and pasting and search and replace.
