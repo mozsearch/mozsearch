@@ -83,16 +83,27 @@ pub struct FutureDetailRecord {
     /// how IMAP UIDs work.  But for now let's stick with this.
     pub extinguished_tokens: BTreeMap<String, BTreeSet<u32>>,
 
-    /// Same rep as removed_tokens, but for tokens that moved to other files.
+    /// Same rep as extinguished_tokens, but for tokens moved to other files.
     ///
     /// The current assumption is that we will consult the other data for the
     /// ref'ed revision to figure out where they went, but this could be
-    /// enhanced to indicate where the tokens went if helpful.
+    /// enhanced to indicate where the tokens went if helpful
     pub moved_out_tokens: BTreeMap<String, BTreeSet<u32>>,
 
-    pub moved_in_tokens: (),
+    /// Same rep as extinguished_tokens, but for tokens moved into this file.
+    pub moved_in_tokens: BTreeMap<String, BTreeSet<u32>>,
 
-    pub added_tokens: (),
+    /// Same rep as extinguished_tokens for token refs that have moved from
+    /// "introduced" to "predecessor".  For tokens that have both moved and
+    /// evolved, there will be an entry here in the file where the token is
+    /// treated as "moved-in".  (For processing back-outs, the moved-out
+    /// tracking is sufficient for us to know the line to re-add in the source
+    /// file, and it's only in the moved-in file that we need to know about
+    /// the evolution for the corresponding removal.)
+    pub evolved_tokens: BTreeSet<u32>,
+
+    /// Token indices for newly added tokens in this source revision.
+    pub added_tokens: BTreeSet<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

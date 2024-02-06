@@ -19,9 +19,9 @@ use std::str::from_utf8;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
-use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
+use git2::{Blob, DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::blame::LineData;
-use tools::file_format::config::index_blame;
+use tools::file_format::config::{index_blame, index_timeline_history_by_source_rev, syntax_commit_to_meta, HistorySyntaxCommitMeta};
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
@@ -81,12 +81,12 @@ fn start_fast_import(git_repo: &Repository) -> Child {
 /// blame repo (and for which we have an oid) or that was written
 /// earlier in the stream (and has a mark).
 #[derive(Clone, Copy, Debug)]
-enum BlameRepoCommit {
+enum TimelineRepoCommit {
     Commit(git2::Oid),
     Mark(usize),
 }
 
-impl fmt::Display for BlameRepoCommit {
+impl fmt::Display for TimelineRepoCommit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Commit(oid) => write!(f, "{}", oid),
@@ -102,7 +102,7 @@ impl fmt::Display for BlameRepoCommit {
 /// https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Readingfromanamedtree
 fn read_path_oid(
     import_helper: &mut Child,
-    commit: &BlameRepoCommit,
+    commit: &TimelineRepoCommit,
     path: &Path,
 ) -> Option<String> {
     writeln!(
@@ -136,7 +136,7 @@ fn read_path_oid(
 /// https://git-scm.com/docs/git-fast-import#_cat_blob
 fn read_path_blob(
     import_helper: &mut Child,
-    commit: &BlameRepoCommit,
+    commit: &TimelineRepoCommit,
     path: &Path,
 ) -> Option<Vec<u8>> {
     let oid = read_path_oid(import_helper, commit, path)?;
@@ -258,7 +258,7 @@ fn ingest_diff_accumulating_deltas(
             }
 
             if let Some((context, token)) = from_utf8(line.content()).unwrap().split_once(' ') {
-                delter.push_diff_token(line.origin(), context, token);
+                delter.push_diff_token(&line, context, token);
             }
 
             match line.origin() {
@@ -318,7 +318,7 @@ fn hyperblame_for_path(
     commit: &git2::Commit,
     blob: &git2::Blob,
     import_helper: &mut Child,
-    blame_parents: &[BlameRepoCommit],
+    blame_parents: &[TimelineRepoCommit],
     path: &Path,
 ) -> Result<String, git2::Error> {
     let linecount = count_lines(blob);
@@ -347,12 +347,12 @@ fn hyperblame_for_path(
             Some(entry) => entry,
             _ => continue,
         };
-        let parent_blame_blob = match read_path_blob(import_helper, blame_parent, parent_path) {
+        let parent_annotate_blob = match read_path_blob(import_helper, blame_parent, parent_path) {
             Some(blob) => blob,
             _ => continue,
         };
-        let parent_blame = std::str::from_utf8(&parent_blame_blob)
-            .unwrap() // We only ever put ascii in the blame blob (for now)
+        let parent_blame = std::str::from_utf8(&parent_annotate_blob)
+            .unwrap() // This will always be valid
             .lines()
             .collect::<Vec<&str>>();
 
@@ -394,12 +394,12 @@ fn hyperblame_for_path(
 // passing a crap-load more stuff, maybe it makes sense to just stick with this
 // current path-heavy approach but passing the "partition" to handle that aspect.
 fn process_tree_changes(
+    partition: &'static str,
     file_movement: Option<&HashMap<Oid, PathBuf>>,
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     mut path: PathBuf,
-    results: &mut HashMap<(git2::Oid, PathBuf), Vec<(usize, usize)>>,
-    handler: &mut dyn FnMut()
+    handler: &mut dyn FnMut(&Blob, &Blob, &Path)
 ) -> Result<(), git2::Error> {
     let tree_at_path = if path == PathBuf::new() {
         commit.tree()?
@@ -435,14 +435,11 @@ fn process_tree_changes(
                         _ => continue,
                     };
 
-                    results.insert(
-                        (parent.id(), path.clone()),
-                        ingest_diff_accumulating_deltas(&blob, &parent_blob)?,
-                    );
+                    handler(&blob, &parent_blob, &path);
                 }
             }
             Some(ObjectType::Tree) => {
-                process_tree_changes(file_movement, git_repo, commit, path.clone(), results)?;
+                process_tree_changes(partition, file_movement, git_repo, commit, path.clone(), handler)?;
             }
             _ => (),
         };
@@ -461,7 +458,7 @@ fn build_blame_tree(
     tree_at_path: &git2::Tree,
     parent_trees: &[Option<git2::Tree>],
     import_helper: &mut Child,
-    blame_parents: &[BlameRepoCommit],
+    blame_parents: &[TimelineRepoCommit],
     mut path: PathBuf,
 ) -> Result<(), git2::Error> {
     'outer: for entry in tree_at_path.iter() {
@@ -657,17 +654,83 @@ struct TokenStatsMachine {
 /// our approach to act like they do.  To this end, we favor longer runs
 struct DeltaMachine {
     cur_namespace: &'static str,
-    added_in_run: Vec<(String, String)>,
-    removed_in_run: Vec<(String, String)>,
 
+    // The current run's context; we automatically flush whenever the context
+    // changes.  None if we're not in a run.
+    cur_context: Option<String>,
+
+    // New tokens and the 1-based line number they are being added on.
+    added_in_run: Vec<(u32, String)>,
+    // Removed tokens and the 1-base line number they are being removed from
+    // (so their line number in the preceding revision).
+    removed_in_run: Vec<(u32, String)>,
+
+    path_pairs: Vec<(String, String)>,
     namespaces: HashMap<&'static str, DeltaNamespace>,
 }
 
 struct DeltaNamespace {
+    /// Keyed by Context
     context_clusters: HashMap<String, DeltaContextCluster>,
 }
 
 struct DeltaContextCluster {
+    // runs, each is associated with a single path-pair
+    runs: Vec<DeltaRun>,
+
+    // XXX NEXT: question of how to best represent the within-file moves, the
+    // between-file moves, and the evolutions.  In general we want these keyed
+    // by the old-path and new-path... I guess that does suggest that at the
+    // end of the inference phase we want to render all of these into some kind
+    // of new structure
+    evolutions: Vec<()>,
+    moved_out: Vec<()>,
+    moved_in: Vec<()>,
+}
+
+impl DeltaContextCluster {
+    // TODO: general idea here is:
+    // - process all the tokens, generating utf8 identifiers for them as we go
+    //   so that we can build a suffix array of all the removed tokens.  we use
+    //   0 as the lowest sentinel that's required / to delimit the removed runs.
+    // - we sort the addition runs by the number of additions so that we can
+    //   try and match and consume longer runs first.
+    // - we process the additions by doing a longest prefix search for the
+    //   additions against the removals as we process forward through the run.
+    //   - we have a position in the run, and we move forward each time we find
+    //     a suitable match; see other notes but the general idea is that we
+    //     do require some alphanum alignment to reuse.
+    //   - because of consumption, we potentially maybe do the binary search
+    //     greedy lcp and as long as that finds us an un-consumed run of tokens,
+    //     we just use that.  But if we've already consumed the tokens, perhaps
+    //     we slide around the adjacent indexes running a fitness func that does
+    //     the locality thing, etc.  (The fitness func wouldn't be appropriate
+    //     for binary search because it would be multi-dimensional for our
+    //     locality needs.)  I think there's more thoughts in the notes too.
+    fn infer_moves(&mut self) {
+
+    }
+}
+
+struct DeltaRun {
+    pub path_pair_index: u32,
+
+    // (was this token consumed into an evolution, 1-based line number, token)
+    // We retain the raw added/removed tokens for now marked as consumed as
+    // potentially useful for backout processing and/or invariant checks.
+    added: Vec<(bool, u32, String)>,
+    removed: Vec<(bool, u32, String)>,
+
+    // (old line number, old token string, new line number, new token string)
+    evolved: Vec<(u32, String, u32, String)>,
+}
+
+/// Post-move/evolution-summary-inference providing per-token-line information
+/// for a file and its predecessor as derived in parallel processing.  All token
+/// references here are unresolved, non-canonical references that need to look
+/// at the existing "annotated" state of the preceding revision in sequential
+/// processing on the "main" thread to be correctly resolved.
+struct DeltaFileSummary {
 
 }
 
@@ -675,6 +738,8 @@ impl DeltaMachine {
     fn new() {
         Self {
             cur_namespace: "",
+            cur_context: None,
+
             added_in_run: vec![],
             removed_in_run: vec![],
 
@@ -690,31 +755,47 @@ impl DeltaMachine {
     /// context in the given semantic namespace, with "%" currently representing
     /// having no symbol context.  The origin must be either '+' or '-'
     /// indicating addition or removal.
-    fn push_diff_token(&mut self, origin: char, context: &str, token: &str) {
-        match origin {
+    fn push_diff_token(&mut self, line: &DiffLine, context: &str, token: &str) {
+        match line.origin() {
             '+' => {
-                self.added_in_run.push((context.to_owned(), token.to_owned()));
+                if self.cur_context.is_none() {
+                    self.cur_context = Some(context.to_owned());
+                } else if context != self.cur_context {
+                    self.flush_run(false);
+                    self.cur_context = Some(context.to_owned());
+                }
+
+                self.added_in_run.push((line.new_lineno().unwrap(), token.to_owned()));
             },
             '-' => {
-                self.removed_in_run.push((context.to_owned(), token.to_owned()));
+                if self.cur_context.is_none() {
+                    self.cur_context = Some(context.to_owned());
+                } else if context != self.cur_context {
+                    self.flush_run(false);
+                    self.cur_context = Some(context.to_owned());
+                }
+
+                self.removed_in_run.push((line.old_lineno().unwrap(), token.to_owned()));
             },
             ' ' => {
-                self.flush_run();
+                self.flush_run(true);
             },
             _ => return,
         };
     }
 
-    fn flush_run(&mut self) {
+    fn flush_run(&mut self, infer_single_evolution: bool) {
         // (we expect to be called like this a lot currently)
         if self.added_in_run.len() == 0 && self.removed_in_run() == 0 {
+            self.cur_context = None;
             return;
         }
 
-        // If we have an added and removed tokens with the same context, then
-        // treat it as an evolution.
-        if self.added_in_run.len() == 1 && self.removed_in_run.len() == 1 &&
-           self.added_in_run[0].0 == self.removed_in_run[0].0 {
+        // If we have an added and removed single tokens and this is a case
+        // where we think it's okay to infer single-token evolution (like
+        // specifically because we hit a ' ' context, as opposed to having our
+        // token context change), then infer it.
+        if self.added_in_run.len() == 1 && self.removed_in_run.len() == 1 {
 
         }
 
@@ -728,7 +809,20 @@ impl DeltaMachine {
 
     /// Called when we're at the end of the current hunk.
     fn flush_hunk(&mut self) {
-        self.flush_run();
+        self.flush_run(true);
+    }
+
+    fn perform_inference_passes(&mut self) {
+        // TODO: implement a phase where we look at overall token metrics and
+        // clusters to infer evolved tokens and also apply this to the context
+        // clusters.
+
+        // XXX For now we just run inference within the clusters as they exist.
+        for ns in self.namespaces.values_mut() {
+            for cluster in ns.context_clusters.values_mut() {
+                cluster.infer_moves();
+            }
+        }
     }
 }
 
@@ -740,9 +834,9 @@ impl DeltaMachine {
 // happen in our main thread logic.)
 fn thread_preprocess_revision(
     git_repo: &git2::Repository,
-    git_oid: &git2::Oid,
+    rev_meta: &HistorySyntaxCommitMeta,
 ) -> Result<TimelineData, git2::Error> {
-    let commit = git_repo.find_commit(*git_oid).unwrap();
+    let commit = git_repo.find_commit(*rev_meta.syntax_rev).unwrap();
 
     // ## Infer file movement from the "files" tree
     //
@@ -806,17 +900,24 @@ fn thread_preprocess_revision(
     // accumulated add/removed tokens so we can try and infer moves in the
     // next passes.
     let mut unmodified_tokens = HashMap::new();
+
+    let mut delter = DeltaMachine::new();
     process_tree_changes(
+        "files",
         file_movement.as_ref(),
         git_repo,
         &commit,
         PathBuf::new(),
-        &mut unmodified_tokens,
+        &mut |blob: &Blob, parent_blob: &Blob, path: &Path| {
+            ingest_diff_accumulating_deltas(blob, parent_blob, path, delter);
+        }
     )?;
 
     // ## Process token movement inference
     //
-    // We now have a
+    // We have ingested all the diff hunks which means we can now perform our
+    // various inference phases for token movement and evolutions.
+    delter.infer_moves();
 
     // ## Process the "file-struct" symbol rep
 
@@ -833,7 +934,7 @@ fn thread_preprocess_revision(
 }
 
 struct ComputeThread {
-    query_tx: Sender<git2::Oid>,
+    query_tx: Sender<HistorySyntaxCommitMeta>,
     response_rx: Receiver<TimelineData>,
 }
 
@@ -852,8 +953,8 @@ impl ComputeThread {
         }
     }
 
-    fn compute(&self, rev: &git2::Oid) {
-        self.query_tx.send(*rev).unwrap();
+    fn compute(&self, rev_meta: &HistorySyntaxCommitMeta) {
+        self.query_tx.send(*rev_meta).unwrap();
     }
 
     fn read_result(&self) -> TimelineData {
@@ -868,7 +969,7 @@ impl ComputeThread {
 }
 
 fn compute_thread_main(
-    query_rx: Receiver<git2::Oid>,
+    query_rx: Receiver<HistorySyntaxCommitMeta>,
     response_tx: Sender<TimelineData>,
     git_repo_path: String,
 ) {
@@ -883,9 +984,10 @@ fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args: Vec<_> = env::args().collect();
-    let git_repo_path = args[1].to_string();
-    let git_repo = Repository::open(&git_repo_path).unwrap();
-    let syntax_repo = Repository::open(&args[2]).unwrap();
+    let source_repo_path = args[1].to_string();
+    let source_repo = Repository::open(&source_repo_path).unwrap();
+    let syntax_repo_path = args[2].to_string();
+    let syntax_repo = Repository::open(&syntax_repo_path).unwrap();
     let timeline_repo = Repository::open(&args[3]).unwrap();
     let rev_summary_root = &args[4];
 
@@ -900,23 +1002,33 @@ fn main() {
         .unwrap_or(0);
 
     info!("Reading existing blame map of timeline repo ref {}...", blame_ref);
+    /// Maps syntax repo revision to timeline repo commit
     let mut timeline_map = if let Ok(oid) = timeline_repo.refname_to_id(&blame_ref) {
-        let (timeline_map, _, _) = index_blame(&timeline_repo, Some(oid));
+        let timeline_map = index_timeline_history_by_source_rev(&timeline_repo, Some(oid));
         timeline_map
             .into_iter()
-            .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
-            .collect::<HashMap<git2::Oid, BlameRepoCommit>>()
+            .map(|(k, v)| (k, TimelineRepoCommit::Commit(v.timeline_rev)))
+            .collect::<HashMap<git2::Oid, TimelineRepoCommit>>()
     } else {
         HashMap::new()
     };
 
-    let mut walk = git_repo.revwalk().unwrap();
+    // We are primarily processing the "syntax" repo which is derived from the
+    // "source" repo.  So start a walk in the syntax repo from the provided
+    // BLAME_REF.
+    let mut walk = syntax_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
-    walk.push(git_repo.refname_to_id(&blame_ref).unwrap())
+    walk.push(syntax_repo.refname_to_id(&blame_ref).unwrap())
         .unwrap();
     let mut revs_to_process = walk
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
+        // We don't need to process revisions we already have a timeline revision for.
         .filter(|git_oid| !timeline_map.contains_key(git_oid))
+        // Read the commit so we can have all the relevant revision identifiers.
+        .map(|syntax_oid| {
+            let commit = syntax_repo.find_commit(syntax_oid).unwrap();
+            syntax_commit_to_meta(&commit)
+        })
         .collect::<Vec<_>>();
     if commit_limit > 0 && commit_limit < revs_to_process.len() {
         info!(
@@ -934,7 +1046,7 @@ fn main() {
     info!("Starting {} compute threads...", num_threads);
     let mut compute_threads = Vec::with_capacity(num_threads);
     for _ in 0..num_threads {
-        compute_threads.push(ComputeThread::new(&git_repo_path));
+        compute_threads.push(ComputeThread::new(&syntax_repo_path));
     }
 
     // This tracks the index of the next revision in revs_to_process for which
@@ -960,14 +1072,14 @@ fn main() {
     // assigned to each commit.
     let mut rev_done = 0;
 
-    for git_oid in revs_to_process.iter() {
+    for rev_meta in revs_to_process.iter() {
         // Read a result. Since we hand out compute requests in round-robin order
         // and each thread processes them in FIFO order we know exactly which
         // thread is going to give us our result.
         // We assert to make sure it's the right one.
         let thread = &compute_threads[rev_done % num_threads];
         let diff_data = thread.read_result();
-        assert!(diff_data.revision == *git_oid);
+        assert!(diff_data.revision == *rev_meta.syntax_rev);
 
         // If there are more revisions that we haven't requested yet, request
         // another one from this thread.
@@ -978,16 +1090,11 @@ fn main() {
 
         rev_done += 1;
 
-        let hg_rev = match hg_helper {
-            Some(ref mut helper) => get_hg_rev(helper, git_oid),
-            None => None, // we don't support mapfiles any more.
-        };
-
         info!(
             "Transforming {} (hg {:?}) progress {}/{}",
-            git_oid, hg_rev, rev_done, rev_count
+            rev_meta.syntax_rev, rev_meta.source_hg_rev, rev_done, rev_count
         );
-        let commit = git_repo.find_commit(*git_oid).unwrap();
+        let commit = source_repo.find_commit(*rev_meta.syntax_rev).unwrap();
         let parent_trees = commit
             .parents()
             .map(|parent_commit| Some(parent_commit.tree().unwrap()))
@@ -1006,7 +1113,7 @@ fn main() {
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
             writeln!(import_stream, "mark :{}", rev_done).unwrap();
-            timeline_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
+            timeline_map.insert(*rev_meta.syntax_rev, TimelineRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -1031,10 +1138,10 @@ fn main() {
             write_role("author", &commit.author());
             write_role("committer", &commit.committer());
 
-            let commit_msg = if let Some(hg_rev) = hg_rev {
-                format!("git {}\nhg {}\n", git_oid, hg_rev)
+            let commit_msg = if let Some(hg_rev) = rev_meta.source_hg_rev {
+                format!("git {}\nsyntax {}\nhg {}\n", rev_meta.source_rev, rev_meta.syntax_rev, hg_rev)
             } else {
-                format!("git {}\n", git_oid)
+                format!("git {}\nsyntax {}\n", rev_meta.source_rev, rev_meta.syntax_rev)
             };
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
@@ -1052,21 +1159,19 @@ fn main() {
             for additional_parent in blame_parents.iter().skip(1) {
                 writeln!(import_stream, "merge {}", additional_parent).unwrap();
             }
-            // For each commit, we start with a clean slate (all files deleted), and then
-            // the build_blame_tree call below will add new files or link pre-existing
-            // unmodified files/folders from older commits into the new commit's tree.
-            // This is the recommended approach by the git-fast-import documentation at
-            // https://git-scm.com/docs/git-fast-import#_filedeleteall and works
-            // well for us, particularly in the case of merge commits where we might
-            // need to pull some entries from one parent and other entries from the other
-            // parent.
-            writeln!(import_stream, "deleteall").unwrap();
+            // In a change from "build-blame.rs", we don't use "deleteall" because we
+            // want to retain the existing contents of the "tokens" subdir.  However,
+            // we do want the semantics of starting from deletion for all other subdirs,
+            // so we do explicitly delete those subdirectories.
+            writeln!(import_stream, "D annotated").unwrap();
+            writeln!(import_stream, "D future").unwrap();
+            writeln!(import_stream, "D files-delta").unwrap();
             import_stream.flush().unwrap();
         }
 
         build_blame_tree(
             &diff_data,
-            &git_repo,
+            &source_repo,
             &commit,
             &commit.tree().unwrap(),
             &parent_trees,

@@ -131,6 +131,10 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
     Ok(to_string(&json!(infos)).unwrap())
 }
 
+/// (Legacy) Line-centric blame data.  Token-centric reps are defined in
+/// `timeline_annotated.rs` and use serde_json for serialization, but combined
+/// with serde_with/serde_as using BorrowCow so that we can benefit from the
+/// Cow cleverness here on decoding.
 #[derive(Debug)]
 pub struct LineData<'a> {
     pub rev: Cow<'a, str>,

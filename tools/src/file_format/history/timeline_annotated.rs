@@ -1,3 +1,8 @@
+use std::borrow::Cow;
+
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+
 /// Identifies a specific token in space and time.  For any given token in blame
 /// we potentially have a few tokens that we're referencing, so they each get
 /// their own reference.
@@ -13,13 +18,24 @@
 ///    based on canonical hyper token refs.  We would need to look up the line
 ///    in the "history/annotated" in the corresponding history revision for B
 ///    in order to load the canonical hyper token ref that we can use.
+///
+/// Note that our blame UI potentially surfaces the following metadata that we
+/// do not include here because it can be looked up from the source revision:
+/// - Author
+/// - Timestamp of the commit
+#[serde_as]
+#[derive(Deserialize, Serialize)]
 pub struct HyperTokenRef<'a> {
+    #[serde(rename = "sr")]
+    #[serde_as(as = "BorrowCow")]
     pub source_rev: Cow<'a, str>,
-    // XXX timestamp of authorship / change?
-    // XXX relatedly, should the file summary info potential note the extinguished
-    // token revisions?  like when we lose a deletion marker, do we kick it into
-    // there so we can be faster about identifying when a token was removed?
+
+    #[serde(rename = "p")]
+    #[serde_as(as = "BorrowCow")]
     pub path: Cow<'a, str>,
+
+    #[serde(rename = "l")]
+    #[serde_as(as = "BorrowCow")]
     pub lineno: Cow<'a, str>,
 }
 
@@ -37,21 +53,40 @@ pub struct HyperTokenRef<'a> {
 /// the path, locate the line with the `introduced` for the given ref, and then
 /// count that many tokens and we will have located the exact run of tokens that
 /// were removed without having to generate a diff.
+#[serde_as]
+#[derive(Deserialize, Serialize)]
 pub struct RemovalMarker<'a> {
+    #[serde(rename = "sr")]
+    #[serde_as(as = "BorrowCow")]
     pub source_rev: Cow<'a, str>,
+
+    #[serde(rename = "p")]
     // XXX timestamp of removal commit?
+    #[serde_as(as = "BorrowCow")]
     pub path: Cow<'a, str>,
+
+    #[serde(rename = "l")]
     // XXX the line number of the removed token in the parent rev
+    #[serde_as(as = "BorrowCow")]
     pub lineno: Cow<'a, str>,
+
+    #[serde(rename = "fr")]
     // XXX the removed, but which we could find by looking at that lineno in
     // the parent rev;
     pub first_removed: HyperTokenRef<'a>,
+
+    #[serde(rename = "nr")]
+    #[serde_as(as = "BorrowCow")]
     pub num_removed: Cow<'a, str>,
 }
 
+#[serde_as]
+#[derive(Deserialize, Serialize)]
 pub struct HyperLineData<'a> {
     /// When was this token with its current string value introduced?
+    #[serde(rename = "i")]
     pub introduced: HyperTokenRef<'a>,
+
     /// If this token evolved from another token, the predecessor token ref.  So
     /// if we have a token like "OkayType" which became "BetterType", the
     /// `introduced` ref above is when the "BetterType" token was introduced,
@@ -69,9 +104,12 @@ pub struct HyperLineData<'a> {
     /// "history/future" file, it's not necessary for us to consult it unless
     /// we want to pay additional attention to when the token moves between
     /// files.
+    #[serde(rename = "p")]
     pub predecessor: Option<HyperTokenRef<'a>>,
+
     /// We track runs of removed tokens on the preceding token so that we can
     /// render a visual indicator in the blame sidebar for removals.  This is
     /// not used
+    #[serde(rename = "rm")]
     pub removal_marker: Option<RemovalMarker<'a>>,
 }
