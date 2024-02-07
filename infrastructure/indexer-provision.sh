@@ -20,11 +20,11 @@ sudo apt-get install -y ninja-build
 # the update process.
 cargo install cargo-insta
 
-# To help install node.js and similar, we install rtx-cli, a rust-based "asdf"
+# To help install node.js and similar, we install mise, a rust-based "asdf"
 # alternative, which if you don't know what "asdf" is, but know what "nvm" is,
 # it's basically a super-nvm for multiple languages, etc.  We use the install
-# method documented at https://github.com/jdxcode/rtx#cargo but there are a
-# bunch of other options.
+# method documented at https://mise.jdx.dev/getting-started.html#cargo but there
+# are a bunch of other options.
 #
 # The core rationale here is that I've locally been using "nvm" for node.js
 # purposes for a while now and it's been a much better experience than trying to
@@ -32,16 +32,16 @@ cargo install cargo-insta
 # invaluable when trying to just get things to work when packages are involved
 # that may involve native modules/libraries which can make it hard to uniformly
 # use the latest revision.  I'm somewhat hopeful that
-cargo install rtx-cli
+cargo install mise
 
 # Install node.js v18 for scip-typescript
-rtx install nodejs@18
+mise install nodejs@18
 
 # Install scip-typescript under node.js v18
-rtx exec nodejs@18 -- npm install -g @sourcegraph/scip-typescript
+mise exec nodejs@18 -- npm install -g @sourcegraph/scip-typescript
 
 # Install scip-python under node.js v18 as well
-rtx exec nodejs@18 -- npm install -g @sourcegraph/scip-python
+mise exec nodejs@18 -- npm install -g @sourcegraph/scip-python
 
 # Install a JDK and Coursier.
 sudo apt install -y openjdk-19-jdk
