@@ -41,7 +41,9 @@ mise install nodejs@18
 mise exec nodejs@18 -- npm install -g @sourcegraph/scip-typescript
 
 # Install scip-python under node.js v18 as well
-mise exec nodejs@18 -- npm install -g @sourcegraph/scip-python
+#mise exec nodejs@18 -- npm install -g @sourcegraph/scip-python
+# To get my fix https://github.com/sourcegraph/scip-python/pull/150
+mise exec nodejs@18 -- npm install -g @asutherland/scip-python
 
 # Install a JDK and Coursier.
 sudo apt install -y openjdk-19-jdk
