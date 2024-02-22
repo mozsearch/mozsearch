@@ -56,8 +56,9 @@ sudo apt-get install -y gdb python3-dbg
 # Other
 sudo apt-get install -y parallel unzip python3-pip python3-venv lz4
 
-# and we want to be able to extract stuff from json and yaml
-sudo apt-get install -y jq
+# We want to be able to extract stuff from json (jq) and yaml (yq) and more
+# easily emit JSON from the shell (jo).
+sudo apt-get install -y jq jo
 sudo pip3 install yq
 
 # dos2unix is used to normalize generated files from windows
@@ -125,6 +126,9 @@ if [ ! -d $HOME/.cargo ]; then
   rustup uninstall stable
 fi
 
+# install ripgrep so we can stop experiencing grep pain / footguns
+cargo install ripgrep
+
 # Install codesearch.
 if [ ! -d livegrep ]; then
   git clone -b mozsearch-version6 https://github.com/mozsearch/livegrep
@@ -176,7 +180,7 @@ if [ ! -d git-cinnabar ]; then
 fi
 
 # Install scip
-SCIP_VERSION=v0.3.1
+SCIP_VERSION=v0.3.3
 curl -L https://github.com/sourcegraph/scip/releases/download/$SCIP_VERSION/scip-linux-amd64.tar.gz | tar xzf - scip
 sudo ln -fs $(pwd)/scip /usr/local/bin/scip
 

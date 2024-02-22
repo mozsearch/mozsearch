@@ -871,8 +871,12 @@ fn analyze_using_scip(
                 // but our current model favors only having the immediate links.
                 // TODO: filter out indirect ancestors
                 for rel in &scip_sym_info.relationships {
+                    let Ok(rel_scip_sym) = scip::symbol::parse_symbol(&rel.symbol) else {
+                        info!("bad relationship symbol: {}", rel.symbol);
+                        continue;
+                    };
                     let parent_symbol_info = analyse_symbol(
-                        &scip::symbol::parse_symbol(&rel.symbol).unwrap(),
+                        &rel_scip_sym,
                         &lang,
                         &lang_name,
                         subtree_name,
