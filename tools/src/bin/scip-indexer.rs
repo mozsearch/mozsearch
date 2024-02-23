@@ -730,18 +730,25 @@ fn analyze_using_scip(
 
                 // XXX these should be made Option<u32>, but StructuredFieldInfo
                 // needs to have its signature updated.  Right now this is hacky.
-                let mut size_bytes = 0;
+                let size_bytes = 0;
                 //let mut align_bytes = 0;
-                let mut offset_bytes = 0;
+                let offset_bytes = 0;
 
-                // For cases like rust-analyzer, we are provided with the
-                // namespace of the identifier.  For example, for "Loader::new()"
-                // defined in "simple.rs", this will be "simple::Loader".  For
-                // the "Loader" type itself, this will just be "simple".
+                // Until https://github.com/rust-lang/rust-analyzer/pull/16559
+                // landed in rust-analyzer, we tried to use the doc string
+                // containing the tunneled hover information to additionally
+                // namespace the pretty identifier in an attempt to match our
+                // original rust-analysis behavior.  This ended up only working
+                // for fields (where we also would populate size_bytes and
+                // offset_bytes above).  Bug 1881645 provides some more context
+                // but the general situation is that this specific logic can
+                // likely be removed as part of a nice clean-up, but it's also
+                // worth revisiting the symbol and pretty mappings with more
+                // intent.
                 //
-                // For now we assume this will always include the type name,
-                // but this and the `PrettyAction` type may need to evolve.
-                let mut doc_namespace = None;
+                // That said, there may be other SCIP languages where this could
+                // still be a useful hack.
+                let doc_namespace: Option<String> = None;
 
                 // High confidence identifier name of what's being defined for
                 // fallback use in the case of locals as extracted from the doc
@@ -762,11 +769,6 @@ fn analyze_using_scip(
                 let mut type_pretty = None;
 
                 lazy_static! {
-                    // This is specifically for picking out size, align, and the
-                    // optionally present offset.  It will not match in all
-                    // cases.
-                    static ref RE_RUST_INFO: Regex =
-                        Regex::new(r"^\n?```rust\n([^\n]+)\n```\n\n```rust\n(.+)(?: // size = (\d+), align = (\d+)(?:, offset = (\d+))?)?\n```$").unwrap();
                     // used for fields, methods, arguments/parameters
                     static ref RE_TS_TYPED: Regex =
                         Regex::new(r"^```ts\n([^ ]+) (.+): ([^\n]+)\n```$").unwrap();
@@ -778,6 +780,8 @@ fn analyze_using_scip(
                         Regex::new(r"^```kt\n([^ ]+) ([^ ]+) fun ([^ ]+)\(.*\)(?:: (.*))?\n```$").unwrap();
                 }
 
+                // TODO: Consider trying to do something where the documentation
+                // is actually a real docstring.
                 for (i, doc) in scip_sym_info.documentation.iter().enumerate() {
                     if i == 0 {
                         match &lang {
@@ -786,41 +790,8 @@ fn analyze_using_scip(
                                 // It looks like this could be very descriptor-dependent.
                             }
                             ScipLang::Rust => {
-                                if let Some(caps) = RE_RUST_INFO.captures(doc) {
-                                    // XXX this gives us the full type signature absent the
-                                    // comment piece, which is not going to intern well at all
-                                    // for functions.  I think for functions the return value
-                                    // (which we would get by splitting on the "->") might be
-                                    // better at least from an interning perspective.
-                                    //
-                                    // In general we haven't defined what this is particularly
-                                    // well.
-                                    //
-                                    // XXX also we only use this for fields right now.
-                                    if let Some(s) = caps.get(1) {
-                                        doc_namespace = Some(s.as_str().to_string());
-                                    }
-                                    if let Some(s) = caps.get(2) {
-                                        type_pretty = Some(ustr(s.as_str()));
-                                    }
-                                    if let Some(s) = caps.get(3) {
-                                        if let Ok(num) = s.as_str().parse::<u32>() {
-                                            size_bytes = num;
-                                        }
-                                    }
-                                    /*
-                                    if let Some(s) = caps.get(4) {
-                                        if let Ok(num) = s.as_str().parse::<u32>() {
-                                            align_bytes = num;
-                                        }
-                                    }
-                                    */
-                                    if let Some(s) = caps.get(5) {
-                                        if let Ok(num) = s.as_str().parse::<u32>() {
-                                            offset_bytes = num;
-                                        }
-                                    }
-                                }
+                                // We no longer do anything for rust.  See the
+                                // doc_namespace comments above.
                             }
                             ScipLang::Typescript => {
                                 if let Some(caps) = RE_TS_TYPED.captures(doc) {
@@ -852,6 +823,14 @@ fn analyze_using_scip(
                     }
                     // Otherwise this is an extracted docstring, which we can't
                     //use yet.
+                }
+
+                // Signature documentation is new and a more reliable source of
+                // type information.
+                if let Some(doc) = scip_sym_info.signature_documentation.as_ref() {
+                    if !doc.text.is_empty() {
+                        type_pretty = Some(ustr(&doc.text));
+                    }
                 }
 
                 let mut symbol_info = analyse_symbol(

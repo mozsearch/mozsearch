@@ -1,1 +1,1 @@
-filter-analysis simple.rs -k def -i simple::Loader::new | show-html
+filter-analysis simple.rs -k def -i Loader::new | show-html
