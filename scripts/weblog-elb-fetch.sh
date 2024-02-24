@@ -17,7 +17,10 @@
 
 DATE_RANGE=${1:-yesterday}
 
-if [[ "$DATE_RANGE" == "yesterday" ]]; then
+if [[ "$DATE_RANGE" == "today" ]]; then
+  S3_DATE_URI=$(date -u --date='0 days ago' +s3://searchfox-web-logs/AWSLogs/653057761566/elasticloadbalancing/us-west-2/%Y/%m/%d/)
+  aws s3 cp ${S3_DATE_URI} . --recursive
+elif [[ "$DATE_RANGE" == "yesterday" ]]; then
   S3_DATE_URI=$(date -u --date='1 days ago' +s3://searchfox-web-logs/AWSLogs/653057761566/elasticloadbalancing/us-west-2/%Y/%m/%d/)
   aws s3 cp ${S3_DATE_URI} . --recursive
 elif [[ "$DATE_RANGE" == "last-week" ]]; then
