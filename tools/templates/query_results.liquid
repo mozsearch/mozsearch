@@ -5,13 +5,15 @@
     {% for result_pair in results %}
       {% case result_pair[0] %}
         {% when "FlattenedResultsBundle" %}
-            {% include 'query_results/rb_root.liquid' %}
-          {% when "GraphResultsBundle" %}
-            {% include 'query_results/graph_root.liquid' %}
-          {% when "SymbolGraphCollection" %}
-            {% include 'query_results/graph_collection_root.liquid' %}
-          {% when "TextFile" %}
-            {% include 'query_results/text_file_root.liquid' %}
+          {% include 'query_results/rb_root.liquid' %}
+        {% when "GraphResultsBundle" %}
+          {% include 'query_results/graph_root.liquid' %}
+        {% when "SymbolGraphCollection" %}
+          {% include 'query_results/graph_collection_root.liquid' %}
+        {% when "SymbolTreeTableList" %}
+            {% include 'query_results/symbol_tree_table_list_root.liquid' %}
+        {% when "TextFile" %}
+          {% include 'query_results/text_file_root.liquid' %}
         {% else %}
           Unhandled results type {{result_pair[0]}}!
         {% endcase %}

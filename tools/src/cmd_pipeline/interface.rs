@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
-use serde::Serialize;
-use serde_json::{to_string_pretty, Value};
+use serde::{ser::{SerializeSeq, SerializeStruct}, Serialize, Serializer};
+use serde_json::{json, to_string_pretty, Value};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
@@ -11,9 +11,9 @@ use tracing::{trace, trace_span, Instrument};
 use ustr::{ustr, Ustr, UstrMap};
 
 pub use crate::abstract_server::{AbstractServer, Result};
-use crate::abstract_server::{FileMatches, TextMatches};
+use crate::{abstract_server::{FileMatches, TextMatches}, file_format::crossref_converter::convert_crossref_value_to_sym_info_rep};
 
-use super::symbol_graph::SymbolGraphCollection;
+use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeId, SymbolGraphNodeSet};
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum RecordType {
@@ -54,6 +54,208 @@ pub struct BatchGroupItem {
     pub value: PipelineValues,
 }
 
+/// Hierarchical table whose rows may be optionally associated with symbols.
+pub struct SymbolTreeTable {
+    pub node_set: SymbolGraphNodeSet,
+    pub columns: Vec<SymbolTreeTableColumn>,
+    pub rows: Vec<SymbolTreeTableNode>,
+}
+
+#[derive(Serialize)]
+pub struct SymbolTreeTableList {
+    pub tables: Vec<SymbolTreeTable>,
+}
+
+impl SymbolTreeTableList {
+    pub fn unioned_node_sets_as_jumprefs(&self) -> Value {
+        let mut jumprefs = BTreeMap::new();
+        for table in &self.tables {
+            for sym_info in table.node_set.symbol_crossref_infos.iter() {
+                let info = sym_info.crossref_info.clone();
+                jumprefs.insert(
+                    sym_info.symbol.clone(),
+                    convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+                );
+            }
+        }
+
+        json!(jumprefs)
+    }
+}
+
+#[derive(Serialize)]
+pub struct SymbolTreeTableColumn {
+    pub label: Vec<BasicMarkup>,
+}
+
+#[derive(Serialize)]
+pub struct BasicLink {
+    // Text to go within the `a` tag; this will be escaped.
+    pub text: String,
+    // This is not intended to be a fully valid href yet; the containing enum
+    // helps contextualize what the base of the URL should be.  This will be
+    // URL encoded to prevent escaping from attributes but not subject to text
+    // escaping.
+    pub link: String,
+}
+
+/// Very basic markup initially being introduced for SymbolTreeTable cells with
+/// the expectation this will serialize into a much more terse JSON rep than the
+/// structure might imply.
+///
+/// It's an explicit goal here to avoid generating HTML in our pipeline because:
+/// - This simplifies thinking/worrying about escaping.
+/// - It's significantly more pleasant to review prettified JSON snapshots of
+///   this rather than the resulting HTML, but this should still provide us with
+///   sufficient fidelity for review purposes in most cases, minimizing the
+///   number of HTML snapshots we need.
+/// - The decoupling could potentially be useful for people writing editor
+///   plugins or maybe trying an alternate presentation on searchfox results,
+///   etc.  This is not remotely a primary goal, but it does feel like a
+///   benefit.  (For example, an editor plugin would probably like that the
+///   SourceLink is tree-relative rather than a full absolute URL that has to
+///   transformed, etc.)
+#[derive(Serialize)]
+pub enum BasicMarkup {
+    Heading(String),
+    // This is just text, it doesn't need to go in a tag at all.  It will get
+    // escaped.
+    Text(String),
+    // This is text that should link to a query endpoint.  For now we just point
+    // it at the "default" config, but one might imagine that we might propagate
+    // the current config in use through to any subsequent links.  We might also
+    // mark these links up with extra metadata so that we can transform them on
+    // the client side so that a user's preferred config can perform an
+    // override.
+    QueryLink(BasicLink),
+    // This is a
+    SourceLink(BasicLink),
+}
+
+#[derive(Serialize)]
+pub struct SymbolTreeTableCell {
+    pub header: bool,
+    pub contents: Vec<BasicMarkup>,
+}
+
+impl SymbolTreeTableCell {
+    pub fn empty() -> Self {
+        Self {
+            header: false,
+            contents: vec![],
+        }
+    }
+
+    pub fn header_text(s: String) -> Self {
+        Self {
+            header: true,
+            contents: vec![BasicMarkup::Text(s)],
+        }
+    }
+
+    pub fn text(s: String) -> Self {
+        Self {
+            header: false,
+            contents: vec![BasicMarkup::Text(s)],
+        }
+    }
+}
+
+pub struct SymbolTreeTableNode {
+    pub label: Vec<BasicMarkup>,
+    pub sym_id: Option<SymbolGraphNodeId>,
+    pub col_vals: Vec<SymbolTreeTableCell>,
+    pub children: Vec<SymbolTreeTableNode>,
+}
+
+impl SymbolTreeTable {
+    pub fn new() -> Self {
+        Self {
+            node_set: SymbolGraphNodeSet::new(),
+            columns: vec![],
+            rows: vec![],
+        }
+    }
+}
+
+// Ephemeral class to allow for us to implement a serialization helper for
+// SymbolTreeTableNode so that it can have the root/owning SymbolTreeTable's
+// SymbolGraphNodeSet available to convert the SymbolGraphNodeId to a string
+// without us needing to create an full serde_json::Value tree.
+struct SerializingSymbolTreeTableNode<'a> {
+    pub node_set: &'a SymbolGraphNodeSet,
+    pub node: &'a SymbolTreeTableNode,
+}
+
+/// Ephemeral helper for SerializingSymbolTreeTableNode to wrap the sequence
+/// serialization.
+struct SerializingSymbolTreeTableRows<'a> {
+    pub node_set: &'a SymbolGraphNodeSet,
+    pub rows: &'a Vec<SymbolTreeTableNode>,
+}
+
+/// Custom serializer so that the node_set information can be expressed on the
+/// serialization of the nodes as a stringified symbol that can be looked up
+/// rather than an integer identifier.  This makes the test snapshots more
+/// useful and stable as well as letting any symbol lookup table be
+/// transparently unioned with other similar maps.
+impl Serialize for SymbolTreeTable {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut stt = serializer.serialize_struct("SymbolTreeTable", 2)?;
+        stt.serialize_field("jumprefs", &self.node_set.symbols_meta_to_jumpref_json_nomut())?;
+        stt.serialize_field("columns", &self.columns)?;
+
+        let wrapped_rows =SerializingSymbolTreeTableRows {
+            node_set: &self.node_set,
+            rows: &self.rows,
+        };
+        stt.serialize_field("rows", &wrapped_rows)?;
+        stt.end()
+    }
+}
+
+impl<'a> Serialize for SerializingSymbolTreeTableNode<'a> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut stt = serializer.serialize_struct("SymbolTreeTableNode", 2)?;
+        stt.serialize_field("label", &self.node.label)?;
+        if let Some(sym_id) = &self.node.sym_id {
+            stt.serialize_field("sym", &self.node_set.get(sym_id).symbol)?;
+        } else {
+            stt.serialize_field("sym", &Value::Null)?;
+        }
+        stt.serialize_field("colVals", &self.node.col_vals)?;
+        let wrapped_rows =SerializingSymbolTreeTableRows {
+            node_set: &self.node_set,
+            rows: &self.node.children,
+        };
+        stt.serialize_field("children", &wrapped_rows)?;
+        stt.end()
+    }
+}
+
+impl<'a> Serialize for SerializingSymbolTreeTableRows<'a> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.rows.len()))?;
+        for e in self.rows {
+            let node = SerializingSymbolTreeTableNode {
+                node_set: self.node_set,
+                node: &e,
+            };
+            seq.serialize_element(&node)?;
+        }
+        seq.end()
+    }
+}
+
 /// The input and output of each pipeline segment
 #[derive(Serialize)]
 pub enum PipelineValues {
@@ -71,6 +273,7 @@ pub enum PipelineValues {
     GraphResultsBundle(GraphResultsBundle),
     TextFile(TextFile),
     BatchGroups(BatchGroups),
+    SymbolTreeTableList(SymbolTreeTableList),
     Void,
 }
 

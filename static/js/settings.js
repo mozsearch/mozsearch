@@ -47,7 +47,10 @@
 const SETTING_DEFS = {
   global: {
     defaultFeatureGate: {
-      default: "release",
+      // On release channels stick to "release" as our default gate, but for
+      // experimental channels let's turn everything on.  Users can set this
+      // back to "release" if they want.
+      default: (document.location.host === "searchfox.org") ? "release" : "alpha",
     },
   },
   pageTitle: {
@@ -71,12 +74,17 @@ const SETTING_DEFS = {
   fancyBar: {
     enabled: {
       quality: "alpha",
-    }
+    },
+  },
+  semanticInfo: {
+    enabled: {
+      quality: "alpha",
+    },
   },
   diagramming: {
     enabled: {
       quality: "alpha",
-    }
+    },
   },
 };
 

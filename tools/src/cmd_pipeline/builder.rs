@@ -18,7 +18,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_traverse::TraverseCommand, cmd_batch_render::BatchRenderCommand, cmd_render::RenderCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_tokenize_source::TokenizeSourceCommand};
+use super::{cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand, cmd_format_symbols::FormatSymbolsCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand, cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -50,6 +50,8 @@ pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand +
         Command::CrossrefLookup(cl) => Ok(Box::new(CrossrefLookupCommand { args: cl })),
 
         Command::FilterAnalysis(fa) => Ok(Box::new(FilterAnalysisCommand { args: fa })),
+
+        Command::FormatSymbols(fs) => Ok(Box::new(FormatSymbolsCommand { args: fs })),
 
         Command::Graph(g) => Ok(Box::new(GraphCommand { args: g })),
 

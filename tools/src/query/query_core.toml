@@ -144,6 +144,17 @@ command = "augment-results"
 args.before = "$0"
 args.after = "$0"
 
+[term.field-layout]
+[[term.field-layout.group.semantic-lookup]]
+command = "search-identifiers"
+args.positional = "$0"
+args.exact-match = true
+[[term.field-layout.group.semantic-lookup]]
+command = "crossref-lookup"
+[[term.field-layout.group.semantic-format]]
+command = "format-symbols"
+args.mode = "field-layout"
+
 # The default term is what gets applied to things without a term.  It can also
 # be explicitly referenced by other terms.
 [term.default]
@@ -259,3 +270,15 @@ output = "result"
 [[group.graph-render.commands]]
 command = "graph"
 args.format = "mozsearch"
+
+[group.semantic-lookup]
+output = "semantic-lookup"
+next = "semantic-filter"
+
+[group.semantic-filter]
+output = "semantic-filter"
+next = "semantic-format"
+
+[group.semantic-format]
+output = "result"
+

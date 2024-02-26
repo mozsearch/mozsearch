@@ -1,3 +1,4 @@
+mod lazy_crossref;
 mod local_index;
 mod remote_server;
 mod server_interface;
