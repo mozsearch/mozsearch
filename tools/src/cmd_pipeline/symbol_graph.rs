@@ -12,16 +12,14 @@ use petgraph::{
 };
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use serde_json::{json, to_value, Value};
+use serde_json::{from_value, json, to_value, Value};
 use tracing::trace;
 use ustr::{ustr, Ustr, UstrMap};
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     file_format::{
-        analysis_manglings::split_pretty,
-        crossref_converter::convert_crossref_value_to_sym_info_rep,
-        ontology_mapping::label_to_badge_info,
+        analysis::AnalysisStructured, analysis_manglings::split_pretty, crossref_converter::convert_crossref_value_to_sym_info_rep, ontology_mapping::label_to_badge_info
     },
 };
 
@@ -160,6 +158,16 @@ impl DerivedSymbolInfo {
         }
     }
 
+    /// Provide the structured rep of this symbol if it has one.  If we use this
+    /// a lot we should potentially consider using interior mutability to cache
+    /// this or have performed the conversion eagerly upon creation.
+    pub fn get_structured(&self) -> Option<AnalysisStructured> {
+        match self.crossref_info.get("meta") {
+            Some(v) => from_value(v.clone()).ok(),
+            _ => None,
+        }
+    }
+
     /// For hierarchy purposes we want to skip over namespace or namespace-like
     /// symbols in certain modes of operation, this centralizes the heuristic
     /// for that.  Right now this is C++ specific.
@@ -211,6 +219,16 @@ impl DerivedSymbolInfo {
             _ => None,
         }
     }
+
+    /// If this symbol has a definition, return the definition's line number.
+    /// This is intended to assist with lexically ordering fields within a
+    /// structure/class.
+    pub fn get_def_lno(&self) -> u64 {
+        match self.crossref_info.pointer("/defs/0/lines/0/lno") {
+            Some(Value::Number(lno)) => lno.as_u64().unwrap_or(0),
+            _ => 0,
+        }
+    }
 }
 
 impl DerivedSymbolInfo {
@@ -251,7 +269,7 @@ impl Serialize for SymbolGraphCollection {
         }
 
         let mut sgc = serializer.serialize_struct("SymbolGraphCollection", 2)?;
-        sgc.serialize_field("jumprefs", &self.symbols_meta_to_jumpref_json_nomut())?;
+        sgc.serialize_field("jumprefs", &self.node_set.symbols_meta_to_jumpref_json_nomut())?;
         sgc.serialize_field("graphs", &graphs)?;
         sgc.serialize_field("hierarchicalGraphs", &hierarchical_graphs)?;
         sgc.end()
@@ -287,46 +305,6 @@ fn escaped_node_id(id: &str) -> NodeId {
 }
 
 impl SymbolGraphCollection {
-    /// Destructively return a sorted Object mapping from symbol identifiers to
-    /// their jumpref info.  We sort the symbols for stability for testing
-    /// purposes and for human readability reasons.  The destruction is that
-    /// the DerivedSymbolInfo's have their `crossref_info` serde_json::Value
-    /// instances take()n.
-    ///
-    /// This method is currently destructive because the
-    /// convert_crossref_value_to_sym_info_rep currently is destructive and
-    /// because it seems like nothing else currently needs that info.  But it
-    /// should be fine to make this optionally non-destructive.
-    ///
-    /// Okay, now there's a nondestructive version below this that's less
-    /// efficient.
-    pub fn symbols_meta_to_jumpref_json_destructive(&mut self) -> Value {
-        let mut jumprefs = BTreeMap::new();
-        for sym_info in self.node_set.symbol_crossref_infos.iter_mut() {
-            let info = sym_info.crossref_info.take();
-            jumprefs.insert(
-                sym_info.symbol.clone(),
-                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
-            );
-        }
-
-        json!(jumprefs)
-    }
-
-    pub fn symbols_meta_to_jumpref_json_nomut(&self) -> Value {
-        let mut jumprefs = BTreeMap::new();
-        for sym_info in self.node_set.symbol_crossref_infos.iter() {
-            // XXX This is inefficient!
-            let info = sym_info.crossref_info.clone();
-            jumprefs.insert(
-                sym_info.symbol.clone(),
-                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
-            );
-        }
-
-        json!(jumprefs)
-    }
-
     /// Convert the graph with the given index to a { nodes, edges } rep where:
     ///
     /// - nodes is a sorted array of symbol strings.
@@ -2115,6 +2093,11 @@ impl SymbolGraphNodeSet {
         )
     }
 
+    /// Check if a symbol is already known and return it if so, otherwise
+    /// perform a crossref_lookup and add the symbol.  The caller should provide
+    /// the depth that should be associated with the symbol if we need to
+    /// perform the lookup; no change will be made to the existing depth if the
+    /// symbol is already known.
     pub async fn ensure_symbol<'a>(
         &'a mut self,
         sym: &'a Ustr,
@@ -2129,8 +2112,49 @@ impl SymbolGraphNodeSet {
             return Ok((SymbolGraphNodeId(*index), sym_info));
         }
 
-        let info = server.crossref_lookup(&sym).await?;
+        let info = server.crossref_lookup(&sym, false).await?;
         Ok(self.add_symbol(DerivedSymbolInfo::new(sym.clone(), info, depth)))
+    }
+
+    /// Destructively return a sorted Object mapping from symbol identifiers to
+    /// their jumpref info.  We sort the symbols for stability for testing
+    /// purposes and for human readability reasons.  The destruction is that
+    /// the DerivedSymbolInfo's have their `crossref_info` serde_json::Value
+    /// instances take()n.
+    ///
+    /// This method is currently destructive because the
+    /// convert_crossref_value_to_sym_info_rep currently is destructive and
+    /// because it seems like nothing else currently needs that info.  But it
+    /// should be fine to make this optionally non-destructive.
+    ///
+    /// Okay, now there's a nondestructive version below this that's less
+    /// efficient.
+    pub fn symbols_meta_to_jumpref_json_destructive(&mut self) -> Value {
+        let mut jumprefs = BTreeMap::new();
+        for sym_info in self.symbol_crossref_infos.iter_mut() {
+            let info = sym_info.crossref_info.take();
+            jumprefs.insert(
+                sym_info.symbol.clone(),
+                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+            );
+        }
+
+        json!(jumprefs)
+    }
+
+    /// Nondestructive, less efficient version of `symbols_meta_to_jumpref_json_destructive`.
+    pub fn symbols_meta_to_jumpref_json_nomut(&self) -> Value {
+        let mut jumprefs = BTreeMap::new();
+        for sym_info in self.symbol_crossref_infos.iter() {
+            // XXX This is inefficient!
+            let info = sym_info.crossref_info.clone();
+            jumprefs.insert(
+                sym_info.symbol.clone(),
+                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+            );
+        }
+
+        json!(jumprefs)
     }
 }
 

@@ -47,7 +47,10 @@ var ContextMenu = new (class ContextMenu {
     // - source listings ("code")
     // - diagrams ("svg")
     // - breadcrumbs ("breadcrumbs")
-    if (!event.target.closest("code") && !event.target.closest("svg") && !event.target.closest(".breadcrumbs")) {
+    if (!event.target.closest("code") &&
+        !event.target.closest("svg") &&
+        !event.target.closest(".breadcrumbs") &&
+        !event.target.closest(".symbol-tree-table")) {
       return;
     }
 
@@ -135,17 +138,24 @@ var ContextMenu = new (class ContextMenu {
       }
 
       for (const [sym, symInfo] of filteredSymPairs) {
-        // TODO: Revisit this as the diagramming mechanism better understands how
-        // to deal with slots.  There are some complications related to this
-        // because currently the JS XPIDL binding situation is such that there are
-        // way too many false-positives so it's usually going to be bad news to
-        // try and traverse the JS binding edges, so we sorta don't want the
-        // traversal to even try yet.
+        let diagrammableSyms = [];
+        // We need structured data to do diagramming; no structured data means
+        // no diagramming.  Currently we expect this to be the case for our
+        // JS analysis, but when we're able to switch at least some of the JS
+        // analysis to scip-typescript that will change.
         //
-        // IDL symbols are usually not directly diagrammable, so for now if we see
-        // we're an IDL symbol and we have binding slots, we instead will just use
-        // the C++ binding symbols.
-        let diagrammableSyms = [symInfo];
+        // That said, we want to ignore IDL symbols in favor of their language
+        // binding symbols.  The main rationale right now is that for XPIDL
+        // attributes we can't do anything for the pretty of the attribute, so
+        // having a menu entry for it, especially given that we'll also have an
+        // entry for the C++ getter (and potentially setter), is not helpful.
+        //
+        // Also, we don't currently de-duplicate the diagram links, but it
+        // would be appropriate to do so or otherwise address that the traverse
+        // logic itself will follow binding slots.
+        if (symInfo.meta && symInfo.meta.implKind !== "idl") {
+          diagrammableSyms.push(symInfo);
+        }
 
         // Define a helper we can also use for the binding slots below.
         const jumpify = (jumpref, pretty) => {
@@ -193,7 +203,8 @@ var ContextMenu = new (class ContextMenu {
             let implKind = ownerJumpref.meta.implKind || "impl";
             if (implKind === "idl") {
               implKind = "IDL";
-              diagrammableSyms = [];
+              // Our owner being an IDL type does not change whether this is
+              // something diagrammable.
             }
 
             let maybeLang = "";
@@ -219,7 +230,6 @@ var ContextMenu = new (class ContextMenu {
           let implKind = symInfo.meta.implKind || "impl";
           if (implKind === "idl") {
             implKind = "IDL";
-            diagrammableSyms = [];
           }
 
           let allSearchSyms = [];
@@ -234,7 +244,11 @@ var ContextMenu = new (class ContextMenu {
             let maybeLang = "";
             if (slot.slotLang) {
               const lang = slot.slotLang;
-              if (lang === "cpp") {
+              // Previously this was === "cpp", but the reality is that our
+              // concern is that our JS analysis is soupy.  Especially with the
+              // new TS XPIDL magic, if we can switch to scip-typescript at
+              // least for system JS, we can remove this constraint.
+              if (lang !== "js") {
                 diagrammableSyms.push(slotJumpref);
               }
               maybeLang = ` ${this.fmtLang(lang)}`;
@@ -279,11 +293,37 @@ var ContextMenu = new (class ContextMenu {
           });
         }
 
+        if (Settings.semanticInfo.enabled) {
+          for (const jumpref of diagrammableSyms) {
+            if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
+                jumpref?.meta?.fields?.length) {
+              let queryString = `field-layout:'${jumpref.pretty}'`;
+              searchMenuItems.push({
+                html: this.fmt("Class layout of <strong>_</strong>", jumpref.pretty),
+                href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+                // TODO: pick out a custom icon for this; "tasks" was great but
+                // is already used for sticky highlight and so we now expect it
+                // to have muscle memory implications so we can't repurpose it.
+                icon: "docs",
+                section: "layout",
+              });
+            }
+          }
+        }
+
         if (Settings.diagramming.enabled) {
           for (const jumpref of diagrammableSyms) {
             // Always offer to diagram uses of things
             let queryString = `calls-to:'${jumpref.pretty}' depth:4`;
-            //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
+            // TODO: Try dog-fooding with using the symbol-specific variant of this
+            // whose query syntax is below.  The rationale for using pretty
+            // identifiers is that they are more stable and more readable than
+            // symbols.  It might be most practical to allow specializing a link
+            // to just a single symbol from the page itself or in a sidebar
+            // affordance, especially since it's hard to concisely express the
+            // differences in signatures for overloads (although we have some
+            // tentative plans to).
+            //queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
             extraMenuItems.push({
               html: this.fmt("Uses diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
@@ -293,7 +333,6 @@ var ContextMenu = new (class ContextMenu {
 
             // Always offer to diagram uses of things
             queryString = `calls-from:'${jumpref.pretty}' depth:4`;
-            //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
             extraMenuItems.push({
               html: this.fmt("Calls diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
@@ -301,10 +340,10 @@ var ContextMenu = new (class ContextMenu {
               section: "diagrams",
             });
 
-            // Offer class diagrams for classes
-            if (jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") {
+            if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
+                jumpref?.meta?.fields?.length) {
+              // Offer class diagrams for classes/structs that have fields.
               queryString = `class-diagram:'${jumpref.pretty}' depth:4`;
-              //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
               extraMenuItems.push({
                 html: this.fmt("Class diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
@@ -328,7 +367,6 @@ var ContextMenu = new (class ContextMenu {
             // cleanup.)
             if (showInheritance) {
               queryString = `inheritance-diagram:'${jumpref.pretty}' depth:4`;
-              //const queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
               extraMenuItems.push({
                 html: this.fmt("Inheritance diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,

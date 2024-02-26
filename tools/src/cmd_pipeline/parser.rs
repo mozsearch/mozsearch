@@ -7,6 +7,7 @@ use super::cmd_compile_results::CompileResults;
 use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_filter_analysis::FilterAnalysis;
+use super::cmd_format_symbols::FormatSymbols;
 use super::cmd_graph::Graph;
 use super::cmd_jumpref_lookup::JumprefLookup;
 use super::cmd_merge_analyses::MergeAnalyses;
@@ -71,6 +72,7 @@ pub enum Command {
     CrossrefExpand(CrossrefExpand),
     CrossrefLookup(CrossrefLookup),
     FilterAnalysis(FilterAnalysis),
+    FormatSymbols(FormatSymbols),
     Graph(Graph),
     JumprefLookup(JumprefLookup),
     MergeAnalyses(MergeAnalyses),

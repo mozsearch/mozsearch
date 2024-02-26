@@ -6,7 +6,8 @@ use ustr::Ustr;
 
 use super::{
     server_interface::{
-        AbstractServer, ErrorDetails, ErrorLayer, FileMatches, Result, ServerError, SearchfoxIndexRoot,
+        AbstractServer, ErrorDetails, ErrorLayer, FileMatches, Result, SearchfoxIndexRoot,
+        ServerError,
     },
     HtmlFileRoot, TextMatches, TreeInfo,
 };
@@ -143,7 +144,7 @@ impl AbstractServer for RemoteServer {
         Ok(html)
     }
 
-    async fn crossref_lookup(&self, _symbol: &str) -> Result<Value> {
+    async fn crossref_lookup(&self, _symbol: &str, _extra_processing: bool) -> Result<Value> {
         // Let's require local index for now; we'll expose this once this
         // mechanism is exposed to the web so we can talk to the corresponding
         // local server over https.

@@ -16,6 +16,7 @@ use super::server_interface::{
 };
 use super::{TextMatches, TextMatchesByFile, TreeInfo};
 
+use crate::abstract_server::lazy_crossref::perform_lazy_crossref;
 use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
@@ -105,7 +106,7 @@ fn validate_absoluteish_path(path: &str) -> Result<()> {
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-struct LocalIndex {
+pub struct LocalIndex {
     // We only hold onto the TreeConfigPaths portion of the config because the
     // git data is not `Sync`.  Specifically, the compiler says:
     //
@@ -262,7 +263,7 @@ impl AbstractServer for LocalIndex {
         Ok(raw_str)
     }
 
-    async fn crossref_lookup(&self, symbol: &str) -> Result<Value> {
+    async fn crossref_lookup(&self, symbol: &str, extra_processing: bool) -> Result<Value> {
         let now = Instant::now();
         let result = match &self.crossref_lookup_map {
             Some(crossref) => crossref.lookup(symbol),
@@ -273,7 +274,11 @@ impl AbstractServer for LocalIndex {
             "crossref_lookup: {}",
             symbol
         );
-        result
+        if result.is_ok() && extra_processing {
+            perform_lazy_crossref(&self, result.unwrap()).await
+        } else {
+            result
+        }
     }
 
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Value> {

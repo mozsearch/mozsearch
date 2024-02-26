@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -197,7 +198,7 @@ pub struct StructuredMethodInfo {
     pub args: Vec<StructuredArgInfo>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredBitPositionInfo {
     pub begin: u32,
     pub width: u32,
@@ -209,7 +210,7 @@ pub struct StructuredOverrideInfo {
     pub sym: Ustr,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredFieldInfo {
     #[serde(default)]
     pub pretty: Ustr,
@@ -232,7 +233,7 @@ pub struct StructuredFieldInfo {
     pub pointer_info: Vec<StructuredPointerInfo>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredPointerInfo {
     pub kind: OntologyPointerKind,
     pub sym: Ustr,
@@ -450,6 +451,9 @@ pub struct AnalysisStructured {
     pub supers: Vec<StructuredSuperInfo>,
     #[serde(default)]
     pub methods: Vec<StructuredMethodInfo>,
+    // TODO: This really needs to be the union of all fields across all variants
+    // to begin with; right now for the layout table we do manual stuff, but
+    // this really is not sufficient.
     #[serde(default)]
     pub fields: Vec<StructuredFieldInfo>,
     #[serde(default)]
@@ -474,8 +478,48 @@ pub struct AnalysisStructured {
     pub extra: Map<String, Value>,
 }
 
+impl AnalysisStructured {
+    // Retrieve the platforms from "extra" if present; this could arguably just
+    // be serialized in the first place.
+    pub fn platforms(&self) -> Vec<String> {
+        match self.extra.get("platforms") {
+            Some(val) => from_value(val.clone()).unwrap_or_default(),
+            _ => vec![]
+        }
+    }
+
+    // TODO: As mentioned on `fields`, we need to unify things during crossref
+    // otherwise we may be blind to some fields for our fancy magic.
+    pub fn fields_across_all_variants(&self) -> Vec<(Vec<String>, Vec<StructuredFieldInfo>)> {
+        let variants: Vec<AnalysisStructured> = match self.extra.get("variants") {
+            Some(val) => from_value(val.clone()).unwrap_or_default(),
+            _ => vec![]
+        };
+        // XXX at least for things that are subclassed it seems like we can end up with multiple
+        // structured representations right now, so we need to keep track of platforms we've seen
+        // so we can avoid adding them a subsequent time.
+        let mut seen = HashSet::new();
+        let main_platforms = self.platforms();
+        for p in &main_platforms {
+            seen.insert(p.to_owned());
+        }
+        let mut results = vec![(main_platforms, self.fields.clone())];
+
+        for v in variants {
+            let var_platforms = v.platforms();
+            // Try and insert the platforms into the seen set; insert returns true
+            // if the element is newly inserted.
+            if !var_platforms.iter().all(|p| seen.insert(p.to_owned())) {
+                continue;
+            }
+            results.push((var_platforms, v.fields));
+        }
+        results
+    }
+}
+
 mod bool_as_int {
-    use serde::{self, Deserialize, Deserializer, Serializer};
+    use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(b: &bool, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -503,7 +547,7 @@ pub fn join_ustr_vec(arr: &Vec<Ustr>, joiner: &str) -> String {
 }
 
 mod comma_delimited_vec {
-    use serde::{self, Deserialize, Deserializer, Serializer};
+    use serde::{Deserialize, Deserializer, Serializer};
     use ustr::{ustr, Ustr};
 
     use super::join_ustr_vec;

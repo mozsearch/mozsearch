@@ -1,0 +1,3 @@
+{% for table in results.SymbolTreeTableList.tables %}
+    {% include 'query_results/symbol_tree_table.liquid' table: table, forloop: forloop %}
+{% endfor %}

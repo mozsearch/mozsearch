@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use dot_generator::*;
 use dot_structures::*;
-use regex::{self, Captures, Regex};
+use regex::{Captures, Regex};
 use serde_json::{Value, json};
 
 use graphviz_rust::cmd::{CommandArg, Format, Layout};
@@ -334,7 +334,7 @@ impl PipelineCommand for GraphCommand {
                         "edges": render_state.svg_edge_extra,
                     }),
                 }],
-                symbols: graphs.symbols_meta_to_jumpref_json_destructive(),
+                symbols: graphs.node_set.symbols_meta_to_jumpref_json_destructive(),
                 overloads_hit: graphs.overloads_hit,
             })),
             _ => Ok(PipelineValues::TextFile(TextFile {

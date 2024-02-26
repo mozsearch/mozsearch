@@ -22,7 +22,6 @@ use crate::output::{self, Options, PanelItem, PanelSection, F};
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
-use git2;
 use serde_json::{json, Map, to_string, to_string_pretty};
 use ustr::{Ustr, ustr};
 

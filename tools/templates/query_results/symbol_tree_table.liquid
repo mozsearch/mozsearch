@@ -1,0 +1,16 @@
+<table class="symbol-tree-table">
+{% if table.columns != empty %}
+  <thead>
+    <tr>
+    {% for col in table.columns %}
+        <th scope="col">{% include 'query_results/basic_markup_array.liquid' markup: col.contents %}</th>
+    {% endfor %}
+    </tr>
+  </thead>
+{% endif %}
+  <tbody>
+    {%- for kid in table.rows -%}
+      {%- include 'query_results/symbol_tree_table_node.liquid' node: kid -%}
+    {%- endfor -%}
+  </tbody>
+</table>

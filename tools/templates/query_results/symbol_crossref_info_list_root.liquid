@@ -1,0 +1,3 @@
+{% for sym_info in results.SymbolCrossrefInfoList.symbol_crossref_infos %}
+{% include 'query_results/symbol.liquid' sym_info: sym_info, forloop: forloop %}
+{% endfor %}

@@ -1,0 +1,7 @@
+{% for piece in markup %}
+  {% if piece contains "Heading" %}
+    <h3>{{ piece.Heading | escape }}</h3>
+  {% elsif piece contains "Text" %}
+    {{ piece.Text | escape }}
+  {% endif %}
+{% endfor %}

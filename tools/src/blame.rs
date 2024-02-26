@@ -1,7 +1,6 @@
 use crate::file_format::config::Config;
 use crate::links;
 
-use git2;
 use std::borrow::Cow;
 use serde_json::{json, Map, to_string};
 

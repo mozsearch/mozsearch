@@ -144,6 +144,10 @@ async fn main() {
             emit_json(&to_value(bg).unwrap());
             0
         }
+        Ok(PipelineValues::SymbolTreeTableList(sttl)) => {
+            emit_json(&to_value(sttl).unwrap());
+            0
+        }
         Err(err) => {
             println!("Pipeline Error!");
             println!("{:?}", err);
