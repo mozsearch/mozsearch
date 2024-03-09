@@ -3,8 +3,7 @@ use clap::Args;
 use ustr::ustr;
 
 use super::interface::{
-    PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolQuality,
-    SymbolRelation,
+    PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolMetaFlags, SymbolQuality, SymbolRelation
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -83,6 +82,7 @@ impl PipelineCommand for CrossrefLookupCommand {
                 relation: SymbolRelation::Queried,
                 quality,
                 overloads_hit: vec![],
+                flags: SymbolMetaFlags::default(),
             };
             if self.args.methods {
                 if let Some(method_syms) = crossref_info.get_method_symbols() {
@@ -94,6 +94,7 @@ impl PipelineCommand for CrossrefLookupCommand {
                             relation: SymbolRelation::Queried,
                             quality: crossref_info.quality.clone(),
                             overloads_hit: vec![],
+                            flags: SymbolMetaFlags::default(),
                         });
                     }
                     continue;

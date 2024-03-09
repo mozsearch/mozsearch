@@ -116,6 +116,16 @@ labels = ["class-diagram:stop"]
 [pretty."nsISupports"]
 labels = ["class-diagram:stop", "class-diagram:elide-and-badge:nsI"]
 
+# calls-between likes to find "NS_TableDrivenQI" calling "nsISupports::AddRef"
+[pretty."nsISupports::AddRef"]
+labels = ["uses-diagram:stop"]
+# adding the release counterpart just in case.
+[pretty."nsISupports::Release"]
+labels = ["uses-diagram:stop"]
+# QueryInterface is only a minor problem but is not helpful.
+[pretty."nsISupports::QueryInterface"]
+labels = ["uses-diagram:stop"]
+
 [pretty."nsIThreadPool"]
 labels = ["class-diagram:stop"]
 
@@ -149,9 +159,61 @@ labels = ["class-diagram:stop"]
 [pretty."mozilla::SupportsWeakPtr"]
 labels = ["class-diagram:stop"]
 
+# calls-between WorkerPrivate and nsITimer found an interesting but distracting path
+# and nsGlobalWindowInner similarly ended up with noise we don't need.  The
+# specific choice of using these impl classes is because they use a lot of
+# overloads so we can specify them more easily based on pretty.  These are not
+# comprehensive.
+#
+# This could be mooted by better traversal heuristics, and/or made more compact
+# if we still see value in the annotation.
+[pretty."TelemetryScalar::Add"]
+labels = ["uses-diagram:stop"]
+[pretty."TelemetryScalar::Set"]
+labels = ["uses-diagram:stop"]
+[pretty."TelemetryScalar::SetMaximum"]
+labels = ["uses-diagram:stop"]
+[pretty."TelemetryHistogram::Accumulate"]
+labels = ["uses-diagram:stop"]
+[pretty."TelemetryHistogram::AccumulateCategorical"]
+labels = ["uses-diagram:stop"]
+[pretty."KeyedHistogram::Add"]
+labels = ["uses-diagram:stop"]
+[pretty."TelemetryEvent::RecordEventNative"]
+labels = ["uses-diagram:stop"]
 
+# stay out of debug spam stuff
+[pretty."NS_warn_if_impl"]
+labels = ["calls-diagram:stop"]
+[pretty."NS_DebugBreak"]
+labels = ["calls-diagram:stop"]
+[pretty."MOZ_ReportAssertionFailure"]
+labels = ["calls-diagram:stop"]
+[pretty."MOZ_ReportCrash"]
+labels = ["calls-diagram:stop"]
+# the above cases should prevent this, but this has an annoying fan-out if we get here
+[pretty."PR_GetEnv"]
+labels = ["calls-diagram:stop"]
 
+# some speculative profiler filters
+[pretty."mozilla::MarkerStack::Capture"]
+labels = ["calls-diagram:stop"]
+[pretty."profiler_thread_is_being_profiled_for_markers"]
+labels = ["calls-diagram:stop"]
 
+# stay out of various logging related things that have fan out
+[pretty."mozilla::ipc::LoggingEnabledFor"]
+labels = ["calls-diagram:stop"]
+[pretty."mozilla::ipc::LogMessageForProtocol"]
+labels = ["calls-diagram:stop"]
+# stay out of IPC internals for IPC protocols we don't have IPDL bindings for
+[pretty."mozilla::ipc::IProtocol::ChannelSend"]
+labels = ["calls-diagram:stop"]
+
+# Avoid some NSPR stuff that comes up; this very much could be handled via subsystem
+# heuristics about NSPR always being boring.
+[pretty."PR_JoinThread"]
+labels = ["calls-diagram:stop"]
 
 # ### Refcounted Types ###
 

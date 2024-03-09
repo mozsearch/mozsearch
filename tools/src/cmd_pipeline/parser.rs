@@ -8,6 +8,7 @@ use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_format_symbols::FormatSymbols;
+use super::cmd_fuse_crossrefs::FuseCrossrefs;
 use super::cmd_graph::Graph;
 use super::cmd_jumpref_lookup::JumprefLookup;
 use super::cmd_merge_analyses::MergeAnalyses;
@@ -97,4 +98,5 @@ pub struct JunctionOpts {
 #[derive(Debug, Subcommand)]
 pub enum JunctionCommand {
     CompileResults(CompileResults),
+    FuseCrossrefs(FuseCrossrefs),
 }

@@ -4,7 +4,27 @@ expression: "&jv.value"
 ---
 {
   "groups": {
-    "graph-build": {
+    "graph-render": {
+      "input": "graph",
+      "segments": [
+        {
+          "command": "graph",
+          "args": {
+            "bool_args": [],
+            "named_args": {
+              "format": [
+                "mozsearch",
+                0
+              ]
+            },
+            "positional_args": []
+          }
+        }
+      ],
+      "output": "result",
+      "depth": 0
+    },
+    "graph-symbols-default": {
       "input": null,
       "segments": [
         {
@@ -29,7 +49,14 @@ expression: "&jv.value"
             "named_args": {},
             "positional_args": []
           }
-        },
+        }
+      ],
+      "output": "default",
+      "depth": 0
+    },
+    "graph-traverse": {
+      "input": "fused-symbols",
+      "segments": [
         {
           "command": "traverse",
           "args": {
@@ -48,34 +75,40 @@ expression: "&jv.value"
       ],
       "output": "graph",
       "depth": 0
-    },
-    "graph-render": {
-      "input": "graph",
-      "segments": [
-        {
-          "command": "graph",
-          "args": {
-            "bool_args": [],
-            "named_args": {
-              "format": [
-                "mozsearch",
-                0
-              ]
-            },
-            "positional_args": []
-          }
-        }
+    }
+  },
+  "junctions": {
+    "graph-fuse-symbols": {
+      "inputs": [
+        "default"
       ],
-      "output": "result",
+      "command": {
+        "command": "fuse-crossrefs",
+        "args": {
+          "bool_args": [],
+          "named_args": {},
+          "positional_args": []
+        }
+      },
+      "output": "fused-symbols",
       "depth": 0
     }
   },
-  "junctions": {},
   "phases": [
     {
       "groups": [
         [
-          "graph-build",
+          "graph-symbols-default"
+        ]
+      ],
+      "junctions": [
+        "graph-fuse-symbols"
+      ]
+    },
+    {
+      "groups": [
+        [
+          "graph-traverse",
           "graph-render"
         ]
       ],

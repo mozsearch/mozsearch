@@ -35,6 +35,9 @@ impl From<regex::Error> for ServerError {
 
 impl From<tokio::task::JoinError> for ServerError {
     fn from(err: tokio::task::JoinError) -> ServerError {
+        // There was a debugging case where I needed to uncomment this, but at
+        // least when using pipeline-server, we get a useful backtrace in the
+        // "pipeline-server.err" file and so this should not be necessary.
         /*
         if let Ok(reason) = err.try_into_panic() {
             // Resume the panic on the main task

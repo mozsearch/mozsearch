@@ -7,8 +7,7 @@ use tracing::{trace};
 use ustr::ustr;
 
 use super::interface::{
-    OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolCrossrefInfo,
-    SymbolCrossrefInfoList, SymbolRelation,
+    OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolMetaFlags, SymbolRelation
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -146,6 +145,7 @@ impl PipelineCommand for CrossrefExpandCommand {
                         relation: relation.clone(),
                         quality,
                         overloads_hit: vec![],
+                        flags: SymbolMetaFlags::default(),
                     }
                 }
             };

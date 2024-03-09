@@ -14,6 +14,7 @@ mod cmd_crossref_expand;
 mod cmd_crossref_lookup;
 mod cmd_filter_analysis;
 mod cmd_format_symbols;
+mod cmd_fuse_crossrefs;
 mod cmd_graph;
 mod cmd_jumpref_lookup;
 mod cmd_merge_analyses;
