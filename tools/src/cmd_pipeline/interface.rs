@@ -1,6 +1,10 @@
 use async_trait::async_trait;
+use bitflags::bitflags;
 use clap::{Args, ValueEnum};
-use serde::{ser::{SerializeSeq, SerializeStruct}, Serialize, Serializer};
+use serde::{
+    ser::{SerializeSeq, SerializeStruct},
+    Serialize, Serializer,
+};
 use serde_json::{json, to_string_pretty, Value};
 use std::{
     cmp::Ordering,
@@ -11,7 +15,10 @@ use tracing::{trace, trace_span, Instrument};
 use ustr::{ustr, Ustr, UstrMap};
 
 pub use crate::abstract_server::{AbstractServer, Result};
-use crate::{abstract_server::{FileMatches, TextMatches}, file_format::crossref_converter::convert_crossref_value_to_sym_info_rep};
+use crate::{
+    abstract_server::{FileMatches, TextMatches},
+    file_format::crossref_converter::convert_crossref_value_to_sym_info_rep,
+};
 
 use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeId, SymbolGraphNodeSet};
 
@@ -205,10 +212,13 @@ impl Serialize for SymbolTreeTable {
         S: Serializer,
     {
         let mut stt = serializer.serialize_struct("SymbolTreeTable", 2)?;
-        stt.serialize_field("jumprefs", &self.node_set.symbols_meta_to_jumpref_json_nomut())?;
+        stt.serialize_field(
+            "jumprefs",
+            &self.node_set.symbols_meta_to_jumpref_json_nomut(),
+        )?;
         stt.serialize_field("columns", &self.columns)?;
 
-        let wrapped_rows =SerializingSymbolTreeTableRows {
+        let wrapped_rows = SerializingSymbolTreeTableRows {
             node_set: &self.node_set,
             rows: &self.rows,
         };
@@ -230,7 +240,7 @@ impl<'a> Serialize for SerializingSymbolTreeTableNode<'a> {
             stt.serialize_field("sym", &Value::Null)?;
         }
         stt.serialize_field("colVals", &self.node.col_vals)?;
-        let wrapped_rows =SerializingSymbolTreeTableRows {
+        let wrapped_rows = SerializingSymbolTreeTableRows {
             node_set: &self.node_set,
             rows: &self.node.children,
         };
@@ -444,6 +454,30 @@ pub struct OverloadInfo {
     pub global_limit: u32,
 }
 
+bitflags! {
+    /// Experimental/hacky set of flags to enable a single pipeline to hold a
+    /// heterogeneous mixture of symbols and where these flags are what makes
+    /// the difference.  There is no unifying concept for the flags; it's fine
+    /// to pile random semantics into this.
+    ///
+    /// Being introduced explicitly for calls-between-{source,target} with the
+    /// fuse-crossrefs junction merging normal crossref-lookup outputs at the
+    /// junction and setting these flags.  This works with the existing
+    /// search-identifiers/crossref-lookup sequence flow, and especially if we
+    /// added more filtering to the resulting pipeline, but arguably the search/
+    /// lookup could be a single op which could allow "crossref-lookup" to
+    /// be run repeatedly in sequence with each step adding new infos with new
+    /// flags.
+    #[derive(Clone, Copy, Default, Serialize)]
+    pub struct SymbolMetaFlags: u32 {
+        /// Mark a symbol as an interesting point for calls to start in a
+        /// calls-between diagram.
+        const Source = 0b00000001;
+        /// Mark a symbol as an interesting point for calls to end up in a calls
+        /// between diagram.
+        const Target = 0b00000010;
+    }
+}
 /// A symbol and its cross-reference information.
 #[derive(Serialize)]
 pub struct SymbolCrossrefInfo {
@@ -453,6 +487,8 @@ pub struct SymbolCrossrefInfo {
     pub quality: SymbolQuality,
     /// Any overloads encountered when processing this symbol.
     pub overloads_hit: Vec<OverloadInfo>,
+    #[serde(rename = "type", skip_serializing_if = "SymbolMetaFlags::is_empty")]
+    pub flags: SymbolMetaFlags,
 }
 
 impl SymbolCrossrefInfo {
@@ -837,7 +873,7 @@ pub trait PipelineJunctionCommand: Debug {
     async fn execute(
         &self,
         server: &Box<dyn AbstractServer + Send + Sync>,
-        input: Vec<PipelineValues>,
+        input: Vec<(String, PipelineValues)>,
     ) -> Result<PipelineValues>;
 }
 
@@ -869,7 +905,11 @@ impl NamedPipeline {
         for cmd in &self.commands {
             let span = trace_span!("run_named_pipeline_step", cmd = ?cmd);
 
-            match cmd.execute(&server, cur_values).instrument(span.clone()).await {
+            match cmd
+                .execute(&server, cur_values)
+                .instrument(span.clone())
+                .await
+            {
                 Ok(next_values) => {
                     cur_values = next_values;
                 }
@@ -904,12 +944,17 @@ impl JunctionInvocation {
     pub async fn run(
         self,
         server: Box<dyn AbstractServer + Send + Sync>,
-        input_values: Vec<PipelineValues>,
+        input_values: Vec<(String, PipelineValues)>,
         traced: bool,
     ) -> Result<PipelineValues> {
         let span = trace_span!("run junction step", junction = ?self.command);
 
-        let result = match self.command.execute(&server, input_values).instrument(span.clone()).await {
+        let result = match self
+            .command
+            .execute(&server, input_values)
+            .instrument(span.clone())
+            .await
+        {
             Ok(res) => res,
             Err(err) => {
                 trace!(err = ?err);
@@ -948,7 +993,11 @@ impl ServerPipeline {
         for cmd in &self.commands {
             let span = trace_span!("run_pipeline_step", cmd = ?cmd);
 
-            match cmd.execute(&self.server, cur_values).instrument(span.clone()).await {
+            match cmd
+                .execute(&self.server, cur_values)
+                .instrument(span.clone())
+                .await
+            {
                 Ok(next_values) => {
                     cur_values = next_values;
                 }
@@ -1013,10 +1062,13 @@ impl ServerPipelineGraph {
                 let output = junction.output_name.clone();
                 let mut input_values = vec![];
                 for name in &junction.input_names {
-                    input_values.push(match named_values.remove(name) {
-                        Some(val) => val,
-                        None => PipelineValues::Void,
-                    });
+                    input_values.push((
+                        name.clone(),
+                        match named_values.remove(name) {
+                            Some(val) => val,
+                            None => PipelineValues::Void,
+                        },
+                    ));
                 }
 
                 let span = trace_span!("junction_task", input_names=?junction.input_names, output_name=?junction.output_name).or_current();

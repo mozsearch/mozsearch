@@ -2,52 +2,78 @@
 alias = "context"
 
 # For graphing we need to build the pipeline through the traverse call but we
-# have the "graph-build" group automatically add the graphing steps.
+# have the "graph-symbols" group automatically add the graphing steps.
 [term.calls-to]
-[[term.calls-to.group.graph-build]]
+[[term.calls-to.group.graph-symbols-default]]
 command = "search-identifiers"
 args.positional = "$0"
 args.exact-match = true
-[[term.calls-to.group.graph-build]]
+[[term.calls-to.group.graph-symbols-default]]
 command = "crossref-lookup"
-[[term.calls-to.group.graph-build]]
+[[term.calls-to.group.graph-traverse]]
 command = "traverse"
 args.edge = "uses"
 
 [term.calls-to-sym]
-[[term.calls-to-sym.group.graph-build]]
+[[term.calls-to-sym.group.graph-symbols-default]]
 command = "crossref-lookup"
 args.positional = "$0"
-[[term.calls-to-sym.group.graph-build]]
+[[term.calls-to-sym.group.graph-traverse]]
 command = "traverse"
 args.edge = "uses"
 
 
 [term.calls-between]
-[[term.calls-between.group.graph-build]]
+[[term.calls-between.group.graph-symbols-default]]
 command = "search-identifiers"
 args.positional = "$0"
 args.exact-match = true
-[[term.calls-between.group.graph-build]]
+[[term.calls-between.group.graph-symbols-default]]
 command = "crossref-lookup"
 args.methods = true
-[[term.calls-between.group.graph-build]]
+[[term.calls-between.group.graph-traverse]]
 command = "traverse"
 args.edge = "uses"
 args.paths-between = true
 
 
+[term.calls-between-source]
+[[term.calls-between-source.group.graph-symbols-source]]
+command = "search-identifiers"
+args.positional = "$0"
+args.exact-match = true
+[[term.calls-between-source.group.graph-symbols-source]]
+command = "crossref-lookup"
+args.methods = true
+[[term.calls-between-source.group.graph-traverse]]
+command = "traverse"
+args.edge = "uses"
+args.paths-between = true
+
+[term.calls-between-target]
+[[term.calls-between-target.group.graph-symbols-target]]
+command = "search-identifiers"
+args.positional = "$0"
+args.exact-match = true
+[[term.calls-between-target.group.graph-symbols-target]]
+command = "crossref-lookup"
+args.methods = true
+[[term.calls-between-target.group.graph-traverse]]
+command = "traverse"
+args.edge = "uses"
+args.paths-between = true
+
 # XXX I intentionally had not exposed this previously because of the potential
 # for way too many results as it could get lost in the weeds, but I want to
 # experiment with this for now...
 [term.calls-from]
-[[term.calls-from.group.graph-build]]
+[[term.calls-from.group.graph-symbols-default]]
 command = "search-identifiers"
 args.positional = "$0"
 args.exact-match = true
-[[term.calls-from.group.graph-build]]
+[[term.calls-from.group.graph-symbols-default]]
 command = "crossref-lookup"
-[[term.calls-from.group.graph-build]]
+[[term.calls-from.group.graph-traverse]]
 command = "traverse"
 args.edge = "callees"
 
@@ -55,13 +81,13 @@ args.edge = "callees"
 # "inheritance-diagram" is a quick hack to show the full transitive overrides/
 # overriddenBy relationship.
 [term.inheritance-diagram]
-[[term.inheritance-diagram.group.graph-build]]
+[[term.inheritance-diagram.group.graph-symbols-default]]
 command = "search-identifiers"
 args.positional = "$0"
 args.exact-match = true
-[[term.inheritance-diagram.group.graph-build]]
+[[term.inheritance-diagram.group.graph-symbols-default]]
 command = "crossref-lookup"
-[[term.inheritance-diagram.group.graph-build]]
+[[term.inheritance-diagram.group.graph-traverse]]
 command = "traverse"
 args.edge = "inheritance"
 
@@ -70,19 +96,19 @@ args.edge = "inheritance"
 # - Traverse IPC communication relationships
 # - Be more intentional/explicit about inheritance; we may do something.
 [term.class-diagram]
-[[term.class-diagram.group.graph-build]]
+[[term.class-diagram.group.graph-symbols-default]]
 command = "search-identifiers"
 args.positional = "$0"
 args.exact-match = true
 args.types-only = true
-[[term.class-diagram.group.graph-build]]
+[[term.class-diagram.group.graph-symbols-default]]
 command = "crossref-lookup"
-[[term.class-diagram.group.graph-build]]
+[[term.class-diagram.group.graph-traverse]]
 command = "traverse"
 args.edge = "class"
 
 [term.fmus-through-depth]
-[[term.fmus-through-depth.group.graph-build]]
+[[term.fmus-through-depth.group.graph-traverse]]
 command = "traverse"
 args.traverse-field-member-uses = "$0"
 
@@ -119,22 +145,27 @@ args.layout = "$0"
 # associated with "term.depth" but instead "term.calls-to".  Noting this here
 # in case that somehow was doing something important and this breaks things...
 [term.depth]
-[[term.depth.group.graph-build]]
+[[term.depth.group.graph-traverse]]
 command = "traverse"
 args.max-depth = "$0"
 
-# We enforce a range of [16, 512] in our clap definition, so this is fine to
-# expose.
+# We enforce a range in our clap definition, so this is fine to expose.
 [term.node-limit]
-[[term.node-limit.group.graph-build]]
+[[term.node-limit.group.graph-traverse]]
 command = "traverse"
 args.node-limit = "$0"
+
+# We enforce a range in our clap definition, so this is fine to expose.
+[term.paths-between-node-limit]
+[[term.paths-between-node-limit.group.graph-traverse]]
+command = "traverse"
+args.paths-between-node-limit = "$0"
 
 # This is an opt-out for the heuristic that ignores uses with a ton of paths.
 # We do not enforce a range limit on this because the node-limit ends up
 # dominating.
 [term.path-limit]
-[[term.path-limit.group.graph-build]]
+[[term.path-limit.group.graph-traverse]]
 command = "traverse"
 args.skip-uses-at-path-count = "$0"
 
@@ -261,7 +292,24 @@ output = "result"
 [[group.display.commands]]
 command = "augment-results"
 
-[group.graph-build]
+[group.graph-symbols-source]
+output = "source"
+junction = "graph-fuse-symbols"
+
+[group.graph-symbols-target]
+output = "target"
+junction = "graph-fuse-symbols"
+
+[group.graph-symbols-default]
+output = "default"
+junction = "graph-fuse-symbols"
+
+[junction.graph-fuse-symbols]
+command = "fuse-crossrefs"
+output = "fused-symbols"
+next = "graph-traverse"
+
+[group.graph-traverse]
 output = "graph"
 next = "graph-render"
 

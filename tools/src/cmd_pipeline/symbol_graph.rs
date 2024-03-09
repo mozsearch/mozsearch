@@ -830,6 +830,9 @@ impl NamedSymbolGraph {
         id_edges
     }
 
+    /// Find all the paths between two nodes; if you have more than one pair of
+    /// nodes you probably want to use `all_simple_paths_using_supernodes` which
+    /// will induce source and sink supernodes.
     pub fn all_simple_paths(
         &mut self,
         source: SymbolGraphNodeId,
@@ -841,6 +844,69 @@ impl NamedSymbolGraph {
         let node_paths = paths
             .map(|v: Vec<_>| {
                 v.into_iter()
+                    .tuple_windows()
+                    .map(|(src, tgt)| {
+                        let edge_ix = self.graph.find_edge(src, tgt).unwrap();
+                        (
+                            SymbolGraphNodeId(
+                                *self.node_ix_to_id.get(&(src.index() as u32)).unwrap(),
+                            ),
+                            SymbolGraphNodeId(
+                                *self.node_ix_to_id.get(&(tgt.index() as u32)).unwrap(),
+                            ),
+                            self.graph[edge_ix].clone(),
+                        )
+                    })
+                    .collect()
+            })
+            .collect();
+        node_paths
+    }
+
+    /// Variant of all_simple_paths that takes source and target sets and
+    /// creates supernodes behind the source set and from the target set in
+    /// order to potentially improve the net algorithmic complexity.
+    ///
+    /// Right now this will mutate our current graph and we don't bother
+    /// cleaning that up because the expectation is a successor graph will be
+    /// created.
+    pub fn all_simple_paths_using_supernodes(
+        &mut self,
+        next_node_id: u32,
+        next_edge_id: u32,
+        source_nodes: &Vec<SymbolGraphNodeId>,
+        target_nodes: &Vec<SymbolGraphNodeId>,
+    ) -> Vec<Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>> {
+        let super_source_id = next_node_id;
+        let super_target_id = super_source_id + 1;
+
+        let super_source_ix = self.graph.add_node(super_source_id);
+        let super_target_ix = self.graph.add_node(super_target_id);
+
+        let synth_source_edge_id = next_edge_id;
+        let synth_target_edge_id = synth_source_edge_id + 1;
+
+        // Add edges from the synthetic source supernode to all source nodes
+        for source_id in source_nodes {
+            let source_ix = self.ensure_node(source_id.clone());
+            self.graph.add_edge(super_source_ix, source_ix, SymbolGraphEdgeId(synth_source_edge_id));
+        }
+
+        // Add edges from all target nodes to the synthetic target supernode.
+        for target_id in target_nodes {
+            let target_ix = self.ensure_node(target_id.clone());
+            self.graph.add_edge(target_ix, super_target_ix, SymbolGraphEdgeId(synth_target_edge_id));
+        }
+
+        // Now we get the paths...
+        let paths = all_simple_paths(&self.graph, super_source_ix, super_target_ix, 0, None);
+        let node_paths = paths
+            .map(|v: Vec<_>| {
+                v.into_iter()
+                    // skip the source supernode
+                    .dropping(1)
+                    // skip the target supernode
+                    .dropping_back(1)
                     .tuple_windows()
                     .map(|(src, tgt)| {
                         let edge_ix = self.graph.find_edge(src, tgt).unwrap();
@@ -1818,7 +1884,13 @@ impl HierarchicalRenderState {
     /// Return a node identifier for the set of nodes.  We just pick the first
     /// one.
     pub fn id_for_nodes(&self, nodes: &Vec<SymbolGraphNodeId>) -> String {
-        format!("Gidn{}", nodes[0].0)
+        // XXX there are cases where nodes is empty and the code assumed it
+        // would not be.
+        if nodes.is_empty() {
+            "".to_string()
+        } else {
+            format!("Gidn{}", nodes[0].0)
+        }
     }
 
     pub fn id_for_edge(&self, edge_id: &SymbolGraphEdgeId) -> String {
@@ -1982,6 +2054,7 @@ impl SymbolGraphNodeSet {
     pub fn propagate_paths(
         &self,
         paths: Vec<Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>>,
+        node_soft_limit: u32,
         edge_set: &SymbolGraphEdgeSet,
         new_graph: &mut NamedSymbolGraph,
         new_symbol_set: &mut SymbolGraphNodeSet,
@@ -1989,6 +2062,9 @@ impl SymbolGraphNodeSet {
         suppression: &mut HashSet<(u32, u32)>,
     ) {
         for path in paths {
+            if new_symbol_set.symbol_crossref_infos.len() as u32 >= node_soft_limit {
+                return;
+            }
             for (path_source, path_target, edge_id) in path {
                 if suppression.insert((path_source.0, path_target.0)) {
                     self.propagate_edge(

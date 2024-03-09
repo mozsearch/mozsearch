@@ -18,7 +18,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand, cmd_format_symbols::FormatSymbolsCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand, cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand};
+use super::{cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand, cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand, cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -86,6 +86,8 @@ pub fn fab_junction_from_opts(
 ) -> Result<Box<dyn PipelineJunctionCommand + Send + Sync>> {
     match opts.cmd {
         JunctionCommand::CompileResults(cr) => Ok(Box::new(CompileResultsCommand { args: cr })),
+
+        JunctionCommand::FuseCrossrefs(fc) => Ok(Box::new(FuseCrossrefsCommand { args: fc })),
     }
 }
 

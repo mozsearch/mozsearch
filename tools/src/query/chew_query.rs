@@ -324,6 +324,7 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     // ## 3: Process group rules to build the graph suggested by the terms above
     let mut unprocessed_groups: VecDeque<String> = builder.groups.keys().cloned().collect();
     let mut unprocessed_junctions: VecDeque<String> = VecDeque::new();
+    let mut queued_groups: HashSet<String> = builder.groups.keys().cloned().collect();
     // The set of groups without an input which means they should go in the
     // first `ParallelPipelines` instance.  We remove groups from this set as we
     // determine that they are actually depdendent on some earlier pipeline.
@@ -392,7 +393,10 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 // in the 1st phase of the loop above; we're just ensuring the
                 // group exists, establishing the "input" link, and adding any
                 // commands/args listed.
-                unprocessed_groups.push_back(group_name);
+                if queued_groups.insert(group_name.clone()) {
+                    // (only process the group if we haven't already)
+                    unprocessed_groups.push_back(group_name);
+                }
 
                 for cmd in &group_config.commands {
                     let flattened_args = flatten_args("", cmd.priority, &cmd.args);

@@ -675,11 +675,14 @@ impl PipelineJunctionCommand for CompileResultsCommand {
     async fn execute(
         &self,
         _server: &Box<dyn AbstractServer + Send + Sync>,
-        input: Vec<PipelineValues>,
+        input: Vec<(String, PipelineValues)>,
     ) -> Result<PipelineValues> {
         let mut results = SearchResults::default();
 
-        for pipe_value in input {
+        // We currently don't care about the name of the input because we only
+        // match by type, but one could imagine a scenario in which they serve
+        // as labels we want to propagate.
+        for (_, pipe_value) in input {
             match pipe_value {
                 PipelineValues::FileMatches(fm) => {
                     results.ingest_file_match_hits(fm.file_matches);
