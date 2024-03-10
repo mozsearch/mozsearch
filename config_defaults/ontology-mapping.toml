@@ -182,6 +182,13 @@ labels = ["uses-diagram:stop"]
 [pretty."TelemetryEvent::RecordEventNative"]
 labels = ["uses-diagram:stop"]
 
+# Until we are able to understand the observer service arguments and refine the
+# calls to tuple over the argument, we want uses diagrams to stop at the
+# interface because otherwise they entrain impossible control flow paths.
+# TODO: Understand observer notification arguments / subscriptions.
+[pretty."nsIObserver::Observe"]
+labels = ["uses-diagram:stop"]
+
 # stay out of debug spam stuff
 [pretty."NS_warn_if_impl"]
 labels = ["calls-diagram:stop"]

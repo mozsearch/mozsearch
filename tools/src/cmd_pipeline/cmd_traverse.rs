@@ -38,8 +38,10 @@ pub struct Traverse {
     edge: String,
 
     /// Maximum traversal depth.  Traversal will also be constrained by the
-    /// applicable node-limit, but is effectively breadth-first.
-    #[clap(long, short, value_parser, default_value = "8")]
+    /// applicable node-limit, but is effectively breadth-first.  Default depth
+    /// potentially varies if paths-between is enabled, although I set it back
+    /// to 8 for both just now.
+    #[clap(long, short, value_parser, default_value = "0")]
     max_depth: u32,
 
     /// When enabled, the traversal will be performed with the higher
@@ -50,10 +52,15 @@ pub struct Traverse {
     #[clap(long, value_parser)]
     paths_between: bool,
 
+    /// If specified, we will not drop symbol data beyond what is required for
+    /// jumpref processing once a symbol has been processed.
+    #[clap(long, value_parser)]
+    retain_all_symbol_data: bool,
+
     /// Maximum number of nodes in a resulting graph.  When paths are involved,
     /// we may opt to add the entirety of the path that puts the graph over the
     /// node limit rather than omitting it.
-    #[clap(long, value_parser = clap::value_parser!(u32).range(16..=1024), default_value = "256")]
+    #[clap(long, value_parser = clap::value_parser!(u32).range(16..=1024), default_value = "384")]
     pub node_limit: u32,
     /// Maximum number of nodes in a graph being built to be processed by
     /// paths-between.
@@ -142,7 +149,11 @@ impl PipelineCommand for TraverseCommand {
         server: &Box<dyn AbstractServer + Send + Sync>,
         input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let max_depth = self.args.max_depth;
+        let max_depth = match (self.args.max_depth, self.args.paths_between) {
+            (0, false) => 8,
+            (0, true) => 8,
+            (x, _) => x,
+        };
         let cil = match input {
             PipelineValues::SymbolCrossrefInfoList(cil) => cil,
             _ => {
@@ -299,18 +310,6 @@ impl PipelineCommand for TraverseCommand {
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server, depth).await?;
 
             if let Some(stop_at_label) = &stop_at_class_label {
-                // XXX remove these after the next crossref rebuild with the new markers.
-                match sym_info.symbol.as_str() {
-                    "T_nsWrapperCache"
-                    | "T_nsISupports"
-                    | "XPIDL_nsISupports"
-                    | "T_mozilla::SupportsWeakPtr"
-                    | "T_JSObject"
-                    | "T_mozilla::Runnable" => {
-                        continue;
-                    }
-                    _ => {}
-                };
                 if let Some(labels_json) = sym_info.crossref_info.pointer("/meta/labels").cloned() {
                     let labels: Vec<Ustr> = from_value(labels_json).unwrap();
                     let mut skip_symbol = false;
@@ -323,12 +322,15 @@ impl PipelineCommand for TraverseCommand {
                     }
                     // only skip if this isn't the requested symbol (depth == 0)
                     if depth > 0 && skip_symbol {
+                        if !self.args.retain_all_symbol_data {
+                            sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
+                        }
                         continue;
                     }
                 }
             }
 
-            // ## Clone the edges now before engaging in additional borrows.
+            // ## Clone the slotOwner now before engaging in additional borrows.
             let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
 
             if traverse_fields {
@@ -833,17 +835,23 @@ impl PipelineCommand for TraverseCommand {
                     })
                 };
 
-                let sym_info = sym_node_set.get(&sym_id);
-                let callees = sym_info
-                    .crossref_info
-                    .pointer("/callees")
-                    .unwrap_or(&Value::Array(vec![]))
-                    .clone();
+                let sym_info = sym_node_set.get_mut(&sym_id);
+                let callees = match (self.args.retain_all_symbol_data, sym_info.crossref_info.get_mut("callees")) {
+                    (true, Some(v)) => match v.clone() {
+                        Value::Array(arr) => arr,
+                        _ => vec![],
+                    },
+                    (false, Some(v)) => match v.take() {
+                        Value::Array(arr) => arr,
+                        _ => vec![],
+                    },
+                    _ => vec![],
+                };
 
                 // Callees are synthetically derived from crossref and is a
                 // flat list of { kind, pretty, sym }.  This differs from
                 // most other edges which are path hit-lists.
-                for target in callees.as_array().unwrap() {
+                for target in callees {
                     let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
                     let target_sym = ustr(target_sym_str);
                     //let target_kind = target["kind"].as_str().ok_or_else(bad_data)?;
@@ -885,13 +893,22 @@ impl PipelineCommand for TraverseCommand {
                     })
                 };
 
-                let sym_info = sym_node_set.get(&sym_id);
-                let uses_val = sym_info
-                    .crossref_info
-                    .pointer("/uses")
-                    .unwrap_or(&Value::Array(vec![]))
-                    .clone();
-                let uses = uses_val.as_array().unwrap();
+                let sym_info = sym_node_set.get_mut(&sym_id);
+                let uses = match (self.args.retain_all_symbol_data, sym_info.crossref_info.get_mut("uses")) {
+                    (true, Some(v)) => match v.clone() {
+                        Value::Array(arr) => arr,
+                        _ => vec![],
+                    },
+                    (false, Some(v)) => match v.take() {
+                        Value::Array(arr) => arr,
+                        _ => vec![],
+                    },
+                    _ => vec![],
+                };
+                // we just took the uses, but drop the callees too.
+                if !self.args.retain_all_symbol_data {
+                    sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
+                }
 
                 // Do not process the uses if there are more paths than our skip limit.
                 if uses.len() as u32 >= skip_uses_at_path_count {
@@ -954,6 +971,9 @@ impl PipelineCommand for TraverseCommand {
                         }
                     }
                 }
+            } else if !self.args.retain_all_symbol_data {
+                let sym_info = sym_node_set.get_mut(&sym_id);
+                sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
             }
         }
 
@@ -965,28 +985,24 @@ impl PipelineCommand for TraverseCommand {
             let mut paths_node_set = SymbolGraphNodeSet::new();
             let mut paths_edge_set = SymbolGraphEdgeSet::new();
             let mut paths_graph = NamedSymbolGraph::new("paths".to_string());
-            let mut suppression = HashSet::new();
 
-            let node_paths = graph.all_simple_paths_using_supernodes(
-                sym_node_set.symbol_crossref_infos.len() as u32,
-                sym_edge_set.edge_infos.len() as u32,
+
+            trace!("performing path propagation");
+            sym_node_set.propagate_paths(
+                &mut graph,
                 &source_set,
                 &target_set,
-            );
-
-            trace!(path_count = node_paths.len(), "forward paths found");
-            sym_node_set.propagate_paths(
-                node_paths,
+                &sym_edge_set,
                 // We've relaxed our paths-between node limit and would like to keep it that way,
                 // but we definitely need to limit the resulting size of the graph, so we still need
                 // to have a node limit, so we use the non-paths-between node limit (which can be
                 // raised) for that.
                 self.args.node_limit,
-                &sym_edge_set,
+                // There's no point considering paths longer than the max depth.
+                max_depth,
                 &mut paths_graph,
                 &mut paths_node_set,
                 &mut paths_edge_set,
-                &mut suppression,
             );
             if paths_node_set.symbol_crossref_infos.len() as u32 >= self.args.node_limit {
                 overloads_hit.push(OverloadInfo {
