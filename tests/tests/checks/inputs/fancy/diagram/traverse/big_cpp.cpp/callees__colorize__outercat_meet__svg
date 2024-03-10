@@ -1,1 +1,1 @@
-search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --colorize-callees=takeDamage --format=svg --hier=flat
+search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse --retain-all-symbol-data | graph --colorize-callees=takeDamage --format=svg --hier=flat

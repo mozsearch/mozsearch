@@ -19,7 +19,9 @@ use ustr::{ustr, Ustr, UstrMap};
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     file_format::{
-        analysis::AnalysisStructured, analysis_manglings::split_pretty, crossref_converter::convert_crossref_value_to_sym_info_rep, ontology_mapping::label_to_badge_info
+        analysis::AnalysisStructured, analysis_manglings::split_pretty,
+        crossref_converter::convert_crossref_value_to_sym_info_rep,
+        ontology_mapping::label_to_badge_info,
     },
 };
 
@@ -229,6 +231,15 @@ impl DerivedSymbolInfo {
             _ => 0,
         }
     }
+
+    // Potentially reduce our memory usage by dropping our uses and calls fields
+    // if they are present, as they won't be used for jumpref production.
+    pub fn reduce_memory_usage_by_dropping_non_jumpref_info(&mut self) {
+        if let Some(obj) = self.crossref_info.as_object_mut() {
+            obj.remove("uses");
+            obj.remove("callees");
+        }
+    }
 }
 
 impl DerivedSymbolInfo {
@@ -269,7 +280,10 @@ impl Serialize for SymbolGraphCollection {
         }
 
         let mut sgc = serializer.serialize_struct("SymbolGraphCollection", 2)?;
-        sgc.serialize_field("jumprefs", &self.node_set.symbols_meta_to_jumpref_json_nomut())?;
+        sgc.serialize_field(
+            "jumprefs",
+            &self.node_set.symbols_meta_to_jumpref_json_nomut(),
+        )?;
         sgc.serialize_field("graphs", &graphs)?;
         sgc.serialize_field("hierarchicalGraphs", &hierarchical_graphs)?;
         sgc.end()
@@ -863,6 +877,8 @@ impl NamedSymbolGraph {
         node_paths
     }
 
+    /// XXX don't use this, use
+    ///
     /// Variant of all_simple_paths that takes source and target sets and
     /// creates supernodes behind the source set and from the target set in
     /// order to potentially improve the net algorithmic complexity.
@@ -889,17 +905,29 @@ impl NamedSymbolGraph {
         // Add edges from the synthetic source supernode to all source nodes
         for source_id in source_nodes {
             let source_ix = self.ensure_node(source_id.clone());
-            self.graph.add_edge(super_source_ix, source_ix, SymbolGraphEdgeId(synth_source_edge_id));
+            self.graph.add_edge(
+                super_source_ix,
+                source_ix,
+                SymbolGraphEdgeId(synth_source_edge_id),
+            );
         }
 
         // Add edges from all target nodes to the synthetic target supernode.
         for target_id in target_nodes {
             let target_ix = self.ensure_node(target_id.clone());
-            self.graph.add_edge(target_ix, super_target_ix, SymbolGraphEdgeId(synth_target_edge_id));
+            self.graph.add_edge(
+                target_ix,
+                super_target_ix,
+                SymbolGraphEdgeId(synth_target_edge_id),
+            );
         }
+
+        trace!(num_nodes=%super_target_id, num_edges=%synth_target_edge_id, "created supernodes, running petgraph all_simple_paths algorithm");
 
         // Now we get the paths...
         let paths = all_simple_paths(&self.graph, super_source_ix, super_target_ix, 0, None);
+
+        trace!("have iterator");
         let node_paths = paths
             .map(|v: Vec<_>| {
                 v.into_iter()
@@ -2053,30 +2081,90 @@ impl SymbolGraphNodeSet {
 
     pub fn propagate_paths(
         &self,
-        paths: Vec<Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>>,
-        node_soft_limit: u32,
+        nsgraph: &mut NamedSymbolGraph,
+        source_nodes: &Vec<SymbolGraphNodeId>,
+        target_nodes: &Vec<SymbolGraphNodeId>,
         edge_set: &SymbolGraphEdgeSet,
+        node_soft_limit: u32,
+        path_length_limit: u32,
         new_graph: &mut NamedSymbolGraph,
         new_symbol_set: &mut SymbolGraphNodeSet,
         new_edge_set: &mut SymbolGraphEdgeSet,
-        suppression: &mut HashSet<(u32, u32)>,
     ) {
+        let super_source_id = self.symbol_crossref_infos.len() as u32;
+        let super_target_id = super_source_id + 1;
+
+        let super_source_ix = nsgraph.graph.add_node(super_source_id);
+        let super_target_ix = nsgraph.graph.add_node(super_target_id);
+
+        let synth_source_edge_id = edge_set.edge_infos.len() as u32;
+        let synth_target_edge_id = synth_source_edge_id + 1;
+
+        let mut suppression = HashSet::new();
+
+        // Add edges from the synthetic source supernode to all source nodes
+        for source_id in source_nodes {
+            let source_ix = nsgraph.ensure_node(source_id.clone());
+            nsgraph.graph.add_edge(
+                super_source_ix,
+                source_ix,
+                SymbolGraphEdgeId(synth_source_edge_id),
+            );
+        }
+
+        // Add edges from all target nodes to the synthetic target supernode.
+        for target_id in target_nodes {
+            let target_ix = nsgraph.ensure_node(target_id.clone());
+            nsgraph.graph.add_edge(
+                target_ix,
+                super_target_ix,
+                SymbolGraphEdgeId(synth_target_edge_id),
+            );
+        }
+
+        trace!(num_nodes=%super_target_id, num_edges=%synth_target_edge_id, "created supernodes, running petgraph all_simple_paths algorithm");
+
+        // Now we get the paths...
+        let paths = all_simple_paths::<Vec<_>, _>(
+            &nsgraph.graph,
+            super_source_ix,
+            super_target_ix,
+            0,
+            Some(path_length_limit as usize),
+        );
+
         for path in paths {
-            if new_symbol_set.symbol_crossref_infos.len() as u32 >= node_soft_limit {
-                return;
-            }
-            for (path_source, path_target, edge_id) in path {
-                if suppression.insert((path_source.0, path_target.0)) {
+            for (src, tgt) in path
+                .into_iter() // skip the source supernode
+                .dropping(1)
+                // skip the target supernode
+                .dropping_back(1)
+                .tuple_windows()
+            {
+                let source_ix = src.index() as u32;
+                let target_ix = tgt.index() as u32;
+
+                if suppression.insert((source_ix, target_ix)) {
+                    let source_id =
+                        SymbolGraphNodeId(*nsgraph.node_ix_to_id.get(&source_ix).unwrap());
+                    let target_id =
+                        SymbolGraphNodeId(*nsgraph.node_ix_to_id.get(&target_ix).unwrap());
+                    let edge_ix = nsgraph.graph.find_edge(src, tgt).unwrap();
+                    let edge_id = nsgraph.graph[edge_ix].clone();
                     self.propagate_edge(
                         edge_set,
-                        &path_source,
-                        &path_target,
+                        &source_id,
+                        &target_id,
                         &edge_id,
                         new_graph,
                         new_symbol_set,
                         new_edge_set,
                     );
                 }
+            }
+
+            if new_symbol_set.symbol_crossref_infos.len() as u32 >= node_soft_limit {
+                return;
             }
         }
     }
