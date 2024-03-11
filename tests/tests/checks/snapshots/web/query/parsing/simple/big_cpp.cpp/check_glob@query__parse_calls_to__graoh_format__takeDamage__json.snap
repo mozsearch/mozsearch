@@ -42,7 +42,9 @@ expression: "&jv.value"
         {
           "command": "crossref-lookup",
           "args": {
-            "bool_args": [],
+            "bool_args": [
+              "exact-match"
+            ],
             "named_args": {},
             "positional_args": []
           }

@@ -172,7 +172,13 @@ pub fn pointer_kind_to_badge_info(
 
 pub fn label_to_badge_info(label: &str) -> Option<(i32, &str)> {
     // Ignore all class-diagram directives, these are processed by cmd_traverse.
+    if label.starts_with("calls-diagram:") {
+        return None;
+    }
     if label.starts_with("class-diagram:") {
+        return None;
+    }
+    if label.starts_with("uses-diagram:") {
         return None;
     }
 

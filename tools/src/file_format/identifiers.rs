@@ -37,6 +37,8 @@ pub struct IdentResult {
     pub symbol: Ustr,
 }
 
+// XXX commented out like the callsite; they can probably both be removed
+/*
 // TODO: switch to https://crates.io/crates/cpp_demangle which is probably what
 // pernosco uses (based on khuey being an owner) and so for consistency purposes
 // is probably the right call.
@@ -58,6 +60,7 @@ fn demangle_name(name: &str) -> String {
         }
     }
 }
+*/
 
 impl IdentMap {
     pub fn new(filename: &str) -> Option<IdentMap> {
@@ -160,7 +163,7 @@ impl IdentMap {
 
         for line in slice.lines() {
             let line = line.unwrap();
-            let (mut id, symbol) = match line.rsplit_once(' ') {
+            let (id, symbol) = match line.rsplit_once(' ') {
                 Some((id, symbol)) => (id.to_string(), symbol),
                 None => continue,
             };
@@ -178,10 +181,15 @@ impl IdentMap {
                 continue;
             }
 
+            // Note: I've commented out our use of demangling because this is
+            // arguably a legacy concept in the face of our having structured
+            // data available for all the cases where demangling would succeed.
+            /*
             let demangled = demangle_name(&symbol);
             if demangled != symbol {
                 id = demangled;
             }
+            */
 
             result.push(IdentResult {
                 id: ustr(&id),

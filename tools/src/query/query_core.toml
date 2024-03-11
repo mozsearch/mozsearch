@@ -10,6 +10,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.calls-to.group.graph-symbols-default]]
 command = "crossref-lookup"
+args.exact-match = true
 [[term.calls-to.group.graph-traverse]]
 command = "traverse"
 args.edge = "uses"
@@ -30,6 +31,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.calls-between.group.graph-symbols-default]]
 command = "crossref-lookup"
+args.exact-match = true
 args.methods = true
 [[term.calls-between.group.graph-traverse]]
 command = "traverse"
@@ -44,6 +46,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.calls-between-source.group.graph-symbols-source]]
 command = "crossref-lookup"
+args.exact-match = true
 args.methods = true
 [[term.calls-between-source.group.graph-traverse]]
 command = "traverse"
@@ -57,15 +60,13 @@ args.positional = "$0"
 args.exact-match = true
 [[term.calls-between-target.group.graph-symbols-target]]
 command = "crossref-lookup"
+args.exact-match = true
 args.methods = true
 [[term.calls-between-target.group.graph-traverse]]
 command = "traverse"
 args.edge = "uses"
 args.paths-between = true
 
-# XXX I intentionally had not exposed this previously because of the potential
-# for way too many results as it could get lost in the weeds, but I want to
-# experiment with this for now...
 [term.calls-from]
 [[term.calls-from.group.graph-symbols-default]]
 command = "search-identifiers"
@@ -73,6 +74,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.calls-from.group.graph-symbols-default]]
 command = "crossref-lookup"
+args.exact-match = true
 [[term.calls-from.group.graph-traverse]]
 command = "traverse"
 args.edge = "callees"
@@ -87,6 +89,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.inheritance-diagram.group.graph-symbols-default]]
 command = "crossref-lookup"
+args.exact-match = true
 [[term.inheritance-diagram.group.graph-traverse]]
 command = "traverse"
 args.edge = "inheritance"
@@ -103,6 +106,7 @@ args.exact-match = true
 args.types-only = true
 [[term.class-diagram.group.graph-symbols-default]]
 command = "crossref-lookup"
+args.exact-match = true
 [[term.class-diagram.group.graph-traverse]]
 command = "traverse"
 args.edge = "class"
@@ -182,6 +186,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.field-layout.group.semantic-lookup]]
 command = "crossref-lookup"
+args.exact-match = true
 [[term.field-layout.group.semantic-format]]
 command = "format-symbols"
 args.mode = "field-layout"
@@ -211,6 +216,7 @@ args.positional = "$0"
 args.exact-match = true
 [[term.id.group.semantic-search]]
 command = "crossref-lookup"
+args.exact-match = true
 [[term.id.group.semantic-search]]
 command = "crossref-expand"
 

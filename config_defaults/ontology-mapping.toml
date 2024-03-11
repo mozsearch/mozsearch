@@ -198,6 +198,8 @@ labels = ["calls-diagram:stop"]
 labels = ["calls-diagram:stop"]
 [pretty."MOZ_ReportCrash"]
 labels = ["calls-diagram:stop"]
+[pretty."NS_IsMainThread"]
+labels = ["calls-diagram:stop"]
 # the above cases should prevent this, but this has an annoying fan-out if we get here
 [pretty."PR_GetEnv"]
 labels = ["calls-diagram:stop"]
@@ -220,6 +222,8 @@ labels = ["calls-diagram:stop"]
 # Avoid some NSPR stuff that comes up; this very much could be handled via subsystem
 # heuristics about NSPR always being boring.
 [pretty."PR_JoinThread"]
+labels = ["calls-diagram:stop"]
+[pretty."PR_Now"]
 labels = ["calls-diagram:stop"]
 
 # ### Refcounted Types ###

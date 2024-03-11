@@ -413,6 +413,8 @@ pub enum OverloadKind {
     /// paths which is a temporary thing (and we should change to Uses when
     /// correcting).
     UsesPaths,
+    /// Uses limit but based on lines.
+    UsesLines,
     FieldMemberUses,
     NodeLimit,
 }

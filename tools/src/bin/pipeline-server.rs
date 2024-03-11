@@ -41,8 +41,8 @@ async fn handle_query(
         return Ok((StatusCode::NOT_FOUND, format!("No such preset: {}", preset)).into_response());
     }
 
-    let logged_span = LoggedSpan::new_logged_span("query");
     let maybe_log = params.contains_key("debug");
+    let logged_span: Option<LoggedSpan> = if maybe_log { Some(LoggedSpan::new_logged_span("query")) } else { None };
 
     let query = match params.get("q") {
         Some(q) => q,
@@ -52,14 +52,20 @@ async fn handle_query(
     };
 
     let graph = {
-        let _log_entered = logged_span.span.clone().entered();
+        let _log_entered = match &logged_span {
+            Some(lspan) => Some(lspan.span.clone().entered()),
+            _ => None,
+        };
 
         let pipeline_plan = chew_query(query)?;
 
         build_pipeline_graph(server.clonify(), pipeline_plan)?
     };
 
-    let result = graph.run(true).instrument(logged_span.span.clone()).await?;
+    let result = match &logged_span {
+        Some(lspan) => graph.run(true).instrument(lspan.span.clone()).await?,
+        _ => graph.run(true).await?,
+    };
 
     let accept = headers
         .get("accept")
@@ -69,11 +75,9 @@ async fn handle_query(
         _ => true,
     };
 
-    let logs = logged_span.retrieve_serde_json().await;
-    let logs = if maybe_log {
-        logs
-    } else {
-        Value::Null
+    let logs = match logged_span {
+        Some(lspan) => lspan.retrieve_serde_json().await,
+        _ => Value::Null,
     };
 
     if make_html {
