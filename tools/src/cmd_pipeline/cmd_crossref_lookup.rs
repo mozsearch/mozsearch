@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use clap::Args;
-use ustr::ustr;
+use ustr::{ustr, Ustr};
 
 use super::interface::{
     PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolMetaFlags, SymbolQuality, SymbolRelation
@@ -21,6 +21,12 @@ pub struct CrossrefLookup {
     /// adding the class to the set, add its methods.
     #[clap(long, action)]
     methods: bool,
+
+    /// Discards symbols whose pretty identifier is not an exact match for the
+    /// symbol's `from_ident`.  This allows us to discard symbols from
+    /// search-identifiers which were not an absolute identifier match.
+    #[clap(short, long, value_parser)]
+    exact_match: bool,
 }
 
 #[derive(Debug)]
@@ -39,11 +45,11 @@ impl PipelineCommand for CrossrefLookupCommand {
         // input and we have no reason to believe the `Ustr` interned symbol
         // table contains all potentially known strings, we must operate in
         // String space until we get values back from the crossref lookup!
-        let symbol_list: Vec<(String, SymbolQuality)> = match input {
+        let symbol_list: Vec<(String, SymbolQuality, Option<Ustr>)> = match input {
             PipelineValues::SymbolList(sl) => sl
                 .symbols
                 .into_iter()
-                .map(|info| (info.symbol.to_string(), info.quality))
+                .map(|info| (info.symbol.to_string(), info.quality, info.from_identifier))
                 .collect(),
             // Right now we're assuming that we're the first command in the
             // pipeline so that we would have no inputs if someone wants to use
@@ -52,7 +58,7 @@ impl PipelineCommand for CrossrefLookupCommand {
                 .args
                 .symbols
                 .iter()
-                .map(|sym| (sym.clone(), SymbolQuality::ExplicitSymbol))
+                .map(|sym| (sym.clone(), SymbolQuality::ExplicitSymbol, None))
                 .collect(),
             _ => {
                 return Err(ServerError::StickyProblem(ErrorDetails {
@@ -64,7 +70,7 @@ impl PipelineCommand for CrossrefLookupCommand {
 
         let mut symbol_crossref_infos = vec![];
         let mut unknown_symbols = vec![];
-        for (symbol, quality) in symbol_list {
+        for (symbol, quality, from_ident) in symbol_list {
             let info = server.crossref_lookup(&symbol, false).await?;
 
             if info.is_null() {
@@ -84,6 +90,11 @@ impl PipelineCommand for CrossrefLookupCommand {
                 overloads_hit: vec![],
                 flags: SymbolMetaFlags::default(),
             };
+            if let (true, Some(pretty)) = (self.args.exact_match, from_ident) {
+                if pretty.to_lowercase() != crossref_info.get_pretty().to_lowercase() {
+                    continue;
+                }
+            }
             if self.args.methods {
                 if let Some(method_syms) = crossref_info.get_method_symbols() {
                     for method_sym in method_syms {

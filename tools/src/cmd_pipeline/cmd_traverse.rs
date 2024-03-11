@@ -37,11 +37,17 @@ pub struct Traverse {
     #[clap(long, short, value_parser, default_value = "callees")]
     edge: String,
 
-    /// Maximum traversal depth.  Traversal will also be constrained by the
-    /// applicable node-limit, but is effectively breadth-first.  Default depth
-    /// potentially varies if paths-between is enabled, although I set it back
-    /// to 8 for both just now.
-    #[clap(long, short, value_parser, default_value = "0")]
+    /// Maximum traversal depth.  This used to have no limit because traversal
+    /// will also be constrained by the applicable node-limit and our breadth
+    /// first processing, but depth is now also used to limit the paths-between
+    /// maximum path length, so we need to cap it to something that avoids worst
+    /// case scenarios.  Honestly, 16 might be too high but should only result
+    /// in pathological runtime rather than pathological memory usage.
+    ///
+    /// The default depth is set to 0 so it can vary if paths-between is enabled
+    /// although we use a default depth of 8 for both right now, but it might
+    /// make sense to crank paths-between back up to 10.
+    #[clap(long, short, value_parser = clap::value_parser!(u32).range(0..=16), default_value = "0")]
     max_depth: u32,
 
     /// When enabled, the traversal will be performed with the higher
@@ -224,7 +230,7 @@ impl PipelineCommand for TraverseCommand {
             };
 
         let stop_at_class_label = match self.args.edge.as_str() {
-            "calls" => Some("calls-diagram:stop"),
+            "callees" => Some("calls-diagram:stop"),
             "class" => Some("class-diagram:stop"),
             "uses" => Some("uses-diagram:stop"),
             _ => None,
@@ -928,12 +934,49 @@ impl PipelineCommand for TraverseCommand {
                 // hide cycles in the graph!
                 let mut use_considered = HashSet::new();
 
+                let mut line_hits: u32 = 0;
+
                 // Uses are path-hitlists and each array item has the form
                 // { path, lines: [ { context, contextsym }] } eliding some
                 // of the hit fields.  We really just care about the
                 // contextsym.
                 for path_hits in uses {
                     let hits = path_hits["lines"].as_array().ok_or_else(bad_data)?;
+                    // For now we're just going to use the path limit for this too.
+                    //
+                    // The specific scenario driving this is the "abort" method
+                    // which ends up called an immense number of times inside of
+                    // mfbt/Assertions.h because of assertion macros where each
+                    // hit technically has a different contextsym
+                    //
+                    // First, handle this specific path breaking things for us as
+                    // a local limit.  Then add the line count and check if the
+                    // global limit has been hit.
+                    if hits.len() as u32 >= skip_uses_at_path_count {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::UsesLines,
+                            sym: Some(sym.to_string()),
+                            exist: hits.len() as u32,
+                            included: 0,
+                            local_limit: skip_uses_at_path_count,
+                            global_limit: 0,
+                        });
+                        break;
+                    }
+                    line_hits += hits.len() as u32;
+                    if line_hits >= skip_uses_at_path_count {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::UsesLines,
+                            sym: Some(sym.to_string()),
+                            exist: line_hits,
+                            included: line_hits - (hits.len() as u32),
+                            local_limit: 0,
+                            // Note we're reporting this as a global limit to
+                            // differentiate from the above case.
+                            global_limit: skip_uses_at_path_count,
+                        });
+                        break;
+                    }
                     for source in hits {
                         let source_sym_str = source["contextsym"].as_str().unwrap_or("");
                         //let source_kind = source["kind"].as_str().ok_or_else(bad_data)?;
