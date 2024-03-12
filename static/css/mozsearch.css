@@ -151,6 +151,15 @@ table {
 }
 }
 
+@media (prefers-contrast) {
+  :root {
+    --blame-popup-background: Canvas;
+    --blame-popup-color: CanvasText;
+    --blame-light-gray: ButtonFace;
+    --blame-dark-gray: ButtonText;
+  }
+}
+
 :root {
   font: 12px/1.5 Arial, Helvetica, sans-serif;
 
@@ -786,6 +795,16 @@ span[data-symbols].hovered {
   margin: 0;
   touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
   touch-action: pinch-zoom;
+  @media (prefers-contrast) {
+    border-inline: 1px solid ButtonText;
+    &:hover {
+      background-color: SelectedItem;
+      border-color: SelectedItemText;
+    }
+    &:active {
+      border-color: ButtonText;
+    }
+  }
 }
 /* blame zebra stripes: we alternate colors whenever the revision a line is from
    changes between lines. */
@@ -810,6 +829,9 @@ span[data-symbols].hovered {
   text-align: left;
   z-index: 200;
   cursor: auto;
+  @media (prefers-contrast) {
+    border: 1px solid CanvasText;
+  }
 }
 .deemphasize {
   color: GrayText;
@@ -839,6 +861,11 @@ input::placeholder {
 #query {
   /* Leave room for spinner. */
   padding-right: 40px;
+  @media (prefers-contrast) {
+    background-color: ButtonFace;
+    border: 1px solid ButtonText;
+    color: ButtonText;
+  }
 }
 .in-progress #spinner {
   background: transparent url("../images/spinner-large.gif") 0 0 / contain
