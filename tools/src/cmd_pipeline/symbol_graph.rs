@@ -1612,6 +1612,7 @@ impl HierarchicalNode {
                     rows: vec![],
                     columns_needed: 0,
                 };
+                
 
                 table.rows.push(LabelRow {
                     cells: vec![LabelCell {
@@ -1651,6 +1652,9 @@ impl HierarchicalNode {
                         .collect_vec()
                 };
 
+                // Start from our own depth, but it's quite likely that the kids may actually have
+                // lower depths.
+                let mut min_depth = node_set.get_min_depth_for_symbols(&self.symbols);
                 let mut kid_edges = vec![];
                 // Only show group headers if there's more than 1 group!
                 let use_groups = grouped_kids.len() > 1;
@@ -1672,6 +1676,10 @@ impl HierarchicalNode {
                     }
                     for kid in ordered_kids {
                         if let Some(HierarchicalLayoutAction::Record(kid_id)) = &kid.action {
+                            let kid_depth = node_set.get_min_depth_for_symbols(&kid.symbols);
+                            if kid_depth < min_depth {
+                                min_depth = kid_depth;
+                            }
                             let kid_port_name = make_safe_port_id(kid_id);
                             table.rows.push(LabelRow {
                                 cells: vec![LabelCell {
@@ -1704,7 +1712,7 @@ impl HierarchicalNode {
                 let node = node!(esc node_id;
                           attr!("shape", "none"),
                           attr!("label", html table_html),
-                          attr!("class", esc format!("diagram-depth-{}", node_set.get_min_depth_for_symbols(&self.symbols))));
+                          attr!("class", esc format!("diagram-depth-{}", min_depth)));
                 result.push(stmt!(node));
 
                 result.extend(kid_edges);
@@ -1761,6 +1769,7 @@ impl HierarchicalNode {
                     EdgeKind::Composition => ("solid", "arrowtail", "diamond"),
                     EdgeKind::Aggregation => ("solid", "arrowtail", "odiamond"),
                     EdgeKind::IPC => ("dotted", "arrowhead", "vee"),
+                    EdgeKind::CrossLanguage => ("solid", "arrowhead", "lnormal"),
                 };
 
                 let mut maybe_edge =
@@ -2004,6 +2013,7 @@ pub enum EdgeKind {
     Aggregation,    // solid line, open diamond ("odiamond")
     // These are more specific searchfox concepts
     IPC, // dotted line, weird vee arrow ("vee")
+    CrossLanguage, // JNI-like; solid line, left-half-closed arrow ("lnormal")
 }
 
 #[derive(Clone, PartialEq)]
