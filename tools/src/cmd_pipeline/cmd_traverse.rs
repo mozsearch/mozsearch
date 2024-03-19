@@ -20,8 +20,8 @@ use crate::{
     cmd_pipeline::symbol_graph::{EdgeDetail, EdgeKind},
     file_format::{
         analysis::{
-            BindingSlotKind, OntologySlotInfo, OntologySlotKind, StructuredBindingSlotInfo,
-            StructuredFieldInfo,
+            BindingOwnerLang, BindingSlotKind, OntologySlotInfo, OntologySlotKind,
+            StructuredBindingSlotInfo, StructuredFieldInfo,
         },
         ontology_mapping::{label_to_badge_info, pointer_kind_to_badge_info},
     },
@@ -488,6 +488,8 @@ impl PipelineCommand for TraverseCommand {
                 // There are a few possibilities with a binding slot.  It can be
                 // a binding type that is:
                 //
+                // IDL-Based:
+                //
                 // 1. An IPC `Recv` where the "uses" of this method will only be
                 //    plumbing that is distracting and should be elided in favor
                 //    of showing all `Send` calls instead.
@@ -501,40 +503,91 @@ impl PipelineCommand for TraverseCommand {
                 //    any use of the symbol is terminal and should not be
                 //    (erroneously) treated as somehow triggering the WebIDL
                 //    functions which it is enabling for.
-                let should_traverse = match slot_owner.props.slot_kind {
-                    // Enabling funcs and constants don't count as interesting
-                    // uses in either direction; they are support.
-                    BindingSlotKind::EnablingPref
-                    | BindingSlotKind::EnablingFunc
-                    | BindingSlotKind::Const
-                    | BindingSlotKind::Send => false,
-                    _ => true,
-                };
+                //
+                // Cross-language bindings like JNI-wrappers:
+                //
+                // There's a major divergence here between IDL bindings and cross-language
+                // bindings like JNI wrappers.  For IDL, the owner slot is the IDL symbol
+                // symbol, but for cross-language wrappers, the owner slot is the
+                // implementing language.  (That way, if there are multiple language
+                // bindings, they all have a parent of the implementing method, and
+                // the implementing method has a list of all of the other-language bindings
+                // that reference it.)
+                let (should_traverse, skip_remainder, traverse_slot, outbound_edge, edge_kind) =
+                    match (slot_owner.props.owner_lang, slot_owner.props.slot_kind) {
+                        // Enabling funcs and constants don't count as interesting
+                        // uses in either direction; they are support.
+                        (
+                            _,
+                            BindingSlotKind::EnablingPref
+                            | BindingSlotKind::EnablingFunc
+                            | BindingSlotKind::Const,
+                        ) => (false, false, None, false, EdgeKind::Default),
+                        // For callees, draw an outbound IPC edge to the "recv" slot via the IDL symbol
+                        (_, BindingSlotKind::Send) => (
+                            self.args.edge == "callees",
+                            true,
+                            Some("recv"),
+                            true,
+                            EdgeKind::IPC,
+                        ),
+                        // For uses, draw an inbound IPC edge from the "send" slot via the IDL symbol
+                        (_, BindingSlotKind::Recv) => {
+                            (self.args.edge == "uses", true, Some("send"), false, EdgeKind::IPC)
+                        }
+                        // For IDL bindings, we want an upward (inbound) edge from the IDL symbol
+                        (BindingOwnerLang::Idl, _) => (true, false, None, false, EdgeKind::Implementation),
+                        // Cross-language binding class relationships are weird because
+                        // the bindings inside are bidirectional, so let's ignore them.
+                        (_, BindingSlotKind::Class) => (false, false, None, false, EdgeKind::Default),
+                        // This leaves us with cross-language bindings where the slot owner is always the
+                        // implementation symbol so slotOwner is always aligned with "callees"; the "uses"
+                        // edges hammen when processing bindingSlots.
+                        (_, _) => (
+                            self.args.edge == "callees",
+                            true,
+                            None,
+                            true,
+                            EdgeKind::CrossLanguage,
+                        ),
+                    };
                 if should_traverse {
-                    let (idl_id, idl_info) = sym_node_set
+                    let (owner_id, owner_info) = sym_node_set
                         .ensure_symbol(&slot_owner.sym, server, next_depth)
                         .await?;
 
-                    // So if this was the recv, let's look through to the send
-                    // and add an edge to that instead and then continue the
-                    // loop so we ignore the other uses.
-                    if slot_owner.props.slot_kind == BindingSlotKind::Recv {
-                        if let Some(send_sym) = idl_info.get_binding_slot_sym("send") {
-                            let (send_id, send_info) = sym_node_set
-                                .ensure_symbol(&send_sym, server, next_depth)
+                    // Handle the case where we need to traverse a slot
+                    if let Some(other_slot) = traverse_slot {
+                        if let Some(other_sym) = owner_info.get_binding_slot_sym(other_slot) {
+                            let (other_id, other_info) = sym_node_set
+                                .ensure_symbol(&other_sym, server, next_depth)
                                 .await?;
-                            sym_edge_set.ensure_edge_in_graph(
-                                send_id,
-                                sym_id.clone(),
-                                EdgeKind::IPC,
-                                vec![],
-                                &mut graph,
-                            );
-                            if next_depth < max_depth && considered.insert(send_info.symbol.clone())
+                            if outbound_edge {
+                                sym_edge_set.ensure_edge_in_graph(
+                                    sym_id.clone(),
+                                    other_id,
+                                    edge_kind,
+                                    vec![],
+                                    &mut graph,
+                                );
+                            } else {
+                                sym_edge_set.ensure_edge_in_graph(
+                                    other_id,
+                                    sym_id.clone(),
+                                    edge_kind,
+                                    vec![],
+                                    &mut graph,
+                                );
+                            }
+                            if next_depth < max_depth
+                                && considered.insert(other_info.symbol.clone())
                             {
-                                trace!(sym = send_info.symbol.as_str(), "scheduling send slot sym");
+                                trace!(
+                                    sym = other_info.symbol.as_str(),
+                                    "scheduling traversed binding slot sym"
+                                );
                                 to_traverse.push_back((
-                                    send_info.symbol.clone(),
+                                    other_info.symbol.clone(),
                                     next_depth,
                                     all_traversals_valid,
                                 ));
@@ -542,25 +595,109 @@ impl PipelineCommand for TraverseCommand {
                         }
                         continue;
                     } else {
-                        // And so here we're, uh, just going to name-check the
-                        // parent.
-                        // TODO: further implement binding slot magic.
-                        sym_edge_set.ensure_edge_in_graph(
-                            idl_id,
-                            sym_id.clone(),
-                            EdgeKind::Implementation,
-                            vec![],
-                            &mut graph,
-                        );
-                        if next_depth < max_depth && considered.insert(idl_info.symbol.clone()) {
-                            trace!(sym = idl_info.symbol.as_str(), "scheduling owner slot sym");
+                        if outbound_edge {
+                            sym_edge_set.ensure_edge_in_graph(
+                                sym_id.clone(),
+                                owner_id,
+                                edge_kind,
+                                vec![],
+                                &mut graph,
+                            );
+                        } else {
+                            sym_edge_set.ensure_edge_in_graph(
+                                owner_id,
+                                sym_id.clone(),
+                                edge_kind,
+                                vec![],
+                                &mut graph,
+                            );
+                        }
+                        if next_depth < max_depth && considered.insert(owner_info.symbol.clone()) {
+                            trace!(
+                                sym = owner_info.symbol.as_str(),
+                                "scheduling owner binding slot sym"
+                            );
                             to_traverse.push_back((
-                                idl_info.symbol.clone(),
+                                owner_info.symbol.clone(),
                                 next_depth,
                                 all_traversals_valid,
                             ));
                         }
                     }
+
+                    if skip_remainder {
+                        // XXX we should potentially be using reduce_memory_usage_by_dropping_non_jumpref_info
+                        continue;
+                    }
+                }
+            }
+
+            // Process this symbol's binding slots.  As noted at the `slot_owner` traversal, there's
+            // a major different between IDL bindings and cross-language bindings like Java/Kotlin
+            // JNI.  There are also some traversals that are pointless for us to consider right now
+            // like for XPIDL where in theory XPConnect allows calls between C++ and JS but we don't
+            // have the necessary analysis data to handle that.
+            let sym_info = sym_node_set.get(&sym_id);
+            if let Some(Value::Array(slots)) = sym_info
+                .crossref_info
+                .pointer("/meta/bindingSlots")
+                .cloned()
+            {
+                let mut skip_after_slots = false;
+                for slot_val in slots {
+                    let slot: StructuredBindingSlotInfo = from_value(slot_val).unwrap();
+                    let (should_traverse, skip_other_edges, outbound_edge, edge_kind) =
+                        match (slot.props.owner_lang, slot.props.slot_kind) {
+                            // Don't bother with IDL bindings; all the relevant traversals involve a
+                            // slotOwner at this time.
+                            (BindingOwnerLang::Idl, _) => (false, false, false, EdgeKind::Default),
+                            // Cross-language binding class relationships are weird because
+                            // the bindings inside are bidirectional, so let's ignore them.
+                            (_, BindingSlotKind::Class) => (false, false, false, EdgeKind::Default),
+                            // For cross-language wrappers the implementing language is the slotOwner
+                            // so the binding slots are edges to the binding.  That is, the slotOwner
+                            // constitutes a "uses" edge and the slots constitute a "callees" edge.
+                            (_, _) => (self.args.edge == "uses", true, false, EdgeKind::CrossLanguage),
+                        };
+                    if should_traverse {
+                        // Skipping is conditional on the decision to traverse.
+                        if skip_other_edges {
+                            skip_after_slots = true;
+                        }
+                        let (rel_id, _) = sym_node_set
+                            .ensure_symbol(&slot.sym, server, next_depth)
+                            .await?;
+                        if outbound_edge {
+                            sym_edge_set.ensure_edge_in_graph(
+                                sym_id.clone(),
+                                rel_id,
+                                edge_kind,
+                                vec![],
+                                &mut graph,
+                            );
+                        } else {
+                            sym_edge_set.ensure_edge_in_graph(
+                                rel_id,
+                                sym_id.clone(),
+                                edge_kind,
+                                vec![],
+                                &mut graph,
+                            );
+
+                        }
+                        if next_depth < max_depth && considered.insert(slot.sym.clone()) {
+                            trace!(sym = slot.sym.as_str(), "scheduling bind slot sym");
+                            to_traverse.push_back((
+                                slot.sym.clone(),
+                                next_depth,
+                                all_traversals_valid,
+                            ));
+                        }
+                    }
+                }
+                if skip_after_slots {
+                    // XXX we should potentially be using reduce_memory_usage_by_dropping_non_jumpref_info
+                    continue;
                 }
             }
 
@@ -842,7 +979,10 @@ impl PipelineCommand for TraverseCommand {
                 };
 
                 let sym_info = sym_node_set.get_mut(&sym_id);
-                let callees = match (self.args.retain_all_symbol_data, sym_info.crossref_info.get_mut("callees")) {
+                let callees = match (
+                    self.args.retain_all_symbol_data,
+                    sym_info.crossref_info.get_mut("callees"),
+                ) {
                     (true, Some(v)) => match v.clone() {
                         Value::Array(arr) => arr,
                         _ => vec![],
@@ -900,7 +1040,10 @@ impl PipelineCommand for TraverseCommand {
                 };
 
                 let sym_info = sym_node_set.get_mut(&sym_id);
-                let uses = match (self.args.retain_all_symbol_data, sym_info.crossref_info.get_mut("uses")) {
+                let uses = match (
+                    self.args.retain_all_symbol_data,
+                    sym_info.crossref_info.get_mut("uses"),
+                ) {
                     (true, Some(v)) => match v.clone() {
                         Value::Array(arr) => arr,
                         _ => vec![],
@@ -1028,7 +1171,6 @@ impl PipelineCommand for TraverseCommand {
             let mut paths_node_set = SymbolGraphNodeSet::new();
             let mut paths_edge_set = SymbolGraphEdgeSet::new();
             let mut paths_graph = NamedSymbolGraph::new("paths".to_string());
-
 
             trace!("performing path propagation");
             sym_node_set.propagate_paths(
