@@ -151,7 +151,7 @@ table {
 }
 }
 
-@media (prefers-contrast) {
+@media (forced-colors) {
   :root {
     --blame-popup-background: Canvas;
     --blame-popup-color: CanvasText;
@@ -795,7 +795,7 @@ span[data-symbols].hovered {
   margin: 0;
   touch-action: none; /* fallback for FF pre-85 which didn't support touch-action:pinch-zoom */
   touch-action: pinch-zoom;
-  @media (prefers-contrast) {
+  @media (forced-colors) {
     border-inline: 1px solid ButtonText;
     &:hover {
       background-color: SelectedItem;
@@ -861,10 +861,10 @@ input::placeholder {
 #query {
   /* Leave room for spinner. */
   padding-right: 40px;
-  @media (prefers-contrast) {
-    background-color: ButtonFace;
+  @media (forced-colors) {
+    background-color: Field;
     border: 1px solid ButtonText;
-    color: ButtonText;
+    color: FieldText;
   }
 }
 .in-progress #spinner {
