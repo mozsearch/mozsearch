@@ -4,7 +4,7 @@ use self::memmap::Mmap;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufRead;
-use std::process::Command;
+
 use std::str;
 use std::sync::Arc;
 use ustr::{ustr, Ustr};
