@@ -5,7 +5,6 @@ extern crate clap;
 extern crate chrono;
 extern crate git2;
 extern crate include_dir;
-#[macro_use]
 extern crate itertools;
 extern crate linkify;
 extern crate regex;
