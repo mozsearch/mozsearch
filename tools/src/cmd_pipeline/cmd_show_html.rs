@@ -23,6 +23,7 @@ use crate::{
 #[derive(Debug, Args)]
 pub struct ShowHtml {}
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ShowHtmlCommand {
     pub args: ShowHtml,
