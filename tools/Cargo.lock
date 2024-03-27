@@ -620,12 +620,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "diff"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
-
-[[package]]
 name = "difflib"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1291,6 +1285,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1349,32 +1352,33 @@ dependencies = [
 
 [[package]]
 name = "lalrpop"
-version = "0.19.8"
-source = "git+https://github.com/mozsearch/lalrpop?branch=mozsearch-version1#393688d6295f50479c5a99fccb52eb6bd38785b5"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55cb077ad656299f160924eb2912aa147d7339ea7d69e1b5517326fdcec3c1ca"
 dependencies = [
  "ascii-canvas",
- "atty",
  "bit-set",
- "diff",
  "ena",
- "itertools",
+ "itertools 0.11.0",
  "lalrpop-util",
  "petgraph",
  "pico-args",
  "regex 1.10.3",
- "regex-syntax 0.6.29",
+ "regex-syntax 0.8.2",
  "string_cache",
  "term",
  "tiny-keccak",
  "unicode-xid",
+ "walkdir",
 ]
 
 [[package]]
 name = "lalrpop-util"
-version = "0.19.8"
-source = "git+https://github.com/mozsearch/lalrpop?branch=mozsearch-version1#393688d6295f50479c5a99fccb52eb6bd38785b5"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "507460a910eb7b32ee961886ff48539633b788a36b65692b95f225b844c82553"
 dependencies = [
- "regex 1.10.3",
+ "regex-automata 0.4.5",
 ]
 
 [[package]]
@@ -1502,7 +1506,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79e0724dfcaad5cfb7965ea0f178ca0870b8d7315178f4a7179f5696f7f04d5f"
 dependencies = [
  "anymap2",
- "itertools",
+ "itertools 0.10.5",
  "kstring",
  "liquid-derive",
  "num-traits",
@@ -1530,7 +1534,7 @@ version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2a17e273a6fb1fb6268f7a5867ddfd0bd4683c7e19b51084f3d567fad4348c0"
 dependencies = [
- "itertools",
+ "itertools 0.10.5",
  "liquid-core",
  "once_cell",
  "percent-encoding 2.3.1",
@@ -2047,9 +2051,9 @@ dependencies = [
 
 [[package]]
 name = "pico-args"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8bcd96cb740d03149cbad5518db9fd87126a10ab519c011893b1754134c468"
+checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
 name = "pin-project"
@@ -2152,7 +2156,7 @@ dependencies = [
  "cfg-if",
  "cmake",
  "heck",
- "itertools",
+ "itertools 0.10.5",
  "lazy_static",
  "log 0.4.20",
  "multimap",
@@ -2171,7 +2175,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b670f45da57fb8542ebdbb6105a925fe571b67f9e7ed9f47a06a84e72b4e7cc"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -2443,7 +2447,7 @@ checksum = "85293f293444a5f569dd394024b2af9e91fc6b71d336f35c02bc936a29a5fe7e"
 dependencies = [
  "derive-new",
  "fst",
- "itertools",
+ "itertools 0.10.5",
  "json",
  "log 0.4.20",
  "rls-data",
@@ -3178,7 +3182,7 @@ dependencies = [
  "include_dir",
  "insta",
  "ipdl_parser",
- "itertools",
+ "itertools 0.10.5",
  "json-structural-diff",
  "lazy_static",
  "lexical-sort",
