@@ -21,6 +21,7 @@ use crate::{
 #[derive(Debug, Args)]
 pub struct ProductionFilter {}
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ProductionFilterCommand {
     pub args: ProductionFilter,

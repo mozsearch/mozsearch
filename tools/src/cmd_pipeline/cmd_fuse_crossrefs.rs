@@ -19,6 +19,7 @@ use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, S
 #[derive(Debug, Args)]
 pub struct FuseCrossrefs {}
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct FuseCrossrefsCommand {
     pub args: FuseCrossrefs,
