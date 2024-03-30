@@ -751,7 +751,7 @@ impl SymbolGraphCollection {
         // somewhat reasonable for now.
         match graph_layout {
             GraphLayout::Neato => {
-                dot_graph.add_stmt(stmt!(node!("graph"; attr!("overlap","prism"))));
+                dot_graph.add_stmt(stmt!(node!("graph"; attr!("overlap","prism"), attr!("mode","hier"), attr!("sep",esc "+10"))));
             }
             _ => {}
         }
@@ -1612,7 +1612,6 @@ impl HierarchicalNode {
                     rows: vec![],
                     columns_needed: 0,
                 };
-                
 
                 table.rows.push(LabelRow {
                     cells: vec![LabelCell {
@@ -2012,7 +2011,7 @@ pub enum EdgeKind {
     Composition,    // solid line, closed diamond ("diamond")
     Aggregation,    // solid line, open diamond ("odiamond")
     // These are more specific searchfox concepts
-    IPC, // dotted line, weird vee arrow ("vee")
+    IPC,           // dotted line, weird vee arrow ("vee")
     CrossLanguage, // JNI-like; solid line, left-half-closed arrow ("lnormal")
 }
 
