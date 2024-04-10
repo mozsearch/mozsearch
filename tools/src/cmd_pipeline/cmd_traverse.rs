@@ -259,11 +259,16 @@ impl PipelineCommand for TraverseCommand {
         };
         let traverse_overridden_by = match self.args.edge.as_str() {
             "inheritance" => true,
+            // For callees, if we have traversed to a specific method, we do
+            // care about any further overrides.
+            "callees" => true,
             _ => false,
         };
         let traverse_overrides = match self.args.edge.as_str() {
             "inheritance" => true,
             "uses" => true,
+            // We intentionally do not traverse upwards here for the callees
+            // case; only downwards in the "overridden_by" case above.
             _ => false,
         };
         let traverse_subclasses = match self.args.edge.as_str() {
@@ -952,8 +957,8 @@ impl PipelineCommand for TraverseCommand {
                     if considered.insert(target_info.symbol.clone()) {
                         // Same rationale on avoiding a duplicate edge.
                         sym_edge_set.ensure_edge_in_graph(
-                            target_id,
                             sym_id.clone(),
+                            target_id,
                             EdgeKind::Inheritance,
                             vec![],
                             &mut graph,
