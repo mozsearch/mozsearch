@@ -537,7 +537,7 @@ expression: "&to_value(grb).unwrap()"
         "sym": "_Z4main",
         "type_pretty": null,
         "kind": "function",
-        "subsystem": "Core/Simple",
+        "subsystem": null,
         "implKind": "",
         "sizeBytes": null,
         "bindingSlots": [],
