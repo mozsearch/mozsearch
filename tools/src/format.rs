@@ -7,7 +7,9 @@ use std::time::Instant;
 
 use crate::blame;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
-use crate::file_format::crossref_converter::extra_binding_slot_syms_from_jumpref;
+use crate::file_format::crossref_converter::{
+    determine_desired_extra_syms_from_jumpref, extra_syms_next_step_lookups, JumprefTraversals,
+};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::git_ops;
 use crate::languages;
@@ -15,15 +17,15 @@ use crate::languages::FormatAs;
 use crate::links;
 use crate::tokenize;
 
-use crate::file_format::config::{GitData, Config, TreeConfig};
 use crate::file_format::analysis::{AnalysisSource, WithLocation};
+use crate::file_format::config::{Config, GitData, TreeConfig};
 use crate::output::{self, Options, PanelItem, PanelSection, F};
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
-use serde_json::{json, Map, to_string, to_string_pretty};
-use ustr::{Ustr, ustr};
+use serde_json::{json, to_string, to_string_pretty, Map};
+use ustr::{ustr, Ustr, UstrMap};
 
 #[derive(Debug)]
 pub struct FormattedLine {
@@ -84,12 +86,14 @@ pub fn format_code(
     // generated "jumps" file as well as "source records" at the point of each
     // token.
     let mut generated_sym_info = BTreeMap::new();
+    let mut jumpref_traversed: UstrMap<JumprefTraversals> = UstrMap::default();
 
     // Stuff the file's own info in the symbol info map.
     if let Some(lookup) = jumpref_lookup {
         let file_sym = make_file_sym_from_path(path);
         if let Ok(jumpref) = lookup.lookup(&file_sym) {
             generated_sym_info.insert(ustr(&file_sym), jumpref);
+            jumpref_traversed.insert(ustr(&file_sym), JumprefTraversals::empty());
         }
     }
 
@@ -167,8 +171,8 @@ pub fn format_code(
         };
 
         let data = match (&token.kind, datum) {
-            (&tokenize::TokenKind::Identifier(None), Some(d)) |
-            (&tokenize::TokenKind::StringLiteral, Some(d)) => {
+            (&tokenize::TokenKind::Identifier(None), Some(d))
+            | (&tokenize::TokenKind::StringLiteral, Some(d)) => {
                 for a in d.iter() {
                     // If this symbol starts a relevant nesting range and we haven't already pushed a
                     // symbol for this line, push it onto our stack.  Note that the nesting_range
@@ -198,8 +202,7 @@ pub fn format_code(
                     // XXX This 0-reference thing should be abandoned.  This was an attempt to be
                     // be more efficient in the face of cross-platform locals frequently ending up
                     // providing us with 4 different symbol names
-                    if a.sym.len() >= 1 &&
-                        !generated_sym_info.contains_key(&a.sym[0]) {
+                    if a.sym.len() >= 1 && !generated_sym_info.contains_key(&a.sym[0]) {
                         let sym = &a.sym[0];
                         // Pass-through local symbol information that won't be available from the
                         // cross-reference database because it was marked no_crossref.  This is only
@@ -209,11 +212,12 @@ pub fn format_code(
                             if let Some(type_pretty) = a.type_pretty {
                                 let mut obj = Map::new();
                                 if let Some(syntax_kind) = a.get_syntax_kind() {
-                                    obj.insert("syntax".to_string(),
-                                            json!(syntax_kind.to_string()));
+                                    obj.insert(
+                                        "syntax".to_string(),
+                                        json!(syntax_kind.to_string()),
+                                    );
                                 }
-                                obj.insert("type".to_string(),
-                                        json!(type_pretty.to_string()));
+                                obj.insert("type".to_string(), json!(type_pretty.to_string()));
                                 if let Some(type_sym) = &a.type_sym {
                                     obj.insert("typesym".to_string(), json!(type_sym.to_string()));
                                 }
@@ -225,14 +229,56 @@ pub fn format_code(
                                 // include.  This allows us to do things like, when presenting a
                                 // context menu for a synthetic XPIDL symbol, we can also provide an
                                 // option to go directly to the C++ binding definition.
-                                for extra_sym in extra_binding_slot_syms_from_jumpref(&jumpref) {
-                                    // no need to lookup and add what we already know
+                                let mut extra_syms =
+                                    determine_desired_extra_syms_from_jumpref(&jumpref);
+                                jumpref_traversed
+                                    .entry(sym.clone())
+                                    .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
+                                    .or_insert(JumprefTraversals::NormalExtra);
+                                while let Some((extra_sym, next_step)) = extra_syms.pop() {
+                                    // No need to lookup and add what we already know if there is
+                                    // no next step.  But if there is a next step, we potentially
+                                    // need to look-up a third symbol which may not already have
+                                    // been loaded.)
                                     let extra_sym = ustr(&extra_sym);
-                                    if generated_sym_info.contains_key(&extra_sym) {
-                                        continue;
-                                    }
-                                    if let Ok(extra_info) = lookup.lookup(&extra_sym) {
-                                        generated_sym_info.insert(extra_sym, extra_info);
+                                    if let Some(extra_traversed) =
+                                        jumpref_traversed.get_mut(&extra_sym)
+                                    {
+                                        // The jumpref should already be in generated_sym_info, it's
+                                        // just a question if we need to run an extra traversal for it.
+                                        if extra_traversed.contains(next_step) {
+                                            continue;
+                                        }
+                                        *extra_traversed |= next_step;
+                                        if let Some(extra_jumpref) =
+                                            generated_sym_info.get(&extra_sym)
+                                        {
+                                            for (next_sym, next_traversals) in
+                                                extra_syms_next_step_lookups(
+                                                    &extra_jumpref,
+                                                    next_step,
+                                                )
+                                            {
+                                                extra_syms.push((next_sym, next_traversals));
+                                            }
+                                        }
+                                    } else {
+                                        if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
+                                            // If there is a next step, process the info for what to contribute
+                                            // to extra_syms before we consume the value by storing it.
+                                            if !next_step.is_empty() {
+                                                for (next_sym, next_traversals) in
+                                                    extra_syms_next_step_lookups(
+                                                        &extra_jumpref,
+                                                        next_step,
+                                                    )
+                                                {
+                                                    extra_syms.push((next_sym, next_traversals));
+                                                }
+                                            }
+                                            jumpref_traversed.insert(extra_sym.clone(), next_step);
+                                            generated_sym_info.insert(extra_sym, extra_jumpref);
+                                        }
                                     }
                                 }
                                 generated_sym_info.insert(sym.clone(), jumpref);
@@ -427,9 +473,7 @@ pub fn format_file_data(
 
     let info_boxes_container = F::Seq(vec![
         F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
-        F::Indent(vec![
-            F::T(info_boxes),
-        ]),
+        F::Indent(vec![F::T(info_boxes)]),
         F::S("</section>"),
     ]);
     output::generate_formatted(writer, &info_boxes_container, 0)?;
@@ -443,9 +487,10 @@ pub fn format_file_data(
         }
     }
 
-    let f = F::Seq(vec![F::T(
-        format!("<div id=\"file\" class=\"file\" role=\"table\"{}>", slug),
-    )]);
+    let f = F::Seq(vec![F::T(format!(
+        "<div id=\"file\" class=\"file\" role=\"table\"{}>",
+        slug
+    ))]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
@@ -508,8 +553,13 @@ pub fn format_file_data(
             let filespecs = blame_line.path.to_string();
             let blame_linenos = blame_line.lineno.to_string();
 
-            let human_id =
-                blame_hash_to_human_id.entry(revs.clone()).or_insert_with(|| { let id = next_human_id; next_human_id += 1; id } );
+            let human_id = blame_hash_to_human_id
+                .entry(revs.clone())
+                .or_insert_with(|| {
+                    let id = next_human_id;
+                    next_human_id += 1;
+                    id
+                });
 
             let same_rev_as_last = last_revs.map_or(false, |last| last == revs);
             let color = if same_rev_as_last {
@@ -522,7 +572,10 @@ pub fn format_file_data(
             let class = if color { 1 } else { 2 };
             let data = format!(
                 r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="{}" aria-expanded="false""#,
-                class, revs, filespecs, blame_linenos,
+                class,
+                revs,
+                filespecs,
+                blame_linenos,
                 format!(
                     "{} hash {}",
                     if same_rev_as_last { "same" } else { "new" },
@@ -540,9 +593,9 @@ pub fn format_file_data(
             write!(
                 writer,
                 r#"<div class="nesting-container nesting-depth-{}" data-nesting-sym="{}">"#,
-                nest_depth,
-                nest_sym
-            ).unwrap();
+                nest_depth, nest_sym
+            )
+            .unwrap();
             nest_depth += 1;
         }
 
@@ -551,7 +604,11 @@ pub fn format_file_data(
             F::T(format!(
                 "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\">",
                 lineno,
-                if line.sym_starts_nest.is_some() { " nesting-sticky-line" } else { "" }
+                if line.sym_starts_nest.is_some() {
+                    " nesting-sticky-line"
+                } else {
+                    ""
+                }
             )),
             F::Indent(vec![
                 // Coverage Info. Its contents go in a div nested inside the
@@ -594,12 +651,7 @@ pub fn format_file_data(
     let f = F::Seq(vec![F::S("</div>")]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    write!(
-        writer,
-        "<script>var SYM_INFO = {};</script>\n",
-        sym_json,
-    )
-    .unwrap();
+    write!(writer, "<script>var SYM_INFO = {};</script>\n", sym_json,).unwrap();
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
@@ -774,7 +826,8 @@ pub fn format_path(
         &analysis,
         &None,
         writer,
-    ).map(|_| ())
+    )
+    .map(|_| ())
 }
 
 pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
@@ -998,9 +1051,10 @@ pub fn format_diff(
     }];
     output::generate_panel(&opt, writer, &sections)?;
 
-    let f = F::Seq(vec![F::T(
-        format!("<div id=\"file\" class=\"file\" role=\"table\"{}>", slug),
-    )]);
+    let f = F::Seq(vec![F::T(format!(
+        "<div id=\"file\" class=\"file\" role=\"table\"{}>",
+        slug
+    ))]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
 
