@@ -190,6 +190,52 @@ var ContextMenu = new (class ContextMenu {
           }
         }
 
+        // Helper for cases like showing the recv def when the user is clicking
+        // on a call to its send, but where we don't want to crowd the context
+        // menu with the decl.
+        const directDefJumpify = (jumpref, pretty) => {
+          if (!jumpref.jumps) {
+            return;
+          }
+
+          if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
+            jumpMenuItems.push({
+              html: this.fmt("Go to definition of <strong>_</strong>", pretty),
+              href: `/${tree}/source/${jumpref.jumps.def}`,
+              icon: "export-alt",
+              section: "jumps",
+            });
+          }
+        }
+
+        // If the symbol has <= 2 overrides (we depend on the logic in our
+        // rust `determine_desired_extra_syms_from_jumpref` helper at jumpref
+        // generation time, so you can't just change the number here and have
+        // things work out well), then emit direct def jump options.
+        //
+        // This is motivated by XPIDL where we want to be able to jump directly
+        // to the overrides of the use of an XPIDL method in C++ where we are
+        // dealing with an interface pointer, as well as for the binding slots
+        // for when we are dealing with an XPIDL IDL def symbol.  This is
+        // factored out into a helper because those are different call-sites; we
+        // don't do an open-ended graph traversal.
+        const overrideJumpifyHelper = (jumpref) => {
+          if (jumpref.meta?.overriddenBy?.length && jumpref.meta?.overriddenBy?.length <= 2) {
+            for (const overSym of jumpref.meta.overriddenBy) {
+              const overInfo = SYM_INFO[overSym];
+              if (overInfo) {
+                let overPretty;
+                if (jumpref.meta.overriddenBy.length === 1) {
+                  overPretty = `Sole Override ${overInfo.pretty}`;
+                } else {
+                  overPretty = `Override ${overInfo.pretty}`;
+                }
+                directDefJumpify(overInfo, overPretty)
+              }
+            }
+          }
+        }
+
         let searches = [];
 
         // If we have a slotOwner, it can help make our "go to def" description
@@ -216,6 +262,18 @@ var ContextMenu = new (class ContextMenu {
             jumpify(symInfo, canonLabel);
             searches.push([ canonLabel, sym ])
             jumpify(ownerJumpref, ownerJumpref.pretty);
+
+            // If our current symbol is an IPC Send method, offer a direct jump to the Recv def
+            if (slotOwner?.slotKind === "send" && ownerJumpref) {
+              for (const slot of ownerJumpref?.meta?.bindingSlots) {
+                if (slot.slotKind === "recv") {
+                  let recvJumpref = SYM_INFO[slot.sym];
+                  if (recvJumpref?.pretty) {
+                    directDefJumpify(recvJumpref, `${implKind}${maybeLang} ${slot.slotKind} ${recvJumpref.pretty}`);
+                  }
+                }
+              }
+            }
           } else {
             jumpify(symInfo, symInfo.pretty);
             searches.push([ symInfo.pretty, sym ]);
@@ -263,6 +321,14 @@ var ContextMenu = new (class ContextMenu {
 
             if (slotJumpref) {
               jumpify(slotJumpref, slotPretty);
+              // For XPIDL, we also want to do the same overriddenBy check here
+              // that we do below so that if we're browsing the XPIDL source we
+              // can go directly to the implementation rather than the pure
+              // virtual decl that gets upgraded to a def.  (Unfortunately we
+              // currently don't have a way to easily tell that that is what
+              // happened to downgrade the def, although I guess we could
+              // hardcode an assumption...)
+              overrideJumpifyHelper(slotJumpref);
             }
           }
 
@@ -281,6 +347,8 @@ var ContextMenu = new (class ContextMenu {
             searches.push([`${implKind} ${symInfo.meta.kind} ${symInfo.pretty}`, allSearchSyms.join(",")]);
           }
         }
+
+        overrideJumpifyHelper(symInfo);
 
         for (const search of searches) {
           searchMenuItems.push({
