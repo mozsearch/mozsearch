@@ -247,7 +247,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/critters-postcard.jpg" class="mimetype-fixed-container mimetype-icon-jpg">critters-postcard.jpg</a></td>
           <td class="description"><a href="/tests/source/critters-postcard.jpg" title=""></td>
-          <td><a href="/tests/source/critters-postcard.jpg">0</a></td>
+          <td><a href="/tests/source/critters-postcard.jpg">108154</a></td>
         </tr>
 
         <tr>
@@ -295,7 +295,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/gzip-colliding-file.gz" class="mimetype-fixed-container mimetype-icon-gz">gzip-colliding-file.gz</a></td>
           <td class="description"><a href="/tests/source/gzip-colliding-file.gz" title=""></td>
-          <td><a href="/tests/source/gzip-colliding-file.gz">0</a></td>
+          <td><a href="/tests/source/gzip-colliding-file.gz">132</a></td>
         </tr>
 
         <tr>

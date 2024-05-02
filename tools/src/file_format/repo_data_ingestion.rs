@@ -573,46 +573,46 @@ impl RepoIngestion {
             }
 
             let raw_file_path = tree_config.find_source_file(&file_path);
-            let (description, file_size) = match fs::read_to_string(&raw_file_path) {
-                Ok(contents) => {
-                    let path_wrapper = Path::new(&raw_file_path);
-                    let metadata = match fs::symlink_metadata(path_wrapper) {
-                        Ok(m) => m,
-                        Err(e) => {
-                            warn!("Problem gathering metadata for {}: {}", raw_file_path, e);
-                            continue;
-                        }
-                    };
-                    let format = select_formatting(&raw_file_path);
-                    match describe_file(&contents, path_wrapper, &format) {
-                        Some(description) => {
-                            // We currently want to output
-                            let description_fname = format!(
-                                "{}/description/{}",
-                                tree_config.paths.index_path, file_path
-                            );
-                            let description_file = match File::create(&description_fname) {
-                                Ok(df) => df,
-                                Err(e) => {
-                                    warn!(
-                                        "Problem creating description file {}: {}",
-                                        description_fname, e
-                                    );
-                                    continue;
-                                }
-                            };
-                            let desc_writer = BufWriter::new(description_file);
-                            let file_description = json!({
-                                "description": description,
-                            });
-                            to_writer(desc_writer, &file_description).unwrap();
-
-                            (Some(description), metadata.len())
-                        }
-                        None => (None, metadata.len()),
-                    }
+            let path_wrapper = Path::new(&raw_file_path);
+            let metadata = match fs::symlink_metadata(path_wrapper) {
+                Ok(m) => m,
+                Err(e) => {
+                    warn!("Problem gathering metadata for {}: {}", raw_file_path, e);
+                    continue;
                 }
-                Err(_) => (None, 0),
+            };
+            let file_size = metadata.len();
+
+            let description = match fs::read_to_string(&raw_file_path) {
+                Ok(contents) => {
+                    let format = select_formatting(&raw_file_path);
+                    let maybe_description = describe_file(&contents, path_wrapper, &format);
+                    if let Some(ref description) = maybe_description {
+                        // We currently want to output
+                        let description_fname = format!(
+                            "{}/description/{}",
+                            tree_config.paths.index_path, file_path
+                        );
+                        let description_file = match File::create(&description_fname) {
+                            Ok(df) => df,
+                            Err(e) => {
+                                warn!(
+                                    "Problem creating description file {}: {}",
+                                    description_fname, e
+                                );
+                                continue;
+                            }
+                        };
+                        let desc_writer = BufWriter::new(description_file);
+                        let file_description = json!({
+                            "description": description,
+                        });
+                        to_writer(desc_writer, &file_description).unwrap();
+                    }
+
+                    maybe_description
+                }
+                Err(_) => None,
             };
 
             self.state.with_file_info(file_path, false, |pfi, _dfi| {
