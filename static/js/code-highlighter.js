@@ -303,7 +303,7 @@ var DocumentTitler = new (class DocumentTitler {
       containers.add(nestingContainer);
     }
 
-    for (let depth = maxDepth; depth > 0; depth--) {
+    for (let depth = maxDepth; depth >= 0; depth--) {
       if (!containersPerDepth.has(depth)) {
         continue;
       }
