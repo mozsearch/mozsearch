@@ -266,6 +266,9 @@ var DocumentTitler = new (class DocumentTitler {
     for (const line of [...lines].sort()) {
       const selectedLine = document.getElementById(`line-${line}`);
       const nestingContainer = selectedLine?.closest(".nesting-container");
+      if (!nestingContainer) {
+        continue;
+      }
 
       if (nestingContainer === lastContainer) {
         continue;
