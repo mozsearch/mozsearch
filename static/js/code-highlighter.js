@@ -232,21 +232,18 @@ var DocumentTitler = new (class DocumentTitler {
 
   /**
    * Called by Highlight when it updates the hash (which it does whenever the
-   * hash changes, etc.)  This method finds the nesting block that encloses this
-   * line and use its nesting block opening symbol.
+   * hash changes, etc.)  This method finds either:
+   *   * the symbol in the selected line
+   *   * the symbol of the nesting block that encloses the line
    */
   processLineSelection(selectedLines) {
     this.selectionTitle = null;
     this.selectedSymbol = null;
     if (selectedLines.size) {
       const nestingContainer = this._findNestingContainerFor(selectedLines);
-      const nestingLine = nestingContainer?.querySelector(
-        ".nesting-sticky-line"
-      );
-      const sourceLine = nestingLine?.querySelector(".source-line");
-      const bestPretty = this._findBestPrettySymbolInSourceLineElem(sourceLine);
-      this.selectionTitle = bestPretty.short;
-      this.selectedSymbol = bestPretty.long;
+      const longestPretty = this._findBestPrettySymbolInContainer(selectedLines, nestingContainer);
+      this.selectionTitle = longestPretty.short;
+      this.selectedSymbol = longestPretty.long;
     }
 
     this.updateTitle();
@@ -318,6 +315,34 @@ var DocumentTitler = new (class DocumentTitler {
     // This can happen if multiple top-level functions are selected, or simply
     // there's no nesting container.
     return null;
+  }
+
+  /**
+   * Given a set of lines and optional nesting container, figure out the most
+   * appropriate pretty symbol in the lines.
+   *
+   * If nesting container is given, lines outside of the container is ignored.
+   * If there's no appropriate pretty symbol in given lines, the nesting
+   * container's symbol is used if any.
+   */
+  _findBestPrettySymbolInContainer(lines, maybeNestingContainer) {
+    for (const line of [...lines].sort()) {
+      const selectedLine = document.getElementById(`line-${line}`);
+      if (maybeNestingContainer && !maybeNestingContainer.contains(selectedLine)) {
+        continue;
+      }
+      const sourceLine = selectedLine.querySelector(".source-line");
+      const bestPretty = this._findBestPrettySymbolInSourceLineElem(sourceLine);
+      if (bestPretty.long) {
+        return bestPretty;
+      }
+    }
+
+    const maybeNestingLine = maybeNestingContainer?.querySelector(
+      ".nesting-sticky-line"
+    );
+    const sourceLine = maybeNestingLine?.querySelector(".source-line");
+    return this._findBestPrettySymbolInSourceLineElem(sourceLine);
   }
 })();
 
