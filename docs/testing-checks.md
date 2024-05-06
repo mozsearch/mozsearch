@@ -123,7 +123,7 @@ what he will copy and paste from.
 
 Check out mozsearch-mozilla as `config` inside your mozsearch checkout:
 ```
-git checkout https://github.com/mozsearch/mozsearch-mozilla.git config
+git clone https://github.com/mozsearch/mozsearch-mozilla.git config
 ```
 
 This will also expose it at `/vagrant/config` inside the VM because of the (NFS)
