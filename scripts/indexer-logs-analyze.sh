@@ -2,6 +2,15 @@
 
 SCRIPT_DIR=$(dirname $0)
 
+GREP=grep
+if [ $(uname) == "Darwin" ]; then
+    GREP=ggrep
+    if ! which ${GREP} > /dev/null; then
+        echo "Please install GNU grep with 'brew install grep'"
+        exit 1
+    fi
+fi
+
 PARSE_EXPR='parse "* + /home/ubuntu/mozsearch/scripts/* *" '
 PARSE_EXPR+=' as time, script, args'
 PARSE_EXPR+=' | parseDate(time) as time'
@@ -25,7 +34,7 @@ PARSE_EXPR+=' | if(script == "js-analyze.sh" or script == "java-analyze.sh" or s
 # Sat Oct  2 04:41:33 UTC 2021 + /home/ubuntu/mozsearch/scripts/find-repo-files.py /home/ubuntu/config /mnt/index-scratch/config.json nss
 # Sat Oct  2 04:41:35 UTC 2021 + /home/ubuntu/mozsearch/scripts/build.sh /home/ubuntu/config /mnt/index-scratch/config.json nss
 # Sat Oct  2 04:41:35 UTC 2021 + /home/ubuntu/mozsearch/scripts/indexer-setup.py
-grep -Pazoh "(?<=\n\+ date\n)[^\n]+\n\+ /home/ubuntu/mozsearch/scripts/[^\n]+\n" index-* \
+${GREP} -Pazoh "(?<=\n\+ date\n)[^\n]+\n\+ /home/ubuntu/mozsearch/scripts/[^\n]+\n" index-* \
   | paste -d" " - - \
   | tr -d '\0' \
   | agrind --output json "* | ${PARSE_EXPR}" \
