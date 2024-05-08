@@ -1,5 +1,5 @@
 let nextSymId = 0;
-let localFile, fileIndex, mozSearchRoot;
+let localFile, sourcePath, urlMapFile, fileIndex, mozSearchRoot, urlMap;
 
 // The parsing mode we're currently using.
 let gParsedAs = "script";
@@ -460,6 +460,22 @@ function memberPropLoc(expr)
   // happen in locstr2)
   idLoc.start.column = idLoc.end.column - expr.property.name.length;
   return idLoc;
+}
+
+function ensureURLMap() {
+  if (urlMap) {
+    return;
+  }
+
+  try {
+    urlMap = JSON.parse(snarf(urlMapFile));
+  } catch (e) {
+    urlMap = {};
+  }
+}
+
+function atEscape(text) {
+  return text.replace(/[^A-Za-z0-9_/]/g, matched => "@" + matched.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0"));
 }
 
 /**
@@ -1038,6 +1054,10 @@ let Analyzer = {
     }
 
     case "ImportDeclaration": {
+      if (stmt.moduleRequest && stmt.moduleRequest.source &&
+          stmt.moduleRequest.source.type === "Literal") {
+        this.maybeLinkifyLiteral(stmt.moduleRequest.source);
+      }
       break;
     }
 
@@ -1068,6 +1088,11 @@ let Analyzer = {
         } catch (ex) {
           logError(`Weirdness processing export, ignoring: ${ex}`);
         }
+      }
+
+      if (stmt.moduleRequest && stmt.moduleRequest.source &&
+          stmt.moduleRequest.source.type === "Literal") {
+        this.maybeLinkifyLiteral(stmt.moduleRequest.source);
       }
       break;
     }
@@ -1154,6 +1179,7 @@ let Analyzer = {
       break;
 
     case "Literal":
+      this.maybeLinkifyLiteral(expr);
       break;
 
     case "Super":
@@ -1446,7 +1472,41 @@ let Analyzer = {
       break;
     }
   },
+
+  maybeLinkifyLiteral(expr) {
+    if (typeof expr.value !== "string") {
+      return;
+    }
+
+    if (!expr.value.startsWith("chrome://") &&
+        !expr.value.startsWith("resource://")) {
+      return;
+    }
+
+    ensureURLMap();
+
+    if (!(expr.value in urlMap)) {
+      return;
+    }
+    const targetPath = urlMap[expr.value];
+
+    const name = "\"" + expr.value + "\"";
+    const loc = expr.loc;
+    const sym = "FILE_" + atEscape(targetPath);
+    this.source(loc, name, "file,use", "file " + targetPath, sym);
+    this.target(loc, name, "use", targetPath, sym);
+  },
 };
+
+function printFileTarget(path) {
+  print(JSON.stringify({
+    loc: "00001:0",
+    target: 1,
+    kind: "def",
+    pretty: "file " + path,
+    sym: "FILE_" + atEscape(path),
+  }));
+}
 
 // Helper for preprocessor directives so that JS assignments like `#error =`
 // won't match.  All of this is obviously optimized for clarity/not messing up
@@ -1967,7 +2027,11 @@ function analyzeFile(filename)
 fileIndex = scriptArgs[0];
 mozSearchRoot = scriptArgs[1];
 localFile = scriptArgs[2];
+sourcePath = scriptArgs[3];
+urlMapFile = scriptArgs[4];
 
 load(mozSearchRoot + "/sax/sax.js");
+
+printFileTarget(sourcePath);
 
 analyzeFile(localFile);

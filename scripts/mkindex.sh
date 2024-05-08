@@ -66,6 +66,10 @@ $MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
 
+$MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $INDEX_ROOT/chrome-map.json $INDEX_ROOT/url-map.json || handle_tree_error "process-chrome-map.py"
+
+date
+
 $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-analyze.sh"
 
 date
