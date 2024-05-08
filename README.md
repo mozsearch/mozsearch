@@ -316,6 +316,7 @@ infrastructure/aws/trigger_indexer.py \
     https://dev.searchfox.org/ or whatever the name of the channel you used was.
     You should also be able to use `infrastructure/aws/ssh.py` to connect to the
     web-server and explore the contents of the built index under `~/index`.
+- Once the indexer starts, [it generates a log file in `~/index-log`](infrastructure/aws/main.sh) on the instance.  You can track the progress by logging into the instance with `ssh.py` and running `tail -f ~/index-log`.  [The log file is copied to `/index/index-log`](infrastructure/aws/index.sh) once the indexing completes.
 - When you are done with any of the above severs, you can use
   `infrastructure/aws/terminate-indexer.py` to destroy the VM which will also
   clean up any S3 storage the index used.  You can find which servers are yours
