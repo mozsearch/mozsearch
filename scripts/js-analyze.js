@@ -1488,13 +1488,15 @@ let Analyzer = {
     if (!(expr.value in urlMap)) {
       return;
     }
-    const targetPath = urlMap[expr.value];
+    const targetPaths = urlMap[expr.value];
 
     const name = "\"" + expr.value + "\"";
     const loc = expr.loc;
-    const sym = "FILE_" + atEscape(targetPath);
-    this.source(loc, name, "file,use", "file " + targetPath, sym);
-    this.target(loc, name, "use", targetPath, sym);
+    for (const targetPath of targetPaths) {
+      const sym = "FILE_" + atEscape(targetPath);
+      this.source(loc, name, "file,use", "file " + targetPath, sym);
+      this.target(loc, name, "use", targetPath, sym);
+    }
   },
 };
 
