@@ -1742,7 +1742,7 @@ class XMLParser extends BaseParser {
   }
 
   oncdata(text) {
-    this.curText += text;
+    this.curText += replaceEntities(text);
   }
 }
 
@@ -1962,7 +1962,7 @@ class XBLParser extends XMLParser {
 
 function analyzeXBL(filename)
 {
-  let text = replaceEntities(preprocess(filename, line => `<!--${line}-->`));
+  let text = preprocess(filename, line => `<!--${line}-->`);
 
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true});
 
@@ -1986,7 +1986,7 @@ class XULParser extends XMLParser {
 
 function analyzeXUL(filename)
 {
-  let text = replaceEntities(preprocess(filename, line => `<!--${line}-->`));
+  let text = preprocess(filename, line => `<!--${line}-->`);
 
   if (filename.endsWith(".inc")) {
     text = "<root>" + text + "</root>";
