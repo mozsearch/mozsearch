@@ -74,6 +74,10 @@ $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_err
 
 date
 
+$MOZSEARCH_PATH/scripts/html-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "html-analyze.sh"
+
+date
+
 $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "idl-analyze.sh"
 
 date
