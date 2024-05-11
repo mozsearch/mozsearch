@@ -138,7 +138,7 @@ serve-trees: check-in-vagrant build-clang-plugin build-rust-tools
 # from config.json and puts the stripped version into trypush.json.
 trypush: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-	jq '{mozsearch_path, default_tree, trees: {"mozilla-central": .trees["mozilla-central"]}}' ~/mozilla-config/config1.json > ~/mozilla-config/trypush.json
+	jq '{mozsearch_path, config_repo, default_tree, trees: {"mozilla-central": .trees["mozilla-central"]}}' ~/mozilla-config/config1.json > ~/mozilla-config/trypush.json
 	mkdir -p ~/trypush-index
 	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config trypush.json ~/trypush-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/trypush-index
@@ -147,7 +147,7 @@ trypush: check-in-vagrant build-clang-plugin build-rust-tools
 
 nss-reblame: check-in-vagrant build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-	jq '{mozsearch_path, default_tree, trees: {"nss": .trees["nss"]}}' ~/mozilla-config/config1.json > ~/mozilla-config/nss.json
+	jq '{mozsearch_path, config_repo, default_tree, trees: {"nss": .trees["nss"]}}' ~/mozilla-config/config1.json > ~/mozilla-config/nss.json
 	mkdir -p ~/reblame
 	/vagrant/infrastructure/reblame-run.sh ~/mozilla-config nss.json ~/reblame
 
