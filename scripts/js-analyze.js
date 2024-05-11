@@ -1654,13 +1654,16 @@ function replaceEntities(text)
 // parsed into the JS universe so it doesn't matter that this parser is using
 // 0-based columns.  But maybe I'm wrong?  I'm doing a quick fix.  Also, we
 // don't really have XUL files anymore...
-class XMLParser {
+class BaseParser {
   constructor(filename, parser) {
     this.filename = filename;
     this.stack = [];
-    this.curText = "";
     this.curAttrs = {};
     this.parser = parser;
+
+    for (let prop of ["onopentag", "onclosetag", "onattribute"]) {
+      parser[prop] = this[prop].bind(this);
+    }
   }
 
   onopentag(tag) {
@@ -1669,7 +1672,6 @@ class XMLParser {
     tag.attrs = this.curAttrs;
     this.curAttrs = {};
     this.stack.push(tag);
-    this.curText = "";
   }
 
   onclosetag(tagName) {
@@ -1683,16 +1685,64 @@ class XMLParser {
   ontag(tagName, tag) {
   }
 
+  onattribute(attr) {
+    this.curAttrs[attr.name] = attr;
+  }
+
+  handleAttributes(tag) {
+    let line, column;
+    for (let prop in tag.attrs) {
+      if (!prop.startsWith("ON")) {
+        continue;
+      }
+
+      let text = tag.attrs[prop].value;
+      line = tag.attrs[prop].valueLine;
+      column = tag.attrs[prop].valueColumn;
+
+      let spaces = " ".repeat(column);
+      text = `(function (val) {\n${spaces}${text}\n})`;
+
+      let ast = Analyzer.parse(text, this.filename, line);
+      if (ast) {
+        Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
+      }
+    }
+  }
+
+  handleScript(text, tag) {
+    let {line, column} = tag;
+
+    let spaces = " ".repeat(column);
+    text = spaces + text;
+
+    let ast = Analyzer.parse(text, this.filename, line + 1);
+    if (ast) {
+      Analyzer.scoped(null, () => Analyzer.program(ast));
+    }
+  }
+}
+
+class XMLParser extends BaseParser {
+  constructor(filename, parser) {
+    super(filename, parser)
+    this.curText = "";
+    for (let prop of ["ontext", "oncdata"]) {
+      parser[prop] = this[prop].bind(this);
+    }
+  }
+
+  onopentag(tag) {
+    super.onopentag(tag);
+    this.curText = "";
+  }
+
   ontext(text) {
     this.curText += text;
   }
 
   oncdata(text) {
     this.curText += text;
-  }
-
-  onattribute(attr) {
-    this.curAttrs[attr.name] = attr;
   }
 }
 
@@ -1916,11 +1966,7 @@ function analyzeXBL(filename)
 
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true});
 
-  let xbl = new XBLParser(filename, parser);
-  for (let prop of ["onopentag", "onclosetag", "onattribute", "ontext", "oncdata"]) {
-    let x = prop;
-    parser[x] = (...args) => { xbl[x](...args); };
-  }
+  new XBLParser(filename, parser);
 
   parser.write(text);
   parser.close();
@@ -1930,41 +1976,11 @@ class XULParser extends XMLParser {
   ontag(tagName, tag) {
     switch (tagName) {
     case "SCRIPT":
-      this.onscript(tag);
+      this.handleScript(this.curText, tag);
       break;
     }
 
-    let line, column;
-    for (let prop in tag.attrs) {
-      if (!prop.startsWith("ON")) {
-        continue;
-      }
-
-      let text = tag.attrs[prop].value;
-      line = tag.attrs[prop].valueLine;
-      column = tag.attrs[prop].valueColumn;
-
-      let spaces = " ".repeat(column);
-      text = `(function (val) {\n${spaces}${text}\n})`;
-
-      let ast = Analyzer.parse(text, this.filename, line);
-      if (ast) {
-        Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
-      }
-    }
-  }
-
-  onscript(tag) {
-    let text = this.curText;
-    let {line, column} = tag;
-
-    let spaces = " ".repeat(column);
-    text = spaces + text;
-
-    let ast = Analyzer.parse(text, this.filename, line);
-    if (ast) {
-      Analyzer.scoped(null, () => Analyzer.program(ast, []));
-    }
+    this.handleAttributes(tag);
   }
 }
 
@@ -1978,11 +1994,7 @@ function analyzeXUL(filename)
 
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: true});
 
-  let xul = new XULParser(filename, parser);
-  for (let prop of ["onopentag", "onclosetag", "onattribute", "ontext", "oncdata"]) {
-    let x = prop;
-    parser[x] = (...args) => { xul[x](...args); };
-  }
+  new XULParser(filename, parser);
 
   parser.write(text);
   parser.close();
