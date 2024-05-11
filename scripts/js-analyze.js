@@ -1644,9 +1644,7 @@ function replaceEntities(text)
     text = text.replace(re, table[ent]);
   }
 
-  return text.replace(/&[a-zA-Z0-9.]+;/g, match => {
-    return "'" + match.slice(1, match.length - 2) + "'";
-  });
+  return text;
 }
 
 // XXX SpiderMonkey now uses 1-based column numbers since bug 1862692.  The SAX
