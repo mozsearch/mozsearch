@@ -1959,11 +1959,11 @@ class XULParser extends XMLParser {
     let {line, column} = tag;
 
     let spaces = " ".repeat(column);
-    text = `(function () {\n${spaces}${text}\n})`;
+    text = spaces + text;
 
     let ast = Analyzer.parse(text, this.filename, line);
     if (ast) {
-      Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
+      Analyzer.scoped(null, () => Analyzer.program(ast, []));
     }
   }
 }
