@@ -1777,7 +1777,7 @@ class XBLParser extends XMLParser {
       column = tag.attrs[prop].valueColumn;
 
       let spaces = " ".repeat(column);
-      text = `(function (val) {\n${spaces}${text}})`;
+      text = `(function (val) {\n${spaces}${text}\n})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
       if (ast) {
@@ -1795,7 +1795,7 @@ class XBLParser extends XMLParser {
       column = tag[prop].column;
 
       let spaces = " ".repeat(column);
-      text = `(function (val) {\n${spaces}${text}})`;
+      text = `(function (val) {\n${spaces}${text}\n})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
       if (ast) {
@@ -1843,7 +1843,7 @@ class XBLParser extends XMLParser {
     let {line, column} = tag;
 
     let spaces = " ".repeat(column);
-    text = `(function () {\n${spaces}${text}})`;
+    text = `(function () {\n${spaces}${text}\n})`;
 
     let ast = Analyzer.parse(text, this.filename, line);
     if (ast) {
@@ -1856,7 +1856,7 @@ class XBLParser extends XMLParser {
     let {line, column} = tag;
 
     let spaces = " ".repeat(column);
-    text = `(function () {\n${spaces}${text}})`;
+    text = `(function () {\n${spaces}${text}\n})`;
 
     let ast = Analyzer.parse(text, this.filename, line);
     if (ast) {
@@ -1898,7 +1898,7 @@ class XBLParser extends XMLParser {
       let paramsText = params.join(", ");
 
       let spaces = " ".repeat(column);
-      text = `(function (${paramsText}) {\n${spaces}${text}})`;
+      text = `(function (${paramsText}) {\n${spaces}${text}\n})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
       if (ast) {
@@ -1945,7 +1945,7 @@ class XULParser extends XMLParser {
       column = tag.attrs[prop].valueColumn;
 
       let spaces = " ".repeat(column);
-      text = `(function (val) {\n${spaces}${text}})`;
+      text = `(function (val) {\n${spaces}${text}\n})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
       if (ast) {
@@ -1959,7 +1959,7 @@ class XULParser extends XMLParser {
     let {line, column} = tag;
 
     let spaces = " ".repeat(column);
-    text = `(function () {\n${spaces}${text}})`;
+    text = `(function () {\n${spaces}${text}\n})`;
 
     let ast = Analyzer.parse(text, this.filename, line);
     if (ast) {
