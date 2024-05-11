@@ -2027,6 +2027,30 @@ class XULParser extends XMLParser {
   }
 }
 
+class HTMLParser extends BaseParser {
+  constructor(filename, parser) {
+    super(filename, parser)
+
+    for (let prop of ["onscript"]) {
+      parser[prop] = this[prop].bind(this);
+    }
+  }
+
+  ontag(tagName, tag) {
+    switch (tagName) {
+    case "SCRIPT":
+      this.handleScript(this.currentScript, tag);
+      break;
+    }
+
+    this.handleAttributes(tag);
+  }
+
+  onscript(script) {
+    this.currentScript = replaceEntities(script);
+  }
+}
+
 function analyzeXUL(filename)
 {
   let text = preprocess(filename, line => `<!--${line}-->`);
@@ -2043,12 +2067,30 @@ function analyzeXUL(filename)
   parser.close();
 }
 
+function analyzeHTML(filename)
+{
+  let text = preprocess(filename, line => `<!--${line}-->`);
+
+  if (filename.endsWith(".inc")) {
+    text = "<root>" + text + "</root>";
+  }
+
+  let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: false});
+
+  new HTMLParser(filename, parser);
+
+  parser.write(text);
+  parser.close();
+}
+
 function analyzeFile(filename)
 {
   if (filename.endsWith(".xml")) {
     analyzeXBL(filename);
-  } else if (filename.endsWith(".xul") || filename.endsWith(".inc")) {
+  } else if (filename.endsWith(".xul") || filename.endsWith(".inc") || filename.endsWith(".xhtml")) {
     analyzeXUL(filename);
+  } else if (filename.endsWith(".html")) {
+    analyzeHTML(filename);
   } else {
     analyzeJS(filename);
   }
