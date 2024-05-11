@@ -1744,7 +1744,7 @@ class XBLParser extends XMLParser {
                     false);
     Analyzer.target(locStr, name, "def", name, `#${name}`);
 
-    let spaces = Array(tag.column).join(" ");
+    let spaces = " ".repeat(tag.column);
     let text = spaces + this.curText;
 
     let ast = Analyzer.parse(text, this.filename, tag.line + 1);
@@ -1776,7 +1776,7 @@ class XBLParser extends XMLParser {
       line = tag.attrs[prop].valueLine;
       column = tag.attrs[prop].valueColumn;
 
-      let spaces = Array(column + 1).join(" ");
+      let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
@@ -1794,7 +1794,7 @@ class XBLParser extends XMLParser {
       line = tag[prop].line;
       column = tag[prop].column;
 
-      let spaces = Array(column + 1).join(" ");
+      let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
@@ -1842,7 +1842,7 @@ class XBLParser extends XMLParser {
     let text = this.curText;
     let {line, column} = tag;
 
-    let spaces = Array(column + 1).join(" ");
+    let spaces = " ".repeat(column);
     text = `(function () {\n${spaces}${text}})`;
 
     let ast = Analyzer.parse(text, this.filename, line);
@@ -1855,7 +1855,7 @@ class XBLParser extends XMLParser {
     let text = this.curText;
     let {line, column} = tag;
 
-    let spaces = Array(column + 1).join(" ");
+    let spaces = " ".repeat(column);
     text = `(function () {\n${spaces}${text}})`;
 
     let ast = Analyzer.parse(text, this.filename, line);
@@ -1897,7 +1897,7 @@ class XBLParser extends XMLParser {
       params = params.map(p => p.attrs.NAME.value);
       let paramsText = params.join(", ");
 
-      let spaces = Array(column + 1).join(" ");
+      let spaces = " ".repeat(column);
       text = `(function (${paramsText}) {\n${spaces}${text}})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
@@ -1944,7 +1944,7 @@ class XULParser extends XMLParser {
       line = tag.attrs[prop].valueLine;
       column = tag.attrs[prop].valueColumn;
 
-      let spaces = Array(column + 1).join(" ");
+      let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}})`;
 
       let ast = Analyzer.parse(text, this.filename, line);
@@ -1958,7 +1958,7 @@ class XULParser extends XMLParser {
     let text = this.curText;
     let {line, column} = tag;
 
-    let spaces = Array(column + 1).join(" ");
+    let spaces = " ".repeat(column);
     text = `(function () {\n${spaces}${text}})`;
 
     let ast = Analyzer.parse(text, this.filename, line);
