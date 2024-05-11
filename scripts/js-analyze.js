@@ -635,7 +635,7 @@ let Analyzer = {
     }
   },
 
-  parse(text, filename, line, target) {
+  parse(text, filename, line, target, attrName="") {
     let ast;
     try {
       gParsedAs = target;
@@ -679,7 +679,8 @@ let Analyzer = {
       }
 
     } catch (e) {
-      logError(`Unable to parse JS file ${filename}:${line} because ${e}: ${e.fileName}:${e.lineNumber}`);
+      const maybeAttr = attrName ? ` ${attrName.toLowerCase()} attribute` : '';
+      logError(`Unable to parse JS file ${filename}:${line}${maybeAttr} because ${e}: ${e.fileName}:${e.lineNumber}`);
       return null;
     }
     return ast;
@@ -1703,7 +1704,7 @@ class BaseParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line, "script");
+      let ast = Analyzer.parse(text, this.filename, line, "script", prop);
       if (ast) {
         Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
       }
@@ -1871,7 +1872,7 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line, "script");
+      let ast = Analyzer.parse(text, this.filename, line, "script", prop);
       if (ast) {
         Analyzer.scoped(name, () => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
       }
@@ -1889,7 +1890,7 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line, "script");
+      let ast = Analyzer.parse(text, this.filename, line, "script", prop);
       if (ast) {
         Analyzer.scoped(name, () => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
       }
