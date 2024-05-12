@@ -1661,6 +1661,7 @@ class BaseParser {
     this.stack = [];
     this.curAttrs = {};
     this.parser = parser;
+    this.eventListeners = [];
 
     for (let prop of ["onopentag", "onclosetag", "onattribute"]) {
       parser[prop] = this[prop].bind(this);
@@ -1714,6 +1715,12 @@ class BaseParser {
 
     let ast = Analyzer.parse(text, this.filename, line, "script", prop);
     if (ast) {
+      this.eventListeners.push(ast);
+    }
+  }
+
+  processEventListeners() {
+    for (let ast of this.eventListeners) {
       Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
     }
   }
@@ -1788,7 +1795,7 @@ class BaseParser {
 
     let ast = Analyzer.parse(text, this.filename, line + 1, target);
     if (ast) {
-      Analyzer.scoped(null, () => Analyzer.program(ast));
+      Analyzer.program(ast);
     }
   }
 }
@@ -2088,10 +2095,12 @@ function analyzeXUL(filename)
 
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: true});
 
-  new XULParser(filename, parser);
+  let parser2 = new XULParser(filename, parser);
 
   parser.write(text);
   parser.close();
+
+  parser2.processEventListeners();
 }
 
 function analyzeHTML(filename)
@@ -2104,10 +2113,12 @@ function analyzeHTML(filename)
 
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: false});
 
-  new HTMLParser(filename, parser);
+  let parser2 = new HTMLParser(filename, parser);
 
   parser.write(text);
   parser.close();
+
+  parser2.processEventListeners();
 }
 
 function analyzeFile(filename)
