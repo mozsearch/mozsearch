@@ -9,6 +9,8 @@ let gFilename = "";
 let gIncludeUsed = false;
 // Was the first character of the file `{`?
 let gCouldBeJson = false;
+// Attribute name for logError to use heuristics to downgrade errors.
+let gAttrName = "";
 
 const ERROR_INTERVENTIONS = [
   {
@@ -301,6 +303,11 @@ function logError(msg)
         break outer;
       }
     }
+  }
+
+  if (gAttrName && (gFilename.includes("/test/") || gFilename.includes("/tests/"))) {
+    severity = "INFO";
+    msg = "Downgrading warning to info because attributes can sometimes contain syntax error in tests";
   }
 
   // https://searchfox.org/mozilla-central/source/browser/components/enterprisepolicies/schemas/schema.jsm
@@ -636,6 +643,8 @@ let Analyzer = {
   },
 
   parse(text, filename, line, target, attrName="") {
+    gAttrName = attrName;
+
     let ast;
     try {
       gParsedAs = target;
