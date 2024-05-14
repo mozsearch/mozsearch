@@ -70,7 +70,7 @@ impl PipelineCommand for FilterAnalysisCommand {
                     // source: consult "syntax"
                     (true, _) => match val["syntax"].as_str() {
                         None => false,
-                        Some(actual) => actual.split(",").next().unwrap_or("") == kind,
+                        Some(actual) => actual.split(",").any(|k| k == kind),
                     },
                     // target: consult "kind"
                     (false, true) => match val["kind"].as_str() {
