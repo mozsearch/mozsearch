@@ -1,0 +1,1 @@
+export const chrome1 = 11;

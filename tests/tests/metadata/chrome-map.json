@@ -1,0 +1,70 @@
+[
+  {
+    "chrome://global/content/test/": [
+      "dist/bin/chrome/test"
+    ],
+    "resource://test/": [
+      "dist/bin/resource/test"
+    ]
+  },
+  {
+    "chrome://global/content/test/chrome1.mjs": "chrome://global/content/test/chrome4.mjs",
+    "resource://test/resource1.mjs": "resource://test/resource4.mjs"
+  },
+  {
+    "dist/bin/chrome/test/chrome1.mjs": [
+      "urlmap/chrome1.js",
+      null
+    ],
+    "dist/bin/chrome/test/chrome2.mjs": [
+      "urlmap/chrome2.js",
+      null
+    ],
+    "dist/bin/chrome/test/chrome3.mjs": [
+      "urlmap/chrome3.js",
+      null
+    ],
+    "dist/bin/chrome/test/chrome1.css": [
+      "urlmap/chrome1.css",
+      null
+    ],
+    "dist/bin/chrome/test/chrome1.html": [
+      "urlmap/chrome1.html",
+      null
+    ],
+    "dist/bin/chrome/test/chrome1.png": [
+      "urlmap/chrome1.png",
+      null
+    ],
+    "dist/bin/resource/test/resource1.mjs": [
+      "urlmap/resource1.js",
+      null
+    ],
+    "dist/bin/resource/test/resource2.mjs": [
+      "urlmap/resource2.js",
+      null
+    ],
+    "dist/bin/resource/test/resource3.mjs": [
+      "urlmap/resource3.js",
+      null
+    ],
+    "dist/bin/resource/test/resource1.css": [
+      "urlmap/resource1.css",
+      null
+    ],
+    "dist/bin/resource/test/resource1.html": [
+      "urlmap/resource1.html",
+      null
+    ],
+    "dist/bin/resource/test/resource1.png": [
+      "urlmap/resource1.png",
+      null
+    ]
+  },
+  {
+    "MOZ_APP_NAME": "firefox",
+    "MOZ_MACBUNDLE_NAME": "NightlyDebug.app",
+    "OMNIJAR_NAME": "omni.ja",
+    "topobjdir": "/builds/worker/workspace/obj-build"
+  }
+]
