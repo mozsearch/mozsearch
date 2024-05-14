@@ -299,6 +299,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/html" class="mimetype-fixed-container mimetype-icon-folder">html</a></td>
+          <td class="description"><a href="/tests/source/html" title=""></td>
+          <td><a href="/tests/source/html"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/IGeckoEditableParent.aidl" class="mimetype-fixed-container mimetype-icon-aidl">IGeckoEditableParent.aidl</a></td>
           <td class="description"><a href="/tests/source/IGeckoEditableParent.aidl" title=""></td>
           <td><a href="/tests/source/IGeckoEditableParent.aidl">1425</a></td>
@@ -676,5 +682,3 @@ Spread over multiple lines.
 </div>
 </body>
 </html>
-
-

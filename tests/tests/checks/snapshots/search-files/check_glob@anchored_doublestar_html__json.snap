@@ -18,6 +18,19 @@ expression: "&to_value(fm).unwrap()"
       }
     },
     {
+      "path": "html/script.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 404,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "script",
+        "info": {}
+      }
+    },
+    {
       "path": "mobile/androidTest/asserts/inputs.html",
       "concise": {
         "path_kind": "Test files",

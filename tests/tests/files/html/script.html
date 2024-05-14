@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>script</title>
+  </head>
+  <body>
+    <script>
+function onDivClicked() {
+}
+function TestFunc() {
+}
+TestFunc();
+    </script>
+    <script type="text/javascript">
+TestFunc();
+    </script>
+  
+    <script type="text/something">
+function DoNotIndexMe() {
+}
+    </script>
+    <div onclick="onDivClicked()">Click Me</div>
+  </body>
+</html>
