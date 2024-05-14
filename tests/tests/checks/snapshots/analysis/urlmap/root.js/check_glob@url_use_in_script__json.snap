@@ -1,0 +1,96 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:47-89",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome1.js",
+    "sym": "FILE_urlmap/chrome1@2Ejs"
+  },
+  {
+    "loc": "1:47-89",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/chrome1.js",
+    "sym": "FILE_urlmap/chrome1@2Ejs",
+    "context": ""
+  },
+  {
+    "loc": "2:49-80",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/resource1.js",
+    "sym": "FILE_urlmap/resource1@2Ejs"
+  },
+  {
+    "loc": "2:49-80",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/resource1.js",
+    "sym": "FILE_urlmap/resource1@2Ejs",
+    "context": ""
+  },
+  {
+    "loc": "6:11-53",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome2.js",
+    "sym": "FILE_urlmap/chrome2@2Ejs"
+  },
+  {
+    "loc": "6:11-53",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/chrome2.js",
+    "sym": "FILE_urlmap/chrome2@2Ejs",
+    "context": "chrome2"
+  },
+  {
+    "loc": "7:13-44",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/resource2.js",
+    "sym": "FILE_urlmap/resource2@2Ejs"
+  },
+  {
+    "loc": "7:13-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/resource2.js",
+    "sym": "FILE_urlmap/resource2@2Ejs",
+    "context": "resource2"
+  },
+  {
+    "loc": "10:12-55",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome1.html",
+    "sym": "FILE_urlmap/chrome1@2Ehtml"
+  },
+  {
+    "loc": "10:12-55",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/chrome1.html",
+    "sym": "FILE_urlmap/chrome1@2Ehtml",
+    "context": ""
+  },
+  {
+    "loc": "11:12-44",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/resource1.html",
+    "sym": "FILE_urlmap/resource1@2Ehtml"
+  },
+  {
+    "loc": "11:12-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/resource1.html",
+    "sym": "FILE_urlmap/resource1@2Ehtml",
+    "context": ""
+  }
+]

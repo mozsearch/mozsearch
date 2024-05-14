@@ -1,0 +1,13 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file urlmap/root.js",
+    "sym": "FILE_urlmap/root@2Ejs"
+  }
+]

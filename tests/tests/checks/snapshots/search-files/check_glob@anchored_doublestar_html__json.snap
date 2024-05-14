@@ -62,6 +62,45 @@ expression: "&to_value(fm).unwrap()"
           }
         }
       }
+    },
+    {
+      "path": "urlmap/chrome1.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 109,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "chrome1",
+        "info": {}
+      }
+    },
+    {
+      "path": "urlmap/resource1.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 111,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "resource1",
+        "info": {}
+      }
+    },
+    {
+      "path": "urlmap/root.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 1623,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "url map",
+        "info": {}
+      }
     }
   ]
 }
