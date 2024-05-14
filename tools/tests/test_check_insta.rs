@@ -48,6 +48,10 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
         let input_names = block_in_place_glob_tree(&input_path, "**/*");
 
         for (rel_path, filename) in input_names {
+            if filename.ends_with("~") {
+                continue
+            }
+
             let input_path = format!("{}/inputs/{}{}", check_root, rel_path, filename);
             settings.set_input_file(&input_path);
             let snapshot_path = format!("{}/{}", snapshot_root_path, rel_path);
