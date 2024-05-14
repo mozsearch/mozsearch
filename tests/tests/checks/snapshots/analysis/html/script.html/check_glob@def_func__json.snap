@@ -1,0 +1,22 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "11:9-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property TestFunc",
+    "sym": "#TestFunc",
+    "nestingRange": "11:20-12:0"
+  },
+  {
+    "loc": "11:9-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestFunc",
+    "sym": "#TestFunc",
+    "context": ""
+  }
+]

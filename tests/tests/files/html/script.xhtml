@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>script</title>
+  </head>
+  <body>
+    <script>
+      <![CDATA[
+function onDivClicked() {
+}
+function TestFunc() {
+}
+TestFunc();
+      ]]>
+    </script>
+    <script type="text/javascript">
+      <![CDATA[
+TestFunc();
+      ]]>
+    </script>
+    <script type="text/something">
+      <![CDATA[
+function DoNotIndexMe() {
+}
+      ]]>
+    </script>
+    <div onclick="onDivClicked()">Click Me</div>
+  </body>
+</html>
