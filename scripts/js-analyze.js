@@ -635,10 +635,10 @@ let Analyzer = {
     }
   },
 
-  parse(text, filename, line) {
+  parse(text, filename, line, target) {
     let ast;
     try {
-      gParsedAs = filename.endsWith(".mjs") ? "module" : "script";
+      gParsedAs = target;
       try {
         ast = Reflect.parse(text, { loc: true, source: filename, line, target: gParsedAs });
       } catch (ex) {
@@ -1620,7 +1620,9 @@ function analyzeJS(filename)
 {
   let text = preprocess(filename, line => "// " + line);
 
-  let ast = Analyzer.parse(text, filename, 1);
+  let target = filename.endsWith(".mjs") ? "module" : "script";
+
+  let ast = Analyzer.parse(text, filename, 1, target);
   if (ast) {
     try {
       Analyzer.program(ast);
@@ -1701,20 +1703,62 @@ class BaseParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line);
+      let ast = Analyzer.parse(text, this.filename, line, "script");
       if (ast) {
         Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
       }
     }
   }
 
+  getScriptTarget(tag) {
+    let type;
+    if ("TYPE" in tag.attrs) {
+      type = tag.attrs.TYPE.value;
+    } else if ("LANGUAGE" in tag.attrs) {
+      type = "text/" + tag.attrs.LANGUAGE.value;
+    } else {
+      return "script";
+    }
+    if (type === "module") {
+      return "module";
+    }
+    const jsMIMETypes = [
+      "text/javascript",
+      "text/ecmascript",
+      "application/javascript",
+      "application/ecmascript",
+      "application/x-javascript",
+      "application/x-ecmascript",
+      "text/javascript1.0",
+      "text/javascript1.1",
+      "text/javascript1.2",
+      "text/javascript1.3",
+      "text/javascript1.4",
+      "text/javascript1.5",
+      "text/jscript",
+      "text/livescript",
+      "text/x-ecmascript",
+      "text/x-javascript",
+    ];
+    if (jsMIMETypes.includes(type.toLowerCase())) {
+      return "script";
+    }
+    return "";
+  }
+
   handleScript(text, tag) {
+    let target = this.getScriptTarget(tag);
+
+    if (target !== "script" && target !== "module") {
+      return;
+    }
+
     let {line, column} = tag;
 
     let spaces = " ".repeat(column);
     text = spaces + text;
 
-    let ast = Analyzer.parse(text, this.filename, line + 1);
+    let ast = Analyzer.parse(text, this.filename, line + 1, target);
     if (ast) {
       Analyzer.scoped(null, () => Analyzer.program(ast));
     }
@@ -1795,7 +1839,7 @@ class XBLParser extends XMLParser {
     let spaces = " ".repeat(tag.column);
     let text = spaces + this.curText;
 
-    let ast = Analyzer.parse(text, this.filename, tag.line + 1);
+    let ast = Analyzer.parse(text, this.filename, tag.line + 1, "script");
     if (ast) {
       Analyzer.program(ast);
     }
@@ -1827,7 +1871,7 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line);
+      let ast = Analyzer.parse(text, this.filename, line, "script");
       if (ast) {
         Analyzer.scoped(name, () => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
       }
@@ -1845,7 +1889,7 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line);
+      let ast = Analyzer.parse(text, this.filename, line, "script");
       if (ast) {
         Analyzer.scoped(name, () => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
       }
@@ -1893,7 +1937,7 @@ class XBLParser extends XMLParser {
     let spaces = " ".repeat(column);
     text = `(function () {\n${spaces}${text}\n})`;
 
-    let ast = Analyzer.parse(text, this.filename, line);
+    let ast = Analyzer.parse(text, this.filename, line, "script");
     if (ast) {
       Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
     }
@@ -1906,7 +1950,7 @@ class XBLParser extends XMLParser {
     let spaces = " ".repeat(column);
     text = `(function () {\n${spaces}${text}\n})`;
 
-    let ast = Analyzer.parse(text, this.filename, line);
+    let ast = Analyzer.parse(text, this.filename, line, "script");
     if (ast) {
       Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
     }
@@ -1948,7 +1992,7 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (${paramsText}) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line);
+      let ast = Analyzer.parse(text, this.filename, line, "script");
       if (ast) {
         Analyzer.dummyProgram(ast, []);
       }
