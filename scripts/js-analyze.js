@@ -1655,9 +1655,8 @@ function replaceEntities(text)
 // 0-based columns.  But maybe I'm wrong?  I'm doing a quick fix.  Also, we
 // don't really have XUL files anymore...
 class XMLParser {
-  constructor(filename, lines, parser) {
+  constructor(filename, parser) {
     this.filename = filename;
-    this.lines = lines;
     this.stack = [];
     this.curText = "";
     this.curAttrs = {};
@@ -1693,21 +1692,7 @@ class XMLParser {
   }
 
   onattribute(attr) {
-    attr.line = this.parser.line;
-    attr.column = this.parser.column;
     this.curAttrs[attr.name] = attr;
-  }
-
-  backup(line, column, text) {
-    for (let i = text.length - 1; i >= 0; i--) {
-      if (text[i] == "\n") {
-        line--;
-        column = this.lines[line].length;
-      } else {
-        column--;
-      }
-    }
-    return [line, column];
   }
 }
 
@@ -1750,10 +1735,9 @@ class XBLParser extends XMLParser {
       return;
     }
 
-    let {line, column} = tag.attrs.NAME;
+    let line = tag.attrs.NAME.valueLine;
+    let column = tag.attrs.NAME.valueColumn;
     let name = tag.attrs.NAME.value;
-
-    [line, column] = this.backup(line, column, name + "\"");
 
     let locStr = `${line + 1}:${column}-${column + name.length}`;
     Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
@@ -1772,10 +1756,9 @@ class XBLParser extends XMLParser {
   onproperty(tag) {
     let name = null;
     if (tag.attrs.NAME) {
-      let {line, column} = tag.attrs.NAME;
+      let line = tag.attrs.NAME.valueLine;
+      let column = tag.attrs.NAME.valueColumn;
       name = tag.attrs.NAME.value;
-
-      [line, column] = this.backup(line, column, name + "\"");
 
       let locStr = `${line + 1}:${column}-${column + name.length}`;
       Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
@@ -1790,10 +1773,8 @@ class XBLParser extends XMLParser {
       }
 
       let text = tag.attrs[prop].value;
-      line = tag.attrs[prop].line;
-      column = tag.attrs[prop].column;
-
-      [line, column] = this.backup(line, column, text + "\"");
+      line = tag.attrs[prop].valueLine;
+      column = tag.attrs[prop].valueColumn;
 
       let spaces = Array(column + 1).join(" ");
       text = `(function (val) {\n${spaces}${text}})`;
@@ -1888,10 +1869,9 @@ class XBLParser extends XMLParser {
       return;
     }
 
-    let {line, column} = tag.attrs.NAME;
+    let line = tag.attrs.NAME.valueLine;
+    let column = tag.attrs.NAME.valueColumn;
     let name = tag.attrs.NAME.value;
-
-    [line, column] = this.backup(line, column, name + "\"");
 
     let locStr = `${line + 1}:${column}-${column + name.length}`;
     Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
@@ -1903,9 +1883,8 @@ class XBLParser extends XMLParser {
     let params = tag.params || [];
     for (let p of params) {
       let text = p.attrs.NAME.value;
-      line = p.attrs.NAME.line;
-      column = p.attrs.NAME.column;
-      [line, column] = this.backup(line, column, text + "\"");
+      line = p.attrs.NAME.valueLine;
+      column = p.attrs.NAME.valueColumn;
 
       Analyzer.defVar(text, {start: {line: line + 1, column}});
     }
@@ -1935,11 +1914,9 @@ function analyzeXBL(filename)
 {
   let text = replaceEntities(preprocess(filename, line => `<!--${line}-->`));
 
-  let lines = text.split("\n");
-
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true});
 
-  let xbl = new XBLParser(filename, lines, parser);
+  let xbl = new XBLParser(filename, parser);
   for (let prop of ["onopentag", "onclosetag", "onattribute", "ontext", "oncdata"]) {
     let x = prop;
     parser[x] = (...args) => { xbl[x](...args); };
@@ -1964,10 +1941,8 @@ class XULParser extends XMLParser {
       }
 
       let text = tag.attrs[prop].value;
-      line = tag.attrs[prop].line;
-      column = tag.attrs[prop].column;
-
-      [line, column] = this.backup(line, column, text + "\"");
+      line = tag.attrs[prop].valueLine;
+      column = tag.attrs[prop].valueColumn;
 
       let spaces = Array(column + 1).join(" ");
       text = `(function (val) {\n${spaces}${text}})`;
@@ -2001,11 +1976,9 @@ function analyzeXUL(filename)
     text = "<root>" + text + "</root>";
   }
 
-  let lines = text.split("\n");
-
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: true});
 
-  let xul = new XULParser(filename, lines, parser);
+  let xul = new XULParser(filename, parser);
   for (let prop of ["onopentag", "onclosetag", "onattribute", "ontext", "oncdata"]) {
     let x = prop;
     parser[x] = (...args) => { xul[x](...args); };

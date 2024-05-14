@@ -749,7 +749,10 @@
       // so any new bindings can take effect. preserve attribute order
       // so deferred events can be emitted in document order
       parser.attribList.push([parser.attribName, parser.attribValue,
-                              parser.line, parser.column, parser.position])
+                              parser.attribNameLine,
+                              parser.attribNameColumn,
+                              parser.attribValueLine,
+                              parser.attribValueColumn])
     } else {
       // in non-xmlns mode, we can emit the event right away
       parser.tag.attributes[parser.attribName] = parser.attribValue
@@ -789,10 +792,6 @@
         })
       }
 
-      var savedLine = parser.line
-      var savedColumn = parser.column
-      var savedPosition = parser.position
-
       // handle deferred onattribute events
       // Note: do not apply default ns to attributes:
       //   http://www.w3.org/TR/REC-xml-names/#defaulting
@@ -800,9 +799,6 @@
         var nv = parser.attribList[i]
         var name = nv[0]
         var value = nv[1]
-        var line = nv[2]
-        var column = nv[3]
-        var position = nv[4]
         var qualName = qname(name, true)
         var prefix = qualName.prefix
         var local = qualName.local
@@ -812,7 +808,11 @@
           value: value,
           prefix: prefix,
           local: local,
-          uri: uri
+          uri: uri,
+          nameLine: nv[2],
+          nameColumn: nv[3],
+          valueLine: nv[4],
+          valueColumn: nv[5],
         }
 
         // if there's any attributes with an undefined namespace,
@@ -823,15 +823,9 @@
           a.uri = prefix
         }
         parser.tag.attributes[name] = a
-        parser.line = line
-        parser.column = column
-        parser.position = position
         emitNode(parser, 'onattribute', a)
       }
       parser.attribList.length = 0
-      parser.line = savedLine
-      parser.column = savedColumn
-      parser.position = savedPosition
     }
 
     parser.tag.isSelfClosing = !!selfClosing
@@ -1364,6 +1358,8 @@
             parser.state = S.OPEN_TAG_SLASH
           } else if (isMatch(nameStart, c)) {
             parser.attribName = c
+            parser.attribNameLine = parser.line
+            parser.attribNameColumn = parser.column - 1
             parser.attribValue = ''
             parser.state = S.ATTRIB_NAME
           } else {
@@ -1397,6 +1393,8 @@
             strictFail(parser, 'Attribute without value')
             parser.tag.attributes[parser.attribName] = ''
             parser.attribValue = ''
+            parser.attribNameLine = parser.line
+            parser.attribNameColumn = parser.column - 1
             emitNode(parser, 'onattribute', {
               name: parser.attribName,
               value: ''
@@ -1406,6 +1404,8 @@
               openTag(parser)
             } else if (isMatch(nameStart, c)) {
               parser.attribName = c
+              parser.attribNameLine = parser.line
+              parser.attribNameColumn = parser.column - 1
               parser.state = S.ATTRIB_NAME
             } else {
               strictFail(parser, 'Invalid attribute name')
@@ -1420,10 +1420,14 @@
           } else if (isQuote(c)) {
             parser.q = c
             parser.state = S.ATTRIB_VALUE_QUOTED
+            parser.attribValueLine = parser.line
+            parser.attribValueColumn = parser.column
           } else {
             strictFail(parser, 'Unquoted attribute value')
             parser.state = S.ATTRIB_VALUE_UNQUOTED
             parser.attribValue = c
+            parser.attribValueLine = parser.line
+            parser.attribValueColumn = parser.column - 1
           }
           continue
 
@@ -1451,6 +1455,8 @@
           } else if (isMatch(nameStart, c)) {
             strictFail(parser, 'No whitespace between attributes')
             parser.attribName = c
+            parser.attribNameLine = parser.line
+            parser.attribNameColumn = parser.column - 1
             parser.attribValue = ''
             parser.state = S.ATTRIB_NAME
           } else {
