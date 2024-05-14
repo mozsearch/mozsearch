@@ -91,6 +91,15 @@ impl PipelineCommand for FilterAnalysisCommand {
             }));
         }
 
+        // ## Filter by symbol prefix
+        if let Some(symbol_prefix) = &self.args.query_opts.symbol_prefix {
+            // "sym" is optionally
+            filtered = Box::pin(filtered.filter(move |val| match val["sym"].as_str() {
+                None => false,
+                Some(actual) => actual.split(",").any(|s| s.starts_with(symbol_prefix)),
+            }));
+        }
+
         // ## Filter by identifier
         if let Some(identifier) = &self.args.query_opts.identifier {
             filtered = Box::pin(filtered.filter(move |val| {
