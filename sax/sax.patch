@@ -1,6 +1,33 @@
 --- ../../sax-js/lib/sax.js	2023-08-17 15:40:28.000000000 -0400
-+++ sax.js	2023-08-17 15:40:18.000000000 -0400
-@@ -759,7 +759,8 @@
++++ sax.js	2024-05-15 04:26:47.106297889 +0900
+@@ -335,17 +335,20 @@
+     ATTRIB_VALUE_QUOTED: S++, // <a foo="bar
+     ATTRIB_VALUE_CLOSED: S++, // <a foo="bar"
+     ATTRIB_VALUE_UNQUOTED: S++, // <a foo=bar
+     ATTRIB_VALUE_ENTITY_Q: S++, // <foo bar="&quot;"
+     ATTRIB_VALUE_ENTITY_U: S++, // <foo bar=&quot
+     CLOSE_TAG: S++, // </a
+     CLOSE_TAG_SAW_WHITE: S++, // </a   >
+     SCRIPT: S++, // <script> ...
+-    SCRIPT_ENDING: S++ // <script> ... <
++    SCRIPT_ENDING: S++, // <script> ... <
++    SCRIPT_COMMENT_START: S++, // <script> ... <! ...
++    SCRIPT_COMMENT: S++, // <script> ... <!-- ...
++    SCRIPT_COMMENT_END: S++, // <script> ... <!-- ... - ...
+   }
+ 
+   sax.XML_ENTITIES = {
+     'amp': '&',
+     'gt': '>',
+     'lt': '<',
+     'quot': '"',
+     'apos': "'"
+@@ -740,17 +743,18 @@
+           }
+           tag.ns[local] = parser.attribValue
+         }
+       }
+ 
        // defer onattribute events until all attributes have been seen
        // so any new bindings can take effect. preserve attribute order
        // so deferred events can be emitted in document order
@@ -10,7 +37,17 @@
      } else {
        // in non-xmlns mode, we can emit the event right away
        parser.tag.attributes[parser.attribName] = parser.attribValue
-@@ -799,6 +800,10 @@
+       emitNode(parser, 'onattribute', {
+         name: parser.attribName,
+         value: parser.attribValue
+       })
+     }
+@@ -780,23 +784,30 @@
+         Object.keys(tag.ns).forEach(function (p) {
+           emitNode(parser, 'onopennamespace', {
+             prefix: p,
+             uri: tag.ns[p]
+           })
          })
        }
  
@@ -21,7 +58,7 @@
        // handle deferred onattribute events
        // Note: do not apply default ns to attributes:
        //   http://www.w3.org/TR/REC-xml-names/#defaulting
-@@ -806,6 +811,9 @@
+       for (var i = 0, l = parser.attribList.length; i < l; i++) {
          var nv = parser.attribList[i]
          var name = nv[0]
          var value = nv[1]
@@ -31,7 +68,17 @@
          var qualName = qname(name, true)
          var prefix = qualName.prefix
          var local = qualName.local
-@@ -826,9 +834,15 @@
+         var uri = prefix === '' ? '' : (tag.ns[prefix] || '')
+         var a = {
+           name: name,
+           value: value,
+           prefix: prefix,
+@@ -807,19 +818,25 @@
+         // if there's any attributes with an undefined namespace,
+         // then fail on them now.
+         if (prefix && prefix !== 'xmlns' && !uri) {
+           strictFail(parser, 'Unbound namespace prefix: ' +
+             JSON.stringify(prefix))
            a.uri = prefix
          }
          parser.tag.attributes[name] = a
@@ -47,3 +94,157 @@
      }
  
      parser.tag.isSelfClosing = !!selfClosing
+ 
+     // process the tag
+     parser.sawRoot = true
+     parser.tags.push(parser.tag)
+     emitNode(parser, 'onopentag', parser.tag)
+@@ -840,27 +857,16 @@
+   function closeTag (parser) {
+     if (!parser.tagName) {
+       strictFail(parser, 'Weird empty close tag.')
+       parser.textNode += '</>'
+       parser.state = S.TEXT
+       return
+     }
+ 
+-    if (parser.script) {
+-      if (parser.tagName !== 'script') {
+-        parser.script += '</' + parser.tagName + '>'
+-        parser.tagName = ''
+-        parser.state = S.SCRIPT
+-        return
+-      }
+-      emitNode(parser, 'onscript', parser.script)
+-      parser.script = ''
+-    }
+-
+     // first make sure that the closing tag actually exists.
+     // <a><b></c></b></a> will close everything, otherwise.
+     var t = parser.tags.length
+     var tagName = parser.tagName
+     if (!parser.strict) {
+       tagName = tagName[parser.looseCase]()
+     }
+     var closeTo = tagName
+@@ -1041,29 +1047,80 @@
+             }
+           }
+           continue
+ 
+         case S.SCRIPT:
+           // only non-strict
+           if (c === '<') {
+             parser.state = S.SCRIPT_ENDING
++            parser.scriptEnding = c
+           } else {
+             parser.script += c
+           }
+           continue
+ 
+-        case S.SCRIPT_ENDING:
+-          if (c === '/') {
+-            parser.state = S.CLOSE_TAG
+-          } else {
+-            parser.script += '<' + c
++        case S.SCRIPT_ENDING: {
++          parser.scriptEnding += c
++
++          const current = parser.scriptEnding.toLowerCase()
++          if (current === "</script>") {
++            emitNode(parser, 'onscript', parser.script)
++            parser.script = ''
++
++            parser.tagName = 'script'
++            closeTag(parser)
++          } else if (current === "<!") {
++            parser.script += parser.scriptEnding
++            parser.scriptCommentStart = parser.scriptEnding
++            parser.scriptEnding = ''
++            parser.state = S.SCRIPT_COMMENT_START
++          } else if (!"</script>".startsWith(current)) {
++            parser.script += parser.scriptEnding
++            parser.scriptEnding = ''
++            parser.state = S.SCRIPT
++          }
++          continue
++        }
++
++        case S.SCRIPT_COMMENT_START: {
++          parser.script += c
++          parser.scriptCommentStart += c
++
++          const current = parser.scriptCommentStart
++          if (current == "<!--") {
++            parser.state = S.SCRIPT_COMMENT
++          } else if (!"<!--".startsWith(current)) {
+             parser.state = S.SCRIPT
+           }
+           continue
++        }
++
++        case S.SCRIPT_COMMENT: {
++          parser.script += c
++
++          if (c == '-') {
++            parser.state = S.SCRIPT_COMMENT_END
++            parser.scriptCommentEnd = c
++          }
++          continue
++        }
++
++        case S.SCRIPT_COMMENT_END: {
++          parser.script += c
++          parser.scriptCommentEnd += c
++
++          const current = parser.scriptCommentEnd
++          if (current == "-->") {
++            parser.state = S.SCRIPT
++          } else if (!"-->".startsWith(current)) {
++            parser.state = S.SCRIPT_COMMENT
++          }
++          continue
++        }
+ 
+         case S.OPEN_WAKA:
+           // either a /, ?, !, or text is coming next.
+           if (c === '!') {
+             parser.state = S.SGML_DECL
+             parser.sgmlDecl = ''
+           } else if (isWhitespace(c)) {
+             // wait for it...
+@@ -1418,33 +1475,24 @@
+           }
+           continue
+ 
+         case S.CLOSE_TAG:
+           if (!parser.tagName) {
+             if (isWhitespace(c)) {
+               continue
+             } else if (notMatch(nameStart, c)) {
+-              if (parser.script) {
+-                parser.script += '</' + c
+-                parser.state = S.SCRIPT
+-              } else {
+-                strictFail(parser, 'Invalid tagname in closing tag.')
+-              }
++              strictFail(parser, 'Invalid tagname in closing tag.')
+             } else {
+               parser.tagName = c
+             }
+           } else if (c === '>') {
+             closeTag(parser)
+           } else if (isMatch(nameBody, c)) {
+             parser.tagName += c
+-          } else if (parser.script) {
+-            parser.script += '</' + parser.tagName
+-            parser.tagName = ''
+-            parser.state = S.SCRIPT
+           } else {
+             if (!isWhitespace(c)) {
+               strictFail(parser, 'Invalid tagname in closing tag')
+             }
+             parser.state = S.CLOSE_TAG_SAW_WHITE
+           }
+           continue
+ 

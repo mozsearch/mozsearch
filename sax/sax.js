@@ -340,7 +340,10 @@
     CLOSE_TAG: S++, // </a
     CLOSE_TAG_SAW_WHITE: S++, // </a   >
     SCRIPT: S++, // <script> ...
-    SCRIPT_ENDING: S++ // <script> ... <
+    SCRIPT_ENDING: S++, // <script> ... <
+    SCRIPT_COMMENT_START: S++, // <script> ... <! ...
+    SCRIPT_COMMENT: S++, // <script> ... <!-- ...
+    SCRIPT_COMMENT_END: S++, // <script> ... <!-- ... - ...
   }
 
   sax.XML_ENTITIES = {
@@ -859,17 +862,6 @@
       return
     }
 
-    if (parser.script) {
-      if (parser.tagName !== 'script') {
-        parser.script += '</' + parser.tagName + '>'
-        parser.tagName = ''
-        parser.state = S.SCRIPT
-        return
-      }
-      emitNode(parser, 'onscript', parser.script)
-      parser.script = ''
-    }
-
     // first make sure that the closing tag actually exists.
     // <a><b></c></b></a> will close everything, otherwise.
     var t = parser.tags.length
@@ -1060,19 +1052,70 @@
           // only non-strict
           if (c === '<') {
             parser.state = S.SCRIPT_ENDING
+            parser.scriptEnding = c
           } else {
             parser.script += c
           }
           continue
 
-        case S.SCRIPT_ENDING:
-          if (c === '/') {
-            parser.state = S.CLOSE_TAG
-          } else {
-            parser.script += '<' + c
+        case S.SCRIPT_ENDING: {
+          parser.scriptEnding += c
+
+          const current = parser.scriptEnding.toLowerCase()
+          if (current === "</script>") {
+            emitNode(parser, 'onscript', parser.script)
+            parser.script = ''
+
+            parser.tagName = 'script'
+            closeTag(parser)
+          } else if (current === "<!") {
+            parser.script += parser.scriptEnding
+            parser.scriptCommentStart = parser.scriptEnding
+            parser.scriptEnding = ''
+            parser.state = S.SCRIPT_COMMENT_START
+          } else if (!"</script>".startsWith(current)) {
+            parser.script += parser.scriptEnding
+            parser.scriptEnding = ''
             parser.state = S.SCRIPT
           }
           continue
+        }
+
+        case S.SCRIPT_COMMENT_START: {
+          parser.script += c
+          parser.scriptCommentStart += c
+
+          const current = parser.scriptCommentStart
+          if (current == "<!--") {
+            parser.state = S.SCRIPT_COMMENT
+          } else if (!"<!--".startsWith(current)) {
+            parser.state = S.SCRIPT
+          }
+          continue
+        }
+
+        case S.SCRIPT_COMMENT: {
+          parser.script += c
+
+          if (c == '-') {
+            parser.state = S.SCRIPT_COMMENT_END
+            parser.scriptCommentEnd = c
+          }
+          continue
+        }
+
+        case S.SCRIPT_COMMENT_END: {
+          parser.script += c
+          parser.scriptCommentEnd += c
+
+          const current = parser.scriptCommentEnd
+          if (current == "-->") {
+            parser.state = S.SCRIPT
+          } else if (!"-->".startsWith(current)) {
+            parser.state = S.SCRIPT_COMMENT
+          }
+          continue
+        }
 
         case S.OPEN_WAKA:
           // either a /, ?, !, or text is coming next.
@@ -1437,12 +1480,7 @@
             if (isWhitespace(c)) {
               continue
             } else if (notMatch(nameStart, c)) {
-              if (parser.script) {
-                parser.script += '</' + c
-                parser.state = S.SCRIPT
-              } else {
-                strictFail(parser, 'Invalid tagname in closing tag.')
-              }
+              strictFail(parser, 'Invalid tagname in closing tag.')
             } else {
               parser.tagName = c
             }
@@ -1450,10 +1488,6 @@
             closeTag(parser)
           } else if (isMatch(nameBody, c)) {
             parser.tagName += c
-          } else if (parser.script) {
-            parser.script += '</' + parser.tagName
-            parser.tagName = ''
-            parser.state = S.SCRIPT
           } else {
             if (!isWhitespace(c)) {
               strictFail(parser, 'Invalid tagname in closing tag')
