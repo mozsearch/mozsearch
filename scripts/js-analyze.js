@@ -1691,23 +1691,50 @@ class BaseParser {
   }
 
   handleAttributes(tag) {
-    let line, column;
     for (let prop in tag.attrs) {
-      if (!prop.startsWith("ON")) {
+      if (prop.startsWith("ON")) {
+        this.handleEventListener(tag, prop);
         continue;
       }
 
       let text = tag.attrs[prop].value;
-      line = tag.attrs[prop].valueLine;
-      column = tag.attrs[prop].valueColumn;
-
-      let spaces = " ".repeat(column);
-      text = `(function (val) {\n${spaces}${text}\n})`;
-
-      let ast = Analyzer.parse(text, this.filename, line, "script", prop);
-      if (ast) {
-        Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
+      if (text.startsWith("chrome://") || text.startsWith("resource://")) {
+        this.handleURLAttribute(tag, prop);
       }
+    }
+  }
+
+  handleEventListener(tag, prop) {
+    let text = tag.attrs[prop].value;
+    let line = tag.attrs[prop].valueLine;
+    let column = tag.attrs[prop].valueColumn;
+
+    let spaces = " ".repeat(column);
+    text = `(function (val) {\n${spaces}${text}\n})`;
+
+    let ast = Analyzer.parse(text, this.filename, line, "script", prop);
+    if (ast) {
+      Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
+    }
+  }
+
+  handleURLAttribute(tag, prop) {
+    let text = tag.attrs[prop].value;
+    let line = tag.attrs[prop].valueLine;
+    let column = tag.attrs[prop].valueColumn;
+
+    ensureURLMap();
+
+    if (!(text in urlMap)) {
+      return;
+    }
+    const targetPaths = urlMap[text];
+
+    const locStr = `${line + 1}:${column}-${column + text.length}`;
+    for (const targetPath of targetPaths) {
+      const sym = "FILE_" + atEscape(targetPath);
+      Analyzer.source(locStr, text, "file,use", "file " + targetPath, sym);
+      Analyzer.target(locStr, text, "use", targetPath, sym);
     }
   }
 
