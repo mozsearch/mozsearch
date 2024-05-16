@@ -18,6 +18,19 @@ expression: "&to_value(fm).unwrap()"
       }
     },
     {
+      "path": "html/invalid-entity-ref.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 232,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "Parser shouldn't fail with invalid entity references",
+        "info": {}
+      }
+    },
+    {
       "path": "html/script.html",
       "concise": {
         "path_kind": "Normal",
