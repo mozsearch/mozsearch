@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Parser shouldn't fail with invalid entity references</title>
+  </head>
+  <body>
+    &#xFFFFFF;
+    &#x00FFFFFF;
+    &#16777215;
+    &something;
+  </body>
+</html>

@@ -938,6 +938,11 @@
       return '&' + parser.entity + ';'
     }
 
+    if (num < 0 || num > 0x10FFFF) {
+      strictFail(parser, 'Invalid character entity')
+      return '&' + parser.entity + ';'
+    }
+
     return String.fromCodePoint(num)
   }
 

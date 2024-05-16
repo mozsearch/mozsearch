@@ -1,5 +1,5 @@
 --- ../../sax-js/lib/sax.js	2023-08-17 15:40:28.000000000 -0400
-+++ sax.js	2024-05-15 04:32:52.022807396 +0900
++++ sax.js	2024-05-17 02:02:31
 @@ -335,17 +335,20 @@
      ATTRIB_VALUE_QUOTED: S++, // <a foo="bar
      ATTRIB_VALUE_CLOSED: S++, // <a foo="bar"
@@ -96,7 +96,29 @@
        tagName = tagName[parser.looseCase]()
      }
      var closeTo = tagName
-@@ -1041,29 +1041,80 @@
+@@ -929,16 +929,21 @@
+       } else {
+         entity = entity.slice(1)
+         num = parseInt(entity, 10)
+         numStr = num.toString(10)
+       }
+     }
+     entity = entity.replace(/^0+/, '')
+     if (isNaN(num) || numStr.toLowerCase() !== entity) {
++      strictFail(parser, 'Invalid character entity')
++      return '&' + parser.entity + ';'
++    }
++
++    if (num < 0 || num > 0x10FFFF) {
+       strictFail(parser, 'Invalid character entity')
+       return '&' + parser.entity + ';'
+     }
+ 
+     return String.fromCodePoint(num)
+   }
+ 
+   function beginWhiteSpace (parser, c) {
+@@ -1041,30 +1046,81 @@
              }
            }
            continue
@@ -138,7 +160,7 @@
            }
            continue
 +        }
-+
+ 
 +        case S.SCRIPT_COMMENT_START: {
 +          parser.script += c
 +          parser.scriptCommentStart += c
@@ -174,7 +196,7 @@
 +          }
 +          continue
 +        }
- 
++
          case S.OPEN_WAKA:
            // either a /, ?, !, or text is coming next.
            if (c === '!') {
@@ -182,7 +204,8 @@
              parser.sgmlDecl = ''
            } else if (isWhitespace(c)) {
              // wait for it...
-@@ -1302,16 +1353,18 @@
+           } else if (isMatch(nameStart, c)) {
+@@ -1302,16 +1358,18 @@
            if (isWhitespace(c)) {
              continue
            } else if (c === '>') {
@@ -201,7 +224,7 @@
            continue
  
          case S.ATTRIB_NAME:
-@@ -1335,43 +1388,51 @@
+@@ -1335,43 +1393,51 @@
            if (c === '=') {
              parser.state = S.ATTRIB_VALUE
            } else if (isWhitespace(c)) {
@@ -253,7 +276,7 @@
              if (c === '&') {
                parser.state = S.ATTRIB_VALUE_ENTITY_Q
              } else {
-@@ -1389,16 +1450,18 @@
+@@ -1389,16 +1455,18 @@
              parser.state = S.ATTRIB
            } else if (c === '>') {
              openTag(parser)
@@ -272,7 +295,7 @@
            continue
  
          case S.ATTRIB_VALUE_UNQUOTED:
-@@ -1418,33 +1481,24 @@
+@@ -1418,33 +1486,24 @@
            }
            continue
  
