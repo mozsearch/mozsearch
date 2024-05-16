@@ -2046,10 +2046,21 @@ class XBLParser extends XMLParser {
   }
 }
 
+// Prepare the `sax` global variable.
+// This function shouldn't be called multiple times.
+//
+// js-analyze.js is executed for single file, and the code path
+// "analyzeFile -> analyze* -> loadSax" is taken at most once.
+function loadSax()
+{
+  load(mozSearchRoot + "/sax/sax.js");
+}
+
 function analyzeXBL(filename)
 {
   let text = preprocess(filename, line => `<!--${line}-->`);
 
+  loadSax();
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true});
 
   new XBLParser(filename, parser);
@@ -2102,6 +2113,7 @@ function analyzeXUL(filename)
     text = "<root>" + text + "</root>";
   }
 
+  loadSax();
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: true});
 
   let parser2 = new XULParser(filename, parser);
@@ -2120,6 +2132,7 @@ function analyzeHTML(filename)
     text = "<root>" + text + "</root>";
   }
 
+  loadSax();
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: false});
 
   let parser2 = new HTMLParser(filename, parser);
@@ -2148,8 +2161,6 @@ mozSearchRoot = scriptArgs[1];
 localFile = scriptArgs[2];
 sourcePath = scriptArgs[3];
 urlMapFile = scriptArgs[4];
-
-load(mozSearchRoot + "/sax/sax.js");
 
 printFileTarget(sourcePath);
 
