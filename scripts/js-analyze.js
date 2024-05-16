@@ -110,6 +110,11 @@ const FILENAME_INTERVENTIONS = [
     prepend: "It may intentionally be illegal JS: ",
   },
   {
+    includes_list: ["parser/htmlparser/tests"],
+    severity: "INFO",
+    prepend: "It may be testing script tag handling: ",
+  },
+  {
     // Session Store has some JSON files with .js extensions.  .eslintignore
     // does already know about them, but until my work on file ingestion lands
     // we lack an easy way to filter the JS ingestion set.
