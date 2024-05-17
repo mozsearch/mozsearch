@@ -10,11 +10,11 @@ pub struct LanguageSpec {
     pub c_style_comments: bool,
     pub backtick_strings: bool,
     pub regexp_literals: bool,
-    pub triple_quote_literals: bool,
     pub c_preprocessor: bool,
     // Rust is mostly C-like, with a couple of differences.
     pub rust_tweaks: bool,
     pub cxx14_digit_separators: bool,
+    pub triple_quote_literals: &'static str,
     pub markdown_slug: &'static str,
 }
 
@@ -617,7 +617,7 @@ lazy_static! {
     static ref PYTHON_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_PYTHON),
         hash_comment: true,
-        triple_quote_literals: true,
+        triple_quote_literals: "py",
         markdown_slug: "py",
         .. LanguageSpec::default()
     };
@@ -641,6 +641,7 @@ lazy_static! {
     static ref KOTLIN_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(&*RESERVED_WORDS_KOTLIN),
         c_style_comments: true,
+        triple_quote_literals: "kotlin",
         .. LanguageSpec::default()
     };
 }
