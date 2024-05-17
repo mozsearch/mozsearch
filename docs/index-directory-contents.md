@@ -150,6 +150,9 @@ Files:
 - `macosx64.*`: A bunch of per-platform files downloaded by
   `fetch-tc-artifacts.sh` that we retain for debugging
   `process-gecko-analysis.sh`.
+- `macosx64-aarch64.*`: A bunch of per-platform files downloaded by
+  `fetch-tc-artifacts.sh` that we retain for debugging
+  `process-gecko-analysis.sh`.
 - `objdir-dirs`: A list of the directories found under `objdir/` for scripting
   and indexing purposes using in a bunch of places.  This is necessary because
   source files are exposed via the UI at `/PATH` and come from `gecko-dev/PATH`
