@@ -13,15 +13,15 @@
   },
   {
     "dist/bin/chrome/test/chrome1.mjs": [
-      "urlmap/chrome1.js",
+      "urlmap/chrome1.mjs",
       null
     ],
     "dist/bin/chrome/test/chrome2.mjs": [
-      "urlmap/chrome2.js",
+      "urlmap/chrome2.mjs",
       null
     ],
     "dist/bin/chrome/test/chrome3.mjs": [
-      "urlmap/chrome3.js",
+      "urlmap/chrome3.mjs",
       null
     ],
     "dist/bin/chrome/test/chrome1.css": [
@@ -37,15 +37,15 @@
       null
     ],
     "dist/bin/resource/test/resource1.mjs": [
-      "urlmap/resource1.js",
+      "urlmap/resource1.mjs",
       null
     ],
     "dist/bin/resource/test/resource2.mjs": [
-      "urlmap/resource2.js",
+      "urlmap/resource2.mjs",
       null
     ],
     "dist/bin/resource/test/resource3.mjs": [
-      "urlmap/resource3.js",
+      "urlmap/resource3.mjs",
       null
     ],
     "dist/bin/resource/test/resource1.css": [
