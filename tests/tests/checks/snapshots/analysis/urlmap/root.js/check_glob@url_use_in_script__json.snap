@@ -7,60 +7,60 @@ expression: "&json_results"
     "loc": "1:47-89",
     "source": 1,
     "syntax": "file,use",
-    "pretty": "file urlmap/chrome1.js",
-    "sym": "FILE_urlmap/chrome1@2Ejs"
+    "pretty": "file urlmap/chrome1.mjs",
+    "sym": "FILE_urlmap/chrome1@2Emjs"
   },
   {
     "loc": "1:47-89",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/chrome1.js",
-    "sym": "FILE_urlmap/chrome1@2Ejs",
+    "pretty": "urlmap/chrome1.mjs",
+    "sym": "FILE_urlmap/chrome1@2Emjs",
     "context": ""
   },
   {
     "loc": "2:49-80",
     "source": 1,
     "syntax": "file,use",
-    "pretty": "file urlmap/resource1.js",
-    "sym": "FILE_urlmap/resource1@2Ejs"
+    "pretty": "file urlmap/resource1.mjs",
+    "sym": "FILE_urlmap/resource1@2Emjs"
   },
   {
     "loc": "2:49-80",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/resource1.js",
-    "sym": "FILE_urlmap/resource1@2Ejs",
+    "pretty": "urlmap/resource1.mjs",
+    "sym": "FILE_urlmap/resource1@2Emjs",
     "context": ""
   },
   {
     "loc": "6:11-53",
     "source": 1,
     "syntax": "file,use",
-    "pretty": "file urlmap/chrome2.js",
-    "sym": "FILE_urlmap/chrome2@2Ejs"
+    "pretty": "file urlmap/chrome2.mjs",
+    "sym": "FILE_urlmap/chrome2@2Emjs"
   },
   {
     "loc": "6:11-53",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/chrome2.js",
-    "sym": "FILE_urlmap/chrome2@2Ejs",
+    "pretty": "urlmap/chrome2.mjs",
+    "sym": "FILE_urlmap/chrome2@2Emjs",
     "context": "chrome2"
   },
   {
     "loc": "7:13-44",
     "source": 1,
     "syntax": "file,use",
-    "pretty": "file urlmap/resource2.js",
-    "sym": "FILE_urlmap/resource2@2Ejs"
+    "pretty": "file urlmap/resource2.mjs",
+    "sym": "FILE_urlmap/resource2@2Emjs"
   },
   {
     "loc": "7:13-44",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/resource2.js",
-    "sym": "FILE_urlmap/resource2@2Ejs",
+    "pretty": "urlmap/resource2.mjs",
+    "sym": "FILE_urlmap/resource2@2Emjs",
     "context": "resource2"
   },
   {
