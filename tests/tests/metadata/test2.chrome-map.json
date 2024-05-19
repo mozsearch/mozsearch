@@ -1,0 +1,21 @@
+[
+  {
+    "chrome://global/content/test/": [
+      "dist/bin/chrome/test"
+    ]
+  },
+  {
+  },
+  {
+    "dist/bin/chrome/test/chrome1.mjs": [
+      "urlmap/chrome1b.mjs",
+      null
+    ]
+  },
+  {
+    "MOZ_APP_NAME": "firefox",
+    "MOZ_MACBUNDLE_NAME": "NightlyDebug.app",
+    "OMNIJAR_NAME": "omni.ja",
+    "topobjdir": "/builds/worker/workspace/obj-build"
+  }
+]

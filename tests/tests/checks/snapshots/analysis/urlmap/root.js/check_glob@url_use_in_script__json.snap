@@ -19,6 +19,21 @@ expression: "&json_results"
     "context": ""
   },
   {
+    "loc": "1:47-89",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome1b.mjs",
+    "sym": "FILE_urlmap/chrome1b@2Emjs"
+  },
+  {
+    "loc": "1:47-89",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/chrome1b.mjs",
+    "sym": "FILE_urlmap/chrome1b@2Emjs",
+    "context": ""
+  },
+  {
     "loc": "2:49-80",
     "source": 1,
     "syntax": "file,use",
