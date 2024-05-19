@@ -34,6 +34,21 @@ expression: "&json_results"
     "context": ""
   },
   {
+    "loc": "13:47-89",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome1b.mjs",
+    "sym": "FILE_urlmap/chrome1b@2Emjs"
+  },
+  {
+    "loc": "13:47-89",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/chrome1b.mjs",
+    "sym": "FILE_urlmap/chrome1b@2Emjs",
+    "context": ""
+  },
+  {
     "loc": "14:49-80",
     "source": 1,
     "syntax": "file,use",
@@ -151,6 +166,21 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "urlmap/chrome1.mjs",
     "sym": "FILE_urlmap/chrome1@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "31:47-89",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome1b.mjs",
+    "sym": "FILE_urlmap/chrome1b@2Emjs"
+  },
+  {
+    "loc": "31:47-89",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/chrome1b.mjs",
+    "sym": "FILE_urlmap/chrome1b@2Emjs",
     "context": ""
   },
   {
