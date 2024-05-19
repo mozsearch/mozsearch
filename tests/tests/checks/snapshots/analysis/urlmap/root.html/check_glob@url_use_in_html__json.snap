@@ -229,6 +229,36 @@ expression: "&json_results"
     "context": ""
   },
   {
+    "loc": "39:31-71",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome1.mjs",
+    "sym": "FILE_urlmap/chrome1@2Emjs"
+  },
+  {
+    "loc": "39:31-71",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/chrome1.mjs",
+    "sym": "FILE_urlmap/chrome1@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "40:31-60",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/resource1.mjs",
+    "sym": "FILE_urlmap/resource1@2Emjs"
+  },
+  {
+    "loc": "40:31-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "urlmap/resource1.mjs",
+    "sym": "FILE_urlmap/resource1@2Emjs",
+    "context": ""
+  },
+  {
     "loc": "42:14-43",
     "source": 1,
     "syntax": "file,use",

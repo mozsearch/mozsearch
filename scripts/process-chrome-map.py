@@ -38,10 +38,10 @@ def process_chrome_map(url_map, chrome_map_path, topsrcdir):
     def get_overrides(url):
         """Returns all overridden URLs for given URL."""
         for to_name, from_name in overrides.items():
-            if from_name == url:
-                yield to_name
+            if to_name == url:
+                yield from_name
 
-                yield from get_overrides(to_name)
+                yield from get_overrides(from_name)
 
 
     def add_entries(url_map, src, obj):
