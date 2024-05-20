@@ -1,5 +1,5 @@
 let nextSymId = 0;
-let localFile, sourcePath, urlMapFile, fileIndex, mozSearchRoot, urlMap;
+let localFile, sourcePath, fileIndex, mozSearchRoot;
 
 // The parsing mode we're currently using.
 let gParsedAs = "script";
@@ -472,18 +472,6 @@ function memberPropLoc(expr)
   // happen in locstr2)
   idLoc.start.column = idLoc.end.column - expr.property.name.length;
   return idLoc;
-}
-
-function ensureURLMap() {
-  if (urlMap) {
-    return;
-  }
-
-  try {
-    urlMap = JSON.parse(snarf(urlMapFile));
-  } catch (e) {
-    urlMap = {};
-  }
 }
 
 function atEscape(text) {
@@ -1498,20 +1486,12 @@ let Analyzer = {
       return;
     }
 
-    ensureURLMap();
-
-    if (!(expr.value in urlMap)) {
-      return;
-    }
-    const targetPaths = urlMap[expr.value];
-
     const name = "\"" + expr.value + "\"";
     const loc = expr.loc;
-    for (const targetPath of targetPaths) {
-      const sym = "FILE_" + atEscape(targetPath);
-      this.source(loc, name, "file,use", "file " + targetPath, sym);
-      this.target(loc, name, "use", targetPath, sym);
-    }
+    const url = expr.value;
+    const sym = "URL_" + atEscape(url);
+    this.source(loc, name, "file,use", "type " + url, sym);
+    this.target(loc, name, "use", url, sym);
   },
 };
 
@@ -1740,23 +1720,14 @@ class BaseParser {
   }
 
   handleURLAttribute(tag, prop) {
-    let text = tag.attrs[prop].value;
+    let url = tag.attrs[prop].value;
     let line = tag.attrs[prop].valueLine;
     let column = tag.attrs[prop].valueColumn;
 
-    ensureURLMap();
-
-    if (!(text in urlMap)) {
-      return;
-    }
-    const targetPaths = urlMap[text];
-
-    const locStr = `${line + 1}:${column}-${column + text.length}`;
-    for (const targetPath of targetPaths) {
-      const sym = "FILE_" + atEscape(targetPath);
-      Analyzer.source(locStr, text, "file,use", "file " + targetPath, sym);
-      Analyzer.target(locStr, text, "use", targetPath, sym);
-    }
+    const locStr = `${line + 1}:${column}-${column + url.length}`;
+    const sym = "URL_" + atEscape(url);
+    Analyzer.source(locStr, url, "file,use", "type " + url, sym);
+    Analyzer.target(locStr, url, "use", url, sym);
   }
 
   getScriptTarget(tag) {
@@ -2165,7 +2136,6 @@ fileIndex = scriptArgs[0];
 mozSearchRoot = scriptArgs[1];
 localFile = scriptArgs[2];
 sourcePath = scriptArgs[3];
-urlMapFile = scriptArgs[4];
 
 printFileTarget(sourcePath);
 

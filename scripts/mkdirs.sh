@@ -15,11 +15,13 @@ rm -rf $INDEX_ROOT/file
 rm -rf $INDEX_ROOT/dir
 rm -rf $INDEX_ROOT/description
 rm -rf $INDEX_ROOT/templates
+rm -rf $INDEX_ROOT/aliases
 
 mkdir -p $INDEX_ROOT/analysis
 mkdir -p $INDEX_ROOT/file
 mkdir -p $INDEX_ROOT/dir
 mkdir -p $INDEX_ROOT/description
+mkdir -p $INDEX_ROOT/aliases
 
 mkdir -p $INDEX_ROOT/analysis/__GENERATED__
 

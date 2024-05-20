@@ -66,7 +66,7 @@ $MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
 
-$MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $INDEX_ROOT/url-map.json $INDEX_ROOT/*.chrome-map.json || handle_tree_error "process-chrome-map.py"
+$MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $INDEX_ROOT/aliases/url-map.json $INDEX_ROOT/*.chrome-map.json || handle_tree_error "process-chrome-map.py"
 
 date
 
@@ -83,6 +83,10 @@ $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_er
 date
 
 $MOZSEARCH_PATH/scripts/ipdl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "ipdl-analyze.sh"
+
+date
+
+$MOZSEARCH_PATH/scripts/replace-aliases.sh || handle_tree_error "replace-aliases.sh"
 
 date
 

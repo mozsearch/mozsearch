@@ -2,6 +2,7 @@
 
 import glob
 import json
+import re
 import os
 import sys
 
@@ -82,5 +83,24 @@ url_map = {}
 for path in chrome_map_paths:
     process_chrome_map(url_map, path, topsrcdir)
 
+
+def atEscape(text):
+  return re.sub("[^A-Za-z0-9_/]", lambda m: "@" + "{:02X}".format(ord(m.group(0))), text)
+
+
+alias_map = {}
+
+for url, paths in url_map.items():
+    aliases = []
+    for path in paths:
+        aliases.append({
+            "pretty": "file " + path,
+            "sym": "FILE_" + atEscape(path),
+        })
+
+    sym = "URL_" + atEscape(url)
+
+    alias_map[sym] = aliases
+
 with open(url_map_path, "w") as f:
-    json.dump(url_map, f)
+    json.dump(alias_map, f)
