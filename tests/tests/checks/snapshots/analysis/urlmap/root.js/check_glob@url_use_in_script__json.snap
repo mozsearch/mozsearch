@@ -12,14 +12,6 @@ expression: "&json_results"
   },
   {
     "loc": "1:47-89",
-    "target": 1,
-    "kind": "use",
-    "pretty": "urlmap/chrome1.mjs",
-    "sym": "FILE_urlmap/chrome1@2Emjs",
-    "context": ""
-  },
-  {
-    "loc": "1:47-89",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1b.mjs",
@@ -29,7 +21,15 @@ expression: "&json_results"
     "loc": "1:47-89",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/chrome1b.mjs",
+    "pretty": "file urlmap/chrome1.mjs",
+    "sym": "FILE_urlmap/chrome1@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "1:47-89",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/chrome1b.mjs",
     "sym": "FILE_urlmap/chrome1b@2Emjs",
     "context": ""
   },
@@ -44,7 +44,7 @@ expression: "&json_results"
     "loc": "2:49-80",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/resource1.mjs",
+    "pretty": "file urlmap/resource1.mjs",
     "sym": "FILE_urlmap/resource1@2Emjs",
     "context": ""
   },
@@ -59,7 +59,7 @@ expression: "&json_results"
     "loc": "6:11-53",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/chrome2.mjs",
+    "pretty": "file urlmap/chrome2.mjs",
     "sym": "FILE_urlmap/chrome2@2Emjs",
     "context": "chrome2"
   },
@@ -74,7 +74,7 @@ expression: "&json_results"
     "loc": "7:13-44",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/resource2.mjs",
+    "pretty": "file urlmap/resource2.mjs",
     "sym": "FILE_urlmap/resource2@2Emjs",
     "context": "resource2"
   },
@@ -89,7 +89,7 @@ expression: "&json_results"
     "loc": "10:12-55",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/chrome1.html",
+    "pretty": "file urlmap/chrome1.html",
     "sym": "FILE_urlmap/chrome1@2Ehtml",
     "context": ""
   },
@@ -104,7 +104,7 @@ expression: "&json_results"
     "loc": "11:12-44",
     "target": 1,
     "kind": "use",
-    "pretty": "urlmap/resource1.html",
+    "pretty": "file urlmap/resource1.html",
     "sym": "FILE_urlmap/resource1@2Ehtml",
     "context": ""
   }

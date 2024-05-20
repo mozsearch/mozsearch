@@ -15,5 +15,5 @@ TREE_NAME=$2
 
 cat $INDEX_ROOT/html-files | \
     parallel --halt 2 js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- {#} \
-    $MOZSEARCH_PATH $FILES_ROOT/{} {} $INDEX_ROOT/url-map.json ">" $INDEX_ROOT/analysis/{}
+    $MOZSEARCH_PATH $FILES_ROOT/{} {} ">" $INDEX_ROOT/analysis/{}
 echo $?
