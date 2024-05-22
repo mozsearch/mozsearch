@@ -1,0 +1,29 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/export7.mjs",
+    "sym": "FILE_js/export7@2Emjs"
+  },
+  {
+    "loc": "1:15-22",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property default",
+    "sym": "#default",
+    "nestingRange": "1:20-1:22"
+  },
+  {
+    "loc": "1:15-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "default",
+    "sym": "#default",
+    "context": ""
+  }
+]
