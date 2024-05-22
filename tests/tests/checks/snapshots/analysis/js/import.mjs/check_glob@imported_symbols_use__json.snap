@@ -1,0 +1,36 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "4:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property exportedName3",
+    "sym": "#exportedName3"
+  },
+  {
+    "loc": "4:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "exportedName3",
+    "sym": "#exportedName3",
+    "context": ""
+  },
+  {
+    "loc": "5:9-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property default",
+    "sym": "#default"
+  },
+  {
+    "loc": "5:9-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "default",
+    "sym": "#default",
+    "context": ""
+  }
+]
