@@ -1,0 +1,255 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/export.mjs",
+    "sym": "FILE_js/export@2Emjs"
+  },
+  {
+    "loc": "1:11-18",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property letDecl",
+    "sym": "#letDecl"
+  },
+  {
+    "loc": "1:11-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "letDecl",
+    "sym": "#letDecl",
+    "context": ""
+  },
+  {
+    "loc": "2:13-22",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property constDecl",
+    "sym": "#constDecl"
+  },
+  {
+    "loc": "2:13-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "constDecl",
+    "sym": "#constDecl",
+    "context": ""
+  },
+  {
+    "loc": "3:16-23",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property funDecl",
+    "sym": "#funDecl",
+    "nestingRange": "3:26-3:27"
+  },
+  {
+    "loc": "3:16-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "funDecl",
+    "sym": "#funDecl",
+    "context": ""
+  },
+  {
+    "loc": "4:13-22",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property classDecl",
+    "sym": "#classDecl",
+    "nestingRange": "4:22-4:24"
+  },
+  {
+    "loc": "4:13-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "classDecl",
+    "sym": "#classDecl",
+    "context": ""
+  },
+  {
+    "loc": "5:4-9",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property dummy",
+    "sym": "#dummy"
+  },
+  {
+    "loc": "5:4-9",
+    "target": 1,
+    "kind": "def",
+    "pretty": "dummy",
+    "sym": "#dummy",
+    "context": ""
+  },
+  {
+    "loc": "5:15-21",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property local1",
+    "sym": "#local1"
+  },
+  {
+    "loc": "5:15-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "local1",
+    "sym": "#local1",
+    "context": ""
+  },
+  {
+    "loc": "5:27-33",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property local2",
+    "sym": "#local2"
+  },
+  {
+    "loc": "5:27-33",
+    "target": 1,
+    "kind": "def",
+    "pretty": "local2",
+    "sym": "#local2",
+    "context": ""
+  },
+  {
+    "loc": "6:9-15",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property local1",
+    "sym": "#local1"
+  },
+  {
+    "loc": "6:9-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "local1",
+    "sym": "#local1",
+    "context": ""
+  },
+  {
+    "loc": "6:17-23",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property local2",
+    "sym": "#local2"
+  },
+  {
+    "loc": "6:17-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "local2",
+    "sym": "#local2",
+    "context": ""
+  },
+  {
+    "loc": "7:18-27",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property exportAs1",
+    "sym": "#exportAs1"
+  },
+  {
+    "loc": "7:18-27",
+    "target": 1,
+    "kind": "def",
+    "pretty": "exportAs1",
+    "sym": "#exportAs1",
+    "context": ""
+  },
+  {
+    "loc": "9:18-25",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property default",
+    "sym": "#default"
+  },
+  {
+    "loc": "9:18-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "default",
+    "sym": "#default",
+    "context": ""
+  },
+  {
+    "loc": "12:12-22",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property exportNSAs",
+    "sym": "#exportNSAs"
+  },
+  {
+    "loc": "12:12-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "exportNSAs",
+    "sym": "#exportNSAs",
+    "context": ""
+  },
+  {
+    "loc": "13:9-22",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property exportedName1",
+    "sym": "#exportedName1"
+  },
+  {
+    "loc": "13:9-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "exportedName1",
+    "sym": "#exportedName1",
+    "context": ""
+  },
+  {
+    "loc": "13:24-37",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property exportedName2",
+    "sym": "#exportedName2"
+  },
+  {
+    "loc": "13:24-37",
+    "target": 1,
+    "kind": "def",
+    "pretty": "exportedName2",
+    "sym": "#exportedName2",
+    "context": ""
+  },
+  {
+    "loc": "14:26-35",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property exportAs2",
+    "sym": "#exportAs2"
+  },
+  {
+    "loc": "14:26-35",
+    "target": 1,
+    "kind": "def",
+    "pretty": "exportAs2",
+    "sym": "#exportAs2",
+    "context": ""
+  },
+  {
+    "loc": "15:20-29",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property defaultAs",
+    "sym": "#defaultAs"
+  },
+  {
+    "loc": "15:20-29",
+    "target": 1,
+    "kind": "def",
+    "pretty": "defaultAs",
+    "sym": "#defaultAs",
+    "context": ""
+  }
+]

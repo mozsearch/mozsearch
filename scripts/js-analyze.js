@@ -1042,27 +1042,6 @@ let Analyzer = {
       break;
     }
 
-    // HEY HEY HEY HEY HEY
-    //
-    // ALL THE MODULE STUFF BELOW IS LARGELY NO-OPs EXCEPT FOR EXPORT TRAVERSALS
-    //
-    // This is not particularly useful!  If someone wants to enhance this
-    // current implementation, that's great!  For now the stubbing is being done
-    // so that we can at least index module JS files without exploding.
-    //
-    // The short-to-medium-term plan is
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1740290 once
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1761287 lands.
-
-    // Is this even a thing?
-    case "ModuleRequest": {
-      break;
-    }
-
-    case "ImportAssertion": {
-      break;
-    }
-
     case "ImportDeclaration": {
       for (const spec of stmt.specifiers) {
         if (spec.type === "ImportSpecifier" ||
@@ -1083,32 +1062,31 @@ let Analyzer = {
       break;
     }
 
-    // These may only be under the ImportDeclaration's specifiers?
-    case "ImportSpecifier": {
-      break;
-    }
-
-    case "ImportNamespaceSpecifier": {
-      break;
-    }
-
     case "ExportDeclaration": {
-      // Useful debugging for investigation if you want:
-      //printErr(`seeing export: ${JSON.stringify(stmt, null, 2)}\n`);
-
-      // Ignore default exports because they exist in an expression context for
-      // sure.  We frequently see both identifiers and call expresssions.  And
-      // I know from experience they effectively can't serve as a dec statement
-      // that contributes to the local namespace.  (They can serve as a decl
-      // for whoever imports them, but we don't support that on the import side,
-      // so there isn't much point.)
-      if (!stmt.isDefault && stmt.declaration) {
-        // Let's also wrap this in a catch which we log as a warning so we can
-        // keep going.
-        try {
+      if (stmt.declaration) {
+        if (stmt.declaration.type === "VariableDeclaration" ||
+            (stmt.declaration.type === "FunctionDeclaration" &&
+             stmt.declaration.id) ||
+            stmt.declaration.type === "ClassStatement") {
           this.statement(stmt.declaration);
-        } catch (ex) {
-          logError(`Weirdness processing export, ignoring: ${ex}`);
+        } else {
+          this.expression(stmt.declaration);
+        }
+      }
+
+      if (stmt.specifiers) {
+        for (const spec of stmt.specifiers) {
+          if (spec.type === "ExportSpecifier" ||
+              spec.type === "ExportNamespaceSpecifier") {
+            if (spec.name.type !== "Literal") {
+              this.pattern(spec.name);
+            }
+
+            if (spec.type === "ExportSpecifier" &&
+                !isSameLocation(spec.id.loc, spec.name.loc)) {
+              this.expression(spec.id);
+            }
+          }
         }
       }
 
@@ -1116,19 +1094,6 @@ let Analyzer = {
           stmt.moduleRequest.source.type === "Literal") {
         this.maybeLinkifyLiteral(stmt.moduleRequest.source);
       }
-      break;
-    }
-
-    // these 3 may only exist under the ExportDeclaration's "specifiers"?
-    case "ExportSpecifier": {
-      break;
-    }
-
-    case "ExportNamespaceSpecifier": {
-      break;
-    }
-
-    case "ExportBatchSpecifier": {
       break;
     }
 
