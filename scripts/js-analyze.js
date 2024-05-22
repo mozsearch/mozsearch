@@ -364,6 +364,13 @@ SymbolTable.Symbol.prototype = {
   },
 };
 
+function isSameLocation(loc1, loc2) {
+  return loc1.start.line == loc2.start.line &&
+    loc1.start.column == loc2.start.column &&
+    loc1.end.line == loc2.end.line &&
+    loc1.end.column == loc2.end.column;
+}
+
 function posBefore(pos1, pos2) {
   return pos1.line < pos2.line ||
          (pos1.line == pos2.line && pos1.column < pos2.column);
@@ -1057,6 +1064,18 @@ let Analyzer = {
     }
 
     case "ImportDeclaration": {
+      for (const spec of stmt.specifiers) {
+        if (spec.type === "ImportSpecifier" ||
+            spec.type === "ImportNamespaceSpecifier") {
+          this.pattern(spec.name);
+
+          if (spec.type === "ImportSpecifier" &&
+              !isSameLocation(spec.id.loc, spec.name.loc)) {
+            this.expression(spec.id);
+          }
+        }
+      }
+
       if (stmt.moduleRequest && stmt.moduleRequest.source &&
           stmt.moduleRequest.source.type === "Literal") {
         this.maybeLinkifyLiteral(stmt.moduleRequest.source);
