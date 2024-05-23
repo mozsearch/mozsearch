@@ -1064,10 +1064,13 @@ let Analyzer = {
 
     case "ExportDeclaration": {
       if (stmt.declaration) {
-        if (stmt.declaration.type === "VariableDeclaration" ||
-            (stmt.declaration.type === "FunctionDeclaration" &&
-             stmt.declaration.id) ||
-            stmt.declaration.type === "ClassStatement") {
+        if (stmt.declaration.type === "FunctionDeclaration") {
+          if (stmt.declaration.id) {
+            this.statement(stmt.declaration);
+          }
+        }
+        else if (stmt.declaration.type === "VariableDeclaration" ||
+                 stmt.declaration.type === "ClassStatement") {
           this.statement(stmt.declaration);
         } else {
           this.expression(stmt.declaration);
