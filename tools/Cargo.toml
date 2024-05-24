@@ -8,6 +8,18 @@ edition = "2018"
 tonic-build = "0.7.1"
 
 [dependencies]
+cssparser = "0.29"
+lazy_static = "1.1"
+itertools = "0.10"
+# Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
+# does not make any effort to do interning
+serde = { version = "1.0.196", features = ["derive", "rc", "std"] }
+serde_json = { version = "1.0.113", features = ["preserve_order"] }
+serde_repr = "0.1.18"
+tracing = "0.1.37"
+ustr = { version = "1.0", features = ["serde"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 async-stream = "0.3.2"
 async-trait = "0.1.50"
 axum = "0.6.17"
@@ -15,7 +27,6 @@ axum-macros = "0.3.7"
 bitflags = { version = "2.4.2", features = ["serde"] }
 chrono = "0.2"
 clap = { version = "4.0", features = ["cargo", "derive", "env"] }
-cssparser = "0.29"
 dot-generator = "0.2.0"
 dot-structures = "0.1.0"
 env_logger = "0.7.1"
@@ -29,11 +40,7 @@ hyper = "0.10"
 include_dir = "0.7.2"
 insta = { version = "1.14.0", features = ["json"] }
 ipdl_parser = { path = "./ipdl_parser" }
-# asuth picked this version because our Cargo.lock already had 0.7.11 for our
-# rls-analysis dep.
-itertools = "0.10"
 json-structural-diff = "0.1.0"
-lazy_static = "1.1"
 lexical-sort = "0.3"
 linkify = "0.2.0"
 liquid = "0.26.0"
@@ -52,11 +59,6 @@ rls-analysis = "0.18.1"
 rls-data = "0.19.1"
 scip = "0.3.3"
 shell-words = "1.0.0"
-# Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
-# does not make any effort to do interning
-serde = { version = "1.0.196", features = ["derive", "rc", "std"] }
-serde_json = { version = "1.0.113", features = ["preserve_order"] }
-serde_repr = "0.1.18"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
 tokio-stream = "0.1.8"
 tree-sitter = "0.20.9"
@@ -68,7 +70,6 @@ tree-sitter-java = "0.20.2"
 tree-sitter-kotlin = { git = "https://github.com/fwcd/tree-sitter-kotlin.git", rev = "5b7ca7a611eac3234cd0a38b6257effa8888f89d" }
 toml = "0.7.3"
 tonic = "0.7.1"
-tracing = "0.1.37"
 # We explicitly do not enable the "uuid" feature because by default it will be
 # serialized as a u128 in serde which will error out when attempting to convert
 # to a Value or via #flatten, which causes a problem.
@@ -76,7 +77,6 @@ tracing-forest = { version = "0.1.5", features = ["smallvec", "tokio", "uuid"] }
 tracing-subscriber = { version = "0.3.16", features = ["std", "env-filter", "fmt", "local-time", "registry", "json"] }
 url = "2.2.2"
 urlencoding = "2.1.2"
-ustr = { version = "1.0", features = ["serde"] }
 uuid = { version = "1.2.1", features = ["std", "v4"] }
 walkdir = "2.3.2"
 
