@@ -129,6 +129,10 @@ fi
 # install ripgrep so we can stop experiencing grep pain / footguns
 cargo install ripgrep
 
+# Install tools for web-analyze WASM bindings.
+cargo install wasm-pack
+cargo install wasm-snip
+
 # Install codesearch.
 if [ ! -d livegrep ]; then
   git clone -b mozsearch-version6 https://github.com/mozsearch/livegrep

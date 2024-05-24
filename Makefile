@@ -21,6 +21,7 @@ build-clang-plugin: check-in-vagrant
 # `cargo test` to validate the build.
 build-rust-tools:
 	cd tools && cargo build --release --all-targets
+	cd scripts/web-analyze/wasm-css-analyzer && ./build.sh
 
 test-rust-tools:
 	cd tools && cargo test --release --verbose
