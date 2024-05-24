@@ -1,0 +1,1 @@
+filter-analysis css/test.css --symbol-prefix 'CSSPROP_@2D@2D'

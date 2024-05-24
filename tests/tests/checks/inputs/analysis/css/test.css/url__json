@@ -1,0 +1,1 @@
+filter-analysis css/test.css --symbol-prefix 'URL_'

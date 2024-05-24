@@ -1,0 +1,48 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00010:18-54",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file chrome://browser/skin/bookmark.svg",
+    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+  },
+  {
+    "loc": "00010:18-54",
+    "target": 1,
+    "kind": "use",
+    "pretty": "chrome://browser/skin/bookmark.svg",
+    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+  },
+  {
+    "loc": "00014:24-60",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file chrome://browser/skin/bookmark.svg",
+    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+  },
+  {
+    "loc": "00014:24-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "chrome://browser/skin/bookmark.svg",
+    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+  },
+  {
+    "loc": "00018:20-59",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file chrome://browser/skin/bookmark.svg",
+    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+  },
+  {
+    "loc": "00018:20-59",
+    "target": 1,
+    "kind": "use",
+    "pretty": "chrome://browser/skin/bookmark.svg",
+    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+  }
+]
