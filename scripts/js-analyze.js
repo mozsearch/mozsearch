@@ -1681,6 +1681,10 @@ class BaseParser {
         this.handleEventListener(tag, prop);
         continue;
       }
+      if (prop == "STYLE") {
+        this.handleStyleProp(tag, prop);
+        continue;
+      }
 
       let text = tag.attrs[prop].value;
       if (text.startsWith("chrome://") || text.startsWith("resource://")) {
@@ -1772,6 +1776,28 @@ class BaseParser {
     if (ast) {
       Analyzer.program(ast);
     }
+  }
+
+  handleStyle(text, tag) {
+    let {line, column} = tag;
+
+    let spaces = " ".repeat(column);
+    text = spaces + text;
+
+    const analyzer = new CSSAnalyzer({ line: line + 1 });
+    analyzer.parse(text);
+  }
+
+  handleStyleProp(tag, prop) {
+    let text = tag.attrs[prop].value;
+    let line = tag.attrs[prop].valueLine;
+    let column = tag.attrs[prop].valueColumn;
+
+    let spaces = " ".repeat(column);
+    text = spaces + text;
+
+    const analyzer = new CSSAnalyzer({ line: line + 1 });
+    analyzer.parse(text);
   }
 }
 
@@ -2049,10 +2075,27 @@ class XULParser extends XMLParser {
 
 class HTMLParser extends BaseParser {
   constructor(filename, parser) {
-    super(filename, parser)
+    super(filename, parser);
 
-    for (let prop of ["onscript"]) {
+    this.inStyle = false;
+    this.currentStyle = "";
+    for (let prop of ["onscript", "ontext"]) {
       parser[prop] = this[prop].bind(this);
+    }
+  }
+
+  onopentag(tag) {
+    super.onopentag(tag);
+
+    if (tag.local.toUpperCase() === "STYLE") {
+      this.inStyle = true;
+      this.currentStyle = "";
+    }
+  }
+
+  ontext(text) {
+    if (this.inStyle) {
+      this.currentStyle += text;
     }
   }
 
@@ -2060,6 +2103,10 @@ class HTMLParser extends BaseParser {
     switch (tagName) {
     case "SCRIPT":
       this.handleScript(this.currentScript, tag);
+      break;
+    case "STYLE":
+      this.inStyle = false;
+      this.handleStyle(this.currentStyle, tag);
       break;
     }
 
@@ -2107,6 +2154,202 @@ function analyzeHTML(filename)
   parser.close();
 
   parser2.processEventListeners();
+}
+
+class CSSAnalyzer {
+  static analyze_css_source = null;
+
+  static ensureCSSAnalyzer() {
+    if (CSSAnalyzer.analyze_css_source) {
+      return;
+    }
+
+    const wasmPath = mozSearchRoot + "/scripts/web-analyze/wasm-css-analyzer/out";
+    const wasmBinary = createMappedArrayBuffer(wasmPath + "/wasm_css_analyzer.wasm");
+
+    // getrandom crate requires WebCrypto API.
+    const MyCrypto = {
+      getRandomValues(array) {
+        let i = 0, length = array.length;
+        while (i < length) {
+          array[i++] = Math.random() * 256;
+        }
+        return array;
+      }
+    };
+
+    // The binding JS requires TextEncoder and TextDecoder.
+    class MyTextEncoder {
+      encode(text) {
+        // This is called only when the text is non-ASCII.
+
+        let units = [], index = 0, length = text.length,
+            n, trail, b1, b2, b3, b4;
+
+        const NonBMPMin = 0x10000,
+              NonBMPMax = 0x10FFFF,
+              LeadSurrogateMin = 0xD800,
+              LeadSurrogateMax = 0xDBFF,
+              TrailSurrogateMin = 0xDC00,
+              TrailSurrogateMax = 0xDFFF;
+
+        while (index < length) {
+          n = text.charCodeAt(index++);
+
+          if (n <= 0x7F) {
+            units.push(n);
+            continue;
+          }
+
+          if (n >= LeadSurrogateMin && n <= LeadSurrogateMax) {
+            trail = text.charCodeAt(index++);
+            n = (n << 10) + trail +
+              (NonBMPMin - (LeadSurrogateMin << 10) - TrailSurrogateMin);
+          }
+
+          if (n > NonBMPMax) {
+            units.push(0x3F);
+          } else if (n >= 0x010000) {
+            b4 = n & 0x3F;
+            n >>= 6;
+            b3 = n & 0x3F;
+            n >>= 6;
+            b2 = n & 0x3F;
+            n >>= 6;
+            b1 = n & 0x3F;
+            units.push(b1 | 0b1111_0000);
+            units.push(b2 | 0b1000_0000);
+            units.push(b3 | 0b1000_0000);
+            units.push(b4 | 0b1000_0000);
+          } else if (n >= 0x0800) {
+            b3 = n & 0x3F;
+            n >>= 6;
+            b2 = n & 0x3F;
+            n >>= 6;
+            b1 = n & 0x3F;
+            units.push(b1 | 0b1110_0000);
+            units.push(b2 | 0b1000_0000);
+            units.push(b3 | 0b1000_0000);
+          } else {
+            b2 = n & 0x3F;
+            n >>= 6;
+            b1 = n & 0x3F;
+            units.push(b1 | 0b1100_0000);
+            units.push(b2 | 0b1000_0000);
+          }
+        }
+
+        return new Uint8Array(units);
+      }
+    }
+
+    class MyTextDecoder {
+      decode(buffer) {
+        // This is used for all string received from wasm.
+        // This is called only with complete data.
+
+        if (buffer === undefined) {
+          return "";
+        }
+
+        // Converted from DecodeOneUtf8CodePointInline in m-c/mfbt/Utf8.h,
+        // with substituting bad code units with "?".
+
+        let chars = [], index = 0, length = buffer.length,
+            n, remaining, min, actual, i, unit;
+
+        next: while (index < length) {
+          n = buffer[index++];
+
+          if ((n & 0b1000_0000) == 0b0000_0000) {
+            chars.push(String.fromCodePoint(n));
+            continue;
+          }
+
+          // |n| determines the number of trailing code units in the code point
+          // and the bits of |n| that contribute to the code point's value.
+          if ((n & 0b1110_0000) == 0b1100_0000) {
+            remaining = 1;
+            min = 0x80;
+            n &= 0b0001_1111;
+          } else if ((n & 0b1111_0000) == 0b1110_0000) {
+            remaining = 2;
+            min = 0x800;
+            n &= 0b0000_1111;
+          } else if ((n & 0b1111_1000) == 0b1111_0000) {
+            remaining = 3;
+            min = 0x10000;
+            n &= 0b0000_0111;
+          } else {
+            chars.push("?");
+            continue;
+          }
+
+          // If the code point would require more code units than remain, the encoding
+          // is invalid.
+          actual = length - i;
+          if (actual < remaining) {
+            chars.push("?");
+            continue;
+          }
+
+          for (i = 0; i < remaining; i++) {
+            unit = buffer[index++];
+
+            // Every non-leading code unit in properly encoded UTF-8 has its high
+            // bit set and the next-highest bit unset.
+            if (!((unit & 0b1100_0000) == 0b1000_0000)) {
+              index -= i + 1;
+              chars.push("?");
+              continue next;
+            }
+
+            // The code point being encoded is the concatenation of all the
+            // unconstrained bits.
+            n = (n << 6) | (unit & 0b0011_1111);
+          }
+
+          // UTF-16 surrogates and values outside the Unicode range are invalid.
+          if (n > 0x10FFFF || (0xD800 <= n && n <= 0xDFFF)) {
+            index -= remaining;
+            chars.push("?");
+            continue;
+          }
+
+          // Overlong code points are also invalid.
+          if (n < min) {
+            index -= remaining;
+            chars.push("?");
+            continue;
+          }
+
+          chars.push(String.fromCodePoint(n));
+        }
+
+        return chars.join("");
+      }
+    }
+
+    globalThis.crypto = MyCrypto;
+    globalThis.TextEncoder = MyTextEncoder;
+    globalThis.TextDecoder = MyTextDecoder;
+    load(wasmPath + "/wasm_css_analyzer.js");
+    globalThis.initSync(wasmBinary);
+
+    CSSAnalyzer.analyze_css_source = globalThis.analyze_css_source;
+  }
+
+  constructor({ line = 1 } = {}) {
+    CSSAnalyzer.ensureCSSAnalyzer();
+
+    this.startLine = line;
+  }
+
+  parse(text) {
+    CSSAnalyzer.analyze_css_source(text, this.startLine, function(s) {
+      print(s);
+    });
+  }
 }
 
 function analyzeFile(filename)
