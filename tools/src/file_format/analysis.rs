@@ -3,10 +3,12 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::Read;
 
 use itertools::Itertools;
 
+#[cfg(not(target_arch = "wasm32"))]
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{from_str, from_value, Map, Value};
@@ -792,6 +794,7 @@ impl<'de> Deserialize<'de> for SourceRange {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn read_analysis<T>(
     filename: &str,
     filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
@@ -810,6 +813,7 @@ pub fn read_analysis<T>(
 /// Note that the filter function is invoked as records are read in, which means
 /// that the sort order seen by the filter function is the order the file
 /// already had.  It's only the return value that's sorted and grouped.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn read_analyses<T>(
     filenames: &[String],
     filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use ustr::{ustr, Ustr, UstrMap};
 
-use crate::cmd_pipeline::symbol_graph::EdgeKind;
+use crate::symbol_graph_edge_kind::EdgeKind;
 
 #[derive(Deserialize)]
 pub struct OntologyMappingConfig {
@@ -114,10 +114,12 @@ pub enum OntologyPointerKind {
     Contains,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub struct OntologyMappingIngestion {
     pub config: OntologyMappingConfig,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl OntologyMappingIngestion {
     pub fn new(config_str: &str) -> Result<Self, String> {
         let config: OntologyMappingConfig =
@@ -605,6 +607,7 @@ impl OntologyMappingConfig {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn test_type_parser() {
     let test_config = r#"
