@@ -34,6 +34,7 @@ if 'modify_file_list' in repo_files:
 files = []
 js = []
 html = []
+css = []
 idl = []
 ipdl = []
 
@@ -88,11 +89,19 @@ for line in lines:
 
         html.append(path + '\n')
 
+    if ext in ['.css']:
+        if 'filter_css' in repo_files:
+            if not repo_files['filter_css'](path):
+                continue
+
+        css.append(path + '\n')
+
 index_path = tree_config['index_path']
 open(os.path.join(index_path, 'repo-files'), 'w').writelines(files)
 open(os.path.join(index_path, 'repo-dirs'), 'w').writelines([d + '\n' for d in dirs])
 open(os.path.join(index_path, 'js-files'), 'w').writelines(js)
 open(os.path.join(index_path, 'html-files'), 'w').writelines(html)
+open(os.path.join(index_path, 'css-files'), 'w').writelines(css)
 open(os.path.join(index_path, 'idl-files'), 'w').writelines(idl)
 open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
 open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join(['-I ' + d for d in ipdl_dirs]))
