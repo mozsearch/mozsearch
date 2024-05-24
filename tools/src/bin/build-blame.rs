@@ -467,17 +467,19 @@ fn build_blame_tree(
                 // here always have a trailing LF anyway.
             }
             Some(ObjectType::Commit) => {
-                // This is a submodule. We insert a corresponding submodule entry in the blame
-                // repo. The oid that we use doesn't really matter here but for hash-compatibility
-                // with the old (pre-fast-import) code, we use the same hash that the old code
-                // used, which corresponds to an empty directory.
+                // This is a submodule.  We pass through the existing OID
+                // because we know it's a valid OBJ_COMMIT.  See
+                // https://bugzilla.mozilla.org/show_bug.cgi?id=1782285#c5 for
+                // more context about this rationale.
+                //
                 // For the external ref data format documentation, refer to
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Externaldataformat
                 assert_eq!(entry.filemode(), 0o160000);
                 writeln!(
                     import_helper.stdin.as_mut().unwrap(),
-                    "M {:06o} 4b825dc642cb6eb9a060e54bf8d69288fbee4904 {}",
+                    "M {:06o} {} {}",
                     entry.filemode(),
+                    entry.id(),
                     sanitize(&path)
                 )
                 .unwrap();
@@ -689,6 +691,7 @@ fn main() {
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(git_repo.refname_to_id(&blame_ref).unwrap())
         .unwrap();
+    info!("Existing blame map has {} commits.", blame_map.len());
     let mut revs_to_process = walk
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
         .filter(|git_oid| !blame_map.contains_key(git_oid))
@@ -851,8 +854,8 @@ fn main() {
         )
         .unwrap();
 
-        if rev_done % 100000 == 0 {
-            info!("Completed 100,000 commits, issuing checkpoint...");
+        if rev_done % 10000 == 0 {
+            info!("Completed 10,000 commits, issuing checkpoint...");
             writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
         }
     }
