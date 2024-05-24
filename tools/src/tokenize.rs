@@ -35,9 +35,10 @@ pub fn tokenize_css(string: &str) -> Vec<Token> {
         while let Ok(token) = input.next_including_whitespace_and_comments().cloned() {
             let mut has_block = false;
             let kind = match token {
-                Ident(..) => {
+                Ident(name) => {
                     // Poor heuristic to try to find property names.
                     let state = input.state();
+                    let is_custom_property = name.starts_with("--");
                     let colon_and_space_follows =
                         matches!(input.next_including_whitespace_and_comments(), Ok(&Colon))
                             && matches!(
@@ -45,7 +46,7 @@ pub fn tokenize_css(string: &str) -> Vec<Token> {
                                 Ok(&WhiteSpace(..))
                             );
                     input.reset(&state);
-                    TokenKind::Identifier(if colon_and_space_follows {
+                    TokenKind::Identifier(if !is_custom_property && colon_and_space_follows {
                         Some(reserved.into())
                     } else {
                         None
@@ -768,6 +769,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
     let mut tag_state = TagState::TagNone(0);
 
     let mut in_script_tag = false;
+    let mut in_style_tag = false;
     let mut cur_line = 1;
     while cur_pos.get() < chars.len() {
         let (start, ch) = get_char();
@@ -780,7 +782,8 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
 
         match tag_state {
             TagState::TagNone(plain_start) => {
-                let skip = in_script_tag && !peek_ahead("/script");
+                let skip = (in_script_tag && !peek_ahead("/script")) ||
+                    (in_style_tag && !peek_ahead("/style"));
                 if ch == '<' && !skip {
                     if plain_start < start {
                         tokens.push(Token {
@@ -865,6 +868,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
 
                     let word = string[id_start..start].to_string();
                     in_script_tag = word == "script";
+                    in_style_tag = word == "style";
 
                     if ch == '/' {
                         tag_state = TagState::EndStartTag(start);
@@ -1032,6 +1036,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
             TagState::EndTagId(id_start) => {
                 if !is_ident(ch) {
                     in_script_tag = false;
+                    in_style_tag = false;
                     tokens.push(Token {
                         start: id_start,
                         end: start,
@@ -1068,6 +1073,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
             TagState::EndStartTag(slash) => {
                 if ch == '>' {
                     in_script_tag = false;
+                    in_style_tag = false;
                     tag_state = TagState::TagNone(peek_pos());
                     tokens.push(Token {
                         start: slash,
@@ -1195,11 +1201,15 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
 
     let mut result = Vec::new();
     let mut script = String::new();
+    let mut style = String::new();
     let mut tag_stack = Vec::new();
     let mut in_script = false;
     let mut script_start = 0;
+    let mut in_style = false;
+    let mut style_start = 0;
     let mut literal_is_id = false;
     let mut literal_is_js = false;
+    let mut literal_is_css = false;
     for token in tokens {
         match token.kind {
             TokenKind::TagName | TokenKind::EndTagName => {
@@ -1225,6 +1235,9 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                 if attr_name.starts_with("on") {
                     literal_is_js = true;
                 }
+                if attr_name == "style" {
+                    literal_is_css = true;
+                }
 
                 result.push(token);
             }
@@ -1232,6 +1245,8 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                 let text = &string[token.start..token.end];
                 if in_script {
                     script.push_str(text);
+                } else if in_style {
+                    style.push_str(text);
                 } else {
                     result.push(token);
                 }
@@ -1256,6 +1271,18 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                         kind: t.kind,
                     });
                     result.extend(script_toks);
+                } else if literal_is_css {
+                    literal_is_css = false;
+
+                    let css_start = token.start;
+                    let css = &string[token.start..token.end];
+                    let css_toks = tokenize_css(&css);
+                    let css_toks = css_toks.into_iter().map(|t| Token {
+                        start: t.start + css_start,
+                        end: t.end + css_start,
+                        kind: t.kind,
+                    });
+                    result.extend(css_toks);
                 } else {
                     result.push(token);
                 }
@@ -1267,7 +1294,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     tag_stack.pop();
                 }
 
-                let starting = peek(&tag_stack, 0, "script")
+                let starting_script = peek(&tag_stack, 0, "script")
                     || peek(&tag_stack, 0, "constructor")
                     || peek(&tag_stack, 0, "destructor")
                     || peek(&tag_stack, 0, "handler")
@@ -1277,7 +1304,9 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     || (peek(&tag_stack, 1, "property") && peek(&tag_stack, 0, "setter"))
                     || false;
 
-                if starting && punc == ">" {
+                let starting_style = peek(&tag_stack, 0, "style");
+
+                if starting_script && punc == ">" {
                     in_script = true;
                     script_start = token.end;
                     result.push(token);
@@ -1296,12 +1325,32 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                     result.push(token);
                 } else if in_script {
                     script.push_str(punc);
+                } else if starting_style && punc == ">" {
+                    in_style = true;
+                    style_start = token.end;
+                    result.push(token);
+                } else if in_style && punc == "</" {
+                    let style_toks = tokenize_css(&style);
+                    let style_toks = style_toks.into_iter().map(|t| Token {
+                        start: t.start + style_start,
+                        end: t.end + style_start,
+                        kind: t.kind,
+                    });
+                    result.extend(style_toks);
+
+                    style = String::new();
+
+                    in_style = false;
+                    result.push(token);
+                } else if in_style {
+                    style.push_str(punc);
                 } else {
                     result.push(token);
                 }
             }
             _ => {
                 assert!(!in_script);
+                assert!(!in_style);
                 result.push(token);
             }
         }
@@ -1315,6 +1364,15 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
             kind: t.kind,
         });
         result.extend(script_toks);
+    }
+    if in_style {
+        let style_toks = tokenize_css(&style);
+        let style_toks = style_toks.into_iter().map(|t| Token {
+            start: t.start + style_start,
+            end: t.end + style_start,
+            kind: t.kind,
+        });
+        result.extend(style_toks);
     }
 
     result
