@@ -251,6 +251,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/css" class="mimetype-fixed-container mimetype-icon-folder">css</a></td>
+          <td class="description"><a href="/tests/source/css" title=""></td>
+          <td><a href="/tests/source/css"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/enummacro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">enummacro.cpp</a></td>
           <td class="description"><a href="/tests/source/enummacro.cpp" title=""></td>
           <td><a href="/tests/source/enummacro.cpp">359</a></td>

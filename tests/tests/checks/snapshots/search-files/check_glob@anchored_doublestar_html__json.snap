@@ -18,6 +18,19 @@ expression: "&to_value(fm).unwrap()"
       }
     },
     {
+      "path": "css/embed_css.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 580,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "css",
+        "info": {}
+      }
+    },
+    {
       "path": "html/invalid-entity-ref.html",
       "concise": {
         "path_kind": "Normal",

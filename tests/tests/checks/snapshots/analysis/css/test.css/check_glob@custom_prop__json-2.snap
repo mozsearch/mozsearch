@@ -1,0 +1,104 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00002:2-25",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "custom property --in-content-text-color",
+    "sym": "CSSPROP_@2D@2Din@2Dcontent@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00002:2-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--in-content-text-color",
+    "sym": "CSSPROP_@2D@2Din@2Dcontent@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00003:2-14",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "custom property --text-color",
+    "sym": "CSSPROP_@2D@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00003:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--text-color",
+    "sym": "CSSPROP_@2D@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00003:20-43",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "custom property --in-content-text-color",
+    "sym": "CSSPROP_@2D@2Din@2Dcontent@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00003:20-43",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--in-content-text-color",
+    "sym": "CSSPROP_@2D@2Din@2Dcontent@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00004:2-13",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "custom property --base-unit",
+    "sym": "CSSPROP_@2D@2Dbase@2Dunit"
+  },
+  {
+    "loc": "00004:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--base-unit",
+    "sym": "CSSPROP_@2D@2Dbase@2Dunit"
+  },
+  {
+    "loc": "00005:2-24",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "custom property --secondary-text-color",
+    "sym": "CSSPROP_@2D@2Dsecondary@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00005:2-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--secondary-text-color",
+    "sym": "CSSPROP_@2D@2Dsecondary@2Dtext@2Dcolor"
+  },
+  {
+    "loc": "00005:30-39",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "custom property --grey-50",
+    "sym": "CSSPROP_@2D@2Dgrey@2D50"
+  },
+  {
+    "loc": "00005:30-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--grey-50",
+    "sym": "CSSPROP_@2D@2Dgrey@2D50"
+  },
+  {
+    "loc": "00006:2-5",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "custom property --色",
+    "sym": "CSSPROP_@2D@2D@E8@89@B2"
+  },
+  {
+    "loc": "00006:2-5",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--色",
+    "sym": "CSSPROP_@2D@2D@E8@89@B2"
+  }
+]

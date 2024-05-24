@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>css</title>
+  </head>
+  <body>
+    <style>
+:root {
+  --in-content-text-color: #0c0c0d;
+  --text-color: var(--in-content-text-color);
+  --base-unit: 4px;
+  --secondary-text-color: var(--grey-50);
+  --色: red;
+}
+
+body {
+  background: url("chrome://browser/skin/bookmark.svg");
+}
+
+a {
+  background-image: url("chrome://browser/skin/bookmark.svg");
+}
+    </style>
+    <div style="color: var(--text-color);">A</div>
+    <div style="background: url('chrome://browser/skin/bookmark.svg');">B</div>
+  </body>
+</html>
