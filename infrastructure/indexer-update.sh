@@ -61,3 +61,7 @@ popd
 pushd mozsearch/tools
 cargo build --release --verbose
 popd
+
+pushd mozsearch/scripts/web-analyze/wasm-css-analyzer
+./build.sh
+popd
