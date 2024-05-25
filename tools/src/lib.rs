@@ -26,6 +26,7 @@ pub mod templating;
 pub mod tree_sitter_support;
 
 pub mod blame;
+pub mod css_analyzer;
 pub mod describe;
 pub mod file_utils;
 pub mod format;
