@@ -99,8 +99,11 @@ const FILENAME_INTERVENTIONS = [
     // "dromaeo" is from:
     // https://searchfox.org/mozilla-central/source/testing/talos/talos/tests/dromaeo/test-tail.js
     //
+    // dom/media/test/test_imagecapture.html had syntax error which is fixed in trunk.
+    //
     // "JSTests" is wubkat.
-    includes_list: ["error", "fixture", "bad", "syntax", "invalid", "dromaeo", "/jstests/", "test_bug531176.html"],
+    includes_list: ["error", "fixture", "bad", "syntax", "invalid", "dromaeo", "/jstests/",
+                    "test_bug531176.html", "dom/media/test/test_imagecapture.html"],
     severity: "INFO",
     // JS engines love to have test cases that intentionally have syntax errors
     // in them.  To this end, we downgrade any such file to an info.  This
