@@ -2346,9 +2346,17 @@ class CSSAnalyzer {
   }
 
   parse(text) {
-    CSSAnalyzer.analyze_css_source(text, this.startLine, function(s) {
-      print(s);
-    });
+    try {
+      CSSAnalyzer.analyze_css_source(text, this.startLine, function(s) {
+        print(s);
+      });
+    } catch (e) {
+      if (e && e.message && e.message.includes("index out of bounds")) {
+        // Deeply nested rules can hit stack overflow.
+        return;
+      }
+      throw e;
+    }
   }
 }
 
