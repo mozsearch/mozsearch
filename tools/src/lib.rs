@@ -1,9 +1,5 @@
-#[macro_use]
-extern crate lazy_static;
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
-extern crate tracing;
 
 #[cfg(not(target_arch = "wasm32"))]
 extern crate log;
@@ -18,6 +14,9 @@ extern crate include_dir;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate itertools;
 #[cfg(not(target_arch = "wasm32"))]
+#[macro_use]
+extern crate lazy_static;
+#[cfg(not(target_arch = "wasm32"))]
 extern crate linkify;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate regex;
@@ -27,6 +26,9 @@ extern crate lexical_sort;
 extern crate liquid;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate query_parser;
+#[cfg(not(target_arch = "wasm32"))]
+#[macro_use]
+extern crate tracing;
 #[cfg(not(target_arch = "wasm32"))]
 extern crate tracing_subscriber;
 #[cfg(not(target_arch = "wasm32"))]
@@ -68,5 +70,5 @@ pub mod logging;
 pub mod output;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tokenize;
-
+#[cfg(not(target_arch = "wasm32"))]
 mod symbol_graph_edge_kind;

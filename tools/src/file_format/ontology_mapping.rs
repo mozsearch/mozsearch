@@ -1,7 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ustr::{ustr, Ustr, UstrMap};
 
 use crate::symbol_graph_edge_kind::EdgeKind;
+
+pub use super::ontology_pointer_kind::OntologyPointerKind;
 
 #[derive(Deserialize)]
 pub struct OntologyMappingConfig {
@@ -101,25 +103,10 @@ pub struct OntologyTypeDecorator {
     pub labels: Vec<Ustr>,
 }
 
-#[derive(Eq, PartialEq, Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum OntologyPointerKind {
-    Strong,
-    Unique,
-    Weak,
-    Raw,
-    Ref,
-    // Ex: JS::{Handle, Heap, MutableHandle, Rooted}.
-    GCRef,
-    Contains,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 pub struct OntologyMappingIngestion {
     pub config: OntologyMappingConfig,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl OntologyMappingIngestion {
     pub fn new(config_str: &str) -> Result<Self, String> {
         let config: OntologyMappingConfig =
@@ -607,7 +594,6 @@ impl OntologyMappingConfig {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn test_type_parser() {
     let test_config = r#"

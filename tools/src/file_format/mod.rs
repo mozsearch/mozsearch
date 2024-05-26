@@ -1,5 +1,5 @@
 pub mod analysis;
-pub mod ontology_mapping;
+pub mod ontology_pointer_kind;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod history;
@@ -20,6 +20,8 @@ pub mod globbing_file_list;
 pub mod identifiers;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod merger;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod ontology_mapping;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod per_file_info;
 #[cfg(not(target_arch = "wasm32"))]

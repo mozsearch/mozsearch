@@ -9,6 +9,8 @@ extern crate regex;
 use serde_json::to_value;
 use serde_json::{from_value, json, to_string, Value};
 
+use ustr::Ustr;
+
 use super::analysis::AnalysisUnion;
 use super::analysis::{
     read_analyses, AnalysisSource, AnalysisStructured, Location, WithLocation,
@@ -36,7 +38,7 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String],  platforms: &Vec<Str
   let mut structured_syms = BTreeMap::new();
 
   let src_data = read_analyses(filenames, &mut |obj: Value, loc: &Location, i_file: usize| {
-      if let Ok(unified) = from_value(obj) {
+      if let Ok(unified) = from_value::<AnalysisUnion<Ustr>>(obj) {
           match unified {
               AnalysisUnion::Source(src) => {
                   // return source objects so that they come out of `read_analyses` for
