@@ -13,7 +13,8 @@ fi
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
-cat $INDEX_ROOT/html-files | \
-    parallel --halt 2 js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- {#} \
-    $MOZSEARCH_PATH $FILES_ROOT/{} {} ">" $INDEX_ROOT/analysis/{}
+cat $INDEX_ROOT/html-files | nl -w1 -s " " | \
+    parallel --jobs 8 --pipe --halt 2 \
+    js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- \
+    $MOZSEARCH_PATH $FILES_ROOT $INDEX_ROOT/analysis
 echo $?
