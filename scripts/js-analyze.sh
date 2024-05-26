@@ -13,6 +13,12 @@ fi
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
+# Add line number for the file list with `nl`, which is used as a global
+# fileIndex, and used for local variable symbols.
+#
+# NOTE: The index conflicts with html-analyze.sh.
+#       Currently this is not a problem because the index is used only for
+#       local variables with no_crossref symbols.
 cat $INDEX_ROOT/js-files | nl -w1 -s " " | \
     parallel --jobs 8 --pipe --halt 2 \
     js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- \
