@@ -15,8 +15,19 @@ PARSE_EXPR='parse "* + /home/ubuntu/mozsearch/scripts/* *" '
 PARSE_EXPR+=' as time, script, args'
 PARSE_EXPR+=' | parseDate(time) as time'
 PARSE_EXPR+=' | split(args) on " "'
+PARSE_EXPR+=' | split(args[0]) on "/" as args0'
+# scripts where the 3rd argument is the tree name and we can use it as-is
 PARSE_EXPR+=' | if(script == "find-repo-files.py" or script == "build.sh" or script=="output.sh", args[2], "") as tree'
-PARSE_EXPR+=' | if(script == "js-analyze.sh" or script == "java-analyze.sh" or script == "scip-analyze.sh" or script == "idl-analyze.sh" or script == "ipdl-analyze.sh" or script == "crossref.sh" or script == "build-codesearch.py" or script == "check-index.sh" or script == "compress-outputs.sh" or script == "check-index.sh", args[1], tree) as tree'
+# scripts where the 2nd argument is the tree name and we can use it as-is
+PARSE_EXPR+=' | if(script == "js-analyze.sh" or script == "java-analyze.sh" or'
+PARSE_EXPR+=' script == "scip-analyze.sh" or script == "idl-analyze.sh" or'
+PARSE_EXPR+=' script == "ipdl-analyze.sh" or script == "crossref.sh" or'
+PARSE_EXPR+=' script == "build-codesearch.py" or script == "check-index.sh" or'
+PARSE_EXPR+=' script == "compress-outputs.sh" or script == "check-index.sh" or'
+PARSE_EXPR+=' script == "html-analyze.sh" or script == "css-analyze.sh", args[1], tree) as tree'
+# scripts where the 1st argument has a path segment which is the tree name we
+# can use.  We split the first argument above to be `args0` for this.
+PARSE_EXPR+=' | if(script == "process-chrome-map.py", args0[2], tree) as tree'
 
 # - Grep the log in Perl mode looking for the pattern where a "date" invocation
 #   is followed by a script invocation from mozsearch/scripts.
