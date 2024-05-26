@@ -86,7 +86,7 @@ where F: FnMut(String) {
             Ident(name) => {
                 if name.starts_with("--") {
                     let loc = to_loc(first_line, &start, &end);
-                    let source_pretty = ustr(format!("custom property {}", name.as_ref()).as_str());
+                    let source_pretty = ustr(format!("property {}", name.as_ref()).as_str());
                     let target_pretty = ustr(name.as_ref());
                     let sym = ustr(format!("CSSPROP_{}", mangle_name(name.as_ref())).as_str());
                     let (syntax, kind) = if is_var {
