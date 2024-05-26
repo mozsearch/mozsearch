@@ -67,6 +67,10 @@ pub struct TreeConfigPaths {
     /// be mapped into `"__GENERATED__"`.  This will usually be a sub-directory
     /// of the `index_path` but exceptions could be possible.
     pub objdir_path: String,
+    /// List of the path prefixes where files may be missing at the point of
+    /// gathering metadata.
+    #[serde(default)]
+    pub ignore_missing_path_prefixes: Vec<String>,
     /// If this is actually a mercurial repo, the URL of the hg server, no
     /// trailing `/`.
     pub hg_root: Option<String>,
@@ -141,6 +145,15 @@ impl TreeConfig {
             return path.replace("__GENERATED__", &self.paths.objdir_path);
         }
         format!("{}/{}", &self.paths.files_path, path)
+    }
+
+    pub fn should_ignore_missing_file(&self, path: &String) -> bool {
+        for prefix in &self.paths.ignore_missing_path_prefixes {
+            if path.starts_with(prefix) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
