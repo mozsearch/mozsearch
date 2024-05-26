@@ -577,7 +577,11 @@ impl RepoIngestion {
             let metadata = match fs::symlink_metadata(path_wrapper) {
                 Ok(m) => m,
                 Err(e) => {
-                    warn!("Problem gathering metadata for {}: {}", raw_file_path, e);
+                    if tree_config.should_ignore_missing_file(&raw_file_path) {
+                        info!("Problem gathering metadata for {}: {}", raw_file_path, e);
+                    } else {
+                        warn!("Problem gathering metadata for {}: {}", raw_file_path, e);
+                    }
                     continue;
                 }
             };
