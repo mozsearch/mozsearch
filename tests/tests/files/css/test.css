@@ -17,3 +17,16 @@ a {
 div {
   background-image: url(chrome://browser/skin/bookmark.svg);
 }
+
+@property --at-prop {
+}
+
+div {
+  --at-prop: 10;
+  transition: --at-prop 10s;
+
+  @property --at-prop-2 {
+  }
+  --at-prop-2: 10;
+  transition: --at-prop-2 10s;
+}
