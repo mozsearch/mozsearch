@@ -100,5 +100,89 @@ expression: "&json_results"
     "kind": "def",
     "pretty": "--色",
     "sym": "CSSPROP_@2D@2D@E8@89@B2"
+  },
+  {
+    "loc": "00021:10-19",
+    "source": 1,
+    "syntax": "decl,cssprop",
+    "pretty": "property --at-prop",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop"
+  },
+  {
+    "loc": "00021:10-19",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "--at-prop",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop"
+  },
+  {
+    "loc": "00025:2-11",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "property --at-prop",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop"
+  },
+  {
+    "loc": "00025:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--at-prop",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop"
+  },
+  {
+    "loc": "00026:14-23",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "property --at-prop",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop"
+  },
+  {
+    "loc": "00026:14-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--at-prop",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop"
+  },
+  {
+    "loc": "00028:12-23",
+    "source": 1,
+    "syntax": "decl,cssprop",
+    "pretty": "property --at-prop-2",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop@2D2"
+  },
+  {
+    "loc": "00028:12-23",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "--at-prop-2",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop@2D2"
+  },
+  {
+    "loc": "00030:2-13",
+    "source": 1,
+    "syntax": "def,cssprop",
+    "pretty": "property --at-prop-2",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop@2D2"
+  },
+  {
+    "loc": "00030:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "--at-prop-2",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop@2D2"
+  },
+  {
+    "loc": "00031:14-25",
+    "source": 1,
+    "syntax": "use,cssprop",
+    "pretty": "property --at-prop-2",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop@2D2"
+  },
+  {
+    "loc": "00031:14-25",
+    "target": 1,
+    "kind": "use",
+    "pretty": "--at-prop-2",
+    "sym": "CSSPROP_@2D@2Dat@2Dprop@2D2"
   }
 ]

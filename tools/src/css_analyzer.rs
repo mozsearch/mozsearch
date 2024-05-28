@@ -74,16 +74,18 @@ fn to_target(loc: Location, kind: AnalysisKind, pretty: String, sym: String) -> 
 }
 
 fn analyze_css_block<F>(input: &mut cssparser::Parser, first_line: u32,
-                        is_var: bool, callback: &mut F)
+                        is_curly_children: bool, is_inside_lhs: bool, callback: &mut F)
 where
     F: FnMut(String)
 {
     use cssparser::Token::*;
     let mut start = input.current_source_location();
+    let mut is_lhs = is_inside_lhs;
+    let mut after_at_property = false;
     while let Ok(token) = input.next_including_whitespace_and_comments().cloned() {
         let end = input.current_source_location();
         let mut has_block = false;
-        let mut is_var_child = false;
+        let mut is_curly = false;
         match token {
             Ident(name) => {
                 if name.starts_with("--") {
@@ -91,16 +93,35 @@ where
                     let source_pretty = format!("property {}", name.as_ref());
                     let target_pretty = name.to_string();
                     let sym = format!("CSSPROP_{}", mangle_name(name.as_ref()));
-                    let (syntax, kind) = if is_var {
-                        (vec!["use".to_string(), "cssprop".to_string()], AnalysisKind::Use)
-                    } else {
+
+                    let (syntax, kind) = if after_at_property {
+                        after_at_property = false;
+                        (vec!["decl".to_string(), "cssprop".to_string()], AnalysisKind::Decl)
+                    } else if is_lhs {
                         (vec!["def".to_string(), "cssprop".to_string()], AnalysisKind::Def)
+                    } else {
+                        (vec!["use".to_string(), "cssprop".to_string()], AnalysisKind::Use)
                     };
 
                     let source = to_source(loc.clone(), syntax, source_pretty, sym.clone());
                     callback(serde_json::to_string(&source).unwrap());
                     let target = to_target(loc, kind, target_pretty, sym);
                     callback(serde_json::to_string(&target).unwrap());
+                }
+            }
+            Colon => {
+                if is_curly_children {
+                    is_lhs = false;
+                }
+            }
+            AtKeyword(name) => {
+                if name == "property" {
+                    after_at_property = true;
+                }
+            }
+            Semicolon => {
+                if is_curly_children {
+                    is_lhs = true;
                 }
             }
             QuotedString(s) | UnquotedUrl(s) => {
@@ -118,21 +139,23 @@ where
                     callback(serde_json::to_string(&target).unwrap());
                 }
             }
-            Function(name) => {
+            CurlyBracketBlock => {
                 has_block = true;
-                if name == "var" {
-                    is_var_child = true;
-                }
+                is_curly = true;
             }
-            ParenthesisBlock | SquareBracketBlock | CurlyBracketBlock => {
+            Function(_) | ParenthesisBlock | SquareBracketBlock => {
                 has_block = true;
             }
             _ => {}
         };
 
         if has_block {
+            let mut is_child_lhs = false;
+            if is_curly {
+                is_child_lhs = true;
+            }
             let _: Result<(), cssparser::ParseError<()>> = input.parse_nested_block(|input| {
-                analyze_css_block(input, first_line, is_var_child, callback);
+                analyze_css_block(input, first_line, is_curly, is_child_lhs, callback);
                 Ok(())
             });
         }
@@ -163,5 +186,5 @@ where
         callback(serde_json::to_string(&target).unwrap());
     }
 
-    analyze_css_block(&mut input, first_line, false, callback);
+    analyze_css_block(&mut input, first_line, false, false, callback);
 }
