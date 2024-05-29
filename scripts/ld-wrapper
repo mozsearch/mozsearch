@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+
+import subprocess
+import sys
+import os
+
+# libtool doesn't understand "-Xclang" syntax and it passes some parameters
+# from CC/CXX set by indexer-setup.py into the linker command unexpectedly,
+# which causes ld command to fail. Filter them out here.
+args = []
+for a in sys.argv[1:]:
+    if a == '-load':
+        continue
+    if 'libclang-index-plugin.so' in a:
+        continue
+    args.append(a)
+
+ld = os.environ.get("WRAPPED_LD", "/usr/bin/ld")
+
+p = subprocess.run([ld] + args)
+sys.exit(p.returncode)
