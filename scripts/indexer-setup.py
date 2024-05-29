@@ -23,6 +23,11 @@ flags = [
 ]
 flags_str = " ".join([ '-Xclang {}'.format(flag) for flag in flags ])
 
+# See the comment in ld-wrapper for more details.
+if len(sys.argv) >= 2:
+    if sys.argv[1] == '--use-ld-wrapper':
+        flags_str += ' --ld-path={}'.format(os.path.join(mozSearchRoot, 'scripts', 'ld-wrapper'))
+
 env = {
     'CC': "clang %s" % flags_str,
     'CXX': "clang++ %s" % flags_str,
