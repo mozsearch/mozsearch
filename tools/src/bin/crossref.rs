@@ -24,6 +24,7 @@ use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis::{
     read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
     StructuredBindingSlotInfo, AnalysisTarget, Location, BindingSlotProps,
+    TargetTag, LineRange,
 };
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
@@ -63,6 +64,11 @@ struct CrossrefCli {
     /// tree_name.
     #[clap(value_parser)]
     analysis_files_list_path: String,
+
+    /// Path to the file containing a list of all the files which doesn't have
+    /// analysis but still needs FILE_* target.
+    #[clap(value_parser)]
+    other_resources_list_path: String,
 }
 
 type SearchResultTable = BTreeMap<Ustr, BTreeMap<AnalysisKind, BTreeMap<Ustr, Vec<SearchResult>>>>;
@@ -519,6 +525,68 @@ async fn main() {
                     &mut xref_link_override, &mut xref_link_slots);
             }
         }
+    }
+
+    let other_resources_file = &cli.other_resources_list_path;
+
+    let other_resources_relative_paths: Vec<Ustr> =
+        BufReader::new(File::open(other_resources_file).unwrap())
+            .lines()
+            .map(|x| ustr(&x.unwrap()))
+            .collect();
+
+    for path in &other_resources_relative_paths {
+        print!("File {}\n", path);
+
+        let pretty = ustr(format!("file {}", path).as_str());
+        let file_sym = ustr(&make_file_sym_from_path(path));
+
+        let line_and_offset = {
+            let source_fname = tree_config.find_source_file(path);
+            let source_file = match File::open(source_fname.clone()) {
+                Ok(f) => f,
+                Err(_) => {
+                    println!("Unable to open source file {}", source_fname);
+                    continue;
+                }
+            };
+
+            let mut reader = BufReader::new(&source_file);
+            let mut line: String = String::default();
+            match reader.read_line(&mut line) {
+                Ok(_) => line_to_buf_and_offset(line),
+                Err(_) => ("(binary file)".to_string(), 0 as u32),
+            }
+        };
+        let lines = vec![line_and_offset];
+
+        let loc = Location {
+            lineno: 0,
+            col_start: 0,
+            col_end: 0,
+        };
+        let piece = AnalysisTarget {
+            target: TargetTag::Target,
+            kind: AnalysisKind::Def,
+            pretty: pretty,
+            sym: file_sym,
+            context: ustr(""),
+            contextsym: ustr(""),
+            peek_range: LineRange {
+                start_lineno: 0,
+                end_lineno: 0,
+            },
+            arg_ranges: vec![],
+        };
+
+        process_analysis_target(
+            piece, &path, &file_sym, 0, &loc,
+            &mut table, &mut pretty_table, &mut id_table,
+            &mut callees_table, &lines);
+
+        let _ = make_subsystem(
+            &path, &file_sym,
+            &mut ingestion, &mut meta_table, &mut pretty_table, &mut id_table);
     }
 
     // ## Process deferred meta cross-referencing
