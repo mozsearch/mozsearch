@@ -4,45 +4,52 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00018:18-54",
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file css/embed_css.html",
+    "sym": "FILE_css/embed_css@2Ehtml"
+  },
+  {
+    "loc": "00018:18-60",
     "source": 1,
     "syntax": "use,file",
-    "pretty": "file chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00018:18-54",
+    "loc": "00018:18-60",
     "target": 1,
     "kind": "use",
-    "pretty": "chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00022:24-60",
+    "loc": "00022:24-66",
     "source": 1,
     "syntax": "use,file",
-    "pretty": "file chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00022:24-60",
+    "loc": "00022:24-66",
     "target": 1,
     "kind": "use",
-    "pretty": "chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00026:32-68",
+    "loc": "00026:32-74",
     "source": 1,
     "syntax": "use,file",
-    "pretty": "file chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00026:32-68",
+    "loc": "00026:32-74",
     "target": 1,
     "kind": "use",
-    "pretty": "chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   }
 ]

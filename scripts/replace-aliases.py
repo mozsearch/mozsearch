@@ -32,11 +32,10 @@ def replace_aliases(path, alias_map):
             datum = json.loads(line)
             sym = datum["sym"]
 
-            if sym not in alias_map:
-                lines.append(line)
-                continue
-
             has_alias = True
+
+            if sym not in alias_map:
+                continue
             
             for alias in alias_map[sym]:
                 datum["sym"] = alias["sym"]
