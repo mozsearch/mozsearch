@@ -24,6 +24,10 @@
       "urlmap/chrome3.mjs",
       null
     ],
+    "dist/bin/chrome/test/subdir/sub.mjs": [
+      "urlmap/subdir/sub.mjs",
+      null
+    ],
     "dist/bin/chrome/test/chrome1.css": [
       "urlmap/chrome1.css",
       null
