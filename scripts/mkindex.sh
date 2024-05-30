@@ -92,13 +92,13 @@ $MOZSEARCH_PATH/scripts/ipdl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_e
 
 date
 
-ANALYSIS_FILES_PATH=${TMPDIR:-/tmp}/files
+ANALYSIS_FILES_PATH=$INDEX_ROOT/all-analysis-files
 
 $MOZSEARCH_PATH/scripts/generate-analsysis-files-list.sh $ANALYSIS_FILES_PATH || handle_tree_error "generate-analsysis-files-list.sh"
 
 date
 
-OTHER_RESOURCES_PATH=${TMPDIR:-/tmp}/other_resources
+OTHER_RESOURCES_PATH=$INDEX_ROOT/other-resource-files
 
 $MOZSEARCH_PATH/scripts/generate-other-resources-list.py $ANALYSIS_FILES_PATH $URL_MAP_PATH $OTHER_RESOURCES_PATH || handle_tree_error "generate-other-resources-list.py"
 
