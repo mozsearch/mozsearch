@@ -1494,7 +1494,7 @@ let Analyzer = {
     const loc = expr.loc;
     const url = expr.value;
     const sym = "URL_" + atEscape(url);
-    this.source(loc, name, "file,use", "type " + url, sym);
+    this.source(loc, name, "file,use", "file " + url, sym);
     this.target(loc, name, "use", url, sym);
   },
 };
@@ -1734,7 +1734,7 @@ class BaseParser {
 
     const locStr = `${line + 1}:${column}-${column + url.length}`;
     const sym = "URL_" + atEscape(url);
-    Analyzer.source(locStr, url, "file,use", "type " + url, sym);
+    Analyzer.source(locStr, url, "file,use", "file " + url, sym);
     Analyzer.target(locStr, url, "use", url, sym);
   }
 
