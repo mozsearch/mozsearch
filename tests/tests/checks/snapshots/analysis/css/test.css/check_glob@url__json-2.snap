@@ -4,45 +4,52 @@ expression: "&json_results"
 ---
 [
   {
-    "loc": "00010:18-54",
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file /home/vagrant/index/tests/files/css/test.css",
+    "sym": "FILE_/home/vagrant/index/tests/files/css/test@2Ecss"
+  },
+  {
+    "loc": "00010:18-60",
     "source": 1,
     "syntax": "use,file",
-    "pretty": "file chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00010:18-54",
+    "loc": "00010:18-60",
     "target": 1,
     "kind": "use",
-    "pretty": "chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00014:24-60",
+    "loc": "00014:24-66",
     "source": 1,
     "syntax": "use,file",
-    "pretty": "file chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00014:24-60",
+    "loc": "00014:24-66",
     "target": 1,
     "kind": "use",
-    "pretty": "chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00018:20-59",
+    "loc": "00018:20-65",
     "source": 1,
     "syntax": "use,file",
-    "pretty": "file chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "00018:20-59",
+    "loc": "00018:20-65",
     "target": 1,
     "kind": "use",
-    "pretty": "chrome://browser/skin/bookmark.svg",
-    "sym": "URL_chrome@3A//browser/skin/bookmark@2Esvg"
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
   }
 ]

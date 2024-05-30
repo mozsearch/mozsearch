@@ -7,15 +7,15 @@
 }
 
 body {
-  background: url("chrome://browser/skin/bookmark.svg");
+  background: url("chrome://global/content/test/chrome1.png");
 }
 
 a {
-  background-image: url("chrome://browser/skin/bookmark.svg");
+  background-image: url("chrome://global/content/test/chrome1.png");
 }
 
 div {
-  background-image: url(chrome://browser/skin/bookmark.svg);
+  background-image: url(chrome://global/content/test/chrome1.png);
 }
 
 @property --at-prop {
