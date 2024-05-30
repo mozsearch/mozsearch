@@ -1069,7 +1069,7 @@ let Analyzer = {
 
       if (stmt.moduleRequest && stmt.moduleRequest.source &&
           stmt.moduleRequest.source.type === "Literal") {
-        this.maybeLinkifyLiteral(stmt.moduleRequest.source);
+        this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source);
       }
       break;
     }
@@ -1107,7 +1107,7 @@ let Analyzer = {
 
       if (stmt.moduleRequest && stmt.moduleRequest.source &&
           stmt.moduleRequest.source.type === "Literal") {
-        this.maybeLinkifyLiteral(stmt.moduleRequest.source);
+        this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source, true);
       }
       break;
     }
@@ -1411,7 +1411,7 @@ let Analyzer = {
     case "CallImport":
       if (expr.arguments && expr.arguments.length > 0 &&
           expr.arguments[0].type === "Literal") {
-        this.maybeLinkifyLiteral(expr.arguments[0]);
+        this.maybeLinkifyModuleSpecifier(expr.arguments[0]);
       }
       break;
 
@@ -1482,12 +1482,12 @@ let Analyzer = {
 
   maybeLinkifyLiteral(expr) {
     if (typeof expr.value !== "string") {
-      return;
+      return false;
     }
 
     if (!expr.value.startsWith("chrome://") &&
         !expr.value.startsWith("resource://")) {
-      return;
+      return false;
     }
 
     const name = "\"" + expr.value + "\"";
@@ -1496,7 +1496,35 @@ let Analyzer = {
     const sym = "URL_" + atEscape(url);
     this.source(loc, name, "file,use", "file " + url, sym);
     this.target(loc, name, "use", url, sym);
+
+    return true;
   },
+
+  maybeLinkifyModuleSpecifier(expr) {
+    if (typeof expr.value !== "string") {
+      return false;
+    }
+
+    if (this.maybeLinkifyLiteral(expr)) {
+      return true;
+    }
+
+    if (!expr.value.startsWith(".")) {
+      return false;
+    }
+
+    // Relative path import.
+    // This is going to be replaced by replace-aliases.py based on
+    // the URL of the current file.
+    const name = "\"" + expr.value + "\"";
+    const loc = expr.loc;
+    const relpath = expr.value;
+    const sym = "RELPATH";
+    this.source(loc, name, "file,use", relpath, sym);
+    this.target(loc, name, "use", relpath, sym);
+
+    return true;
+  }
 };
 
 function printFileTarget(path) {
