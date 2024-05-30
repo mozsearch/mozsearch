@@ -107,5 +107,35 @@ expression: "&json_results"
     "pretty": "file urlmap/resource1.html",
     "sym": "FILE_urlmap/resource1@2Ehtml",
     "context": ""
+  },
+  {
+    "loc": "14:35-77",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/chrome2.mjs",
+    "sym": "FILE_urlmap/chrome2@2Emjs"
+  },
+  {
+    "loc": "14:35-77",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/chrome2.mjs",
+    "sym": "FILE_urlmap/chrome2@2Emjs",
+    "context": "f"
+  },
+  {
+    "loc": "15:37-68",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/resource2.mjs",
+    "sym": "FILE_urlmap/resource2@2Emjs"
+  },
+  {
+    "loc": "15:37-68",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/resource2.mjs",
+    "sym": "FILE_urlmap/resource2@2Emjs",
+    "context": "f"
   }
 ]
