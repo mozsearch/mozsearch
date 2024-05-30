@@ -1407,7 +1407,12 @@ let Analyzer = {
       break;
 
     case "MetaProperty": // Not sure what this is!
-    case "CallImport": // dynamic import statement, see e.g. https://hg.mozilla.org/mozilla-central/file/4df1ba9c741f/testing/web-platform/tests/html/semantics/scripting-1/the-script-element/module/dynamic-import/propagate-nonce-external.js#l3
+
+    case "CallImport":
+      if (expr.arguments && expr.arguments.length > 0 &&
+          expr.arguments[0].type === "Literal") {
+        this.maybeLinkifyLiteral(expr.arguments[0]);
+      }
       break;
 
     default:
