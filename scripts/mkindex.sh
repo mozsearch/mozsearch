@@ -90,12 +90,18 @@ $MOZSEARCH_PATH/scripts/ipdl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_e
 
 date
 
-$MOZSEARCH_PATH/scripts/replace-aliases.sh || handle_tree_error "replace-aliases.sh"
+ANALYSIS_FILES_PATH=${TMPDIR:-/tmp}/files
+
+$MOZSEARCH_PATH/scripts/generate-analsysis-files-list.sh $ANALYSIS_FILES_PATH || handle_tree_error "generate-analsysis-files-list.sh"
+
+date
+
+$MOZSEARCH_PATH/scripts/replace-aliases.sh $ANALYSIS_FILES_PATH || handle_tree_error "replace-aliases.sh"
 
 date
 
 # crossref failures always need to be fatal because their outputs are required.
-$MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME
+$MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH
 
 date
 
