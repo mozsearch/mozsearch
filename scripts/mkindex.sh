@@ -66,7 +66,9 @@ $MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 
 date
 
-$MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $INDEX_ROOT/aliases/url-map.json $INDEX_ROOT/*.chrome-map.json || handle_tree_error "process-chrome-map.py"
+URL_MAP_PATH=$INDEX_ROOT/aliases/url-map.json
+
+$MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $URL_MAP_PATH $INDEX_ROOT/*.chrome-map.json || handle_tree_error "process-chrome-map.py"
 
 date
 
@@ -96,12 +98,18 @@ $MOZSEARCH_PATH/scripts/generate-analsysis-files-list.sh $ANALYSIS_FILES_PATH ||
 
 date
 
+OTHER_RESOURCES_PATH=${TMPDIR:-/tmp}/other_resources
+
+$MOZSEARCH_PATH/scripts/generate-other-resources-list.py $ANALYSIS_FILES_PATH $URL_MAP_PATH $OTHER_RESOURCES_PATH || handle_tree_error "generate-other-resources-list.py"
+
+date
+
 $MOZSEARCH_PATH/scripts/replace-aliases.sh $ANALYSIS_FILES_PATH || handle_tree_error "replace-aliases.sh"
 
 date
 
 # crossref failures always need to be fatal because their outputs are required.
-$MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH
+$MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH $OTHER_RESOURCES_PATH
 
 date
 

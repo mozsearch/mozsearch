@@ -7,6 +7,7 @@ set -o pipefail # Check all commands in a pipeline
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 ANALYSIS_FILES_PATH=$3
+OTHER_RESOURCES_PATH=$4
 
 echo Root is $INDEX_ROOT
 
