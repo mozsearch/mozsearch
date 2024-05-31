@@ -77,6 +77,8 @@ var ContextMenu = new (class ContextMenu {
     // then these extra menu items which are for new/experimental features where
     // we don't want to mess with muscle memory at the top of the list.
     let extraMenuItems = [];
+    // Menu items for immediate action instead of link.
+    let actionItems = [];
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
@@ -444,6 +446,25 @@ var ContextMenu = new (class ContextMenu {
             }
           }
         }
+
+        // Remove prefix.
+        const prettyName = symInfo.pretty.replace(/.* +/, "");
+        actionItems.push({
+          html: this.fmt("Copy <strong>_</strong>", prettyName),
+          icon: "docs",
+          section: "action",
+          action: () => {
+            try {
+              // NOTE: This is available only on secure context and
+              //       not compatible with local docker environment.
+              navigator.clipboard
+                .writeText(prettyName);
+            } catch (e) {
+              alert("Failed to copy: " + e.message);
+            }
+            this.hide();
+          },
+        });
       }
 
       const tokenText = symbolToken.textContent;
@@ -471,6 +492,8 @@ var ContextMenu = new (class ContextMenu {
     menuItems.push(...stickyItems);
 
     menuItems.push(...extraMenuItems);
+
+    menuItems.push(...actionItems);
 
     if (!menuItems.length) {
       return;
