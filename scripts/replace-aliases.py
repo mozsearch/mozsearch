@@ -23,7 +23,7 @@ def resolve_relpath(url, relpath):
         prefix = "chrome:/"
         path = url[8:]
     elif url.startswith("resource://"):
-        prefix = "chrome:/"
+        prefix = "resource:/"
         path = url[10:]
 
     parent = os.path.dirname(path)
