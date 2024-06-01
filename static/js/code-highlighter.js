@@ -201,10 +201,7 @@ var DocumentTitler = new (class DocumentTitler {
     // The pretty will include a descriptor prefix like "function " which we
     // don't care about.
     if (bestPretty) {
-      let idxSpace = bestPretty.indexOf(" ");
-      if (idxSpace !== -1) {
-        bestPretty = bestPretty.substring(idxSpace + 1);
-      }
+      bestPretty = bestPretty.replace(/[A-Za-z0-9]+ /, "");
 
       // Shorten any namespaces.
       bestShortPretty = this._shortenNamespaces(bestPretty);
@@ -668,12 +665,18 @@ var Highlighter = new (class Highlighter {
     DocumentTitler.processLineSelection(this.selectedLines);
   }
 
-  toHash() {
-    if (!this.selectedLines.size) {
+  // Convert the list of selected lines into a hash string.
+  // Passing extraLine makes that line also selected.
+  toHash(extraLine = undefined) {
+    if (extraLine === undefined && !this.selectedLines.size) {
       return "";
     }
     // Try to create ranges out of the lines.
-    let lines = [...this.selectedLines].sort((a, b) => a - b);
+    const unsortedLines = [...this.selectedLines];
+    if (extraLine !== undefined && !unsortedLines.includes(extraLine)) {
+      unsortedLines.push(extraLine);
+    }
+    let lines = unsortedLines.sort((a, b) => a - b);
     let ranges = [];
     let current = { start: lines[0], end: lines[0] };
     for (let i = 1; i < lines.length; ++i) {

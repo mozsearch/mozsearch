@@ -6,6 +6,8 @@ var ContextMenu = new (class ContextMenu {
     this.menu.style.display = "none";
     document.body.appendChild(this.menu);
 
+    this.selectedToken = null;
+
     this.menu.addEventListener("mousedown", function (event) {
       // Prevent clicks on the menu to propagate
       // to the window, so that the menu is not
@@ -37,6 +39,16 @@ var ContextMenu = new (class ContextMenu {
   }
 
   tryShowOnClick(event) {
+    if (Settings.fancyBar.enabled) {
+      if (this.selectedToken) {
+        if (!Panel?.isOnPanel?.(event)) {
+          this.selectedToken.classList.remove("selected");
+          this.selectedToken = null;
+          Panel?.onSelectedTokenChanged?.();
+        }
+      }
+    }
+
     // Don't display the context menu if there's a selection.
     // User could be trying to select something and the context menu will undo it.
     if (!window.getSelection().isCollapsed) {
@@ -80,6 +92,12 @@ var ContextMenu = new (class ContextMenu {
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
+      if (Settings.fancyBar.enabled) {
+        this.selectedToken = symbolToken;
+        this.selectedToken.classList.add("selected");
+        Panel?.onSelectedTokenChanged?.();
+      }
+
       const symbols = symbolToken.getAttribute("data-symbols").split(",");
 
       const seenSyms = new Set();
