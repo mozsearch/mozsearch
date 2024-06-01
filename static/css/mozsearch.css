@@ -60,7 +60,6 @@ table {
   --syntax-string-color: green;
   --syntax-regex-color: #6d7b8d;
   --syntax-symbol-highlight: yellow;
-  --syntax-symbol-selected-outline: orange;
 
   /* Our red-blue color scheme is from
    * https://colorbrewer2.org/#type=diverging&scheme=RdBu&n=11 and was chosen
@@ -126,7 +125,6 @@ table {
 
     --syntax-comment-color: GrayText;
     --syntax-symbol-highlight: #5d4d1d;
-    --syntax-symbol-selected-outline: orange;
     /* Shamelessly taken from source.chromium.org's dark theme */
     --syntax-type-color: #79a9c4;
     --syntax-reserved-color: #d8884b;
@@ -747,11 +745,9 @@ tr.after-context-line + tr.before-context-line {
 span[data-symbols]:hover {
   cursor: pointer;
 }
-span[data-symbols].hovered {
-  background-color: var(--syntax-symbol-highlight);
-}
+span[data-symbols].hovered,
 span[data-symbols].selected {
-  outline: 1px dotted var(--syntax-symbol-selected-outline);
+  background-color: var(--syntax-symbol-highlight);
 }
 
 /* Help screen */
