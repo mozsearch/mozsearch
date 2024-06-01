@@ -16,6 +16,8 @@ var Panel = new (class Panel {
     this.logNode = this.findItem("Log");
     this.rawNode = this.findItem("Raw");
 
+    this.selectedSymbol = null;
+
     this.markdown = {
       filename: {
         node: this.findItem("Filename Link"),
@@ -30,10 +32,10 @@ var Panel = new (class Panel {
       symbol: {
         node: this.findItem("Symbol Link"),
         isEnabled: () => {
-          return DocumentTitler?.selectedSymbol;
+          return this.selectedSymbol;
         },
         getText: url => {
-          return `[${DocumentTitler.selectedSymbol}](${url})`;
+          return `[${this.selectedSymbol}](${url})`;
         },
       },
       block: {
@@ -163,6 +165,10 @@ var Panel = new (class Panel {
     window.addEventListener("storage", () => this.initFromLocalStorage());
 
     this.initFromLocalStorage();
+
+    if (Settings.fancyBar.enabled) {
+      this.addSymbolSection();
+    }
   }
 
   get acceleratorsEnabled() {
@@ -260,7 +266,10 @@ var Panel = new (class Panel {
     }
 
     const copy = node.querySelector(".copy");
-    const url = this.permalinkNode?.href || document.location.href;
+    let url = this.permalinkNode?.href || document.location.href;
+    if (Settings.fancyBar.enabled) {
+      url = this.reflectSelectedSymbolLineToURL(url);
+    }
     const text = getText(url);
 
     this.copyText(copy, text);
@@ -300,7 +309,14 @@ var Panel = new (class Panel {
       return lineText.substring(0, count);
     }
 
-    for (const line of [...Highlighter.selectedLines].sort((a, b) => a - b)) {
+    const unsortedLines = [...Highlighter.selectedLines];
+    if (Settings.fancyBar.enabled) {
+      const extraLine = this.getLineNumberForSelectedSymbol();
+      if (extraLine !== undefined && !unsortedLines.includes(extraLine)) {
+        unsortedLines.push(extraLine);
+      }
+    }
+    for (const line of unsortedLines.sort((a, b) => a - b)) {
       if (lastLine !== -1 && lastLine != line - 1) {
         lines.push(kPlaceholder);
       }
@@ -328,10 +344,38 @@ var Panel = new (class Panel {
     return lines;
   }
 
-  updateMarkdownState() {
+  findSelectedSymbol() {
+    let selectedSymbol = null;
+    if (Settings.fancyBar.enabled) {
+      if (ContextMenu?.selectedToken) {
+        const symbols = ContextMenu.selectedToken.getAttribute("data-symbols").split(",");
+
+        for (const sym of symbols) {
+          const symInfo = SYM_INFO[sym];
+          if (!symInfo || !symInfo.pretty) {
+            continue;
+          }
+
+          return symInfo.pretty.replace(/[A-Za-z0-9]+ /, "");
+        }
+      }
+    }
+
+    return DocumentTitler?.selectedSymbol;
+  }
+
+  updateCopyState() {
     // If we're on a page without a panel, there's nothing to do.
     if (!this.panel) {
       return;
+    }
+
+    this.selectedSymbol = this.findSelectedSymbol();
+
+    if (Settings.fancyBar.enabled) {
+      if (this.copySymbolBox) {
+        this.copySymbolBox.classList.toggle("disabled", !this.selectedSymbol);
+      }
     }
 
     for (const [_, { node, isEnabled }] of Object.entries(this.markdown)) {
@@ -346,14 +390,131 @@ var Panel = new (class Panel {
         node.setAttribute("aria-disabled", "true");
       }
     }
+
+    if (Settings.fancyBar.enabled) {
+      this.updateSelectedSymbolView();
+    }
+  }
+
+  // Add Symbol section with the symbol name and copy button.
+  addSymbolSection() {
+    const markdownHeader = [...this.content.querySelectorAll("h4")]
+      .find(n => n.textContent == "Copy as Markdown");
+    if (!markdownHeader) {
+      return;
+    }
+
+    const h4 = document.createElement("h4");
+    h4.textContent = "Symbol";
+
+    markdownHeader.before(h4);
+
+    const box = document.createElement("div");
+    box.classList.add("selected-symbol-section");
+
+    const symBox = document.createElement("div");
+    symBox.classList.add("selected-symbol-box");
+    this.selectedSymbolNS = document.createElement("div");
+    this.selectedSymbolNS.classList.add("selected-symbol-ns");
+    symBox.append(this.selectedSymbolNS);
+    this.selectedSymbolLocal = document.createElement("div");
+    this.selectedSymbolLocal.classList.add("selected-symbol-local");
+    symBox.append(this.selectedSymbolLocal);
+    box.append(symBox);
+
+    this.copySymbolBox = document.createElement("div");
+    this.copySymbolBox.classList.add("copy-box");
+    const copyIndicator = document.createElement("span");
+    copyIndicator.classList.add("icon", "copy", "indicator");
+    const copyIcon = document.createElement("span");
+    copyIcon.classList.add("icon-docs", "copy-icon");
+    copyIndicator.append(copyIcon);
+    const copyOk = document.createElement("span");
+    copyOk.classList.add("icon-ok", "tick-icon");
+    copyIndicator.append(copyOk);
+    this.copySymbolBox.append(copyIndicator);
+    box.append(this.copySymbolBox);
+
+    copyIndicator.addEventListener("click", e => {
+      e.preventDefault();
+
+      if (!this.selectedSymbol) {
+        return;
+      }
+
+      if (copyIndicator.hasAttribute("data-copying")) {
+        return;
+      }
+
+      this.copyText(copyIndicator, this.selectedSymbol);
+    });
+
+    markdownHeader.before(box);
+  }
+
+  // Show the selected symbol's namespace prefix and the local name in the
+  // Symbol section.
+  updateSelectedSymbolView() {
+    const sym = this.selectedSymbol || '(no symbol clicked)';
+    const index = sym.lastIndexOf("::");
+    let ns = "";
+    let local = sym;
+    if (index != -1) {
+      ns = sym.slice(0, index + 2);
+      local = sym.slice(index + 2);
+    }
+    this.selectedSymbolNS.textContent = ns;
+    this.selectedSymbolLocal.textContent = local;
+  }
+
+  // Reflect the line number of selected symbol, if any and if it's outside of
+  // the selected lines.
+  reflectSelectedSymbolLineToURL(spec) {
+    const line = this.getLineNumberForSelectedSymbol();
+    if (line === undefined) {
+      return spec;
+    }
+
+    const url = new URL(spec);
+    url.hash = Highlighter.toHash(line);
+    return url.toString();
+  }
+
+  // Return the line number of the selected symbol if any.
+  // Otherwise returns undefined.
+  getLineNumberForSelectedSymbol() {
+    if (!ContextMenu.selectedToken) {
+      return undefined;
+    }
+
+    const containingLine = ContextMenu.selectedToken.closest(".source-line-with-number");
+    if (!containingLine) {
+      return undefined;
+    }
+
+    const lineNumberNode = containingLine.querySelector(".line-number");
+    if (!lineNumberNode) {
+      return undefined;
+    }
+
+    return parseInt(lineNumberNode.dataset.lineNumber, 10);
   }
 
   onSelectedLineChanged() {
-    this.updateMarkdownState();
+    this.updateCopyState();
   }
 
   onSelectedSymbolChanged() {
-    this.updateMarkdownState();
+    this.updateCopyState();
+  }
+
+  onSelectedTokenChanged() {
+    this.updateCopyState();
+  }
+
+  // Returns true if the event is dispatched inside the navigation panel.
+  isOnPanel(event) {
+    return !!event.target.closest("#panel");
   }
 })();
 
