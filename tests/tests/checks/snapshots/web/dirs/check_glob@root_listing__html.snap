@@ -269,6 +269,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/field-layout" class="mimetype-fixed-container mimetype-icon-folder">field-layout</a></td>
+          <td class="description"><a href="/tests/source/field-layout" title=""></td>
+          <td><a href="/tests/source/field-layout"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/GeckoApp.java" class="mimetype-fixed-container mimetype-icon-java">GeckoApp.java</a></td>
           <td class="description"><a href="/tests/source/GeckoApp.java" title=""></td>
           <td><a href="/tests/source/GeckoApp.java">104036</a></td>

@@ -1,0 +1,433 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::bitfields::S>_b1": {
+          "sym": "F_<T_field_layout::bitfields::S>_b1",
+          "pretty": "field_layout::bitfields::S::b1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::bitfields::S::b1",
+            "sym": "F_<T_field_layout::bitfields::S>_b1",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::bitfields::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/bitfields.cpp#8"
+          }
+        },
+        "F_<T_field_layout::bitfields::S>_b2": {
+          "sym": "F_<T_field_layout::bitfields::S>_b2",
+          "pretty": "field_layout::bitfields::S::b2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::bitfields::S::b2",
+            "sym": "F_<T_field_layout::bitfields::S>_b2",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::bitfields::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/bitfields.cpp#9"
+          }
+        },
+        "F_<T_field_layout::bitfields::S>_b3": {
+          "sym": "F_<T_field_layout::bitfields::S>_b3",
+          "pretty": "field_layout::bitfields::S::b3",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::bitfields::S::b3",
+            "sym": "F_<T_field_layout::bitfields::S>_b3",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::bitfields::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/bitfields.cpp#10"
+          }
+        },
+        "F_<T_field_layout::bitfields::S>_b4": {
+          "sym": "F_<T_field_layout::bitfields::S>_b4",
+          "pretty": "field_layout::bitfields::S::b4",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::bitfields::S::b4",
+            "sym": "F_<T_field_layout::bitfields::S>_b4",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::bitfields::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/bitfields.cpp#11"
+          }
+        },
+        "F_<T_field_layout::bitfields::S>_b5": {
+          "sym": "F_<T_field_layout::bitfields::S>_b5",
+          "pretty": "field_layout::bitfields::S::b5",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::bitfields::S::b5",
+            "sym": "F_<T_field_layout::bitfields::S>_b5",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::bitfields::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/bitfields.cpp#12"
+          }
+        },
+        "F_<T_field_layout::bitfields::S>_b6": {
+          "sym": "F_<T_field_layout::bitfields::S>_b6",
+          "pretty": "field_layout::bitfields::S::b6",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::bitfields::S::b6",
+            "sym": "F_<T_field_layout::bitfields::S>_b6",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::bitfields::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/bitfields.cpp#13"
+          }
+        },
+        "T_field_layout::bitfields::S": {
+          "sym": "T_field_layout::bitfields::S",
+          "pretty": "field_layout::bitfields::S",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::bitfields::S",
+            "sym": "T_field_layout::bitfields::S",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 4,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::bitfields::S::S",
+                "sym": "_ZN12field_layout9bitfields1SC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::bitfields::S::S",
+                "sym": "_ZN12field_layout9bitfields1SC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::bitfields::S::S",
+                "sym": "_ZN12field_layout9bitfields1SC1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::bitfields::S::b1",
+                "sym": "F_<T_field_layout::bitfields::S>_b1",
+                "type": "unsigned int",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": {
+                  "begin": 0,
+                  "width": 1
+                },
+                "sizeBytes": null
+              },
+              {
+                "pretty": "field_layout::bitfields::S::b2",
+                "sym": "F_<T_field_layout::bitfields::S>_b2",
+                "type": "unsigned int",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": {
+                  "begin": 1,
+                  "width": 3
+                },
+                "sizeBytes": null
+              },
+              {
+                "pretty": "field_layout::bitfields::S::b3",
+                "sym": "F_<T_field_layout::bitfields::S>_b3",
+                "type": "unsigned int",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": {
+                  "begin": 4,
+                  "width": 7
+                },
+                "sizeBytes": null
+              },
+              {
+                "pretty": "field_layout::bitfields::S::b4",
+                "sym": "F_<T_field_layout::bitfields::S>_b4",
+                "type": "unsigned int",
+                "typesym": "",
+                "offsetBytes": 1,
+                "bitPositions": {
+                  "begin": 3,
+                  "width": 4
+                },
+                "sizeBytes": null
+              },
+              {
+                "pretty": "field_layout::bitfields::S::b5",
+                "sym": "F_<T_field_layout::bitfields::S>_b5",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 2,
+                "bitPositions": {
+                  "begin": 0,
+                  "width": 3
+                },
+                "sizeBytes": null
+              },
+              {
+                "pretty": "field_layout::bitfields::S::b6",
+                "sym": "F_<T_field_layout::bitfields::S>_b6",
+                "type": "unsigned short",
+                "typesym": "",
+                "offsetBytes": 2,
+                "bitPositions": {
+                  "begin": 3,
+                  "width": 2
+                },
+                "sizeBytes": null
+              }
+            ],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/bitfields.cpp#7"
+          }
+        }
+      },
+      "columns": [],
+      "rows": [
+        {
+          "label": [],
+          "sym": "T_field_layout::bitfields::S",
+          "colVals": [],
+          "children": [
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::bitfields::S"
+                }
+              ],
+              "sym": "T_field_layout::bitfields::S",
+              "colVals": [
+                {
+                  "header": true,
+                  "contents": [
+                    {
+                      "Text": ""
+                    }
+                  ]
+                }
+              ],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "field_layout::bitfields::S::b1 - unsigned int"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::bitfields::S>_b1",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x0 len 0x0"
+                        }
+                      ]
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "label": [
+                    {
+                      "Text": "field_layout::bitfields::S::b2 - unsigned int"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::bitfields::S>_b2",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x0 len 0x0"
+                        }
+                      ]
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "label": [
+                    {
+                      "Text": "field_layout::bitfields::S::b3 - unsigned int"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::bitfields::S>_b3",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x0 len 0x0"
+                        }
+                      ]
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "label": [
+                    {
+                      "Text": "field_layout::bitfields::S::b4 - unsigned int"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::bitfields::S>_b4",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x1 len 0x0"
+                        }
+                      ]
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "label": [
+                    {
+                      "Text": "field_layout::bitfields::S::b5 - unsigned char"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::bitfields::S>_b5",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x2 len 0x0"
+                        }
+                      ]
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "label": [
+                    {
+                      "Text": "field_layout::bitfields::S::b6 - unsigned short"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::bitfields::S>_b6",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x2 len 0x0"
+                        }
+                      ]
+                    }
+                  ],
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

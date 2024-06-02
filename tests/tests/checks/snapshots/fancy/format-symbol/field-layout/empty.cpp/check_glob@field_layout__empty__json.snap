@@ -1,0 +1,96 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "T_field_layout::empty::S": {
+          "sym": "T_field_layout::empty::S",
+          "pretty": "field_layout::empty::S",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::empty::S",
+            "sym": "T_field_layout::empty::S",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::empty::S::S",
+                "sym": "_ZN12field_layout5empty1SC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::empty::S::S",
+                "sym": "_ZN12field_layout5empty1SC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::empty::S::S",
+                "sym": "_ZN12field_layout5empty1SC1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": []
+          },
+          "jumps": {
+            "def": "field-layout/empty.cpp#7"
+          }
+        }
+      },
+      "columns": [],
+      "rows": [
+        {
+          "label": [],
+          "sym": "T_field_layout::empty::S",
+          "colVals": [],
+          "children": [
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::empty::S"
+                }
+              ],
+              "sym": "T_field_layout::empty::S",
+              "colVals": [
+                {
+                  "header": true,
+                  "contents": [
+                    {
+                      "Text": ""
+                    }
+                  ]
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
