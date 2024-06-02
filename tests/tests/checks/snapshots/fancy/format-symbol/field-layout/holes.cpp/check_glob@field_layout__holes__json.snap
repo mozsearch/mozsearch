@@ -338,70 +338,139 @@ expression: "&to_value(sttl).unwrap()"
           }
         }
       },
-      "columns": [],
-      "rows": [
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "All platforms"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
         {
           "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "field_layout::holes::Sub"
+            }
+          ],
           "sym": "T_field_layout::holes::Sub",
           "colVals": [],
           "children": [
             {
               "label": [
                 {
-                  "Heading": "field_layout::holes::Sub"
+                  "Text": "x"
                 }
               ],
-              "sym": "T_field_layout::holes::Sub",
+              "sym": "F_<T_field_layout::holes::Sub>_x",
               "colVals": [
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": ""
+                      "Text": "unsigned char"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "12"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
                     }
                   ]
                 }
               ],
-              "children": [
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
                 {
-                  "label": [
+                  "Text": "y"
+                }
+              ],
+              "sym": "F_<T_field_layout::holes::Sub>_y",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "field_layout::holes::Sub::x - unsigned char"
+                      "Text": "unsigned int"
                     }
-                  ],
-                  "sym": "F_<T_field_layout::holes::Sub>_x",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0xc len 0x1"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
+                  ]
                 },
                 {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "field_layout::holes::Sub::y - unsigned int"
+                      "Text": "16"
                     }
-                  ],
-                  "sym": "F_<T_field_layout::holes::Sub>_y",
-                  "colVals": [
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
                     {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x10 len 0x4"
-                        }
-                      ]
+                      "Text": "4"
                     }
-                  ],
-                  "children": []
+                  ]
                 }
-              ]
+              ],
+              "children": [],
+              "colspan": 1
             },
             {
               "label": [
@@ -410,21 +479,12 @@ expression: "&to_value(sttl).unwrap()"
                 }
               ],
               "sym": "T_field_layout::holes::Base",
-              "colVals": [
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": ""
-                    }
-                  ]
-                }
-              ],
+              "colVals": [],
               "children": [
                 {
                   "label": [
                     {
-                      "Text": "field_layout::holes::Base::a - unsigned char"
+                      "Text": "a"
                     }
                   ],
                   "sym": "F_<T_field_layout::holes::Base>_a",
@@ -433,17 +493,34 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x0 len 0x1"
+                          "Text": "unsigned char"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "0"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 },
                 {
                   "label": [
                     {
-                      "Text": "field_layout::holes::Base::b - unsigned short"
+                      "Text": "b"
                     }
                   ],
                   "sym": "F_<T_field_layout::holes::Base>_b",
@@ -452,17 +529,34 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x2 len 0x2"
+                          "Text": "unsigned short"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "2"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "2"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 },
                 {
                   "label": [
                     {
-                      "Text": "field_layout::holes::Base::c - unsigned int"
+                      "Text": "c"
                     }
                   ],
                   "sym": "F_<T_field_layout::holes::Base>_c",
@@ -471,17 +565,34 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x4 len 0x4"
+                          "Text": "unsigned int"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "4"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "4"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 },
                 {
                   "label": [
                     {
-                      "Text": "field_layout::holes::Base::d - char"
+                      "Text": "d"
                     }
                   ],
                   "sym": "F_<T_field_layout::holes::Base>_d",
@@ -490,16 +601,35 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x8 len 0x1"
+                          "Text": "char"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 }
-              ]
+              ],
+              "colspan": 4
             }
-          ]
+          ],
+          "colspan": 4
         }
       ]
     }

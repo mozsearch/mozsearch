@@ -69,6 +69,7 @@ pub struct BatchGroupItem {
 pub struct SymbolTreeTable {
     pub node_set: SymbolGraphNodeSet,
     pub columns: Vec<SymbolTreeTableColumn>,
+    pub sub_columns: Vec<SymbolTreeTableColumn>,
     pub rows: Vec<SymbolTreeTableNode>,
 }
 
@@ -97,6 +98,7 @@ impl SymbolTreeTableList {
 #[derive(Serialize)]
 pub struct SymbolTreeTableColumn {
     pub label: Vec<BasicMarkup>,
+    pub colspan: u32,
 }
 
 #[derive(Serialize)]
@@ -177,6 +179,7 @@ pub struct SymbolTreeTableNode {
     pub sym_id: Option<SymbolGraphNodeId>,
     pub col_vals: Vec<SymbolTreeTableCell>,
     pub children: Vec<SymbolTreeTableNode>,
+    pub colspan: u32,
 }
 
 impl SymbolTreeTable {
@@ -184,6 +187,7 @@ impl SymbolTreeTable {
         Self {
             node_set: SymbolGraphNodeSet::new(),
             columns: vec![],
+            sub_columns: vec![],
             rows: vec![],
         }
     }
@@ -221,6 +225,7 @@ impl Serialize for SymbolTreeTable {
             &self.node_set.symbols_meta_to_jumpref_json_nomut(),
         )?;
         stt.serialize_field("columns", &self.columns)?;
+        stt.serialize_field("sub_columns", &self.sub_columns)?;
 
         let wrapped_rows = SerializingSymbolTreeTableRows {
             node_set: &self.node_set,
@@ -249,6 +254,7 @@ impl<'a> Serialize for SerializingSymbolTreeTableNode<'a> {
             rows: &self.node.children,
         };
         stt.serialize_field("children", &wrapped_rows)?;
+        stt.serialize_field("colspan", &self.node.colspan)?;
         stt.end()
     }
 }

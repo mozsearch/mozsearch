@@ -1276,3 +1276,52 @@ g.blurry.depth-mode g.node polygon {
 g.true-diag g.node polygon {
   fill: white;
 }
+
+/* Field Layout */
+
+.symbol-tree-table {
+  border-collapse: separate;
+}
+
+.symbol-tree-table h3 {
+  margin: 0;
+}
+
+.symbol-tree-table td, .symbol-tree-table th {
+  border-color: var(--page-border-color);
+  border-style: solid;
+  border-width: 0px;
+}
+
+.symbol-tree-table tr:first-child th {
+  border-block-start-width: 1px;
+}
+
+.symbol-tree-table th,
+.symbol-tree-table td {
+  border-block-end-width: 1px;
+  border-inline-end-width: 1px;
+}
+
+.symbol-tree-table th:first-child,
+.symbol-tree-table td:first-child {
+  border-inline-start-width: 1px;
+}
+
+.symbol-tree-table tr:first-child th:first-child {
+  border-start-start-radius: 4px;
+}
+.symbol-tree-table tr:first-child th:last-child {
+  border-start-end-radius: 4px;
+}
+.symbol-tree-table tr:last-child td:first-child {
+  border-end-start-radius: 4px;
+}
+.symbol-tree-table tr:last-child td:last-child {
+  border-end-end-radius: 4px;
+}
+
+.symbol-tree-table th {
+  color: var(--table-header-color);
+  background-color: var(--table-header-background);
+}

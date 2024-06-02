@@ -595,141 +595,295 @@ expression: "&to_value(sttl).unwrap()"
           }
         }
       },
-      "columns": [],
-      "rows": [
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "win64"
+            }
+          ],
+          "colspan": 2
+        },
+        {
+          "label": [
+            {
+              "Heading": "macosx64"
+            }
+          ],
+          "colspan": 2
+        },
+        {
+          "label": [
+            {
+              "Heading": "linux64"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
         {
           "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "field_layout::platform_specific_field::T3"
+            }
+          ],
           "sym": "T_field_layout::platform_specific_field::T3",
           "colVals": [],
           "children": [
             {
               "label": [
                 {
-                  "Heading": "field_layout::platform_specific_field::T3"
+                  "Text": "f4"
                 }
               ],
-              "sym": "T_field_layout::platform_specific_field::T3",
+              "sym": "F_<T_field_layout::platform_specific_field::T3>_f4",
               "colVals": [
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": "win64"
+                      "Text": "unsigned int"
                     }
                   ]
                 },
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": "macosx64"
+                      "Text": "12"
                     }
                   ]
                 },
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": "linux64"
+                      "Text": "4"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "12"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "4"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "12"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "4"
                     }
                   ]
                 }
               ],
-              "children": [
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
                 {
-                  "label": [
-                    {
-                      "Text": "field_layout::platform_specific_field::T3::f4 - unsigned int"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::platform_specific_field::T3>_f4",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0xc len 0x4"
-                        }
-                      ]
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0xc len 0x4"
-                        }
-                      ]
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0xc len 0x4"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::platform_specific_field::T3::f5 - unsigned int"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::platform_specific_field::T3>_f5",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": []
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x10 len 0x4"
-                        }
-                      ]
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x10 len 0x4"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::platform_specific_field::T3::f6 - unsigned char"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::platform_specific_field::T3>_f6",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x10 len 0x1"
-                        }
-                      ]
-                    },
-                    {
-                      "header": false,
-                      "contents": []
-                    },
-                    {
-                      "header": false,
-                      "contents": []
-                    }
-                  ],
-                  "children": []
+                  "Text": "f5"
                 }
-              ]
+              ],
+              "sym": "F_<T_field_layout::platform_specific_field::T3>_f5",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned int"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": []
+                },
+                {
+                  "header": false,
+                  "contents": []
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "16"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "4"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "16"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "4"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Text": "f6"
+                }
+              ],
+              "sym": "F_<T_field_layout::platform_specific_field::T3>_f6",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned char"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "16"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": []
+                },
+                {
+                  "header": false,
+                  "contents": []
+                },
+                {
+                  "header": false,
+                  "contents": []
+                },
+                {
+                  "header": false,
+                  "contents": []
+                }
+              ],
+              "children": [],
+              "colspan": 1
             },
             {
               "label": [
@@ -738,37 +892,12 @@ expression: "&to_value(sttl).unwrap()"
                 }
               ],
               "sym": "T_field_layout::platform_specific_field::T2",
-              "colVals": [
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": "win64"
-                    }
-                  ]
-                },
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": "macosx64"
-                    }
-                  ]
-                },
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": "linux64"
-                    }
-                  ]
-                }
-              ],
+              "colVals": [],
               "children": [
                 {
                   "label": [
                     {
-                      "Text": "field_layout::platform_specific_field::T2::f2 - unsigned int"
+                      "Text": "f2"
                     }
                   ],
                   "sym": "F_<T_field_layout::platform_specific_field::T2>_f2",
@@ -777,7 +906,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x4 len 0x4"
+                          "Text": "unsigned int"
                         }
                       ]
                     },
@@ -785,7 +914,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x4 len 0x4"
+                          "Text": "4"
                         }
                       ]
                     },
@@ -793,44 +922,102 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x4 len 0x4"
+                          "Text": "4"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "4"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "4"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "4"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "4"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 },
                 {
                   "label": [
                     {
-                      "Text": "field_layout::platform_specific_field::T2::f3 - unsigned char"
+                      "Text": "f3"
                     }
                   ],
                   "sym": "F_<T_field_layout::platform_specific_field::T2>_f3",
                   "colVals": [
                     {
                       "header": false,
-                      "contents": []
-                    },
-                    {
-                      "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x8 len 0x1"
+                          "Text": "unsigned char"
                         }
                       ]
                     },
                     {
                       "header": false,
                       "contents": []
+                    },
+                    {
+                      "header": false,
+                      "contents": []
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": []
+                    },
+                    {
+                      "header": false,
+                      "contents": []
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 },
                 {
                   "label": [
                     {
-                      "Text": "field_layout::platform_specific_field::T2::f3b - unsigned char"
+                      "Text": "f3b"
                     }
                   ],
                   "sym": "F_<T_field_layout::platform_specific_field::T2>_f3b",
@@ -839,7 +1026,23 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x8 len 0x1"
+                          "Text": "unsigned char"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
                         }
                       ]
                     },
@@ -849,16 +1052,30 @@ expression: "&to_value(sttl).unwrap()"
                     },
                     {
                       "header": false,
+                      "contents": []
+                    },
+                    {
+                      "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x8 len 0x1"
+                          "Text": "8"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 }
-              ]
+              ],
+              "colspan": 8
             },
             {
               "label": [
@@ -867,37 +1084,12 @@ expression: "&to_value(sttl).unwrap()"
                 }
               ],
               "sym": "T_field_layout::platform_specific_field::T1",
-              "colVals": [
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": "win64"
-                    }
-                  ]
-                },
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": "macosx64"
-                    }
-                  ]
-                },
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": "linux64"
-                    }
-                  ]
-                }
-              ],
+              "colVals": [],
               "children": [
                 {
                   "label": [
                     {
-                      "Text": "field_layout::platform_specific_field::T1::f1 - unsigned char"
+                      "Text": "f1"
                     }
                   ],
                   "sym": "F_<T_field_layout::platform_specific_field::T1>_f1",
@@ -906,7 +1098,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x0 len 0x1"
+                          "Text": "unsigned char"
                         }
                       ]
                     },
@@ -914,7 +1106,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x0 len 0x1"
+                          "Text": "0"
                         }
                       ]
                     },
@@ -922,16 +1114,51 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x0 len 0x1"
+                          "Text": "1"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "0"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "0"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 }
-              ]
+              ],
+              "colspan": 8
             }
-          ]
+          ],
+          "colspan": 8
         }
       ]
     }

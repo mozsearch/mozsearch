@@ -162,69 +162,146 @@ expression: "&to_value(sttl).unwrap()"
           }
         }
       },
-      "columns": [],
-      "rows": [
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "win64"
+            }
+          ],
+          "colspan": 2
+        },
+        {
+          "label": [
+            {
+              "Heading": "macosx64 linux64"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
         {
           "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "field_layout::platform_specific_size::S"
+            }
+          ],
           "sym": "T_field_layout::platform_specific_size::S",
           "colVals": [],
           "children": [
             {
               "label": [
                 {
-                  "Heading": "field_layout::platform_specific_size::S"
+                  "Text": "f1"
                 }
               ],
-              "sym": "T_field_layout::platform_specific_size::S",
+              "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
               "colVals": [
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": "win64"
+                      "Text": "unsigned long"
                     }
                   ]
                 },
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": "macosx64 linux64"
+                      "Text": "0"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "8"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "0"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "4"
                     }
                   ]
                 }
               ],
-              "children": [
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::platform_specific_size::S::f1 - unsigned long"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x0 len 0x8"
-                        }
-                      ]
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x0 len 0x4"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                }
-              ]
+              "children": [],
+              "colspan": 1
             }
-          ]
+          ],
+          "colspan": 6
         }
       ]
     }

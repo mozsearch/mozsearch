@@ -9,7 +9,7 @@ use itertools::Itertools;
 use super::{
     interface::{
         BasicMarkup, PipelineCommand, PipelineValues, SymbolTreeTable, SymbolTreeTableCell, SymbolTreeTableList, SymbolTreeTableNode,
-        SymbolCrossrefInfo,
+        SymbolCrossrefInfo, SymbolTreeTableColumn,
     },
     symbol_graph::{
         DerivedSymbolInfo, SymbolGraphNodeId,
@@ -508,12 +508,53 @@ impl ClassMap {
     }
 
     fn generate_tables(mut self, tables: &mut Vec<SymbolTreeTable>) {
-        let mut root_node = SymbolTreeTableNode {
-            sym_id: self.root_sym_id.clone(),
+        self.stt.columns.push(SymbolTreeTableColumn {
+            label: vec![BasicMarkup::Heading("Name".to_string())],
+            colspan: 1,
+        });
+        self.stt.columns.push(SymbolTreeTableColumn {
+            label: vec![BasicMarkup::Heading("Type".to_string())],
+            colspan: 1,
+        });
+
+        self.stt.sub_columns.push(SymbolTreeTableColumn {
             label: vec![],
-            col_vals: vec![],
-            children: vec![],
-        };
+            colspan: 1,
+        });
+        self.stt.sub_columns.push(SymbolTreeTableColumn {
+            label: vec![],
+            colspan: 1,
+        });
+
+        for (_, platforms) in &self.groups {
+            let label = if platforms.is_empty() {
+                "All platforms".to_string()
+            } else {
+                platforms
+                    .iter()
+                    .map(|platform_id| self.platform_map.get_name(&platform_id))
+                    .join(" ")
+                    .to_owned()
+            };
+
+            self.stt.columns.push(SymbolTreeTableColumn {
+                label: vec![BasicMarkup::Heading(label)],
+                colspan: 2,
+            });
+
+            self.stt.sub_columns.push(SymbolTreeTableColumn {
+                label: vec![BasicMarkup::Text("Offset".to_string())],
+                colspan: 1,
+            });
+            self.stt.sub_columns.push(SymbolTreeTableColumn {
+                label: vec![BasicMarkup::Text("Size".to_string())],
+                colspan: 1,
+            });
+        }
+
+        let column_offset: usize = 1;
+
+        let mut root_node: Option<SymbolTreeTableNode> = None;
 
         for class_id in &self.class_list {
             let cls = self.class_map.get(&class_id).unwrap();
@@ -523,17 +564,10 @@ impl ClassMap {
                 label: vec![BasicMarkup::Heading(cls.name.clone())],
                 col_vals: vec![],
                 children: vec![],
+                colspan: (1 + column_offset + self.groups.len() * 2) as u32,
             };
 
-            for (_, platforms) in &self.groups {
-                class_node.col_vals.push(SymbolTreeTableCell::header_text(
-                    platforms
-                        .iter()
-                        .map(|platform_id| self.platform_map.get_name(&platform_id))
-                        .join(" ")
-                        .to_owned(),
-                ));
-            }
+            let field_prefix = format!("{}::", cls.name);
 
             for field_variants in &cls.merged_fields {
                 let mut field_node = SymbolTreeTableNode {
@@ -541,29 +575,48 @@ impl ClassMap {
                     label: vec![],
                     col_vals: vec![],
                     children: vec![],
+                    colspan: 1,
                 };
+
+                field_node.col_vals.push(SymbolTreeTableCell::empty());
 
                 for maybe_field in field_variants {
                     match maybe_field {
                         Some(field) => {
                             if field_node.sym_id.is_none() {
                                 field_node.sym_id = Some(field.field_id.clone());
-                                field_node.label =
-                                    vec![BasicMarkup::Text(match &field.type_pretty.is_empty() {
-                                        false => format!(
-                                            "{} - {}",
-                                            field.pretty, field.type_pretty
-                                        ),
-                                        true => format!("{}", field.pretty),
-                                    })];
+
+                                let mut pretty = field.pretty.clone();
+                                pretty = pretty.replace(&field_prefix, "");
+                                field_node.label = vec![BasicMarkup::Text(format!("{}", pretty))];
+
+                                let type_label = match &field.type_pretty.is_empty() {
+                                    false => format!("{}", field.type_pretty),
+                                    true => "".to_string(),
+                                };
+
+                                field_node.col_vals[0].contents.push(BasicMarkup::Text(type_label));
                             }
+
                             field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                "offset {:#x} len {:#x}",
+                                "{}",
                                 field.offset_bytes,
-                                field.size_bytes.unwrap_or(0),
                             )));
+
+                            if let Some(pos) = &field.bit_positions {
+                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
+                                    "bits {}+{}",
+                                    pos.begin, pos.width,
+                                )));
+                            } else {
+                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
+                                    "{}",
+                                    field.size_bytes.unwrap_or(0),
+                                )));
+                            }
                         }
                         None => {
+                            field_node.col_vals.push(SymbolTreeTableCell::empty());
                             field_node.col_vals.push(SymbolTreeTableCell::empty());
                         }
                     }
@@ -572,10 +625,19 @@ impl ClassMap {
                 class_node.children.push(field_node);
             }
 
-            root_node.children.push(class_node);
+            match &mut root_node {
+                Some(node) => {
+                    node.children.push(class_node);
+                },
+                None => {
+                    root_node = Some(class_node);
+                }
+            }
         }
 
-        self.stt.rows.push(root_node);
+        if let Some(node) = root_node {
+            self.stt.rows.push(node);
+        }
         tables.push(self.stt);
     }
 }

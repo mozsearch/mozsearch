@@ -3,9 +3,16 @@
   <thead>
     <tr>
     {% for col in table.columns %}
-        <th scope="col">{% include 'query_results/basic_markup_array.liquid' markup: col.contents %}</th>
+      {% include 'query_results/table_header_cell.liquid' col: col %}
     {% endfor %}
     </tr>
+    {% if table.sub_columns.size > 0 %}
+      <tr>
+      {% for col in table.sub_columns %}
+        {% include 'query_results/table_header_cell.liquid' col: col %}
+      {% endfor %}
+      </tr>
+    {% endif %}
   </thead>
 {% endif %}
   <tbody>
