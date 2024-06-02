@@ -284,148 +284,286 @@ expression: "&to_value(sttl).unwrap()"
           }
         }
       },
-      "columns": [],
-      "rows": [
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "All platforms"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
         {
           "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "field_layout::bitfields::S"
+            }
+          ],
           "sym": "T_field_layout::bitfields::S",
           "colVals": [],
           "children": [
             {
               "label": [
                 {
-                  "Heading": "field_layout::bitfields::S"
+                  "Text": "b1"
                 }
               ],
-              "sym": "T_field_layout::bitfields::S",
+              "sym": "F_<T_field_layout::bitfields::S>_b1",
               "colVals": [
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": ""
+                      "Text": "unsigned int"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "0"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "bits 0+1"
                     }
                   ]
                 }
               ],
-              "children": [
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
                 {
-                  "label": [
-                    {
-                      "Text": "field_layout::bitfields::S::b1 - unsigned int"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::bitfields::S>_b1",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x0 len 0x0"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::bitfields::S::b2 - unsigned int"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::bitfields::S>_b2",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x0 len 0x0"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::bitfields::S::b3 - unsigned int"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::bitfields::S>_b3",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x0 len 0x0"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::bitfields::S::b4 - unsigned int"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::bitfields::S>_b4",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x1 len 0x0"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::bitfields::S::b5 - unsigned char"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::bitfields::S>_b5",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x2 len 0x0"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "field_layout::bitfields::S::b6 - unsigned short"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::bitfields::S>_b6",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x2 len 0x0"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
+                  "Text": "b2"
                 }
-              ]
+              ],
+              "sym": "F_<T_field_layout::bitfields::S>_b2",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned int"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "0"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "bits 1+3"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Text": "b3"
+                }
+              ],
+              "sym": "F_<T_field_layout::bitfields::S>_b3",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned int"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "0"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "bits 4+7"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Text": "b4"
+                }
+              ],
+              "sym": "F_<T_field_layout::bitfields::S>_b4",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned int"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "bits 3+4"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Text": "b5"
+                }
+              ],
+              "sym": "F_<T_field_layout::bitfields::S>_b5",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned char"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "2"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "bits 0+3"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Text": "b6"
+                }
+              ],
+              "sym": "F_<T_field_layout::bitfields::S>_b6",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned short"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "2"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "bits 3+2"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
             }
-          ]
+          ],
+          "colspan": 4
         }
       ]
     }

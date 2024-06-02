@@ -487,108 +487,211 @@ expression: "&to_value(sttl).unwrap()"
           }
         }
       },
-      "columns": [],
-      "rows": [
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "All platforms"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
         {
           "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "outerNS::OuterCat"
+            }
+          ],
           "sym": "T_outerNS::OuterCat",
           "colVals": [],
           "children": [
             {
               "label": [
                 {
-                  "Heading": "outerNS::OuterCat"
+                  "Text": "mIsFriendly"
                 }
               ],
-              "sym": "T_outerNS::OuterCat",
+              "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
               "colVals": [
                 {
-                  "header": true,
+                  "header": false,
                   "contents": [
                     {
-                      "Text": ""
+                      "Text": "_Bool"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "13"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
                     }
                   ]
                 }
               ],
-              "children": [
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
                 {
-                  "label": [
-                    {
-                      "Text": "outerNS::OuterCat::mIsFriendly - _Bool"
-                    }
-                  ],
-                  "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0xd len 0x1"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "outerNS::OuterCat::mIsSecretlyUnfriendly - _Bool"
-                    }
-                  ],
-                  "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0xe len 0x1"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "outerNS::OuterCat::mOwner - class std::shared_ptr<class outerNS::Human>"
-                    }
-                  ],
-                  "sym": "F_<T_outerNS::OuterCat>_mOwner",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x10 len 0x10"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "label": [
-                    {
-                      "Text": "outerNS::OuterCat::mFavoriteCouch - class outerNS::Couch *"
-                    }
-                  ],
-                  "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "offset 0x20 len 0x8"
-                        }
-                      ]
-                    }
-                  ],
-                  "children": []
+                  "Text": "mIsSecretlyUnfriendly"
                 }
-              ]
+              ],
+              "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "_Bool"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "14"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Text": "mOwner"
+                }
+              ],
+              "sym": "F_<T_outerNS::OuterCat>_mOwner",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "class std::shared_ptr<class outerNS::Human>"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "16"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "16"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Text": "mFavoriteCouch"
+                }
+              ],
+              "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "class outerNS::Couch *"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "32"
+                    }
+                  ]
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "8"
+                    }
+                  ]
+                }
+              ],
+              "children": [],
+              "colspan": 1
             },
             {
               "label": [
@@ -597,21 +700,12 @@ expression: "&to_value(sttl).unwrap()"
                 }
               ],
               "sym": "T_outerNS::Thing",
-              "colVals": [
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": ""
-                    }
-                  ]
-                }
-              ],
+              "colVals": [],
               "children": [
                 {
                   "label": [
                     {
-                      "Text": "outerNS::Thing::mHP - int"
+                      "Text": "mHP"
                     }
                   ],
                   "sym": "F_<T_outerNS::Thing>_mHP",
@@ -620,17 +714,34 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0x8 len 0x4"
+                          "Text": "int"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "4"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 },
                 {
                   "label": [
                     {
-                      "Text": "outerNS::Thing::mDefunct - _Bool"
+                      "Text": "mDefunct"
                     }
                   ],
                   "sym": "F_<T_outerNS::Thing>_mDefunct",
@@ -639,16 +750,35 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "offset 0xc len 0x1"
+                          "Text": "_Bool"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "12"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
                         }
                       ]
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "colspan": 1
                 }
-              ]
+              ],
+              "colspan": 4
             }
-          ]
+          ],
+          "colspan": 4
         }
       ]
     }

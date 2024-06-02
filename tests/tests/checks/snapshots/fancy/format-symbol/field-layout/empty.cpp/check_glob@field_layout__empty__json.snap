@@ -62,33 +62,69 @@ expression: "&to_value(sttl).unwrap()"
           }
         }
       },
-      "columns": [],
-      "rows": [
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "All platforms"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
         {
           "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "field_layout::empty::S"
+            }
+          ],
           "sym": "T_field_layout::empty::S",
           "colVals": [],
-          "children": [
-            {
-              "label": [
-                {
-                  "Heading": "field_layout::empty::S"
-                }
-              ],
-              "sym": "T_field_layout::empty::S",
-              "colVals": [
-                {
-                  "header": true,
-                  "contents": [
-                    {
-                      "Text": ""
-                    }
-                  ]
-                }
-              ],
-              "children": []
-            }
-          ]
+          "children": [],
+          "colspan": 4
         }
       ]
     }
