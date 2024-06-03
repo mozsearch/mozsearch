@@ -866,7 +866,15 @@ impl ClassMap {
                     }
                 }
 
-                field_node.col_vals[0].contents.push(BasicMarkup::Text(type_labels.join(" | ")));
+                let mut first = true;
+                for label in type_labels {
+                    if !first {
+                        field_node.col_vals[0].contents.push(BasicMarkup::Text(" | ".to_string()));
+                        field_node.col_vals[0].contents.push(BasicMarkup::Newline);
+                    }
+                    first = false;
+                    field_node.col_vals[0].contents.push(BasicMarkup::Text(label));
+                }
 
                 class_node.children.push(field_node);
 
