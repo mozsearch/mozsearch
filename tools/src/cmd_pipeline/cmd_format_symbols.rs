@@ -836,17 +836,23 @@ impl ClassMap {
                                 type_labels.push(type_label);
                             }
 
-                            field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                "{}",
-                                field.offset_bytes,
-                            )));
-
                             if let Some(pos) = &field.bit_positions {
                                 field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                    "bits {}+{}",
-                                    pos.begin, pos.width,
+                                    "@ {:#x} + {} bit{}",
+                                    field.offset_bytes,
+                                    pos.begin,
+                                    if pos.begin > 1 { "s" } else { "" }
+                                )));
+                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
+                                    "{} bit{}",
+                                    pos.width,
+                                    if pos.width > 1 { "s" } else { "" }
                                 )));
                             } else {
+                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
+                                    "@ {:#x}",
+                                    field.offset_bytes,
+                                )));
                                 field_node.col_vals.push(SymbolTreeTableCell::text(format!(
                                     "{}",
                                     field.size_bytes.unwrap_or(0),
