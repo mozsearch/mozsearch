@@ -188,7 +188,7 @@ impl FieldsWithHash {
         self.fields.is_empty()
     }
 
-    fn calculate_holes(&mut self, class_size_map: HashMap<SymbolGraphNodeId, u32>) {
+    fn sort(&mut self) {
         self.fields.sort_by(|a, b| {
             let byte_result = a.offset_bytes.cmp(&b.offset_bytes);
             if byte_result != Ordering::Equal {
@@ -202,7 +202,9 @@ impl FieldsWithHash {
                 _ => byte_result
             }
         });
+    }
 
+    fn calculate_holes(&mut self, class_size_map: HashMap<SymbolGraphNodeId, u32>) {
         let mut last_end_offset = 0;
         let mut last_index = 0;
 
@@ -453,7 +455,8 @@ impl FieldsPerPlatform {
 
     // Once all fields are populated, process them for further operation.
     fn finish_populating(&mut self, platform_map: &PlatformMap,
-                         class_size_map: &ClassSizeMap) {
+                         class_size_map: &ClassSizeMap,
+                         has_multiple_inheritance: bool) {
         if !self.platform_agnostic_fields.is_empty() && !self.fields_per_platform.is_empty() {
             // If there are per-platform field and also platform-agnostic field,
             // copy platform-agnostic fields into per-platform fields and perform
@@ -469,10 +472,16 @@ impl FieldsPerPlatform {
         }
 
         if self.fields_per_platform.is_empty() {
-            self.platform_agnostic_fields.calculate_holes(class_size_map.main());
+            self.platform_agnostic_fields.sort();
+            if !has_multiple_inheritance {
+                self.platform_agnostic_fields.calculate_holes(class_size_map.main());
+            }
         } else {
             for (platform_id, fields) in self.fields_per_platform.iter_mut() {
-                fields.calculate_holes(class_size_map.per_platform(&platform_id));
+                fields.sort();
+                if !has_multiple_inheritance {
+                    fields.calculate_holes(class_size_map.per_platform(&platform_id));
+                }
                 fields.calculate_hash();
             }
         }
@@ -551,6 +560,8 @@ struct ClassMap {
     // Platforms grouped by the field layout.
     groups: Vec<(PlatformGroupId, Vec<PlatformId>)>,
 
+    has_multiple_inheritance: bool,
+
     root_sym_id: Option<SymbolGraphNodeId>,
     stt: SymbolTreeTable,
 }
@@ -562,6 +573,7 @@ impl ClassMap {
             class_list: vec![],
             platform_map: PlatformMap::new(),
             groups: vec![],
+            has_multiple_inheritance: false,
             root_sym_id: None,
             stt: SymbolTreeTable::new(),
         }
@@ -619,6 +631,10 @@ impl ClassMap {
                 }
             }
 
+            if structured.supers.len() > 1 {
+                self.has_multiple_inheritance = true;
+            }
+
             for super_info in &structured.supers {
                 let (super_id, _) = self.stt
                     .node_set
@@ -660,7 +676,8 @@ impl ClassMap {
         }
 
         fields_per_platform.finish_populating(&self.platform_map,
-                                              &class_size_map);
+                                              &class_size_map,
+                                              self.has_multiple_inheritance);
 
         self.groups = fields_per_platform.group_platforms(&self.platform_map);
 
@@ -730,23 +747,36 @@ impl ClassMap {
         for class_id in &self.class_list {
             let cls = self.class_map.get(&class_id).unwrap();
 
+            let is_root = cls.id == self.root_sym_id.as_ref().unwrap().clone();
+
             let mut class_node = SymbolTreeTableNode {
                 sym_id: Some(cls.id.clone()),
                 label: vec![
                     BasicMarkup::Heading(
                         format!("{}{}",
                                 cls.name,
-                                if cls.id != self.root_sym_id.as_ref().unwrap().clone() {
-                                    " (base class)"
-                                } else {
-                                    ""
-                                },
+                                if !is_root { " (base class)" } else { "" },
                         ))
                 ],
                 col_vals: vec![],
                 children: vec![],
                 colspan: (1 + column_offset + self.groups.len() * 2) as u32,
             };
+
+            if self.has_multiple_inheritance && is_root {
+                let warn_node = SymbolTreeTableNode {
+                    sym_id: None,
+                    label: vec![
+                        BasicMarkup::ItalicText(
+                            "(The multiple inheritance is not yet supported. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string()
+                        )
+                    ],
+                    col_vals: vec![],
+                    children: vec![],
+                    colspan: (1 + column_offset + self.groups.len() * 2) as u32,
+                };
+                class_node.children.push(warn_node);
+            }
 
             let field_prefix = format!("{}::", cls.name);
 
