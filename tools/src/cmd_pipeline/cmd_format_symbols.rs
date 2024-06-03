@@ -1,4 +1,6 @@
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher, DefaultHasher};
 
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
@@ -6,9 +8,16 @@ use itertools::Itertools;
 
 use super::{
     interface::{
-        BasicMarkup, PipelineCommand, PipelineValues, SymbolTreeTable, SymbolTreeTableCell, SymbolTreeTableList, SymbolTreeTableNode
+        BasicMarkup, PipelineCommand, PipelineValues, SymbolTreeTable, SymbolTreeTableCell, SymbolTreeTableList, SymbolTreeTableNode,
+        SymbolCrossrefInfo,
     },
-    symbol_graph::DerivedSymbolInfo,
+    symbol_graph::{
+        DerivedSymbolInfo, SymbolGraphNodeId,
+    },
+};
+
+use crate::file_format::analysis::{
+    StructuredFieldInfo, StructuredBitPositionInfo,
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -44,6 +53,533 @@ pub struct FormatSymbolsCommand {
     pub args: FormatSymbols,
 }
 
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+struct PlatformId(u32);
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct PlatformGroupId(u32);
+
+// A struct to represent single field.
+#[derive(Clone, Eq, Hash, PartialEq)]
+struct Field {
+    class_id: SymbolGraphNodeId,
+    field_id: SymbolGraphNodeId,
+    type_pretty: String,
+    pretty: String,
+    lineno: u64,
+    offset_bytes: u32,
+    bit_positions: Option<StructuredBitPositionInfo>,
+    size_bytes: Option<u32>,
+}
+
+impl Field {
+    fn new(class_id: SymbolGraphNodeId, field_id: SymbolGraphNodeId,
+           sym_info: &DerivedSymbolInfo, info: &StructuredFieldInfo) -> Self {
+        Self {
+            class_id: class_id,
+            field_id: field_id,
+            type_pretty: info.type_pretty.to_string(),
+            pretty: info.pretty.to_string(),
+            lineno: sym_info.get_def_lno(),
+            offset_bytes: info.offset_bytes,
+            bit_positions: info.bit_positions.clone(),
+            size_bytes: info.size_bytes.clone(),
+        }
+    }
+}
+
+// A container for fields, with pre-calculated hash of fields.
+struct FieldsWithHash {
+    fields: Vec<Field>,
+    hash: u64,
+}
+
+impl FieldsWithHash {
+    fn new() -> Self {
+        Self {
+            fields: vec![],
+            hash: 0,
+        }
+    }
+
+    fn new_with_field(field: Field) -> Self {
+        Self {
+            fields: vec![field],
+            hash: 0,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.fields.is_empty()
+    }
+
+    fn calculate_hash(&mut self) {
+        let mut hasher = DefaultHasher::new();
+        self.fields.hash(&mut hasher);
+        self.hash = hasher.finish();
+    }
+}
+
+// A struct to represent single class, with
+// fields per each platform group.
+struct Class {
+    id: SymbolGraphNodeId,
+    name: String,
+    supers: Vec<SymbolGraphNodeId>,
+    fields: HashMap<SymbolGraphNodeId, HashMap<PlatformGroupId, Field>>,
+    merged_fields: Vec<Vec<Option<Field>>>,
+}
+
+impl Class {
+    fn new(id: SymbolGraphNodeId, name: String) -> Self {
+        Self {
+            id: id,
+            name: name,
+            supers: vec![],
+            fields: HashMap::new(),
+            merged_fields: vec![],
+        }
+    }
+
+    fn add_field(&mut self, group_id: PlatformGroupId, field: Field) {
+        let field_id = field.field_id.clone();
+
+        if let Some(field_variants_map) = self.fields.get_mut(&field_id) {
+            field_variants_map.insert(group_id, field);
+            return;
+        }
+
+        let mut field_variants_map = HashMap::new();
+        field_variants_map.insert(group_id, field);
+        self.fields.insert(field_id, field_variants_map);
+    }
+
+    fn finish_populating(&mut self, groups: &Vec<(PlatformGroupId, Vec<PlatformId>)>) {
+        // Sort the fields based on:
+        //   * Line number
+        //   * Average bit offset of the field
+        //   * Integer encoding of the groups where the field exists
+
+        let mut field_list = vec![];
+
+        for field_variants_map in self.fields.values() {
+            let mut group_bits: u64 = 0;
+            let mut total_lineno: u64 = 0;
+            let mut total_bit_offset: u64 = 0;
+            let mut field_count: u64 = 0;
+
+            let mut field_variants = vec![];
+            for (group_id, _) in groups {
+                match field_variants_map.get(group_id) {
+                    Some(field) => {
+                        total_lineno += field.lineno;
+                        total_bit_offset += (field.offset_bytes as u64) * 8;
+                        if let Some(pos) = &field.bit_positions {
+                            total_bit_offset += pos.begin as u64;
+                        }
+                        group_bits |= 1 << group_id.0;
+
+                        field_count += 1;
+
+                        field_variants.push(Some(field.clone()));
+                    },
+                    None => {
+                        field_variants.push(None);
+                    },
+                }
+            }
+
+            let average_lineno = total_lineno / field_count;
+            let average_bit_offset = total_bit_offset / field_count;
+
+            field_list.push((average_lineno, average_bit_offset, group_bits, field_variants))
+        }
+
+        field_list.sort_by(|a, b| {
+            let result = a.0.cmp(&b.0);
+            if result != Ordering::Equal {
+                return result;
+            }
+
+            let result = a.1.cmp(&b.1);
+            if result != Ordering::Equal {
+                return result;
+            }
+
+            let result = a.2.cmp(&b.2);
+            if result != Ordering::Equal {
+                return result;
+            }
+
+            Ordering::Equal
+        });
+
+        self.merged_fields = field_list
+            .into_iter()
+            .map(|(_, _, _, field_variants)| field_variants)
+            .collect();
+    }
+}
+
+// Collect all platforms appeared in the analysis.
+struct PlatformMap {
+    platform_id_to_name: Vec<String>,
+
+    // The temporary data structure to calculate platform ID.
+    platform_name_to_id: HashMap<String, PlatformId>,
+}
+
+impl PlatformMap {
+    fn new() -> Self {
+        Self {
+            platform_id_to_name: vec![],
+            platform_name_to_id: HashMap::new(),
+        }
+    }
+
+    fn add(&mut self, platform: String) -> PlatformId {
+        if let Some(platform_id) = self.platform_name_to_id.get(&platform) {
+            return platform_id.clone();
+        }
+
+        let platform_id = PlatformId(self.platform_name_to_id.len() as u32);
+        self.platform_id_to_name.push(platform.clone());
+        self.platform_name_to_id.insert(platform, platform_id.clone());
+
+        platform_id
+    }
+
+    fn platform_ids(&self) -> Vec<PlatformId> {
+        self.platform_id_to_name
+            .iter()
+            .enumerate()
+            .map(|(i, _)| PlatformId(i as u32))
+            .collect()
+    }
+
+
+    fn get_name(&self, platform_id: &PlatformId) -> String {
+        self.platform_id_to_name[platform_id.0 as usize].clone()
+    }
+}
+
+fn platform_name_to_order(name: &String) -> u32 {
+    if name.starts_with("win") {
+        return 0;
+    }
+    if name.starts_with("macosx") {
+        return 1;
+    }
+    if name.starts_with("linux") {
+        return 2;
+    }
+    if name.starts_with("android") {
+        return 3;
+    }
+    if name.starts_with("ios") {
+        return 4;
+    }
+    return 5;
+}
+
+// Struct to hold the list of fields for the entire class hierarchy
+// per platform.
+struct FieldsPerPlatform {
+    platform_agnostic_fields: FieldsWithHash,
+    fields_per_platform: HashMap<PlatformId, FieldsWithHash>,
+}
+
+impl FieldsPerPlatform {
+    fn new() -> Self {
+        Self {
+            platform_agnostic_fields: FieldsWithHash::new(),
+            fields_per_platform: HashMap::new(),
+        }
+    }
+
+    fn add_field(&mut self, field: Field) {
+        self.platform_agnostic_fields.fields.push(field);
+    }
+
+    fn add_field_per_platform(&mut self, platform_id: &PlatformId, field: Field) {
+        if let Some(fields) = self.fields_per_platform.get_mut(platform_id) {
+            fields.fields.push(field);
+            return;
+        }
+
+        self.fields_per_platform.insert(platform_id.clone(), FieldsWithHash::new_with_field(field));
+    }
+
+    // Once all fields are populated, process them for further operation.
+    fn finish_populating(&mut self, platform_map: &PlatformMap) {
+        if !self.platform_agnostic_fields.is_empty() && !self.fields_per_platform.is_empty() {
+            // If there are per-platform field and also platform-agnostic field,
+            // copy platform-agnostic fields into per-platform fields and perform
+            // the remaining steps for per-platform fields.
+
+            let platform_agnostic_fields: Vec<Field> = self.platform_agnostic_fields.fields.drain(..).collect();
+
+            for platform_id in &platform_map.platform_ids() {
+                for field in &platform_agnostic_fields {
+                    self.add_field_per_platform(&platform_id, field.clone());
+                }
+            }
+        }
+
+        if !self.fields_per_platform.is_empty() {
+            for fields in self.fields_per_platform.values_mut() {
+                fields.calculate_hash();
+            }
+        }
+    }
+
+    fn group_platforms(&self, platform_map: &PlatformMap) -> Vec<(PlatformGroupId, Vec<PlatformId>)> {
+        if self.fields_per_platform.is_empty() {
+            // If all fields are platform-agnostic, simply return them.
+            return vec![(PlatformGroupId(0), vec![])];
+        }
+
+        // Group platforms by fields.
+        let mut groups: Vec<(u64, Vec<PlatformId>)> = vec![];
+
+        let mut platform_ids = platform_map.platform_ids();
+
+        // Make the order consistent as much as possible across classes.
+        platform_ids.sort_by(|a, b| {
+            let a_name = platform_map.get_name(&a);
+            let b_name = platform_map.get_name(&b);
+
+            let a_order = platform_name_to_order(&a_name);
+            let b_order = platform_name_to_order(&b_name);
+
+            let result = a_order.cmp(&b_order);
+            if result != Ordering::Equal {
+                return result
+            }
+
+            a_name.cmp(&b_name)
+        });
+
+        'next_platform: for platform_id in &platform_ids {
+            if let Some(fields) = self.fields_per_platform.get(&platform_id) {
+                for (hash, platforms) in &mut groups {
+                    if fields.hash == *hash {
+                        let existing = &self.fields_per_platform.get(&platforms[0]).unwrap().fields;
+                        if fields.fields == *existing {
+                            platforms.push(platform_id.clone());
+                            continue 'next_platform;
+                        }
+                    }
+                }
+
+                groups.push((fields.hash, vec![platform_id.clone()]));
+            }
+        }
+
+        groups
+            .into_iter()
+            .enumerate()
+            .map(|(i, (_, platforms))| (PlatformGroupId(i as u32), platforms))
+            .collect()
+    }
+
+    fn get_fields_for_platforms<'a>(&'a self, platform_ids: &Vec<PlatformId>) -> &'a Vec<Field> {
+        if platform_ids.is_empty() {
+            return &self.platform_agnostic_fields.fields;
+        }
+
+        let platform_id = &platform_ids[0];
+        &self.fields_per_platform.get(&platform_id).unwrap().fields
+    }
+}
+
+struct ClassMap {
+    // All processed classes.
+    class_map: HashMap<SymbolGraphNodeId, Class>,
+
+    // The list of classes, in the traverse order.
+    class_list: Vec<SymbolGraphNodeId>,
+
+    // All platforms appeared inside the analysis.
+    platform_map: PlatformMap,
+
+    // Platforms grouped by the field layout.
+    groups: Vec<(PlatformGroupId, Vec<PlatformId>)>,
+
+    root_sym_id: Option<SymbolGraphNodeId>,
+    stt: SymbolTreeTable,
+}
+
+impl ClassMap {
+    fn new() -> Self {
+        Self {
+            class_map: HashMap::new(),
+            class_list: vec![],
+            platform_map: PlatformMap::new(),
+            groups: vec![],
+            root_sym_id: None,
+            stt: SymbolTreeTable::new(),
+        }
+    }
+
+    async fn populate(&mut self, nom_sym_info: SymbolCrossrefInfo,
+                      server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
+        let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
+            nom_sym_info.symbol,
+            nom_sym_info.crossref_info,
+            0,
+        ));
+
+        self.root_sym_id = Some(root_sym_id.clone());
+
+        let mut fields_per_platform = FieldsPerPlatform::new();
+
+        let mut pending_ids = VecDeque::new();
+        pending_ids.push_back(root_sym_id);
+
+        while let Some(sym_id) = pending_ids.pop_front() {
+            let sym_info = self.stt.node_set.get(&sym_id);
+            let depth = sym_info.depth;
+            let Some(structured) = sym_info.get_structured() else {
+                continue;
+            };
+
+            let mut cls = Class::new(
+                sym_id.clone(),
+                structured.pretty.to_string(),
+            );
+
+            for super_info in &structured.supers {
+                let (super_id, _) = self.stt
+                    .node_set
+                    .ensure_symbol(&super_info.sym, server, depth + 1)
+                    .await?;
+                cls.supers.push(super_id.clone());
+
+                pending_ids.push_back(super_id);
+            }
+            self.class_list.push(cls.id.clone());
+            self.class_map.insert(cls.id.clone(), cls);
+
+            let platforms_and_fields = structured.fields_across_all_variants();
+            for (platforms, fields) in platforms_and_fields {
+                let mut platform_ids = vec![];
+
+                for platform in &platforms {
+                    let platform_id = self.platform_map.add(platform.clone());
+                    platform_ids.push(platform_id);
+                }
+
+                for field in fields {
+                    let (field_id, field_info) = self.stt
+                        .node_set
+                        .ensure_symbol(&field.sym, server, depth + 1)
+                        .await?;
+
+                    let field = Field::new(sym_id.clone(), field_id.clone(), field_info, &field);
+
+                    if platform_ids.is_empty() {
+                        fields_per_platform.add_field(field);
+                    } else {
+                        for platform_id in &platform_ids {
+                            fields_per_platform.add_field_per_platform(&platform_id, field.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        fields_per_platform.finish_populating(&self.platform_map);
+
+        self.groups = fields_per_platform.group_platforms(&self.platform_map);
+
+        for (group_id, platforms) in &self.groups {
+            for field in fields_per_platform.get_fields_for_platforms(platforms) {
+                let cls = self.class_map.get_mut(&field.class_id).unwrap();
+                cls.add_field(group_id.clone(), field.clone());
+            }
+        }
+
+        for cls in self.class_map.values_mut() {
+            cls.finish_populating(&self.groups);
+        }
+
+        Ok(())
+    }
+
+    fn generate_tables(mut self, tables: &mut Vec<SymbolTreeTable>) {
+        let mut root_node = SymbolTreeTableNode {
+            sym_id: self.root_sym_id.clone(),
+            label: vec![],
+            col_vals: vec![],
+            children: vec![],
+        };
+
+        for class_id in &self.class_list {
+            let cls = self.class_map.get(&class_id).unwrap();
+
+            let mut class_node = SymbolTreeTableNode {
+                sym_id: Some(cls.id.clone()),
+                label: vec![BasicMarkup::Heading(cls.name.clone())],
+                col_vals: vec![],
+                children: vec![],
+            };
+
+            for (_, platforms) in &self.groups {
+                class_node.col_vals.push(SymbolTreeTableCell::header_text(
+                    platforms
+                        .iter()
+                        .map(|platform_id| self.platform_map.get_name(&platform_id))
+                        .join(" ")
+                        .to_owned(),
+                ));
+            }
+
+            for field_variants in &cls.merged_fields {
+                let mut field_node = SymbolTreeTableNode {
+                    sym_id: None,
+                    label: vec![],
+                    col_vals: vec![],
+                    children: vec![],
+                };
+
+                for maybe_field in field_variants {
+                    match maybe_field {
+                        Some(field) => {
+                            if field_node.sym_id.is_none() {
+                                field_node.sym_id = Some(field.field_id.clone());
+                                field_node.label =
+                                    vec![BasicMarkup::Text(match &field.type_pretty.is_empty() {
+                                        false => format!(
+                                            "{} - {}",
+                                            field.pretty, field.type_pretty
+                                        ),
+                                        true => format!("{}", field.pretty),
+                                    })];
+                            }
+                            field_node.col_vals.push(SymbolTreeTableCell::text(format!(
+                                "offset {:#x} len {:#x}",
+                                field.offset_bytes,
+                                field.size_bytes.unwrap_or(0),
+                            )));
+                        }
+                        None => {
+                            field_node.col_vals.push(SymbolTreeTableCell::empty());
+                        }
+                    }
+                }
+
+                class_node.children.push(field_node);
+            }
+
+            root_node.children.push(class_node);
+        }
+
+        self.stt.rows.push(root_node);
+        tables.push(self.stt);
+    }
+}
+
 #[async_trait]
 impl PipelineCommand for FormatSymbolsCommand {
     async fn execute(
@@ -66,118 +602,9 @@ impl PipelineCommand for FormatSymbolsCommand {
                 let mut tables = vec![];
 
                 for nom_sym_info in cil.symbol_crossref_infos {
-                    let mut stt = SymbolTreeTable::new();
-                    let (root_sym_id, _) = stt.node_set.add_symbol(DerivedSymbolInfo::new(
-                        nom_sym_info.symbol,
-                        nom_sym_info.crossref_info,
-                        0,
-                    ));
-
-                    let mut pending_ids = VecDeque::new();
-                    pending_ids.push_back(root_sym_id.clone());
-
-                    let mut root_node = SymbolTreeTableNode {
-                        sym_id: Some(root_sym_id),
-                        label: vec![],
-                        col_vals: vec![],
-                        children: vec![],
-                    };
-
-                    while let Some(sym_id) = pending_ids.pop_front() {
-                        let sym_info = stt.node_set.get(&sym_id);
-                        let depth = sym_info.depth;
-                        let Some(structured) = sym_info.get_structured() else {
-                            continue;
-                        };
-
-                        for super_info in &structured.supers {
-                            let (super_id, _) = stt
-                                .node_set
-                                .ensure_symbol(&super_info.sym, server, depth + 1)
-                                .await?;
-                            pending_ids.push_back(super_id);
-                        }
-
-                        let mut class_node = SymbolTreeTableNode {
-                            sym_id: Some(sym_id),
-                            label: vec![BasicMarkup::Heading(structured.pretty.to_string())],
-                            col_vals: vec![],
-                            children: vec![],
-                        };
-
-                        let platforms_and_fields = structured.fields_across_all_variants();
-                        let mut per_plat_fields_by_defloc = vec![];
-                        for (platforms, fields) in platforms_and_fields {
-                            let plat_idx = class_node.col_vals.len();
-                            class_node.col_vals.push(SymbolTreeTableCell::header_text(
-                                platforms.join(" ").to_owned(),
-                            ));
-                            let mut plat_fields_by_defloc = vec![];
-                            for field in fields {
-                                let (field_id, field_info) = stt
-                                    .node_set
-                                    .ensure_symbol(&field.sym, server, depth + 1)
-                                    .await?;
-                                plat_fields_by_defloc.push((
-                                    field_info.get_def_lno(),
-                                    plat_idx,
-                                    field,
-                                    field_id,
-                                ));
-                            }
-                            plat_fields_by_defloc.sort_by_key(|ft| ft.0);
-                            per_plat_fields_by_defloc.push(plat_fields_by_defloc);
-                        }
-
-                        for (_lno, group) in &per_plat_fields_by_defloc
-                            .into_iter()
-                            // merge in order of lexical line number of the field definition
-                            .kmerge_by(|a, b| a.0 < b.0)
-                            // and then also group on that line number
-                            .group_by(|x| x.0)
-                        {
-                            let mut field_node = SymbolTreeTableNode {
-                                sym_id: None,
-                                label: vec![],
-                                col_vals: vec![],
-                                children: vec![],
-                            };
-                            // and then within the group let's process in order of increasing platform to match the columns.
-                            for (_lno, plat_idx, field_info, field_id) in
-                                group.sorted_by_key(|pfi| pfi.1)
-                            {
-                                if field_node.sym_id.is_none() {
-                                    field_node.sym_id = Some(field_id);
-                                    field_node.label =
-                                        vec![BasicMarkup::Text(match &field_info.type_pretty.is_empty() {
-                                            false => format!(
-                                                "{} - {}",
-                                                field_info.pretty, field_info.type_pretty
-                                            ),
-                                            true => format!("{}", field_info.pretty),
-                                        })];
-                                }
-                                while field_node.col_vals.len() < plat_idx {
-                                    field_node.col_vals.push(SymbolTreeTableCell::empty());
-                                }
-                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                    "offset {:#x} len {:#x}",
-                                    field_info.offset_bytes,
-                                    field_info.size_bytes.unwrap_or(0),
-                                )));
-
-                                // XXX uh, for at least IDBFactory some weird stuff happens for mRefCnt.
-                                if field_node.col_vals.len() >= class_node.col_vals.len() {
-                                    break;
-                                }
-                            }
-                            class_node.children.push(field_node);
-                        }
-                        root_node.children.push(class_node);
-                    }
-
-                    stt.rows.push(root_node);
-                    tables.push(stt);
+                    let mut map = ClassMap::new();
+                    map.populate(nom_sym_info, server).await?;
+                    map.generate_tables(&mut tables);
                 }
 
                 Ok(PipelineValues::SymbolTreeTableList(SymbolTreeTableList {

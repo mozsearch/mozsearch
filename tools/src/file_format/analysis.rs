@@ -251,7 +251,7 @@ where
     pub args: Vec<StructuredArgInfo<StrT>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct StructuredBitPositionInfo {
     pub begin: u32,
     pub width: u32,

@@ -189,7 +189,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": true,
                   "contents": [
                     {
-                      "Text": "linux64 macosx64"
+                      "Text": "macosx64 linux64"
                     }
                   ]
                 }
