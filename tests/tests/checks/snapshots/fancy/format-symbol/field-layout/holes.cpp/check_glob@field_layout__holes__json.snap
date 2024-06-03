@@ -414,7 +414,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "unsigned char"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -422,7 +423,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "12"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -430,7 +432,30 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "1"
                     }
-                  ]
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [],
+              "sym": null,
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "3 bytes hole"
+                    }
+                  ],
+                  "colspan": 2
                 }
               ],
               "children": [],
@@ -450,7 +475,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "unsigned int"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -458,7 +484,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "16"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -466,7 +493,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "4"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 }
               ],
               "children": [],
@@ -495,7 +523,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "unsigned char"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -503,7 +532,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "0"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -511,7 +541,30 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "1"
                         }
-                      ]
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                },
+                {
+                  "label": [],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1 byte hole"
+                        }
+                      ],
+                      "colspan": 2
                     }
                   ],
                   "children": [],
@@ -531,7 +584,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "unsigned short"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -539,7 +593,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "2"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -547,7 +602,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "2"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     }
                   ],
                   "children": [],
@@ -567,7 +623,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "unsigned int"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -575,7 +632,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "4"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -583,7 +641,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "4"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     }
                   ],
                   "children": [],
@@ -603,7 +662,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "char"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -611,7 +671,8 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "8"
                         }
-                      ]
+                      ],
+                      "colspan": 1
                     },
                     {
                       "header": false,
@@ -619,7 +680,30 @@ expression: "&to_value(sttl).unwrap()"
                         {
                           "Text": "1"
                         }
-                      ]
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                },
+                {
+                  "label": [],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "3 bytes padding"
+                        }
+                      ],
+                      "colspan": 2
                     }
                   ],
                   "children": [],

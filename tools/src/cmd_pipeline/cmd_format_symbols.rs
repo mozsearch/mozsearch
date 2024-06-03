@@ -59,7 +59,7 @@ struct PlatformId(u32);
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct PlatformGroupId(u32);
 
-// A struct to represent single field.
+// A struct to represent single field and hole before the field.
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct Field {
     class_id: SymbolGraphNodeId,
@@ -67,6 +67,9 @@ struct Field {
     type_pretty: String,
     pretty: String,
     lineno: u64,
+    hole_bytes: Option<u32>,
+    hole_after_base: bool,
+    end_padding_bytes: Option<u32>,
     offset_bytes: u32,
     bit_positions: Option<StructuredBitPositionInfo>,
     size_bytes: Option<u32>,
@@ -81,10 +84,82 @@ impl Field {
             type_pretty: info.type_pretty.to_string(),
             pretty: info.pretty.to_string(),
             lineno: sym_info.get_def_lno(),
+            hole_bytes: None,
+            hole_after_base: false,
+            end_padding_bytes: None,
             offset_bytes: info.offset_bytes,
             bit_positions: info.bit_positions.clone(),
             size_bytes: info.size_bytes.clone(),
         }
+    }
+}
+
+struct ClassSize {
+    main_size: u32,
+    per_platform: HashMap<PlatformId, u32>,
+}
+
+impl ClassSize {
+    fn new(size: u32) -> Self {
+        Self {
+            main_size: size,
+            per_platform: HashMap::new(),
+        }
+    }
+
+    fn set_per_platform(&mut self, platform_id: PlatformId, size: u32) {
+        self.per_platform.insert(platform_id, size);
+    }
+}
+
+struct ClassSizeMap {
+    map: HashMap<SymbolGraphNodeId, ClassSize>,
+}
+
+impl ClassSizeMap {
+    fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    fn set(&mut self, class_id: SymbolGraphNodeId, size: u32) {
+        self.map.insert(class_id, ClassSize::new(size));
+    }
+
+    fn set_per_platform(&mut self, platform_id: PlatformId, class_id: SymbolGraphNodeId, size: u32) {
+        if let Some(class_size) = self.map.get_mut(&class_id) {
+            class_size.set_per_platform(platform_id, size);
+            return;
+        }
+
+        let mut class_size = ClassSize::new(size.clone());
+        class_size.set_per_platform(platform_id, size);
+        self.map.insert(class_id, class_size);
+    }
+
+    fn main(&self) -> HashMap<SymbolGraphNodeId, u32> {
+        let mut result = HashMap::new();
+
+        for (class_id, class_size) in &self.map {
+            result.insert(class_id.clone(), class_size.main_size);
+        }
+
+        result
+    }
+
+    fn per_platform(&self, platform_id: &PlatformId) -> HashMap<SymbolGraphNodeId, u32> {
+        let mut result = HashMap::new();
+
+        for (class_id, class_size) in &self.map {
+            let size = match class_size.per_platform.get(platform_id) {
+                Some(size) => *size,
+                None => class_size.main_size,
+            };
+            result.insert(class_id.clone(), size);
+        }
+
+        result
     }
 }
 
@@ -111,6 +186,72 @@ impl FieldsWithHash {
 
     fn is_empty(&self) -> bool {
         self.fields.is_empty()
+    }
+
+    fn calculate_holes(&mut self, class_size_map: HashMap<SymbolGraphNodeId, u32>) {
+        self.fields.sort_by(|a, b| {
+            let byte_result = a.offset_bytes.cmp(&b.offset_bytes);
+            if byte_result != Ordering::Equal {
+                return byte_result;
+            }
+
+            match (&a.bit_positions, &b.bit_positions) {
+                (Some(a_pos), Some(b_pos)) => {
+                    a_pos.begin.cmp(&b_pos.begin)
+                }
+                _ => byte_result
+            }
+        });
+
+        let mut last_end_offset = 0;
+        let mut last_index = 0;
+
+        let len = self.fields.len();
+
+        for index in 0..len {
+            if self.fields[index].offset_bytes > last_end_offset {
+                if index != last_index {
+                    if self.fields[last_index].class_id != self.fields[index].class_id {
+                        let last_class_id = &self.fields[last_index].class_id;
+                        if let Some(size) = class_size_map.get(last_class_id) {
+                            if last_end_offset < *size {
+                                self.fields[last_index].end_padding_bytes = Some(size - last_end_offset);
+                            }
+                            last_end_offset = *size;
+                        }
+
+                        self.fields[index].hole_after_base = true;
+                    }
+                }
+
+                if self.fields[index].offset_bytes > last_end_offset {
+                    self.fields[index].hole_bytes = Some(self.fields[index].offset_bytes - last_end_offset);
+                }
+            }
+
+            last_index = index;
+
+            if let Some(pos) = &self.fields[index].bit_positions {
+                let end = self.fields[index].offset_bytes + (pos.begin + pos.width + 7) / 8;
+                if end > last_end_offset {
+                    last_end_offset = end;
+                }
+                continue;
+            }
+
+            if let Some(size) = &self.fields[index].size_bytes {
+                last_end_offset = self.fields[index].offset_bytes + size;
+            }
+        }
+
+        if !self.fields.is_empty() {
+            let last_class_id = &self.fields[last_index].class_id;
+            if let Some(size) = class_size_map.get(last_class_id) {
+                if last_end_offset < *size {
+                    self.fields[last_index].end_padding_bytes = Some(size - last_end_offset);
+                }
+            }
+        }
     }
 
     fn calculate_hash(&mut self) {
@@ -283,7 +424,7 @@ fn platform_name_to_order(name: &String) -> u32 {
 }
 
 // Struct to hold the list of fields for the entire class hierarchy
-// per platform.
+// per platform, and calculate the hole between them.
 struct FieldsPerPlatform {
     platform_agnostic_fields: FieldsWithHash,
     fields_per_platform: HashMap<PlatformId, FieldsWithHash>,
@@ -311,7 +452,8 @@ impl FieldsPerPlatform {
     }
 
     // Once all fields are populated, process them for further operation.
-    fn finish_populating(&mut self, platform_map: &PlatformMap) {
+    fn finish_populating(&mut self, platform_map: &PlatformMap,
+                         class_size_map: &ClassSizeMap) {
         if !self.platform_agnostic_fields.is_empty() && !self.fields_per_platform.is_empty() {
             // If there are per-platform field and also platform-agnostic field,
             // copy platform-agnostic fields into per-platform fields and perform
@@ -326,8 +468,11 @@ impl FieldsPerPlatform {
             }
         }
 
-        if !self.fields_per_platform.is_empty() {
-            for fields in self.fields_per_platform.values_mut() {
+        if self.fields_per_platform.is_empty() {
+            self.platform_agnostic_fields.calculate_holes(class_size_map.main());
+        } else {
+            for (platform_id, fields) in self.fields_per_platform.iter_mut() {
+                fields.calculate_holes(class_size_map.per_platform(&platform_id));
                 fields.calculate_hash();
             }
         }
@@ -432,6 +577,8 @@ impl ClassMap {
 
         self.root_sym_id = Some(root_sym_id.clone());
 
+        let mut class_size_map = ClassSizeMap::new();
+
         let mut fields_per_platform = FieldsPerPlatform::new();
 
         let mut pending_ids = VecDeque::new();
@@ -448,6 +595,29 @@ impl ClassMap {
                 sym_id.clone(),
                 structured.pretty.to_string(),
             );
+
+            if let Some(size) = &structured.size_bytes {
+                let platforms = structured.platforms();
+                if platforms.is_empty() {
+                    class_size_map.set(cls.id.clone(), *size);
+                } else {
+                    for platform in platforms {
+                        let platform_id = self.platform_map.add(platform.clone());
+                        class_size_map.set_per_platform(platform_id, cls.id.clone(), *size);
+                    }
+                }
+            }
+
+            let variants = structured.variants();
+            for v in variants {
+                if let Some(size) = &v.size_bytes {
+                    let platforms = v.platforms();
+                    for platform in platforms {
+                        let platform_id = self.platform_map.add(platform.clone());
+                        class_size_map.set_per_platform(platform_id, cls.id.clone(), *size);
+                    }
+                }
+            }
 
             for super_info in &structured.supers {
                 let (super_id, _) = self.stt
@@ -489,7 +659,8 @@ impl ClassMap {
             }
         }
 
-        fields_per_platform.finish_populating(&self.platform_map);
+        fields_per_platform.finish_populating(&self.platform_map,
+                                              &class_size_map);
 
         self.groups = fields_per_platform.group_platforms(&self.platform_map);
 
@@ -570,6 +741,62 @@ impl ClassMap {
             let field_prefix = format!("{}::", cls.name);
 
             for field_variants in &cls.merged_fields {
+                let mut has_hole = false;
+                for maybe_field in field_variants {
+                    if let Some(field) = &maybe_field {
+                        if field.hole_bytes.is_some() {
+                            has_hole = true;
+                            break;
+                        }
+                    }
+                }
+
+                if has_hole {
+                    let mut hole_node = SymbolTreeTableNode {
+                        sym_id: None,
+                        label: vec![],
+                        col_vals: vec![],
+                        children: vec![],
+                        colspan: 1,
+                    };
+
+                    hole_node.col_vals.push(SymbolTreeTableCell::empty());
+
+                    for maybe_field in field_variants {
+                        match maybe_field {
+                            Some(field) => {
+                                let hole_bytes = field.hole_bytes.unwrap_or(0);
+                                if hole_bytes == 0 {
+                                    hole_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                    continue;
+                                }
+
+                                hole_node.col_vals.push(SymbolTreeTableCell::text_colspan(format!(
+                                    "{} byte{} hole{}",
+                                    hole_bytes,
+                                    if hole_bytes == 1 {
+                                        ""
+                                    } else {
+                                        "s"
+                                    },
+                                    if field.hole_after_base {
+                                        " after super class"
+                                    } else {
+                                        ""
+                                    }
+                                ), 2));
+                            },
+                            None => {
+                                if maybe_field.is_none() {
+                                    hole_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                }
+                            }
+                        }
+                    }
+
+                    class_node.children.push(hole_node);
+                }
+
                 let mut field_node = SymbolTreeTableNode {
                     sym_id: None,
                     label: vec![],
@@ -623,6 +850,57 @@ impl ClassMap {
                 }
 
                 class_node.children.push(field_node);
+
+                let mut has_end_padding = false;
+                for maybe_field in field_variants {
+                    if let Some(field) = &maybe_field {
+                        if field.end_padding_bytes.is_some() {
+                            has_end_padding = true;
+                            break;
+                        }
+                    }
+                }
+
+                if has_end_padding {
+                    let mut end_padding_node = SymbolTreeTableNode {
+                        sym_id: None,
+                        label: vec![],
+                        col_vals: vec![],
+                        children: vec![],
+                        colspan: 1,
+                    };
+
+                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty());
+
+                    for maybe_field in field_variants {
+                        match maybe_field {
+                            Some(field) => {
+                                let end_padding_bytes = field.end_padding_bytes.unwrap_or(0);
+                                if end_padding_bytes == 0 {
+                                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                    continue;
+                                }
+
+                                end_padding_node.col_vals.push(SymbolTreeTableCell::text_colspan(format!(
+                                    "{} byte{} padding",
+                                    end_padding_bytes,
+                                    if end_padding_bytes == 1 {
+                                        ""
+                                    } else {
+                                        "s"
+                                    }
+                                ), 2));
+                            },
+                            None => {
+                                if maybe_field.is_none() {
+                                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                }
+                            }
+                        }
+                    }
+
+                    class_node.children.push(end_padding_node);
+                }
             }
 
             match &mut root_node {

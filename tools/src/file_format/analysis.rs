@@ -559,13 +559,17 @@ where
         }
     }
 
+    pub fn variants(&self) -> Vec<AnalysisStructured<StrT>> {
+        match self.extra.get("variants") {
+            Some(val) => from_value(val.clone()).unwrap_or_default(),
+            _ => vec![]
+        }
+    }
+
     // TODO: As mentioned on `fields`, we need to unify things during crossref
     // otherwise we may be blind to some fields for our fancy magic.
     pub fn fields_across_all_variants(&self) -> Vec<(Vec<String>, Vec<StructuredFieldInfo<StrT>>)> {
-        let variants: Vec<AnalysisStructured<StrT>> = match self.extra.get("variants") {
-            Some(val) => from_value(val.clone()).unwrap_or_default(),
-            _ => vec![]
-        };
+        let variants = self.variants();
         // XXX at least for things that are subclassed it seems like we can end up with multiple
         // structured representations right now, so we need to keep track of platforms we've seen
         // so we can avoid adding them a subsequent time.
