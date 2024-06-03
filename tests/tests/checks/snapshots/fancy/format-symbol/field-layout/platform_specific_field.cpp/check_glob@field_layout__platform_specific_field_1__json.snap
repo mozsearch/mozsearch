@@ -655,7 +655,15 @@ expression: "&to_value(sttl).unwrap()"
                   "header": true,
                   "contents": [
                     {
-                      "Text": "macosx64 win64"
+                      "Text": "win64"
+                    }
+                  ]
+                },
+                {
+                  "header": true,
+                  "contents": [
+                    {
+                      "Text": "macosx64"
                     }
                   ]
                 },
@@ -689,6 +697,14 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
+                          "Text": "offset 0xc len 0x1"
+                        }
+                      ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
                           "Text": "offset 0xd len 0x1"
                         }
                       ]
@@ -710,7 +726,15 @@ expression: "&to_value(sttl).unwrap()"
                   "header": true,
                   "contents": [
                     {
-                      "Text": "macosx64 win64"
+                      "Text": "win64"
+                    }
+                  ]
+                },
+                {
+                  "header": true,
+                  "contents": [
+                    {
+                      "Text": "macosx64"
                     }
                   ]
                 },
@@ -747,6 +771,14 @@ expression: "&to_value(sttl).unwrap()"
                           "Text": "offset 0x8 len 0x4"
                         }
                       ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x8 len 0x4"
+                        }
+                      ]
                     }
                   ],
                   "children": []
@@ -759,6 +791,10 @@ expression: "&to_value(sttl).unwrap()"
                   ],
                   "sym": "F_<T_field_layout::platform_specific_field::S2>_f5",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": []
+                    },
                     {
                       "header": false,
                       "contents": []
@@ -796,7 +832,15 @@ expression: "&to_value(sttl).unwrap()"
                   "header": true,
                   "contents": [
                     {
-                      "Text": "linux64 macosx64"
+                      "Text": "macosx64"
+                    }
+                  ]
+                },
+                {
+                  "header": true,
+                  "contents": [
+                    {
+                      "Text": "linux64"
                     }
                   ]
                 }
@@ -810,6 +854,14 @@ expression: "&to_value(sttl).unwrap()"
                   ],
                   "sym": "F_<T_field_layout::platform_specific_field::S1>_f1",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x0 len 0x4"
+                        }
+                      ]
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -848,6 +900,14 @@ expression: "&to_value(sttl).unwrap()"
                           "Text": "offset 0x4 len 0x4"
                         }
                       ]
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "offset 0x4 len 0x4"
+                        }
+                      ]
                     }
                   ],
                   "children": []
@@ -867,6 +927,14 @@ expression: "&to_value(sttl).unwrap()"
                           "Text": "offset 0x4 len 0x1"
                         }
                       ]
+                    },
+                    {
+                      "header": false,
+                      "contents": []
+                    },
+                    {
+                      "header": false,
+                      "contents": []
                     }
                   ],
                   "children": []
