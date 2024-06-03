@@ -1,4 +1,4 @@
-use std::collections::{VecDeque, HashMap};
+use std::collections::{VecDeque, HashMap, HashSet};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher, DefaultHasher};
 
@@ -807,6 +807,9 @@ impl ClassMap {
 
                 field_node.col_vals.push(SymbolTreeTableCell::empty());
 
+                let mut type_labels = vec![];
+                let mut type_label_set = HashSet::new();
+
                 for maybe_field in field_variants {
                     match maybe_field {
                         Some(field) => {
@@ -816,13 +819,15 @@ impl ClassMap {
                                 let mut pretty = field.pretty.clone();
                                 pretty = pretty.replace(&field_prefix, "");
                                 field_node.label = vec![BasicMarkup::Text(format!("{}", pretty))];
+                            }
 
-                                let type_label = match &field.type_pretty.is_empty() {
-                                    false => format!("{}", field.type_pretty),
-                                    true => "".to_string(),
-                                };
-
-                                field_node.col_vals[0].contents.push(BasicMarkup::Text(type_label));
+                            let type_label = match &field.type_pretty.is_empty() {
+                                false => format!("{}", field.type_pretty),
+                                true => "".to_string(),
+                            };
+                            if !type_label_set.contains(&type_label) {
+                                type_label_set.insert(type_label.clone());
+                                type_labels.push(type_label);
                             }
 
                             field_node.col_vals.push(SymbolTreeTableCell::text(format!(
@@ -848,6 +853,8 @@ impl ClassMap {
                         }
                     }
                 }
+
+                field_node.col_vals[0].contents.push(BasicMarkup::Text(type_labels.join(" | ")));
 
                 class_node.children.push(field_node);
 

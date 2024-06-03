@@ -260,7 +260,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "unsigned long"
+                      "Text": "unsigned long | unsigned int"
                     }
                   ],
                   "colspan": 1
