@@ -781,16 +781,12 @@ impl ClassMap {
                                     continue;
                                 }
 
-                                hole_node.col_vals.push(SymbolTreeTableCell::text_colspan(format!(
+                                hole_node.col_vals.push(SymbolTreeTableCell::italic_text_colspan(format!(
                                     "{} byte{} hole{}",
                                     hole_bytes,
-                                    if hole_bytes == 1 {
-                                        ""
-                                    } else {
-                                        "s"
-                                    },
+                                    if hole_bytes > 1 { "s" } else { "" },
                                     if field.hole_after_base {
-                                        " after super class"
+                                        " after base class"
                                     } else {
                                         ""
                                     }
@@ -898,14 +894,10 @@ impl ClassMap {
                                     continue;
                                 }
 
-                                end_padding_node.col_vals.push(SymbolTreeTableCell::text_colspan(format!(
+                                end_padding_node.col_vals.push(SymbolTreeTableCell::italic_text_colspan(format!(
                                     "{} byte{} padding",
                                     end_padding_bytes,
-                                    if end_padding_bytes == 1 {
-                                        ""
-                                    } else {
-                                        "s"
-                                    }
+                                    if end_padding_bytes > 1 { "s" } else { "" }
                                 ), 2));
                             },
                             None => {
