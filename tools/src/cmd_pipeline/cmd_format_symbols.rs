@@ -732,7 +732,17 @@ impl ClassMap {
 
             let mut class_node = SymbolTreeTableNode {
                 sym_id: Some(cls.id.clone()),
-                label: vec![BasicMarkup::Heading(cls.name.clone())],
+                label: vec![
+                    BasicMarkup::Heading(
+                        format!("{}{}",
+                                cls.name,
+                                if cls.id != self.root_sym_id.as_ref().unwrap().clone() {
+                                    " (base class)"
+                                } else {
+                                    ""
+                                },
+                        ))
+                ],
                 col_vals: vec![],
                 children: vec![],
                 colspan: (1 + column_offset + self.groups.len() * 2) as u32,
