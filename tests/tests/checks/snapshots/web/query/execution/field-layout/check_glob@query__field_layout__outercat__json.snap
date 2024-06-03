@@ -570,7 +570,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "13"
+                      "Text": "@ 0xd"
                     }
                   ],
                   "colspan": 1
@@ -609,7 +609,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "14"
+                      "Text": "@ 0xe"
                     }
                   ],
                   "colspan": 1
@@ -640,7 +640,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "1 byte hole"
+                      "ItalicText": "1 byte hole"
                     }
                   ],
                   "colspan": 2
@@ -670,7 +670,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "16"
+                      "Text": "@ 0x10"
                     }
                   ],
                   "colspan": 1
@@ -709,7 +709,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "32"
+                      "Text": "@ 0x20"
                     }
                   ],
                   "colspan": 1
@@ -730,7 +730,7 @@ expression: "&to_value(sttl).unwrap()"
             {
               "label": [
                 {
-                  "Heading": "outerNS::Thing"
+                  "Heading": "outerNS::Thing (base class)"
                 }
               ],
               "sym": "T_outerNS::Thing",
@@ -749,7 +749,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "8 bytes hole"
+                          "ItalicText": "8 bytes hole"
                         }
                       ],
                       "colspan": 2
@@ -779,7 +779,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "8"
+                          "Text": "@ 0x8"
                         }
                       ],
                       "colspan": 1
@@ -818,7 +818,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "12"
+                          "Text": "@ 0xc"
                         }
                       ],
                       "colspan": 1
