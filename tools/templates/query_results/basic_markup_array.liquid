@@ -1,6 +1,10 @@
 {% for piece in markup %}
   {% if piece contains "Heading" %}
     <h3>{{ piece.Heading | escape }}</h3>
+  {% elsif piece contains "ItalicText" %}
+    <i>{{ piece.ItalicText | escape }}</i>
+  {% elsif piece contains "Newline" %}
+    <br>
   {% elsif piece contains "Text" %}
     {{ piece.Text | escape }}
   {% endif %}

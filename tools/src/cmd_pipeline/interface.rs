@@ -134,6 +134,8 @@ pub enum BasicMarkup {
     // This is just text, it doesn't need to go in a tag at all.  It will get
     // escaped.
     Text(String),
+    ItalicText(String),
+    Newline,
     // This is text that should link to a query endpoint.  For now we just point
     // it at the "default" config, but one might imagine that we might propagate
     // the current config in use through to any subsequent links.  We might also
@@ -185,6 +187,14 @@ impl SymbolTreeTableCell {
         Self {
             header: false,
             contents: vec![BasicMarkup::Text(s)],
+            colspan: colspan,
+        }
+    }
+
+    pub fn italic_text_colspan(s: String, colspan: u32) -> Self {
+        Self {
+            header: false,
+            contents: vec![BasicMarkup::ItalicText(s)],
             colspan: colspan,
         }
     }
