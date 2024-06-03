@@ -421,7 +421,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "12"
+                      "Text": "@ 0xc"
                     }
                   ],
                   "colspan": 1
@@ -452,7 +452,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "3 bytes hole"
+                      "ItalicText": "3 bytes hole"
                     }
                   ],
                   "colspan": 2
@@ -482,7 +482,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "16"
+                      "Text": "@ 0x10"
                     }
                   ],
                   "colspan": 1
@@ -503,7 +503,7 @@ expression: "&to_value(sttl).unwrap()"
             {
               "label": [
                 {
-                  "Heading": "field_layout::holes::Base"
+                  "Heading": "field_layout::holes::Base (base class)"
                 }
               ],
               "sym": "T_field_layout::holes::Base",
@@ -530,7 +530,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "0"
+                          "Text": "@ 0x0"
                         }
                       ],
                       "colspan": 1
@@ -561,7 +561,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "1 byte hole"
+                          "ItalicText": "1 byte hole"
                         }
                       ],
                       "colspan": 2
@@ -591,7 +591,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "2"
+                          "Text": "@ 0x2"
                         }
                       ],
                       "colspan": 1
@@ -630,7 +630,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "4"
+                          "Text": "@ 0x4"
                         }
                       ],
                       "colspan": 1
@@ -669,7 +669,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "8"
+                          "Text": "@ 0x8"
                         }
                       ],
                       "colspan": 1
@@ -700,7 +700,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "3 bytes padding"
+                          "ItalicText": "3 bytes padding"
                         }
                       ],
                       "colspan": 2

@@ -767,7 +767,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "12"
+                      "Text": "@ 0xc"
                     }
                   ],
                   "colspan": 1
@@ -785,7 +785,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "12"
+                      "Text": "@ 0xc"
                     }
                   ],
                   "colspan": 1
@@ -803,7 +803,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "13"
+                      "Text": "@ 0xd"
                     }
                   ],
                   "colspan": 1
@@ -834,7 +834,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "3 bytes padding"
+                      "ItalicText": "3 bytes padding"
                     }
                   ],
                   "colspan": 2
@@ -843,7 +843,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "3 bytes padding"
+                      "ItalicText": "3 bytes padding"
                     }
                   ],
                   "colspan": 2
@@ -852,7 +852,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "2 bytes padding"
+                      "ItalicText": "2 bytes padding"
                     }
                   ],
                   "colspan": 2
@@ -864,7 +864,7 @@ expression: "&to_value(sttl).unwrap()"
             {
               "label": [
                 {
-                  "Heading": "field_layout::platform_specific_field::S2"
+                  "Heading": "field_layout::platform_specific_field::S2 (base class)"
                 }
               ],
               "sym": "T_field_layout::platform_specific_field::S2",
@@ -891,7 +891,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "8"
+                          "Text": "@ 0x8"
                         }
                       ],
                       "colspan": 1
@@ -909,7 +909,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "8"
+                          "Text": "@ 0x8"
                         }
                       ],
                       "colspan": 1
@@ -927,7 +927,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "8"
+                          "Text": "@ 0x8"
                         }
                       ],
                       "colspan": 1
@@ -986,7 +986,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "12"
+                          "Text": "@ 0xc"
                         }
                       ],
                       "colspan": 1
@@ -1010,7 +1010,7 @@ expression: "&to_value(sttl).unwrap()"
             {
               "label": [
                 {
-                  "Heading": "field_layout::platform_specific_field::S1"
+                  "Heading": "field_layout::platform_specific_field::S1 (base class)"
                 }
               ],
               "sym": "T_field_layout::platform_specific_field::S1",
@@ -1037,7 +1037,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "0"
+                          "Text": "@ 0x0"
                         }
                       ],
                       "colspan": 1
@@ -1055,7 +1055,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "0"
+                          "Text": "@ 0x0"
                         }
                       ],
                       "colspan": 1
@@ -1073,7 +1073,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "0"
+                          "Text": "@ 0x0"
                         }
                       ],
                       "colspan": 1
@@ -1122,7 +1122,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "4"
+                          "Text": "@ 0x4"
                         }
                       ],
                       "colspan": 1
@@ -1140,7 +1140,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "4"
+                          "Text": "@ 0x4"
                         }
                       ],
                       "colspan": 1
@@ -1179,7 +1179,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "4"
+                          "Text": "@ 0x4"
                         }
                       ],
                       "colspan": 1
@@ -1230,7 +1230,7 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "3 bytes padding"
+                          "ItalicText": "3 bytes padding"
                         }
                       ],
                       "colspan": 2

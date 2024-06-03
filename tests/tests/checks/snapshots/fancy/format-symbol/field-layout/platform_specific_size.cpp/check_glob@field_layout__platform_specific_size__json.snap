@@ -260,7 +260,14 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "unsigned long | unsigned int"
+                      "Text": "unsigned long"
+                    },
+                    {
+                      "Text": " | "
+                    },
+                    "Newline",
+                    {
+                      "Text": "unsigned int"
                     }
                   ],
                   "colspan": 1
@@ -269,7 +276,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "0"
+                      "Text": "@ 0x0"
                     }
                   ],
                   "colspan": 1
@@ -287,7 +294,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "0"
+                      "Text": "@ 0x0"
                     }
                   ],
                   "colspan": 1

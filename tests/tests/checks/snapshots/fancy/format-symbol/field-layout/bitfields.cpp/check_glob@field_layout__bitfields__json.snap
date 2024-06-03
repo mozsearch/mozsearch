@@ -367,7 +367,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "0"
+                      "Text": "@ 0x0 + 0 bit"
                     }
                   ],
                   "colspan": 1
@@ -376,7 +376,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "bits 0+1"
+                      "Text": "1 bit"
                     }
                   ],
                   "colspan": 1
@@ -406,7 +406,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "0"
+                      "Text": "@ 0x0 + 1 bit"
                     }
                   ],
                   "colspan": 1
@@ -415,7 +415,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "bits 1+3"
+                      "Text": "3 bits"
                     }
                   ],
                   "colspan": 1
@@ -445,7 +445,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "0"
+                      "Text": "@ 0x0 + 4 bits"
                     }
                   ],
                   "colspan": 1
@@ -454,7 +454,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "bits 4+7"
+                      "Text": "7 bits"
                     }
                   ],
                   "colspan": 1
@@ -484,7 +484,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "1"
+                      "Text": "@ 0x1 + 3 bits"
                     }
                   ],
                   "colspan": 1
@@ -493,7 +493,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "bits 3+4"
+                      "Text": "4 bits"
                     }
                   ],
                   "colspan": 1
@@ -523,7 +523,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "2"
+                      "Text": "@ 0x2 + 0 bit"
                     }
                   ],
                   "colspan": 1
@@ -532,7 +532,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "bits 0+3"
+                      "Text": "3 bits"
                     }
                   ],
                   "colspan": 1
@@ -562,7 +562,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "2"
+                      "Text": "@ 0x2 + 3 bits"
                     }
                   ],
                   "colspan": 1
@@ -571,7 +571,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "bits 3+2"
+                      "Text": "2 bits"
                     }
                   ],
                   "colspan": 1
@@ -593,7 +593,7 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "1 byte padding"
+                      "ItalicText": "1 byte padding"
                     }
                   ],
                   "colspan": 2
