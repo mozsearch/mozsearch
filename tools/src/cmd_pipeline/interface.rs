@@ -149,27 +149,43 @@ pub enum BasicMarkup {
 pub struct SymbolTreeTableCell {
     pub header: bool,
     pub contents: Vec<BasicMarkup>,
+    pub colspan: u32,
 }
 
 impl SymbolTreeTableCell {
     pub fn empty() -> Self {
+        Self::empty_colspan(1)
+    }
+
+    pub fn empty_colspan(colspan: u32) -> Self {
         Self {
             header: false,
             contents: vec![],
+            colspan: colspan,
         }
     }
 
     pub fn header_text(s: String) -> Self {
+        Self::header_text_colspan(s, 1)
+    }
+
+    pub fn header_text_colspan(s: String, colspan: u32) -> Self {
         Self {
             header: true,
             contents: vec![BasicMarkup::Text(s)],
+            colspan: colspan,
         }
     }
 
     pub fn text(s: String) -> Self {
+        Self::text_colspan(s, 1)
+    }
+
+    pub fn text_colspan(s: String, colspan: u32) -> Self {
         Self {
             header: false,
             contents: vec![BasicMarkup::Text(s)],
+            colspan: colspan,
         }
     }
 }

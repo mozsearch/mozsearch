@@ -7,7 +7,19 @@
     <span data-symbols="{{ node.sym }}">{%- include 'query_results/basic_markup_array.liquid' markup: node.label -%}</span>
   </td>
   {% for col in node.colVals %}
-    {% if col.header %}<th>{% else %}<td>{% endif %}
+    {% if col.header %}
+      <th
+      {% if col.colspan != 1 %}
+        colspan="{{ col.colspan }}"
+      {% endif %}
+      >
+    {% else %}
+      <td
+      {% if col.colspan != 1 %}
+        colspan="{{ col.colspan }}"
+      {% endif %}
+      >
+    {% endif %}
       {%- include 'query_results/basic_markup_array.liquid' markup: col.contents -%}
     {% if col.header %}</th>{% else %}</td>{% endif %}
   {% endfor %}

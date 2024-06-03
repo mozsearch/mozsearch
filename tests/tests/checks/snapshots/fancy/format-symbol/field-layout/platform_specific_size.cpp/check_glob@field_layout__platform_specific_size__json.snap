@@ -262,7 +262,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "unsigned long"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -270,7 +271,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "0"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -278,7 +280,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "8"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -286,7 +289,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "0"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 },
                 {
                   "header": false,
@@ -294,7 +298,8 @@ expression: "&to_value(sttl).unwrap()"
                     {
                       "Text": "4"
                     }
-                  ]
+                  ],
+                  "colspan": 1
                 }
               ],
               "children": [],
