@@ -228,6 +228,7 @@ expression: "&to_value(grb).unwrap()"
         "fields": [],
         "overrides": [],
         "props": [],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -325,7 +326,8 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "runnables.cpp#45"
@@ -425,7 +427,8 @@ expression: "&to_value(grb).unwrap()"
         "props": [],
         "subclasses": [
           "T_SandalRunnable"
-        ]
+        ],
+        "variants": []
       },
       "jumps": {
         "def": "runnables.cpp#33"
@@ -522,7 +525,8 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "runnables.cpp#22"
@@ -547,6 +551,7 @@ expression: "&to_value(grb).unwrap()"
         "fields": [],
         "overrides": [],
         "props": [],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -591,6 +596,7 @@ expression: "&to_value(grb).unwrap()"
         "overriddenBy": [
           "_ZN14SandalRunnable3RunEP10Dispatcher"
         ],
+        "variants": [],
         "args": [
           {
             "name": "aDispatcher",
@@ -634,6 +640,7 @@ expression: "&to_value(grb).unwrap()"
           "defaulted",
           "constexpr"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -675,6 +682,7 @@ expression: "&to_value(grb).unwrap()"
           "virtual",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "aDispatcher",
@@ -718,6 +726,7 @@ expression: "&to_value(grb).unwrap()"
           "defaulted",
           "constexpr"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -759,6 +768,7 @@ expression: "&to_value(grb).unwrap()"
           "virtual",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "aDispatcher",
@@ -802,6 +812,7 @@ expression: "&to_value(grb).unwrap()"
           "defaulted",
           "constexpr"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {

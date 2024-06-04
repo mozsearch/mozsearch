@@ -53,7 +53,8 @@ expression: "&to_value(scil).unwrap()"
           "methods": [],
           "fields": [],
           "overrides": [],
-          "props": []
+          "props": [],
+          "variants": []
         }
       },
       "relation": "Queried",
@@ -132,6 +133,7 @@ expression: "&to_value(scil).unwrap()"
             "virtual",
             "user"
           ],
+          "variants": [],
           "args": [
             {
               "name": "a",

@@ -288,7 +288,8 @@ expression: "&to_value(scil).unwrap()"
           "props": [],
           "labels": [
             "cc"
-          ]
+          ],
+          "variants": []
         }
       },
       "relation": "Queried",
@@ -565,7 +566,8 @@ expression: "&to_value(scil).unwrap()"
             "T_outerNS::Couch",
             "T_outerNS::OuterCat",
             "T_outerNS::AbstractArt"
-          ]
+          ],
+          "variants": []
         }
       },
       "relation": {
@@ -767,7 +769,8 @@ expression: "&to_value(scil).unwrap()"
           "props": [],
           "subclasses": [
             "T_outerNS::Superhero"
-          ]
+          ],
+          "variants": []
         }
       },
       "relation": {
@@ -906,7 +909,8 @@ expression: "&to_value(scil).unwrap()"
           ],
           "fields": [],
           "overrides": [],
-          "props": []
+          "props": [],
+          "variants": []
         }
       },
       "relation": {
@@ -1066,7 +1070,8 @@ expression: "&to_value(scil).unwrap()"
           "props": [],
           "subclasses": [
             "T_outerNS::PracticalArt"
-          ]
+          ],
+          "variants": []
         }
       },
       "relation": {
@@ -1223,7 +1228,8 @@ expression: "&to_value(scil).unwrap()"
           ],
           "fields": [],
           "overrides": [],
-          "props": []
+          "props": [],
+          "variants": []
         }
       },
       "relation": {
@@ -1372,7 +1378,8 @@ expression: "&to_value(scil).unwrap()"
           ],
           "fields": [],
           "overrides": [],
-          "props": []
+          "props": [],
+          "variants": []
         }
       },
       "relation": {

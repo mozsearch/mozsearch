@@ -916,6 +916,7 @@ fn analyze_using_scip(
                     idl_sym: None,
                     subclass_syms: vec![],
                     overridden_by_syms: vec![],
+                    variants: vec![],
                     extra: Map::default(),
                 };
                 // for local symbols we use our own symbol because the SCIP symbol is not
@@ -1143,6 +1144,7 @@ fn analyze_using_scip(
                         idl_sym: None,
                         subclass_syms: vec![],
                         overridden_by_syms: vec![],
+                        variants: vec![],
                         extra: Map::default(),
                     };
                     scip_symbol_to_structured.insert(norm_scip_sym.to_owned(), fake);

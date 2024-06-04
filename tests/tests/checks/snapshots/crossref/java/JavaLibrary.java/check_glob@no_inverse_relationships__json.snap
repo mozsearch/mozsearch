@@ -62,7 +62,8 @@ expression: "&to_value(scil).unwrap()"
           "props": [],
           "subclasses": [
             "S_jvm_sample/JavaLibrary#B#"
-          ]
+          ],
+          "variants": []
         }
       },
       "relation": "Queried",

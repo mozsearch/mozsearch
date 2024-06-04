@@ -71,6 +71,7 @@ expression: "&to_value(scil).unwrap()"
             "virtual",
             "user"
           ],
+          "variants": [],
           "args": [
             {
               "name": "aBooleanProperty",

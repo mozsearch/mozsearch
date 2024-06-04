@@ -25,7 +25,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#32"
@@ -50,7 +51,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#36"
@@ -75,7 +77,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#39"
@@ -100,7 +103,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#41"
@@ -125,7 +129,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#46"
@@ -150,7 +155,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#49"
@@ -175,7 +181,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#53"
@@ -251,7 +258,8 @@ expression: "&to_value(sttl).unwrap()"
             "props": [],
             "subclasses": [
               "T_field_layout::platform_specific_field::T2"
-            ]
+            ],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/platform_specific_field.cpp#31"
@@ -422,6 +430,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "overrides": [],
                 "props": [],
+                "variants": [],
                 "platforms": [
                   "macosx64"
                 ]
@@ -580,6 +589,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "overrides": [],
                 "props": [],
+                "variants": [],
                 "platforms": [
                   "linux64",
                   "macosx64"

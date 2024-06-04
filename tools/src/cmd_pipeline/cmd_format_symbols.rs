@@ -620,8 +620,7 @@ impl ClassMap {
                 }
             }
 
-            let variants = structured.variants();
-            for v in variants {
+            for v in &structured.variants {
                 if let Some(size) = &v.size_bytes {
                     let platforms = v.platforms();
                     for platform in platforms {

@@ -25,7 +25,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#245"
@@ -50,7 +51,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#241"
@@ -75,7 +77,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#242"
@@ -100,7 +103,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#244"
@@ -125,7 +129,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#151"
@@ -150,7 +155,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#147"
@@ -355,7 +361,8 @@ expression: "&to_value(sttl).unwrap()"
             "props": [],
             "labels": [
               "cc"
-            ]
+            ],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#227"
@@ -480,7 +487,8 @@ expression: "&to_value(sttl).unwrap()"
               "T_outerNS::Couch",
               "T_outerNS::OuterCat",
               "T_outerNS::AbstractArt"
-            ]
+            ],
+            "variants": []
           },
           "jumps": {
             "def": "big_cpp.cpp#141"

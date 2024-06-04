@@ -213,6 +213,7 @@ expression: "&to_value(grb).unwrap()"
         "fields": [],
         "overrides": [],
         "props": [],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -286,7 +287,8 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "lots_of_calls.cpp#28"
@@ -359,7 +361,8 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "lots_of_calls.cpp#8"
@@ -423,7 +426,8 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "lots_of_calls.cpp#23"
@@ -496,7 +500,8 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "lots_of_calls.cpp#16"
@@ -525,6 +530,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -554,6 +560,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -583,6 +590,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "four",
@@ -619,6 +627,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "two",
@@ -665,6 +674,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "two",
@@ -711,6 +721,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "three",
@@ -752,6 +763,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "three",
