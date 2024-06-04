@@ -231,6 +231,7 @@ fn make_subsystem(path: &Ustr, file_sym: &Ustr,
             idl_sym: None,
             subclass_syms: vec![],
             overridden_by_syms: vec![],
+            variants: vec![],
             extra: Map::default(),
         };
         meta_table.insert(file_structured.sym.clone(), file_structured);

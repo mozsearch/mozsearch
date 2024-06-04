@@ -310,7 +310,8 @@ expression: "&to_value(grb).unwrap()"
         "props": [],
         "labels": [
           "cc"
-        ]
+        ],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#227"
@@ -435,7 +436,8 @@ expression: "&to_value(grb).unwrap()"
           "T_outerNS::Couch",
           "T_outerNS::OuterCat",
           "T_outerNS::AbstractArt"
-        ]
+        ],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#141"
@@ -468,6 +470,7 @@ expression: "&to_value(grb).unwrap()"
         "overriddenBy": [
           "_ZN7outerNS9Superhero10takeDamageEi"
         ],
+        "variants": [],
         "args": [
           {
             "name": "damage",
@@ -502,6 +505,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "couch",
@@ -537,6 +541,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",
@@ -572,6 +577,7 @@ expression: "&to_value(grb).unwrap()"
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",

@@ -81,7 +81,8 @@ expression: "&to_value(scil).unwrap()"
             }
           ],
           "overrides": [],
-          "props": []
+          "props": [],
+          "variants": []
         }
       },
       "relation": "Queried",

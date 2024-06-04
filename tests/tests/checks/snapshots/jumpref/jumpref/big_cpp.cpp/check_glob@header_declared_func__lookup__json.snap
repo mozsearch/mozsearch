@@ -24,6 +24,7 @@ expression: "&to_value(jvl).unwrap()"
           "fields": [],
           "overrides": [],
           "props": [],
+          "variants": [],
           "args": []
         },
         "jumps": {

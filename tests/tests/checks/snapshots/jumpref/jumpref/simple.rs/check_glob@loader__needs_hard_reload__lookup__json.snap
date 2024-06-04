@@ -24,7 +24,8 @@ expression: "&to_value(jvl).unwrap()"
           "methods": [],
           "fields": [],
           "overrides": [],
-          "props": []
+          "props": [],
+          "variants": []
         },
         "jumps": {
           "def": "simple.rs#45"

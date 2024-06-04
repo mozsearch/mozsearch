@@ -23,7 +23,8 @@ expression: sgc.to_json()
         "methods": [],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#241"
@@ -48,7 +49,8 @@ expression: sgc.to_json()
         "methods": [],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#242"
@@ -73,7 +75,8 @@ expression: sgc.to_json()
         "methods": [],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#151"
@@ -98,7 +101,8 @@ expression: sgc.to_json()
         "methods": [],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#147"
@@ -164,7 +168,8 @@ expression: sgc.to_json()
         ],
         "fields": [],
         "overrides": [],
-        "props": []
+        "props": [],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#211"
@@ -253,7 +258,8 @@ expression: sgc.to_json()
         "props": [],
         "subclasses": [
           "T_outerNS::Superhero"
-        ]
+        ],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#185"
@@ -378,7 +384,8 @@ expression: sgc.to_json()
           "T_outerNS::Couch",
           "T_outerNS::OuterCat",
           "T_outerNS::AbstractArt"
-        ]
+        ],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#141"
@@ -411,6 +418,7 @@ expression: sgc.to_json()
         "overriddenBy": [
           "_ZN7outerNS9Superhero10takeDamageEi"
         ],
+        "variants": [],
         "args": [
           {
             "name": "damage",
@@ -445,6 +453,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -475,6 +484,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -504,6 +514,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -533,6 +544,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": []
       },
       "jumps": {
@@ -562,6 +574,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "couch",
@@ -597,6 +610,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "human",
@@ -632,6 +646,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",
@@ -667,6 +682,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",
@@ -707,6 +723,7 @@ expression: sgc.to_json()
           "virtual",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "damage",

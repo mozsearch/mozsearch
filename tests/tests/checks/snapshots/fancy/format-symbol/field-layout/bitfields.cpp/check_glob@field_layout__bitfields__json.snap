@@ -25,7 +25,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/bitfields.cpp#8"
@@ -50,7 +51,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/bitfields.cpp#9"
@@ -75,7 +77,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/bitfields.cpp#10"
@@ -100,7 +103,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/bitfields.cpp#11"
@@ -125,7 +129,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/bitfields.cpp#12"
@@ -150,7 +155,8 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/bitfields.cpp#13"
@@ -277,7 +283,8 @@ expression: "&to_value(sttl).unwrap()"
               }
             ],
             "overrides": [],
-            "props": []
+            "props": [],
+            "variants": []
           },
           "jumps": {
             "def": "field-layout/bitfields.cpp#7"

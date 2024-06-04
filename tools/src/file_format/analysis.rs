@@ -542,6 +542,9 @@ where
     #[serde(rename = "overriddenBy", default, skip_serializing_if = "Vec::is_empty")]
     pub overridden_by_syms: Vec<StrT>,
 
+    #[serde(default)]
+    pub variants: Vec<AnalysisStructured<StrT>>,
+
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
@@ -559,17 +562,9 @@ where
         }
     }
 
-    pub fn variants(&self) -> Vec<AnalysisStructured<StrT>> {
-        match self.extra.get("variants") {
-            Some(val) => from_value(val.clone()).unwrap_or_default(),
-            _ => vec![]
-        }
-    }
-
     // TODO: As mentioned on `fields`, we need to unify things during crossref
     // otherwise we may be blind to some fields for our fancy magic.
     pub fn fields_across_all_variants(&self) -> Vec<(Vec<String>, Vec<StructuredFieldInfo<StrT>>)> {
-        let variants = self.variants();
         // XXX at least for things that are subclassed it seems like we can end up with multiple
         // structured representations right now, so we need to keep track of platforms we've seen
         // so we can avoid adding them a subsequent time.
@@ -580,14 +575,14 @@ where
         }
         let mut results = vec![(main_platforms, self.fields.clone())];
 
-        for v in variants {
+        for v in &self.variants {
             let var_platforms = v.platforms();
             // Try and insert the platforms into the seen set; insert returns true
             // if the element is newly inserted.
             if !var_platforms.iter().all(|p| seen.insert(p.to_owned())) {
                 continue;
             }
-            results.push((var_platforms, v.fields));
+            results.push((var_platforms, v.fields.clone()));
         }
         results
     }

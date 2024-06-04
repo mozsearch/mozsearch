@@ -23,7 +23,8 @@ expression: "&json_results"
         "sym": "S_jvm_sample/Interface#someOtherFunction()."
       }
     ],
-    "props": []
+    "props": [],
+    "variants": []
   },
   {
     "loc": "00017:21-38",
@@ -45,6 +46,7 @@ expression: "&json_results"
         "sym": "S_jvm_sample/Interface#someOtherFunction()."
       }
     ],
-    "props": []
+    "props": [],
+    "variants": []
   }
 ]

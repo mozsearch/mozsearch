@@ -31,6 +31,7 @@ expression: sgc.to_json()
         "overriddenBy": [
           "_ZN7outerNS9Superhero10takeDamageEi"
         ],
+        "variants": [],
         "args": [
           {
             "name": "damage",
@@ -65,6 +66,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "couch",
@@ -100,6 +102,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",
@@ -135,6 +138,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",

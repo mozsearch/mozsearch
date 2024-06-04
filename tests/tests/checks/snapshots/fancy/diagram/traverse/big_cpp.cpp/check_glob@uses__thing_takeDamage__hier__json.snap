@@ -210,7 +210,8 @@ expression: sgc.to_json()
         "props": [],
         "labels": [
           "cc"
-        ]
+        ],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#227"
@@ -335,7 +336,8 @@ expression: sgc.to_json()
           "T_outerNS::Couch",
           "T_outerNS::OuterCat",
           "T_outerNS::AbstractArt"
-        ]
+        ],
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#141"
@@ -368,6 +370,7 @@ expression: sgc.to_json()
         "overriddenBy": [
           "_ZN7outerNS9Superhero10takeDamageEi"
         ],
+        "variants": [],
         "args": [
           {
             "name": "damage",
@@ -402,6 +405,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "couch",
@@ -437,6 +441,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",
@@ -472,6 +477,7 @@ expression: sgc.to_json()
           "instance",
           "user"
         ],
+        "variants": [],
         "args": [
           {
             "name": "thing",

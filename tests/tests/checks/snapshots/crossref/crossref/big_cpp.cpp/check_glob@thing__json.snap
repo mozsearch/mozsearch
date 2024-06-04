@@ -274,7 +274,8 @@ expression: "&to_value(scil).unwrap()"
             "T_outerNS::Couch",
             "T_outerNS::OuterCat",
             "T_outerNS::AbstractArt"
-          ]
+          ],
+          "variants": []
         }
       },
       "relation": "Queried",

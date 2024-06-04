@@ -33,6 +33,7 @@ expression: "&to_value(jvl).unwrap()"
             "virtual",
             "user"
           ],
+          "variants": [],
           "args": []
         },
         "jumps": {
