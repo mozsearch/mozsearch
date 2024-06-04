@@ -65,11 +65,15 @@ impl PlatformId {
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct PlatformGroupId(u32);
 
-// A struct to represent single field and hole before the field.
+type ClassId = SymbolGraphNodeId;
+type FieldId = SymbolGraphNodeId;
+
+// A struct to represent single field and hole before the field,
+// for specific platform.
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct Field {
-    class_id: SymbolGraphNodeId,
-    field_id: SymbolGraphNodeId,
+    class_id: ClassId,
+    field_id: FieldId,
     type_pretty: String,
     pretty: String,
     lineno: u64,
@@ -82,7 +86,7 @@ struct Field {
 }
 
 impl Field {
-    fn new(class_id: SymbolGraphNodeId, field_id: SymbolGraphNodeId,
+    fn new(class_id: ClassId, field_id: FieldId,
            sym_info: &DerivedSymbolInfo, info: &StructuredFieldInfo) -> Self {
         Self {
             class_id: class_id,
@@ -117,7 +121,7 @@ impl ClassSize {
 }
 
 struct ClassSizeMap {
-    map: HashMap<SymbolGraphNodeId, ClassSize>,
+    map: HashMap<ClassId, ClassSize>,
 }
 
 impl ClassSizeMap {
@@ -127,7 +131,7 @@ impl ClassSizeMap {
         }
     }
 
-    fn set(&mut self, platform_id: PlatformId, class_id: SymbolGraphNodeId, size: u32) {
+    fn set(&mut self, platform_id: PlatformId, class_id: ClassId, size: u32) {
         if let Some(class_size) = self.map.get_mut(&class_id) {
             class_size.set(platform_id, size);
             return;
@@ -138,7 +142,7 @@ impl ClassSizeMap {
         self.map.insert(class_id, class_size);
     }
 
-    fn per_platform(&self, platform_id: &PlatformId) -> HashMap<SymbolGraphNodeId, u32> {
+    fn per_platform(&self, platform_id: &PlatformId) -> HashMap<ClassId, u32> {
         let mut result = HashMap::new();
 
         for (class_id, class_size) in &self.map {
@@ -180,7 +184,7 @@ impl FieldsWithHash {
         });
     }
 
-    fn calculate_holes(&mut self, class_size_map: HashMap<SymbolGraphNodeId, u32>) {
+    fn calculate_holes(&mut self, class_size_map: HashMap<ClassId, u32>) {
         let mut last_end_offset = 0;
         let mut last_index = 0;
 
@@ -242,14 +246,14 @@ impl FieldsWithHash {
 // A struct to represent single class, with
 // fields per each platform group.
 struct Class {
-    id: SymbolGraphNodeId,
+    id: ClassId,
     name: String,
-    fields: HashMap<SymbolGraphNodeId, HashMap<PlatformGroupId, Field>>,
+    fields: HashMap<FieldId, HashMap<PlatformGroupId, Field>>,
     merged_fields: Vec<Vec<Option<Field>>>,
 }
 
 impl Class {
-    fn new(id: SymbolGraphNodeId, name: String) -> Self {
+    fn new(id: ClassId, name: String) -> Self {
         Self {
             id: id,
             name: name,
@@ -506,10 +510,10 @@ impl FieldsPerPlatform {
 
 struct ClassMap {
     // All processed classes.
-    class_map: HashMap<SymbolGraphNodeId, Class>,
+    class_map: HashMap<ClassId, Class>,
 
     // The list of classes, in the traverse order.
-    class_list: Vec<SymbolGraphNodeId>,
+    class_list: Vec<ClassId>,
 
     // All platforms appeared inside the analysis.
     platform_map: PlatformMap,
@@ -519,7 +523,7 @@ struct ClassMap {
 
     has_multiple_inheritance: bool,
 
-    root_sym_id: Option<SymbolGraphNodeId>,
+    root_class_id: Option<ClassId>,
     stt: SymbolTreeTable,
 }
 
@@ -531,21 +535,23 @@ impl ClassMap {
             platform_map: PlatformMap::new(),
             groups: vec![],
             has_multiple_inheritance: false,
-            root_sym_id: None,
+            root_class_id: None,
             stt: SymbolTreeTable::new(),
         }
     }
 
     async fn populate(&mut self, nom_sym_info: SymbolCrossrefInfo,
                       server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
-        self.populate_platform_map(nom_sym_info, server).await?;
+        let root_sym_id = self.populate_platform_map(nom_sym_info, server).await?;
+
+        self.root_class_id = Some(root_sym_id.clone());
 
         let mut class_size_map = ClassSizeMap::new();
 
         let mut fields_per_platform = FieldsPerPlatform::new();
 
         let mut pending_ids = VecDeque::new();
-        pending_ids.push_back(self.root_sym_id.clone().unwrap());
+        pending_ids.push_back(self.root_class_id.clone().unwrap());
 
         while let Some(class_id) = pending_ids.pop_front() {
             let sym_info = self.stt.node_set.get(&class_id);
@@ -566,6 +572,7 @@ impl ClassMap {
                     .node_set
                     .ensure_symbol(&super_info.sym, server, depth + 1)
                     .await?;
+
                 pending_ids.push_back(super_id);
             }
             self.class_list.push(cls.id.clone());
@@ -630,17 +637,15 @@ impl ClassMap {
     }
 
     async fn populate_platform_map(&mut self, nom_sym_info: SymbolCrossrefInfo,
-                                   server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
+                                   server: &Box<dyn AbstractServer + Send + Sync>) -> Result<SymbolGraphNodeId> {
         let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
             nom_sym_info.symbol,
             nom_sym_info.crossref_info,
             0,
         ));
 
-        self.root_sym_id = Some(root_sym_id.clone());
-
         let mut pending_ids = VecDeque::new();
-        pending_ids.push_back(root_sym_id);
+        pending_ids.push_back(root_sym_id.clone());
 
         while let Some(class_id) = pending_ids.pop_front() {
             let sym_info = self.stt.node_set.get(&class_id);
@@ -654,7 +659,7 @@ impl ClassMap {
                     .node_set
                     .ensure_symbol(&super_info.sym, server, depth + 1)
                     .await?;
-                pending_ids.push_back(super_id);
+                pending_ids.push_back(super_id.clone());
             }
 
             for (maybe_platform, _) in structured.per_platform() {
@@ -666,7 +671,7 @@ impl ClassMap {
 
         self.platform_map.finish_populating();
 
-        Ok(())
+        Ok(root_sym_id)
     }
 
     fn generate_tables(mut self, tables: &mut Vec<SymbolTreeTable>) {
@@ -717,7 +722,7 @@ impl ClassMap {
         for class_id in &self.class_list {
             let cls = self.class_map.get(&class_id).unwrap();
 
-            let is_root = cls.id == self.root_sym_id.as_ref().unwrap().clone();
+            let is_root = cls.id == self.root_class_id.as_ref().unwrap().clone();
 
             let mut class_node = SymbolTreeTableNode {
                 sym_id: Some(cls.id.clone()),
