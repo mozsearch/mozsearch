@@ -392,6 +392,10 @@ impl PlatformMap {
         platform_id
     }
 
+    fn get(&self, platform: String) -> PlatformId {
+        self.platform_name_to_id.get(&platform).unwrap().clone()
+    }
+
     fn platform_ids(&self) -> Vec<PlatformId> {
         self.platform_id_to_name
             .iter()
@@ -581,27 +585,19 @@ impl ClassMap {
 
     async fn populate(&mut self, nom_sym_info: SymbolCrossrefInfo,
                       server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
-        let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
-            nom_sym_info.symbol,
-            nom_sym_info.crossref_info,
-            0,
-        ));
-
-        self.root_sym_id = Some(root_sym_id.clone());
+        self.populate_platform_map(nom_sym_info, server).await?;
 
         let mut class_size_map = ClassSizeMap::new();
 
         let mut fields_per_platform = FieldsPerPlatform::new();
 
         let mut pending_ids = VecDeque::new();
-        pending_ids.push_back(root_sym_id);
+        pending_ids.push_back(self.root_sym_id.clone().unwrap());
 
         while let Some(class_id) = pending_ids.pop_front() {
             let sym_info = self.stt.node_set.get(&class_id);
             let depth = sym_info.depth;
-            let Some(structured) = sym_info.get_structured() else {
-                continue;
-            };
+            let structured = sym_info.get_structured().unwrap();
 
             let mut cls = Class::new(
                 class_id.clone(),
@@ -618,7 +614,6 @@ impl ClassMap {
                     .ensure_symbol(&super_info.sym, server, depth + 1)
                     .await?;
                 cls.supers.push(super_id.clone());
-
                 pending_ids.push_back(super_id);
             }
             self.class_list.push(cls.id.clone());
@@ -628,7 +623,7 @@ impl ClassMap {
                 let mut maybe_platform_id: Option<PlatformId> = None;
 
                 if let Some(platform) = maybe_platform {
-                    let platform_id = self.platform_map.add(platform.clone());
+                    let platform_id = self.platform_map.get(platform.clone());
                     maybe_platform_id = Some(platform_id);
                 }
 
@@ -672,6 +667,44 @@ impl ClassMap {
 
         for cls in self.class_map.values_mut() {
             cls.finish_populating(&self.groups);
+        }
+
+        Ok(())
+    }
+
+    async fn populate_platform_map(&mut self, nom_sym_info: SymbolCrossrefInfo,
+                                   server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
+        let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
+            nom_sym_info.symbol,
+            nom_sym_info.crossref_info,
+            0,
+        ));
+
+        self.root_sym_id = Some(root_sym_id.clone());
+
+        let mut pending_ids = VecDeque::new();
+        pending_ids.push_back(root_sym_id);
+
+        while let Some(class_id) = pending_ids.pop_front() {
+            let sym_info = self.stt.node_set.get(&class_id);
+            let depth = sym_info.depth;
+            let Some(structured) = sym_info.get_structured() else {
+                continue;
+            };
+
+            for super_info in &structured.supers {
+                let (super_id, _) = self.stt
+                    .node_set
+                    .ensure_symbol(&super_info.sym, server, depth + 1)
+                    .await?;
+                pending_ids.push_back(super_id);
+            }
+
+            for (maybe_platform, _) in structured.per_platform() {
+                if let Some(platform) = maybe_platform {
+                    self.platform_map.add(platform.clone());
+                }
+            }
         }
 
         Ok(())
