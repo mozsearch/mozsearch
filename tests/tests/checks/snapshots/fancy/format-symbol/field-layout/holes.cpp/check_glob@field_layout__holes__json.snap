@@ -283,6 +283,7 @@ expression: "&to_value(sttl).unwrap()"
             "supers": [
               {
                 "sym": "T_field_layout::holes::Base",
+                "offsetBytes": 0,
                 "props": []
               }
             ],

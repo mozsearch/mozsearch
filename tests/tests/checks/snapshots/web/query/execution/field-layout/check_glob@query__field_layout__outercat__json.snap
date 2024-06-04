@@ -179,6 +179,7 @@ expression: "&to_value(sttl).unwrap()"
             "supers": [
               {
                 "sym": "T_outerNS::Thing",
+                "offsetBytes": 0,
                 "props": []
               }
             ],

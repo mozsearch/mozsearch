@@ -3260,6 +3260,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::Thing",
+        "offsetBytes": 0,
         "props": []
       }
     ],
@@ -3351,6 +3352,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::Thing",
+        "offsetBytes": 0,
         "props": []
       }
     ],
@@ -3471,6 +3473,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::Thing",
+        "offsetBytes": 0,
         "props": []
       }
     ],
@@ -3552,6 +3555,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::Thing",
+        "offsetBytes": 0,
         "props": []
       }
     ],
@@ -3731,6 +3735,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::CycleCollectingMagic",
+        "offsetBytes": 0,
         "props": []
       }
     ],
@@ -3795,6 +3800,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::AbstractArt",
+        "offsetBytes": 0,
         "props": []
       }
     ],
@@ -3905,6 +3911,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::Human",
+        "offsetBytes": 0,
         "props": []
       }
     ],

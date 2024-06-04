@@ -218,6 +218,8 @@ where
 {
     #[serde(default)]
     pub sym: StrT,
+    #[serde(rename = "offsetBytes", default)]
+    pub offset_bytes: u32,
     #[serde(default)]
     pub props: Vec<StrT>,
 }
