@@ -873,6 +873,7 @@ fn analyze_using_scip(
                         Some("class") => {
                             supers.push(StructuredSuperInfo {
                                 sym: ustr(&parent_symbol_info.norm_sym),
+                                offset_bytes: 0,
                                 props: vec![],
                             });
                         }

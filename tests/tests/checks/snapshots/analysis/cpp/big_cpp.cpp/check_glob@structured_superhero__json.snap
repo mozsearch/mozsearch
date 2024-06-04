@@ -13,6 +13,7 @@ expression: "&json_results"
     "supers": [
       {
         "sym": "T_outerNS::Human",
+        "offsetBytes": 0,
         "props": []
       }
     ],

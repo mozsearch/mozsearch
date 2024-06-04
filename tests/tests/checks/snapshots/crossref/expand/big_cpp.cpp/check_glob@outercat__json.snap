@@ -106,6 +106,7 @@ expression: "&to_value(scil).unwrap()"
           "supers": [
             {
               "sym": "T_outerNS::Thing",
+              "offsetBytes": 0,
               "props": []
             }
           ],
@@ -703,6 +704,7 @@ expression: "&to_value(scil).unwrap()"
           "supers": [
             {
               "sym": "T_outerNS::Thing",
+              "offsetBytes": 0,
               "props": []
             }
           ],
@@ -866,6 +868,7 @@ expression: "&to_value(scil).unwrap()"
           "supers": [
             {
               "sym": "T_outerNS::Thing",
+              "offsetBytes": 0,
               "props": []
             }
           ],
@@ -994,6 +997,7 @@ expression: "&to_value(scil).unwrap()"
           "supers": [
             {
               "sym": "T_outerNS::Thing",
+              "offsetBytes": 0,
               "props": []
             }
           ],
@@ -1155,6 +1159,7 @@ expression: "&to_value(scil).unwrap()"
           "supers": [
             {
               "sym": "T_outerNS::Human",
+              "offsetBytes": 0,
               "props": []
             }
           ],
@@ -1325,6 +1330,7 @@ expression: "&to_value(scil).unwrap()"
           "supers": [
             {
               "sym": "T_outerNS::AbstractArt",
+              "offsetBytes": 0,
               "props": []
             }
           ],

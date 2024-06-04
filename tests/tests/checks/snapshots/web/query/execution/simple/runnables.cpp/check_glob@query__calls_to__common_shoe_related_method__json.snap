@@ -252,6 +252,7 @@ expression: "&to_value(grb).unwrap()"
         "supers": [
           {
             "sym": "T_ShoeRunnable",
+            "offsetBytes": 0,
             "props": []
           }
         ],
@@ -350,6 +351,7 @@ expression: "&to_value(grb).unwrap()"
         "supers": [
           {
             "sym": "T_nsIRunnable",
+            "offsetBytes": 0,
             "props": []
           }
         ],
@@ -451,6 +453,7 @@ expression: "&to_value(grb).unwrap()"
         "supers": [
           {
             "sym": "T_nsIRunnable",
+            "offsetBytes": 0,
             "props": []
           }
         ],

@@ -282,6 +282,7 @@ expression: "&to_value(sttl).unwrap()"
             "supers": [
               {
                 "sym": "T_field_layout::platform_specific_field::T1",
+                "offsetBytes": 0,
                 "props": []
               }
             ],
@@ -365,6 +366,7 @@ expression: "&to_value(sttl).unwrap()"
                 "supers": [
                   {
                     "sym": "T_field_layout::platform_specific_field::T1",
+                    "offsetBytes": 0,
                     "props": []
                   }
                 ],
@@ -462,6 +464,7 @@ expression: "&to_value(sttl).unwrap()"
             "supers": [
               {
                 "sym": "T_field_layout::platform_specific_field::T2",
+                "offsetBytes": 0,
                 "props": []
               }
             ],
@@ -533,6 +536,7 @@ expression: "&to_value(sttl).unwrap()"
                 "supers": [
                   {
                     "sym": "T_field_layout::platform_specific_field::T2",
+                    "offsetBytes": 0,
                     "props": []
                   }
                 ],

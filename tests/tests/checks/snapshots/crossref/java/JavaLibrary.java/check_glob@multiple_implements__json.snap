@@ -40,10 +40,12 @@ expression: "&to_value(scil).unwrap()"
           "supers": [
             {
               "sym": "S_jvm_sample/JavaLibrary#I0#",
+              "offsetBytes": 0,
               "props": []
             },
             {
               "sym": "S_jvm_sample/JavaLibrary#I1#",
+              "offsetBytes": 0,
               "props": []
             }
           ],
