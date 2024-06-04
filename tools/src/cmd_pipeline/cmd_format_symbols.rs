@@ -80,6 +80,7 @@ struct TraversalId(u32);
 struct Field {
     class_id: ClassId,
     class_traversal_id: TraversalId,
+    class_size: Option<u32>,
     field_id: FieldId,
     type_pretty: String,
     pretty: String,
@@ -94,11 +95,12 @@ struct Field {
 
 impl Field {
     fn new(class_id: ClassId, class_traversal_id: TraversalId,
-           class_offset: u32, field_id: FieldId,
+           class_offset: u32, class_size: Option<u32>, field_id: FieldId,
            sym_info: &DerivedSymbolInfo, info: &StructuredFieldInfo) -> Self {
         Self {
             class_id: class_id,
             class_traversal_id: class_traversal_id,
+            class_size: class_size,
             field_id: field_id,
             type_pretty: info.type_pretty.to_string(),
             pretty: info.pretty.to_string(),
@@ -110,56 +112,6 @@ impl Field {
             bit_positions: info.bit_positions.clone(),
             size_bytes: info.size_bytes.clone(),
         }
-    }
-}
-
-struct ClassSize {
-    per_platform: HashMap<PlatformId, u32>,
-}
-
-impl ClassSize {
-    fn new() -> Self {
-        Self {
-            per_platform: HashMap::new(),
-        }
-    }
-
-    fn set(&mut self, platform_id: PlatformId, size: u32) {
-        self.per_platform.insert(platform_id, size);
-    }
-}
-
-struct ClassSizeMap {
-    map: HashMap<ClassId, ClassSize>,
-}
-
-impl ClassSizeMap {
-    fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
-
-    fn set(&mut self, platform_id: PlatformId, class_id: ClassId, size: u32) {
-        if let Some(class_size) = self.map.get_mut(&class_id) {
-            class_size.set(platform_id, size);
-            return;
-        }
-
-        let mut class_size = ClassSize::new();
-        class_size.set(platform_id, size);
-        self.map.insert(class_id, class_size);
-    }
-
-    fn per_platform(&self, platform_id: &PlatformId) -> HashMap<ClassId, u32> {
-        let mut result = HashMap::new();
-
-        for (class_id, class_size) in &self.map {
-            let size = class_size.per_platform.get(platform_id).unwrap().clone();
-            result.insert(class_id.clone(), size);
-        }
-
-        result
     }
 }
 
@@ -193,7 +145,7 @@ impl FieldsWithHash {
         });
     }
 
-    fn calculate_holes(&mut self, class_size_map: HashMap<ClassId, u32>) {
+    fn calculate_holes(&mut self) {
         let mut last_end_offset = 0;
         let mut last_index = 0;
 
@@ -203,8 +155,7 @@ impl FieldsWithHash {
             if self.fields[index].offset_bytes > last_end_offset {
                 if index != last_index {
                     if self.fields[last_index].class_traversal_id != self.fields[index].class_traversal_id {
-                        let last_class_id = &self.fields[last_index].class_id;
-                        if let Some(size) = class_size_map.get(last_class_id) {
+                        if let Some(size) = &self.fields[last_index].class_size.clone() {
                             if last_end_offset < *size {
                                 self.fields[last_index].end_padding_bytes = Some(size - last_end_offset);
                             }
@@ -236,8 +187,7 @@ impl FieldsWithHash {
         }
 
         if !self.fields.is_empty() {
-            let last_class_id = &self.fields[last_index].class_id;
-            if let Some(size) = class_size_map.get(last_class_id) {
+            if let Some(size) = &self.fields[last_index].class_size {
                 if last_end_offset < *size {
                     self.fields[last_index].end_padding_bytes = Some(size - last_end_offset);
                 }
@@ -450,12 +400,11 @@ impl FieldsPerPlatform {
     }
 
     // Once all fields are populated, process them for further operation.
-    fn finish_populating(&mut self, class_size_map: &ClassSizeMap,
-                         has_unsupported_multiple_inheritance: bool) {
-        for (platform_id, fields) in self.fields_per_platform.iter_mut() {
+    fn finish_populating(&mut self, has_unsupported_multiple_inheritance: bool) {
+        for (_, fields) in self.fields_per_platform.iter_mut() {
             fields.sort();
             if !has_unsupported_multiple_inheritance {
-                fields.calculate_holes(class_size_map.per_platform(&platform_id));
+                fields.calculate_holes();
             }
             fields.calculate_hash();
         }
@@ -639,8 +588,6 @@ impl ClassMap {
 
         self.root_class_id = Some(root_sym_id.clone());
 
-        let mut class_size_map = ClassSizeMap::new();
-
         let mut fields_per_platform = FieldsPerPlatform::new();
 
         let mut root_item = TraversalItem::new(root_sym_id);
@@ -713,16 +660,6 @@ impl ClassMap {
                     }
                 }
 
-                if let Some(size) = &s.size_bytes {
-                    if let Some(platform_id) = &maybe_platform_id {
-                        class_size_map.set(platform_id.clone(), class_id.clone(), *size);
-                    } else {
-                        for platform_id in item.platforms() {
-                            class_size_map.set(platform_id.clone(), class_id.clone(), *size);
-                        }
-                    }
-                }
-
                 for field in s.fields.clone() {
                     let (field_id, field_info) = self.stt
                         .node_set
@@ -732,13 +669,15 @@ impl ClassMap {
                     if let Some(platform_id) = &maybe_platform_id {
                         let offset = item.get_offset(&platform_id);
                         let field = Field::new(class_id.clone(), traversal_id.clone(),
-                                               offset, field_id.clone(), field_info, &field);
+                                               offset, s.size_bytes.clone(),
+                                               field_id.clone(), field_info, &field);
                         fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
                         for platform_id in item.platforms() {
                             let offset = item.get_offset(&platform_id);
                             let field = Field::new(class_id.clone(), traversal_id.clone(),
-                                                   offset, field_id.clone(), field_info, &field);
+                                                   offset, s.size_bytes.clone(),
+                                                   field_id.clone(), field_info, &field);
                             fields_per_platform.add_field(&platform_id, field.clone());
                         }
                     }
@@ -753,8 +692,7 @@ impl ClassMap {
         self.has_unsupported_multiple_inheritance =
             has_multiple_inheritance && !has_non_zero_super_offset;
 
-        fields_per_platform.finish_populating(&class_size_map,
-                                              self.has_unsupported_multiple_inheritance);
+        fields_per_platform.finish_populating(self.has_unsupported_multiple_inheritance);
 
         self.groups = fields_per_platform.group_platforms(&self.platform_map);
 
