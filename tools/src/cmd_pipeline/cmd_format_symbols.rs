@@ -244,7 +244,6 @@ impl FieldsWithHash {
 struct Class {
     id: SymbolGraphNodeId,
     name: String,
-    supers: Vec<SymbolGraphNodeId>,
     fields: HashMap<SymbolGraphNodeId, HashMap<PlatformGroupId, Field>>,
     merged_fields: Vec<Vec<Option<Field>>>,
 }
@@ -254,7 +253,6 @@ impl Class {
         Self {
             id: id,
             name: name,
-            supers: vec![],
             fields: HashMap::new(),
             merged_fields: vec![],
         }
@@ -554,7 +552,7 @@ impl ClassMap {
             let depth = sym_info.depth;
             let structured = sym_info.get_structured().unwrap();
 
-            let mut cls = Class::new(
+            let cls = Class::new(
                 class_id.clone(),
                 structured.pretty.to_string(),
             );
@@ -568,7 +566,6 @@ impl ClassMap {
                     .node_set
                     .ensure_symbol(&super_info.sym, server, depth + 1)
                     .await?;
-                cls.supers.push(super_id.clone());
                 pending_ids.push_back(super_id);
             }
             self.class_list.push(cls.id.clone());
