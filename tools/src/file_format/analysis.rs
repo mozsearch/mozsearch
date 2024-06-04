@@ -562,27 +562,33 @@ where
         }
     }
 
-    // TODO: As mentioned on `fields`, we need to unify things during crossref
-    // otherwise we may be blind to some fields for our fancy magic.
-    pub fn fields_across_all_variants(&self) -> Vec<(Vec<String>, Vec<StructuredFieldInfo<StrT>>)> {
+    pub fn per_platform<'a>(&'a self) -> Vec<(Option<String>, &'a Self)> {
         // XXX at least for things that are subclassed it seems like we can end up with multiple
         // structured representations right now, so we need to keep track of platforms we've seen
         // so we can avoid adding them a subsequent time.
         let mut seen = HashSet::new();
-        let main_platforms = self.platforms();
-        for p in &main_platforms {
-            seen.insert(p.to_owned());
-        }
-        let mut results = vec![(main_platforms, self.fields.clone())];
 
-        for v in &self.variants {
-            let var_platforms = v.platforms();
-            // Try and insert the platforms into the seen set; insert returns true
-            // if the element is newly inserted.
-            if !var_platforms.iter().all(|p| seen.insert(p.to_owned())) {
-                continue;
+        let mut results = vec![];
+
+        let main_platforms = self.platforms();
+        if main_platforms.is_empty() {
+            results.push((None, self));
+        } else {
+            for p in main_platforms {
+                seen.insert(p.to_owned());
+                results.push((Some(p.clone()), self));
             }
-            results.push((var_platforms, v.fields.clone()));
+        }
+        for v in &self.variants {
+            for p in &v.platforms() {
+                // Try and insert the platforms into the seen set; insert returns true
+                // if the element is newly inserted.
+                if !seen.insert(p.to_owned()) {
+                    continue;
+                }
+
+                results.push((Some(p.clone()), &v));
+            }
         }
         results
     }

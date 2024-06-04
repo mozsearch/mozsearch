@@ -596,39 +596,17 @@ impl ClassMap {
         let mut pending_ids = VecDeque::new();
         pending_ids.push_back(root_sym_id);
 
-        while let Some(sym_id) = pending_ids.pop_front() {
-            let sym_info = self.stt.node_set.get(&sym_id);
+        while let Some(class_id) = pending_ids.pop_front() {
+            let sym_info = self.stt.node_set.get(&class_id);
             let depth = sym_info.depth;
             let Some(structured) = sym_info.get_structured() else {
                 continue;
             };
 
             let mut cls = Class::new(
-                sym_id.clone(),
+                class_id.clone(),
                 structured.pretty.to_string(),
             );
-
-            if let Some(size) = &structured.size_bytes {
-                let platforms = structured.platforms();
-                if platforms.is_empty() {
-                    class_size_map.set(cls.id.clone(), *size);
-                } else {
-                    for platform in platforms {
-                        let platform_id = self.platform_map.add(platform.clone());
-                        class_size_map.set_per_platform(platform_id, cls.id.clone(), *size);
-                    }
-                }
-            }
-
-            for v in &structured.variants {
-                if let Some(size) = &v.size_bytes {
-                    let platforms = v.platforms();
-                    for platform in platforms {
-                        let platform_id = self.platform_map.add(platform.clone());
-                        class_size_map.set_per_platform(platform_id, cls.id.clone(), *size);
-                    }
-                }
-            }
 
             if structured.supers.len() > 1 {
                 self.has_multiple_inheritance = true;
@@ -646,29 +624,34 @@ impl ClassMap {
             self.class_list.push(cls.id.clone());
             self.class_map.insert(cls.id.clone(), cls);
 
-            let platforms_and_fields = structured.fields_across_all_variants();
-            for (platforms, fields) in platforms_and_fields {
-                let mut platform_ids = vec![];
+            for (maybe_platform, s) in structured.per_platform() {
+                let mut maybe_platform_id: Option<PlatformId> = None;
 
-                for platform in &platforms {
+                if let Some(platform) = maybe_platform {
                     let platform_id = self.platform_map.add(platform.clone());
-                    platform_ids.push(platform_id);
+                    maybe_platform_id = Some(platform_id);
                 }
 
-                for field in fields {
+                if let Some(size) = &s.size_bytes {
+                    if let Some(platform_id) = &maybe_platform_id {
+                        class_size_map.set_per_platform(platform_id.clone(), class_id.clone(), *size);
+                    } else {
+                        class_size_map.set(class_id.clone(), *size);
+                    }
+                }
+
+                for field in s.fields.clone() {
                     let (field_id, field_info) = self.stt
                         .node_set
                         .ensure_symbol(&field.sym, server, depth + 1)
                         .await?;
 
-                    let field = Field::new(sym_id.clone(), field_id.clone(), field_info, &field);
+                    let field = Field::new(class_id.clone(), field_id.clone(), field_info, &field);
 
-                    if platform_ids.is_empty() {
-                        fields_per_platform.add_field(field);
+                    if let Some(platform_id) = &maybe_platform_id {
+                        fields_per_platform.add_field_per_platform(&platform_id, field.clone());
                     } else {
-                        for platform_id in &platform_ids {
-                            fields_per_platform.add_field_per_platform(&platform_id, field.clone());
-                        }
+                        fields_per_platform.add_field(field);
                     }
                 }
             }
