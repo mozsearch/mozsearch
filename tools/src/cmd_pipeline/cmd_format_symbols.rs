@@ -94,7 +94,7 @@ struct Field {
 
 impl Field {
     fn new(class_id: ClassId, class_traversal_id: TraversalId,
-           field_id: FieldId,
+           class_offset: u32, field_id: FieldId,
            sym_info: &DerivedSymbolInfo, info: &StructuredFieldInfo) -> Self {
         Self {
             class_id: class_id,
@@ -106,7 +106,7 @@ impl Field {
             hole_bytes: None,
             hole_after_base: false,
             end_padding_bytes: None,
-            offset_bytes: info.offset_bytes,
+            offset_bytes: class_offset + info.offset_bytes,
             bit_positions: info.bit_positions.clone(),
             size_bytes: info.size_bytes.clone(),
         }
@@ -451,10 +451,10 @@ impl FieldsPerPlatform {
 
     // Once all fields are populated, process them for further operation.
     fn finish_populating(&mut self, class_size_map: &ClassSizeMap,
-                         has_multiple_inheritance: bool) {
+                         has_unsupported_multiple_inheritance: bool) {
         for (platform_id, fields) in self.fields_per_platform.iter_mut() {
             fields.sort();
-            if !has_multiple_inheritance {
+            if !has_unsupported_multiple_inheritance {
                 fields.calculate_holes(class_size_map.per_platform(&platform_id));
             }
             fields.calculate_hash();
@@ -614,7 +614,7 @@ struct ClassMap {
     // Platforms grouped by the field layout.
     groups: Vec<(PlatformGroupId, Vec<PlatformId>)>,
 
-    has_multiple_inheritance: bool,
+    has_unsupported_multiple_inheritance: bool,
 
     root_class_id: Option<ClassId>,
     stt: SymbolTreeTable,
@@ -627,7 +627,7 @@ impl ClassMap {
             class_list: vec![],
             platform_map: PlatformMap::new(),
             groups: vec![],
-            has_multiple_inheritance: false,
+            has_unsupported_multiple_inheritance: false,
             root_class_id: None,
             stt: SymbolTreeTable::new(),
         }
@@ -652,6 +652,9 @@ impl ClassMap {
         pending_items.push_back(root_item);
 
         let mut traversal_index = 0;
+
+        let mut has_multiple_inheritance = false;
+        let mut has_non_zero_super_offset = false;
 
         while let Some(item) = pending_items.pop_front() {
             let class_id = item.class_id.clone();
@@ -686,7 +689,7 @@ impl ClassMap {
                 }
 
                 if s.supers.len() > 1 {
-                    self.has_multiple_inheritance = true;
+                    has_multiple_inheritance = true;
                 }
 
                 for super_info in &s.supers {
@@ -694,6 +697,10 @@ impl ClassMap {
                         .node_set
                         .ensure_symbol(&super_info.sym, server, depth + 1)
                         .await?;
+
+                    if super_info.offset_bytes > 0 {
+                        has_non_zero_super_offset = true;
+                    }
 
                     if let Some(platform_id) = &maybe_platform_id {
                         let offset = item.get_offset(&platform_id);
@@ -722,13 +729,16 @@ impl ClassMap {
                         .ensure_symbol(&field.sym, server, depth + 1)
                         .await?;
 
-                    let field = Field::new(class_id.clone(), traversal_id.clone(),
-                                           field_id.clone(), field_info, &field);
-
                     if let Some(platform_id) = &maybe_platform_id {
+                        let offset = item.get_offset(&platform_id);
+                        let field = Field::new(class_id.clone(), traversal_id.clone(),
+                                               offset, field_id.clone(), field_info, &field);
                         fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
                         for platform_id in item.platforms() {
+                            let offset = item.get_offset(&platform_id);
+                            let field = Field::new(class_id.clone(), traversal_id.clone(),
+                                                   offset, field_id.clone(), field_info, &field);
                             fields_per_platform.add_field(&platform_id, field.clone());
                         }
                     }
@@ -738,11 +748,13 @@ impl ClassMap {
             for super_item in supers.into_traversal_items() {
                 pending_items.push_back(super_item);
             }
-
         }
 
+        self.has_unsupported_multiple_inheritance =
+            has_multiple_inheritance && !has_non_zero_super_offset;
+
         fields_per_platform.finish_populating(&class_size_map,
-                                              self.has_multiple_inheritance);
+                                              self.has_unsupported_multiple_inheritance);
 
         self.groups = fields_per_platform.group_platforms(&self.platform_map);
 
@@ -864,12 +876,12 @@ impl ClassMap {
                 colspan: (1 + column_offset + self.groups.len() * 2) as u32,
             };
 
-            if self.has_multiple_inheritance && is_root {
+            if self.has_unsupported_multiple_inheritance && is_root {
                 let warn_node = SymbolTreeTableNode {
                     sym_id: None,
                     label: vec![
                         BasicMarkup::ItalicText(
-                            "(The multiple inheritance is not yet supported. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string()
+                            "(This class has multiple inheritance but the offset is not found in the analysis file. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string()
                         )
                     ],
                     col_vals: vec![],
