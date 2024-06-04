@@ -68,11 +68,18 @@ struct PlatformGroupId(u32);
 type ClassId = SymbolGraphNodeId;
 type FieldId = SymbolGraphNodeId;
 
+// The identifier for the specific class in the layout.
+// Single class can get multiple TraversalId if the class
+// appears multiple times in the hierarchy.
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct TraversalId(u32);
+
 // A struct to represent single field and hole before the field,
 // for specific platform.
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct Field {
     class_id: ClassId,
+    class_traversal_id: TraversalId,
     field_id: FieldId,
     type_pretty: String,
     pretty: String,
@@ -86,10 +93,12 @@ struct Field {
 }
 
 impl Field {
-    fn new(class_id: ClassId, field_id: FieldId,
+    fn new(class_id: ClassId, class_traversal_id: TraversalId,
+           field_id: FieldId,
            sym_info: &DerivedSymbolInfo, info: &StructuredFieldInfo) -> Self {
         Self {
             class_id: class_id,
+            class_traversal_id: class_traversal_id,
             field_id: field_id,
             type_pretty: info.type_pretty.to_string(),
             pretty: info.pretty.to_string(),
@@ -193,7 +202,7 @@ impl FieldsWithHash {
         for index in 0..len {
             if self.fields[index].offset_bytes > last_end_offset {
                 if index != last_index {
-                    if self.fields[last_index].class_id != self.fields[index].class_id {
+                    if self.fields[last_index].class_traversal_id != self.fields[index].class_traversal_id {
                         let last_class_id = &self.fields[last_index].class_id;
                         if let Some(size) = class_size_map.get(last_class_id) {
                             if last_end_offset < *size {
@@ -553,6 +562,8 @@ impl ClassMap {
         let mut pending_ids = VecDeque::new();
         pending_ids.push_back(self.root_class_id.clone().unwrap());
 
+        let mut traversal_index = 0;
+
         while let Some(class_id) = pending_ids.pop_front() {
             let sym_info = self.stt.node_set.get(&class_id);
             let depth = sym_info.depth;
@@ -562,6 +573,10 @@ impl ClassMap {
                 class_id.clone(),
                 structured.pretty.to_string(),
             );
+
+            let traversal_id = TraversalId(traversal_index);
+
+            traversal_index += 1;
 
             if structured.supers.len() > 1 {
                 self.has_multiple_inheritance = true;
@@ -602,7 +617,8 @@ impl ClassMap {
                         .ensure_symbol(&field.sym, server, depth + 1)
                         .await?;
 
-                    let field = Field::new(class_id.clone(), field_id.clone(), field_info, &field);
+                    let field = Field::new(class_id.clone(), traversal_id.clone(),
+                                           field_id.clone(), field_info, &field);
 
                     if let Some(platform_id) = &maybe_platform_id {
                         fields_per_platform.add_field(&platform_id, field.clone());
