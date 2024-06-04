@@ -56,6 +56,12 @@ pub struct FormatSymbolsCommand {
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct PlatformId(u32);
 
+impl PlatformId {
+    fn all() -> Self {
+        Self(0)
+    }
+}
+
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct PlatformGroupId(u32);
 
@@ -95,19 +101,17 @@ impl Field {
 }
 
 struct ClassSize {
-    main_size: u32,
     per_platform: HashMap<PlatformId, u32>,
 }
 
 impl ClassSize {
-    fn new(size: u32) -> Self {
+    fn new() -> Self {
         Self {
-            main_size: size,
             per_platform: HashMap::new(),
         }
     }
 
-    fn set_per_platform(&mut self, platform_id: PlatformId, size: u32) {
+    fn set(&mut self, platform_id: PlatformId, size: u32) {
         self.per_platform.insert(platform_id, size);
     }
 }
@@ -123,39 +127,22 @@ impl ClassSizeMap {
         }
     }
 
-    fn set(&mut self, class_id: SymbolGraphNodeId, size: u32) {
-        self.map.insert(class_id, ClassSize::new(size));
-    }
-
-    fn set_per_platform(&mut self, platform_id: PlatformId, class_id: SymbolGraphNodeId, size: u32) {
+    fn set(&mut self, platform_id: PlatformId, class_id: SymbolGraphNodeId, size: u32) {
         if let Some(class_size) = self.map.get_mut(&class_id) {
-            class_size.set_per_platform(platform_id, size);
+            class_size.set(platform_id, size);
             return;
         }
 
-        let mut class_size = ClassSize::new(size.clone());
-        class_size.set_per_platform(platform_id, size);
+        let mut class_size = ClassSize::new();
+        class_size.set(platform_id, size);
         self.map.insert(class_id, class_size);
-    }
-
-    fn main(&self) -> HashMap<SymbolGraphNodeId, u32> {
-        let mut result = HashMap::new();
-
-        for (class_id, class_size) in &self.map {
-            result.insert(class_id.clone(), class_size.main_size);
-        }
-
-        result
     }
 
     fn per_platform(&self, platform_id: &PlatformId) -> HashMap<SymbolGraphNodeId, u32> {
         let mut result = HashMap::new();
 
         for (class_id, class_size) in &self.map {
-            let size = match class_size.per_platform.get(platform_id) {
-                Some(size) => *size,
-                None => class_size.main_size,
-            };
+            let size = class_size.per_platform.get(platform_id).unwrap().clone();
             result.insert(class_id.clone(), size);
         }
 
@@ -170,22 +157,11 @@ struct FieldsWithHash {
 }
 
 impl FieldsWithHash {
-    fn new() -> Self {
-        Self {
-            fields: vec![],
-            hash: 0,
-        }
-    }
-
     fn new_with_field(field: Field) -> Self {
         Self {
             fields: vec![field],
             hash: 0,
         }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.fields.is_empty()
     }
 
     fn sort(&mut self) {
@@ -392,6 +368,17 @@ impl PlatformMap {
         platform_id
     }
 
+    fn finish_populating(&mut self) {
+        if self.is_empty() {
+            let id = self.add("All platforms".to_string());
+            assert!(id == PlatformId::all());
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.platform_name_to_id.is_empty()
+    }
+
     fn get(&self, platform: String) -> PlatformId {
         self.platform_name_to_id.get(&platform).unwrap().clone()
     }
@@ -432,23 +419,17 @@ fn platform_name_to_order(name: &String) -> u32 {
 // Struct to hold the list of fields for the entire class hierarchy
 // per platform, and calculate the hole between them.
 struct FieldsPerPlatform {
-    platform_agnostic_fields: FieldsWithHash,
     fields_per_platform: HashMap<PlatformId, FieldsWithHash>,
 }
 
 impl FieldsPerPlatform {
     fn new() -> Self {
         Self {
-            platform_agnostic_fields: FieldsWithHash::new(),
             fields_per_platform: HashMap::new(),
         }
     }
 
-    fn add_field(&mut self, field: Field) {
-        self.platform_agnostic_fields.fields.push(field);
-    }
-
-    fn add_field_per_platform(&mut self, platform_id: &PlatformId, field: Field) {
+    fn add_field(&mut self, platform_id: &PlatformId, field: Field) {
         if let Some(fields) = self.fields_per_platform.get_mut(platform_id) {
             fields.fields.push(field);
             return;
@@ -458,43 +439,21 @@ impl FieldsPerPlatform {
     }
 
     // Once all fields are populated, process them for further operation.
-    fn finish_populating(&mut self, platform_map: &PlatformMap,
-                         class_size_map: &ClassSizeMap,
+    fn finish_populating(&mut self, class_size_map: &ClassSizeMap,
                          has_multiple_inheritance: bool) {
-        if !self.platform_agnostic_fields.is_empty() && !self.fields_per_platform.is_empty() {
-            // If there are per-platform field and also platform-agnostic field,
-            // copy platform-agnostic fields into per-platform fields and perform
-            // the remaining steps for per-platform fields.
-
-            let platform_agnostic_fields: Vec<Field> = self.platform_agnostic_fields.fields.drain(..).collect();
-
-            for platform_id in &platform_map.platform_ids() {
-                for field in &platform_agnostic_fields {
-                    self.add_field_per_platform(&platform_id, field.clone());
-                }
-            }
-        }
-
-        if self.fields_per_platform.is_empty() {
-            self.platform_agnostic_fields.sort();
+        for (platform_id, fields) in self.fields_per_platform.iter_mut() {
+            fields.sort();
             if !has_multiple_inheritance {
-                self.platform_agnostic_fields.calculate_holes(class_size_map.main());
+                fields.calculate_holes(class_size_map.per_platform(&platform_id));
             }
-        } else {
-            for (platform_id, fields) in self.fields_per_platform.iter_mut() {
-                fields.sort();
-                if !has_multiple_inheritance {
-                    fields.calculate_holes(class_size_map.per_platform(&platform_id));
-                }
-                fields.calculate_hash();
-            }
+            fields.calculate_hash();
         }
     }
 
     fn group_platforms(&self, platform_map: &PlatformMap) -> Vec<(PlatformGroupId, Vec<PlatformId>)> {
         if self.fields_per_platform.is_empty() {
             // If all fields are platform-agnostic, simply return them.
-            return vec![(PlatformGroupId(0), vec![])];
+            return vec![(PlatformGroupId(0), platform_map.platform_ids())];
         }
 
         // Group platforms by fields.
@@ -541,13 +500,9 @@ impl FieldsPerPlatform {
             .collect()
     }
 
-    fn get_fields_for_platforms<'a>(&'a self, platform_ids: &Vec<PlatformId>) -> &'a Vec<Field> {
-        if platform_ids.is_empty() {
-            return &self.platform_agnostic_fields.fields;
-        }
-
+    fn get_fields_for_platforms<'a>(&'a self, platform_ids: &Vec<PlatformId>) -> Option<&'a Vec<Field>> {
         let platform_id = &platform_ids[0];
-        &self.fields_per_platform.get(&platform_id).unwrap().fields
+        self.fields_per_platform.get(&platform_id).map(|fields| &fields.fields)
     }
 }
 
@@ -629,9 +584,11 @@ impl ClassMap {
 
                 if let Some(size) = &s.size_bytes {
                     if let Some(platform_id) = &maybe_platform_id {
-                        class_size_map.set_per_platform(platform_id.clone(), class_id.clone(), *size);
+                        class_size_map.set(platform_id.clone(), class_id.clone(), *size);
                     } else {
-                        class_size_map.set(class_id.clone(), *size);
+                        for platform_id in self.platform_map.platform_ids() {
+                            class_size_map.set(platform_id.clone(), class_id.clone(), *size);
+                        }
                     }
                 }
 
@@ -644,24 +601,27 @@ impl ClassMap {
                     let field = Field::new(class_id.clone(), field_id.clone(), field_info, &field);
 
                     if let Some(platform_id) = &maybe_platform_id {
-                        fields_per_platform.add_field_per_platform(&platform_id, field.clone());
+                        fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
-                        fields_per_platform.add_field(field);
+                        for platform_id in self.platform_map.platform_ids() {
+                            fields_per_platform.add_field(&platform_id, field.clone());
+                        }
                     }
                 }
             }
         }
 
-        fields_per_platform.finish_populating(&self.platform_map,
-                                              &class_size_map,
+        fields_per_platform.finish_populating(&class_size_map,
                                               self.has_multiple_inheritance);
 
         self.groups = fields_per_platform.group_platforms(&self.platform_map);
 
         for (group_id, platforms) in &self.groups {
-            for field in fields_per_platform.get_fields_for_platforms(platforms) {
-                let cls = self.class_map.get_mut(&field.class_id).unwrap();
-                cls.add_field(group_id.clone(), field.clone());
+            if let Some(fields) = fields_per_platform.get_fields_for_platforms(platforms) {
+                for field in fields {
+                    let cls = self.class_map.get_mut(&field.class_id).unwrap();
+                    cls.add_field(group_id.clone(), field.clone());
+                }
             }
         }
 
@@ -707,6 +667,8 @@ impl ClassMap {
             }
         }
 
+        self.platform_map.finish_populating();
+
         Ok(())
     }
 
@@ -730,15 +692,11 @@ impl ClassMap {
         });
 
         for (_, platforms) in &self.groups {
-            let label = if platforms.is_empty() {
-                "All platforms".to_string()
-            } else {
-                platforms
-                    .iter()
-                    .map(|platform_id| self.platform_map.get_name(&platform_id))
-                    .join(" ")
-                    .to_owned()
-            };
+            let label = platforms
+                .iter()
+                .map(|platform_id| self.platform_map.get_name(&platform_id))
+                .join(" ")
+                .to_owned();
 
             self.stt.columns.push(SymbolTreeTableColumn {
                 label: vec![BasicMarkup::Heading(label)],
