@@ -113,7 +113,7 @@ $MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH
 
 date
 
-$MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME || handle_tree_error "output.sh"
+$MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME $URL_MAP_PATH || handle_tree_error "output.sh"
 
 date
 

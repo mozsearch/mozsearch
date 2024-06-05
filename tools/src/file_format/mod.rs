@@ -26,3 +26,5 @@ pub mod ontology_mapping;
 pub mod per_file_info;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod repo_data_ingestion;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod url_map;

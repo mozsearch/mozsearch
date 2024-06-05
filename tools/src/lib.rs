@@ -71,4 +71,6 @@ pub mod output;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tokenize;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod url_map_handler;
+#[cfg(not(target_arch = "wasm32"))]
 mod symbol_graph_edge_kind;

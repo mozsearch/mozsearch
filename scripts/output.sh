@@ -4,15 +4,16 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# -ne 3 ]
+if [ $# -ne 4 ]
 then
-    echo "Usage: output.sh config_repo config-file.json tree_name"
+    echo "Usage: output.sh config_repo config-file.json tree_name url-map.json"
     exit 1
 fi
 
 CONFIG_REPO=$(realpath $1)
 CONFIG_FILE=$(realpath $2)
 TREE_NAME=$3
+URL_MAP_PATH=$4
 
 # let's put the "parallel" output in a new `diags` directory, as we're still
 # seeing really poor output-file performance in bug 1567724.
@@ -63,7 +64,7 @@ TMPDIR_PATH=${DIAGS_DIR}
 #   which is obviously suboptimal.
 parallel --jobs 8 --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
     --block -1 --halt 2 --env RUST_BACKTRACE \
-    "$MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME - 2>&1"
+    "$MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME $URL_MAP_PATH - 2>&1"
 
 TOOL_CMD="search-files --limit=0 --include-dirs --group-by=directory | batch-render dir"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
