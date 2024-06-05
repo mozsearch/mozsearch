@@ -1,3 +1,7 @@
+function atUnescape(text) {
+  return text.replace(/@([0-9A-F][0-9A-F])/g, (_, s) => String.fromCharCode(parseInt(s, 16)));
+}
+
 var ContextMenu = new (class ContextMenu {
   constructor() {
     this.menu = document.createElement("ul");
@@ -36,6 +40,17 @@ var ContextMenu = new (class ContextMenu {
         lang = "C++";
       }
       return lang;
+  }
+
+  generatePseudoFileSymInfo(sym) {
+    let file = atUnescape(sym.replace(/^FILE_/, ""));
+    return {
+      sym: sym,
+      pretty: file,
+      jumps: {
+        def: file + "#1",
+      },
+    };
   }
 
   tryShowOnClick(event) {
@@ -132,7 +147,14 @@ var ContextMenu = new (class ContextMenu {
           continue;
         }
 
-        const symInfo = SYM_INFO[sym];
+        let symInfo = SYM_INFO[sym];
+
+        if (!symInfo) {
+          if (sym.startsWith("FILE_")) {
+            symInfo = this.generatePseudoFileSymInfo(sym);
+          }
+        }
+
         // XXX Ignore no_crossref data that's currently not useful/used.
         if (!symInfo || !symInfo.sym || !symInfo.pretty) {
           continue;

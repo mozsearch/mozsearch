@@ -1,6 +1,9 @@
 use linkify::{LinkFinder, LinkKind};
 use regex::Regex;
 use std::borrow::Cow;
+use itertools::Itertools;
+
+use crate::url_map_handler::get_file_paths_for_url;
 
 /// Turn anything that looks like a link into an actual `<a href>` link using
 /// the `linkify` crate and in-between those links use `linkify_bug_number` to
@@ -13,12 +16,24 @@ pub fn linkify_comment(s: String) -> String {
     let mut result = String::new();
     for link in finder.links(&s) {
         result.push_str(&linkify_bug_numbers(&s[last..link.start()]));
+        last = link.end();
+
+        if link.as_str().starts_with("chrome://") || link.as_str().starts_with("resource://") {
+            if let Some(items) = get_file_paths_for_url(link.as_str()) {
+                result.push_str(&format!(
+                    "<span data-symbols=\"{}\">{}</span>",
+                    items.iter().map(|item| &item.sym).join(","),
+                    link.as_str()
+                ));
+                continue;
+            }
+        }
+
         result.push_str(&format!(
             "<a href=\"{}\">{}</a>",
             link.as_str(),
             linkify_bug_numbers(link.as_str())
         ));
-        last = link.end();
     }
 
     if last == 0 {

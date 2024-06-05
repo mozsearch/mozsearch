@@ -32,6 +32,8 @@ use tools::languages;
 
 use tools::output::{PanelItem, PanelSection};
 
+use tools::url_map_handler::set_url_map_path;
+
 extern crate flate2;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -41,7 +43,7 @@ fn main() {
 
     let args: Vec<_> = env::args().collect();
     // TODO: refactor _fname_args out of existence; we now require paths to come via stdin.
-    let (base_args, _fname_args) = args.split_at(3);
+    let (base_args, _fname_args) = args.split_at(4);
 
     let mut stdout = io::stdout().lock();
 
@@ -54,6 +56,8 @@ fn main() {
         pre_config.elapsed().as_micros() as u64
     )
     .unwrap();
+
+    set_url_map_path(&base_args[3]);
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
