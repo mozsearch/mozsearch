@@ -8,8 +8,8 @@
     ]
   },
   {
-    "chrome://global/content/test/chrome1.mjs": "chrome://global/content/test/chrome4.mjs",
-    "resource://test/resource1.mjs": "resource://test/resource4.mjs"
+    "chrome://global/content/test/chrome4.mjs": "chrome://global/content/test/chrome1.mjs",
+    "resource://test/resource4.mjs": "resource://test/resource1.mjs"
   },
   {
     "dist/bin/chrome/test/chrome1.mjs": [
