@@ -517,6 +517,90 @@ impl FieldsPerPlatform {
     }
 }
 
+// A structure to represent the next item for the class hierarchy traversal.
+struct TraversalItem {
+    // The next class's ID.
+    class_id: ClassId,
+
+    // The offset for the class per platform.
+    // Platforms not included in this map are not used for this traversal.
+    offset_map: HashMap<PlatformId, u32>,
+}
+
+impl TraversalItem {
+    fn new(class_id: ClassId) -> Self {
+        Self {
+            class_id: class_id,
+            offset_map: HashMap::new(),
+        }
+    }
+
+    fn add_offset(&mut self, platform_id: PlatformId, offset: u32) {
+        self.offset_map.insert(platform_id, offset);
+    }
+
+    fn get_offset(&self, platform_id: &PlatformId) -> u32 {
+        match self.offset_map.get(platform_id) {
+            Some(offset) => *offset,
+            None => 0,
+        }
+    }
+
+    fn is_enabled(&self, platform_id: &PlatformId) -> bool {
+        self.offset_map.contains_key(platform_id)
+    }
+
+    fn platforms(&self) -> Vec<PlatformId> {
+        let mut result = vec![];
+        for platform_id in self.offset_map.keys() {
+            result.push(platform_id.clone());
+        }
+        result
+    }
+}
+
+struct SupersMap {
+    super_ids: Vec<ClassId>,
+    supers: HashMap<ClassId, HashMap<PlatformId, u32>>,
+}
+
+impl SupersMap {
+    fn new() -> Self {
+        Self {
+            super_ids: vec![],
+            supers: HashMap::new(),
+        }
+    }
+
+    fn add(&mut self, class_id: ClassId, platform_id: PlatformId, offset: u32) {
+        if let Some(item) = self.supers.get_mut(&class_id) {
+            item.insert(platform_id, offset);
+            return;
+        }
+
+        let mut item = HashMap::new();
+        item.insert(platform_id, offset);
+        self.super_ids.push(class_id.clone());
+        self.supers.insert(class_id, item);
+    }
+
+    fn into_traversal_items(self) -> Vec<TraversalItem> {
+        let mut result = vec![];
+
+        for class_id in self.super_ids {
+            let offset_map = self.supers.get(&class_id).unwrap();
+            let mut item = TraversalItem::new(class_id);
+            for (platform_id, offset) in offset_map {
+                item.add_offset(platform_id.clone(), offset.clone());
+            }
+            result.push(item);
+        }
+
+        result
+    }
+}
+
+
 struct ClassMap {
     // All processed classes.
     class_map: HashMap<ClassId, Class>,
@@ -559,12 +643,19 @@ impl ClassMap {
 
         let mut fields_per_platform = FieldsPerPlatform::new();
 
-        let mut pending_ids = VecDeque::new();
-        pending_ids.push_back(self.root_class_id.clone().unwrap());
+        let mut root_item = TraversalItem::new(root_sym_id);
+        for platform_id in self.platform_map.platform_ids() {
+            root_item.add_offset(platform_id, 0);
+        }
+
+        let mut pending_items = VecDeque::new();
+        pending_items.push_back(root_item);
 
         let mut traversal_index = 0;
 
-        while let Some(class_id) = pending_ids.pop_front() {
+        while let Some(item) = pending_items.pop_front() {
+            let class_id = item.class_id.clone();
+
             let sym_info = self.stt.node_set.get(&class_id);
             let depth = sym_info.depth;
             let structured = sym_info.get_structured().unwrap();
@@ -578,34 +669,48 @@ impl ClassMap {
 
             traversal_index += 1;
 
-            if structured.supers.len() > 1 {
-                self.has_multiple_inheritance = true;
-            }
-
-            for super_info in &structured.supers {
-                let (super_id, _) = self.stt
-                    .node_set
-                    .ensure_symbol(&super_info.sym, server, depth + 1)
-                    .await?;
-
-                pending_ids.push_back(super_id);
-            }
             self.class_list.push(cls.id.clone());
             self.class_map.insert(cls.id.clone(), cls);
+
+            let mut supers = SupersMap::new();
 
             for (maybe_platform, s) in structured.per_platform() {
                 let mut maybe_platform_id: Option<PlatformId> = None;
 
                 if let Some(platform) = maybe_platform {
                     let platform_id = self.platform_map.get(platform.clone());
+                    if !item.is_enabled(&platform_id) {
+                        continue;
+                    }
                     maybe_platform_id = Some(platform_id);
+                }
+
+                if s.supers.len() > 1 {
+                    self.has_multiple_inheritance = true;
+                }
+
+                for super_info in &s.supers {
+                    let (super_id, _) = self.stt
+                        .node_set
+                        .ensure_symbol(&super_info.sym, server, depth + 1)
+                        .await?;
+
+                    if let Some(platform_id) = &maybe_platform_id {
+                        let offset = item.get_offset(&platform_id);
+                        supers.add(super_id.clone(), platform_id.clone(), offset + super_info.offset_bytes);
+                    } else {
+                        for platform_id in item.platforms() {
+                            let offset = item.get_offset(&platform_id);
+                            supers.add(super_id.clone(), platform_id.clone(), offset + super_info.offset_bytes);
+                        }
+                    }
                 }
 
                 if let Some(size) = &s.size_bytes {
                     if let Some(platform_id) = &maybe_platform_id {
                         class_size_map.set(platform_id.clone(), class_id.clone(), *size);
                     } else {
-                        for platform_id in self.platform_map.platform_ids() {
+                        for platform_id in item.platforms() {
                             class_size_map.set(platform_id.clone(), class_id.clone(), *size);
                         }
                     }
@@ -623,12 +728,17 @@ impl ClassMap {
                     if let Some(platform_id) = &maybe_platform_id {
                         fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
-                        for platform_id in self.platform_map.platform_ids() {
+                        for platform_id in item.platforms() {
                             fields_per_platform.add_field(&platform_id, field.clone());
                         }
                     }
                 }
             }
+
+            for super_item in supers.into_traversal_items() {
+                pending_items.push_back(super_item);
+            }
+
         }
 
         fields_per_platform.finish_populating(&class_size_map,
