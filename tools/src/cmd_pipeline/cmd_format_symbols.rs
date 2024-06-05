@@ -80,7 +80,7 @@ struct TraversalId(u32);
 struct Field {
     class_id: ClassId,
     class_traversal_id: TraversalId,
-    class_size: Option<u32>,
+    class_end_offset: Option<u32>,
     field_id: FieldId,
     type_pretty: String,
     pretty: String,
@@ -100,7 +100,7 @@ impl Field {
         Self {
             class_id: class_id,
             class_traversal_id: class_traversal_id,
-            class_size: class_size,
+            class_end_offset: class_size.map(|size| class_offset + size),
             field_id: field_id,
             type_pretty: info.type_pretty.to_string(),
             pretty: info.pretty.to_string(),
@@ -155,11 +155,11 @@ impl FieldsWithHash {
             if self.fields[index].offset_bytes > last_end_offset {
                 if index != last_index {
                     if self.fields[last_index].class_traversal_id != self.fields[index].class_traversal_id {
-                        if let Some(size) = &self.fields[last_index].class_size.clone() {
-                            if last_end_offset < *size {
-                                self.fields[last_index].end_padding_bytes = Some(size - last_end_offset);
+                        if let Some(end_offset) = &self.fields[last_index].class_end_offset.clone() {
+                            if last_end_offset < *end_offset {
+                                self.fields[last_index].end_padding_bytes = Some(end_offset - last_end_offset);
                             }
-                            last_end_offset = *size;
+                            last_end_offset = *end_offset;
                         }
 
                         self.fields[index].hole_after_base = true;
@@ -187,9 +187,9 @@ impl FieldsWithHash {
         }
 
         if !self.fields.is_empty() {
-            if let Some(size) = &self.fields[last_index].class_size {
-                if last_end_offset < *size {
-                    self.fields[last_index].end_padding_bytes = Some(size - last_end_offset);
+            if let Some(end_offset) = &self.fields[last_index].class_end_offset {
+                if last_end_offset < *end_offset {
+                    self.fields[last_index].end_padding_bytes = Some(end_offset - last_end_offset);
                 }
             }
         }
