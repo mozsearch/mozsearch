@@ -10,6 +10,7 @@ expression: "&json_results"
     "sym": "T_outerNS::Thing",
     "kind": "class",
     "sizeBytes": 16,
+    "ownVFPtrBytes": 8,
     "supers": [],
     "methods": [
       {
