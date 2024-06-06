@@ -81,7 +81,7 @@ struct Field {
     class_id: ClassId,
     class_traversal_id: TraversalId,
     class_end_offset: Option<u32>,
-    field_id: FieldId,
+    field_id: Option<FieldId>,
     type_pretty: String,
     pretty: String,
     lineno: u64,
@@ -101,7 +101,7 @@ impl Field {
             class_id: class_id,
             class_traversal_id: class_traversal_id,
             class_end_offset: class_size.map(|size| class_offset + size),
-            field_id: field_id,
+            field_id: Some(field_id),
             type_pretty: info.type_pretty.to_string(),
             pretty: info.pretty.to_string(),
             lineno: sym_info.get_def_lno(),
@@ -111,6 +111,26 @@ impl Field {
             offset_bytes: class_offset + info.offset_bytes,
             bit_positions: info.bit_positions.clone(),
             size_bytes: info.size_bytes.clone(),
+        }
+    }
+
+    fn new_vtable(class_id: ClassId, class_traversal_id: TraversalId,
+                  class_offset: u32, class_size: u32,
+                  size_bytes: u32) -> Self {
+        Self {
+            class_id: class_id,
+            class_traversal_id: class_traversal_id,
+            class_end_offset: Some(class_offset + class_size),
+            field_id: None,
+            type_pretty: "".to_string(),
+            pretty: "(vtable)".to_string(),
+            lineno: 0,
+            hole_bytes: None,
+            hole_after_base: false,
+            end_padding_bytes: None,
+            offset_bytes: class_offset,
+            bit_positions: None,
+            size_bytes: Some(size_bytes),
         }
     }
 }
@@ -207,7 +227,7 @@ impl FieldsWithHash {
 struct Class {
     id: ClassId,
     name: String,
-    fields: HashMap<FieldId, HashMap<PlatformGroupId, Field>>,
+    fields: HashMap<Option<FieldId>, HashMap<PlatformGroupId, Field>>,
     merged_fields: Vec<Vec<Option<Field>>>,
 }
 
@@ -635,6 +655,26 @@ impl ClassMap {
                     maybe_platform_id = Some(platform_id);
                 }
 
+                if let Some(size_bytes) = &s.own_vf_ptr_bytes {
+                    if let Some(class_size) = s.size_bytes {
+                        if let Some(platform_id) = &maybe_platform_id {
+                            let offset = item.get_offset(&platform_id);
+                            let field = Field::new_vtable(
+                                class_id.clone(), traversal_id.clone(),
+                                offset, class_size, size_bytes.clone());
+                            fields_per_platform.add_field(&platform_id, field.clone());
+                        } else {
+                            for platform_id in item.platforms() {
+                                let offset = item.get_offset(&platform_id);
+                                let field = Field::new_vtable(
+                                    class_id.clone(), traversal_id.clone(),
+                                    offset, class_size, size_bytes.clone());
+                                fields_per_platform.add_field(&platform_id, field.clone());
+                            }
+                        }
+                    }
+                }
+
                 if s.supers.len() > 1 {
                     has_multiple_inheritance = true;
                 }
@@ -901,7 +941,7 @@ impl ClassMap {
                     match maybe_field {
                         Some(field) => {
                             if field_node.sym_id.is_none() {
-                                field_node.sym_id = Some(field.field_id.clone());
+                                field_node.sym_id = field.field_id.clone();
 
                                 let mut pretty = field.pretty.clone();
                                 pretty = pretty.replace(&field_prefix, "");

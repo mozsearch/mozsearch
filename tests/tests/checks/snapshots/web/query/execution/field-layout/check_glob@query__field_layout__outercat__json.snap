@@ -754,22 +754,39 @@ expression: "&to_value(sttl).unwrap()"
               "colVals": [],
               "children": [
                 {
-                  "label": [],
+                  "label": [
+                    {
+                      "Text": "(vtable)"
+                    }
+                  ],
                   "sym": null,
                   "colVals": [
                     {
                       "header": false,
-                      "contents": [],
+                      "contents": [
+                        {
+                          "Text": ""
+                        }
+                      ],
                       "colspan": 1
                     },
                     {
                       "header": false,
                       "contents": [
                         {
-                          "ItalicText": "8 bytes hole"
+                          "Text": "@ 0x0"
                         }
                       ],
-                      "colspan": 2
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ],
+                      "colspan": 1
                     }
                   ],
                   "children": [],
