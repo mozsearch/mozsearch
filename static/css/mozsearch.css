@@ -1315,6 +1315,10 @@ g.true-diag g.node polygon {
   border-collapse: separate;
 }
 
+.symbol-tree-table + .symbol-tree-table {
+  margin-top: 2em;
+}
+
 .symbol-tree-table h3 {
   margin: 0;
 }
