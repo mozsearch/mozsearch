@@ -338,7 +338,8 @@ expression: sgc.to_json()
           "T_outerNS::OuterCat",
           "T_outerNS::AbstractArt"
         ],
-        "variants": []
+        "variants": [],
+        "ownVFPtrBytes": 8
       },
       "jumps": {
         "def": "big_cpp.cpp#141"

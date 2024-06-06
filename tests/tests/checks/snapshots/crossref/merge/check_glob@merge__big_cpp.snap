@@ -3456,7 +3456,8 @@ expression: "&json_results"
     "fields": [],
     "overrides": [],
     "props": [],
-    "variants": []
+    "variants": [],
+    "ownVFPtrBytes": 8
   },
   {
     "loc": "00185:6-11",
@@ -4100,7 +4101,8 @@ expression: "&json_results"
     ],
     "overrides": [],
     "props": [],
-    "variants": []
+    "variants": [],
+    "ownVFPtrBytes": 8
   },
   {
     "loc": "00474:6-13",
