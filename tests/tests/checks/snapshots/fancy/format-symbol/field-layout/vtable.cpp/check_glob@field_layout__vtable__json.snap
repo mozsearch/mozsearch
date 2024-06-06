@@ -1,0 +1,1407 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::vtable::Sub1a>_x": {
+          "sym": "F_<T_field_layout::vtable::Sub1a>_x",
+          "pretty": "field_layout::vtable::Sub1a::x",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub1a::x",
+            "sym": "F_<T_field_layout::vtable::Sub1a>_x",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::vtable::Sub1a",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#24"
+          }
+        },
+        "F_<T_field_layout::vtable::Sub1b>_y": {
+          "sym": "F_<T_field_layout::vtable::Sub1b>_y",
+          "pretty": "field_layout::vtable::Sub1b::y",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub1b::y",
+            "sym": "F_<T_field_layout::vtable::Sub1b>_y",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::vtable::Sub1b",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#30"
+          }
+        },
+        "F_<T_field_layout::vtable::Sub2>_w": {
+          "sym": "F_<T_field_layout::vtable::Sub2>_w",
+          "pretty": "field_layout::vtable::Sub2::w",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub2::w",
+            "sym": "F_<T_field_layout::vtable::Sub2>_w",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::vtable::Sub2",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#36"
+          }
+        },
+        "F_<T_field_layout::vtable::Sub3>_v": {
+          "sym": "F_<T_field_layout::vtable::Sub3>_v",
+          "pretty": "field_layout::vtable::Sub3::v",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub3::v",
+            "sym": "F_<T_field_layout::vtable::Sub3>_v",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::vtable::Sub3",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#42"
+          }
+        },
+        "F_<T_field_layout::vtable::SubSub>_z": {
+          "sym": "F_<T_field_layout::vtable::SubSub>_z",
+          "pretty": "field_layout::vtable::SubSub::z",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::SubSub::z",
+            "sym": "F_<T_field_layout::vtable::SubSub>_z",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::vtable::SubSub",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#48"
+          }
+        },
+        "T_field_layout::vtable::Base1": {
+          "sym": "T_field_layout::vtable::Base1",
+          "pretty": "field_layout::vtable::Base1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Base1",
+            "sym": "T_field_layout::vtable::Base1",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 8,
+            "ownVFPtrBytes": 8,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::Base1::~Base1",
+                "sym": "_ZN12field_layout6vtable5Base1D1Ev",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base1::operator=",
+                "sym": "_ZN12field_layout6vtable5Base1aSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base1::Base1",
+                "sym": "_ZN12field_layout6vtable5Base1C1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base1::Base1",
+                "sym": "_ZN12field_layout6vtable5Base1C1Ev",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::vtable::Sub1a",
+              "T_field_layout::vtable::Sub1b"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#7"
+          }
+        },
+        "T_field_layout::vtable::Base2": {
+          "sym": "T_field_layout::vtable::Base2",
+          "pretty": "field_layout::vtable::Base2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Base2",
+            "sym": "T_field_layout::vtable::Base2",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 8,
+            "ownVFPtrBytes": 8,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::Base2::~Base2",
+                "sym": "_ZN12field_layout6vtable5Base2D1Ev",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base2::operator=",
+                "sym": "_ZN12field_layout6vtable5Base2aSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base2::Base2",
+                "sym": "_ZN12field_layout6vtable5Base2C1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base2::Base2",
+                "sym": "_ZN12field_layout6vtable5Base2C1Ev",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::vtable::Sub2"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#12"
+          }
+        },
+        "T_field_layout::vtable::Base3": {
+          "sym": "T_field_layout::vtable::Base3",
+          "pretty": "field_layout::vtable::Base3",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Base3",
+            "sym": "T_field_layout::vtable::Base3",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::Base3::operator=",
+                "sym": "_ZN12field_layout6vtable5Base3aSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base3::operator=",
+                "sym": "_ZN12field_layout6vtable5Base3aSEOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base3::~Base3",
+                "sym": "_ZN12field_layout6vtable5Base3D1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base3::Base3",
+                "sym": "_ZN12field_layout6vtable5Base3C1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base3::Base3",
+                "sym": "_ZN12field_layout6vtable5Base3C1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Base3::Base3",
+                "sym": "_ZN12field_layout6vtable5Base3C1Ev",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::vtable::Sub3"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#17"
+          }
+        },
+        "T_field_layout::vtable::Sub1a": {
+          "sym": "T_field_layout::vtable::Sub1a",
+          "pretty": "field_layout::vtable::Sub1a",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub1a",
+            "sym": "T_field_layout::vtable::Sub1a",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 16,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::vtable::Base1",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::Sub1a::~Sub1a",
+                "sym": "_ZN12field_layout6vtable5Sub1aD1Ev",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub1a::Sub1a",
+                "sym": "_ZN12field_layout6vtable5Sub1aC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub1a::operator=",
+                "sym": "_ZN12field_layout6vtable5Sub1aaSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub1a::Sub1a",
+                "sym": "_ZN12field_layout6vtable5Sub1aC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::vtable::Sub1a::x",
+                "sym": "F_<T_field_layout::vtable::Sub1a>_x",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 8,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::vtable::SubSub"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#21"
+          }
+        },
+        "T_field_layout::vtable::Sub1b": {
+          "sym": "T_field_layout::vtable::Sub1b",
+          "pretty": "field_layout::vtable::Sub1b",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub1b",
+            "sym": "T_field_layout::vtable::Sub1b",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 16,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::vtable::Base1",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::Sub1b::~Sub1b",
+                "sym": "_ZN12field_layout6vtable5Sub1bD1Ev",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub1b::Sub1b",
+                "sym": "_ZN12field_layout6vtable5Sub1bC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub1b::operator=",
+                "sym": "_ZN12field_layout6vtable5Sub1baSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub1b::Sub1b",
+                "sym": "_ZN12field_layout6vtable5Sub1bC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::vtable::Sub1b::y",
+                "sym": "F_<T_field_layout::vtable::Sub1b>_y",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 8,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::vtable::SubSub"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#27"
+          }
+        },
+        "T_field_layout::vtable::Sub2": {
+          "sym": "T_field_layout::vtable::Sub2",
+          "pretty": "field_layout::vtable::Sub2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub2",
+            "sym": "T_field_layout::vtable::Sub2",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 16,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::vtable::Base2",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::Sub2::~Sub2",
+                "sym": "_ZN12field_layout6vtable4Sub2D1Ev",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub2::Sub2",
+                "sym": "_ZN12field_layout6vtable4Sub2C1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub2::operator=",
+                "sym": "_ZN12field_layout6vtable4Sub2aSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub2::Sub2",
+                "sym": "_ZN12field_layout6vtable4Sub2C1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::vtable::Sub2::w",
+                "sym": "F_<T_field_layout::vtable::Sub2>_w",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 8,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::vtable::SubSub"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#33"
+          }
+        },
+        "T_field_layout::vtable::Sub3": {
+          "sym": "T_field_layout::vtable::Sub3",
+          "pretty": "field_layout::vtable::Sub3",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::Sub3",
+            "sym": "T_field_layout::vtable::Sub3",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 16,
+            "ownVFPtrBytes": 8,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::vtable::Base3",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::Sub3::~Sub3",
+                "sym": "_ZN12field_layout6vtable4Sub3D1Ev",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub3::operator=",
+                "sym": "_ZN12field_layout6vtable4Sub3aSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub3::Sub3",
+                "sym": "_ZN12field_layout6vtable4Sub3C1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::Sub3::Sub3",
+                "sym": "_ZN12field_layout6vtable4Sub3C1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::vtable::Sub3::v",
+                "sym": "F_<T_field_layout::vtable::Sub3>_v",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 8,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::vtable::SubSub"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#39"
+          }
+        },
+        "T_field_layout::vtable::SubSub": {
+          "sym": "T_field_layout::vtable::SubSub",
+          "pretty": "field_layout::vtable::SubSub",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::vtable::SubSub",
+            "sym": "T_field_layout::vtable::SubSub",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 64,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::vtable::Sub1a",
+                "offsetBytes": 0,
+                "props": []
+              },
+              {
+                "sym": "T_field_layout::vtable::Sub1b",
+                "offsetBytes": 16,
+                "props": []
+              },
+              {
+                "sym": "T_field_layout::vtable::Sub2",
+                "offsetBytes": 32,
+                "props": []
+              },
+              {
+                "sym": "T_field_layout::vtable::Sub3",
+                "offsetBytes": 48,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "field_layout::vtable::SubSub::~SubSub",
+                "sym": "_ZN12field_layout6vtable6SubSubD1Ev",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::SubSub::SubSub",
+                "sym": "_ZN12field_layout6vtable6SubSubC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::SubSub::operator=",
+                "sym": "_ZN12field_layout6vtable6SubSubaSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::vtable::SubSub::SubSub",
+                "sym": "_ZN12field_layout6vtable6SubSubC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::vtable::SubSub::z",
+                "sym": "F_<T_field_layout::vtable::SubSub>_z",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 57,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/vtable.cpp#45"
+          }
+        }
+      },
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "All platforms"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "field_layout::vtable::SubSub"
+            }
+          ],
+          "sym": "T_field_layout::vtable::SubSub",
+          "colVals": [],
+          "children": [
+            {
+              "label": [
+                {
+                  "Text": "z"
+                }
+              ],
+              "sym": "F_<T_field_layout::vtable::SubSub>_z",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "unsigned char"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x39"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [],
+              "sym": null,
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "ItalicText": "6 bytes padding"
+                    }
+                  ],
+                  "colspan": 2
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Sub1a (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Sub1a",
+              "colVals": [],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "x"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::vtable::Sub1a>_x",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "unsigned char"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x8"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                },
+                {
+                  "label": [],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "ItalicText": "7 bytes padding"
+                        }
+                      ],
+                      "colspan": 2
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                }
+              ],
+              "colspan": 4
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Sub1b (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Sub1b",
+              "colVals": [],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "y"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::vtable::Sub1b>_y",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "unsigned char"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x18"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                },
+                {
+                  "label": [],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "ItalicText": "7 bytes padding"
+                        }
+                      ],
+                      "colspan": 2
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                }
+              ],
+              "colspan": 4
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Sub2 (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Sub2",
+              "colVals": [],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "w"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::vtable::Sub2>_w",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "unsigned char"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x28"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                },
+                {
+                  "label": [],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "ItalicText": "7 bytes padding"
+                        }
+                      ],
+                      "colspan": 2
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                }
+              ],
+              "colspan": 4
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Sub3 (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Sub3",
+              "colVals": [],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "(vtable)"
+                    }
+                  ],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": ""
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x30"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                },
+                {
+                  "label": [
+                    {
+                      "Text": "v"
+                    }
+                  ],
+                  "sym": "F_<T_field_layout::vtable::Sub3>_v",
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "unsigned char"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x38"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "1"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                }
+              ],
+              "colspan": 4
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Base1 (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Base1",
+              "colVals": [],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "(vtable)"
+                    }
+                  ],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": ""
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x0"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                }
+              ],
+              "colspan": 4
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Base1 (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Base1",
+              "colVals": [],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "(vtable)"
+                    }
+                  ],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": ""
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x10"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                }
+              ],
+              "colspan": 4
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Base2 (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Base2",
+              "colVals": [],
+              "children": [
+                {
+                  "label": [
+                    {
+                      "Text": "(vtable)"
+                    }
+                  ],
+                  "sym": null,
+                  "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": ""
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "@ 0x20"
+                        }
+                      ],
+                      "colspan": 1
+                    },
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "8"
+                        }
+                      ],
+                      "colspan": 1
+                    }
+                  ],
+                  "children": [],
+                  "colspan": 1
+                }
+              ],
+              "colspan": 4
+            },
+            {
+              "label": [
+                {
+                  "Heading": "field_layout::vtable::Base3 (base class)"
+                }
+              ],
+              "sym": "T_field_layout::vtable::Base3",
+              "colVals": [],
+              "children": [],
+              "colspan": 4
+            }
+          ],
+          "colspan": 4
+        }
+      ]
+    }
+  ]
+}
