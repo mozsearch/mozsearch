@@ -905,6 +905,7 @@ fn analyze_using_scip(
                     } else {
                         None
                     },
+                    own_vf_ptr_bytes: None,
                     binding_slots: vec![],
                     ontology_slots: vec![],
                     supers,
@@ -1133,6 +1134,7 @@ fn analyze_using_scip(
                         slot_owner: None,
                         impl_kind: ustr("impl"),
                         size_bytes: None,
+                        own_vf_ptr_bytes: None,
                         binding_slots: vec![],
                         ontology_slots: vec![],
                         supers: vec![],

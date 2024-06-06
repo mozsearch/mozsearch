@@ -221,6 +221,7 @@ expression: "&to_value(grb).unwrap()"
         "subsystem": null,
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [],
@@ -247,6 +248,7 @@ expression: "&to_value(grb).unwrap()"
         "subsystem": null,
         "implKind": "",
         "sizeBytes": 8,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [
@@ -346,6 +348,7 @@ expression: "&to_value(grb).unwrap()"
         "subsystem": null,
         "implKind": "",
         "sizeBytes": 8,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [
@@ -448,6 +451,7 @@ expression: "&to_value(grb).unwrap()"
         "subsystem": null,
         "implKind": "",
         "sizeBytes": 8,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [
@@ -547,6 +551,7 @@ expression: "&to_value(grb).unwrap()"
         "subsystem": null,
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [],
@@ -574,6 +579,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_ShoeRunnable",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [
           {
@@ -625,6 +631,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_ShoeRunnable",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [
           {
@@ -663,6 +670,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_SandalRunnable",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [
           {
@@ -711,6 +719,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_SandalRunnable",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [
           {
@@ -749,6 +758,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_ShoelaceRunnable",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [
           {
@@ -797,6 +807,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_ShoelaceRunnable",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [
           {

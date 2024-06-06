@@ -17,6 +17,7 @@ expression: "&to_value(jvl).unwrap()"
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": null,
+          "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [],

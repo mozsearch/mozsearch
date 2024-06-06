@@ -60,6 +60,7 @@ expression: "&to_value(scil).unwrap()"
           },
           "implKind": "",
           "sizeBytes": null,
+          "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [],

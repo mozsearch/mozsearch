@@ -35,6 +35,7 @@ expression: "&to_value(scil).unwrap()"
           "parentsym": "S_jvm_sample/JavaLibrary#",
           "implKind": "impl",
           "sizeBytes": null,
+          "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [

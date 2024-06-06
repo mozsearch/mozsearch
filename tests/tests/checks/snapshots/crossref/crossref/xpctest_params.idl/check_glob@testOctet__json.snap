@@ -34,6 +34,7 @@ expression: "&to_value(scil).unwrap()"
           "subsystem": null,
           "implKind": "idl",
           "sizeBytes": null,
+          "ownVFPtrBytes": null,
           "bindingSlots": [
             {
               "slotKind": "method",
@@ -122,6 +123,7 @@ expression: "&to_value(scil).unwrap()"
           },
           "implKind": "",
           "sizeBytes": null,
+          "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [],

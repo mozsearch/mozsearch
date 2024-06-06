@@ -49,6 +49,7 @@ expression: "&to_value(scil).unwrap()"
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 8,
+          "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [],
