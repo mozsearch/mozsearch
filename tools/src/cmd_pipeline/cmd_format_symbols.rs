@@ -552,10 +552,10 @@ impl SupersMap {
 
 struct ClassMap {
     // All processed classes.
-    class_map: HashMap<ClassId, Class>,
+    class_map: HashMap<TraversalId, Class>,
 
     // The list of classes, in the traverse order.
-    class_list: Vec<ClassId>,
+    class_list: Vec<TraversalId>,
 
     // All platforms appeared inside the analysis.
     platform_map: PlatformMap,
@@ -619,8 +619,8 @@ impl ClassMap {
 
             traversal_index += 1;
 
-            self.class_list.push(cls.id.clone());
-            self.class_map.insert(cls.id.clone(), cls);
+            self.class_list.push(traversal_id.clone());
+            self.class_map.insert(traversal_id.clone(), cls);
 
             let mut supers = SupersMap::new();
 
@@ -699,7 +699,7 @@ impl ClassMap {
         for (group_id, platforms) in &self.groups {
             if let Some(fields) = fields_per_platform.get_fields_for_platforms(platforms) {
                 for field in fields {
-                    let cls = self.class_map.get_mut(&field.class_id).unwrap();
+                    let cls = self.class_map.get_mut(&field.class_traversal_id).unwrap();
                     cls.add_field(group_id.clone(), field.clone());
                 }
             }
@@ -795,8 +795,8 @@ impl ClassMap {
 
         let mut root_node: Option<SymbolTreeTableNode> = None;
 
-        for class_id in &self.class_list {
-            let cls = self.class_map.get(&class_id).unwrap();
+        for traversal_id in &self.class_list {
+            let cls = self.class_map.get(&traversal_id).unwrap();
 
             let is_root = cls.id == self.root_class_id.as_ref().unwrap().clone();
 
