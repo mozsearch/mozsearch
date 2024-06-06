@@ -512,6 +512,8 @@ where
 
     #[serde(rename = "sizeBytes")]
     pub size_bytes: Option<u32>,
+    #[serde(rename = "ownVFPtrBytes")]
+    pub own_vf_ptr_bytes: Option<u32>,
 
     #[serde(rename = "bindingSlots", default)]
     pub binding_slots: Vec<StructuredBindingSlotInfo<StrT>>,

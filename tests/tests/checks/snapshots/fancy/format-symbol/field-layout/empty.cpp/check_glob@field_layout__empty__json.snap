@@ -18,6 +18,7 @@ expression: "&to_value(sttl).unwrap()"
             "subsystem": null,
             "implKind": "",
             "sizeBytes": 1,
+            "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
             "supers": [],

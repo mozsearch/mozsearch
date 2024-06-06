@@ -167,6 +167,7 @@ expression: "&to_value(scil).unwrap()"
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
+          "ownVFPtrBytes": 8,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [],
@@ -275,8 +276,7 @@ expression: "&to_value(scil).unwrap()"
             "T_outerNS::OuterCat",
             "T_outerNS::AbstractArt"
           ],
-          "variants": [],
-          "ownVFPtrBytes": 8
+          "variants": []
         }
       },
       "relation": "Queried",

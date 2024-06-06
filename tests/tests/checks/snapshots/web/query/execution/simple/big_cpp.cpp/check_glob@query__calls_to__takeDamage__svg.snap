@@ -123,6 +123,7 @@ expression: "&to_value(grb).unwrap()"
         "subsystem": "Core/Big",
         "implKind": "",
         "sizeBytes": 40,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [
@@ -330,6 +331,7 @@ expression: "&to_value(grb).unwrap()"
         "subsystem": "Core/Big",
         "implKind": "",
         "sizeBytes": 16,
+        "ownVFPtrBytes": 8,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [],
@@ -438,8 +440,7 @@ expression: "&to_value(grb).unwrap()"
           "T_outerNS::OuterCat",
           "T_outerNS::AbstractArt"
         ],
-        "variants": [],
-        "ownVFPtrBytes": 8
+        "variants": []
       },
       "jumps": {
         "def": "big_cpp.cpp#141"
@@ -458,6 +459,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_outerNS::Thing",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [],
@@ -497,6 +499,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_outerNS::OuterCat",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [],
@@ -533,6 +536,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_outerNS::OuterCat",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [],
@@ -569,6 +573,7 @@ expression: "&to_value(grb).unwrap()"
         "parentsym": "T_outerNS::OuterCat",
         "implKind": "",
         "sizeBytes": null,
+        "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
         "supers": [],

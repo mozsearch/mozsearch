@@ -36,6 +36,7 @@ expression: "&to_value(scil).unwrap()"
           "parentsym": "T_outerNS::AbstractArt",
           "implKind": "",
           "sizeBytes": null,
+          "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [],

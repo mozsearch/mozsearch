@@ -18,6 +18,7 @@ expression: "&to_value(jvl).unwrap()"
           "parentsym": "T_outerNS::PracticalArt",
           "implKind": "",
           "sizeBytes": null,
+          "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
           "supers": [],
