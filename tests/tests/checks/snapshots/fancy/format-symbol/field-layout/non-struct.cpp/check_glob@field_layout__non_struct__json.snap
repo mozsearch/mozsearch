@@ -1,0 +1,180 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::non_struct::Proxy>_x": {
+          "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+          "pretty": "field_layout::non_struct::Proxy::x",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::non_struct::Proxy::x",
+            "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::non_struct::Proxy",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/non-struct.cpp#11"
+          }
+        },
+        "T_field_layout::non_struct::Proxy": {
+          "sym": "T_field_layout::non_struct::Proxy",
+          "pretty": "field_layout::non_struct::Proxy",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::non_struct::Proxy",
+            "sym": "T_field_layout::non_struct::Proxy",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "pretty": "field_layout::non_struct::Proxy::x",
+                "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+                "type": "signed char",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/non-struct.cpp#10"
+          }
+        }
+      },
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "All platforms"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "label": [
+            {
+              "Heading": "field_layout::non_struct::Proxy"
+            }
+          ],
+          "sym": "T_field_layout::non_struct::Proxy",
+          "colVals": [],
+          "children": [
+            {
+              "label": [
+                {
+                  "Text": "x"
+                }
+              ],
+              "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "signed char"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x0"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": [],
+              "colspan": 1
+            }
+          ],
+          "colspan": 4
+        }
+      ]
+    }
+  ]
+}
