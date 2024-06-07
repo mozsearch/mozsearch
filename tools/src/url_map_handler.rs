@@ -16,6 +16,6 @@ pub fn get_file_paths_for_url(url: &str) -> Option<Vec<URLMapItem>> {
         };
     }
 
-    let sym = format!("URL_{}", mangle_file(url));
-    return URL_MAP.get(&sym)
+    let url_map_key = format!("URL_{}", mangle_file(url));
+    return URL_MAP.get(&url_map_key)
 }
