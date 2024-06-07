@@ -17,7 +17,7 @@ use super::{
 };
 
 use crate::file_format::analysis::{
-    StructuredFieldInfo, StructuredBitPositionInfo,
+    StructuredFieldInfo, StructuredBitPositionInfo, AnalysisStructured,
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -628,7 +628,9 @@ impl ClassMap {
 
             let sym_info = self.stt.node_set.get(&class_id);
             let depth = sym_info.depth;
-            let structured = sym_info.get_structured().unwrap();
+            let Some(structured) = Self::get_struct_structured(sym_info) else {
+                continue;
+            };
 
             let cls = Class::new(
                 class_id.clone(),
@@ -752,6 +754,22 @@ impl ClassMap {
         Ok(())
     }
 
+    fn get_struct_structured(sym_info: &DerivedSymbolInfo) -> Option<AnalysisStructured> {
+        let Some(structured) = sym_info.get_structured() else {
+            return None;
+        };
+
+        // See clang TagTypeKind.
+        // https://clang.llvm.org/doxygen/namespaceclang.html#a9237bdb3cf715b9bff8bcb3172635548
+        if structured.kind != "struct" && structured.kind != "__interface" &&
+           structured.kind != "union" && structured.kind != "class" &&
+           structured.kind != "enum" {
+            return None;
+        }
+
+        Some(structured)
+    }
+
     async fn populate_platform_map(&mut self, nom_sym_info: SymbolCrossrefInfo,
                                    server: &Box<dyn AbstractServer + Send + Sync>) -> Result<SymbolGraphNodeId> {
         let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
@@ -766,7 +784,7 @@ impl ClassMap {
         while let Some(class_id) = pending_ids.pop_front() {
             let sym_info = self.stt.node_set.get(&class_id);
             let depth = sym_info.depth;
-            let Some(structured) = sym_info.get_structured() else {
+            let Some(structured) = Self::get_struct_structured(sym_info) else {
                 continue;
             };
 
