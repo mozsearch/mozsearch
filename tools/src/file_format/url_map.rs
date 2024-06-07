@@ -32,8 +32,14 @@ impl URLMap {
 }
 
 pub fn read_url_map(
-    filename: &str,
+    maybe_filename: Option<&str>,
 ) -> URLMap {
+    if maybe_filename.is_none() {
+        return URLMap::new_empty();
+    }
+
+    let filename = maybe_filename.unwrap();
+
     let file = match File::open(filename) {
         Ok(f) => f,
         Err(_) => {
