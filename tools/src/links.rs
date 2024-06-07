@@ -20,6 +20,14 @@ pub fn linkify_comment(s: String) -> String {
 
         if link.as_str().starts_with("chrome://") || link.as_str().starts_with("resource://") {
             if let Some(items) = get_file_paths_for_url(link.as_str()) {
+                // The corresponding symbol data is not added to SYM_INFO.
+                // The context menu is supposed to generate a pseudo data
+                // for the file.
+                //
+                // If we want to make this a real reference, an extra linkify
+                // step should be performed before crossref, with generating
+                // extra analaysis records while not writing the resulting
+                // HTML to a file.
                 result.push_str(&format!(
                     "<span data-symbols=\"{}\">{}</span>",
                     items.iter().map(|item| &item.sym).join(","),
