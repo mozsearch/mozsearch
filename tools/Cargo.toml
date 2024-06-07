@@ -56,6 +56,8 @@ reqwest = "0.11.3"
 rls-analysis = "0.18.1"
 rls-data = "0.19.1"
 scip = "0.3.3"
+# NOTE: serde_json dependency is also defined above, without "std" feature.
+#       The "std" feature should be enabled only for non-wasm case.
 serde_json = { version = "1.0.113", features = ["preserve_order", "std"] }
 shell-words = "1.0.0"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
