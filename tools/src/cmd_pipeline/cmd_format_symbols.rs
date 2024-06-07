@@ -1077,8 +1077,8 @@ impl ClassMap {
 
         if let Some(node) = root_node {
             self.stt.rows.push(node);
+            tables.push(self.stt);
         }
-        tables.push(self.stt);
     }
 }
 
