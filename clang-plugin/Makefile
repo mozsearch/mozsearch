@@ -19,7 +19,7 @@ check: build
 	which clang++
 
 clean:
-	$(RM) *.o *.dwo libclang-index-plugin.so
+	$(RM) *.o from-clangd/*.o *.dwo libclang-index-plugin.so
 
 dump: build
 	-clang++ -c -Xclang -ast-dump testfiles/test.cpp
