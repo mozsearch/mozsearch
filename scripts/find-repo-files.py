@@ -36,6 +36,7 @@ js = []
 html = []
 css = []
 idl = []
+webidl = []
 ipdl = []
 
 dirs = collections.OrderedDict()
@@ -64,6 +65,13 @@ for line in lines:
                 continue
 
         idl.append(path + '\n')
+
+    if ext == '.webidl':
+        if 'filter_webidl' in repo_files:
+            if not repo_files['filter_webidl'](path):
+                continue
+
+        webidl.append(path + '\n')
 
     if ext in ['.ipdl', '.ipdlh']:
         if 'filter_ipdl' in repo_files:
@@ -103,5 +111,6 @@ open(os.path.join(index_path, 'js-files'), 'w').writelines(js)
 open(os.path.join(index_path, 'html-files'), 'w').writelines(html)
 open(os.path.join(index_path, 'css-files'), 'w').writelines(css)
 open(os.path.join(index_path, 'idl-files'), 'w').writelines(idl)
+open(os.path.join(index_path, 'webidl-files'), 'w').writelines(webidl)
 open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
 open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join(['-I ' + d for d in ipdl_dirs]))
