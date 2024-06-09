@@ -356,9 +356,11 @@ static RESERVED_WORDS_WEBIDL: &'static [&'static str] = &[
     "ArrayBuffer",
     "SharedArrayBuffer",
     "or",
-    "maplike",
-    "setlike",
-    "iterable",
+    // While maplike/setlike/iterable are reserved words, they're used as
+    // symbols for corresponding C++ namespace.
+    // "maplike",
+    // "setlike",
+    // "iterable",
     "Exposed",
     "ChromeOnly",
     "ChromeConstructor",
