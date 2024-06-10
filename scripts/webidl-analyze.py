@@ -274,7 +274,6 @@ def append_slot(slots, kind, lang, sym):
         'slotLang': lang,
         'ownerLang': 'idl',
         'sym': sym,
-
     })
 
 
