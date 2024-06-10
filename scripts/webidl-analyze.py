@@ -408,10 +408,6 @@ def handle_maplike_or_setlike_or_iterable(records, iface_name, target):
     elif target.maplikeOrSetlikeOrIterableType == 'setlike':
         cpp_sym = f'NS_mozilla::dom::{iface_name}_Binding::SetlikeHelpers'
     elif target.maplikeOrSetlikeOrIterableType == 'iterable':
-        # NOTE: loc is wrong. it points '<' after 'iterable'.
-        # TODO: Fix the WebIDL parser.
-        location = target.identifier.location
-        loc = to_loc_with(location._lineno, location._colno - len(name), len(name))
         cpp_sym = f'NS_mozilla::dom::{iface_name}Iterator_Binding'
     elif target.maplikeOrSetlikeOrIterableType == 'asynciterable':
         cpp_sym = f'NS_mozilla::dom::{iface_name}AsyncIterator_Binding'
@@ -583,33 +579,11 @@ def handle_enum(records, target):
                     slots=slots)
 
 
-def get_typedef_loc(target, name):
-    '''Get the location string for the typedef identifier.
-
-    The IDLTypedef's identifier points the `typedef` token,
-    and we need to find the location from the line.
-
-    TODO: Fix the WebIDL parser.
-    '''
-
-    location = target.identifier.location
-    location.resolve()
-
-    line = location._line
-    index = line.find(f' {name};')
-    if index == -1:
-        return to_loc(target.identifier.location, name)
-
-    colno = index + 1
-
-    return to_loc_with(location._lineno, colno, len(name))
-
-
 def handle_typedef(records, target):
     '''Emit analysis record for IDLTypedef.'''
 
     name = target.identifier.name
-    loc = get_typedef_loc(target, name)
+    loc = to_loc(target.identifier.location, name)
     pretty = name
     idl_sym = f'WEBIDL_{name}'
 
