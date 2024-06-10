@@ -1,0 +1,275 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-34",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestInterfaceForOverload",
+    "sym": "WEBIDL_TestInterfaceForOverload"
+  },
+  {
+    "loc": "1:10-34",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForOverload",
+    "sym": "WEBIDL_TestInterfaceForOverload"
+  },
+  {
+    "loc": "2:11-23",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "2:11-23",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "2:11-23",
+    "structured": 1,
+    "pretty": "TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#OverloadFunc"
+      }
+    ]
+  },
+  {
+    "loc": "2:2-10",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type RetType1",
+    "sym": "WEBIDL_RetType1"
+  },
+  {
+    "loc": "2:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "RetType1",
+    "sym": "WEBIDL_RetType1"
+  },
+  {
+    "loc": "2:24-32",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType1",
+    "sym": "WEBIDL_ArgType1"
+  },
+  {
+    "loc": "2:24-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType1",
+    "sym": "WEBIDL_ArgType1"
+  },
+  {
+    "loc": "3:11-23",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "3:11-23",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "3:11-23",
+    "structured": 1,
+    "pretty": "TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#OverloadFunc"
+      }
+    ]
+  },
+  {
+    "loc": "3:2-10",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type RetType2",
+    "sym": "WEBIDL_RetType2"
+  },
+  {
+    "loc": "3:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "RetType2",
+    "sym": "WEBIDL_RetType2"
+  },
+  {
+    "loc": "3:24-34",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType2_1",
+    "sym": "WEBIDL_ArgType2_1"
+  },
+  {
+    "loc": "3:24-34",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType2_1",
+    "sym": "WEBIDL_ArgType2_1"
+  },
+  {
+    "loc": "3:41-51",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType2_2",
+    "sym": "WEBIDL_ArgType2_2"
+  },
+  {
+    "loc": "3:41-51",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType2_2",
+    "sym": "WEBIDL_ArgType2_2"
+  },
+  {
+    "loc": "4:11-23",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "4:11-23",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "4:11-23",
+    "structured": 1,
+    "pretty": "TestInterfaceForOverload::OverloadFunc",
+    "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#OverloadFunc"
+      }
+    ]
+  },
+  {
+    "loc": "4:2-10",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type RetType3",
+    "sym": "WEBIDL_RetType3"
+  },
+  {
+    "loc": "4:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "RetType3",
+    "sym": "WEBIDL_RetType3"
+  },
+  {
+    "loc": "4:24-34",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType3_1",
+    "sym": "WEBIDL_ArgType3_1"
+  },
+  {
+    "loc": "4:24-34",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType3_1",
+    "sym": "WEBIDL_ArgType3_1"
+  },
+  {
+    "loc": "4:41-51",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType3_2",
+    "sym": "WEBIDL_ArgType3_2"
+  },
+  {
+    "loc": "4:41-51",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType3_2",
+    "sym": "WEBIDL_ArgType3_2"
+  },
+  {
+    "loc": "4:58-68",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType3_3",
+    "sym": "WEBIDL_ArgType3_3"
+  },
+  {
+    "loc": "4:58-68",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType3_3",
+    "sym": "WEBIDL_ArgType3_3"
+  },
+  {
+    "loc": "1:10-34",
+    "structured": 1,
+    "pretty": "TestInterfaceForOverload",
+    "sym": "WEBIDL_TestInterfaceForOverload",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestInterfaceForOverload_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestInterfaceForOverload"
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "TestInterfaceForOverload::OverloadFunc",
+        "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc",
+        "props": []
+      },
+      {
+        "pretty": "TestInterfaceForOverload::OverloadFunc",
+        "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc",
+        "props": []
+      },
+      {
+        "pretty": "TestInterfaceForOverload::OverloadFunc",
+        "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc",
+        "props": []
+      }
+    ]
+  }
+]

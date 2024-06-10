@@ -1,0 +1,61 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-26",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestSubInterface",
+    "sym": "WEBIDL_TestSubInterface"
+  },
+  {
+    "loc": "1:10-26",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestSubInterface",
+    "sym": "WEBIDL_TestSubInterface"
+  },
+  {
+    "loc": "1:29-47",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL class TestSuperInterface",
+    "sym": "WEBIDL_TestSuperInterface"
+  },
+  {
+    "loc": "1:29-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "TestSuperInterface",
+    "sym": "WEBIDL_TestSuperInterface"
+  },
+  {
+    "loc": "1:10-26",
+    "structured": 1,
+    "pretty": "TestSubInterface",
+    "sym": "WEBIDL_TestSubInterface",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestSubInterface_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestSubInterface"
+      }
+    ],
+    "supers": [
+      {
+        "sym": "WEBIDL_TestSuperInterface"
+      }
+    ]
+  }
+]

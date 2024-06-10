@@ -1,0 +1,2 @@
+dictionary TestSubDictionary : TestSuperDictionary {
+};

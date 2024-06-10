@@ -1,0 +1,93 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-23",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestNamespace",
+    "sym": "WEBIDL_TestNamespace"
+  },
+  {
+    "loc": "1:10-23",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestNamespace",
+    "sym": "WEBIDL_TestNamespace"
+  },
+  {
+    "loc": "2:7-12",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method TestNamespace::Func1",
+    "sym": "WEBIDL_TestNamespace_Func1"
+  },
+  {
+    "loc": "2:7-12",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestNamespace::Func1",
+    "sym": "WEBIDL_TestNamespace_Func1"
+  },
+  {
+    "loc": "2:7-12",
+    "structured": 1,
+    "pretty": "TestNamespace::Func1",
+    "sym": "WEBIDL_TestNamespace_Func1",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#Func1"
+      }
+    ]
+  },
+  {
+    "loc": "2:2-6",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type void",
+    "sym": "WEBIDL_void"
+  },
+  {
+    "loc": "2:2-6",
+    "target": 1,
+    "kind": "use",
+    "pretty": "void",
+    "sym": "WEBIDL_void"
+  },
+  {
+    "loc": "1:10-23",
+    "structured": 1,
+    "pretty": "TestNamespace",
+    "sym": "WEBIDL_TestNamespace",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestNamespace_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestNamespace"
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "TestNamespace::Func1",
+        "sym": "WEBIDL_TestNamespace_Func1",
+        "props": []
+      }
+    ]
+  }
+]

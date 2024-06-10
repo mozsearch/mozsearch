@@ -1,0 +1,61 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:11-28",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL dictionary TestSubDictionary",
+    "sym": "WEBIDL_TestSubDictionary"
+  },
+  {
+    "loc": "1:11-28",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestSubDictionary",
+    "sym": "WEBIDL_TestSubDictionary"
+  },
+  {
+    "loc": "1:31-50",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL class TestSuperDictionary",
+    "sym": "WEBIDL_TestSuperDictionary"
+  },
+  {
+    "loc": "1:31-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "TestSuperDictionary",
+    "sym": "WEBIDL_TestSuperDictionary"
+  },
+  {
+    "loc": "1:11-28",
+    "structured": 1,
+    "pretty": "TestSubDictionary",
+    "sym": "WEBIDL_TestSubDictionary",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "T_mozilla::dom::TestSubDictionary"
+      },
+      {
+        "slotKind": "class",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestSubDictionary"
+      }
+    ],
+    "supers": [
+      {
+        "sym": "WEBIDL_TestSuperDictionary"
+      }
+    ]
+  }
+]

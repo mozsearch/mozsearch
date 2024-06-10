@@ -1,0 +1,20 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-31",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL class TestExternalInterface",
+    "sym": "WEBIDL_TestExternalInterface"
+  },
+  {
+    "loc": "1:10-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "TestExternalInterface",
+    "sym": "WEBIDL_TestExternalInterface"
+  }
+]

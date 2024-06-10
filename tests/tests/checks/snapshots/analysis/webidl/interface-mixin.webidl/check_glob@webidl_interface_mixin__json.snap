@@ -1,0 +1,93 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:16-34",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestInterfaceMixin",
+    "sym": "WEBIDL_TestInterfaceMixin"
+  },
+  {
+    "loc": "1:16-34",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceMixin",
+    "sym": "WEBIDL_TestInterfaceMixin"
+  },
+  {
+    "loc": "2:7-18",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method TestInterfaceMixin::MixinMethod",
+    "sym": "WEBIDL_TestInterfaceMixin_MixinMethod"
+  },
+  {
+    "loc": "2:7-18",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceMixin::MixinMethod",
+    "sym": "WEBIDL_TestInterfaceMixin_MixinMethod"
+  },
+  {
+    "loc": "2:7-18",
+    "structured": 1,
+    "pretty": "TestInterfaceMixin::MixinMethod",
+    "sym": "WEBIDL_TestInterfaceMixin_MixinMethod",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#MixinMethod"
+      }
+    ]
+  },
+  {
+    "loc": "2:2-6",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type void",
+    "sym": "WEBIDL_void"
+  },
+  {
+    "loc": "2:2-6",
+    "target": 1,
+    "kind": "use",
+    "pretty": "void",
+    "sym": "WEBIDL_void"
+  },
+  {
+    "loc": "1:16-34",
+    "structured": 1,
+    "pretty": "TestInterfaceMixin",
+    "sym": "WEBIDL_TestInterfaceMixin",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestInterfaceMixin_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestInterfaceMixin"
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "TestInterfaceMixin::MixinMethod",
+        "sym": "WEBIDL_TestInterfaceMixin_MixinMethod",
+        "props": []
+      }
+    ]
+  }
+]

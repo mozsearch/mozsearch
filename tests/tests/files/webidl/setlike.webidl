@@ -1,0 +1,3 @@
+interface TestInterfaceForSetlike {
+  setlike<ValueType>;
+};

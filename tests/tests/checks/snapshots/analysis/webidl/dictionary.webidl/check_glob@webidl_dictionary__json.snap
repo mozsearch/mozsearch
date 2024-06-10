@@ -1,0 +1,99 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:11-25",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL dictionary TestDictionary",
+    "sym": "WEBIDL_TestDictionary"
+  },
+  {
+    "loc": "1:11-25",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestDictionary",
+    "sym": "WEBIDL_TestDictionary"
+  },
+  {
+    "loc": "2:14-21",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL field TestDictionary.member1",
+    "sym": "WEBIDL_TestDictionary_member1"
+  },
+  {
+    "loc": "2:14-21",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestDictionary.member1",
+    "sym": "WEBIDL_TestDictionary_member1"
+  },
+  {
+    "loc": "2:14-21",
+    "structured": 1,
+    "pretty": "TestDictionary.member1",
+    "sym": "WEBIDL_TestDictionary_member1",
+    "kind": "field",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "attribute",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "F_<T_mozilla::dom::TestDictionary>_mMember1"
+      },
+      {
+        "slotKind": "attribute",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#member1"
+      }
+    ]
+  },
+  {
+    "loc": "2:2-13",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type MemberType1",
+    "sym": "WEBIDL_MemberType1"
+  },
+  {
+    "loc": "2:2-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "MemberType1",
+    "sym": "WEBIDL_MemberType1"
+  },
+  {
+    "loc": "1:11-25",
+    "structured": 1,
+    "pretty": "TestDictionary",
+    "sym": "WEBIDL_TestDictionary",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "T_mozilla::dom::TestDictionary"
+      },
+      {
+        "slotKind": "class",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestDictionary"
+      }
+    ],
+    "fields": [
+      {
+        "pretty": "TestDictionary.member1",
+        "sym": "WEBIDL_TestDictionary_member1",
+        "props": []
+      }
+    ]
+  }
+]

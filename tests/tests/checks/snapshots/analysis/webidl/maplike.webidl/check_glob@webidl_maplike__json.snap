@@ -1,0 +1,100 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-33",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestInterfaceForMaplike",
+    "sym": "WEBIDL_TestInterfaceForMaplike"
+  },
+  {
+    "loc": "1:10-33",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForMaplike",
+    "sym": "WEBIDL_TestInterfaceForMaplike"
+  },
+  {
+    "loc": "2:2-9",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method TestInterfaceForMaplike::maplike",
+    "sym": "WEBIDL_TestInterfaceForMaplike_maplike"
+  },
+  {
+    "loc": "2:2-9",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForMaplike::maplike",
+    "sym": "WEBIDL_TestInterfaceForMaplike_maplike"
+  },
+  {
+    "loc": "2:2-9",
+    "structured": 1,
+    "pretty": "TestInterfaceForMaplike::maplike",
+    "sym": "WEBIDL_TestInterfaceForMaplike_maplike",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestInterfaceForMaplike_Binding::MaplikeHelpers"
+      }
+    ]
+  },
+  {
+    "loc": "2:10-17",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type KeyType",
+    "sym": "WEBIDL_KeyType"
+  },
+  {
+    "loc": "2:10-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "KeyType",
+    "sym": "WEBIDL_KeyType"
+  },
+  {
+    "loc": "2:19-28",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ValueType",
+    "sym": "WEBIDL_ValueType"
+  },
+  {
+    "loc": "2:19-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ValueType",
+    "sym": "WEBIDL_ValueType"
+  },
+  {
+    "loc": "1:10-33",
+    "structured": 1,
+    "pretty": "TestInterfaceForMaplike",
+    "sym": "WEBIDL_TestInterfaceForMaplike",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestInterfaceForMaplike_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestInterfaceForMaplike"
+      }
+    ]
+  }
+]
