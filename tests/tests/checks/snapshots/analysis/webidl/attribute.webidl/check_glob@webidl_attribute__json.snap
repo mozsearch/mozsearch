@@ -1,0 +1,142 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-35",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestInterfaceForAttribute",
+    "sym": "WEBIDL_TestInterfaceForAttribute"
+  },
+  {
+    "loc": "1:10-35",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForAttribute",
+    "sym": "WEBIDL_TestInterfaceForAttribute"
+  },
+  {
+    "loc": "2:22-27",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL attribute TestInterfaceForAttribute::attr1",
+    "sym": "WEBIDL_TestInterfaceForAttribute_attr1"
+  },
+  {
+    "loc": "2:22-27",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForAttribute::attr1",
+    "sym": "WEBIDL_TestInterfaceForAttribute_attr1"
+  },
+  {
+    "loc": "2:22-27",
+    "structured": 1,
+    "pretty": "TestInterfaceForAttribute::attr1",
+    "sym": "WEBIDL_TestInterfaceForAttribute_attr1",
+    "kind": "field",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "attribute",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#attr1"
+      }
+    ]
+  },
+  {
+    "loc": "2:12-21",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type AttrType1",
+    "sym": "WEBIDL_AttrType1"
+  },
+  {
+    "loc": "2:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "AttrType1",
+    "sym": "WEBIDL_AttrType1"
+  },
+  {
+    "loc": "3:31-36",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL attribute TestInterfaceForAttribute::attr2",
+    "sym": "WEBIDL_TestInterfaceForAttribute_attr2"
+  },
+  {
+    "loc": "3:31-36",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForAttribute::attr2",
+    "sym": "WEBIDL_TestInterfaceForAttribute_attr2"
+  },
+  {
+    "loc": "3:31-36",
+    "structured": 1,
+    "pretty": "TestInterfaceForAttribute::attr2",
+    "sym": "WEBIDL_TestInterfaceForAttribute_attr2",
+    "kind": "field",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "attribute",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#attr2"
+      }
+    ]
+  },
+  {
+    "loc": "3:21-30",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type AttrType2",
+    "sym": "WEBIDL_AttrType2"
+  },
+  {
+    "loc": "3:21-30",
+    "target": 1,
+    "kind": "use",
+    "pretty": "AttrType2",
+    "sym": "WEBIDL_AttrType2"
+  },
+  {
+    "loc": "1:10-35",
+    "structured": 1,
+    "pretty": "TestInterfaceForAttribute",
+    "sym": "WEBIDL_TestInterfaceForAttribute",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestInterfaceForAttribute_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestInterfaceForAttribute"
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "TestInterfaceForAttribute::attr1",
+        "sym": "WEBIDL_TestInterfaceForAttribute_attr1",
+        "props": []
+      },
+      {
+        "pretty": "TestInterfaceForAttribute::attr2",
+        "sym": "WEBIDL_TestInterfaceForAttribute_attr2",
+        "props": []
+      }
+    ]
+  }
+]

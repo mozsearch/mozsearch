@@ -1,0 +1,85 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:19-33",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL dictionary TestDictionary",
+    "sym": "WEBIDL_TestDictionary"
+  },
+  {
+    "loc": "1:19-33",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestDictionary",
+    "sym": "WEBIDL_TestDictionary"
+  },
+  {
+    "loc": "2:16-23",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL field TestDictionary.Member2",
+    "sym": "WEBIDL_TestDictionary_Member2"
+  },
+  {
+    "loc": "2:16-23",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestDictionary.Member2",
+    "sym": "WEBIDL_TestDictionary_Member2"
+  },
+  {
+    "loc": "2:16-23",
+    "structured": 1,
+    "pretty": "TestDictionary.Member2",
+    "sym": "WEBIDL_TestDictionary_Member2",
+    "kind": "field",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "attribute",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "F_<T_mozilla::dom::TestDictionary>_mMember2"
+      },
+      {
+        "slotKind": "attribute",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#Member2"
+      }
+    ]
+  },
+  {
+    "loc": "1:19-33",
+    "structured": 1,
+    "pretty": "TestDictionary",
+    "sym": "WEBIDL_TestDictionary",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "T_mozilla::dom::TestDictionary"
+      },
+      {
+        "slotKind": "class",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestDictionary"
+      }
+    ],
+    "fields": [
+      {
+        "pretty": "TestDictionary.Member2",
+        "sym": "WEBIDL_TestDictionary_Member2",
+        "props": []
+      }
+    ]
+  }
+]

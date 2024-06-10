@@ -667,6 +667,12 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td><a href="/tests/source/webidl" class="mimetype-fixed-container mimetype-icon-folder">webidl</a></td>
+          <td class="description"><a href="/tests/source/webidl" title=""></td>
+          <td><a href="/tests/source/webidl"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/xpidl" class="mimetype-fixed-container mimetype-icon-folder">xpidl</a></td>
           <td class="description"><a href="/tests/source/xpidl" title=""></td>
           <td><a href="/tests/source/xpidl"></a></td>
