@@ -635,6 +635,26 @@ def handle_callback(records, target):
         handle_argument(records, arg)
 
 
+def handle_includes(records, target):
+    '''Emit analysis record for IDLIncludesStatement.'''
+
+    name = target.interface.identifier.name
+    loc = to_loc(target.interface.identifier.location, name)
+    pretty = name
+    idl_sym = f'WEBIDL_{name}'
+
+    emit_source(records, loc, 'type', 'class', pretty, idl_sym)
+    emit_target(records, loc, 'use', pretty, idl_sym)
+
+    name = target.mixin.identifier.name
+    loc = to_loc(target.mixin.identifier.location, name)
+    pretty = name
+    idl_sym = f'WEBIDL_{name}'
+
+    emit_source(records, loc, 'type', 'class', pretty, idl_sym)
+    emit_target(records, loc, 'use', pretty, idl_sym)
+
+
 def handle_external_interface(records, target):
     '''Emit analysis record for IDLExternalInterface.'''
 
@@ -714,7 +734,8 @@ def handle_productions(productions):
             records = get_records(target)
             handle_callback(records, target)
         elif isinstance(target, WebIDL.IDLIncludesStatement):
-            pass
+            records = get_records(target)
+            handle_includes(records, target)
         elif isinstance(target, WebIDL.IDLExternalInterface):
             records = get_records(target)
             handle_external_interface(records, target);
