@@ -411,9 +411,8 @@ def handle_maplike_or_setlike_or_iterable(records, iface_name, target):
     elif target.maplikeOrSetlikeOrIterableType == 'asynciterable':
         cpp_sym = f'NS_mozilla::dom::{iface_name}AsyncIterator_Binding'
     else:
-        print(f'WebIDL: Unknown maplikeOrSetlikeOrIterableType: {target.maplikeOrSetlikeOrIterableType}',
+        print(f'warning: WebIDL: Unknown maplikeOrSetlikeOrIterableType: {target.maplikeOrSetlikeOrIterableType}',
               file=sys.stderr)
-        sys.exit(1)
 
     emit_source(records, loc, 'idl', 'method', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
@@ -482,9 +481,8 @@ def handle_interface_or_namespace(records, target):
         elif isinstance(member, WebIDL.IDLAsyncIterable):
             handle_maplike_or_setlike_or_iterable(records, name, member)
         else:
-            print(f'WebIDL: Unknown member production: {member.__class__.__name__}',
+            print(f'warning: WebIDL: Unknown member production: {member.__class__.__name__}',
                   file=sys.stderr)
-            sys.exit(1)
 
     emit_structured(records, loc, 'class', pretty, idl_sym,
                     slots=slots, supers=supers,
@@ -548,9 +546,8 @@ def handle_dictionary(records, target):
             handle_dictionary_field(records, name, cpp_sym,
                                     fields, member)
         else:
-            print(f'WebIDL: Unknown member production: {member.__class__.__name__}',
+            print(f'warning: WebIDL: Unknown member production: {member.__class__.__name__}',
                   file=sys.stderr)
-            sys.exit(1)
 
     emit_structured(records, loc, 'class', pretty, idl_sym,
                     slots=slots, supers=supers,
@@ -713,9 +710,8 @@ def handle_productions(productions):
             records = get_records(target)
             handle_external_interface(records, target);
         else:
-            print(f'WebIDL: Unknown top-level production: {target.__class__.__name__}',
+            print(f'warning: WebIDL: Unknown top-level production: {target.__class__.__name__}',
                   file=sys.stderr)
-            sys.exit(1)
 
 
 def write_files(analysis_root):
