@@ -21,7 +21,7 @@ expression: "&json_results"
     "contextsym": "T_Foo"
   },
   {
-    "loc": "00047:57-64",
+    "loc": "00052:57-64",
     "source": 1,
     "syntax": "use,type",
     "type": "int",
@@ -29,7 +29,7 @@ expression: "&json_results"
     "sym": "TA_Foo::Typedef"
   },
   {
-    "loc": "00047:57-64",
+    "loc": "00052:57-64",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Typedef",
