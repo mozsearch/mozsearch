@@ -53,6 +53,36 @@ var ContextMenu = new (class ContextMenu {
     };
   }
 
+  sortBindingSlots(bindingSlots) {
+    return bindingSlots.slice().sort((a, b) => {
+      if (a.slotKind < b.slotKind) {
+        return -1;
+      }
+      if (a.slotKind > b.slotKind) {
+        return 1;
+      }
+
+      if (a?.implKind) {
+        if (b?.implKind) {
+          if (a.implKind < b.implKind) {
+            return -1;
+          }
+          if (a.implKind > b.implKind) {
+            return 1;
+          }
+        } else {
+          return 1;
+        }
+      } else {
+        if (b?.implKind) {
+          return -1;
+        }
+      }
+
+      return 0;
+    });
+  }
+
   tryShowOnClick(event) {
     if (Settings.fancyBar.enabled) {
       if (this.selectedToken) {
@@ -305,11 +335,17 @@ var ContextMenu = new (class ContextMenu {
 
             // If our current symbol is an IPC Send method, offer a direct jump to the Recv def
             if (slotOwner?.slotKind === "send" && ownerJumpref) {
-              for (const slot of ownerJumpref?.meta?.bindingSlots) {
+              const bindingSlots = this.sortBindingSlots(ownerJumpref?.meta?.bindingSlots);
+
+              for (const slot of bindingSlots) {
                 if (slot.slotKind === "recv") {
                   let recvJumpref = SYM_INFO[slot.sym];
                   if (recvJumpref?.pretty) {
-                    directDefJumpify(recvJumpref, `${implKind}${maybeLang} ${slot.slotKind} ${recvJumpref.pretty}`);
+                    let maybeSlotImplKind = "";
+                    if (slot?.implKind) {
+                      maybeSlotImplKind = ` ${slot.implKind}`;
+                    }
+                    directDefJumpify(recvJumpref, `${implKind}${maybeLang} ${slot.slotKind}${maybeSlotImplKind} ${recvJumpref.pretty}`);
                   }
                 }
               }
@@ -330,8 +366,10 @@ var ContextMenu = new (class ContextMenu {
             implKind = "IDL";
           }
 
+          const bindingSlots = this.sortBindingSlots(symInfo.meta.bindingSlots);
+
           let allSearchSyms = [];
-          for (const slot of symInfo.meta.bindingSlots) {
+          for (const slot of bindingSlots) {
             // XXX Ignore no_crossref data that's currently not useful/used.
             let slotJumpref = SYM_INFO[slot.sym];
             // (we do handle the pretty not existing below)
@@ -354,8 +392,12 @@ var ContextMenu = new (class ContextMenu {
 
             // Favor the slot's pretty if available.
             const effectivePretty = slotJumpref?.pretty || symInfo.pretty;
+            let maybeSlotImplKind = "";
+            if (slot?.implKind) {
+              maybeSlotImplKind = ` ${slot.implKind}`;
+            }
             let slotPretty =
-              `${implKind}${maybeLang} ${slot.slotKind} ${effectivePretty}`;
+              `${implKind}${maybeLang} ${slot.slotKind}${maybeSlotImplKind} ${effectivePretty}`;
             searches.push([slotPretty, slot.sym]);
             allSearchSyms.push(slot.sym);
 
