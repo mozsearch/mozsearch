@@ -1,0 +1,39 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00049:7-11",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (void)",
+    "pretty": "function internal::Read",
+    "sym": "_ZN8internal4ReadEv"
+  },
+  {
+    "loc": "00049:7-11",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "internal::Read",
+    "sym": "_ZN8internal4ReadEv",
+    "peekRange": "49-49"
+  },
+  {
+    "loc": "00057:2-6",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (void)",
+    "pretty": "function internal::Read",
+    "sym": "_ZN8internal4ReadEv"
+  },
+  {
+    "loc": "00057:2-6",
+    "target": 1,
+    "kind": "use",
+    "pretty": "internal::Read",
+    "sym": "_ZN8internal4ReadEv",
+    "context": "TemplateFunc",
+    "contextsym": "_Z12TemplateFuncN3FooIT_E7TypedefE"
+  }
+]
