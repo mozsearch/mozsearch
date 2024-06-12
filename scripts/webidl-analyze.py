@@ -22,7 +22,7 @@ def parse_mangled(mangled):
         if inner[0] == 'E':
             return True
 
-        m = re.match(r'L?([0-9]+)([a-zA-Z0-9_]+)', inner)
+        m = re.match(r'[LK]?([0-9]+)([a-zA-Z0-9_]+)', inner)
         if not m:
             return False
 
@@ -41,6 +41,154 @@ def parse_mangled(mangled):
     return idents
 
 
+def capitalize(name):
+    return name[0].upper() + name[1:]
+
+
+class CppSymbolMemberItem:
+    '''Represents single member's C++ symbols
+
+    Single member can have multiple symbols for the following reasons:
+      * method can have overloads
+      * signature can be different between architecture
+
+    If there are N overloads, there will be one binding C++ function
+    (generated code) and N C++ impls (non-generated code), for each
+    architecture.
+
+    All overload impls are supposed to br called from single binding function.
+    '''
+
+    def __init__(self):
+        # A list of C++ binding function symbols.
+        self.binding_syms = []
+
+        # A list of C++ implementation function symbols.
+        self.impl_syms = []
+
+    def add_binding(self, sym):
+        '''Add a binding's C++ symbol.'''
+
+        if sym in self.binding_syms:
+            # Other architecture had the same symbol
+            return
+
+        self.binding_syms.append(sym)
+
+    def add_impl(self, sym):
+        '''Add a implementation's C++ symbol.'''
+
+        if sym in self.impl_syms:
+            # Other architecture had the same symbol
+            return
+
+        self.impl_syms.append(sym)
+
+
+class CppSymbolsBuilder:
+    '''Build the C++ symbol map'''
+
+    def __init__(self, cpp_symbols):
+        self.cpp_symbols = cpp_symbols
+
+        # The interface name of the current C++ binding function.
+        self.current_iface_name = None
+
+        # The member name of the current C++ binding function.
+        self.current_member_name = None
+
+        # The CppSymbolMemberItem for the member for the
+        # current C++ binding function.
+        self.current_member_item = None
+
+    @staticmethod
+    def parse_sym(sym):
+        '''Given C++ symbol, return the class/interface name and member name.
+        The '_Binding' suffix is not removed.
+
+        If the symbol doesn't match the binding or implementation's pattern,
+        returns None for both.
+        '''
+
+        if not sym:
+            return None, None
+
+        if not sym.startswith('_Z'):
+            return None, None
+
+        idents = parse_mangled(sym)
+        if not idents or len(idents) != 4:
+            return None, None
+
+        # All bindings and impls are directly inside mozilla::dom namespace,
+        # with `_Binding` suffix added for bindings and no suffix for impls.
+        if idents[0] != 'mozilla' or idents[1] != 'dom':
+            return None, None
+
+        return idents[2], idents[3]
+
+    def maybe_add_binding(self, sym):
+        '''If given symbol is C++ binding function, add it.'''
+
+        iface_name, member_name = self.parse_sym(sym)
+        if iface_name is None:
+            return
+        if not iface_name.endswith('_Binding'):
+            return
+        iface_name = iface_name.replace('_Binding', '')
+
+        per_iface = self.cpp_symbols.setdefault(iface_name, {})
+        if member_name in per_iface:
+            member_item = per_iface[member_name]
+        else:
+            member_item = CppSymbolMemberItem()
+            per_iface[member_name] = member_item
+
+        self.current_iface_name = iface_name
+        self.current_member_name = member_name
+        self.current_member_item = member_item
+
+        member_item.add_binding(sym)
+
+    def maybe_add_impl(self, sym, contextsym):
+        '''If given symbol is C++ implementation function for the
+        current C++ binding function, add it.'''
+
+        context_iface_name, context_member_name = self.parse_sym(contextsym)
+        if context_iface_name is None:
+            return
+        if not context_iface_name.endswith('_Binding'):
+            return
+        context_iface_name = context_iface_name.replace('_Binding', '')
+
+        if self.current_iface_name != context_iface_name:
+            return
+        if self.current_member_name != context_member_name:
+            return
+
+        iface_name, member_name = self.parse_sym(sym)
+
+        if iface_name is None:
+            return
+        if iface_name != context_iface_name:
+            return
+
+        if context_member_name.startswith('get_'):
+            name = capitalize(context_member_name[4:])
+            expected = [name, "Get" + name]
+        elif context_member_name.startswith('set_'):
+            name = capitalize(context_member_name[4:])
+            expected = ["Set" + name]
+        else:
+            name = capitalize(context_member_name)
+            expected = [name]
+
+        if member_name not in expected:
+            return
+
+        self.current_member_item.add_impl(sym)
+
+
 def read_cpp_analysis_one(path, cpp_symbols):
     '''Read given analysis file and collect C++ symbols for generated code.'''
 
@@ -52,6 +200,8 @@ def read_cpp_analysis_one(path, cpp_symbols):
     except IOError as e:
         return
 
+    builder = CppSymbolsBuilder(cpp_symbols)
+
     for line in lines:
         try:
             j = json.loads(line.strip())
@@ -59,20 +209,16 @@ def read_cpp_analysis_one(path, cpp_symbols):
             print('Syntax error in JSON file', path, line.strip(), file=sys.stderr)
             raise e
 
-        if 'target' in j and j['kind'] in ('decl', 'def'):
-            if not j['sym'].startswith('_Z'):
-                continue
+        if 'target' not in j:
+            continue
 
-            idents = parse_mangled(j['sym'])
-            if not idents or len(idents) != 4:
-                continue
+        kind = j['kind']
 
-            assert idents[0] == 'mozilla'
-            assert idents[1] == 'dom'
-            binding_name = idents[2].replace('_Binding', '')
-            member_name = idents[3]
+        if kind in ('decl', 'def'):
+            builder.maybe_add_binding(j['sym'])
 
-            cpp_symbols.setdefault(binding_name, {}).setdefault(member_name, []).append(j['sym'])
+        elif kind == 'use':
+            builder.maybe_add_impl(j['sym'], j.get('contextsym', ''))
 
 
 def read_cpp_analysis(index_root, local_path):
@@ -268,13 +414,16 @@ def handle_argument(records, target):
     handle_type(records, target.type)
 
 
-def append_slot(slots, kind, lang, sym):
-    slots.append({
+def append_slot(slots, kind, lang, impl_kind, sym):
+    record = {
         'slotKind': kind,
         'slotLang': lang,
         'ownerLang': 'idl',
         'sym': sym,
-    })
+    }
+    if impl_kind is not None:
+        record['implKind'] = impl_kind
+    slots.append(record)
 
 
 def handle_method(records, iface_name, methods, cpp_symbols, target):
@@ -284,7 +433,7 @@ def handle_method(records, iface_name, methods, cpp_symbols, target):
     loc = to_loc(target.identifier.location, name)
     pretty = f'{iface_name}::{name}'
     idl_sym = f'WEBIDL_{iface_name}_{name}'
-    cpp_syms = cpp_symbols.get(cpp_method_name(target, name), [])
+    cpp_item = cpp_symbols.get(cpp_method_name(target, name), None)
     js_sym = f'#{name}'
     is_constructor = name == 'constructor'
 
@@ -292,18 +441,24 @@ def handle_method(records, iface_name, methods, cpp_symbols, target):
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    for sym in cpp_syms:
-        append_slot(slots, 'method', 'cpp', sym)
-    append_slot(slots, 'method', 'js', js_sym)
+    if cpp_item:
+        for sym in cpp_item.binding_syms:
+            append_slot(slots, 'method', 'cpp', 'binding', sym)
+        for sym in cpp_item.impl_syms:
+            append_slot(slots, 'method', 'cpp', 'impl', sym)
+    append_slot(slots, 'method', 'js', None, js_sym)
 
     emit_structured(records, loc, 'method', pretty, idl_sym,
                     slots=slots)
 
-    for overload in target._overloads:
-        if not is_constructor:
-            handle_type(records, overload.returnType)
-        for arg in overload.arguments:
-            handle_argument(records, arg)
+    # Before resolve, overloads are represented as separate IDLMethod.
+    assert len(target._overloads) == 1
+
+    overload = target._overloads[0]
+    if not is_constructor:
+        handle_type(records, overload.returnType)
+    for arg in overload.arguments:
+        handle_argument(records, arg)
 
     methods.append({
         'pretty': pretty,
@@ -319,20 +474,26 @@ def handle_attribute(records, iface_name, fields, cpp_symbols, target):
     loc = to_loc(target.identifier.location, name)
     pretty = f'{iface_name}::{name}'
     idl_sym = f'WEBIDL_{iface_name}_{name}'
-    getter_cpp_syms = cpp_symbols.get(cpp_getter_name(target, name), [])
+    getter_cpp_item = cpp_symbols.get(cpp_getter_name(target, name), None)
     js_sym = f'#{name}'
 
     emit_source(records, loc, 'idl', 'attribute', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    for sym in getter_cpp_syms:
-        append_slot(slots, 'getter', 'cpp', sym)
+    if getter_cpp_item:
+        for sym in getter_cpp_item.binding_syms:
+            append_slot(slots, 'getter', 'cpp', 'binding', sym)
+        for sym in getter_cpp_item.impl_syms:
+            append_slot(slots, 'getter', 'cpp', 'impl', sym)
     if not target.readonly:
-        setter_cpp_syms = cpp_symbols.get(cpp_setter_name(target, name), [])
-        for sym in  setter_cpp_syms:
-            append_slot(slots, 'setter', 'cpp', sym)
-    append_slot(slots, 'attribute', 'js', js_sym)
+        setter_cpp_item = cpp_symbols.get(cpp_setter_name(target, name), None)
+        if setter_cpp_item:
+            for sym in  setter_cpp_item.binding_syms:
+                append_slot(slots, 'setter', 'cpp', 'binding', sym)
+            for sym in  setter_cpp_item.impl_syms:
+                append_slot(slots, 'setter', 'cpp', 'impl', sym)
+    append_slot(slots, 'attribute', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
@@ -353,16 +514,17 @@ def handle_const(records, iface_name, fields, cpp_symbols, target):
     loc = to_loc(target.identifier.location, name)
     pretty = f'{iface_name}::{name}'
     idl_sym = f'WEBIDL_{iface_name}_{name}'
-    cpp_syms = cpp_symbols.get(name, [])
+    cpp_item = cpp_symbols.get(name, None)
     js_sym = f'#{name}'
 
     emit_source(records, loc, 'idl', 'const', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    for sym in cpp_syms:
-        append_slot(slots, 'const', 'cpp', sym)
-    append_slot(slots, 'const', 'js', js_sym)
+    if cpp_item:
+        for sym in cpp_item.binding_syms:
+            append_slot(slots, 'const', 'cpp', None, sym)
+    append_slot(slots, 'const', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
@@ -418,7 +580,7 @@ def handle_maplike_or_setlike_or_iterable(records, iface_name, target):
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    append_slot(slots, 'class', 'cpp', cpp_sym)
+    append_slot(slots, 'class', 'cpp', None, cpp_sym)
 
     emit_structured(records, loc, 'method', pretty, idl_sym,
                     slots=slots)
@@ -455,8 +617,8 @@ def handle_interface_or_namespace(records, target):
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    append_slot(slots, 'class', 'cpp', cpp_sym)
-    append_slot(slots, 'interface_name', 'js', js_sym)
+    append_slot(slots, 'class', 'cpp', None, cpp_sym)
+    append_slot(slots, 'interface_name', 'js', None, js_sym)
 
     supers = []
     if hasattr(target, 'parent') and target.parent:
@@ -504,8 +666,8 @@ def handle_dictionary_field(records, dictionary_name, dictionary_cpp_sym,
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    append_slot(slots, 'attribute', 'cpp', cpp_sym)
-    append_slot(slots, 'attribute', 'js', js_sym)
+    append_slot(slots, 'attribute', 'cpp', None, cpp_sym)
+    append_slot(slots, 'attribute', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
@@ -533,8 +695,8 @@ def handle_dictionary(records, target):
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    append_slot(slots, 'class', 'cpp', cpp_sym)
-    append_slot(slots, 'class', 'js', js_sym)
+    append_slot(slots, 'class', 'cpp', None, cpp_sym)
+    append_slot(slots, 'class', 'js', None, js_sym)
 
     supers = []
     if hasattr(target, 'parent') and target.parent:
@@ -568,8 +730,8 @@ def handle_enum(records, target):
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    append_slot(slots, 'const', 'cpp', cpp_sym)
-    append_slot(slots, 'const', 'js', js_sym)
+    append_slot(slots, 'const', 'cpp', None, cpp_sym)
+    append_slot(slots, 'const', 'js', None, js_sym)
 
     emit_structured(records, loc, 'const', pretty, idl_sym,
                     slots=slots)

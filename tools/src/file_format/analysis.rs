@@ -357,6 +357,15 @@ pub enum BindingOwnerLang {
     Jvm,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BindingImplKind {
+    // The auto-generated binding.
+    Binding,
+    // The actual implementation called by the binding.
+    Impl,
+}
+
 /// The binding slot mechanism is used to describe the exclusive relationship
 /// between IDL symbols and their bindings as well as the non-exclusive
 /// support relationships like enabling functions.
@@ -378,6 +387,8 @@ pub struct BindingSlotProps {
     pub slot_kind: BindingSlotKind,
     #[serde(rename = "slotLang")]
     pub slot_lang: BindingSlotLang,
+    #[serde(rename = "implKind", default)]
+    pub impl_kind: Option<BindingImplKind>,
     #[serde(rename = "ownerLang")]
     pub owner_lang: BindingOwnerLang,
 }
