@@ -22,7 +22,7 @@ expression: "&json_results"
     "peekRange": "2-2"
   },
   {
-    "loc": "00049:4-14",
+    "loc": "00054:4-14",
     "source": 1,
     "syntax": "use,function",
     "type": "_Bool (void)",
@@ -30,7 +30,7 @@ expression: "&json_results"
     "sym": "_ZN5Point10IsThereOneEv"
   },
   {
-    "loc": "00049:4-14",
+    "loc": "00054:4-14",
     "target": 1,
     "kind": "use",
     "pretty": "Point::IsThereOne",
@@ -39,7 +39,7 @@ expression: "&json_results"
     "contextsym": "_Z12TemplateFuncN3FooIT_E7TypedefE"
   },
   {
-    "loc": "00056:10-20",
+    "loc": "00064:10-20",
     "source": 1,
     "syntax": "use,function",
     "type": "_Bool (void)",
@@ -47,7 +47,7 @@ expression: "&json_results"
     "sym": "_ZN5Point10IsThereOneEv"
   },
   {
-    "loc": "00056:10-20",
+    "loc": "00064:10-20",
     "target": 1,
     "kind": "use",
     "pretty": "Point::IsThereOne",

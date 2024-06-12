@@ -44,9 +44,17 @@ struct Foo {
   using Typedef = int;
 };
 
+namespace internal {
+  template <typename T>
+  void Read();
+}
+
 template <typename T> void TemplateFunc(typename Foo<T>::Typedef) {
   Point<T> p;
   p.IsThereOne();
+
+  using internal::Read;
+  Read(p);
 }
 
 template <typename T> using Pint = Point<T>;
