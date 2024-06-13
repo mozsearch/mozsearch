@@ -558,22 +558,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "outerNS::OuterCat"
-            }
-          ],
-          "sym": "T_outerNS::OuterCat",
-          "colVals": [],
-          "children": [
-            {
-              "label": [
+              "header": false,
+              "contents": [
                 {
-                  "Text": "mIsFriendly"
+                  "SymbolHeading": {
+                    "text": "outerNS::OuterCat",
+                    "symbols": "T_outerNS::OuterCat"
+                  }
                 }
               ],
-              "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+              "colspan": 5
+            }
+          ],
+          "children": [
+            {
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "mIsFriendly",
+                        "symbols": "F_<T_outerNS::OuterCat>_mIsFriendly"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -602,17 +615,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "mIsSecretlyUnfriendly"
-                }
-              ],
-              "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "mIsSecretlyUnfriendly",
+                        "symbols": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -641,17 +659,14 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [],
-              "sym": null,
               "colVals": [
                 {
                   "header": false,
                   "contents": [],
-                  "colspan": 1
+                  "colspan": 2
                 },
                 {
                   "header": false,
@@ -663,17 +678,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 2
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "mOwner"
-                }
-              ],
-              "sym": "F_<T_outerNS::OuterCat>_mOwner",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "mOwner",
+                        "symbols": "F_<T_outerNS::OuterCat>_mOwner"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -702,17 +722,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "mFavoriteCouch"
-                }
-              ],
-              "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "mFavoriteCouch",
+                        "symbols": "F_<T_outerNS::OuterCat>_mFavoriteCouch"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -741,26 +766,35 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "outerNS::Thing (base class)"
-                }
-              ],
-              "sym": "T_outerNS::Thing",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "(vtable)"
+                      "SymbolHeading": {
+                        "text": "outerNS::Thing (base class)",
+                        "symbols": "T_outerNS::Thing"
+                      }
                     }
                   ],
-                  "sym": null,
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "(vtable)"
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -789,17 +823,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "mHP"
-                    }
-                  ],
-                  "sym": "F_<T_outerNS::Thing>_mHP",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "mHP",
+                            "symbols": "F_<T_outerNS::Thing>_mHP"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -828,17 +867,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "mDefunct"
-                    }
-                  ],
-                  "sym": "F_<T_outerNS::Thing>_mDefunct",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "mDefunct",
+                            "symbols": "F_<T_outerNS::Thing>_mDefunct"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -867,14 +911,11 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             }
-          ],
-          "colspan": 4
+          ]
         }
       ]
     }

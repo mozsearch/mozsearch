@@ -856,22 +856,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::vtable::SubSub"
-            }
-          ],
-          "sym": "T_field_layout::vtable::SubSub",
-          "colVals": [],
-          "children": [
-            {
-              "label": [
+              "header": false,
+              "contents": [
                 {
-                  "Text": "z"
+                  "SymbolHeading": {
+                    "text": "field_layout::vtable::SubSub",
+                    "symbols": "T_field_layout::vtable::SubSub"
+                  }
                 }
               ],
-              "sym": "F_<T_field_layout::vtable::SubSub>_z",
+              "colspan": 5
+            }
+          ],
+          "children": [
+            {
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "z",
+                        "symbols": "F_<T_field_layout::vtable::SubSub>_z"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -900,17 +913,14 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [],
-              "sym": null,
               "colVals": [
                 {
                   "header": false,
                   "contents": [],
-                  "colspan": 1
+                  "colspan": 2
                 },
                 {
                   "header": false,
@@ -922,26 +932,38 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 2
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Sub1a (base class)"
-                }
-              ],
-              "sym": "T_field_layout::vtable::Sub1a",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "x"
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Sub1a (base class)",
+                        "symbols": "T_field_layout::vtable::Sub1a"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::vtable::Sub1a>_x",
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "x",
+                            "symbols": "F_<T_field_layout::vtable::Sub1a>_x"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -970,17 +992,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -992,29 +1011,40 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Sub1b (base class)"
-                }
-              ],
-              "sym": "T_field_layout::vtable::Sub1b",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "y"
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Sub1b (base class)",
+                        "symbols": "T_field_layout::vtable::Sub1b"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::vtable::Sub1b>_y",
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "y",
+                            "symbols": "F_<T_field_layout::vtable::Sub1b>_y"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1043,17 +1073,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -1065,29 +1092,40 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Sub2 (base class)"
-                }
-              ],
-              "sym": "T_field_layout::vtable::Sub2",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "w"
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Sub2 (base class)",
+                        "symbols": "T_field_layout::vtable::Sub2"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::vtable::Sub2>_w",
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "w",
+                            "symbols": "F_<T_field_layout::vtable::Sub2>_w"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1116,17 +1154,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -1138,29 +1173,37 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Sub3 (base class)"
-                }
-              ],
-              "sym": "T_field_layout::vtable::Sub3",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "(vtable)"
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Sub3 (base class)",
+                        "symbols": "T_field_layout::vtable::Sub3"
+                      }
                     }
                   ],
-                  "sym": null,
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "(vtable)"
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1189,17 +1232,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "v"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::vtable::Sub3>_v",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "v",
+                            "symbols": "F_<T_field_layout::vtable::Sub3>_v"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1228,29 +1276,37 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Base1 (base class)"
-                }
-              ],
-              "sym": "T_field_layout::vtable::Base1",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "(vtable)"
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Base1 (base class)",
+                        "symbols": "T_field_layout::vtable::Base1"
+                      }
                     }
                   ],
-                  "sym": null,
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "(vtable)"
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1279,29 +1335,37 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Base1 (base class)"
-                }
-              ],
-              "sym": "T_field_layout::vtable::Base1",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "(vtable)"
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Base1 (base class)",
+                        "symbols": "T_field_layout::vtable::Base1"
+                      }
                     }
                   ],
-                  "sym": null,
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "(vtable)"
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1330,29 +1394,37 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Base2 (base class)"
-                }
-              ],
-              "sym": "T_field_layout::vtable::Base2",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "(vtable)"
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Base2 (base class)",
+                        "symbols": "T_field_layout::vtable::Base2"
+                      }
                     }
                   ],
-                  "sym": null,
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "Text": "(vtable)"
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1381,25 +1453,28 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::vtable::Base3 (base class)"
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolHeading": {
+                        "text": "field_layout::vtable::Base3 (base class)",
+                        "symbols": "T_field_layout::vtable::Base3"
+                      }
+                    }
+                  ],
+                  "colspan": 5
                 }
               ],
-              "sym": "T_field_layout::vtable::Base3",
-              "colVals": [],
-              "children": [],
-              "colspan": 4
+              "children": []
             }
-          ],
-          "colspan": 4
+          ]
         }
       ]
     }

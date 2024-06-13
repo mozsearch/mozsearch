@@ -118,15 +118,21 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::empty::S"
+              "header": false,
+              "contents": [
+                {
+                  "SymbolHeading": {
+                    "text": "field_layout::empty::S",
+                    "symbols": "T_field_layout::empty::S"
+                  }
+                }
+              ],
+              "colspan": 5
             }
           ],
-          "sym": "T_field_layout::empty::S",
-          "colVals": [],
-          "children": [],
-          "colspan": 4
+          "children": []
         }
       ]
     }

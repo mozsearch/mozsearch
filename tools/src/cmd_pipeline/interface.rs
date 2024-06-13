@@ -20,7 +20,7 @@ use crate::{
     file_format::crossref_converter::convert_crossref_value_to_sym_info_rep,
 };
 
-use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeId, SymbolGraphNodeSet};
+use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeSet};
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum RecordType {
@@ -211,11 +211,8 @@ impl SymbolTreeTableCell {
 }
 
 pub struct SymbolTreeTableNode {
-    pub label: Vec<BasicMarkup>,
-    pub sym_id: Option<SymbolGraphNodeId>,
     pub col_vals: Vec<SymbolTreeTableCell>,
     pub children: Vec<SymbolTreeTableNode>,
-    pub colspan: u32,
 }
 
 impl SymbolTreeTable {
@@ -278,19 +275,12 @@ impl<'a> Serialize for SerializingSymbolTreeTableNode<'a> {
         S: Serializer,
     {
         let mut stt = serializer.serialize_struct("SymbolTreeTableNode", 2)?;
-        stt.serialize_field("label", &self.node.label)?;
-        if let Some(sym_id) = &self.node.sym_id {
-            stt.serialize_field("sym", &self.node_set.get(sym_id).symbol)?;
-        } else {
-            stt.serialize_field("sym", &Value::Null)?;
-        }
         stt.serialize_field("colVals", &self.node.col_vals)?;
         let wrapped_rows = SerializingSymbolTreeTableRows {
             node_set: &self.node_set,
             rows: &self.node.children,
         };
         stt.serialize_field("children", &wrapped_rows)?;
-        stt.serialize_field("colspan", &self.node.colspan)?;
         stt.end()
     }
 }

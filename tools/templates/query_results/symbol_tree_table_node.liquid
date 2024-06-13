@@ -1,11 +1,4 @@
 <tr>
-  <td
-  {% if node.colspan != 1 %}
-    colspan="{{ node.colspan }}"
-  {% endif %}
-  >
-    <span data-symbols="{{ node.sym }}">{%- include 'query_results/basic_markup_array.liquid' markup: node.label -%}</span>
-  </td>
   {% for col in node.colVals %}
     {% if col.header %}
       <th

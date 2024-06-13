@@ -245,22 +245,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::platform_specific_size::S"
-            }
-          ],
-          "sym": "T_field_layout::platform_specific_size::S",
-          "colVals": [],
-          "children": [
-            {
-              "label": [
+              "header": false,
+              "contents": [
                 {
-                  "Text": "f1"
+                  "SymbolHeading": {
+                    "text": "field_layout::platform_specific_size::S",
+                    "symbols": "T_field_layout::platform_specific_size::S"
+                  }
                 }
               ],
-              "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
+              "colspan": 7
+            }
+          ],
+          "children": [
+            {
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "f1",
+                        "symbols": "F_<T_field_layout::platform_specific_size::S>_f1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -314,11 +327,9 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             }
-          ],
-          "colspan": 6
+          ]
         }
       ]
     }

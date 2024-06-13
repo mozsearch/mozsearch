@@ -8,7 +8,8 @@ use itertools::Itertools;
 
 use super::{
     interface::{
-        BasicMarkup, PipelineCommand, PipelineValues, SymbolTreeTable, SymbolTreeTableCell, SymbolTreeTableList, SymbolTreeTableNode,
+        BasicMarkup, TextWithSymbol,
+        PipelineCommand, PipelineValues, SymbolTreeTable, SymbolTreeTableCell, SymbolTreeTableList, SymbolTreeTableNode,
         SymbolCrossrefInfo, SymbolTreeTableColumn,
     },
     symbol_graph::{
@@ -859,30 +860,35 @@ impl ClassMap {
             let is_root = cls.id == self.root_class_id.as_ref().unwrap().clone();
 
             let mut class_node = SymbolTreeTableNode {
-                sym_id: Some(cls.id.clone()),
-                label: vec![
-                    BasicMarkup::Heading(
-                        format!("{}{}",
-                                cls.name,
-                                if !is_root { " (base class)" } else { "" },
-                        ))
+                col_vals: vec![
+                    SymbolTreeTableCell {
+                        header: false,
+                        contents: vec![
+                            BasicMarkup::SymbolHeading(
+                                TextWithSymbol {
+                                    text: format!("{}{}",
+                                        cls.name,
+                                        if !is_root { " (base class)" } else { "" },
+                                    ),
+                                    symbols: self.stt.node_set.get(&cls.id).symbol.to_string(),
+                                }
+                            )
+                        ],
+                        colspan: (2 + column_offset + self.groups.len() * 2) as u32,
+                    },
                 ],
-                col_vals: vec![],
                 children: vec![],
-                colspan: (1 + column_offset + self.groups.len() * 2) as u32,
             };
 
             if self.has_unsupported_multiple_inheritance && is_root {
                 let warn_node = SymbolTreeTableNode {
-                    sym_id: None,
-                    label: vec![
-                        BasicMarkup::ItalicText(
-                            "(This class has multiple inheritance but the offset is not found in the analysis file. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string()
-                        )
+                    col_vals: vec![
+                        SymbolTreeTableCell::italic_text_colspan(
+                            "(This class has multiple inheritance but the offset is not found in the analysis file. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string(),
+                            (2 + column_offset + self.groups.len() * 2) as u32
+                        ),
                     ],
-                    col_vals: vec![],
                     children: vec![],
-                    colspan: (1 + column_offset + self.groups.len() * 2) as u32,
                 };
                 class_node.children.push(warn_node);
             }
@@ -902,14 +908,11 @@ impl ClassMap {
 
                 if has_hole {
                     let mut hole_node = SymbolTreeTableNode {
-                        sym_id: None,
-                        label: vec![],
                         col_vals: vec![],
                         children: vec![],
-                        colspan: 1,
                     };
 
-                    hole_node.col_vals.push(SymbolTreeTableCell::empty());
+                    hole_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
 
                     for maybe_field in field_variants {
                         match maybe_field {
@@ -943,14 +946,12 @@ impl ClassMap {
                 }
 
                 let mut field_node = SymbolTreeTableNode {
-                    sym_id: None,
-                    label: vec![],
                     col_vals: vec![],
                     children: vec![],
-                    colspan: 1,
                 };
 
-                field_node.col_vals.push(SymbolTreeTableCell::empty());
+                let mut name_cell = SymbolTreeTableCell::empty();
+                let mut type_cell = SymbolTreeTableCell::empty();
 
                 let mut type_labels = vec![];
                 let mut type_label_set = HashSet::new();
@@ -958,12 +959,21 @@ impl ClassMap {
                 for maybe_field in field_variants {
                     match maybe_field {
                         Some(field) => {
-                            if field_node.sym_id.is_none() {
-                                field_node.sym_id = field.field_id.clone();
-
+                            if name_cell.contents.is_empty() {
                                 let mut pretty = field.pretty.clone();
                                 pretty = pretty.replace(&field_prefix, "");
-                                field_node.label = vec![BasicMarkup::Text(format!("{}", pretty))];
+
+                                name_cell.contents.push(
+                                    match &field.field_id {
+                                        Some(field_id) => BasicMarkup::SymbolText(
+                                            TextWithSymbol {
+                                                text: pretty,
+                                                symbols: self.stt.node_set.get(&field_id).symbol.to_string(),
+                                            }
+                                        ),
+                                        None => BasicMarkup::Text(pretty),
+                                    }
+                                );
                             }
 
                             let type_label = match &field.type_pretty.is_empty() {
@@ -1008,12 +1018,15 @@ impl ClassMap {
                 let mut first = true;
                 for label in type_labels {
                     if !first {
-                        field_node.col_vals[0].contents.push(BasicMarkup::Text(" | ".to_string()));
-                        field_node.col_vals[0].contents.push(BasicMarkup::Newline);
+                        type_cell.contents.push(BasicMarkup::Text(" | ".to_string()));
+                        type_cell.contents.push(BasicMarkup::Newline);
                     }
                     first = false;
-                    field_node.col_vals[0].contents.push(BasicMarkup::Text(label));
+                    type_cell.contents.push(BasicMarkup::Text(label));
                 }
+
+                field_node.col_vals.insert(0, type_cell);
+                field_node.col_vals.insert(0, name_cell);
 
                 class_node.children.push(field_node);
 
@@ -1029,14 +1042,11 @@ impl ClassMap {
 
                 if has_end_padding {
                     let mut end_padding_node = SymbolTreeTableNode {
-                        sym_id: None,
-                        label: vec![],
                         col_vals: vec![],
                         children: vec![],
-                        colspan: 1,
                     };
 
-                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty());
+                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
 
                     for maybe_field in field_variants {
                         match maybe_field {

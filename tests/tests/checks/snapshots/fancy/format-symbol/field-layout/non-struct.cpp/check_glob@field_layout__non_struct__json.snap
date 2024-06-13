@@ -124,22 +124,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::non_struct::Proxy"
-            }
-          ],
-          "sym": "T_field_layout::non_struct::Proxy",
-          "colVals": [],
-          "children": [
-            {
-              "label": [
+              "header": false,
+              "contents": [
                 {
-                  "Text": "x"
+                  "SymbolHeading": {
+                    "text": "field_layout::non_struct::Proxy",
+                    "symbols": "T_field_layout::non_struct::Proxy"
+                  }
                 }
               ],
-              "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+              "colspan": 5
+            }
+          ],
+          "children": [
+            {
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "x",
+                        "symbols": "F_<T_field_layout::non_struct::Proxy>_x"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -168,11 +181,9 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             }
-          ],
-          "colspan": 4
+          ]
         }
       ]
     }

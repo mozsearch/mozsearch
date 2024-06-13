@@ -1525,22 +1525,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::multiple_inheritance::SubSubSubA"
-            }
-          ],
-          "sym": "T_field_layout::multiple_inheritance::SubSubSubA",
-          "colVals": [],
-          "children": [
-            {
-              "label": [
+              "header": false,
+              "contents": [
                 {
-                  "Text": "sub_sub_sub_a_1"
+                  "SymbolHeading": {
+                    "text": "field_layout::multiple_inheritance::SubSubSubA",
+                    "symbols": "T_field_layout::multiple_inheritance::SubSubSubA"
+                  }
                 }
               ],
-              "sym": "F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1",
+              "colspan": 7
+            }
+          ],
+          "children": [
+            {
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "sub_sub_sub_a_1",
+                        "symbols": "F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -1587,17 +1600,14 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [],
-              "sym": null,
               "colVals": [
                 {
                   "header": false,
                   "contents": [],
-                  "colspan": 1
+                  "colspan": 2
                 },
                 {
                   "header": false,
@@ -1618,26 +1628,38 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 2
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::SubSubA (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::SubSubA",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "sub_sub_c_1"
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::SubSubA (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::SubSubA"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1",
+                  "colspan": 7
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_sub_c_1",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1684,17 +1706,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -1711,29 +1730,40 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 6
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::SubSubB (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::SubSubB",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "sub_sub_b_1"
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::SubSubB (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::SubSubB"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1",
+                  "colspan": 7
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_sub_b_1",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1780,29 +1810,40 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 6
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::SubA (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::SubA",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "sub_a_1"
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::SubA (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::SubA"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1",
+                  "colspan": 7
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_a_1",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1849,17 +1890,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "sub_a_2"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_a_2",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1906,17 +1952,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -1937,29 +1980,40 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 6
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::SubB (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::SubB",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "sub_b_1"
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::SubB (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::SubB"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1",
+                  "colspan": 7
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_b_1",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2006,17 +2060,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "sub_b_2"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_b_2",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2063,17 +2122,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -2090,17 +2146,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -2117,17 +2170,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "sub_b_3"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_b_3",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2166,29 +2224,40 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 6
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::SubD (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::SubD",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "sub_d_1"
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::SubD (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::SubD"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1",
+                  "colspan": 7
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_d_1",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2235,17 +2304,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "sub_d_2"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_d_2",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2292,17 +2366,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -2323,29 +2394,32 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 6
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::SubE (base class)"
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::SubE (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::SubE"
+                      }
+                    }
+                  ],
+                  "colspan": 7
                 }
               ],
-              "sym": "T_field_layout::multiple_inheritance::SubE",
-              "colVals": [],
               "children": [
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -2362,17 +2436,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "sub_e_1"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_e_1",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2419,17 +2498,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "sub_e_2"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_e_2",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2476,51 +2560,74 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 6
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::BaseEmpty (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::BaseEmpty",
-              "colVals": [],
-              "children": [],
-              "colspan": 6
-            },
-            {
-              "label": [
-                {
-                  "Heading": "field_layout::multiple_inheritance::BaseEmpty (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::BaseEmpty",
-              "colVals": [],
-              "children": [],
-              "colspan": 6
-            },
-            {
-              "label": [
-                {
-                  "Heading": "field_layout::multiple_inheritance::SubC (base class)"
-                }
-              ],
-              "sym": "T_field_layout::multiple_inheritance::SubC",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "sub_c_1"
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::BaseEmpty"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1",
+                  "colspan": 7
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::BaseEmpty"
+                      }
+                    }
+                  ],
+                  "colspan": 7
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::SubC (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::SubC"
+                      }
+                    }
+                  ],
+                  "colspan": 7
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_c_1",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2567,17 +2674,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -2598,17 +2702,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "sub_c_2"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "sub_c_2",
+                            "symbols": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -2655,36 +2764,45 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 6
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::BaseEmpty (base class)"
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::BaseEmpty"
+                      }
+                    }
+                  ],
+                  "colspan": 7
                 }
               ],
-              "sym": "T_field_layout::multiple_inheritance::BaseEmpty",
-              "colVals": [],
-              "children": [],
-              "colspan": 6
+              "children": []
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::multiple_inheritance::BaseEmpty (base class)"
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolHeading": {
+                        "text": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+                        "symbols": "T_field_layout::multiple_inheritance::BaseEmpty"
+                      }
+                    }
+                  ],
+                  "colspan": 7
                 }
               ],
-              "sym": "T_field_layout::multiple_inheritance::BaseEmpty",
-              "colVals": [],
-              "children": [],
-              "colspan": 6
+              "children": []
             }
-          ],
-          "colspan": 6
+          ]
         }
       ]
     }

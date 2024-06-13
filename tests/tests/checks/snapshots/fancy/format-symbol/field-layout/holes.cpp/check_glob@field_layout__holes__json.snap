@@ -409,22 +409,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::holes::Sub"
-            }
-          ],
-          "sym": "T_field_layout::holes::Sub",
-          "colVals": [],
-          "children": [
-            {
-              "label": [
+              "header": false,
+              "contents": [
                 {
-                  "Text": "x"
+                  "SymbolHeading": {
+                    "text": "field_layout::holes::Sub",
+                    "symbols": "T_field_layout::holes::Sub"
+                  }
                 }
               ],
-              "sym": "F_<T_field_layout::holes::Sub>_x",
+              "colspan": 5
+            }
+          ],
+          "children": [
+            {
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "x",
+                        "symbols": "F_<T_field_layout::holes::Sub>_x"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -453,17 +466,14 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [],
-              "sym": null,
               "colVals": [
                 {
                   "header": false,
                   "contents": [],
-                  "colspan": 1
+                  "colspan": 2
                 },
                 {
                   "header": false,
@@ -475,17 +485,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 2
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "y"
-                }
-              ],
-              "sym": "F_<T_field_layout::holes::Sub>_y",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "y",
+                        "symbols": "F_<T_field_layout::holes::Sub>_y"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -514,26 +529,38 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::holes::Base (base class)"
-                }
-              ],
-              "sym": "T_field_layout::holes::Base",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "a"
+                      "SymbolHeading": {
+                        "text": "field_layout::holes::Base (base class)",
+                        "symbols": "T_field_layout::holes::Base"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::holes::Base>_a",
+                  "colspan": 5
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "a",
+                            "symbols": "F_<T_field_layout::holes::Base>_a"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -562,17 +589,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -584,17 +608,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "b"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::holes::Base>_b",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "b",
+                            "symbols": "F_<T_field_layout::holes::Base>_b"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -623,17 +652,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "c"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::holes::Base>_c",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "c",
+                            "symbols": "F_<T_field_layout::holes::Base>_c"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -662,17 +696,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "d"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::holes::Base>_d",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "d",
+                            "symbols": "F_<T_field_layout::holes::Base>_d"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -701,17 +740,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -723,14 +759,11 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 4
+              ]
             }
-          ],
-          "colspan": 4
+          ]
         }
       ]
     }
