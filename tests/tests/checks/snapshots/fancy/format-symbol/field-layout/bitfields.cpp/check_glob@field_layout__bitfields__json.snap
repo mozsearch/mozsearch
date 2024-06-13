@@ -352,22 +352,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::bitfields::S"
-            }
-          ],
-          "sym": "T_field_layout::bitfields::S",
-          "colVals": [],
-          "children": [
-            {
-              "label": [
+              "header": false,
+              "contents": [
                 {
-                  "Text": "b1"
+                  "SymbolHeading": {
+                    "text": "field_layout::bitfields::S",
+                    "symbols": "T_field_layout::bitfields::S"
+                  }
                 }
               ],
-              "sym": "F_<T_field_layout::bitfields::S>_b1",
+              "colspan": 5
+            }
+          ],
+          "children": [
+            {
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "b1",
+                        "symbols": "F_<T_field_layout::bitfields::S>_b1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -396,17 +409,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "b2"
-                }
-              ],
-              "sym": "F_<T_field_layout::bitfields::S>_b2",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "b2",
+                        "symbols": "F_<T_field_layout::bitfields::S>_b2"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -435,17 +453,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "b3"
-                }
-              ],
-              "sym": "F_<T_field_layout::bitfields::S>_b3",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "b3",
+                        "symbols": "F_<T_field_layout::bitfields::S>_b3"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -474,17 +497,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "b4"
-                }
-              ],
-              "sym": "F_<T_field_layout::bitfields::S>_b4",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "b4",
+                        "symbols": "F_<T_field_layout::bitfields::S>_b4"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -513,17 +541,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "b5"
-                }
-              ],
-              "sym": "F_<T_field_layout::bitfields::S>_b5",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "b5",
+                        "symbols": "F_<T_field_layout::bitfields::S>_b5"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -552,17 +585,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "b6"
-                }
-              ],
-              "sym": "F_<T_field_layout::bitfields::S>_b6",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "b6",
+                        "symbols": "F_<T_field_layout::bitfields::S>_b6"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -591,17 +629,14 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [],
-              "sym": null,
               "colVals": [
                 {
                   "header": false,
                   "contents": [],
-                  "colspan": 1
+                  "colspan": 2
                 },
                 {
                   "header": false,
@@ -613,11 +648,9 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 2
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             }
-          ],
-          "colspan": 4
+          ]
         }
       ]
     }

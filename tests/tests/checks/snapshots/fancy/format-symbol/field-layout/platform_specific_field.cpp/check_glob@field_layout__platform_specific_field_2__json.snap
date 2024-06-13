@@ -723,22 +723,35 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "label": [
+          "colVals": [
             {
-              "Heading": "field_layout::platform_specific_field::T3"
+              "header": false,
+              "contents": [
+                {
+                  "SymbolHeading": {
+                    "text": "field_layout::platform_specific_field::T3",
+                    "symbols": "T_field_layout::platform_specific_field::T3"
+                  }
+                }
+              ],
+              "colspan": 9
             }
           ],
-          "sym": "T_field_layout::platform_specific_field::T3",
-          "colVals": [],
           "children": [
             {
-              "label": [
-                {
-                  "Text": "f4"
-                }
-              ],
-              "sym": "F_<T_field_layout::platform_specific_field::T3>_f4",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "f4",
+                        "symbols": "F_<T_field_layout::platform_specific_field::T3>_f4"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -803,17 +816,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "f5"
-                }
-              ],
-              "sym": "F_<T_field_layout::platform_specific_field::T3>_f5",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "f5",
+                        "symbols": "F_<T_field_layout::platform_specific_field::T3>_f5"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -870,17 +888,22 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
-                {
-                  "Text": "f6"
-                }
-              ],
-              "sym": "F_<T_field_layout::platform_specific_field::T3>_f6",
               "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "f6",
+                        "symbols": "F_<T_field_layout::platform_specific_field::T3>_f6"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
                 {
                   "header": false,
                   "contents": [
@@ -929,17 +952,14 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 1
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [],
-              "sym": null,
               "colVals": [
                 {
                   "header": false,
                   "contents": [],
-                  "colspan": 1
+                  "colspan": 2
                 },
                 {
                   "header": false,
@@ -961,26 +981,30 @@ expression: "&to_value(sttl).unwrap()"
                   "colspan": 2
                 }
               ],
-              "children": [],
-              "colspan": 1
+              "children": []
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::platform_specific_field::T2 (base class)"
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolHeading": {
+                        "text": "field_layout::platform_specific_field::T2 (base class)",
+                        "symbols": "T_field_layout::platform_specific_field::T2"
+                      }
+                    }
+                  ],
+                  "colspan": 9
                 }
               ],
-              "sym": "T_field_layout::platform_specific_field::T2",
-              "colVals": [],
               "children": [
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -1010,17 +1034,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "f2"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::platform_specific_field::T2>_f2",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "f2",
+                            "symbols": "F_<T_field_layout::platform_specific_field::T2>_f2"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1085,17 +1114,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "f3"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::platform_specific_field::T2>_f3",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "f3",
+                            "symbols": "F_<T_field_layout::platform_specific_field::T2>_f3"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1144,17 +1178,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -1176,17 +1207,22 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [
-                    {
-                      "Text": "f3b"
-                    }
-                  ],
-                  "sym": "F_<T_field_layout::platform_specific_field::T2>_f3b",
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "f3b",
+                            "symbols": "F_<T_field_layout::platform_specific_field::T2>_f3b"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1243,17 +1279,14 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 },
                 {
-                  "label": [],
-                  "sym": null,
                   "colVals": [
                     {
                       "header": false,
                       "contents": [],
-                      "colspan": 1
+                      "colspan": 2
                     },
                     {
                       "header": false,
@@ -1279,29 +1312,40 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 2
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 8
+              ]
             },
             {
-              "label": [
+              "colVals": [
                 {
-                  "Heading": "field_layout::platform_specific_field::T1 (base class)"
-                }
-              ],
-              "sym": "T_field_layout::platform_specific_field::T1",
-              "colVals": [],
-              "children": [
-                {
-                  "label": [
+                  "header": false,
+                  "contents": [
                     {
-                      "Text": "f1"
+                      "SymbolHeading": {
+                        "text": "field_layout::platform_specific_field::T1 (base class)",
+                        "symbols": "T_field_layout::platform_specific_field::T1"
+                      }
                     }
                   ],
-                  "sym": "F_<T_field_layout::platform_specific_field::T1>_f1",
+                  "colspan": 9
+                }
+              ],
+              "children": [
+                {
                   "colVals": [
+                    {
+                      "header": false,
+                      "contents": [
+                        {
+                          "SymbolText": {
+                            "text": "f1",
+                            "symbols": "F_<T_field_layout::platform_specific_field::T1>_f1"
+                          }
+                        }
+                      ],
+                      "colspan": 1
+                    },
                     {
                       "header": false,
                       "contents": [
@@ -1366,14 +1410,11 @@ expression: "&to_value(sttl).unwrap()"
                       "colspan": 1
                     }
                   ],
-                  "children": [],
-                  "colspan": 1
+                  "children": []
                 }
-              ],
-              "colspan": 8
+              ]
             }
-          ],
-          "colspan": 8
+          ]
         }
       ]
     }
