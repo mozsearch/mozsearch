@@ -889,7 +889,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "unsigned char"
+                      "SymbolText": {
+                        "text": "unsigned char",
+                        "symbols": ""
+                      }
                     }
                   ],
                   "colspan": 1
@@ -968,7 +971,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned char"
+                          "SymbolText": {
+                            "text": "unsigned char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1049,7 +1055,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned char"
+                          "SymbolText": {
+                            "text": "unsigned char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1130,7 +1139,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned char"
+                          "SymbolText": {
+                            "text": "unsigned char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1252,7 +1264,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned char"
+                          "SymbolText": {
+                            "text": "unsigned char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1

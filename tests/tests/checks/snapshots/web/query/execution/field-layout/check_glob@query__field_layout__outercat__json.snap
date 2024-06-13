@@ -168,6 +168,167 @@ expression: "&to_value(sttl).unwrap()"
             "def": "big_cpp.cpp#147"
           }
         },
+        "T_outerNS::Couch": {
+          "sym": "T_outerNS::Couch",
+          "pretty": "outerNS::Couch",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::Couch",
+            "sym": "T_outerNS::Couch",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": "Core/Big",
+            "implKind": "",
+            "sizeBytes": 16,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_outerNS::Thing",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "outerNS::Couch::Couch",
+                "sym": "_ZN7outerNS5CouchC1Ei",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Couch::operator=",
+                "sym": "_ZN7outerNS5CouchaSERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Couch::operator=",
+                "sym": "_ZN7outerNS5CouchaSEOS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Couch::~Couch",
+                "sym": "_ZN7outerNS5CouchD1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#211"
+          }
+        },
+        "T_outerNS::Human": {
+          "sym": "T_outerNS::Human",
+          "pretty": "outerNS::Human",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::Human",
+            "sym": "T_outerNS::Human",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": "Core/Big",
+            "implKind": "",
+            "sizeBytes": 16,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_outerNS::Thing",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "outerNS::Human::Human",
+                "sym": "_ZN7outerNS5HumanC1Ev",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::operator=",
+                "sym": "_ZN7outerNS5HumanaSERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::operator=",
+                "sym": "_ZN7outerNS5HumanaSEOS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::~Human",
+                "sym": "_ZN7outerNS5HumanD1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::Human",
+                "sym": "_ZN7outerNS5HumanC1ERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::Human",
+                "sym": "_ZN7outerNS5HumanC1EOS0_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_outerNS::Superhero"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#185"
+          }
+        },
         "T_outerNS::OuterCat": {
           "sym": "T_outerNS::OuterCat",
           "pretty": "outerNS::OuterCat",
@@ -502,6 +663,10 @@ expression: "&to_value(sttl).unwrap()"
           "jumps": {
             "def": "big_cpp.cpp#141"
           }
+        },
+        "T_std::shared_ptr": {
+          "sym": "T_std::shared_ptr",
+          "pretty": "T_std::shared_ptr"
         }
       },
       "columns": [
@@ -591,7 +756,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "_Bool"
+                      "SymbolText": {
+                        "text": "_Bool",
+                        "symbols": ""
+                      }
                     }
                   ],
                   "colspan": 1
@@ -635,7 +803,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "_Bool"
+                      "SymbolText": {
+                        "text": "_Bool",
+                        "symbols": ""
+                      }
                     }
                   ],
                   "colspan": 1
@@ -698,7 +869,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "class std::shared_ptr<class outerNS::Human>"
+                      "SymbolText": {
+                        "text": "class std::shared_ptr<class outerNS::Human>",
+                        "symbols": "T_std::shared_ptr,T_outerNS::Human"
+                      }
                     }
                   ],
                   "colspan": 1
@@ -742,7 +916,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "class outerNS::Couch *"
+                      "SymbolText": {
+                        "text": "class outerNS::Couch *",
+                        "symbols": "T_outerNS::Couch"
+                      }
                     }
                   ],
                   "colspan": 1
@@ -843,7 +1020,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -887,7 +1067,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "_Bool"
+                          "SymbolText": {
+                            "text": "_Bool",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1

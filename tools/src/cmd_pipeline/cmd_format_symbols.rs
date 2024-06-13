@@ -83,6 +83,7 @@ struct Field {
     class_traversal_id: TraversalId,
     class_end_offset: Option<u32>,
     field_id: Option<FieldId>,
+    field_type_syms: Option<String>,
     type_pretty: String,
     pretty: String,
     lineno: u64,
@@ -97,15 +98,17 @@ struct Field {
 impl Field {
     fn new(class_id: ClassId, class_traversal_id: TraversalId,
            class_offset: u32, class_size: Option<u32>, field_id: FieldId,
-           sym_info: &DerivedSymbolInfo, info: &StructuredFieldInfo) -> Self {
+           field_type_syms: String,
+           lineno: u64, info: &StructuredFieldInfo) -> Self {
         Self {
             class_id: class_id,
             class_traversal_id: class_traversal_id,
             class_end_offset: class_size.map(|size| class_offset + size),
             field_id: Some(field_id),
+            field_type_syms: Some(field_type_syms),
             type_pretty: info.type_pretty.to_string(),
             pretty: info.pretty.to_string(),
-            lineno: sym_info.get_def_lno(),
+            lineno: lineno,
             hole_bytes: None,
             hole_after_base: false,
             end_padding_bytes: None,
@@ -123,6 +126,7 @@ impl Field {
             class_traversal_id: class_traversal_id,
             class_end_offset: Some(class_offset + class_size),
             field_id: None,
+            field_type_syms: None,
             type_pretty: "".to_string(),
             pretty: "(vtable)".to_string(),
             lineno: 0,
@@ -704,23 +708,61 @@ impl ClassMap {
                 }
 
                 for field in s.fields.clone() {
-                    let (field_id, field_info) = self.stt
-                        .node_set
-                        .ensure_symbol(&field.sym, server, depth + 1)
-                        .await?;
+                    let (field_id, field_info) = {
+                        let (field_id, field_info) = self.stt
+                            .node_set
+                            .ensure_symbol(&field.sym, server, depth + 1)
+                            .await?;
+
+                        (field_id, field_info.get_def_lno())
+                    };
+
+                    let mut field_type_syms_vec = vec![];
+                    let mut field_type_syms_set = HashSet::new();
+
+                    // Add field type to the jumprefs, but we don't use the
+                    // returned info.
+                    if !field.type_sym.is_empty() {
+                        let _ = self.stt
+                            .node_set
+                            .ensure_symbol(&field.type_sym, server, depth + 1)
+                            .await?;
+
+                        field_type_syms_vec.push(field.type_sym.to_string());
+                        field_type_syms_set.insert(field.type_sym);
+                    }
+                    for info in &field.pointer_info {
+                        if field_type_syms_set.contains(&info.sym) {
+                            continue;
+                        }
+
+                        let _ = self.stt
+                            .node_set
+                            .ensure_symbol(&info.sym, server, depth + 1)
+                            .await?;
+
+                        field_type_syms_vec.push(info.sym.to_string());
+                        field_type_syms_set.insert(info.sym.clone());
+                    }
+
+                    let field_type_syms = field_type_syms_vec
+                        .iter()
+                        .join(",");
 
                     if let Some(platform_id) = &maybe_platform_id {
                         let offset = item.get_offset(&platform_id);
                         let field = Field::new(class_id.clone(), traversal_id.clone(),
                                                offset, s.size_bytes.clone(),
-                                               field_id.clone(), field_info, &field);
+                                               field_id.clone(), field_type_syms,
+                                               field_info, &field);
                         fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
                         for platform_id in item.platforms() {
                             let offset = item.get_offset(&platform_id);
                             let field = Field::new(class_id.clone(), traversal_id.clone(),
                                                    offset, s.size_bytes.clone(),
-                                                   field_id.clone(), field_info, &field);
+                                                   field_id.clone(), field_type_syms.clone(),
+                                                   field_info, &field);
                             fields_per_platform.add_field(&platform_id, field.clone());
                         }
                     }
@@ -953,7 +995,6 @@ impl ClassMap {
                 let mut name_cell = SymbolTreeTableCell::empty();
                 let mut type_cell = SymbolTreeTableCell::empty();
 
-                let mut type_labels = vec![];
                 let mut type_label_set = HashSet::new();
 
                 for maybe_field in field_variants {
@@ -976,13 +1017,31 @@ impl ClassMap {
                                 );
                             }
 
-                            let type_label = match &field.type_pretty.is_empty() {
-                                false => format!("{}", field.type_pretty),
-                                true => "".to_string(),
-                            };
-                            if !type_label_set.contains(&type_label) {
-                                type_label_set.insert(type_label.clone());
-                                type_labels.push(type_label);
+                            if !type_label_set.contains(&field.type_pretty) {
+                                type_label_set.insert(field.type_pretty.clone());
+
+                                if !type_cell.contents.is_empty() {
+                                    type_cell.contents.push(BasicMarkup::Text(" | ".to_string()));
+                                    type_cell.contents.push(BasicMarkup::Newline);
+                                }
+
+                                type_cell.contents.push(
+                                    match &field.field_type_syms {
+                                        Some(type_syms) => {
+                                            BasicMarkup::SymbolText(
+                                                TextWithSymbol {
+                                                    text: field.type_pretty.clone(),
+                                                    symbols: type_syms.clone(),
+                                                }
+                                            )
+                                        },
+                                        None => {
+                                            BasicMarkup::Text(
+                                                field.type_pretty.clone(),
+                                            )
+                                        },
+                                    }
+                                );
                             }
 
                             if let Some(pos) = &field.bit_positions {
@@ -1013,16 +1072,6 @@ impl ClassMap {
                             field_node.col_vals.push(SymbolTreeTableCell::empty());
                         }
                     }
-                }
-
-                let mut first = true;
-                for label in type_labels {
-                    if !first {
-                        type_cell.contents.push(BasicMarkup::Text(" | ".to_string()));
-                        type_cell.contents.push(BasicMarkup::Newline);
-                    }
-                    first = false;
-                    type_cell.contents.push(BasicMarkup::Text(label));
                 }
 
                 field_node.col_vals.insert(0, type_cell);

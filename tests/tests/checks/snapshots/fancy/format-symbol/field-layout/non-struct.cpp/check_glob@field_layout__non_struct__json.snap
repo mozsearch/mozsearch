@@ -157,7 +157,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "signed char"
+                      "SymbolText": {
+                        "text": "signed char",
+                        "symbols": ""
+                      }
                     }
                   ],
                   "colspan": 1

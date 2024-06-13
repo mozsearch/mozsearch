@@ -1,0 +1,762 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::field_type::S>_pointer_field": {
+          "sym": "F_<T_field_layout::field_type::S>_pointer_field",
+          "pretty": "field_layout::field_type::S::pointer_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::pointer_field",
+            "sym": "F_<T_field_layout::field_type::S>_pointer_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#29"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_template_field_1": {
+          "sym": "F_<T_field_layout::field_type::S>_template_field_1",
+          "pretty": "field_layout::field_type::S::template_field_1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::template_field_1",
+            "sym": "F_<T_field_layout::field_type::S>_template_field_1",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#30"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_template_field_2": {
+          "sym": "F_<T_field_layout::field_type::S>_template_field_2",
+          "pretty": "field_layout::field_type::S::template_field_2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::template_field_2",
+            "sym": "F_<T_field_layout::field_type::S>_template_field_2",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#31"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_value_field": {
+          "sym": "F_<T_field_layout::field_type::S>_value_field",
+          "pretty": "field_layout::field_type::S::value_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::value_field",
+            "sym": "F_<T_field_layout::field_type::S>_value_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#28"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_vector_field": {
+          "sym": "F_<T_field_layout::field_type::S>_vector_field",
+          "pretty": "field_layout::field_type::S::vector_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::vector_field",
+            "sym": "F_<T_field_layout::field_type::S>_vector_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#32"
+          }
+        },
+        "T_field_layout::field_type::Container1": {
+          "sym": "T_field_layout::field_type::Container1",
+          "pretty": "T_field_layout::field_type::Container1",
+          "jumps": {
+            "def": "field-layout/field-type.cpp#13"
+          }
+        },
+        "T_field_layout::field_type::Container2": {
+          "sym": "T_field_layout::field_type::Container2",
+          "pretty": "T_field_layout::field_type::Container2",
+          "jumps": {
+            "def": "field-layout/field-type.cpp#23"
+          }
+        },
+        "T_field_layout::field_type::S": {
+          "sym": "T_field_layout::field_type::S",
+          "pretty": "field_layout::field_type::S",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S",
+            "sym": "T_field_layout::field_type::S",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 48,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::field_type::S::S",
+                "sym": "_ZN12field_layout10field_type1SC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::S::S",
+                "sym": "_ZN12field_layout10field_type1SC1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::S::operator=",
+                "sym": "_ZN12field_layout10field_type1SaSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::S::operator=",
+                "sym": "_ZN12field_layout10field_type1SaSEOS1_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::S::~S",
+                "sym": "_ZN12field_layout10field_type1SD1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::S::S",
+                "sym": "_ZN12field_layout10field_type1SC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::field_type::S::value_field",
+                "sym": "F_<T_field_layout::field_type::S>_value_field",
+                "type": "struct field_layout::field_type::Type1",
+                "typesym": "T_field_layout::field_type::Type1",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Type1"
+                  }
+                ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::pointer_field",
+                "sym": "F_<T_field_layout::field_type::S>_pointer_field",
+                "type": "const struct field_layout::field_type::Type1 *",
+                "typesym": "T_field_layout::field_type::Type1",
+                "offsetBytes": 8,
+                "bitPositions": null,
+                "sizeBytes": 8,
+                "pointerInfo": [
+                  {
+                    "kind": "raw",
+                    "sym": "T_field_layout::field_type::Type1"
+                  }
+                ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::template_field_1",
+                "sym": "F_<T_field_layout::field_type::S>_template_field_1",
+                "type": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
+                "typesym": "T_field_layout::field_type::Container1",
+                "offsetBytes": 16,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Container1"
+                  }
+                ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::template_field_2",
+                "sym": "F_<T_field_layout::field_type::S>_template_field_2",
+                "type": "struct field_layout::field_type::Container2<struct field_layout::field_type::Type1, field_layout::field_type::Enum1::No>",
+                "typesym": "T_field_layout::field_type::Container2",
+                "offsetBytes": 17,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Container2"
+                  }
+                ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::vector_field",
+                "sym": "F_<T_field_layout::field_type::S>_vector_field",
+                "type": "class std::vector<struct field_layout::field_type::Type1>",
+                "typesym": "T_std::vector",
+                "offsetBytes": 24,
+                "bitPositions": null,
+                "sizeBytes": 24,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Type1"
+                  }
+                ]
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#27"
+          }
+        },
+        "T_field_layout::field_type::Type1": {
+          "sym": "T_field_layout::field_type::Type1",
+          "pretty": "field_layout::field_type::Type1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::Type1",
+            "sym": "T_field_layout::field_type::Type1",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::field_type::Type1::Type1",
+                "sym": "_ZN12field_layout10field_type5Type1C1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::Type1::Type1",
+                "sym": "_ZN12field_layout10field_type5Type1C1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::Type1::~Type1",
+                "sym": "_ZN12field_layout10field_type5Type1D1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::Type1::operator=",
+                "sym": "_ZN12field_layout10field_type5Type1aSERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::Type1::operator=",
+                "sym": "_ZN12field_layout10field_type5Type1aSEOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::field_type::Type1::Type1",
+                "sym": "_ZN12field_layout10field_type5Type1C1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "pretty": "field_layout::field_type::Type1::a",
+                "sym": "F_<T_field_layout::field_type::Type1>_a",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#8"
+          }
+        },
+        "T_std::vector": {
+          "sym": "T_std::vector",
+          "pretty": "T_std::vector"
+        }
+      },
+      "columns": [
+        {
+          "label": [
+            {
+              "Heading": "Name"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "Type"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Heading": "All platforms"
+            }
+          ],
+          "colspan": 2
+        }
+      ],
+      "sub_columns": [
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Offset"
+            }
+          ],
+          "colspan": 1
+        },
+        {
+          "label": [
+            {
+              "Text": "Size"
+            }
+          ],
+          "colspan": 1
+        }
+      ],
+      "rows": [
+        {
+          "colVals": [
+            {
+              "header": false,
+              "contents": [
+                {
+                  "SymbolHeading": {
+                    "text": "field_layout::field_type::S",
+                    "symbols": "T_field_layout::field_type::S"
+                  }
+                }
+              ],
+              "colspan": 5
+            }
+          ],
+          "children": [
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "value_field",
+                        "symbols": "F_<T_field_layout::field_type::S>_value_field"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "struct field_layout::field_type::Type1",
+                        "symbols": "T_field_layout::field_type::Type1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x0"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [],
+                  "colspan": 2
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "ItalicText": "7 bytes hole"
+                    }
+                  ],
+                  "colspan": 2
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "pointer_field",
+                        "symbols": "F_<T_field_layout::field_type::S>_pointer_field"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "const struct field_layout::field_type::Type1 *",
+                        "symbols": "T_field_layout::field_type::Type1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x8"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "8"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "template_field_1",
+                        "symbols": "F_<T_field_layout::field_type::S>_template_field_1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
+                        "symbols": "T_field_layout::field_type::Container1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x10"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "template_field_2",
+                        "symbols": "F_<T_field_layout::field_type::S>_template_field_2"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "struct field_layout::field_type::Container2<struct field_layout::field_type::Type1, field_layout::field_type::Enum1::No>",
+                        "symbols": "T_field_layout::field_type::Container2"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x11"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [],
+                  "colspan": 2
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "ItalicText": "6 bytes hole"
+                    }
+                  ],
+                  "colspan": 2
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "vector_field",
+                        "symbols": "F_<T_field_layout::field_type::S>_vector_field"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "class std::vector<struct field_layout::field_type::Type1>",
+                        "symbols": "T_std::vector,T_field_layout::field_type::Type1"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x18"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "24"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

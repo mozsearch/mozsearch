@@ -278,14 +278,20 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "unsigned long"
+                      "SymbolText": {
+                        "text": "unsigned long",
+                        "symbols": ""
+                      }
                     },
                     {
                       "Text": " | "
                     },
                     "Newline",
                     {
-                      "Text": "unsigned int"
+                      "SymbolText": {
+                        "text": "unsigned int",
+                        "symbols": ""
+                      }
                     }
                   ],
                   "colspan": 1
