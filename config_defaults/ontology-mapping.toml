@@ -562,10 +562,44 @@ kind = "weak"
 [types."nsRefPtrHashKey".pointer]
 kind = "strong"
 
+# ### JS Wrapper Types ###
+
+[types."JS::Result".value]
+
+# ### JS Container Types ###
+
+[types."js::HashMap".container]
+
+[types."js::HashSet".container]
+
+[types."js::ProtectedData".container]
+
+[types."js::ProtectedDataNoCheckArgs".container]
+
+[types."js::ProtectedDataWriteOnce".container]
+
+[types."js::Vector".container]
+
+# ### JS Pointer Types ###
+
+[types."js::AtomicRefCounted".pointer]
+kind = "strong"
+
+[types."js::RefCounted".pointer]
+kind = "strong"
+
+# ### JS GC Wrapper Types ###
+
+[types."js::GCPtr".pointer]
+kind = "gcref"
+
 [types."JS::Handle".pointer]
 kind = "gcref"
 
 [types."JS::Heap".pointer]
+kind = "gcref"
+
+[types."js::HeapPtr".pointer]
 kind = "gcref"
 
 [types."JS::TenuredHeap".pointer]
@@ -574,8 +608,25 @@ kind = "gcref"
 [types."JS::MutableHandle".pointer]
 kind = "gcref"
 
+[types."JS::PersistentRooted".pointer]
+kind = "gcref"
+
 [types."JS::Rooted".pointer]
 kind = "gcref"
+
+# ### JS GC Collection Types ###
+
+[types."JS::GCHashMap".container]
+
+[types."js::GCRekeyableHashMap".container]
+
+[types."JS::GCVector".container]
+
+[types."JS::PersistentRootedVector".container]
+
+[types."JS::RootedVector".container]
+
+[types."JS::StackGCVector".container]
 
 # #### Webkit
 #

@@ -6,6 +6,33 @@ expression: "&to_value(sttl).unwrap()"
   "tables": [
     {
       "jumprefs": {
+        "F_<T_field_layout::field_type::S>_hash_map_field": {
+          "sym": "F_<T_field_layout::field_type::S>_hash_map_field",
+          "pretty": "field_layout::field_type::S::hash_map_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::hash_map_field",
+            "sym": "F_<T_field_layout::field_type::S>_hash_map_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#85"
+          }
+        },
         "F_<T_field_layout::field_type::S>_pointer_field": {
           "sym": "F_<T_field_layout::field_type::S>_pointer_field",
           "pretty": "field_layout::field_type::S::pointer_field",
@@ -30,7 +57,88 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#29"
+            "def": "field-layout/field-type.cpp#79"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_protected_field": {
+          "sym": "F_<T_field_layout::field_type::S>_protected_field",
+          "pretty": "field_layout::field_type::S::protected_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::protected_field",
+            "sym": "F_<T_field_layout::field_type::S>_protected_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#86"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_rooted_field": {
+          "sym": "F_<T_field_layout::field_type::S>_rooted_field",
+          "pretty": "field_layout::field_type::S::rooted_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::rooted_field",
+            "sym": "F_<T_field_layout::field_type::S>_rooted_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#83"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_rooted_vec_field": {
+          "sym": "F_<T_field_layout::field_type::S>_rooted_vec_field",
+          "pretty": "field_layout::field_type::S::rooted_vec_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::rooted_vec_field",
+            "sym": "F_<T_field_layout::field_type::S>_rooted_vec_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#84"
           }
         },
         "F_<T_field_layout::field_type::S>_template_field_1": {
@@ -57,7 +165,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#30"
+            "def": "field-layout/field-type.cpp#80"
           }
         },
         "F_<T_field_layout::field_type::S>_template_field_2": {
@@ -84,7 +192,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#31"
+            "def": "field-layout/field-type.cpp#81"
           }
         },
         "F_<T_field_layout::field_type::S>_value_field": {
@@ -111,7 +219,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#28"
+            "def": "field-layout/field-type.cpp#78"
           }
         },
         "F_<T_field_layout::field_type::S>_vector_field": {
@@ -138,21 +246,107 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#32"
+            "def": "field-layout/field-type.cpp#82"
+          }
+        },
+        "T_JS::GCHashMap": {
+          "sym": "T_JS::GCHashMap",
+          "pretty": "T_JS::GCHashMap",
+          "jumps": {
+            "def": "field-layout/field-type.cpp#38"
+          }
+        },
+        "T_JS::Rooted": {
+          "sym": "T_JS::Rooted",
+          "pretty": "T_JS::Rooted",
+          "jumps": {
+            "def": "field-layout/field-type.cpp#15"
+          }
+        },
+        "T_JS::RootedVector": {
+          "sym": "T_JS::RootedVector",
+          "pretty": "T_JS::RootedVector",
+          "jumps": {
+            "def": "field-layout/field-type.cpp#28"
+          }
+        },
+        "T_JS::Value": {
+          "sym": "T_JS::Value",
+          "pretty": "JS::Value",
+          "meta": {
+            "structured": 1,
+            "pretty": "JS::Value",
+            "sym": "T_JS::Value",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 8,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "pretty": "JS::Value::asBits_",
+                "sym": "F_<T_JS::Value>_asBits_",
+                "type": "unsigned long",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 8
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#31"
+          }
+        },
+        "T_JSObject": {
+          "sym": "T_JSObject",
+          "pretty": "JSObject",
+          "meta": {
+            "structured": 1,
+            "pretty": "JSObject",
+            "sym": "T_JSObject",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "labels": [
+              "class-diagram:stop"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#5"
           }
         },
         "T_field_layout::field_type::Container1": {
           "sym": "T_field_layout::field_type::Container1",
           "pretty": "T_field_layout::field_type::Container1",
           "jumps": {
-            "def": "field-layout/field-type.cpp#13"
+            "def": "field-layout/field-type.cpp#63"
           }
         },
         "T_field_layout::field_type::Container2": {
           "sym": "T_field_layout::field_type::Container2",
           "pretty": "T_field_layout::field_type::Container2",
           "jumps": {
-            "def": "field-layout/field-type.cpp#23"
+            "def": "field-layout/field-type.cpp#73"
           }
         },
         "T_field_layout::field_type::S": {
@@ -166,7 +360,7 @@ expression: "&to_value(sttl).unwrap()"
             "kind": "struct",
             "subsystem": null,
             "implKind": "",
-            "sizeBytes": 48,
+            "sizeBytes": 56,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -302,6 +496,74 @@ expression: "&to_value(sttl).unwrap()"
                     "sym": "T_field_layout::field_type::Type1"
                   }
                 ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::rooted_field",
+                "sym": "F_<T_field_layout::field_type::S>_rooted_field",
+                "type": "class JS::Rooted<class JS::Value>",
+                "typesym": "T_JS::Rooted",
+                "offsetBytes": 48,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "gcref",
+                    "sym": "T_JS::Value"
+                  }
+                ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::rooted_vec_field",
+                "sym": "F_<T_field_layout::field_type::S>_rooted_vec_field",
+                "type": "class JS::RootedVector<class JS::Value>",
+                "typesym": "T_JS::RootedVector",
+                "offsetBytes": 49,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_JS::Value"
+                  }
+                ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::hash_map_field",
+                "sym": "F_<T_field_layout::field_type::S>_hash_map_field",
+                "type": "class JS::GCHashMap<class JS::Value, class JSObject *>",
+                "typesym": "T_JS::GCHashMap",
+                "offsetBytes": 50,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_JS::Value"
+                  },
+                  {
+                    "kind": "raw",
+                    "sym": "T_JSObject"
+                  }
+                ]
+              },
+              {
+                "pretty": "field_layout::field_type::S::protected_field",
+                "sym": "F_<T_field_layout::field_type::S>_protected_field",
+                "type": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, class JS::Value>",
+                "typesym": "T_js::ProtectedDataNoCheckArgs",
+                "offsetBytes": 51,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_js::TestCheck"
+                  },
+                  {
+                    "kind": "contains",
+                    "sym": "T_JS::Value"
+                  }
+                ]
               }
             ],
             "overrides": [],
@@ -309,7 +571,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#27"
+            "def": "field-layout/field-type.cpp#77"
           }
         },
         "T_field_layout::field_type::Type1": {
@@ -404,7 +666,40 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#8"
+            "def": "field-layout/field-type.cpp#58"
+          }
+        },
+        "T_js::ProtectedDataNoCheckArgs": {
+          "sym": "T_js::ProtectedDataNoCheckArgs",
+          "pretty": "T_js::ProtectedDataNoCheckArgs",
+          "jumps": {
+            "def": "field-layout/field-type.cpp#49"
+          }
+        },
+        "T_js::TestCheck": {
+          "sym": "T_js::TestCheck",
+          "pretty": "js::TestCheck",
+          "meta": {
+            "structured": 1,
+            "pretty": "js::TestCheck",
+            "sym": "T_js::TestCheck",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#45"
           }
         },
         "T_std::vector": {
@@ -750,6 +1045,213 @@ expression: "&to_value(sttl).unwrap()"
                     }
                   ],
                   "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "rooted_field",
+                        "symbols": "F_<T_field_layout::field_type::S>_rooted_field"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "class JS::Rooted<class JS::Value>",
+                        "symbols": "T_JS::Rooted,T_JS::Value"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x30"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "rooted_vec_field",
+                        "symbols": "F_<T_field_layout::field_type::S>_rooted_vec_field"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "class JS::RootedVector<class JS::Value>",
+                        "symbols": "T_JS::RootedVector,T_JS::Value"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x31"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "hash_map_field",
+                        "symbols": "F_<T_field_layout::field_type::S>_hash_map_field"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "class JS::GCHashMap<class JS::Value, class JSObject *>",
+                        "symbols": "T_JS::GCHashMap,T_JS::Value,T_JSObject"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x32"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "protected_field",
+                        "symbols": "F_<T_field_layout::field_type::S>_protected_field"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "SymbolText": {
+                        "text": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, class JS::Value>",
+                        "symbols": "T_js::ProtectedDataNoCheckArgs,T_js::TestCheck,T_JS::Value"
+                      }
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "@ 0x33"
+                    }
+                  ],
+                  "colspan": 1
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "Text": "1"
+                    }
+                  ],
+                  "colspan": 1
+                }
+              ],
+              "children": []
+            },
+            {
+              "colVals": [
+                {
+                  "header": false,
+                  "contents": [],
+                  "colspan": 2
+                },
+                {
+                  "header": false,
+                  "contents": [
+                    {
+                      "ItalicText": "4 bytes padding"
+                    }
+                  ],
+                  "colspan": 2
                 }
               ],
               "children": []
