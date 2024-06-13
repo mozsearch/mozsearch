@@ -1558,7 +1558,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "int"
+                      "SymbolText": {
+                        "text": "int",
+                        "symbols": ""
+                      }
                     }
                   ],
                   "colspan": 1
@@ -1664,7 +1667,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1768,7 +1774,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1848,7 +1857,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1910,7 +1922,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "short"
+                          "SymbolText": {
+                            "text": "short",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2018,7 +2033,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2080,7 +2098,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "signed char"
+                          "SymbolText": {
+                            "text": "signed char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2190,7 +2211,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "long"
+                          "SymbolText": {
+                            "text": "long",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2262,7 +2286,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2324,7 +2351,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "signed char"
+                          "SymbolText": {
+                            "text": "signed char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2456,7 +2486,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "long"
+                          "SymbolText": {
+                            "text": "long",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2518,7 +2551,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2632,7 +2668,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "signed char"
+                          "SymbolText": {
+                            "text": "signed char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -2722,7 +2761,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "int"
+                          "SymbolText": {
+                            "text": "int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1

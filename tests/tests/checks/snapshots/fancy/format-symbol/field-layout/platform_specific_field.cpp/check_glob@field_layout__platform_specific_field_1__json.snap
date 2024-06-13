@@ -796,7 +796,10 @@ expression: "&to_value(sttl).unwrap()"
                   "header": false,
                   "contents": [
                     {
-                      "Text": "unsigned char"
+                      "SymbolText": {
+                        "text": "unsigned char",
+                        "symbols": ""
+                      }
                     }
                   ],
                   "colspan": 1
@@ -929,7 +932,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned int"
+                          "SymbolText": {
+                            "text": "unsigned int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1009,7 +1015,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned char"
+                          "SymbolText": {
+                            "text": "unsigned char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1091,7 +1100,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned int"
+                          "SymbolText": {
+                            "text": "unsigned int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1171,7 +1183,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned int"
+                          "SymbolText": {
+                            "text": "unsigned int",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
@@ -1243,7 +1258,10 @@ expression: "&to_value(sttl).unwrap()"
                       "header": false,
                       "contents": [
                         {
-                          "Text": "unsigned char"
+                          "SymbolText": {
+                            "text": "unsigned char",
+                            "symbols": ""
+                          }
                         }
                       ],
                       "colspan": 1
