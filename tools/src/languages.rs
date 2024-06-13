@@ -18,12 +18,26 @@ pub struct LanguageSpec {
     pub markdown_slug: &'static str,
 }
 
-pub const SYN_RESERVED_CLASS: &'static str = "class=\"syn_reserved\" ";
+pub const SYN_RESERVED_CLASS: &'static str = "syn_reserved";
+pub const SYN_CONTEXTUAL_KEYWORD_CLASS: &'static str = "syn_contextual";
 
 fn make_reserved(v: &[&str]) -> HashMap<String, String> {
     let mut reserved_words = HashMap::new();
     for word in v {
         reserved_words.insert(word.to_string(), SYN_RESERVED_CLASS.into());
+    }
+    reserved_words
+}
+
+fn make_reserved_with_contextual(
+    reserved: &[&str], contextual: &[&str]) -> HashMap<String, String>
+{
+    let mut reserved_words = HashMap::new();
+    for word in reserved {
+        reserved_words.insert(word.to_string(), SYN_RESERVED_CLASS.into());
+    }
+    for word in contextual {
+        reserved_words.insert(word.to_string(), SYN_CONTEXTUAL_KEYWORD_CLASS.into());
     }
     reserved_words
 }
@@ -39,11 +53,9 @@ static RESERVED_WORDS_JS: &'static [&'static str] = &[
     "switch",
     "break",
     "export",
-    "interface",
     "synchronized",
     "byte",
     "extends",
-    "let",
     "this",
     "case",
     "false",
@@ -63,22 +75,17 @@ static RESERVED_WORDS_JS: &'static [&'static str] = &[
     "true",
     "const",
     "for",
-    "package",
     "try",
     "continue",
     "function",
-    "private",
     "typeof",
     "debugger",
     "goto",
-    "protected",
     "var",
     "default",
     "if",
-    "public",
     "void",
     "delete",
-    "implements",
     "return",
     "volatile",
     "do",
@@ -87,10 +94,35 @@ static RESERVED_WORDS_JS: &'static [&'static str] = &[
     "while",
     "double",
     "in",
-    "static",
     "with",
+];
+
+static CONTEXTUAL_KEYWORDS_JS: &'static [&'static str] = &[
+    // Keyword in async context.
+    "await",
+
+    // Keywrod in generator.
+    "yield",
+
+    // Keyword in strict.
+    "let",
+    "static",
+    "implements",
+    "interface",
+    "package",
+    "private",
+    "protected",
+    "public",
+
+    // Certain Syntactic production.
+    "as",
+    "async",
+    "from",
     "get",
+    "meta",
+    "of",
     "set",
+    "target",
 ];
 
 static RESERVED_WORDS_CPP: &'static [&'static str] = &[
@@ -140,7 +172,6 @@ static RESERVED_WORDS_CPP: &'static [&'static str] = &[
     "int",
     "import",
     "long",
-    "module",
     "mutable",
     "namespace",
     "new",
@@ -199,6 +230,13 @@ static RESERVED_WORDS_CPP: &'static [&'static str] = &[
     "#include",
     "#error",
     "defined",
+];
+
+static CONTEXTUAL_KEYWORDS_CPP: &'static [&'static str] = &[
+    "final",
+    "import",
+    "module",
+    "override",
 ];
 
 static RESERVED_WORDS_AIDL: &'static [&'static str] = &[
@@ -567,7 +605,8 @@ static RESERVED_WORDS_KOTLIN: &'static [&'static str] = &[
 
 lazy_static! {
     static ref JS_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_JS),
+        reserved_words: make_reserved_with_contextual(&*RESERVED_WORDS_JS,
+                                                      &*CONTEXTUAL_KEYWORDS_JS),
         hash_identifier: true,
         c_style_comments: true,
         backtick_strings: true,
@@ -582,7 +621,8 @@ lazy_static! {
     };
 
     static ref CPP_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_CPP),
+        reserved_words: make_reserved_with_contextual(&*RESERVED_WORDS_CPP,
+                                                      &*CONTEXTUAL_KEYWORDS_CPP),
         c_style_comments: true,
         c_preprocessor: true,
         cxx14_digit_separators: true,

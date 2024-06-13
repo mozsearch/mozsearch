@@ -37,6 +37,27 @@ pub struct FormattedLine {
     pub pop_nest_count: u32,
 }
 
+fn datum_to_classes(datum: &Option<&Vec<AnalysisSource>>) -> Option<String> {
+    match datum {
+        Some(d) => {
+            let classes = d.iter().flat_map(|a| {
+                a.syntax.iter().flat_map(|s| match s.as_ref() {
+                    "type" => vec!["syn_type"],
+                    "def" | "decl" | "idl" => vec!["syn_def"],
+                    _ => vec![],
+                })
+            });
+            let classes = classes.collect::<Vec<_>>();
+            if classes.len() > 0 {
+                Some(classes.join(" "))
+            } else {
+                None
+            }
+        }
+        None => None,
+    }
+}
+
 /// Renders source code into a Vec of HTML-formatted lines wrapped in `FormattedLine` objects that
 /// provide the metadata for the position:sticky post-processing step.  Caller is responsible
 /// for generating line numbers and any blame information.
@@ -170,89 +191,111 @@ pub fn format_code(
             None
         };
 
-        let data = match (&token.kind, datum) {
-            (&tokenize::TokenKind::Identifier(None), Some(d))
-            | (&tokenize::TokenKind::StringLiteral, Some(d)) => {
-                for a in d.iter() {
-                    // If this symbol starts a relevant nesting range and we haven't already pushed a
-                    // symbol for this line, push it onto our stack.  Note that the nesting_range
-                    // identifies the start/end brace which may not be on the same line as the symbol,
-                    // but since we want the symbol to be the thing that's sticky, we start the range
-                    // on the symbol.
-                    //
-                    // A range is "relevant" if:
-                    // - It has a valid nesting_range.  (Empty ranges have 0 lineno's for start/end.)
-                    // - The range start is on this line or after this line.
-                    // - Its end line is not on the current line or the next line and therefore will
-                    //   actually trigger the "position:sticky" display scenario.
-                    let nests = match (a.nesting_range.start_lineno, nesting_stack.last()) {
-                        (0, _) => false,
-                        (_, None) => true,
-                        (a_start, Some(top)) => {
-                            a_start >= cur_line
-                                && a_start != top.nesting_range.start_lineno
-                                && a.nesting_range.end_lineno > cur_line + 1
-                        }
-                    };
-                    if nests {
-                        starts_nest = Some(*a.sym.first().unwrap());
-                        nesting_stack.push(a);
-                    }
+        let collect_data = datum.is_some() && match &token.kind {
+            tokenize::TokenKind::Identifier(None) => true,
+            tokenize::TokenKind::Identifier(Some(classes)) => {
+                classes == languages::SYN_CONTEXTUAL_KEYWORD_CLASS
+            },
+            tokenize::TokenKind::StringLiteral => true,
+            _ => false,
+        };
 
-                    // XXX This 0-reference thing should be abandoned.  This was an attempt to be
-                    // be more efficient in the face of cross-platform locals frequently ending up
-                    // providing us with 4 different symbol names
-                    if a.sym.len() >= 1 && !generated_sym_info.contains_key(&a.sym[0]) {
-                        let sym = &a.sym[0];
-                        // Pass-through local symbol information that won't be available from the
-                        // cross-reference database because it was marked no_crossref.  This is only
-                        // intended to cover type information about the locals; other info like srcsym
-                        // and targetsym doesn't make sense for locals.
-                        if a.no_crossref {
-                            if let Some(type_pretty) = a.type_pretty {
-                                let mut obj = Map::new();
-                                if let Some(syntax_kind) = a.get_syntax_kind() {
-                                    obj.insert(
-                                        "syntax".to_string(),
-                                        json!(syntax_kind.to_string()),
-                                    );
-                                }
-                                obj.insert("type".to_string(), json!(type_pretty.to_string()));
-                                if let Some(type_sym) = &a.type_sym {
-                                    obj.insert("typesym".to_string(), json!(type_sym.to_string()));
-                                }
-                                generated_sym_info.insert(sym.clone(), json!(obj));
+        let (data, has_syms) = if collect_data {
+            let d = datum.unwrap();
+            for a in d.iter() {
+                // If this symbol starts a relevant nesting range and we haven't already pushed a
+                // symbol for this line, push it onto our stack.  Note that the nesting_range
+                // identifies the start/end brace which may not be on the same line as the symbol,
+                // but since we want the symbol to be the thing that's sticky, we start the range
+                // on the symbol.
+                //
+                // A range is "relevant" if:
+                // - It has a valid nesting_range.  (Empty ranges have 0 lineno's for start/end.)
+                // - The range start is on this line or after this line.
+                // - Its end line is not on the current line or the next line and therefore will
+                //   actually trigger the "position:sticky" display scenario.
+                let nests = match (a.nesting_range.start_lineno, nesting_stack.last()) {
+                    (0, _) => false,
+                    (_, None) => true,
+                    (a_start, Some(top)) => {
+                        a_start >= cur_line
+                            && a_start != top.nesting_range.start_lineno
+                            && a.nesting_range.end_lineno > cur_line + 1
+                    }
+                };
+                if nests {
+                    starts_nest = Some(*a.sym.first().unwrap());
+                    nesting_stack.push(a);
+                }
+
+                // XXX This 0-reference thing should be abandoned.  This was an attempt to be
+                // be more efficient in the face of cross-platform locals frequently ending up
+                // providing us with 4 different symbol names
+                if a.sym.len() >= 1 && !generated_sym_info.contains_key(&a.sym[0]) {
+                    let sym = &a.sym[0];
+                    // Pass-through local symbol information that won't be available from the
+                    // cross-reference database because it was marked no_crossref.  This is only
+                    // intended to cover type information about the locals; other info like srcsym
+                    // and targetsym doesn't make sense for locals.
+                    if a.no_crossref {
+                        if let Some(type_pretty) = a.type_pretty {
+                            let mut obj = Map::new();
+                            if let Some(syntax_kind) = a.get_syntax_kind() {
+                                obj.insert(
+                                    "syntax".to_string(),
+                                    json!(syntax_kind.to_string()),
+                                );
                             }
-                        } else if let Some(lookup) = jumpref_lookup {
-                            if let Ok(jumpref) = lookup.lookup(&sym) {
-                                // See if there are any binding slot symbols that we should also
-                                // include.  This allows us to do things like, when presenting a
-                                // context menu for a synthetic XPIDL symbol, we can also provide an
-                                // option to go directly to the C++ binding definition.
-                                let mut extra_syms =
-                                    determine_desired_extra_syms_from_jumpref(&jumpref);
-                                jumpref_traversed
-                                    .entry(sym.clone())
-                                    .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
-                                    .or_insert(JumprefTraversals::NormalExtra);
-                                while let Some((extra_sym, next_step)) = extra_syms.pop() {
-                                    // No need to lookup and add what we already know if there is
-                                    // no next step.  But if there is a next step, we potentially
-                                    // need to look-up a third symbol which may not already have
-                                    // been loaded.)
-                                    let extra_sym = ustr(&extra_sym);
-                                    if let Some(extra_traversed) =
-                                        jumpref_traversed.get_mut(&extra_sym)
+                            obj.insert("type".to_string(), json!(type_pretty.to_string()));
+                            if let Some(type_sym) = &a.type_sym {
+                                obj.insert("typesym".to_string(), json!(type_sym.to_string()));
+                            }
+                            generated_sym_info.insert(sym.clone(), json!(obj));
+                        }
+                    } else if let Some(lookup) = jumpref_lookup {
+                        if let Ok(jumpref) = lookup.lookup(&sym) {
+                            // See if there are any binding slot symbols that we should also
+                            // include.  This allows us to do things like, when presenting a
+                            // context menu for a synthetic XPIDL symbol, we can also provide an
+                            // option to go directly to the C++ binding definition.
+                            let mut extra_syms =
+                                determine_desired_extra_syms_from_jumpref(&jumpref);
+                            jumpref_traversed
+                                .entry(sym.clone())
+                                .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
+                                .or_insert(JumprefTraversals::NormalExtra);
+                            while let Some((extra_sym, next_step)) = extra_syms.pop() {
+                                // No need to lookup and add what we already know if there is
+                                // no next step.  But if there is a next step, we potentially
+                                // need to look-up a third symbol which may not already have
+                                // been loaded.)
+                                let extra_sym = ustr(&extra_sym);
+                                if let Some(extra_traversed) =
+                                    jumpref_traversed.get_mut(&extra_sym)
+                                {
+                                    // The jumpref should already be in generated_sym_info, it's
+                                    // just a question if we need to run an extra traversal for it.
+                                    if extra_traversed.contains(next_step) {
+                                        continue;
+                                    }
+                                    *extra_traversed |= next_step;
+                                    if let Some(extra_jumpref) =
+                                        generated_sym_info.get(&extra_sym)
                                     {
-                                        // The jumpref should already be in generated_sym_info, it's
-                                        // just a question if we need to run an extra traversal for it.
-                                        if extra_traversed.contains(next_step) {
-                                            continue;
-                                        }
-                                        *extra_traversed |= next_step;
-                                        if let Some(extra_jumpref) =
-                                            generated_sym_info.get(&extra_sym)
+                                        for (next_sym, next_traversals) in
+                                            extra_syms_next_step_lookups(
+                                                &extra_jumpref,
+                                                next_step,
+                                            )
                                         {
+                                            extra_syms.push((next_sym, next_traversals));
+                                        }
+                                    }
+                                } else {
+                                    if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
+                                        // If there is a next step, process the info for what to contribute
+                                        // to extra_syms before we consume the value by storing it.
+                                        if !next_step.is_empty() {
                                             for (next_sym, next_traversals) in
                                                 extra_syms_next_step_lookups(
                                                     &extra_jumpref,
@@ -262,85 +305,71 @@ pub fn format_code(
                                                 extra_syms.push((next_sym, next_traversals));
                                             }
                                         }
-                                    } else {
-                                        if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
-                                            // If there is a next step, process the info for what to contribute
-                                            // to extra_syms before we consume the value by storing it.
-                                            if !next_step.is_empty() {
-                                                for (next_sym, next_traversals) in
-                                                    extra_syms_next_step_lookups(
-                                                        &extra_jumpref,
-                                                        next_step,
-                                                    )
-                                                {
-                                                    extra_syms.push((next_sym, next_traversals));
-                                                }
-                                            }
-                                            jumpref_traversed.insert(extra_sym.clone(), next_step);
-                                            generated_sym_info.insert(extra_sym, extra_jumpref);
-                                        }
+                                        jumpref_traversed.insert(extra_sym.clone(), next_step);
+                                        generated_sym_info.insert(extra_sym, extra_jumpref);
                                     }
                                 }
-                                generated_sym_info.insert(sym.clone(), jumpref);
                             }
+                            generated_sym_info.insert(sym.clone(), jumpref);
                         }
                     }
                 }
-
-                // Build the list of symbols for the highlighter.  We do this for all source
-                // records, even ones marked "no_crossref" because we still want to highlight
-                // locals.  These will be emitted into a `data-symbols` attribute below.
-                let syms = {
-                    let mut syms = String::new();
-                    // Suppress including the symbol multiple times.  This was possible under the
-                    // ANALYSIS_DATA regime where "source" records mapped directly to "searches",
-                    // but this may now be moot.
-                    let mut seen_syms = Vec::new();
-                    for sym in d.iter().flat_map(|item| item.sym.iter()) {
-                        if seen_syms.contains(sym) {
-                            continue;
-                        }
-                        if seen_syms.len() > 0 {
-                            syms.push_str(",");
-                        }
-                        seen_syms.push(sym.clone());
-                        syms.push_str(sym)
-                    }
-                    syms
-                };
-
-                format!("data-symbols=\"{}\"", syms)
             }
-            _ => String::new(),
+
+            // Build the list of symbols for the highlighter.  We do this for all source
+            // records, even ones marked "no_crossref" because we still want to highlight
+            // locals.  These will be emitted into a `data-symbols` attribute below.
+            let syms = {
+                let mut syms = String::new();
+                // Suppress including the symbol multiple times.  This was possible under the
+                // ANALYSIS_DATA regime where "source" records mapped directly to "searches",
+                // but this may now be moot.
+                let mut seen_syms = Vec::new();
+                for sym in d.iter().flat_map(|item| item.sym.iter()) {
+                    if seen_syms.contains(sym) {
+                        continue;
+                    }
+                    if seen_syms.len() > 0 {
+                        syms.push_str(",");
+                    }
+                    seen_syms.push(sym.clone());
+                    syms.push_str(sym)
+                }
+                syms
+            };
+
+            (format!("data-symbols=\"{}\"", syms), !syms.is_empty())
+        } else {
+            (String::new(), false)
         };
 
-        let style = match token.kind {
-            tokenize::TokenKind::Identifier(None) => match datum {
-                Some(d) => {
-                    let classes = d.iter().flat_map(|a| {
-                        a.syntax.iter().flat_map(|s| match s.as_ref() {
-                            "type" => vec!["syn_type"],
-                            "def" | "decl" | "idl" => vec!["syn_def"],
-                            _ => vec![],
-                        })
-                    });
-                    let classes = classes.collect::<Vec<_>>();
-                    if classes.len() > 0 {
-                        format!("class=\"{}\" ", classes.join(" "))
+        let style_classes = match token.kind {
+            tokenize::TokenKind::Identifier(Some(ref style)) => {
+                if has_syms {
+                    datum_to_classes(&datum)
+                } else {
+                    if style == languages::SYN_CONTEXTUAL_KEYWORD_CLASS {
+                        Some(languages::SYN_RESERVED_CLASS.to_owned())
                     } else {
-                        "".to_owned()
+                        Some(style.clone())
                     }
                 }
-                None => "".to_owned(),
             },
-            tokenize::TokenKind::Identifier(Some(ref style)) => style.clone(),
-            tokenize::TokenKind::StringLiteral => "class=\"syn_string\" ".to_owned(),
-            tokenize::TokenKind::Comment => "class=\"syn_comment\" ".to_owned(),
-            tokenize::TokenKind::TagName => "class=\"syn_tag\" ".to_owned(),
-            tokenize::TokenKind::TagAttrName => "class=\"syn_tag\" ".to_owned(),
-            tokenize::TokenKind::EndTagName => "class=\"syn_tag\" ".to_owned(),
-            tokenize::TokenKind::RegularExpressionLiteral => "class=\"syn_regex\" ".to_owned(),
-            _ => "".to_owned(),
+            tokenize::TokenKind::Identifier(None) => {
+                datum_to_classes(&datum)
+            },
+            tokenize::TokenKind::StringLiteral => Some("syn_string".to_owned()),
+            tokenize::TokenKind::Comment => Some("syn_comment".to_owned()),
+            tokenize::TokenKind::TagName => Some("syn_tag".to_owned()),
+            tokenize::TokenKind::TagAttrName => Some("syn_tag".to_owned()),
+            tokenize::TokenKind::EndTagName => Some("syn_tag".to_owned()),
+            tokenize::TokenKind::RegularExpressionLiteral => Some("syn_regex".to_owned()),
+            _ => None,
+        };
+
+        let style = match style_classes {
+            Some(class) => format!("class=\"{}\" ", class),
+            None => "".to_owned(),
         };
 
         match token.kind {

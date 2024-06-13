@@ -1,0 +1,20 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<span class="syn_reserved" >class</span>
+<span class="syn_reserved" >public</span>
+<span class="syn_reserved" >virtual</span>
+<span class="syn_reserved" >void</span>
+<span class="syn_reserved" >class</span>
+<span class="syn_reserved" >final</span>
+<span class="syn_reserved" >public</span>
+<span class="syn_reserved" >public</span>
+<span class="syn_reserved" >void</span>
+<span class="syn_reserved" >override</span>
+<span class="syn_reserved" >int</span>
+<span class="syn_reserved" >int</span>
+<span class="syn_reserved" >int</span>
+<span class="syn_reserved" >int</span>
+<span class="syn_reserved" >int</span>
+<span class="syn_reserved" >return</span>

@@ -1598,7 +1598,7 @@ mod tests {
                 (":", TokenKind::Punctuation),
                 (
                     "while",
-                    TokenKind::Identifier(Some(String::from("class=\"syn_reserved\" "))),
+                    TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into())),
                 ),
             ],
             &rust_spec,
@@ -1609,7 +1609,7 @@ mod tests {
                 ("'\\n'", TokenKind::StringLiteral),
                 (
                     "while",
-                    TokenKind::Identifier(Some(String::from("class=\"syn_reserved\" "))),
+                    TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into())),
                 ),
             ],
             &rust_spec,
@@ -1620,7 +1620,7 @@ mod tests {
                 ("'b'", TokenKind::StringLiteral),
                 (
                     "while",
-                    TokenKind::Identifier(Some(String::from("class=\"syn_reserved\" "))),
+                    TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into())),
                 ),
             ],
             &rust_spec,
@@ -1699,7 +1699,7 @@ mod tests {
             "#define",
             &vec![(
                 "#define",
-                TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())),
+                TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into())),
             )],
             &cpp_spec,
         );
@@ -1708,7 +1708,7 @@ mod tests {
             "#  \t  \t  define",
             &vec![(
                 "#  \t  \t  define",
-                TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())),
+                TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into())),
             )],
             &cpp_spec,
         );
@@ -1726,7 +1726,7 @@ mod tests {
                 (" ", TokenKind::PlainText),
                 (
                     "bar",
-                    TokenKind::Identifier(Some(crate::languages::SYN_RESERVED_CLASS.into())),
+                    TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into())),
                 ),
                 (":", TokenKind::Punctuation),
                 (" ", TokenKind::PlainText),
