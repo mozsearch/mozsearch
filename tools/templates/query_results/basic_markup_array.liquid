@@ -5,6 +5,16 @@
     <i>{{ piece.ItalicText | escape }}</i>
   {% elsif piece contains "Newline" %}
     <br>
+  {% elsif piece contains "SymbolHeading" %}
+    <h3>
+      <span data-symbols="{{ piece.SymbolHeading.symbols }}">
+        {{ piece.SymbolHeading.text | escape }}
+      </span>
+    </h3>
+  {% elsif piece contains "SymbolText" %}
+    <span data-symbols="{{ piece.SymbolText.symbols }}">
+      {{ piece.SymbolText.text | escape }}
+    </span>
   {% elsif piece contains "Text" %}
     {{ piece.Text | escape }}
   {% endif %}

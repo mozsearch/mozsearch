@@ -102,6 +102,14 @@ pub struct SymbolTreeTableColumn {
 }
 
 #[derive(Serialize)]
+pub struct TextWithSymbol {
+    // Text to go within the `span` tag; this will be escaped.
+    pub text: String,
+    // The `data-symbols` attribute of the `span`.
+    pub symbols: String,
+}
+
+#[derive(Serialize)]
 pub struct BasicLink {
     // Text to go within the `a` tag; this will be escaped.
     pub text: String,
@@ -143,8 +151,10 @@ pub enum BasicMarkup {
     // the client side so that a user's preferred config can perform an
     // override.
     QueryLink(BasicLink),
-    // This is a
     SourceLink(BasicLink),
+    // These are a variant of Heading and Text where the text has data-symbols.
+    SymbolHeading(TextWithSymbol),
+    SymbolText(TextWithSymbol),
 }
 
 #[derive(Serialize)]
