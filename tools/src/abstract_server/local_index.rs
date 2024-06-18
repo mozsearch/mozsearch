@@ -128,6 +128,23 @@ pub struct LocalIndex {
     file_lookup_map: FileLookupMap,
 }
 
+impl LocalIndex {
+    fn normalize_and_validate_path<'a>(&self, sf_path: &'a str) -> Result<&'a str> {
+        // We normalize off any leading "/" mainly to support our test cases
+        // being able to use "/" to indicate they're interested in a root dir.
+        let norm_path = if sf_path.starts_with('/') {
+            &sf_path[1..]
+        } else {
+            sf_path
+        };
+        // We don't want anyone trying to construct a path that escapes the
+        // sub-tree.
+        validate_absoluteish_path(norm_path)?;
+
+        Ok(norm_path)
+    }
+}
+
 #[async_trait]
 impl AbstractServer for LocalIndex {
     fn clonify(&self) -> Box<dyn AbstractServer + Send + Sync> {
@@ -163,32 +180,15 @@ impl AbstractServer for LocalIndex {
     }
 
     async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
-        // We normalize off any leading "/" mainly to support our test cases
-        // being able to use "/" to indicate they're interested in a root dir.
-        let norm_path = if sf_path.starts_with('/') {
-            &sf_path[1..]
-        } else {
-            sf_path
-        };
-        // We don't want anyone trying to construct a path that escapes the
-        // sub-tree.
-        validate_absoluteish_path(norm_path)?;
-        let full_path = format!("{}/analysis/{}.gz", self.config_paths.index_path, norm_path);
+        let norm_path = self.normalize_and_validate_path(sf_path)?;
+        let full_path = self.translate_path(
+            SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
         let values = read_gzipped_ndjson_from_file(&full_path).await?;
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
-        // We normalize off any leading "/" mainly to support our test cases
-        // being able to use "/" to indicate they're interested in a root dir.
-        let norm_path = if sf_path.starts_with('/') {
-            &sf_path[1..]
-        } else {
-            sf_path
-        };
-        // We don't want anyone trying to construct a path that escapes the
-        // sub-tree.
-        validate_absoluteish_path(norm_path)?;
+        let norm_path = self.normalize_and_validate_path(sf_path)?;
         let full_path = format!("{}/{}", self.config_paths.files_path, norm_path);
 
         let mut f = File::open(full_path).await?;
@@ -198,16 +198,7 @@ impl AbstractServer for LocalIndex {
     }
 
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {
-        // We normalize off any leading "/" mainly to support our test cases
-        // being able to use "/" to indicate they're interested in a root dir.
-        let norm_path = if sf_path.starts_with('/') {
-            &sf_path[1..]
-        } else {
-            sf_path
-        };
-        // We don't want anyone trying to construct a path that escapes the
-        // sub-tree.
-        validate_absoluteish_path(norm_path)?;
+        let norm_path = self.normalize_and_validate_path(sf_path)?;
         let (full_path, is_gzipped) = match root {
             HtmlFileRoot::FormattedFile => (
                 format!("{}/file/{}.gz", self.config_paths.index_path, norm_path),
