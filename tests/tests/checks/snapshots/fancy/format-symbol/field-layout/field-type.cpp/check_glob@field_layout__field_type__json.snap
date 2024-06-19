@@ -712,500 +712,185 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
+          "name": "field_layout::field_type::S",
+          "symbols": "T_field_layout::field_type::S",
+          "items": [
             {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::field_type::S",
-                    "symbols": "T_field_layout::field_type::S"
+              "Field": {
+                "name": "value_field",
+                "symbols": "F_<T_field_layout::field_type::S>_value_field",
+                "types": [
+                  {
+                    "name": "struct field_layout::field_type::Type1",
+                    "symbols": "T_field_layout::field_type::Type1"
                   }
-                }
-              ],
-              "colspan": 5
-            }
-          ],
-          "children": [
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "value_field",
-                        "symbols": "F_<T_field_layout::field_type::S>_value_field"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "struct field_layout::field_type::Type1",
-                        "symbols": "T_field_layout::field_type::Type1"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x0"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "7 bytes hole"
-                    }
-                  ],
-                  "colspan": 2
-                }
-              ],
-              "children": []
+              "Hole": [
+                "7 bytes hole"
+              ]
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "pointer_field",
-                        "symbols": "F_<T_field_layout::field_type::S>_pointer_field"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "const struct field_layout::field_type::Type1 *",
-                        "symbols": "T_field_layout::field_type::Type1"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x8"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "8"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "pointer_field",
+                "symbols": "F_<T_field_layout::field_type::S>_pointer_field",
+                "types": [
+                  {
+                    "name": "const struct field_layout::field_type::Type1 *",
+                    "symbols": "T_field_layout::field_type::Type1"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "8"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "template_field_1",
-                        "symbols": "F_<T_field_layout::field_type::S>_template_field_1"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
-                        "symbols": "T_field_layout::field_type::Container1"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x10"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "template_field_1",
+                "symbols": "F_<T_field_layout::field_type::S>_template_field_1",
+                "types": [
+                  {
+                    "name": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
+                    "symbols": "T_field_layout::field_type::Container1"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x10",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "template_field_2",
-                        "symbols": "F_<T_field_layout::field_type::S>_template_field_2"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "struct field_layout::field_type::Container2<struct field_layout::field_type::Type1, field_layout::field_type::Enum1::No>",
-                        "symbols": "T_field_layout::field_type::Container2"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x11"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "template_field_2",
+                "symbols": "F_<T_field_layout::field_type::S>_template_field_2",
+                "types": [
+                  {
+                    "name": "struct field_layout::field_type::Container2<struct field_layout::field_type::Type1, field_layout::field_type::Enum1::No>",
+                    "symbols": "T_field_layout::field_type::Container2"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x11",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "6 bytes hole"
-                    }
-                  ],
-                  "colspan": 2
-                }
-              ],
-              "children": []
+              "Hole": [
+                "6 bytes hole"
+              ]
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "vector_field",
-                        "symbols": "F_<T_field_layout::field_type::S>_vector_field"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "class std::vector<struct field_layout::field_type::Type1>",
-                        "symbols": "T_std::vector,T_field_layout::field_type::Type1"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x18"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "24"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "vector_field",
+                "symbols": "F_<T_field_layout::field_type::S>_vector_field",
+                "types": [
+                  {
+                    "name": "class std::vector<struct field_layout::field_type::Type1>",
+                    "symbols": "T_std::vector,T_field_layout::field_type::Type1"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x18",
+                    "size": "24"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "rooted_field",
-                        "symbols": "F_<T_field_layout::field_type::S>_rooted_field"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "class JS::Rooted<class JS::Value>",
-                        "symbols": "T_JS::Rooted,T_JS::Value"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x30"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "rooted_field",
+                "symbols": "F_<T_field_layout::field_type::S>_rooted_field",
+                "types": [
+                  {
+                    "name": "class JS::Rooted<class JS::Value>",
+                    "symbols": "T_JS::Rooted,T_JS::Value"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x30",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "rooted_vec_field",
-                        "symbols": "F_<T_field_layout::field_type::S>_rooted_vec_field"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "class JS::RootedVector<class JS::Value>",
-                        "symbols": "T_JS::RootedVector,T_JS::Value"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x31"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "rooted_vec_field",
+                "symbols": "F_<T_field_layout::field_type::S>_rooted_vec_field",
+                "types": [
+                  {
+                    "name": "class JS::RootedVector<class JS::Value>",
+                    "symbols": "T_JS::RootedVector,T_JS::Value"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x31",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "hash_map_field",
-                        "symbols": "F_<T_field_layout::field_type::S>_hash_map_field"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "class JS::GCHashMap<class JS::Value, class JSObject *>",
-                        "symbols": "T_JS::GCHashMap,T_JS::Value,T_JSObject"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x32"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "hash_map_field",
+                "symbols": "F_<T_field_layout::field_type::S>_hash_map_field",
+                "types": [
+                  {
+                    "name": "class JS::GCHashMap<class JS::Value, class JSObject *>",
+                    "symbols": "T_JS::GCHashMap,T_JS::Value,T_JSObject"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x32",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "protected_field",
-                        "symbols": "F_<T_field_layout::field_type::S>_protected_field"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, class JS::Value>",
-                        "symbols": "T_js::ProtectedDataNoCheckArgs,T_js::TestCheck,T_JS::Value"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x33"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "protected_field",
+                "symbols": "F_<T_field_layout::field_type::S>_protected_field",
+                "types": [
+                  {
+                    "name": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, class JS::Value>",
+                    "symbols": "T_js::ProtectedDataNoCheckArgs,T_js::TestCheck,T_JS::Value"
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x33",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "4 bytes padding"
-                    }
-                  ],
-                  "colspan": 2
-                }
-              ],
-              "children": []
+              "EndPadding": [
+                "4 bytes padding"
+              ]
             }
           ]
         }

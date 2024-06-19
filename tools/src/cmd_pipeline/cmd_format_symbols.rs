@@ -8,8 +8,11 @@ use itertools::Itertools;
 
 use super::{
     interface::{
-        BasicMarkup, TextWithSymbol,
-        PipelineCommand, PipelineValues, SymbolTreeTable, SymbolTreeTableCell, SymbolTreeTableList, SymbolTreeTableNode,
+        PipelineCommand, PipelineValues, SymbolTreeTable,
+        SymbolTreeTableList, SymbolTreeTableNode,
+        SymbolTreeTableItem,
+        SymbolTreeTableField, SymbolTreeTableFieldType,
+        SymbolTreeTableFieldOffsetAndSize,
         SymbolCrossrefInfo,
     },
     symbol_graph::{
@@ -862,47 +865,25 @@ impl ClassMap {
             self.stt.platforms.push(label);
         }
 
-        let column_offset: usize = 1;
-
-        let mut root_node: Option<SymbolTreeTableNode> = None;
-
         for traversal_id in &self.class_list {
             let cls = self.class_map.get(&traversal_id).unwrap();
 
             let is_root = cls.id == self.root_class_id.as_ref().unwrap().clone();
 
-            let mut class_node = SymbolTreeTableNode {
-                col_vals: vec![
-                    SymbolTreeTableCell {
-                        header: false,
-                        contents: vec![
-                            BasicMarkup::SymbolHeading(
-                                TextWithSymbol {
-                                    text: format!("{}{}",
-                                        cls.name,
-                                        if !is_root { " (base class)" } else { "" },
-                                    ),
-                                    symbols: self.stt.node_set.get(&cls.id).symbol.to_string(),
-                                }
-                            )
-                        ],
-                        colspan: (2 + column_offset + self.groups.len() * 2) as u32,
-                    },
-                ],
-                children: vec![],
-            };
+            let mut class_node = SymbolTreeTableNode::new(
+                format!("{}{}",
+                        cls.name,
+                        if !is_root { " (base class)" } else { "" },
+                ),
+                self.stt.node_set.get(&cls.id).symbol.to_string(),
+            );
 
             if self.has_unsupported_multiple_inheritance && is_root {
-                let warn_node = SymbolTreeTableNode {
-                    col_vals: vec![
-                        SymbolTreeTableCell::italic_text_colspan(
-                            "(This class has multiple inheritance but the offset is not found in the analysis file. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string(),
-                            (2 + column_offset + self.groups.len() * 2) as u32
-                        ),
-                    ],
-                    children: vec![],
-                };
-                class_node.children.push(warn_node);
+                class_node.items.push(
+                    SymbolTreeTableItem::Warning(
+                        "(This class has multiple inheritance but the offset is not found in the analysis file. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string()
+                    )
+                );
             }
 
             let field_prefix = format!("{}::", cls.name);
@@ -919,23 +900,18 @@ impl ClassMap {
                 }
 
                 if has_hole {
-                    let mut hole_node = SymbolTreeTableNode {
-                        col_vals: vec![],
-                        children: vec![],
-                    };
-
-                    hole_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                    let mut holes = vec![];
 
                     for maybe_field in field_variants {
                         match maybe_field {
                             Some(field) => {
                                 let hole_bytes = field.hole_bytes.unwrap_or(0);
                                 if hole_bytes == 0 {
-                                    hole_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                    holes.push(None);
                                     continue;
                                 }
 
-                                hole_node.col_vals.push(SymbolTreeTableCell::italic_text_colspan(format!(
+                                holes.push(Some(format!(
                                     "{} byte{} hole{}",
                                     hole_bytes,
                                     if hole_bytes > 1 { "s" } else { "" },
@@ -944,110 +920,99 @@ impl ClassMap {
                                     } else {
                                         ""
                                     }
-                                ), 2));
+                                )));
                             },
                             None => {
                                 if maybe_field.is_none() {
-                                    hole_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                    holes.push(None);
                                 }
                             }
                         }
                     }
 
-                    class_node.children.push(hole_node);
+                    class_node.items.push(SymbolTreeTableItem::Hole(holes));
                 }
 
-                let mut field_node = SymbolTreeTableNode {
-                    col_vals: vec![],
-                    children: vec![],
-                };
+                let mut field_name = "".to_string();
+                let mut field_symbols = "".to_string();
 
-                let mut name_cell = SymbolTreeTableCell::empty();
-                let mut type_cell = SymbolTreeTableCell::empty();
+                for maybe_field in field_variants {
+                    match maybe_field {
+                        Some(field) => {
+                            let pretty = field.pretty.clone();
+                            field_name = pretty.replace(&field_prefix, "");
+
+                            match &field.field_id {
+                                Some(field_id) => {
+                                    field_symbols = self.stt.node_set.get(&field_id).symbol.to_string();
+                                }
+                                None => {}
+                            }
+                            break
+                        }
+                        None => {}
+                    }
+                }
+
+                let mut field_item = SymbolTreeTableField::new(field_name, field_symbols);
 
                 let mut type_label_set = HashSet::new();
 
                 for maybe_field in field_variants {
                     match maybe_field {
                         Some(field) => {
-                            if name_cell.contents.is_empty() {
-                                let mut pretty = field.pretty.clone();
-                                pretty = pretty.replace(&field_prefix, "");
-
-                                name_cell.contents.push(
-                                    match &field.field_id {
-                                        Some(field_id) => BasicMarkup::SymbolText(
-                                            TextWithSymbol {
-                                                text: pretty,
-                                                symbols: self.stt.node_set.get(&field_id).symbol.to_string(),
-                                            }
-                                        ),
-                                        None => BasicMarkup::Text(pretty),
-                                    }
-                                );
-                            }
-
                             if !type_label_set.contains(&field.type_pretty) {
                                 type_label_set.insert(field.type_pretty.clone());
 
-                                if !type_cell.contents.is_empty() {
-                                    type_cell.contents.push(BasicMarkup::Text(" | ".to_string()));
-                                    type_cell.contents.push(BasicMarkup::Newline);
-                                }
-
-                                type_cell.contents.push(
-                                    match &field.field_type_syms {
-                                        Some(type_syms) => {
-                                            BasicMarkup::SymbolText(
-                                                TextWithSymbol {
-                                                    text: field.type_pretty.clone(),
-                                                    symbols: type_syms.clone(),
-                                                }
-                                            )
-                                        },
-                                        None => {
-                                            BasicMarkup::Text(
-                                                field.type_pretty.clone(),
-                                            )
-                                        },
-                                    }
+                                field_item.types.push(
+                                    SymbolTreeTableFieldType::new(
+                                        field.type_pretty.clone(),
+                                        match &field.field_type_syms {
+                                            Some(type_syms) => type_syms.clone(),
+                                            None => "".to_string(),
+                                        }
+                                    )
                                 );
                             }
 
                             if let Some(pos) = &field.bit_positions {
-                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                    "@ {:#x} + {} bit{}",
-                                    field.offset_bytes,
-                                    pos.begin,
-                                    if pos.begin > 1 { "s" } else { "" }
-                                )));
-                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                    "{} bit{}",
-                                    pos.width,
-                                    if pos.width > 1 { "s" } else { "" }
-                                )));
+                                field_item.offset_and_size.push(
+                                    Some(SymbolTreeTableFieldOffsetAndSize::new(
+                                        format!(
+                                            "@ {:#x} + {} bit{}",
+                                            field.offset_bytes,
+                                            pos.begin,
+                                            if pos.begin > 1 { "s" } else { "" }
+                                        ),
+                                        format!(
+                                            "{} bit{}",
+                                            pos.width,
+                                            if pos.width > 1 { "s" } else { "" }
+                                        )
+                                    ))
+                                )
                             } else {
-                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                    "@ {:#x}",
-                                    field.offset_bytes,
-                                )));
-                                field_node.col_vals.push(SymbolTreeTableCell::text(format!(
-                                    "{}",
-                                    field.size_bytes.unwrap_or(0),
-                                )));
+                                field_item.offset_and_size.push(
+                                    Some(SymbolTreeTableFieldOffsetAndSize::new(
+                                        format!(
+                                            "@ {:#x}",
+                                            field.offset_bytes,
+                                        ),
+                                        format!(
+                                            "{}",
+                                            field.size_bytes.unwrap_or(0),
+                                        )
+                                    ))
+                                );
                             }
                         }
                         None => {
-                            field_node.col_vals.push(SymbolTreeTableCell::empty());
-                            field_node.col_vals.push(SymbolTreeTableCell::empty());
+                            field_item.offset_and_size.push(None);
                         }
                     }
                 }
 
-                field_node.col_vals.insert(0, type_cell);
-                field_node.col_vals.insert(0, name_cell);
-
-                class_node.children.push(field_node);
+                class_node.items.push(SymbolTreeTableItem::Field(field_item));
 
                 let mut has_end_padding = false;
                 for maybe_field in field_variants {
@@ -1060,54 +1025,39 @@ impl ClassMap {
                 }
 
                 if has_end_padding {
-                    let mut end_padding_node = SymbolTreeTableNode {
-                        col_vals: vec![],
-                        children: vec![],
-                    };
-
-                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                    let mut end_paddings = vec![];
 
                     for maybe_field in field_variants {
                         match maybe_field {
                             Some(field) => {
                                 let end_padding_bytes = field.end_padding_bytes.unwrap_or(0);
                                 if end_padding_bytes == 0 {
-                                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                    end_paddings.push(None);
                                     continue;
                                 }
 
-                                end_padding_node.col_vals.push(SymbolTreeTableCell::italic_text_colspan(format!(
+                                end_paddings.push(Some(format!(
                                     "{} byte{} padding",
                                     end_padding_bytes,
                                     if end_padding_bytes > 1 { "s" } else { "" }
-                                ), 2));
+                                )));
                             },
                             None => {
                                 if maybe_field.is_none() {
-                                    end_padding_node.col_vals.push(SymbolTreeTableCell::empty_colspan(2));
+                                    end_paddings.push(None);
                                 }
                             }
                         }
                     }
 
-                    class_node.children.push(end_padding_node);
+                    class_node.items.push(SymbolTreeTableItem::EndPadding(end_paddings));
                 }
             }
 
-            match &mut root_node {
-                Some(node) => {
-                    node.children.push(class_node);
-                },
-                None => {
-                    root_node = Some(class_node);
-                }
-            }
+            self.stt.rows.push(class_node);
         }
 
-        if let Some(node) = root_node {
-            self.stt.rows.push(node);
-            tables.push(self.stt);
-        }
+        tables.push(self.stt);
     }
 }
 

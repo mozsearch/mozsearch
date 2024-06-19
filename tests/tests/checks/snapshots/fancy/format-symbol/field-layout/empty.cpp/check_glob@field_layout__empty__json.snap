@@ -69,21 +69,9 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
-            {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::empty::S",
-                    "symbols": "T_field_layout::empty::S"
-                  }
-                }
-              ],
-              "colspan": 5
-            }
-          ],
-          "children": []
+          "name": "field_layout::empty::S",
+          "symbols": "T_field_layout::empty::S",
+          "items": []
         }
       ]
     }

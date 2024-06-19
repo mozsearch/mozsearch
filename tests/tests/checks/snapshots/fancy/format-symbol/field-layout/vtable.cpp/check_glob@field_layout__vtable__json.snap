@@ -807,640 +807,239 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
+          "name": "field_layout::vtable::SubSub",
+          "symbols": "T_field_layout::vtable::SubSub",
+          "items": [
             {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::vtable::SubSub",
-                    "symbols": "T_field_layout::vtable::SubSub"
+              "Field": {
+                "name": "z",
+                "symbols": "F_<T_field_layout::vtable::SubSub>_z",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
                   }
-                }
-              ],
-              "colspan": 5
-            }
-          ],
-          "children": [
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "z",
-                        "symbols": "F_<T_field_layout::vtable::SubSub>_z"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned char",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x39"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x39",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "6 bytes padding"
-                    }
-                  ],
-                  "colspan": 2
-                }
-              ],
-              "children": []
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Sub1a (base class)",
-                        "symbols": "T_field_layout::vtable::Sub1a"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "x",
-                            "symbols": "F_<T_field_layout::vtable::Sub1a>_x"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x8"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "ItalicText": "7 bytes padding"
-                        }
-                      ],
-                      "colspan": 2
-                    }
-                  ],
-                  "children": []
-                }
+              "EndPadding": [
+                "6 bytes padding"
               ]
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Sub1b (base class)",
-                        "symbols": "T_field_layout::vtable::Sub1b"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "y",
-                            "symbols": "F_<T_field_layout::vtable::Sub1b>_y"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x18"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "ItalicText": "7 bytes padding"
-                        }
-                      ],
-                      "colspan": 2
-                    }
-                  ],
-                  "children": []
-                }
-              ]
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Sub2 (base class)",
-                        "symbols": "T_field_layout::vtable::Sub2"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "w",
-                            "symbols": "F_<T_field_layout::vtable::Sub2>_w"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x28"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "ItalicText": "7 bytes padding"
-                        }
-                      ],
-                      "colspan": 2
-                    }
-                  ],
-                  "children": []
-                }
-              ]
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Sub3 (base class)",
-                        "symbols": "T_field_layout::vtable::Sub3"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "(vtable)"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": ""
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x30"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "8"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "v",
-                            "symbols": "F_<T_field_layout::vtable::Sub3>_v"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x38"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                }
-              ]
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Base1 (base class)",
-                        "symbols": "T_field_layout::vtable::Base1"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "(vtable)"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": ""
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x0"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "8"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                }
-              ]
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Base1 (base class)",
-                        "symbols": "T_field_layout::vtable::Base1"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "(vtable)"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": ""
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x10"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "8"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                }
-              ]
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Base2 (base class)",
-                        "symbols": "T_field_layout::vtable::Base2"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "(vtable)"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": ""
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x20"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "8"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                }
-              ]
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::vtable::Base3 (base class)",
-                        "symbols": "T_field_layout::vtable::Base3"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": []
             }
           ]
+        },
+        {
+          "name": "field_layout::vtable::Sub1a (base class)",
+          "symbols": "T_field_layout::vtable::Sub1a",
+          "items": [
+            {
+              "Field": {
+                "name": "x",
+                "symbols": "F_<T_field_layout::vtable::Sub1a>_x",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "7 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Sub1b (base class)",
+          "symbols": "T_field_layout::vtable::Sub1b",
+          "items": [
+            {
+              "Field": {
+                "name": "y",
+                "symbols": "F_<T_field_layout::vtable::Sub1b>_y",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x18",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "7 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Sub2 (base class)",
+          "symbols": "T_field_layout::vtable::Sub2",
+          "items": [
+            {
+              "Field": {
+                "name": "w",
+                "symbols": "F_<T_field_layout::vtable::Sub2>_w",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x28",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "7 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Sub3 (base class)",
+          "symbols": "T_field_layout::vtable::Sub3",
+          "items": [
+            {
+              "Field": {
+                "name": "(vtable)",
+                "symbols": "",
+                "types": [
+                  {
+                    "name": "",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x30",
+                    "size": "8"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "v",
+                "symbols": "F_<T_field_layout::vtable::Sub3>_v",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x38",
+                    "size": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Base1 (base class)",
+          "symbols": "T_field_layout::vtable::Base1",
+          "items": [
+            {
+              "Field": {
+                "name": "(vtable)",
+                "symbols": "",
+                "types": [
+                  {
+                    "name": "",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "8"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Base1 (base class)",
+          "symbols": "T_field_layout::vtable::Base1",
+          "items": [
+            {
+              "Field": {
+                "name": "(vtable)",
+                "symbols": "",
+                "types": [
+                  {
+                    "name": "",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x10",
+                    "size": "8"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Base2 (base class)",
+          "symbols": "T_field_layout::vtable::Base2",
+          "items": [
+            {
+              "Field": {
+                "name": "(vtable)",
+                "symbols": "",
+                "types": [
+                  {
+                    "name": "",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x20",
+                    "size": "8"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Base3 (base class)",
+          "symbols": "T_field_layout::vtable::Base3",
+          "items": []
         }
       ]
     }

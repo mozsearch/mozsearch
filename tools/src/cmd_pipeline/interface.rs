@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::{Args, ValueEnum};
 use serde::{
-    ser::{SerializeSeq, SerializeStruct},
+    ser::SerializeStruct,
     Serialize, Serializer,
 };
 use serde_json::{json, to_string_pretty, Value};
@@ -151,61 +151,78 @@ pub enum BasicMarkup {
 }
 
 #[derive(Serialize)]
-pub struct SymbolTreeTableCell {
-    pub header: bool,
-    pub contents: Vec<BasicMarkup>,
-    pub colspan: u32,
-}
-
-impl SymbolTreeTableCell {
-    pub fn empty() -> Self {
-        Self::empty_colspan(1)
-    }
-
-    pub fn empty_colspan(colspan: u32) -> Self {
-        Self {
-            header: false,
-            contents: vec![],
-            colspan: colspan,
-        }
-    }
-
-    pub fn header_text(s: String) -> Self {
-        Self::header_text_colspan(s, 1)
-    }
-
-    pub fn header_text_colspan(s: String, colspan: u32) -> Self {
-        Self {
-            header: true,
-            contents: vec![BasicMarkup::Text(s)],
-            colspan: colspan,
-        }
-    }
-
-    pub fn text(s: String) -> Self {
-        Self::text_colspan(s, 1)
-    }
-
-    pub fn text_colspan(s: String, colspan: u32) -> Self {
-        Self {
-            header: false,
-            contents: vec![BasicMarkup::Text(s)],
-            colspan: colspan,
-        }
-    }
-
-    pub fn italic_text_colspan(s: String, colspan: u32) -> Self {
-        Self {
-            header: false,
-            contents: vec![BasicMarkup::ItalicText(s)],
-            colspan: colspan,
-        }
-    }
-}
-
 pub struct SymbolTreeTableNode {
-    pub col_vals: Vec<SymbolTreeTableCell>,
-    pub children: Vec<SymbolTreeTableNode>,
+    pub name: String,
+    pub symbols: String,
+    pub items: Vec<SymbolTreeTableItem>,
+}
+
+impl SymbolTreeTableNode {
+    pub fn new(name: String, symbols: String) -> Self {
+        Self {
+            name: name,
+            symbols: symbols,
+            items: vec![],
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub enum SymbolTreeTableItem {
+    Field(SymbolTreeTableField),
+    Hole(Vec<Option<String>>),
+    EndPadding(Vec<Option<String>>),
+    Warning(String),
+}
+
+#[derive(Serialize)]
+pub struct SymbolTreeTableField {
+    pub name: String,
+    pub symbols: String,
+    pub types: Vec<SymbolTreeTableFieldType>,
+    #[serde(rename = "offsetAndSize")]
+    pub offset_and_size: Vec<Option<SymbolTreeTableFieldOffsetAndSize>>
+}
+
+impl SymbolTreeTableField {
+    pub fn new(name: String, symbols: String) -> Self {
+        Self {
+            name: name,
+            symbols: symbols,
+            types: vec![],
+            offset_and_size: vec![],
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct SymbolTreeTableFieldType {
+    pub name: String,
+    pub symbols: String,
+}
+
+impl SymbolTreeTableFieldType {
+    pub fn new(name: String, symbols: String) -> Self {
+        Self {
+            name: name,
+            symbols: symbols,
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct SymbolTreeTableFieldOffsetAndSize {
+    pub offset: String,
+    pub size: String,
+}
+
+impl SymbolTreeTableFieldOffsetAndSize {
+    pub fn new(offset: String, size: String) -> Self {
+        Self {
+            offset: offset,
+            size: size,
+        }
+    }
 }
 
 impl SymbolTreeTable {
@@ -216,22 +233,6 @@ impl SymbolTreeTable {
             rows: vec![],
         }
     }
-}
-
-// Ephemeral class to allow for us to implement a serialization helper for
-// SymbolTreeTableNode so that it can have the root/owning SymbolTreeTable's
-// SymbolGraphNodeSet available to convert the SymbolGraphNodeId to a string
-// without us needing to create an full serde_json::Value tree.
-struct SerializingSymbolTreeTableNode<'a> {
-    pub node_set: &'a SymbolGraphNodeSet,
-    pub node: &'a SymbolTreeTableNode,
-}
-
-/// Ephemeral helper for SerializingSymbolTreeTableNode to wrap the sequence
-/// serialization.
-struct SerializingSymbolTreeTableRows<'a> {
-    pub node_set: &'a SymbolGraphNodeSet,
-    pub rows: &'a Vec<SymbolTreeTableNode>,
 }
 
 /// Custom serializer so that the node_set information can be expressed on the
@@ -250,46 +251,8 @@ impl Serialize for SymbolTreeTable {
             &self.node_set.symbols_meta_to_jumpref_json_nomut(),
         )?;
         stt.serialize_field("platforms", &self.platforms)?;
-
-        let wrapped_rows = SerializingSymbolTreeTableRows {
-            node_set: &self.node_set,
-            rows: &self.rows,
-        };
-        stt.serialize_field("rows", &wrapped_rows)?;
+        stt.serialize_field("rows", &self.rows)?;
         stt.end()
-    }
-}
-
-impl<'a> Serialize for SerializingSymbolTreeTableNode<'a> {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut stt = serializer.serialize_struct("SymbolTreeTableNode", 2)?;
-        stt.serialize_field("colVals", &self.node.col_vals)?;
-        let wrapped_rows = SerializingSymbolTreeTableRows {
-            node_set: &self.node_set,
-            rows: &self.node.children,
-        };
-        stt.serialize_field("children", &wrapped_rows)?;
-        stt.end()
-    }
-}
-
-impl<'a> Serialize for SerializingSymbolTreeTableRows<'a> {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(self.rows.len()))?;
-        for e in self.rows {
-            let node = SerializingSymbolTreeTableNode {
-                node_set: self.node_set,
-                node: &e,
-            };
-            seq.serialize_element(&node)?;
-        }
-        seq.end()
     }
 }
 

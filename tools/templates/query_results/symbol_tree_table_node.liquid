@@ -1,22 +1,83 @@
 <tr>
-  {% for col in node.colVals %}
-    {% if col.header %}
-      <th
-      {% if col.colspan != 1 %}
-        colspan="{{ col.colspan }}"
-      {% endif %}
-      >
-    {% else %}
-      <td
-      {% if col.colspan != 1 %}
-        colspan="{{ col.colspan }}"
-      {% endif %}
-      >
-    {% endif %}
-      {%- include 'query_results/basic_markup_array.liquid' markup: col.contents -%}
-    {% if col.header %}</th>{% else %}</td>{% endif %}
-  {% endfor %}
+  <td colspan="{{ platforms.size | times: 2 | plus: 2 }}">
+    <h3>
+      <span data-symbols="{{ node.symbols }}">
+        {{- node.name | escape -}}
+      </span>
+    </h3>
+  </td>
 </tr>
-{%- for kid in node.children -%}
-  {%- include 'query_results/symbol_tree_table_node.liquid' node: kid -%}
+{%- for item in node.items -%}
+  {%- if item contains "Field" -%}
+    <tr>
+      <td>
+        <span data-symbols="{{ item.Field.symbols }}">
+          {{- item.Field.name | escape -}}
+        </span>
+      </td>
+      <td>
+        {%- assign first = true -%}
+        {%- for type in item.Field.types -%}
+          {%- if first == false -%}
+            |<br>
+          {%- endif -%}
+          <span data-symbols="{{ type.symbols }}">
+            {{ type.name | escape }}
+          </span>
+          {%- assign first = false -%}
+        {%- endfor -%}
+      </td>
+      {%- for offsetAndSize in item.Field.offsetAndSize -%}
+        {%- if offsetAndSize -%}
+          <td>
+            {{- offsetAndSize.offset | escape -}}
+          </td>
+          <td>
+            {{- offsetAndSize.size | escape -}}
+          </td>
+        {%- else -%}
+          <td colspan="2">
+          </td>
+        {%- endif -%}
+      {%- endfor -%}
+    </tr>
+  {%- elsif item contains "Hole" -%}
+    <tr>
+      <td colspan="2">
+      </td>
+      {%- for hole in item.Hole -%}
+        {%- if hole -%}
+          <td colspan="2">
+            {{- hole | escape -}}
+          </td>
+        {%- else -%}
+          <td colspan="2">
+          </td>
+        {%- endif -%}
+      {%- endfor -%}
+    </tr>
+  {%- elsif item contains "EndPadding" -%}
+    <tr>
+      <td colspan="2">
+      </td>
+      {%- for padding in item.EndPadding -%}
+        {%- if padding -%}
+          <td colspan="2">
+            {{- padding | escape -}}
+          </td>
+        {%- else -%}
+          <td colspan="2">
+          </td>
+        {%- endif -%}
+      {%- endfor -%}
+    </tr>
+  {%- elsif item contains "Warning" -%}
+    <tr>
+      <th colspan="{{ platforms.size | plus: 2 }}">
+        <em class="warning">
+          {{- item.Warning | escape -}}
+        </em>
+      <th>
+    </tr>
+  {%- endif -%}
 {%- endfor -%}

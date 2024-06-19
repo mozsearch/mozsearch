@@ -173,95 +173,34 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
+          "name": "field_layout::platform_specific_size::S",
+          "symbols": "T_field_layout::platform_specific_size::S",
+          "items": [
             {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::platform_specific_size::S",
-                    "symbols": "T_field_layout::platform_specific_size::S"
+              "Field": {
+                "name": "f1",
+                "symbols": "F_<T_field_layout::platform_specific_size::S>_f1",
+                "types": [
+                  {
+                    "name": "unsigned long",
+                    "symbols": ""
+                  },
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
                   }
-                }
-              ],
-              "colspan": 7
-            }
-          ],
-          "children": [
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "f1",
-                        "symbols": "F_<T_field_layout::platform_specific_size::S>_f1"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned long",
-                        "symbols": ""
-                      }
-                    },
-                    {
-                      "Text": " | "
-                    },
-                    "Newline",
-                    {
-                      "SymbolText": {
-                        "text": "unsigned int",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x0"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "8"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x0"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "4"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "8"
+                  },
+                  {
+                    "offset": "@ 0x0",
+                    "size": "4"
+                  }
+                ]
+              }
             }
           ]
         }

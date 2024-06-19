@@ -303,321 +303,121 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
+          "name": "field_layout::bitfields::S",
+          "symbols": "T_field_layout::bitfields::S",
+          "items": [
             {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::bitfields::S",
-                    "symbols": "T_field_layout::bitfields::S"
+              "Field": {
+                "name": "b1",
+                "symbols": "F_<T_field_layout::bitfields::S>_b1",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
                   }
-                }
-              ],
-              "colspan": 5
-            }
-          ],
-          "children": [
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "b1",
-                        "symbols": "F_<T_field_layout::bitfields::S>_b1"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned int",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x0 + 0 bit"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1 bit"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0 + 0 bit",
+                    "size": "1 bit"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "b2",
-                        "symbols": "F_<T_field_layout::bitfields::S>_b2"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned int",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x0 + 1 bit"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "3 bits"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "b2",
+                "symbols": "F_<T_field_layout::bitfields::S>_b2",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0 + 1 bit",
+                    "size": "3 bits"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "b3",
-                        "symbols": "F_<T_field_layout::bitfields::S>_b3"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned int",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x0 + 4 bits"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "7 bits"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "b3",
+                "symbols": "F_<T_field_layout::bitfields::S>_b3",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0 + 4 bits",
+                    "size": "7 bits"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "b4",
-                        "symbols": "F_<T_field_layout::bitfields::S>_b4"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned int",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x1 + 3 bits"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "4 bits"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "b4",
+                "symbols": "F_<T_field_layout::bitfields::S>_b4",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x1 + 3 bits",
+                    "size": "4 bits"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "b5",
-                        "symbols": "F_<T_field_layout::bitfields::S>_b5"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned char",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x2 + 0 bit"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "3 bits"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "b5",
+                "symbols": "F_<T_field_layout::bitfields::S>_b5",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x2 + 0 bit",
+                    "size": "3 bits"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "b6",
-                        "symbols": "F_<T_field_layout::bitfields::S>_b6"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned short",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x2 + 3 bits"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "2 bits"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "b6",
+                "symbols": "F_<T_field_layout::bitfields::S>_b6",
+                "types": [
+                  {
+                    "name": "unsigned short",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x2 + 3 bits",
+                    "size": "2 bits"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "1 byte padding"
-                    }
-                  ],
-                  "colspan": 2
-                }
-              ],
-              "children": []
+              "EndPadding": [
+                "1 byte padding"
+              ]
             }
           ]
         }
