@@ -73,7 +73,7 @@
     </tr>
   {%- elsif item contains "Warning" -%}
     <tr>
-      <th colspan="{{ platforms.size | plus: 2 }}">
+      <th colspan="{{ platforms.size | times: 2 | plus: 2 }}">
         <em class="warning">
           {{- item.Warning | escape -}}
         </em>
