@@ -10,7 +10,7 @@ use super::{
     interface::{
         BasicMarkup, TextWithSymbol,
         PipelineCommand, PipelineValues, SymbolTreeTable, SymbolTreeTableCell, SymbolTreeTableList, SymbolTreeTableNode,
-        SymbolCrossrefInfo, SymbolTreeTableColumn,
+        SymbolCrossrefInfo,
     },
     symbol_graph::{
         DerivedSymbolInfo, SymbolGraphNodeId,
@@ -852,24 +852,6 @@ impl ClassMap {
     }
 
     fn generate_tables(mut self, tables: &mut Vec<SymbolTreeTable>) {
-        self.stt.columns.push(SymbolTreeTableColumn {
-            label: vec![BasicMarkup::Heading("Name".to_string())],
-            colspan: 1,
-        });
-        self.stt.columns.push(SymbolTreeTableColumn {
-            label: vec![BasicMarkup::Heading("Type".to_string())],
-            colspan: 1,
-        });
-
-        self.stt.sub_columns.push(SymbolTreeTableColumn {
-            label: vec![],
-            colspan: 1,
-        });
-        self.stt.sub_columns.push(SymbolTreeTableColumn {
-            label: vec![],
-            colspan: 1,
-        });
-
         for (_, platforms) in &self.groups {
             let label = platforms
                 .iter()
@@ -877,19 +859,7 @@ impl ClassMap {
                 .join(" ")
                 .to_owned();
 
-            self.stt.columns.push(SymbolTreeTableColumn {
-                label: vec![BasicMarkup::Heading(label)],
-                colspan: 2,
-            });
-
-            self.stt.sub_columns.push(SymbolTreeTableColumn {
-                label: vec![BasicMarkup::Text("Offset".to_string())],
-                colspan: 1,
-            });
-            self.stt.sub_columns.push(SymbolTreeTableColumn {
-                label: vec![BasicMarkup::Text("Size".to_string())],
-                colspan: 1,
-            });
+            self.stt.platforms.push(label);
         }
 
         let column_offset: usize = 1;

@@ -68,8 +68,7 @@ pub struct BatchGroupItem {
 /// Hierarchical table whose rows may be optionally associated with symbols.
 pub struct SymbolTreeTable {
     pub node_set: SymbolGraphNodeSet,
-    pub columns: Vec<SymbolTreeTableColumn>,
-    pub sub_columns: Vec<SymbolTreeTableColumn>,
+    pub platforms: Vec<String>,
     pub rows: Vec<SymbolTreeTableNode>,
 }
 
@@ -93,12 +92,6 @@ impl SymbolTreeTableList {
 
         json!(jumprefs)
     }
-}
-
-#[derive(Serialize)]
-pub struct SymbolTreeTableColumn {
-    pub label: Vec<BasicMarkup>,
-    pub colspan: u32,
 }
 
 #[derive(Serialize)]
@@ -219,8 +212,7 @@ impl SymbolTreeTable {
     pub fn new() -> Self {
         Self {
             node_set: SymbolGraphNodeSet::new(),
-            columns: vec![],
-            sub_columns: vec![],
+            platforms: vec![],
             rows: vec![],
         }
     }
@@ -257,8 +249,7 @@ impl Serialize for SymbolTreeTable {
             "jumprefs",
             &self.node_set.symbols_meta_to_jumpref_json_nomut(),
         )?;
-        stt.serialize_field("columns", &self.columns)?;
-        stt.serialize_field("sub_columns", &self.sub_columns)?;
+        stt.serialize_field("platforms", &self.platforms)?;
 
         let wrapped_rows = SerializingSymbolTreeTableRows {
             node_set: &self.node_set,
