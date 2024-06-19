@@ -1315,6 +1315,13 @@ g.true-diag g.node polygon {
   border-collapse: separate;
 }
 
+.symbol-tree-table .field-offset,
+.symbol-tree-table .field-size,
+.symbol-tree-table .field-hole,
+.symbol-tree-table .field-padding {
+  white-space: pre;
+}
+
 .symbol-tree-table + .symbol-tree-table {
   margin-top: 2em;
 }

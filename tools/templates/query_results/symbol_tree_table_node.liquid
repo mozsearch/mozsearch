@@ -40,10 +40,14 @@
       {%- for offsetAndSize in item.Field.offsetAndSize -%}
         {%- if offsetAndSize -%}
           <td>
-            {{- offsetAndSize.offset | escape -}}
+            <span class="field-offset">
+              {{- offsetAndSize.offset | escape -}}
+            </span>
           </td>
           <td>
-            {{- offsetAndSize.size | escape -}}
+            <span class="field-size">
+              {{- offsetAndSize.size | escape -}}
+            </span>
           </td>
         {%- else -%}
           <td colspan="2">
@@ -58,7 +62,9 @@
       {%- for hole in item.Hole -%}
         {%- if hole -%}
           <td colspan="2">
-            {{- hole | escape -}}
+            <span class="field-hole">
+              {{- hole | escape -}}
+            </span>
           </td>
         {%- else -%}
           <td colspan="2">
@@ -73,7 +79,9 @@
       {%- for padding in item.EndPadding -%}
         {%- if padding -%}
           <td colspan="2">
-            {{- padding | escape -}}
+            <span class="field-padding">
+              {{- padding | escape -}}
+            </span>
           </td>
         {%- else -%}
           <td colspan="2">
