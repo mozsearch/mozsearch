@@ -75,71 +75,65 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
+          "name": "field_layout::non_struct::Proxy",
+          "symbols": "T_field_layout::non_struct::Proxy",
+          "items": [
             {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::non_struct::Proxy",
-                    "symbols": "T_field_layout::non_struct::Proxy"
+              "Field": {
+                "name": "x",
+                "symbols": "F_<T_field_layout::non_struct::Proxy>_x",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
                   }
-                }
-              ],
-              "colspan": 5
-            }
-          ],
-          "children": [
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "x",
-                        "symbols": "F_<T_field_layout::non_struct::Proxy>_x"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "signed char",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x0"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "1"
+                  }
+                ]
+              }
             }
           ]
         }
       ]
+    },
+    {
+      "jumprefs": {
+        "_ZN12field_layout10non_struct5proxyEv": {
+          "sym": "_ZN12field_layout10non_struct5proxyEv",
+          "pretty": "field_layout::non_struct::proxy",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::non_struct::proxy",
+            "sym": "_ZN12field_layout10non_struct5proxyEv",
+            "type_pretty": null,
+            "kind": "function",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": [],
+            "args": []
+          },
+          "jumps": {
+            "def": "field-layout/non-struct.cpp#7"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": []
     }
   ]
 }

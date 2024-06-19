@@ -3,22 +3,22 @@
     <tr>
       <th>Name</th>
       <th>Type</th>
-      {% for platform in table.platforms %}
-        <th colspan="2">{{ platform | escape }}</th>
-      {% endfor %}
+      {%- for platform in table.platforms -%}
+        <th colspan="2">{{- platform | escape -}}</th>
+      {%- endfor -%}
     </tr>
     <tr>
       <th></th>
       <th></th>
-      {% for platform in table.platforms %}
+      {%- for platform in table.platforms -%}
         <th>Offset</th>
         <th>Size</th>
-      {% endfor %}
+      {%- endfor -%}
     </tr>
   </thead>
   <tbody>
     {%- for kid in table.rows -%}
-      {%- include 'query_results/symbol_tree_table_node.liquid' node: kid -%}
+      {%- include 'query_results/symbol_tree_table_node.liquid' node: kid, platforms: table.platforms -%}
     {%- endfor -%}
   </tbody>
 </table>

@@ -668,579 +668,174 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
+          "name": "field_layout::platform_specific_field::S3",
+          "symbols": "T_field_layout::platform_specific_field::S3",
+          "items": [
             {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::platform_specific_field::S3",
-                    "symbols": "T_field_layout::platform_specific_field::S3"
+              "Field": {
+                "name": "f6",
+                "symbols": "F_<T_field_layout::platform_specific_field::S3>_f6",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
                   }
-                }
-              ],
-              "colspan": 9
-            }
-          ],
-          "children": [
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "f6",
-                        "symbols": "F_<T_field_layout::platform_specific_field::S3>_f6"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned char",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0xc"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0xc"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0xd"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0xc",
+                    "size": "1"
+                  },
+                  {
+                    "offset": "@ 0xc",
+                    "size": "1"
+                  },
+                  {
+                    "offset": "@ 0xd",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "3 bytes padding"
-                    }
-                  ],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "3 bytes padding"
-                    }
-                  ],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "2 bytes padding"
-                    }
-                  ],
-                  "colspan": 2
-                }
-              ],
-              "children": []
-            },
-            {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::platform_specific_field::S2 (base class)",
-                        "symbols": "T_field_layout::platform_specific_field::S2"
-                      }
-                    }
-                  ],
-                  "colspan": 9
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "f4",
-                            "symbols": "F_<T_field_layout::platform_specific_field::S2>_f4"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned int",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x8"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x8"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x8"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "f5",
-                            "symbols": "F_<T_field_layout::platform_specific_field::S2>_f5"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0xc"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                }
+              "EndPadding": [
+                "3 bytes padding",
+                "3 bytes padding",
+                "2 bytes padding"
               ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::platform_specific_field::S2 (base class)",
+          "symbols": "T_field_layout::platform_specific_field::S2",
+          "items": [
+            {
+              "Field": {
+                "name": "f4",
+                "symbols": "F_<T_field_layout::platform_specific_field::S2>_f4",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x8",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x8",
+                    "size": "4"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::platform_specific_field::S1 (base class)",
-                        "symbols": "T_field_layout::platform_specific_field::S1"
-                      }
-                    }
-                  ],
-                  "colspan": 9
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "f1",
-                            "symbols": "F_<T_field_layout::platform_specific_field::S1>_f1"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned int",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x0"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x0"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x0"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "f2",
-                            "symbols": "F_<T_field_layout::platform_specific_field::S1>_f2"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned int",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "f3",
-                            "symbols": "F_<T_field_layout::platform_specific_field::S1>_f3"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "ItalicText": "3 bytes padding"
-                        }
-                      ],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    }
-                  ],
-                  "children": []
-                }
+              "Field": {
+                "name": "f5",
+                "symbols": "F_<T_field_layout::platform_specific_field::S2>_f5",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  null,
+                  null,
+                  {
+                    "offset": "@ 0xc",
+                    "size": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::platform_specific_field::S1 (base class)",
+          "symbols": "T_field_layout::platform_specific_field::S1",
+          "items": [
+            {
+              "Field": {
+                "name": "f1",
+                "symbols": "F_<T_field_layout::platform_specific_field::S1>_f1",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x0",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x0",
+                    "size": "4"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "f2",
+                "symbols": "F_<T_field_layout::platform_specific_field::S1>_f2",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  null,
+                  {
+                    "offset": "@ 0x4",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x4",
+                    "size": "4"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "f3",
+                "symbols": "F_<T_field_layout::platform_specific_field::S1>_f3",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x4",
+                    "size": "1"
+                  },
+                  null,
+                  null
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "3 bytes padding",
+                null,
+                null
               ]
             }
           ]

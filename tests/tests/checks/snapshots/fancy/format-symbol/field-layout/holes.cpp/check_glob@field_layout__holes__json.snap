@@ -360,376 +360,136 @@ expression: "&to_value(sttl).unwrap()"
       ],
       "rows": [
         {
-          "colVals": [
+          "name": "field_layout::holes::Sub",
+          "symbols": "T_field_layout::holes::Sub",
+          "items": [
             {
-              "header": false,
-              "contents": [
-                {
-                  "SymbolHeading": {
-                    "text": "field_layout::holes::Sub",
-                    "symbols": "T_field_layout::holes::Sub"
+              "Field": {
+                "name": "x",
+                "symbols": "F_<T_field_layout::holes::Sub>_x",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
                   }
-                }
-              ],
-              "colspan": 5
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0xc",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Hole": [
+                "3 bytes hole"
+              ]
+            },
+            {
+              "Field": {
+                "name": "y",
+                "symbols": "F_<T_field_layout::holes::Sub>_y",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x10",
+                    "size": "4"
+                  }
+                ]
+              }
             }
-          ],
-          "children": [
+          ]
+        },
+        {
+          "name": "field_layout::holes::Base (base class)",
+          "symbols": "T_field_layout::holes::Base",
+          "items": [
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "x",
-                        "symbols": "F_<T_field_layout::holes::Sub>_x"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned char",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0xc"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "1"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "a",
+                "symbols": "F_<T_field_layout::holes::Base>_a",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "1"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [],
-                  "colspan": 2
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "ItalicText": "3 bytes hole"
-                    }
-                  ],
-                  "colspan": 2
-                }
-              ],
-              "children": []
+              "Hole": [
+                "1 byte hole"
+              ]
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "y",
-                        "symbols": "F_<T_field_layout::holes::Sub>_y"
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolText": {
-                        "text": "unsigned int",
-                        "symbols": ""
-                      }
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "@ 0x10"
-                    }
-                  ],
-                  "colspan": 1
-                },
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "Text": "4"
-                    }
-                  ],
-                  "colspan": 1
-                }
-              ],
-              "children": []
+              "Field": {
+                "name": "b",
+                "symbols": "F_<T_field_layout::holes::Base>_b",
+                "types": [
+                  {
+                    "name": "unsigned short",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x2",
+                    "size": "2"
+                  }
+                ]
+              }
             },
             {
-              "colVals": [
-                {
-                  "header": false,
-                  "contents": [
-                    {
-                      "SymbolHeading": {
-                        "text": "field_layout::holes::Base (base class)",
-                        "symbols": "T_field_layout::holes::Base"
-                      }
-                    }
-                  ],
-                  "colspan": 5
-                }
-              ],
-              "children": [
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "a",
-                            "symbols": "F_<T_field_layout::holes::Base>_a"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x0"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "ItalicText": "1 byte hole"
-                        }
-                      ],
-                      "colspan": 2
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "b",
-                            "symbols": "F_<T_field_layout::holes::Base>_b"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned short",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x2"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "2"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "c",
-                            "symbols": "F_<T_field_layout::holes::Base>_c"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "unsigned int",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x4"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "4"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "d",
-                            "symbols": "F_<T_field_layout::holes::Base>_d"
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "SymbolText": {
-                            "text": "char",
-                            "symbols": ""
-                          }
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "@ 0x8"
-                        }
-                      ],
-                      "colspan": 1
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "Text": "1"
-                        }
-                      ],
-                      "colspan": 1
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "colVals": [
-                    {
-                      "header": false,
-                      "contents": [],
-                      "colspan": 2
-                    },
-                    {
-                      "header": false,
-                      "contents": [
-                        {
-                          "ItalicText": "3 bytes padding"
-                        }
-                      ],
-                      "colspan": 2
-                    }
-                  ],
-                  "children": []
-                }
+              "Field": {
+                "name": "c",
+                "symbols": "F_<T_field_layout::holes::Base>_c",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x4",
+                    "size": "4"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "d",
+                "symbols": "F_<T_field_layout::holes::Base>_d",
+                "types": [
+                  {
+                    "name": "char",
+                    "symbols": ""
+                  }
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "3 bytes padding"
               ]
             }
           ]
