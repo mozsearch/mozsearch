@@ -1,20 +1,21 @@
 <table class="symbol-tree-table">
-{% if table.columns != empty %}
   <thead>
     <tr>
-    {% for col in table.columns %}
-      {% include 'query_results/table_header_cell.liquid' col: col %}
-    {% endfor %}
-    </tr>
-    {% if table.sub_columns.size > 0 %}
-      <tr>
-      {% for col in table.sub_columns %}
-        {% include 'query_results/table_header_cell.liquid' col: col %}
+      <th>Name</th>
+      <th>Type</th>
+      {% for platform in table.platforms %}
+        <th colspan="2">{{ platform | escape }}</th>
       {% endfor %}
-      </tr>
-    {% endif %}
+    </tr>
+    <tr>
+      <th></th>
+      <th></th>
+      {% for platform in table.platforms %}
+        <th>Offset</th>
+        <th>Size</th>
+      {% endfor %}
+    </tr>
   </thead>
-{% endif %}
   <tbody>
     {%- for kid in table.rows -%}
       {%- include 'query_results/symbol_tree_table_node.liquid' node: kid -%}

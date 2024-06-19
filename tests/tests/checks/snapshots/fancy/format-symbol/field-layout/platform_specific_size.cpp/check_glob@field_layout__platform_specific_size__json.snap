@@ -167,81 +167,9 @@ expression: "&to_value(sttl).unwrap()"
           }
         }
       },
-      "columns": [
-        {
-          "label": [
-            {
-              "Heading": "Name"
-            }
-          ],
-          "colspan": 1
-        },
-        {
-          "label": [
-            {
-              "Heading": "Type"
-            }
-          ],
-          "colspan": 1
-        },
-        {
-          "label": [
-            {
-              "Heading": "win64"
-            }
-          ],
-          "colspan": 2
-        },
-        {
-          "label": [
-            {
-              "Heading": "macosx64 linux64"
-            }
-          ],
-          "colspan": 2
-        }
-      ],
-      "sub_columns": [
-        {
-          "label": [],
-          "colspan": 1
-        },
-        {
-          "label": [],
-          "colspan": 1
-        },
-        {
-          "label": [
-            {
-              "Text": "Offset"
-            }
-          ],
-          "colspan": 1
-        },
-        {
-          "label": [
-            {
-              "Text": "Size"
-            }
-          ],
-          "colspan": 1
-        },
-        {
-          "label": [
-            {
-              "Text": "Offset"
-            }
-          ],
-          "colspan": 1
-        },
-        {
-          "label": [
-            {
-              "Text": "Size"
-            }
-          ],
-          "colspan": 1
-        }
+      "platforms": [
+        "win64",
+        "macosx64 linux64"
       ],
       "rows": [
         {
