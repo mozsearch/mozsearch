@@ -1,9 +1,11 @@
 <tr>
   <td colspan="{{ platforms.size | times: 2 | plus: 3 }}">
     <h3>
-      <span data-symbols="{{ node.symbols }}">
-        {{- node.name | escape -}}
-      </span>
+      <code>
+        <span data-symbols="{{ node.symbols }}">
+          {{- node.name | escape -}}
+        </span>
+      </code>
     </h3>
   </td>
 </tr>
@@ -11,21 +13,25 @@
   {%- if item contains "Field" -%}
     <tr>
       <td>
-        <span data-symbols="{{ item.Field.symbols }}">
-          {{- item.Field.name | escape -}}
-        </span>
+        <code>
+          <span data-symbols="{{ item.Field.symbols }}">
+            {{- item.Field.name | escape -}}
+          </span>
+        </code>
       </td>
       <td>
-        {%- assign first = true -%}
-        {%- for type in item.Field.types -%}
-          {%- if first == false -%}
-            |<br>
-          {%- endif -%}
-          <span data-symbols="{{ type.symbols }}">
-            {{ type.name | escape }}
-          </span>
-          {%- assign first = false -%}
-        {%- endfor -%}
+        <code>
+          {%- assign first = true -%}
+          {%- for type in item.Field.types -%}
+            {%- if first == false -%}
+              |<br>
+            {%- endif -%}
+            <span data-symbols="{{ type.symbols }}">
+              {{ type.name | escape }}
+            </span>
+            {%- assign first = false -%}
+          {%- endfor -%}
+        </code>
       </td>
       <td>
         {%- assign first = true -%}
