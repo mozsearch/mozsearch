@@ -472,6 +472,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#241",
                 "pretty": "outerNS::OuterCat::mIsFriendly",
                 "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
                 "type": "_Bool",
@@ -481,6 +482,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
+                "lineRange": "#242",
                 "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
                 "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
                 "type": "_Bool",
@@ -490,6 +492,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
+                "lineRange": "#244",
                 "pretty": "outerNS::OuterCat::mOwner",
                 "sym": "F_<T_outerNS::OuterCat>_mOwner",
                 "type": "class std::shared_ptr<class outerNS::Human>",
@@ -508,6 +511,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#245",
                 "pretty": "outerNS::OuterCat::mFavoriteCouch",
                 "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
                 "type": "class outerNS::Couch *",
@@ -632,6 +636,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#147",
                 "pretty": "outerNS::Thing::mHP",
                 "sym": "F_<T_outerNS::Thing>_mHP",
                 "type": "int",
@@ -641,6 +646,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
+                "lineRange": "#151",
                 "pretty": "outerNS::Thing::mDefunct",
                 "sym": "F_<T_outerNS::Thing>_mDefunct",
                 "type": "_Bool",

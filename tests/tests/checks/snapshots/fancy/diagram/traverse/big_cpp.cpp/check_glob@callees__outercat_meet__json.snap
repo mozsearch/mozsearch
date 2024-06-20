@@ -368,6 +368,7 @@ expression: sgc.to_json()
         ],
         "fields": [
           {
+            "lineRange": "#147",
             "pretty": "outerNS::Thing::mHP",
             "sym": "F_<T_outerNS::Thing>_mHP",
             "type": "int",
@@ -377,6 +378,7 @@ expression: sgc.to_json()
             "sizeBytes": 4
           },
           {
+            "lineRange": "#151",
             "pretty": "outerNS::Thing::mDefunct",
             "sym": "F_<T_outerNS::Thing>_mDefunct",
             "type": "_Bool",

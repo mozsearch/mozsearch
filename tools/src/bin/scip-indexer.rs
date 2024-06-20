@@ -948,6 +948,7 @@ fn analyze_using_scip(
                                     }
                                     Some("field") => {
                                         pstruct.fields.push(StructuredFieldInfo {
+                                            line_range: ustr(""),
                                             pretty: symbol_info.pretty,
                                             sym: symbol_info.norm_sym,
                                             type_pretty: type_pretty.unwrap_or_else(|| ustr("")),

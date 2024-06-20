@@ -520,6 +520,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#11",
                 "pretty": "field_layout::multiple_inheritance::SubA::sub_a_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1",
                 "type": "int",
@@ -529,6 +530,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
+                "lineRange": "#12",
                 "pretty": "field_layout::multiple_inheritance::SubA::sub_a_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2",
                 "type": "short",
@@ -613,6 +615,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#16",
                 "pretty": "field_layout::multiple_inheritance::SubB::sub_b_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1",
                 "type": "int",
@@ -622,6 +625,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
+                "lineRange": "#17",
                 "pretty": "field_layout::multiple_inheritance::SubB::sub_b_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2",
                 "type": "signed char",
@@ -631,6 +635,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
+                "lineRange": "#19",
                 "pretty": "field_layout::multiple_inheritance::SubB::sub_b_3",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3",
                 "type": "long",
@@ -707,6 +712,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
+                    "lineRange": "#16",
                     "pretty": "field_layout::multiple_inheritance::SubB::sub_b_1",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1",
                     "type": "int",
@@ -716,6 +722,7 @@ expression: "&to_value(sttl).unwrap()"
                     "sizeBytes": 4
                   },
                   {
+                    "lineRange": "#17",
                     "pretty": "field_layout::multiple_inheritance::SubB::sub_b_2",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2",
                     "type": "signed char",
@@ -806,6 +813,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#24",
                 "pretty": "field_layout::multiple_inheritance::SubC::sub_c_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1",
                 "type": "signed char",
@@ -815,6 +823,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
+                "lineRange": "#25",
                 "pretty": "field_layout::multiple_inheritance::SubC::sub_c_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2",
                 "type": "int",
@@ -899,6 +908,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#29",
                 "pretty": "field_layout::multiple_inheritance::SubD::sub_d_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1",
                 "type": "int",
@@ -908,6 +918,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
+                "lineRange": "#30",
                 "pretty": "field_layout::multiple_inheritance::SubD::sub_d_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2",
                 "type": "signed char",
@@ -992,6 +1003,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#34",
                 "pretty": "field_layout::multiple_inheritance::SubE::sub_e_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1",
                 "type": "long",
@@ -1001,6 +1013,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 8
               },
               {
+                "lineRange": "#35",
                 "pretty": "field_layout::multiple_inheritance::SubE::sub_e_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2",
                 "type": "int",
@@ -1095,6 +1108,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#42",
                 "pretty": "field_layout::multiple_inheritance::SubSubA::sub_sub_c_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1",
                 "type": "int",
@@ -1181,6 +1195,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
+                    "lineRange": "#42",
                     "pretty": "field_layout::multiple_inheritance::SubSubA::sub_sub_c_1",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1",
                     "type": "int",
@@ -1271,6 +1286,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#46",
                 "pretty": "field_layout::multiple_inheritance::SubSubB::sub_sub_b_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1",
                 "type": "int",
@@ -1351,6 +1367,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#51",
                 "pretty": "field_layout::multiple_inheritance::SubSubSubA::sub_sub_sub_a_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1",
                 "type": "int",
@@ -1420,6 +1437,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
+                    "lineRange": "#51",
                     "pretty": "field_layout::multiple_inheritance::SubSubSubA::sub_sub_sub_a_1",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1",
                     "type": "int",

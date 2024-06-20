@@ -226,6 +226,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#8",
                 "pretty": "field_layout::platform_specific_field::S1::f1",
                 "sym": "F_<T_field_layout::platform_specific_field::S1>_f1",
                 "type": "unsigned int",
@@ -235,6 +236,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
+                "lineRange": "#15",
                 "pretty": "field_layout::platform_specific_field::S1::f3",
                 "sym": "F_<T_field_layout::platform_specific_field::S1>_f3",
                 "type": "unsigned char",
@@ -305,6 +307,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
+                    "lineRange": "#8",
                     "pretty": "field_layout::platform_specific_field::S1::f1",
                     "sym": "F_<T_field_layout::platform_specific_field::S1>_f1",
                     "type": "unsigned int",
@@ -314,6 +317,7 @@ expression: "&to_value(sttl).unwrap()"
                     "sizeBytes": 4
                   },
                   {
+                    "lineRange": "#11",
                     "pretty": "field_layout::platform_specific_field::S1::f2",
                     "sym": "F_<T_field_layout::platform_specific_field::S1>_f2",
                     "type": "unsigned int",
@@ -404,6 +408,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#20",
                 "pretty": "field_layout::platform_specific_field::S2::f4",
                 "sym": "F_<T_field_layout::platform_specific_field::S2>_f4",
                 "type": "unsigned int",
@@ -480,6 +485,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
+                    "lineRange": "#20",
                     "pretty": "field_layout::platform_specific_field::S2::f4",
                     "sym": "F_<T_field_layout::platform_specific_field::S2>_f4",
                     "type": "unsigned int",
@@ -489,6 +495,7 @@ expression: "&to_value(sttl).unwrap()"
                     "sizeBytes": 4
                   },
                   {
+                    "lineRange": "#23",
                     "pretty": "field_layout::platform_specific_field::S2::f5",
                     "sym": "F_<T_field_layout::platform_specific_field::S2>_f5",
                     "type": "unsigned char",
@@ -570,6 +577,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#28",
                 "pretty": "field_layout::platform_specific_field::S3::f6",
                 "sym": "F_<T_field_layout::platform_specific_field::S3>_f6",
                 "type": "unsigned char",
@@ -634,6 +642,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
+                    "lineRange": "#28",
                     "pretty": "field_layout::platform_specific_field::S3::f6",
                     "sym": "F_<T_field_layout::platform_specific_field::S3>_f6",
                     "type": "unsigned char",

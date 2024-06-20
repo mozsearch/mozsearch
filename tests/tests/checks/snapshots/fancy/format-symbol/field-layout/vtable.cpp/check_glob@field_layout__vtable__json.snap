@@ -433,6 +433,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#24",
                 "pretty": "field_layout::vtable::Sub1a::x",
                 "sym": "F_<T_field_layout::vtable::Sub1a>_x",
                 "type": "unsigned char",
@@ -517,6 +518,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#30",
                 "pretty": "field_layout::vtable::Sub1b::y",
                 "sym": "F_<T_field_layout::vtable::Sub1b>_y",
                 "type": "unsigned char",
@@ -601,6 +603,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#36",
                 "pretty": "field_layout::vtable::Sub2::w",
                 "sym": "F_<T_field_layout::vtable::Sub2>_w",
                 "type": "unsigned char",
@@ -685,6 +688,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#42",
                 "pretty": "field_layout::vtable::Sub3::v",
                 "sym": "F_<T_field_layout::vtable::Sub3>_v",
                 "type": "unsigned char",
@@ -784,6 +788,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#48",
                 "pretty": "field_layout::vtable::SubSub::z",
                 "sym": "F_<T_field_layout::vtable::SubSub>_z",
                 "type": "unsigned char",

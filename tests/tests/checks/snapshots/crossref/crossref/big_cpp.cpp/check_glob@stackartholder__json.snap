@@ -66,6 +66,7 @@ expression: "&to_value(scil).unwrap()"
           ],
           "fields": [
             {
+              "lineRange": "#460",
               "pretty": "outerNS::StackArtHolder::mHeldArt",
               "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
               "type": "class outerNS::PracticalArt &",
