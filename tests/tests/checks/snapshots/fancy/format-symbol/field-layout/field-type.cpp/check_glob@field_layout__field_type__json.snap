@@ -485,7 +485,7 @@ expression: "&to_value(sttl).unwrap()"
               {
                 "pretty": "field_layout::field_type::S::vector_field",
                 "sym": "F_<T_field_layout::field_type::S>_vector_field",
-                "type": "class std::vector<struct field_layout::field_type::Type1>",
+                "type": "class std::vector<struct field_layout::field_type::Type1, class std::allocator<struct field_layout::field_type::Type1> >",
                 "typesym": "T_std::vector",
                 "offsetBytes": 24,
                 "bitPositions": null,
@@ -803,7 +803,7 @@ expression: "&to_value(sttl).unwrap()"
                 "symbols": "F_<T_field_layout::field_type::S>_vector_field",
                 "types": [
                   {
-                    "name": "class std::vector<struct field_layout::field_type::Type1>",
+                    "name": "class std::vector<struct field_layout::field_type::Type1, class std::allocator<struct field_layout::field_type::Type1> >",
                     "symbols": "T_std::vector,T_field_layout::field_type::Type1"
                   }
                 ],
