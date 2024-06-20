@@ -273,6 +273,14 @@ impl FieldsWithHash {
     }
 }
 
+struct FieldListItem {
+    def_paths: String,
+    average_lineno: u64,
+    average_bit_offset: u64,
+    group_bits: u64,
+    field_variants: Vec<Option<Field>>,
+}
+
 // A struct to represent single class, with
 // fields per each platform group.
 struct Class {
@@ -318,6 +326,7 @@ impl Class {
             let mut total_lineno: u64 = 0;
             let mut total_bit_offset: u64 = 0;
             let mut field_count: u64 = 0;
+            let mut field_def_paths = vec![];
 
             let mut field_variants = vec![];
             for (group_id, _) in groups {
@@ -333,6 +342,10 @@ impl Class {
                         field_count += 1;
 
                         field_variants.push(Some(field.clone()));
+
+                        if !field_def_paths.contains(&field.def_path) {
+                            field_def_paths.push(field.def_path.clone());
+                        }
                     },
                     None => {
                         field_variants.push(None);
@@ -343,21 +356,37 @@ impl Class {
             let average_lineno = total_lineno / field_count;
             let average_bit_offset = total_bit_offset / field_count;
 
-            field_list.push((average_lineno, average_bit_offset, group_bits, field_variants))
+            field_list.push(FieldListItem {
+                def_paths: field_def_paths.join(","),
+                average_lineno,
+                average_bit_offset,
+                group_bits,
+                field_variants,
+            })
         }
 
         field_list.sort_by(|a, b| {
-            let result = a.0.cmp(&b.0);
+            if a.def_paths == b.def_paths {
+                // If the fields are defined in the same file,
+                // Sort them by line number, to sort
+                // fields which exists only in certain platform
+                // in right order.
+                //
+                // If the field comes from different file, for example when
+                // `#include` is used, just ignore the line number and
+                // compare with offset.
+                let result = a.average_lineno.cmp(&b.average_lineno);
+                if result != Ordering::Equal {
+                    return result;
+                }
+            }
+
+            let result = a.average_bit_offset.cmp(&b.average_bit_offset);
             if result != Ordering::Equal {
                 return result;
             }
 
-            let result = a.1.cmp(&b.1);
-            if result != Ordering::Equal {
-                return result;
-            }
-
-            let result = a.2.cmp(&b.2);
+            let result = a.group_bits.cmp(&b.group_bits);
             if result != Ordering::Equal {
                 return result;
             }
@@ -367,7 +396,7 @@ impl Class {
 
         self.merged_fields = field_list
             .into_iter()
-            .map(|(_, _, _, field_variants)| field_variants)
+            .map(|item| item.field_variants)
             .collect();
     }
 }
