@@ -89,6 +89,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::non_struct::Proxy>_x\">x</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",

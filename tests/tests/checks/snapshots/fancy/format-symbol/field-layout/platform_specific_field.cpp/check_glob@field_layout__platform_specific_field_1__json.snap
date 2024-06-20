@@ -690,6 +690,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S3>_f6\">f6</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0xc",
@@ -729,6 +732,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S2>_f4\">f4</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x8",
@@ -754,6 +760,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S2>_f5\">f5</span>;"
                 ],
                 "offsetAndSize": [
                   null,
@@ -781,6 +790,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f1\">f1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",
@@ -807,6 +819,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f2\">f2</span>;"
+                ],
                 "offsetAndSize": [
                   null,
                   {
@@ -829,6 +844,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f3\">f3</span>;"
                 ],
                 "offsetAndSize": [
                   {

@@ -5,6 +5,7 @@ use std::hash::{Hash, Hasher, DefaultHasher};
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use itertools::Itertools;
+use serde_json::{from_str, Value};
 
 use super::{
     interface::{
@@ -663,6 +664,9 @@ struct ClassMap {
     // Platforms grouped by the field layout.
     groups: Vec<(PlatformGroupId, Vec<PlatformId>)>,
 
+    // Formatted lines of each file referred from fields.
+    file_lines: HashMap<String, Vec<String>>,
+
     has_unsupported_multiple_inheritance: bool,
 
     root_class_id: Option<ClassId>,
@@ -676,6 +680,7 @@ impl ClassMap {
             class_list: vec![],
             platform_map: PlatformMap::new(),
             groups: vec![],
+            file_lines: HashMap::new(),
             has_unsupported_multiple_inheritance: false,
             root_class_id: None,
             stt: SymbolTreeTable::new(),
@@ -832,6 +837,7 @@ impl ClassMap {
                                                field_id.clone(), field_type_syms,
                                                &struct_def_path, field_lineno,
                                                &field);
+                        self.populate_file_lines(&field.def_path, server).await?;
                         fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
                         for platform_id in item.platforms() {
@@ -841,6 +847,7 @@ impl ClassMap {
                                                    field_id.clone(), field_type_syms.clone(),
                                                    &struct_def_path, field_lineno,
                                                    &field);
+                            self.populate_file_lines(&field.def_path, server).await?;
                             fields_per_platform.add_field(&platform_id, field.clone());
                         }
                     }
@@ -871,6 +878,33 @@ impl ClassMap {
         for cls in self.class_map.values_mut() {
             cls.finish_populating(&self.groups);
         }
+
+        Ok(())
+    }
+
+    async fn populate_file_lines(&mut self, path: &String,
+                                 server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
+        if path.is_empty() {
+            return Ok(());
+        }
+
+        if self.file_lines.contains_key(path) {
+            return Ok(());
+        }
+
+        let (lines, sym_json) = server.fetch_formatted_lines(path).await?;
+
+        let syms: serde_json::Result<HashMap<String, Value>> = from_str(&sym_json);
+        match syms {
+            Ok(syms) => {
+                for (sym, info) in syms {
+                    self.stt.extra_syms.insert(sym, info);
+                }
+            },
+            Err(_) => {}
+        }
+
+        self.file_lines.insert(path.clone(), lines);
 
         Ok(())
     }
@@ -1032,6 +1066,7 @@ impl ClassMap {
                 let mut field_item = SymbolTreeTableField::new(field_name, field_symbols);
 
                 let mut type_label_set = HashSet::new();
+                let mut path_and_range_set = HashSet::new();
 
                 for maybe_field in field_variants {
                     match maybe_field {
@@ -1048,6 +1083,25 @@ impl ClassMap {
                                         }
                                     )
                                 );
+                            }
+
+                            let key = (field.def_path.clone(),
+                                       field.start_lineno,
+                                       field.end_lineno);
+                            if !path_and_range_set.contains(&key) {
+                                path_and_range_set.insert(key);
+
+                                if let Some(lines) = self.file_lines.get(&field.def_path) {
+                                    for lineno in field.start_lineno..=field.end_lineno {
+                                        if lineno == 0 {
+                                            continue;
+                                        }
+                                        let index = lineno as usize - 1;
+                                        if let Some(line) = lines.get(index) {
+                                            field_item.lines.push(line.clone());
+                                        }
+                                     }
+                                }
                             }
 
                             if let Some(pos) = &field.bit_positions {

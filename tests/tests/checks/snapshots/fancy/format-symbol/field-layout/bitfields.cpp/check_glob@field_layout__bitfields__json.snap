@@ -322,6 +322,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b1\">b1</span>: 1;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0 + 0 bit",
@@ -339,6 +342,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned int",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b2\">b2</span>: 3;"
                 ],
                 "offsetAndSize": [
                   {
@@ -358,6 +364,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b3\">b3</span>: 7;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0 + 4 bits",
@@ -375,6 +384,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned int",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b4\">b4</span>: 4;"
                 ],
                 "offsetAndSize": [
                   {
@@ -394,6 +406,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span>  <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b5\">b5</span>: 3;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x2 + 0 bit",
@@ -411,6 +426,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned short",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint16_t\">uint16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b6\">b6</span>: 2;"
                 ],
                 "offsetAndSize": [
                   {

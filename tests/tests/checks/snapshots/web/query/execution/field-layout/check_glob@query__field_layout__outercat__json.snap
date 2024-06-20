@@ -693,6 +693,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsFriendly\">mIsFriendly</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0xd",
@@ -710,6 +713,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "_Bool",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly\">mIsSecretlyUnfriendly</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -734,6 +740,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": "T_std::shared_ptr,T_outerNS::Human"
                   }
                 ],
+                "lines": [
+                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::shared_ptr\">shared_ptr</span>&lt;<span class=\"syn_type\" data-symbols=\"T_outerNS::Human\">Human</span>> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mOwner\">mOwner</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x10",
@@ -751,6 +760,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "class outerNS::Couch *",
                     "symbols": "T_outerNS::Couch"
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"T_outerNS::Couch\">Couch</span> *<span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mFavoriteCouch\">mFavoriteCouch</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -776,6 +788,7 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",
@@ -794,6 +807,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >int</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mHP\">mHP</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x8",
@@ -811,6 +827,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "_Bool",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mDefunct\">mDefunct</span>;"
                 ],
                 "offsetAndSize": [
                   {

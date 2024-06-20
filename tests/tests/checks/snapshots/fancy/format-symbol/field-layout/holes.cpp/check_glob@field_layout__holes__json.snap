@@ -379,6 +379,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::holes::Sub>_x\">x</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0xc",
@@ -401,6 +404,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned int",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::holes::Sub>_y\">y</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -426,6 +432,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::holes::Base>_a\">a</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",
@@ -449,6 +458,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint16_t\">uint16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::holes::Base>_b\">b</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x2",
@@ -467,6 +479,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::holes::Base>_c\">c</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x4",
@@ -484,6 +499,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >char</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::holes::Base>_d\">d</span>;"
                 ],
                 "offsetAndSize": [
                   {
