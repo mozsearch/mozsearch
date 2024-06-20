@@ -30,7 +30,196 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#85"
+            "def": "field-layout/field-type.cpp#44"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_macro_fields_1": {
+          "sym": "F_<T_field_layout::field_type::S>_macro_fields_1",
+          "pretty": "field_layout::field_type::S::macro_fields_1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::macro_fields_1",
+            "sym": "F_<T_field_layout::field_type::S>_macro_fields_1",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#46"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_macro_fields_2": {
+          "sym": "F_<T_field_layout::field_type::S>_macro_fields_2",
+          "pretty": "field_layout::field_type::S::macro_fields_2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::macro_fields_2",
+            "sym": "F_<T_field_layout::field_type::S>_macro_fields_2",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#46"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_macro_fields_3": {
+          "sym": "F_<T_field_layout::field_type::S>_macro_fields_3",
+          "pretty": "field_layout::field_type::S::macro_fields_3",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::macro_fields_3",
+            "sym": "F_<T_field_layout::field_type::S>_macro_fields_3",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#46"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_multiline_field": {
+          "sym": "F_<T_field_layout::field_type::S>_multiline_field",
+          "pretty": "field_layout::field_type::S::multiline_field",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::multiline_field",
+            "sym": "F_<T_field_layout::field_type::S>_multiline_field",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type.cpp#50"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_other_file_field1": {
+          "sym": "F_<T_field_layout::field_type::S>_other_file_field1",
+          "pretty": "field_layout::field_type::S::other_file_field1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::other_file_field1",
+            "sym": "F_<T_field_layout::field_type::S>_other_file_field1",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type-include.h#1"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_other_file_field2": {
+          "sym": "F_<T_field_layout::field_type::S>_other_file_field2",
+          "pretty": "field_layout::field_type::S::other_file_field2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::other_file_field2",
+            "sym": "F_<T_field_layout::field_type::S>_other_file_field2",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type-include.h#4"
+          }
+        },
+        "F_<T_field_layout::field_type::S>_other_file_field3": {
+          "sym": "F_<T_field_layout::field_type::S>_other_file_field3",
+          "pretty": "field_layout::field_type::S::other_file_field3",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::S::other_file_field3",
+            "sym": "F_<T_field_layout::field_type::S>_other_file_field3",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::field_type::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/field-type-include.h#9"
           }
         },
         "F_<T_field_layout::field_type::S>_pointer_field": {
@@ -57,7 +246,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#79"
+            "def": "field-layout/field-type.cpp#38"
           }
         },
         "F_<T_field_layout::field_type::S>_protected_field": {
@@ -84,7 +273,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#86"
+            "def": "field-layout/field-type.cpp#45"
           }
         },
         "F_<T_field_layout::field_type::S>_rooted_field": {
@@ -111,7 +300,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#83"
+            "def": "field-layout/field-type.cpp#42"
           }
         },
         "F_<T_field_layout::field_type::S>_rooted_vec_field": {
@@ -138,7 +327,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#84"
+            "def": "field-layout/field-type.cpp#43"
           }
         },
         "F_<T_field_layout::field_type::S>_template_field_1": {
@@ -165,7 +354,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#80"
+            "def": "field-layout/field-type.cpp#39"
           }
         },
         "F_<T_field_layout::field_type::S>_template_field_2": {
@@ -192,7 +381,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#81"
+            "def": "field-layout/field-type.cpp#40"
           }
         },
         "F_<T_field_layout::field_type::S>_value_field": {
@@ -219,7 +408,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#78"
+            "def": "field-layout/field-type.cpp#37"
           }
         },
         "F_<T_field_layout::field_type::S>_vector_field": {
@@ -246,28 +435,28 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#82"
+            "def": "field-layout/field-type.cpp#41"
           }
         },
         "T_JS::GCHashMap": {
           "sym": "T_JS::GCHashMap",
           "pretty": "T_JS::GCHashMap",
           "jumps": {
-            "def": "field-layout/field-type.cpp#38"
+            "def": "field-layout/field-type.h#34"
           }
         },
         "T_JS::Rooted": {
           "sym": "T_JS::Rooted",
           "pretty": "T_JS::Rooted",
           "jumps": {
-            "def": "field-layout/field-type.cpp#15"
+            "def": "field-layout/field-type.h#11"
           }
         },
         "T_JS::RootedVector": {
           "sym": "T_JS::RootedVector",
           "pretty": "T_JS::RootedVector",
           "jumps": {
-            "def": "field-layout/field-type.cpp#28"
+            "def": "field-layout/field-type.h#24"
           }
         },
         "T_JS::Value": {
@@ -289,7 +478,7 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [
               {
-                "lineRange": "#33",
+                "lineRange": "#29",
                 "pretty": "JS::Value::asBits_",
                 "sym": "F_<T_JS::Value>_asBits_",
                 "type": "unsigned long",
@@ -304,7 +493,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#31"
+            "def": "field-layout/field-type.h#27"
           }
         },
         "T_JSObject": {
@@ -333,21 +522,28 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#5"
+            "def": "field-layout/field-type.h#1"
           }
         },
         "T_field_layout::field_type::Container1": {
           "sym": "T_field_layout::field_type::Container1",
           "pretty": "T_field_layout::field_type::Container1",
           "jumps": {
-            "def": "field-layout/field-type.cpp#63"
+            "def": "field-layout/field-type.cpp#15"
           }
         },
         "T_field_layout::field_type::Container2": {
           "sym": "T_field_layout::field_type::Container2",
           "pretty": "T_field_layout::field_type::Container2",
           "jumps": {
-            "def": "field-layout/field-type.cpp#73"
+            "def": "field-layout/field-type.cpp#25"
+          }
+        },
+        "T_field_layout::field_type::Enum1": {
+          "sym": "T_field_layout::field_type::Enum1",
+          "pretty": "T_field_layout::field_type::Enum1",
+          "jumps": {
+            "def": "field-layout/field-type.cpp#19"
           }
         },
         "T_field_layout::field_type::S": {
@@ -361,7 +557,7 @@ expression: "&to_value(sttl).unwrap()"
             "kind": "struct",
             "subsystem": null,
             "implKind": "",
-            "sizeBytes": 56,
+            "sizeBytes": 88,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -424,7 +620,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#78",
+                "lineRange": "#37",
                 "pretty": "field_layout::field_type::S::value_field",
                 "sym": "F_<T_field_layout::field_type::S>_value_field",
                 "type": "struct field_layout::field_type::Type1",
@@ -440,7 +636,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#79",
+                "lineRange": "#38",
                 "pretty": "field_layout::field_type::S::pointer_field",
                 "sym": "F_<T_field_layout::field_type::S>_pointer_field",
                 "type": "const struct field_layout::field_type::Type1 *",
@@ -456,7 +652,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#80",
+                "lineRange": "#39",
                 "pretty": "field_layout::field_type::S::template_field_1",
                 "sym": "F_<T_field_layout::field_type::S>_template_field_1",
                 "type": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
@@ -472,7 +668,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#81",
+                "lineRange": "#40",
                 "pretty": "field_layout::field_type::S::template_field_2",
                 "sym": "F_<T_field_layout::field_type::S>_template_field_2",
                 "type": "struct field_layout::field_type::Container2<struct field_layout::field_type::Type1, field_layout::field_type::Enum1::No>",
@@ -488,7 +684,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#82",
+                "lineRange": "#41",
                 "pretty": "field_layout::field_type::S::vector_field",
                 "sym": "F_<T_field_layout::field_type::S>_vector_field",
                 "type": "class std::vector<struct field_layout::field_type::Type1, class std::allocator<struct field_layout::field_type::Type1> >",
@@ -504,7 +700,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#83",
+                "lineRange": "#42",
                 "pretty": "field_layout::field_type::S::rooted_field",
                 "sym": "F_<T_field_layout::field_type::S>_rooted_field",
                 "type": "class JS::Rooted<class JS::Value>",
@@ -520,7 +716,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#84",
+                "lineRange": "#43",
                 "pretty": "field_layout::field_type::S::rooted_vec_field",
                 "sym": "F_<T_field_layout::field_type::S>_rooted_vec_field",
                 "type": "class JS::RootedVector<class JS::Value>",
@@ -536,7 +732,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#85",
+                "lineRange": "#44",
                 "pretty": "field_layout::field_type::S::hash_map_field",
                 "sym": "F_<T_field_layout::field_type::S>_hash_map_field",
                 "type": "class JS::GCHashMap<class JS::Value, class JSObject *>",
@@ -556,7 +752,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#86",
+                "lineRange": "#45",
                 "pretty": "field_layout::field_type::S::protected_field",
                 "sym": "F_<T_field_layout::field_type::S>_protected_field",
                 "type": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, class JS::Value>",
@@ -574,6 +770,116 @@ expression: "&to_value(sttl).unwrap()"
                     "sym": "T_JS::Value"
                   }
                 ]
+              },
+              {
+                "lineRange": "",
+                "pretty": "field_layout::field_type::S::macro_fields_1",
+                "sym": "F_<T_field_layout::field_type::S>_macro_fields_1",
+                "type": "struct field_layout::field_type::Type1",
+                "typesym": "T_field_layout::field_type::Type1",
+                "offsetBytes": 52,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Type1"
+                  }
+                ]
+              },
+              {
+                "lineRange": "",
+                "pretty": "field_layout::field_type::S::macro_fields_2",
+                "sym": "F_<T_field_layout::field_type::S>_macro_fields_2",
+                "type": "enum field_layout::field_type::Enum1",
+                "typesym": "T_field_layout::field_type::Enum1",
+                "offsetBytes": 53,
+                "bitPositions": null,
+                "sizeBytes": 1
+              },
+              {
+                "lineRange": "",
+                "pretty": "field_layout::field_type::S::macro_fields_3",
+                "sym": "F_<T_field_layout::field_type::S>_macro_fields_3",
+                "type": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
+                "typesym": "T_field_layout::field_type::Container1",
+                "offsetBytes": 54,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Container1"
+                  }
+                ]
+              },
+              {
+                "lineRange": "#47-50",
+                "pretty": "field_layout::field_type::S::multiline_field",
+                "sym": "F_<T_field_layout::field_type::S>_multiline_field",
+                "type": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, struct field_layout::field_type::Type1>",
+                "typesym": "T_js::ProtectedDataNoCheckArgs",
+                "offsetBytes": 55,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_js::TestCheck"
+                  },
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Type1"
+                  }
+                ]
+              },
+              {
+                "lineRange": "field-layout/field-type-include.h#1",
+                "pretty": "field_layout::field_type::S::other_file_field1",
+                "sym": "F_<T_field_layout::field_type::S>_other_file_field1",
+                "type": "struct field_layout::field_type::Type1",
+                "typesym": "T_field_layout::field_type::Type1",
+                "offsetBytes": 56,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Type1"
+                  }
+                ]
+              },
+              {
+                "lineRange": "field-layout/field-type-include.h#3-4",
+                "pretty": "field_layout::field_type::S::other_file_field2",
+                "sym": "F_<T_field_layout::field_type::S>_other_file_field2",
+                "type": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
+                "typesym": "T_field_layout::field_type::Container1",
+                "offsetBytes": 57,
+                "bitPositions": null,
+                "sizeBytes": 1,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Container1"
+                  }
+                ]
+              },
+              {
+                "lineRange": "field-layout/field-type-include.h#6-9",
+                "pretty": "field_layout::field_type::S::other_file_field3",
+                "sym": "F_<T_field_layout::field_type::S>_other_file_field3",
+                "type": "class std::vector<struct field_layout::field_type::Type1, class std::allocator<struct field_layout::field_type::Type1> >",
+                "typesym": "T_std::vector",
+                "offsetBytes": 64,
+                "bitPositions": null,
+                "sizeBytes": 24,
+                "pointerInfo": [
+                  {
+                    "kind": "contains",
+                    "sym": "T_field_layout::field_type::Type1"
+                  }
+                ]
               }
             ],
             "overrides": [],
@@ -581,7 +887,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#77"
+            "def": "field-layout/field-type.cpp#36"
           }
         },
         "T_field_layout::field_type::Type1": {
@@ -662,7 +968,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#59",
+                "lineRange": "#11",
                 "pretty": "field_layout::field_type::Type1::a",
                 "sym": "F_<T_field_layout::field_type::Type1>_a",
                 "type": "unsigned char",
@@ -677,14 +983,14 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#58"
+            "def": "field-layout/field-type.cpp#10"
           }
         },
         "T_js::ProtectedDataNoCheckArgs": {
           "sym": "T_js::ProtectedDataNoCheckArgs",
           "pretty": "T_js::ProtectedDataNoCheckArgs",
           "jumps": {
-            "def": "field-layout/field-type.cpp#49"
+            "def": "field-layout/field-type.h#45"
           }
         },
         "T_js::TestCheck": {
@@ -710,7 +1016,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#45"
+            "def": "field-layout/field-type.h#41"
           }
         },
         "T_std::vector": {
@@ -915,7 +1221,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  js::<span class=\"syn_type\" data-symbols=\"T_js::ProtectedDataNoCheckArgs\">ProtectedDataNoCheckArgs</span>&lt;js::<span class=\"syn_type\" data-symbols=\"T_js::TestCheck\">TestCheck</span>,  JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_protected_field\">protected_field</span>;"
+                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\">TestLockData</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_protected_field\">protected_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -926,9 +1232,163 @@ expression: "&to_value(sttl).unwrap()"
               }
             },
             {
-              "EndPadding": [
-                "4 bytes padding"
+              "Field": {
+                "name": "macro_fields_1",
+                "symbols": "F_<T_field_layout::field_type::S>_macro_fields_1",
+                "types": [
+                  {
+                    "name": "struct field_layout::field_type::Type1",
+                    "symbols": "T_field_layout::field_type::Type1"
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_def syn_def syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x34",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "macro_fields_2",
+                "symbols": "F_<T_field_layout::field_type::S>_macro_fields_2",
+                "types": [
+                  {
+                    "name": "enum field_layout::field_type::Enum1",
+                    "symbols": "T_field_layout::field_type::Enum1"
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_def syn_def syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x35",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "macro_fields_3",
+                "symbols": "F_<T_field_layout::field_type::S>_macro_fields_3",
+                "types": [
+                  {
+                    "name": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
+                    "symbols": "T_field_layout::field_type::Container1"
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_def syn_def syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x36",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "multiline_field",
+                "symbols": "F_<T_field_layout::field_type::S>_multiline_field",
+                "types": [
+                  {
+                    "name": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, struct field_layout::field_type::Type1>",
+                    "symbols": "T_js::ProtectedDataNoCheckArgs,T_js::TestCheck,T_field_layout::field_type::Type1"
+                  }
+                ],
+                "lines": [
+                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\">TestLockData</span>&lt;",
+                  "    <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>",
+                  "  >",
+                  "  <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_multiline_field\">multiline_field</span>"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x37",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "other_file_field1",
+                "symbols": "F_<T_field_layout::field_type::S>_other_file_field1",
+                "types": [
+                  {
+                    "name": "struct field_layout::field_type::Type1",
+                    "symbols": "T_field_layout::field_type::Type1"
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field1\">other_file_field1</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x38",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "other_file_field2",
+                "symbols": "F_<T_field_layout::field_type::S>_other_file_field2",
+                "types": [
+                  {
+                    "name": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
+                    "symbols": "T_field_layout::field_type::Container1"
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>>",
+                  "    <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field2\">other_file_field2</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x39",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Hole": [
+                "6 bytes hole"
               ]
+            },
+            {
+              "Field": {
+                "name": "other_file_field3",
+                "symbols": "F_<T_field_layout::field_type::S>_other_file_field3",
+                "types": [
+                  {
+                    "name": "class std::vector<struct field_layout::field_type::Type1, class std::allocator<struct field_layout::field_type::Type1> >",
+                    "symbols": "T_std::vector,T_field_layout::field_type::Type1"
+                  }
+                ],
+                "lines": [
+                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::vector\">vector</span>&lt;",
+                  "    <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>",
+                  "  >",
+                  "    <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field3\">other_file_field3</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x40",
+                    "size": "24"
+                  }
+                ]
+              }
             }
           ]
         }
