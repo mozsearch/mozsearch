@@ -303,6 +303,12 @@ pub trait AbstractServer {
     /// we can actually check the source file out if needed.
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String>;
 
+    /// Fetch the lines in the rendered HTML file.
+    ///
+    /// Returns a tuple of a list of lines, 0-th item for line 1,
+    /// and a JSON string for the SYM_INFO object.
+    async fn fetch_formatted_lines(&self, sf_path: &str) -> Result<(Vec<String>, String)>;
+
     /// Fetch the contents of a rendered HTML file, decompressing if it's
     /// compressed.  If `is_file` is true, this will be from the INDEX/file
     /// sub-tree.  If `is_file` is false, we're treating it as a directory

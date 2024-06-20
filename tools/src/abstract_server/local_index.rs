@@ -17,10 +17,13 @@ use super::server_interface::{
 use super::{TextMatches, TextMatchesByFile, TreeInfo};
 
 use crate::abstract_server::lazy_crossref::perform_lazy_crossref;
+use crate::file_format::analysis::{read_analyses, read_source};
 use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::per_file_info::FileLookupMap;
+use crate::languages::select_formatting;
+use crate::format::format_code;
 
 pub mod livegrep {
     tonic::include_proto!("_");
@@ -195,6 +198,31 @@ impl AbstractServer for LocalIndex {
         let mut raw_str = String::new();
         f.read_to_string(&mut raw_str).await?;
         Ok(raw_str)
+    }
+
+    async fn fetch_formatted_lines(&self, sf_path: &str) -> Result<(Vec<String>, String)> {
+        let norm_path = self.normalize_and_validate_path(sf_path)?;
+        let source = self.fetch_raw_source(sf_path).await?;
+        let analysis_path = self.translate_path(
+            SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
+        let analysis = read_analyses(&[analysis_path], &mut read_source);
+
+        let jumpref_path = format!("{}/jumpref", self.config_paths.index_path);
+        let jumpref_extra_path = format!("{}/jumpref-extra", self.config_paths.index_path);
+
+        let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
+
+        let (raw_lines, sym_json) = format_code(
+            &jumpref_lookup_map,
+            select_formatting(sf_path),
+            sf_path,
+            source.as_str(),
+            &analysis
+        );
+
+        let lines = raw_lines.into_iter().map(|line| line.line).collect();
+
+        Ok((lines, sym_json))
     }
 
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {
