@@ -1484,6 +1484,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1\">sub_sub_sub_a_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x40",
@@ -1517,6 +1520,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "int",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1\">sub_sub_c_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1552,6 +1558,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1\">sub_sub_b_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x3c",
@@ -1580,6 +1589,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1\">sub_a_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",
@@ -1601,6 +1613,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "short",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int16_t\">int16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2\">sub_a_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1636,6 +1651,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1\">sub_b_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x8",
@@ -1657,6 +1675,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "signed char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2\">sub_b_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1692,6 +1713,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3\">sub_b_3</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x10",
@@ -1717,6 +1741,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1\">sub_d_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x20",
@@ -1738,6 +1765,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "signed char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2\">sub_d_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1779,6 +1809,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1\">sub_e_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x30",
@@ -1800,6 +1833,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "int",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2\">sub_e_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1839,6 +1875,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1\">sub_c_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x18",
@@ -1866,6 +1905,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "int",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2\">sub_c_2</span>;"
                 ],
                 "offsetAndSize": [
                   {

@@ -70,6 +70,9 @@ pub struct SymbolTreeTable {
     pub node_set: SymbolGraphNodeSet,
     pub platforms: Vec<String>,
     pub rows: Vec<SymbolTreeTableNode>,
+
+    /// Symbols to put into SYM_INFO, in addition to node_set.
+    pub extra_syms: HashMap<String, Value>,
 }
 
 #[derive(Serialize)]
@@ -86,6 +89,12 @@ impl SymbolTreeTableList {
                 jumprefs.insert(
                     sym_info.symbol.clone(),
                     convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+                );
+            }
+            for (sym, info) in &table.extra_syms {
+                jumprefs.insert(
+                    ustr(sym.as_str()),
+                    info.clone(),
                 );
             }
         }
@@ -180,6 +189,7 @@ pub struct SymbolTreeTableField {
     pub name: String,
     pub symbols: String,
     pub types: Vec<SymbolTreeTableFieldType>,
+    pub lines: Vec<String>,
     #[serde(rename = "offsetAndSize")]
     pub offset_and_size: Vec<Option<SymbolTreeTableFieldOffsetAndSize>>
 }
@@ -190,6 +200,7 @@ impl SymbolTreeTableField {
             name: name,
             symbols: symbols,
             types: vec![],
+            lines: vec![],
             offset_and_size: vec![],
         }
     }
@@ -231,6 +242,7 @@ impl SymbolTreeTable {
             node_set: SymbolGraphNodeSet::new(),
             platforms: vec![],
             rows: vec![],
+            extra_syms: HashMap::new(),
         }
     }
 }

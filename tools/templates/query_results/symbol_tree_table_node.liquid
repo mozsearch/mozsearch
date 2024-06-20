@@ -1,5 +1,5 @@
 <tr>
-  <td colspan="{{ platforms.size | times: 2 | plus: 2 }}">
+  <td colspan="{{ platforms.size | times: 2 | plus: 3 }}">
     <h3>
       <span data-symbols="{{ node.symbols }}">
         {{- node.name | escape -}}
@@ -27,6 +27,16 @@
           {%- assign first = false -%}
         {%- endfor -%}
       </td>
+      <td>
+        {%- assign first = true -%}
+        {%- for line in item.Field.lines -%}
+          {%- if first == false -%}
+            <br>
+          {%- endif -%}
+          <code>{{- line -}}</code>
+          {%- assign first = false -%}
+        {%- endfor -%}
+      </td>
       {%- for offsetAndSize in item.Field.offsetAndSize -%}
         {%- if offsetAndSize -%}
           <td>
@@ -43,7 +53,7 @@
     </tr>
   {%- elsif item contains "Hole" -%}
     <tr>
-      <td colspan="2">
+      <td colspan="3">
       </td>
       {%- for hole in item.Hole -%}
         {%- if hole -%}
@@ -58,7 +68,7 @@
     </tr>
   {%- elsif item contains "EndPadding" -%}
     <tr>
-      <td colspan="2">
+      <td colspan="3">
       </td>
       {%- for padding in item.EndPadding -%}
         {%- if padding -%}
@@ -73,7 +83,7 @@
     </tr>
   {%- elsif item contains "Warning" -%}
     <tr>
-      <th colspan="{{ platforms.size | times: 2 | plus: 2 }}">
+      <th colspan="{{ platforms.size | times: 2 | plus: 3 }}">
         <em class="warning">
           {{- item.Warning | escape -}}
         </em>

@@ -736,6 +736,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": "T_field_layout::field_type::Type1"
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_value_field\">value_field</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",
@@ -759,6 +762,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": "T_field_layout::field_type::Type1"
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >const</span> <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>* <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_pointer_field\">pointer_field</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x8",
@@ -777,6 +783,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": "T_field_layout::field_type::Container1"
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_template_field_1\">template_field_1</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x10",
@@ -794,6 +803,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "struct field_layout::field_type::Container2<struct field_layout::field_type::Type1, field_layout::field_type::Enum1::No>",
                     "symbols": "T_field_layout::field_type::Container2"
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container2\">Container2</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>, <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Enum1\">Enum1</span>::<span data-symbols=\"E_<T_field_layout::field_type::Enum1>_No\">No</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_template_field_2\">template_field_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -818,6 +830,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": "T_std::vector,T_field_layout::field_type::Type1"
                   }
                 ],
+                "lines": [
+                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::vector\">vector</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_vector_field\">vector_field</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x18",
@@ -835,6 +850,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "class JS::Rooted<class JS::Value>",
                     "symbols": "T_JS::Rooted,T_JS::Value"
                   }
+                ],
+                "lines": [
+                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::Rooted\">Rooted</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_rooted_field\">rooted_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -854,6 +872,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": "T_JS::RootedVector,T_JS::Value"
                   }
                 ],
+                "lines": [
+                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::RootedVector\">RootedVector</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_rooted_vec_field\">rooted_vec_field</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x31",
@@ -872,6 +893,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": "T_JS::GCHashMap,T_JS::Value,T_JSObject"
                   }
                 ],
+                "lines": [
+                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::GCHashMap\">GCHashMap</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>, <span class=\"syn_type\" data-symbols=\"T_JSObject\">JSObject</span>*> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_hash_map_field\">hash_map_field</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x32",
@@ -889,6 +913,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, class JS::Value>",
                     "symbols": "T_js::ProtectedDataNoCheckArgs,T_js::TestCheck,T_JS::Value"
                   }
+                ],
+                "lines": [
+                  "  js::<span class=\"syn_type\" data-symbols=\"T_js::ProtectedDataNoCheckArgs\">ProtectedDataNoCheckArgs</span>&lt;js::<span class=\"syn_type\" data-symbols=\"T_js::TestCheck\">TestCheck</span>,  JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_protected_field\">protected_field</span>;"
                 ],
                 "offsetAndSize": [
                   {

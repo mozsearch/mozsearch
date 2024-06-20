@@ -825,6 +825,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::SubSub>_z\">z</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x39",
@@ -853,6 +856,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1a>_x\">x</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -883,6 +889,9 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1b>_y\">y</span>;"
+                ],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x18",
@@ -911,6 +920,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub2>_w\">w</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -941,6 +953,7 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x30",
@@ -958,6 +971,9 @@ expression: "&to_value(sttl).unwrap()"
                     "name": "unsigned char",
                     "symbols": ""
                   }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub3>_v\">v</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -983,6 +999,7 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",
@@ -1007,6 +1024,7 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x10",
@@ -1031,6 +1049,7 @@ expression: "&to_value(sttl).unwrap()"
                     "symbols": ""
                   }
                 ],
+                "lines": [],
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x20",

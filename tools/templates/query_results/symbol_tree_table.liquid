@@ -3,11 +3,13 @@
     <tr>
       <th>Name</th>
       <th>Type</th>
+      <th>Line</th>
       {%- for platform in table.platforms -%}
         <th colspan="2">{{- platform | escape -}}</th>
       {%- endfor -%}
     </tr>
     <tr>
+      <th></th>
       <th></th>
       <th></th>
       {%- for platform in table.platforms -%}
