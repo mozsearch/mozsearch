@@ -226,6 +226,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#8",
                 "pretty": "field_layout::holes::Base::a",
                 "sym": "F_<T_field_layout::holes::Base>_a",
                 "type": "unsigned char",
@@ -235,6 +236,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
+                "lineRange": "#9",
                 "pretty": "field_layout::holes::Base::b",
                 "sym": "F_<T_field_layout::holes::Base>_b",
                 "type": "unsigned short",
@@ -244,6 +246,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 2
               },
               {
+                "lineRange": "#10",
                 "pretty": "field_layout::holes::Base::c",
                 "sym": "F_<T_field_layout::holes::Base>_c",
                 "type": "unsigned int",
@@ -253,6 +256,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
+                "lineRange": "#11",
                 "pretty": "field_layout::holes::Base::d",
                 "sym": "F_<T_field_layout::holes::Base>_d",
                 "type": "char",
@@ -328,6 +332,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#15",
                 "pretty": "field_layout::holes::Sub::x",
                 "sym": "F_<T_field_layout::holes::Sub>_x",
                 "type": "unsigned char",
@@ -337,6 +342,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
+                "lineRange": "#16",
                 "pretty": "field_layout::holes::Sub::y",
                 "sym": "F_<T_field_layout::holes::Sub>_y",
                 "type": "unsigned int",

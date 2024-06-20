@@ -125,6 +125,7 @@ expression: "&json_results"
     ],
     "fields": [
       {
+        "lineRange": "#241",
         "pretty": "outerNS::OuterCat::mIsFriendly",
         "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
         "type": "_Bool",
@@ -132,6 +133,7 @@ expression: "&json_results"
         "sizeBytes": 1
       },
       {
+        "lineRange": "#242",
         "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
         "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
         "type": "_Bool",
@@ -139,6 +141,7 @@ expression: "&json_results"
         "sizeBytes": 1
       },
       {
+        "lineRange": "#244",
         "pretty": "outerNS::OuterCat::mOwner",
         "sym": "F_<T_outerNS::OuterCat>_mOwner",
         "type": "class std::shared_ptr<class outerNS::Human>",
@@ -147,6 +150,7 @@ expression: "&json_results"
         "sizeBytes": 16
       },
       {
+        "lineRange": "#245",
         "pretty": "outerNS::OuterCat::mFavoriteCouch",
         "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
         "type": "class outerNS::Couch *",

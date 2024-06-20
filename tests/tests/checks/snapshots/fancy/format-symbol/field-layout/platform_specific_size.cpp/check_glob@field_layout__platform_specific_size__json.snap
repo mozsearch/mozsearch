@@ -82,6 +82,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#20",
                 "pretty": "field_layout::platform_specific_size::S::f1",
                 "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
                 "type": "unsigned long",
@@ -140,6 +141,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
+                    "lineRange": "#20",
                     "pretty": "field_layout::platform_specific_size::S::f1",
                     "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
                     "type": "unsigned int",

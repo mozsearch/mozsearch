@@ -289,6 +289,7 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [
               {
+                "lineRange": "#33",
                 "pretty": "JS::Value::asBits_",
                 "sym": "F_<T_JS::Value>_asBits_",
                 "type": "unsigned long",
@@ -423,6 +424,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#78",
                 "pretty": "field_layout::field_type::S::value_field",
                 "sym": "F_<T_field_layout::field_type::S>_value_field",
                 "type": "struct field_layout::field_type::Type1",
@@ -438,6 +440,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#79",
                 "pretty": "field_layout::field_type::S::pointer_field",
                 "sym": "F_<T_field_layout::field_type::S>_pointer_field",
                 "type": "const struct field_layout::field_type::Type1 *",
@@ -453,6 +456,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#80",
                 "pretty": "field_layout::field_type::S::template_field_1",
                 "sym": "F_<T_field_layout::field_type::S>_template_field_1",
                 "type": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
@@ -468,6 +472,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#81",
                 "pretty": "field_layout::field_type::S::template_field_2",
                 "sym": "F_<T_field_layout::field_type::S>_template_field_2",
                 "type": "struct field_layout::field_type::Container2<struct field_layout::field_type::Type1, field_layout::field_type::Enum1::No>",
@@ -483,6 +488,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#82",
                 "pretty": "field_layout::field_type::S::vector_field",
                 "sym": "F_<T_field_layout::field_type::S>_vector_field",
                 "type": "class std::vector<struct field_layout::field_type::Type1, class std::allocator<struct field_layout::field_type::Type1> >",
@@ -498,6 +504,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#83",
                 "pretty": "field_layout::field_type::S::rooted_field",
                 "sym": "F_<T_field_layout::field_type::S>_rooted_field",
                 "type": "class JS::Rooted<class JS::Value>",
@@ -513,6 +520,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#84",
                 "pretty": "field_layout::field_type::S::rooted_vec_field",
                 "sym": "F_<T_field_layout::field_type::S>_rooted_vec_field",
                 "type": "class JS::RootedVector<class JS::Value>",
@@ -528,6 +536,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#85",
                 "pretty": "field_layout::field_type::S::hash_map_field",
                 "sym": "F_<T_field_layout::field_type::S>_hash_map_field",
                 "type": "class JS::GCHashMap<class JS::Value, class JSObject *>",
@@ -547,6 +556,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
+                "lineRange": "#86",
                 "pretty": "field_layout::field_type::S::protected_field",
                 "sym": "F_<T_field_layout::field_type::S>_protected_field",
                 "type": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, class JS::Value>",
@@ -652,6 +662,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#59",
                 "pretty": "field_layout::field_type::Type1::a",
                 "sym": "F_<T_field_layout::field_type::Type1>_a",
                 "type": "unsigned char",

@@ -250,6 +250,7 @@ expression: "&to_value(scil).unwrap()"
           ],
           "fields": [
             {
+              "lineRange": "#147",
               "pretty": "outerNS::Thing::mHP",
               "sym": "F_<T_outerNS::Thing>_mHP",
               "type": "int",
@@ -259,6 +260,7 @@ expression: "&to_value(scil).unwrap()"
               "sizeBytes": 4
             },
             {
+              "lineRange": "#151",
               "pretty": "outerNS::Thing::mDefunct",
               "sym": "F_<T_outerNS::Thing>_mDefunct",
               "type": "_Bool",

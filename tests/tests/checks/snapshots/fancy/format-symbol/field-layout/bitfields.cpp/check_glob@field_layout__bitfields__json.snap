@@ -217,6 +217,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
+                "lineRange": "#8",
                 "pretty": "field_layout::bitfields::S::b1",
                 "sym": "F_<T_field_layout::bitfields::S>_b1",
                 "type": "unsigned int",
@@ -229,6 +230,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": null
               },
               {
+                "lineRange": "#9",
                 "pretty": "field_layout::bitfields::S::b2",
                 "sym": "F_<T_field_layout::bitfields::S>_b2",
                 "type": "unsigned int",
@@ -241,6 +243,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": null
               },
               {
+                "lineRange": "#10",
                 "pretty": "field_layout::bitfields::S::b3",
                 "sym": "F_<T_field_layout::bitfields::S>_b3",
                 "type": "unsigned int",
@@ -253,6 +256,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": null
               },
               {
+                "lineRange": "#11",
                 "pretty": "field_layout::bitfields::S::b4",
                 "sym": "F_<T_field_layout::bitfields::S>_b4",
                 "type": "unsigned int",
@@ -265,6 +269,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": null
               },
               {
+                "lineRange": "#12",
                 "pretty": "field_layout::bitfields::S::b5",
                 "sym": "F_<T_field_layout::bitfields::S>_b5",
                 "type": "unsigned char",
@@ -277,6 +282,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": null
               },
               {
+                "lineRange": "#13",
                 "pretty": "field_layout::bitfields::S::b6",
                 "sym": "F_<T_field_layout::bitfields::S>_b6",
                 "type": "unsigned short",

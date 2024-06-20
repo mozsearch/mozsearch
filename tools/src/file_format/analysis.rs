@@ -270,6 +270,18 @@ pub struct StructuredFieldInfo<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
 {
+    /// The field definition's location in "PATH#line-line" or "PATH#line" format.
+    ///
+    /// If this field is defined in single line, "PATH#line" format is used,
+    /// otherwise "PATH#line-line" format is used with first line and last line.
+    ///
+    /// If this field is defined in the same file as struct itself,
+    /// PATH part is omitted.
+    /// Otherwise PATH is the full path inside the repository.
+    ///
+    /// TODO: Use relative path from struct's file to reduce the size.
+    #[serde(rename = "lineRange", default)]
+    pub line_range: StrT,
     #[serde(default)]
     pub pretty: StrT,
     #[serde(default)]

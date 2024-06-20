@@ -52,6 +52,7 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [
               {
+                "lineRange": "#11",
                 "pretty": "field_layout::non_struct::Proxy::x",
                 "sym": "F_<T_field_layout::non_struct::Proxy>_x",
                 "type": "signed char",
