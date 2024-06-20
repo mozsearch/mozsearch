@@ -89,7 +89,9 @@ struct Field {
     field_type_syms: Option<String>,
     type_pretty: String,
     pretty: String,
-    lineno: u64,
+    def_path: String,
+    start_lineno: u64,
+    end_lineno: u64,
     hole_bytes: Option<u32>,
     hole_after_base: bool,
     end_padding_bytes: Option<u32>,
@@ -102,7 +104,12 @@ impl Field {
     fn new(class_id: ClassId, class_traversal_id: TraversalId,
            class_offset: u32, class_size: Option<u32>, field_id: FieldId,
            field_type_syms: String,
-           lineno: u64, info: &StructuredFieldInfo) -> Self {
+           struct_def_path: &Option<String>, identifier_lineno: u64,
+           info: &StructuredFieldInfo) -> Self {
+        let (def_path, start_lineno, end_lineno) =
+            Self::parse_path_and_line_range(info.line_range.to_string(),
+                                            struct_def_path, identifier_lineno);
+
         Self {
             class_id: class_id,
             class_traversal_id: class_traversal_id,
@@ -111,13 +118,47 @@ impl Field {
             field_type_syms: Some(field_type_syms),
             type_pretty: info.type_pretty.to_string(),
             pretty: info.pretty.to_string(),
-            lineno: lineno,
+            def_path: def_path,
+            start_lineno: start_lineno,
+            end_lineno: end_lineno,
             hole_bytes: None,
             hole_after_base: false,
             end_padding_bytes: None,
             offset_bytes: class_offset + info.offset_bytes,
             bit_positions: info.bit_positions.clone(),
             size_bytes: info.size_bytes.clone(),
+        }
+    }
+
+    fn parse_path_and_line_range(s: String, struct_def_path: &Option<String>,
+                                 identifier_lineno: u64) -> (String, u64, u64) {
+        match s.split_once("#") {
+            Some((path, range)) => {
+                let def_path = if path.is_empty() {
+                    // If the field is defined in the same file as struct itself,
+                    // the path part is omitted.
+                    struct_def_path.clone().unwrap_or("".to_string())
+                } else {
+                    path.to_string()
+                };
+
+                match range.split_once("-") {
+                    Some((start, end)) => {
+                        (def_path,
+                         u64::from_str_radix(start, 10).unwrap_or(identifier_lineno),
+                         u64::from_str_radix(end, 10).unwrap_or(identifier_lineno))
+                    }
+                    None => {
+                        (def_path,
+                         u64::from_str_radix(range, 10).unwrap_or(identifier_lineno),
+                         u64::from_str_radix(range, 10).unwrap_or(identifier_lineno))
+                    },
+                }
+            }
+            None => {
+                (struct_def_path.clone().unwrap_or("".to_string()),
+                 identifier_lineno, identifier_lineno)
+            }
         }
     }
 
@@ -132,7 +173,9 @@ impl Field {
             field_type_syms: None,
             type_pretty: "".to_string(),
             pretty: "(vtable)".to_string(),
-            lineno: 0,
+            def_path: "".to_string(),
+            start_lineno: 0,
+            end_lineno: 0,
             hole_bytes: None,
             hole_after_base: false,
             end_padding_bytes: None,
@@ -280,7 +323,7 @@ impl Class {
             for (group_id, _) in groups {
                 match field_variants_map.get(group_id) {
                     Some(field) => {
-                        total_lineno += field.lineno;
+                        total_lineno += field.start_lineno;
                         total_bit_offset += (field.offset_bytes as u64) * 8;
                         if let Some(pos) = &field.bit_positions {
                             total_bit_offset += pos.begin as u64;
@@ -639,6 +682,7 @@ impl ClassMap {
             let Some(structured) = Self::get_struct_structured(sym_info) else {
                 continue;
             };
+            let struct_def_path = sym_info.get_def_path().map(|s| s.clone());
 
             let cls = Class::new(
                 class_id.clone(),
@@ -711,7 +755,7 @@ impl ClassMap {
                 }
 
                 for field in s.fields.clone() {
-                    let (field_id, field_info) = {
+                    let (field_id, field_lineno) = {
                         let (field_id, field_info) = self.stt
                             .node_set
                             .ensure_symbol(&field.sym, server, depth + 1)
@@ -757,7 +801,8 @@ impl ClassMap {
                         let field = Field::new(class_id.clone(), traversal_id.clone(),
                                                offset, s.size_bytes.clone(),
                                                field_id.clone(), field_type_syms,
-                                               field_info, &field);
+                                               &struct_def_path, field_lineno,
+                                               &field);
                         fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
                         for platform_id in item.platforms() {
@@ -765,7 +810,8 @@ impl ClassMap {
                             let field = Field::new(class_id.clone(), traversal_id.clone(),
                                                    offset, s.size_bytes.clone(),
                                                    field_id.clone(), field_type_syms.clone(),
-                                                   field_info, &field);
+                                                   &struct_def_path, field_lineno,
+                                                   &field);
                             fields_per_platform.add_field(&platform_id, field.clone());
                         }
                     }
