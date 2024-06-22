@@ -78,6 +78,8 @@ pub struct SymbolTreeTable {
 #[derive(Serialize)]
 pub struct SymbolTreeTableList {
     pub tables: Vec<SymbolTreeTable>,
+    #[serde(rename = "className")]
+    pub class_name: Option<String>,
 }
 
 impl SymbolTreeTableList {

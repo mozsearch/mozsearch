@@ -51,6 +51,12 @@ pub enum SymbolFormatMode {
 pub struct FormatSymbols {
     #[clap(long, value_parser, value_enum, default_value = "field-layout")]
     pub mode: SymbolFormatMode,
+
+    #[clap(long, value_parser)]
+    pub show_cols: Option<String>,
+
+    #[clap(long, value_parser)]
+    pub hide_cols: Option<String>,
 }
 
 #[derive(Debug)]
@@ -1217,8 +1223,31 @@ impl PipelineCommand for FormatSymbolsCommand {
                     map.generate_tables(&mut tables);
                 }
 
+                let mut class_names = vec![];
+                if let Some(cols) = &self.args.show_cols {
+                    for col in cols.split(",") {
+                        if col == "type" {
+                            class_names.push(format!("show-{}", col));
+                        }
+                    }
+                }
+                if let Some(cols) = &self.args.hide_cols {
+                    for col in cols.split(",") {
+                        if col == "line" || col == "name" {
+                            class_names.push(format!("hide-{}", col));
+                        }
+                    }
+                }
+
+                let class_name = if class_names.is_empty() {
+                    None
+                } else {
+                    Some(class_names.join(" "))
+                };
+
                 Ok(PipelineValues::SymbolTreeTableList(SymbolTreeTableList {
                     tables,
+                    class_name: class_name,
                 }))
             }
         }

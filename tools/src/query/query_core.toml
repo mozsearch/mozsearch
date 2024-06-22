@@ -258,6 +258,16 @@ transforms = ["path_glob"]
 command = "search-text"
 args.re = "$0"
 
+[term.show-cols]
+[[term.show-cols.group.semantic-format]]
+command = "format-symbols"
+args.show-cols = "$0"
+
+[term.hide-cols]
+[[term.hide-cols.group.semantic-format]]
+command = "format-symbols"
+args.hide-cols = "$0"
+
 [term.sym]
 alias = "symbol"
 

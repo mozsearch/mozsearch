@@ -1,17 +1,17 @@
 <table class="symbol-tree-table">
   <thead>
     <tr>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Line</th>
+      <th class="name-cell">Name</th>
+      <th class="type-cell">Type</th>
+      <th class="line-cell">Line</th>
       {%- for platform in table.platforms -%}
         <th colspan="2">{{- platform | escape -}}</th>
       {%- endfor -%}
     </tr>
     <tr>
-      <th></th>
-      <th></th>
-      <th></th>
+      <th class="name-cell"></th>
+      <th class="type-cell"></th>
+      <th class="line-cell"></th>
       {%- for platform in table.platforms -%}
         <th>Offset</th>
         <th>Size</th>

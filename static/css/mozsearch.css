@@ -1311,6 +1311,22 @@ g.true-diag g.node polygon {
 
 /* Field Layout */
 
+#symbol-tree-table-list .type-cell {
+  display: none;
+}
+
+#symbol-tree-table-list.hide-name .name-cell {
+  display: none;
+}
+
+#symbol-tree-table-list.show-type .type-cell {
+  display: table-cell;
+}
+
+#symbol-tree-table-list.hide-line .line-cell {
+  display: none;
+}
+
 .symbol-tree-table {
   border-collapse: separate;
 }
@@ -1348,21 +1364,25 @@ g.true-diag g.node polygon {
 .symbol-tree-table th,
 .symbol-tree-table td {
   border-block-end-width: 1px;
-  border-inline-end-width: 1px;
-}
-
-.symbol-tree-table th:first-child,
-.symbol-tree-table td:first-child {
   border-inline-start-width: 1px;
 }
 
-.symbol-tree-table tr:first-child th:first-child {
+.symbol-tree-table th:last-child,
+.symbol-tree-table td:last-child {
+  border-inline-end-width: 1px;
+}
+
+.symbol-tree-table tr:first-child th:first-child,
+#symbol-tree-table-list.hide-name.show-type tr:first-child th.type-cell,
+#symbol-tree-table-list.hide-name:not(.show-type) tr:first-child th.line-cell {
   border-start-start-radius: 4px;
 }
 .symbol-tree-table tr:first-child th:last-child {
   border-start-end-radius: 4px;
 }
-.symbol-tree-table tr:last-child td:first-child {
+.symbol-tree-table tr:last-child td:first-child,
+#symbol-tree-table-list.hide-name.show-type tr:last-child td.type-cell,
+#symbol-tree-table-list.hide-name:not(.show-type) tr:last-child td.line-cell {
   border-end-start-radius: 4px;
 }
 .symbol-tree-table tr:last-child td:last-child {
