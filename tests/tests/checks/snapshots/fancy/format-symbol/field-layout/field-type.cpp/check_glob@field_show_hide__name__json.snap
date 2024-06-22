@@ -1395,5 +1395,5 @@ expression: "&to_value(sttl).unwrap()"
       ]
     }
   ],
-  "className": null
+  "className": "hide-name hide-line"
 }

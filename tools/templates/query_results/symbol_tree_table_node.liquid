@@ -12,14 +12,14 @@
 {%- for item in node.items -%}
   {%- if item contains "Field" -%}
     <tr>
-      <td>
+      <td class="name-cell">
         <code>
           <span data-symbols="{{ item.Field.symbols }}">
             {{- item.Field.name | escape -}}
           </span>
         </code>
       </td>
-      <td>
+      <td class="type-cell">
         <code class="field-type">
           {%- assign first = true -%}
           {%- for type in item.Field.types -%}
@@ -33,7 +33,7 @@
           {%- endfor -%}
         </code>
       </td>
-      <td>
+      <td class="line-cell">
         {%- assign first = true -%}
         {%- for line in item.Field.lines -%}
           {%- if first == false -%}
@@ -63,7 +63,9 @@
     </tr>
   {%- elsif item contains "Hole" -%}
     <tr>
-      <td colspan="3">
+      <td class="name-cell"></td>
+      <td class="type-cell"></td>
+      <td class="line-cell"></td>
       </td>
       {%- for hole in item.Hole -%}
         {%- if hole -%}
@@ -80,7 +82,9 @@
     </tr>
   {%- elsif item contains "EndPadding" -%}
     <tr>
-      <td colspan="3">
+      <td class="name-cell"></td>
+      <td class="type-cell"></td>
+      <td class="line-cell"></td>
       </td>
       {%- for padding in item.EndPadding -%}
         {%- if padding -%}
