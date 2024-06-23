@@ -429,6 +429,8 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 end: peek_pos(),
                 kind: TokenKind::Identifier(class),
             });
+            // NOTE: yield and await can also be followed by RegExp, but
+            //       only in generator or async context.
             next_token_maybe_regexp_literal = word == "return";
         } else if ch == '\n' {
             tokens.push(Token {
@@ -685,11 +687,27 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             });
 
             // Horrible hack to treat '/' in (1+2)/3 as division and not regexp literal.
+            //
+            // NOTE: This doesn't cover the following differences:
+            //
+            //   ++ vs +
+            //   -- vs -
+            //     a++ /foo/g;                    // This should be Div
+            //     a + /(x*)/.exec(s)[1].length;  // This should be RegExp
+            //
+            //   } for block vs object
+            //     {}/foo/g;                      // This should be RegExp
+            //     x = {}/foo/g;                  // This should be Div
+            //
+            // See test_regexp_js and test_not_regexp_js for examples.
             let s = string[start..peek_pos()].to_string();
             next_token_maybe_regexp_literal = s == "="
                 || s == "("
+                || s == "["
                 || s == "{"
+                || s == "}"
                 || s == ":"
+                || s == ";"
                 || s == "&"
                 || s == "|"
                 || s == "!"
@@ -1500,6 +1518,330 @@ mod tests {
                 ("+", TokenKind::Punctuation),
                 ("'oop'", TokenKind::StringLiteral),
                 ("}`", TokenKind::StringLiteral),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_regexp_js() {
+        let spec = match select_formatting("test.js") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => {
+                panic!("wrong spec");
+            }
+        };
+
+        let check = |s: &str, expected: &[(&str, TokenKind)]| {
+            check_tokens(s, expected, spec);
+        };
+
+        check(
+            "/foo/",
+            &vec![
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+            ],
+        );
+        check(
+            "v = /foo/;",
+            &vec![
+                ("v", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "(/foo/);",
+            &vec![
+                ("(", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (")", TokenKind::Punctuation),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "[/foo/];",
+            &vec![
+                ("[", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                ("]", TokenKind::Punctuation),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "{/foo/;}",
+            &vec![
+                ("{", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+                ("}", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "({ p: /foo/ });",
+            &vec![
+                ("(", TokenKind::Punctuation),
+                ("{", TokenKind::Punctuation),
+                ("p", TokenKind::Identifier(None)),
+                (":", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                ("}", TokenKind::Punctuation),
+                (")", TokenKind::Punctuation),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "v = a && /foo/;",
+            &vec![
+                ("v", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                ("&", TokenKind::Punctuation),
+                ("&", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "v = a || /foo/;",
+            &vec![
+                ("v", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                ("|", TokenKind::Punctuation),
+                ("|", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "!/foo/.test(x);",
+            &vec![
+                ("!", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (".", TokenKind::Punctuation),
+                ("test", TokenKind::Identifier(None)),
+                ("(", TokenKind::Punctuation),
+                ("x", TokenKind::Identifier(None)),
+                (")", TokenKind::Punctuation),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "[a, /foo/];",
+            &vec![
+                ("[", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                (",", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                ("]", TokenKind::Punctuation),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "v = a ? /foo/ : b;",
+            &vec![
+                ("v", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                ("?", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (":", TokenKind::Punctuation),
+                ("b", TokenKind::Identifier(None)),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "v = a ? b : /foo/;",
+            &vec![
+                ("v", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                ("?", TokenKind::Punctuation),
+                ("b", TokenKind::Identifier(None)),
+                (":", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "v = a ?? /foo/;",
+            &vec![
+                ("v", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                ("?", TokenKind::Punctuation),
+                ("?", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "a => /foo/;",
+            &vec![
+                ("a", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                (">", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "a < /foo/.exec(s).length;",
+            &vec![
+                ("a", TokenKind::Identifier(None)),
+                ("<", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (".", TokenKind::Punctuation),
+                ("exec", TokenKind::Identifier(None)),
+                ("(", TokenKind::Punctuation),
+                ("s", TokenKind::Identifier(None)),
+                (")", TokenKind::Punctuation),
+                (".", TokenKind::Punctuation),
+                ("length", TokenKind::Identifier(None)),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "{}/foo/",
+            &vec![
+                ("{", TokenKind::Punctuation),
+                ("}", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+            ],
+        );
+        check(
+            "{}\n/foo/",
+            &vec![
+                ("{", TokenKind::Punctuation),
+                ("}", TokenKind::Punctuation),
+                ("\n", TokenKind::Newline),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+            ],
+        );
+        check(
+            ";/foo/",
+            &vec![
+                (";", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+            ],
+        );
+        check(
+            "x / /foo/.source.length",
+            &vec![
+                ("x", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (".", TokenKind::Punctuation),
+                ("source", TokenKind::Identifier(None)),
+                (".", TokenKind::Punctuation),
+                ("length", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "x => { return /foo/; }",
+            &vec![
+                ("x", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                (">", TokenKind::Punctuation),
+                ("{", TokenKind::Punctuation),
+                ("return", TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string()))),
+                ("/foo/", TokenKind::RegularExpressionLiteral),
+                (";", TokenKind::Punctuation),
+                ("}", TokenKind::Punctuation),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_not_regexp_js() {
+        let spec = match select_formatting("test.js") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => {
+                panic!("wrong spec");
+            }
+        };
+
+        let check = |s: &str, expected: &[(&str, TokenKind)]| {
+            check_tokens(s, expected, spec);
+        };
+        check(
+            "a/foo/g",
+            &vec![
+                ("a", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("g", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "a++/foo/g",
+            &vec![
+                ("a", TokenKind::Identifier(None)),
+                ("+", TokenKind::Punctuation),
+                ("+", TokenKind::Punctuation),
+                ("/", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("g", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "1./foo/g",
+            &vec![
+                ("1", TokenKind::Identifier(None)),
+                (".", TokenKind::Punctuation),
+                ("/", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("g", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "'1'/foo/g",
+            &vec![
+                ("'1'", TokenKind::StringLiteral),
+                ("/", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("g", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "\"1\"/foo/g",
+            &vec![
+                ("\"1\"", TokenKind::StringLiteral),
+                ("/", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("g", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "(a + b)/foo/g",
+            &vec![
+                ("(", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                ("+", TokenKind::Punctuation),
+                ("b", TokenKind::Identifier(None)),
+                (")", TokenKind::Punctuation),
+                ("/", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("g", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "[1]/foo/g",
+            &vec![
+                ("[", TokenKind::Punctuation),
+                ("1", TokenKind::Identifier(None)),
+                ("]", TokenKind::Punctuation),
+                ("/", TokenKind::Punctuation),
+                ("foo", TokenKind::Identifier(None)),
+                ("/", TokenKind::Punctuation),
+                ("g", TokenKind::Identifier(None)),
             ],
         );
     }
