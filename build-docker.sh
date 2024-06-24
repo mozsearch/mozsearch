@@ -5,7 +5,12 @@ IMAGE_NAME=${SEARCHFOX_DOCKER_IMAGE_NAME:-searchfox}
 CONTAINER_NAME=${SEARCHFOX_DOCKER_CONTAINER_NAME:-searchfox}
 VOLUME_NAME=${SEARCHFOX_DOCKER_VOLUME_NAME:-searchfox-vol}
 
+# Explicitly build with platform linux/amd64 so if you're running this on an
+# aarch64 macOS, it forces amd64. There are a numerous things in the infrastructure
+# setup that are hard-coded to amd64 architecture, so it's simpler to do this than
+# to make all those downloads conditional on architecture.
 docker build \
+    --platform linux/amd64 \
     -t ${IMAGE_NAME} \
     --build-arg LOCAL_UID=$(id -u $USER) \
     --build-arg LOCAL_GID=$(id -g $USER) \
