@@ -27,7 +27,7 @@ sudo apt-get update
 # gettext-base: necessary for `envsubst` to exist
 sudo apt-get install -y software-properties-common gettext-base rsync
 
-sudo add-apt-repository -y ppa:git-core/ppa    # For latest git
+sudo apt-add-repository -y ppa:git-core/ppa    # For latest git
 sudo apt-get update
 sudo apt-get install -y git
 git config --global pull.ff only
@@ -98,7 +98,7 @@ BAZEL=~/bazelisk/bazelisk-linux-amd64
 
 # Clang
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-sudo apt-add-repository "deb https://apt.llvm.org/${UBUNTU_RELEASE}/ llvm-toolchain-${UBUNTU_RELEASE}${CLANG_SUFFIX} main"
+sudo apt-add-repository -y "deb https://apt.llvm.org/${UBUNTU_RELEASE}/ llvm-toolchain-${UBUNTU_RELEASE}${CLANG_SUFFIX} main"
 sudo apt-get update
 sudo apt-get install -y clang${CLANG_SUFFIX} libclang${CLANG_SUFFIX}-dev lld${CLANG_SUFFIX}
 
