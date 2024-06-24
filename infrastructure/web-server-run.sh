@@ -31,24 +31,31 @@ nohup $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/
 export RUST_BACKTRACE=1
 nohup $MOZSEARCH_PATH/tools/target/release/web-server $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &
 
-# let's try and stop the pipeline-server from causing problems by setting a ulimit
-# on virtual memory usage.  Currently, the worst-case scenario is mozilla-central
-# where it starts with 13.7G of VM usage where we know we have 8.9G of memory
-# mapped files.  At that point the resident memory usage is 390M.  If we trigger
-# a worst-case scenario graph traversal (before fixes), we see 24.0G virt, 11.1G
-# resident.  We're setting our virt limit to 24G accordingly since on a t3.xlarge
-# that only has 16G of RAM, that leaves enough for the rest not to fall over.
+# Let's try and stop the pipeline-server from causing problems by setting a ulimit
+# on virtual memory usage.  We use du to figure out the total sizes of all of
+# the files we will mmap, specifically: identifiers, crossref/crossref-extra,
+# and jumpref/jumpref-extra.  We then add an allowance for other libraries and
+# fundamental mapping, plus an allowance for runtime memory usage.
 #
-# TODO: automate updating/calculating this number somewhat.  In particular, the
-# indexer check mechanism will stand up the web-server, which makes it possible
-# to inspect the pipeline-server's VM use at that time and then write it to a
-# file and then do some math on it.  I'm not doing that right now because it's
-# more work and more likely to have problems that defeat the point.  Also,
-# there are some upsides to having this be an absolute value that's 3/4 of the
-# expected system memory for t3.2xlarge.
-#
-# ulimit -v units are kilobytes, so we do 24 * 1024 * 1024.
-ulimit -v 25165824
+# Resulting units are KiB in all cases, which is also what ulimit takes.
+MAPPED_FILES_USAGE_K=$(du -c $WORKING/*/identifiers $WORKING/*/crossref* $WORKING/*/jumpref* | cut -f1 | tail -1)
+# When first adding the ulimit, our VM size was 13.7G with resident usage of
+# 390M.  When writing this on the spare config1 I'm seeing 13.5G VM with 668M
+# resident with the MAPPED_FILES_USAGE_K above reporting ~12.7G which gives 800M
+STEADY_STATE_ASSUMED_K=$((800 * 1024))
+# Allowed growth.  When first adding the ulimit, we allowed 10.3G of VM usage
+# which paired with a 10.7G of resident usage.  I'm going to round this down to
+# 10G since we already grew the steady state above.
+ALLOWED_GROWTH_K=$((10 * 1024 * 1024))
+
+# I've also just manually confirmed that this works as expected for config4
+# where our sum below ends up at ~48G and the pipeline-server VM ends up at
+# ~38G, although that's after doing some brief diagram testing to RES is also
+# 1410M, but it works out okay.
+PIPELINE_SERVER_VM_LIMIT_K=$(($MAPPED_FILES_USAGE_K + $STEADY_STATE_ASSUMED_K + $ALLOWED_GROWTH_K))
+
+# ulimit -v units are kilobytes
+ulimit -v $PIPELINE_SERVER_VM_LIMIT_K
 
 # Note that we do not currently wait for the pipeline-server and it does not
 # write to the STATUS_FILE.
