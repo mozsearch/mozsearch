@@ -277,6 +277,10 @@ var Dxr = new (class Dxr {
   }
 
   parseColQuery() {
+    if (!this.colSelector) {
+      return;
+    }
+
     let query = this.fields.query.value;
 
     for (const m of query.matchAll(/(show|hide)-cols:([a-z,]+)/g)) {
