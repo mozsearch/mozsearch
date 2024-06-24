@@ -1271,6 +1271,10 @@ public:
     J.arrayEnd();
     J.attributeEnd();
   }
+
+  void emitStructuredEnumInfo(llvm::json::OStream &J, const EnumDecl *ED) {
+    J.attribute("kind", "enum");
+  }
   
   void emitStructuredFunctionInfo(llvm::json::OStream &J, const FunctionDecl *decl) {
     emitBindingAttributes(J, *decl);
@@ -1426,6 +1430,8 @@ public:
 
     if (const RecordDecl *RD = dyn_cast<RecordDecl>(decl)) {
       emitStructuredRecordInfo(J, Loc, RD);
+    } else if (const EnumDecl *ED = dyn_cast<EnumDecl>(decl)) {
+      emitStructuredEnumInfo(J, ED);
     } else if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
       emitStructuredFunctionInfo(J, FD);
     } else if (const FieldDecl *FD = dyn_cast<FieldDecl>(decl)) {
@@ -1916,6 +1922,12 @@ public:
           findBindingToJavaClass(*AstContext, *D3);
           findBoundAsJavaClasses(*AstContext, *D3);
         }
+        emitStructuredInfo(Loc, D2);
+      }
+    }
+    if (EnumDecl *D2 = dyn_cast<EnumDecl>(D)) {
+      if (D2->isThisDeclarationADefinition() && !D2->isDependentType() &&
+          !TemplateStack) {
         emitStructuredInfo(Loc, D2);
       }
     }
