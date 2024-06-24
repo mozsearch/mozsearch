@@ -1,3 +1,9 @@
+<div id="symbol-tree-table-col-selector">
+  Columns:
+  <label for="col-show-name"><input type="checkbox" id="col-show-name">Name</label>
+  <label for="col-show-type"><input type="checkbox" id="col-show-type">Type</label>
+  <label for="col-show-line"><input type="checkbox" id="col-show-line">Line</label>
+</div>
 <div id="symbol-tree-table-list"
 {%- if results.SymbolTreeTableList.className %} class="{{ results.SymbolTreeTableList.className }}"{% endif -%}>
 {% for table in results.SymbolTreeTableList.tables %}

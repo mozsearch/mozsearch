@@ -32,6 +32,8 @@ var Dxr = new (class Dxr {
       path: document.getElementById("path-bubble"),
     };
 
+    this.setupColSelector();
+
     this.startSearchTimer = null;
     // The timer to move to the next url.
     this.historyTimer = null;
@@ -107,11 +109,8 @@ var Dxr = new (class Dxr {
 
     this.hideBubbles();
 
-    let url = new URL(this.searchUrl, window.location);
-    url.searchParams.set("q", this.fields.query.value);
-    url.searchParams.set("path", this.fields.path.value.trim());
-    url.searchParams.set("case", this.fields.caseSensitive.checked);
-    url.searchParams.set("regexp", this.fields.regexp.checked);
+    let url = this.constructURL();
+
     let controller = new AbortController();
 
     this.fetchController = controller;
@@ -141,6 +140,26 @@ var Dxr = new (class Dxr {
     }
 
     populateResults(results, false, false);
+
+    this.updateHistory(url);
+  }
+
+  constructURL() {
+    let url = new URL(this.searchUrl, window.location);
+    url.searchParams.set("q", this.fields.query.value);
+    if (this.fields.path) {
+      url.searchParams.set("path", this.fields.path.value.trim());
+    }
+    if (this.caseSensitive) {
+      url.searchParams.set("case", this.fields.caseSensitive.checked);
+    }
+    if (this.fields.regexp) {
+      url.searchParams.set("regexp", this.fields.regexp.checked);
+    }
+    return url;
+  }
+
+  updateHistory(url) {
     this.historyTimer = setTimeout(() => {
       this.historyTimer = null;
       window.history.pushState({}, "", url.href);
@@ -223,6 +242,112 @@ var Dxr = new (class Dxr {
     for (let kind in this.bubbles) {
       this.hideBubble(kind);
     }
+  }
+
+  setupColSelector() {
+    this.colSelector = document.querySelector("#symbol-tree-table-col-selector");
+    if (!this.colSelector) {
+      return;
+    }
+    this.symbolTreeTableList = document.querySelector("#symbol-tree-table-list");
+    if (!this.symbolTreeTableList) {
+      return;
+    }
+
+    const defaultCols = {
+      name: true,
+      type: false,
+      line: true,
+    };
+
+    this.cols = {};
+    for (const [key, defaultValue] of Object.entries(defaultCols)) {
+      const node = document.querySelector("#col-show-" + key);
+      node.addEventListener("change", () => {
+        this.onColChange();
+      });
+      this.cols[key] = {
+        node: node,
+        currentValue: defaultValue,
+        defaultValue: defaultValue,
+      };
+    }
+
+    this.parseColQuery();
+  }
+
+  parseColQuery() {
+    let query = this.fields.query.value;
+
+    for (const m of query.matchAll(/(show|hide)-cols:([a-z,]+)/g)) {
+      const show = m[1] == "show";
+      const cols = m[2].split(/,/);
+
+      for (const col of cols) {
+        this.cols[col].currentValue = show;
+      }
+    }
+
+    this.updateColCheckbox();
+  }
+
+  updateColCheckbox() {
+    for (const [key, obj] of Object.entries(this.cols)) {
+      obj.node.checked = obj.currentValue;
+    }
+  }
+
+  onColChange() {
+    for (const [key, obj] of Object.entries(this.cols)) {
+      obj.currentValue = obj.node.checked;
+
+      if (!obj.defaultValue) {
+        this.symbolTreeTableList.classList.toggle("show-" + key, obj.currentValue);
+      } else {
+        this.symbolTreeTableList.classList.toggle("hide-" + key, !obj.currentValue);
+      }
+    }
+
+    this.updateColQuery();
+  }
+
+  getShowCols() {
+    const showCols = [];
+    for (const [key, obj] of Object.entries(this.cols)) {
+      if (obj.currentValue != obj.defaultValue && !obj.defaultValue) {
+        showCols.push(key);
+      }
+    }
+    return showCols.join(",");
+  }
+
+  getHideCols() {
+    const hideCols = [];
+    for (const [key, obj] of Object.entries(this.cols)) {
+      if (obj.currentValue != obj.defaultValue && obj.defaultValue) {
+        hideCols.push(key);
+      }
+    }
+    return hideCols.join(",");
+  }
+
+  updateColQuery() {
+    const showCols = this.getShowCols();
+    const hideCols = this.getHideCols();
+
+    let query = this.fields.query.value;
+    query = query.replace(/ +(show|hide)-cols:([a-z,]+)/g, "");
+
+    if (showCols) {
+      query += " show-cols:" + showCols;
+    }
+    if (hideCols) {
+      query += " hide-cols:" + hideCols;
+    }
+
+    this.fields.query.value = query;
+    let url = this.constructURL();
+    this.updateHistory(url);
   }
 })();
 
@@ -658,6 +783,8 @@ function populateResults(data, full, jumpToSingle) {
       }, 750);
     }
   }
+
+  Dxr.parseColQuery();
 }
 
 window.showSearchResults = function (results) {
