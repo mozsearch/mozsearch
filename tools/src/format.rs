@@ -64,6 +64,7 @@ pub enum SemanticTokenKind {
 pub fn str_from_semantic_kind(kind: SemanticTokenKind) -> String {
   (match kind {
     SemanticTokenKind::Enum => "enum",
+    SemanticTokenKind::EnumConstant => "enum_constant",
     SemanticTokenKind::Class => "class",
     SemanticTokenKind::Method => "method",
     SemanticTokenKind::Function => "function",

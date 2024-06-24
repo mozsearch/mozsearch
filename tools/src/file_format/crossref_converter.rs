@@ -197,6 +197,7 @@ pub fn semantic_token_kind_from_jumpref(jumpref: &Value) -> Option<SemanticToken
       // TODO handle other semantic token kinds
       return match structured.kind.as_str() {
         "enum" => Some(SemanticTokenKind::Enum),
+        "enumConstant" => Some(SemanticTokenKind::EnumConstant),
         "class" | "struct" | "union" => Some(SemanticTokenKind::Class),
         "method" => Some(SemanticTokenKind::Method),
         "function" => Some(SemanticTokenKind::Function),
