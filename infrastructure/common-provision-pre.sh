@@ -174,7 +174,7 @@ if [ ! -d git-cinnabar ]; then
   git clone https://github.com/glandium/git-cinnabar
   pushd git-cinnabar
     git checkout $CINNABAR_REVISION
-    ./download.py
+    ./download.py --branch release
     # These need to be symlinks rather than `install`d binaries because cinnabar
     # uses other python code from the repo.
     for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
