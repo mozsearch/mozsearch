@@ -541,7 +541,26 @@ expression: "&to_value(sttl).unwrap()"
         },
         "T_field_layout::field_type::Enum1": {
           "sym": "T_field_layout::field_type::Enum1",
-          "pretty": "T_field_layout::field_type::Enum1",
+          "pretty": "field_layout::field_type::Enum1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::field_type::Enum1",
+            "sym": "T_field_layout::field_type::Enum1",
+            "type_pretty": null,
+            "kind": "enum",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
           "jumps": {
             "def": "field-layout/field-type.cpp#19"
           }
