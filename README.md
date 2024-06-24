@@ -25,6 +25,12 @@ are a hassle.
 Can you already run "docker" on your command line and have it work?  Then you
 can skip this section!
 
+> [!WARNING]
+> If you're running docker on macOS, make sure the Rosetta option is disabled
+> in the Docker Desktop settings, otherwise you may run into segfaults on
+> installing rust components. See https://github.com/rust-lang/rustup/issues/3902
+> and friends.
+
 #### Important Docker Licensing Notes
 
 Docker has changed their licensing of their "Docker Desktop" packages.  We do
