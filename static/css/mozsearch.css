@@ -1393,3 +1393,15 @@ g.true-diag g.node polygon {
   color: var(--table-header-color);
   background-color: var(--table-header-background);
 }
+
+#symbol-tree-table-col-selector {
+  text-align: end;
+}
+
+#symbol-tree-table-col-selector label {
+  display: inline-block;
+}
+
+#symbol-tree-table-col-selector label + label {
+  margin: 0 0 0 8px;
+}
