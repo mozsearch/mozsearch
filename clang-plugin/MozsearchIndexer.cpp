@@ -1275,6 +1275,11 @@ public:
   void emitStructuredEnumInfo(llvm::json::OStream &J, const EnumDecl *ED) {
     J.attribute("kind", "enum");
   }
+
+  void emitStructuredEnumConstantInfo(llvm::json::OStream &J,
+                                      const EnumConstantDecl *ECD) {
+    J.attribute("kind", "enumConstant");
+  }
   
   void emitStructuredFunctionInfo(llvm::json::OStream &J, const FunctionDecl *decl) {
     emitBindingAttributes(J, *decl);
@@ -1432,6 +1437,8 @@ public:
       emitStructuredRecordInfo(J, Loc, RD);
     } else if (const EnumDecl *ED = dyn_cast<EnumDecl>(decl)) {
       emitStructuredEnumInfo(J, ED);
+    } else if (const EnumConstantDecl *ECD = dyn_cast<EnumConstantDecl>(decl)) {
+      emitStructuredEnumConstantInfo(J, ECD);
     } else if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
       emitStructuredFunctionInfo(J, FD);
     } else if (const FieldDecl *FD = dyn_cast<FieldDecl>(decl)) {
@@ -1928,6 +1935,11 @@ public:
     if (EnumDecl *D2 = dyn_cast<EnumDecl>(D)) {
       if (D2->isThisDeclarationADefinition() && !D2->isDependentType() &&
           !TemplateStack) {
+        emitStructuredInfo(Loc, D2);
+      }
+    }
+    if (EnumConstantDecl *D2 = dyn_cast<EnumConstantDecl>(D)) {
+      if (!D2->isTemplated() && !TemplateStack) {
         emitStructuredInfo(Loc, D2);
       }
     }
