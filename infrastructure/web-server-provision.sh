@@ -15,7 +15,7 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-exec &> update-log
+exec > >(tee -a update-log) 2>&1
 
 date
 
