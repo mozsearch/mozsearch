@@ -92,6 +92,7 @@ else
     # - `-p`: specifies the port mapping to expose the nginx web-server (when
     #   running; it doesn't automatically run!) on localhost port 16995.
     docker run \
+        --platform linux/amd64 \
         -it \
         --name $CONTAINER_NAME \
         --mount type=bind,source=${THIS_DIR},target=${INSIDE_CONTAINER_DIR} \
