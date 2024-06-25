@@ -55,6 +55,7 @@ expression: "&to_value(scil).unwrap()"
           "slotOwner": {
             "slotKind": "getter",
             "slotLang": "cpp",
+            "implKind": null,
             "ownerLang": "idl",
             "sym": "XPIDL_nsIXPCTestObjectReadWrite_booleanProperty"
           },

@@ -63,7 +63,7 @@ expression: "&to_value(scil).unwrap()"
           "structured": 1,
           "pretty": "sample::JavaLibrary::<init>",
           "sym": "S_jvm_sample/JavaLibrary#<init>().",
-          "type_pretty": null,
+          "type_pretty": "public JavaLibrary()",
           "kind": "method",
           "subsystem": null,
           "parentsym": "S_jvm_sample/JavaLibrary#",

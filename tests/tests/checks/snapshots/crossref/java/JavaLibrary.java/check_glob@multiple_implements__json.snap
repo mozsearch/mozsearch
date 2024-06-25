@@ -29,7 +29,7 @@ expression: "&to_value(scil).unwrap()"
           "structured": 1,
           "pretty": "sample::JavaLibrary::C",
           "sym": "S_jvm_sample/JavaLibrary#C#",
-          "type_pretty": null,
+          "type_pretty": "final class C",
           "kind": "class",
           "subsystem": null,
           "parentsym": "S_jvm_sample/JavaLibrary#",

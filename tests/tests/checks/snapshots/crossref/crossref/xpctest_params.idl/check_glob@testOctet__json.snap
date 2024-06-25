@@ -39,12 +39,14 @@ expression: "&to_value(scil).unwrap()"
             {
               "slotKind": "method",
               "slotLang": "js",
+              "implKind": null,
               "ownerLang": "idl",
               "sym": "#testOctet"
             },
             {
               "slotKind": "method",
               "slotLang": "cpp",
+              "implKind": null,
               "ownerLang": "idl",
               "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
             }
@@ -118,6 +120,7 @@ expression: "&to_value(scil).unwrap()"
           "slotOwner": {
             "slotKind": "method",
             "slotLang": "cpp",
+            "implKind": null,
             "ownerLang": "idl",
             "sym": "XPIDL_nsIXPCTestParams_testOctet"
           },
