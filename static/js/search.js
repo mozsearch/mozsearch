@@ -150,7 +150,7 @@ var Dxr = new (class Dxr {
     if (this.fields.path) {
       url.searchParams.set("path", this.fields.path.value.trim());
     }
-    if (this.caseSensitive) {
+    if (this.fields.caseSensitive) {
       url.searchParams.set("case", this.fields.caseSensitive.checked);
     }
     if (this.fields.regexp) {
