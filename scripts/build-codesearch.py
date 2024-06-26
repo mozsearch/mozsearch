@@ -4,7 +4,6 @@ from __future__ import absolute_import
 import os
 import sys
 import json
-import shutil
 
 from lib import run
 
@@ -29,7 +28,7 @@ def copy_objdir_files(dest_dir, config):
 
 # Make sure a failure during a prior invocation of this command does not break
 # our operation.  This step is not designed to run concurrently, so this is ok.
-shutil.rmtree('/tmp/dummy')
+run(['rm', '-rf', '/tmp/dummy'])
 os.mkdir('/tmp/dummy')
 
 config_fname = sys.argv[1]
