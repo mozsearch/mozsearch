@@ -1107,7 +1107,21 @@ public:
     LocRangeEndValid = 1 << 2
   };
 
-  void emitStructuredRecordInfo(llvm::json::OStream &J, const RecordDecl *decl) {
+  void emitStructuredInfo(SourceLocation Loc, const RecordDecl *decl) {
+    std::string json_str;
+    llvm::raw_string_ostream ros(json_str);
+    llvm::json::OStream J(ros);
+    // Start the top-level object.
+    J.objectBegin();
+
+    unsigned StartOffset = SM.getFileOffset(Loc);
+    unsigned EndOffset =
+        StartOffset + Lexer::MeasureTokenLength(Loc, SM, CI.getLangOpts());
+    J.attribute("loc", locationToString(Loc, EndOffset - StartOffset));
+    J.attribute("structured", 1);
+    J.attribute("pretty", getQualifiedName(decl));
+    J.attribute("sym", getMangledName(CurMangleContext, decl));
+
     J.attribute("kind", TypeWithKeyword::getTagTypeKindName(decl->getTagKind()));
 
     const ASTContext &C = *AstContext;
@@ -1270,9 +1284,31 @@ public:
     }
     J.arrayEnd();
     J.attributeEnd();
+
+    // End the top-level object.
+    J.objectEnd();
+
+    FileInfo *F = getFileInfo(Loc);
+    // we want a newline.
+    ros << '\n';
+    F->Output.push_back(std::move(ros.str()));
   }
-  
-  void emitStructuredFunctionInfo(llvm::json::OStream &J, const FunctionDecl *decl) {
+
+  void emitStructuredInfo(SourceLocation Loc, const FunctionDecl *decl) {
+    std::string json_str;
+    llvm::raw_string_ostream ros(json_str);
+    llvm::json::OStream J(ros);
+    // Start the top-level object.
+    J.objectBegin();
+
+    unsigned StartOffset = SM.getFileOffset(Loc);
+    unsigned EndOffset =
+        StartOffset + Lexer::MeasureTokenLength(Loc, SM, CI.getLangOpts());
+    J.attribute("loc", locationToString(Loc, EndOffset - StartOffset));
+    J.attribute("structured", 1);
+    J.attribute("pretty", getQualifiedName(decl));
+    J.attribute("sym", getMangledName(CurMangleContext, decl));
+
     emitBindingAttributes(J, *decl);
 
     J.attributeBegin("args");
@@ -1305,6 +1341,7 @@ public:
 
     J.arrayEnd();
     J.attributeEnd();
+
 
     auto cxxDecl = dyn_cast<CXXMethodDecl>(decl);
 
@@ -1368,6 +1405,14 @@ public:
     }
     J.arrayEnd();
     J.attributeEnd();
+
+    // End the top-level object.
+    J.objectEnd();
+
+    FileInfo *F = getFileInfo(Loc);
+    // we want a newline.
+    ros << '\n';
+    F->Output.push_back(std::move(ros.str()));
   }
 
   /**
@@ -1380,36 +1425,15 @@ public:
    * both at cross-reference time and web-server lookup time.  This is also
    * called out in `analysis.md`.
    */
-  void emitStructuredFieldInfo(llvm::json::OStream &J, const FieldDecl *decl) {
-    J.attribute("kind", "field");
-
+  void emitStructuredInfo(SourceLocation Loc, const FieldDecl *decl) {
     // XXX the call to decl::getParent will assert below for ObjCIvarDecl
     // instances because their DecContext is not a RecordDecl.  So just bail
     // for now.
     // TODO: better support ObjC.
-    if (!dyn_cast<ObjCIvarDecl>(decl)) {
-      if (auto parentDecl = decl->getParent()) {
-        J.attribute("parentsym", getMangledName(CurMangleContext, parentDecl));
-      }
-    }
-  }
-
-  /**
-   * Emit structured info for a variable if it is a static class member.
-   */
-  void emitStructuredVarInfo(llvm::json::OStream &J, const VarDecl *decl) {
-    const auto *parentDecl = dyn_cast_or_null<RecordDecl>(decl->getDeclContext());
-
-    J.attribute("kind", "field");
-
-    if (parentDecl) {
-      J.attribute("parentsym", getMangledName(CurMangleContext, parentDecl));
+    if (const ObjCIvarDecl *D2 = dyn_cast<ObjCIvarDecl>(decl)) {
+      return;
     }
 
-    emitBindingAttributes(J, *decl);
-  }
-
-  void emitStructuredInfo(SourceLocation Loc, const NamedDecl *decl) {
     std::string json_str;
     llvm::raw_string_ostream ros(json_str);
     llvm::json::OStream J(ros);
@@ -1423,16 +1447,47 @@ public:
     J.attribute("structured", 1);
     J.attribute("pretty", getQualifiedName(decl));
     J.attribute("sym", getMangledName(CurMangleContext, decl));
+    J.attribute("kind", "field");
 
-    if (const RecordDecl *RD = dyn_cast<RecordDecl>(decl)) {
-      emitStructuredRecordInfo(J, RD);
-    } else if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
-      emitStructuredFunctionInfo(J, FD);
-    } else if (const FieldDecl *FD = dyn_cast<FieldDecl>(decl)) {
-      emitStructuredFieldInfo(J, FD);
-    } else if (const VarDecl *VD = dyn_cast<VarDecl>(decl)) {
-      emitStructuredVarInfo(J, VD);
+    if (auto parentDecl = decl->getParent()) {
+      J.attribute("parentsym", getMangledName(CurMangleContext, parentDecl));
     }
+
+    // End the top-level object.
+    J.objectEnd();
+
+    FileInfo *F = getFileInfo(Loc);
+    // we want a newline.
+    ros << '\n';
+    F->Output.push_back(std::move(ros.str()));
+  }
+
+  /**
+   * Emit structured info for a variable if it is a static class member.
+   */
+  void emitStructuredInfo(SourceLocation Loc, const VarDecl *decl) {
+    const auto *parentDecl = dyn_cast_or_null<RecordDecl>(decl->getDeclContext());
+
+    std::string json_str;
+    llvm::raw_string_ostream ros(json_str);
+    llvm::json::OStream J(ros);
+    // Start the top-level object.
+    J.objectBegin();
+
+    unsigned StartOffset = SM.getFileOffset(Loc);
+    unsigned EndOffset =
+        StartOffset + Lexer::MeasureTokenLength(Loc, SM, CI.getLangOpts());
+    J.attribute("loc", locationToString(Loc, EndOffset - StartOffset));
+    J.attribute("structured", 1);
+    J.attribute("pretty", getQualifiedName(decl));
+    J.attribute("sym", getMangledName(CurMangleContext, decl));
+    J.attribute("kind", "field");
+
+    if (parentDecl) {
+      J.attribute("parentsym", getMangledName(CurMangleContext, parentDecl));
+    }
+
+    emitBindingAttributes(J, *decl);
 
     // End the top-level object.
     J.objectEnd();
