@@ -13,6 +13,11 @@ fi
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
+if [[ $(cat $INDEX_ROOT/idl-files $INDEX_ROOT/webidl-files | wc -l) -eq 0 ]]; then
+    # If there's no IDL files, bail out so as to avoid unnecessary file downloads
+    exit 0
+fi
+
 if [ -f "${FILES_ROOT}/xpcom/idl-parser/xpidl/xpidl.py" -a \
      -f "${FILES_ROOT}/dom/bindings/parser/WebIDL.py" ]; then
     # The tree we're processing has IDL parsers, so let's use that
