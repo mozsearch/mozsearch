@@ -19,7 +19,6 @@ import sys
 import json
 import os.path
 import subprocess
-import six
 
 # The config file at the root of the WORKING directory; all paths should be
 # absolute paths.
@@ -57,7 +56,7 @@ binary_types = {
   'ttf xpi bcmap icns sqlite jar woff class m4s mgif otf': 'application/x-unknown',
 }
 
-binary_types_str = " ".join((mime + " " + exts + ";") for (exts, mime) in six.iteritems(binary_types))
+binary_types_str = " ".join((mime + " " + exts + ";") for (exts, mime) in binary_types.items())
 
 def location(route, directives):
     print(f'  location {route} {{')

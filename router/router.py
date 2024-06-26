@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 from __future__ import absolute_import
-import six.moves.SimpleHTTPServer
-from six.moves.BaseHTTPServer import HTTPServer
-from six.moves.socketserver import ForkingMixIn
-import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
-import six.moves.urllib.parse
+import http.server
+from socketserver import ForkingMixIn
+import urllib
 import sys
 import os
 import os.path
@@ -22,7 +20,6 @@ import crossrefs
 import identifiers
 import codesearch
 from logger import log
-from six.moves import range
 from raw_search import RawSearchResults
 
 # Our historical limits are somewhat limiting, let's add a brief and poorly
@@ -726,7 +723,7 @@ def get_json_sorch_results(tree_name, query):
     results['*limits*'] = hit_limits
     return json.dumps(results)
 
-class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
+class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         pid = os.fork()
         if pid:
@@ -786,7 +783,7 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
 
     def process_request(self):
-        url = six.moves.urllib.parse.urlparse(self.path)
+        url = urllib.parse.urlparse(self.path)
         path_elts = url.path.split('/')
 
         # Strip any extra slashes.
@@ -794,7 +791,7 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         if len(path_elts) >= 2 and path_elts[1] == 'search':
             tree_name = path_elts[0]
-            query = six.moves.urllib.parse.parse_qs(url.query)
+            query = urllib.parse.parse_qs(url.query)
             j = get_json_search_results(tree_name, query)
             if 'json' in self.headers.get('Accept', ''):
                 self.generateJson(j)
@@ -804,19 +801,19 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
                 self.generateWithTemplate({'{{BODY}}': j, '{{TITLE}}': 'Search'}, template)
         elif len(path_elts) >= 2 and path_elts[1] == 'sorch':
             tree_name = path_elts[0]
-            query = six.moves.urllib.parse.parse_qs(url.query)
+            query = urllib.parse.parse_qs(url.query)
             self._wrap_sorch_results(tree_name, query)
         # "symbol" is a variant on "define", but whereas "define" creates a
         # redirect, "symbol" is equivalent to source with "q=symbol:ORIGINAL_Q"
         elif len(path_elts) >= 2 and path_elts[1] == 'symbol':
             tree_name = path_elts[0]
-            orig_query = six.moves.urllib.parse.parse_qs(url.query)
+            orig_query = urllib.parse.parse_qs(url.query)
             symbol = orig_query['q'][0]
             new_query = { 'q': [ 'symbol:' + symbol ]}
             self._wrap_sorch_results(tree_name, new_query)
         elif len(path_elts) >= 2 and path_elts[1] == 'define':
             tree_name = path_elts[0]
-            query = six.moves.urllib.parse.parse_qs(url.query)
+            query = urllib.parse.parse_qs(url.query)
             symbol = query['q'][0]
             results = expand_keys(tree_name, crossrefs.lookup_merging(tree_name, symbol), False)
             definition = results['Definitions'][0]
@@ -828,7 +825,7 @@ class Handler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.send_header("Location", url)
             self.end_headers()
         else:
-            return six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
+            return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
     def generateJson(self, data):
         databytes = data.encode('utf-8')
@@ -873,7 +870,7 @@ identifiers.load(config)
 with open(status_fname, "a") as status_out:
     status_out.write("router.py loaded\n")
 
-class ForkingServer(ForkingMixIn, HTTPServer):
+class ForkingServer(ForkingMixIn, http.server.HTTPServer):
     pass
 
 server_address = ('', 8000)
