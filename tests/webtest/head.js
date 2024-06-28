@@ -16,6 +16,11 @@ class TestHarness {
   static tests = [];
 
   /**
+   * List of functions added by registerCleanupFunction
+   */
+  static cleanupFunctions = [];
+
+  /**
    * Add log, this is sent to webtest command and also shown in console.
    *
    * @param {String} type
@@ -53,6 +58,16 @@ class TestHarness {
     this.tests.push(func);
   }
 
+  /**
+   * Add a function to perform at the end of the current subtest.
+   *
+   * @param {Function} func
+   *        An async function to be run.
+   */
+  static registerCleanupFunction(func) {
+    this.cleanupFunctions.push(func);
+  }
+
   static onBodyLoad() {
     const frameLocation = document.querySelector("#frame-location");
     const frame = document.querySelector("#frame");
@@ -88,7 +103,16 @@ class TestHarness {
       for (const func of this.tests) {
         this.log("SUBTEST", func.name);
         this.info(`Entering test ${func.name}`);
-        await func();
+        try {
+          await func();
+        } finally {
+          const cleanupFunctions = this.cleanupFunctions.slice();
+          this.cleanupFunctions.length = 0;
+
+          for (const cleanup of cleanupFunctions) {
+            await cleanup();
+          }
+        }
         this.info(`Leaving test ${func.name}`);
       }
     } catch (e) {
@@ -257,6 +281,22 @@ class TestUtils {
   }
 
   /**
+   * Emulate selecting a select option.
+   *
+   * @param {Element} elem
+   *        The select element.
+   * @param {String} value
+   *        The value for the option.
+   */
+  static selectMenu(elem, value) {
+    this.info(`Selecting value ${value}`);
+
+    elem.value = value;
+    const ev = new Event("change", { bubbles: true });
+    elem.dispatchEvent(ev);
+  }
+
+  /**
    * Returns a promise that resolves when timeout is exceeded.
    *
    * @returns {Promise<undefined>}
@@ -385,6 +425,29 @@ class TestUtils {
   static info(msg) {
     TestHarness.info(msg);
   }
+
+  /**
+   * Set feature gate value.
+   *
+   * @param {String} name
+   *        The name of the feature gate (e.g. "semanticInfo")
+   * @param {String} value
+   *        The value of the feature gate.
+   *        One fo "", "release", "beta", "alpha".
+   */
+  static async setFeatureGate(name, value) {
+    await this.loadPath("/tests/pages/settings.html");
+
+    const itemName = name.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
+
+    const menu = window.frame.contentDocument.querySelector(`#${itemName}--enabled`);
+
+    this.selectMenu(menu, value);
+  }
+
+  static async resetFeatureGate(name) {
+    await this.setFeatureGate(name, "");
+  }
 }
 window.TestUtils = TestUtils;
 
@@ -401,4 +464,7 @@ for (const name of [
 
 function add_task(func) {
   TestHarness.addTest(func);
+}
+function registerCleanupFunction(func) {
+  TestHarness.registerCleanupFunction(func);
 }
