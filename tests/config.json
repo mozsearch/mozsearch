@@ -17,5 +17,7 @@
       "codesearch_port": 8080,
       "scip_subtrees": {}
     }
-  }
+  },
+
+  "allow_webtest": true
 }

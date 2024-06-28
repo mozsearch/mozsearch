@@ -22,6 +22,7 @@ use super::cmd_search_text::SearchText;
 use super::cmd_show_html::ShowHtml;
 use super::cmd_tokenize_source::TokenizeSource;
 use super::cmd_traverse::Traverse;
+use super::cmd_webtest::Webtest;
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum OutputFormat {
@@ -87,6 +88,7 @@ pub enum Command {
     ShowHtml(ShowHtml),
     TokenizeSource(TokenizeSource),
     Traverse(Traverse),
+    Webtest(Webtest),
 }
 
 #[derive(Debug, Parser)]

@@ -28,6 +28,7 @@ mod cmd_search_text;
 mod cmd_show_html;
 mod cmd_tokenize_source;
 mod cmd_traverse;
+mod cmd_webtest;
 
 pub use builder::{build_pipeline};
 pub use interface::{PipelineCommand, PipelineValues};
