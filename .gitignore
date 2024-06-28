@@ -29,3 +29,4 @@ addons
 /tree-configs/*
 !/tree-configs/README.md
 .direnv
+mozsearch-firefox*

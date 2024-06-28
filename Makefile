@@ -175,3 +175,6 @@ comparison: check-in-vagrant build-clang-plugin build-rust-tools
 	diff -u -r -x objdir ~/baseline/tests ~/modified/tests || true
 	@echo "------------------- Above is the diff between baseline and modified. ---------------------"
 	@echo "--- Run 'diff -u -r -x objdir ~/{baseline,modified}/tests | less' to see it in a pager ---"
+
+webtest: build-test-repo
+	./scripts/webtest.sh
