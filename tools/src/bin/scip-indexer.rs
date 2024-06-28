@@ -1120,7 +1120,13 @@ fn analyze_using_scip(
                     // For occurences that don't match any symbol, we create a new structured fake,
                     // save it, and return it.
 
-                    let symbol = scip::symbol::parse_symbol(&occurrence.symbol).unwrap();
+                    let symbol = match scip::symbol::parse_symbol(&occurrence.symbol) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            error!("{:?}", e);
+                            continue;
+                        }
+                    };
 
                     let symbol_info = analyse_symbol(&symbol, &lang, lang_name, subtree_name, &doc.relative_path, None, None);
 
