@@ -133,7 +133,7 @@ fn handle(
     let path = path[1..].split('/').collect::<Vec<_>>();
 
     if path.len() > 0 && path[0] == "static" {
-        let path = cfg.mozsearch_path.clone() + &req.path;
+        let path = cfg.mozsearch_path.clone() + req.path;
         return handle_static(path, None);
     }
 
