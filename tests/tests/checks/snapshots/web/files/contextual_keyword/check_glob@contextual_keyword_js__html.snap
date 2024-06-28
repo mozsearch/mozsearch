@@ -1,0 +1,36 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >async</span>
+<span class="syn_reserved" >function</span>
+<span class="syn_reserved" >await</span>
+<span class="syn_reserved" >yield</span>
+<span class="syn_reserved" >let</span>
+<span class="syn_reserved" >for</span>
+<span class="syn_reserved" >var</span>
+<span class="syn_reserved" >of</span>
+<span class="syn_reserved" >class</span>
+<span class="syn_reserved" >new</span>
+<span class="syn_reserved" >target</span>
+<span class="syn_reserved" >static</span>
+<span class="syn_reserved" >get</span>
+<span class="syn_reserved" >set</span>
