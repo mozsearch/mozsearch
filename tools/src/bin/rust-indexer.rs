@@ -734,7 +734,7 @@ fn linuxized_path(path: &PathBuf) -> PathBuf {
             if converted.find(":/") == Some(1) {
                 // Starts with a drive letter, so let's turn this into
                 // an absolute path
-                let abs = "/".to_string() + &converted;
+                let abs = "/".to_string() + converted.as_str();
                 return PathBuf::from(abs);
             }
             // Turn it into a relative path

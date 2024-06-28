@@ -542,7 +542,7 @@ impl MaybeFacetGroup {
         } else if self.nested_groups.len() == 1 {
             let (sole_name, sole_group) = self.nested_groups.into_iter().next().unwrap();
             let (mut sole_compiled, breadth) =
-                sole_group.compile(prefix.clone() + &sole_name, clump_thresh, other.clone());
+                sole_group.compile(prefix.clone() + sole_name.as_str(), clump_thresh, other.clone());
 
             if self.values.len() == 0 {
                 // Collapse us into the nested group
@@ -604,7 +604,7 @@ impl MaybeFacetGroup {
                 // We don't need to worry about building up an "other" group.
                 for (name, group) in self.nested_groups {
                     let (sub_compiled, sub_breadth) =
-                        group.compile(prefix.clone() + &name, clump_thresh, other.clone());
+                        group.compile(prefix.clone() + name.as_str(), clump_thresh, other.clone());
                     nested_groups.push(sub_compiled);
                     if sub_breadth > breadth {
                         breadth = sub_breadth;
@@ -612,7 +612,7 @@ impl MaybeFacetGroup {
                 }
             } else {
                 let mut other_group = ResultFacetGroup {
-                    label: prefix.clone() + other.as_ref().unwrap(),
+                    label: prefix.clone() + other.as_ref().unwrap().as_str(),
                     values: vec![],
                     nested_groups: vec![],
                     count: 0,
@@ -622,7 +622,7 @@ impl MaybeFacetGroup {
                 for (name, group) in self.nested_groups {
                     if group.count >= clump_thresh {
                         let (sub_compiled, sub_breadth) =
-                            group.compile(prefix.clone() + &name, clump_thresh, other.clone());
+                            group.compile(prefix.clone() + name.as_str(), clump_thresh, other.clone());
                         nested_groups.push(sub_compiled);
                         if sub_breadth > breadth {
                             breadth = sub_breadth;

@@ -108,7 +108,7 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                             let mut aggr_str = String::new();
                             for file_excerpts in he.by_file {
                                 for str in file_excerpts.excerpts {
-                                    aggr_str += &str;
+                                    aggr_str += str.as_str();
                                 }
                             }
                             insta::assert_snapshot!(&aggr_str);
