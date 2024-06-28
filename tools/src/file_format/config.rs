@@ -39,6 +39,9 @@ pub struct ConfigJson {
     /// up.
     pub instance_type: Option<String>,
     pub trees: BTreeMap<String, TreeConfigPaths>,
+
+    #[serde(default)]
+    pub allow_webtest: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

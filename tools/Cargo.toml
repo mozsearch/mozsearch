@@ -27,6 +27,7 @@ clap = { version = "4.0", features = ["cargo", "derive", "env"] }
 dot-generator = "0.2.0"
 dot-structures = "0.1.0"
 env_logger = "0.7.1"
+fantoccini = "0.19.3"
 flate2 = { version = "1", features = ["tokio"] }
 futures-core = "0.3.17"
 getopts = "0.2.19"
@@ -60,6 +61,7 @@ scip = "0.3.3"
 #       The "std" feature should be enabled only for non-wasm case.
 serde_json = { version = "1.0.113", features = ["preserve_order", "std"] }
 shell-words = "1.0.0"
+termcolor = "1.4.1"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
 tokio-stream = "0.1.8"
 tree-sitter = "0.20.9"

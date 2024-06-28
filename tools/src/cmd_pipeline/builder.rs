@@ -18,7 +18,7 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand, cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand, cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand};
+use super::{cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand, cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand, cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand, cmd_webtest::WebtestCommand};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -78,6 +78,8 @@ pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand +
         Command::TokenizeSource(ts) => Ok(Box::new(TokenizeSourceCommand { args: ts })),
 
         Command::Traverse(t) => Ok(Box::new(TraverseCommand { args: t })),
+
+        Command::Webtest(t) => Ok(Box::new(WebtestCommand { args: t })),
     }
 }
 
