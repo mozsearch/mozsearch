@@ -50,15 +50,16 @@
             cmake
             pkg-config
 
+            # Must be before (unwrapped) clang in path
+            clang-tools_18
+
             # Dependencies required to build clang-plugin
-            # Update to llvmPackages_17 when available
-            clang
-            llvmPackages_16.libllvm
-            llvmPackages_16.libclang
+            clang_18
+            llvmPackages_18.libllvm
+            llvmPackages_18.libclang
 
             scip
             protobuf
-            clang-tools_16
           ];
 
           PODMAN_USERNS = "keep-id";
