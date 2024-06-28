@@ -8,15 +8,22 @@
 body {
   margin: 0;
 }
+#frame-location {
+  width: calc(100vw);
+  height: 24px;
+  box-sizing: border-box;
+}
 #frame {
-  width: calc(100vw - 16px);
-  height: calc(100vh - 16px);
+  width: calc(100vw);
+  height: calc(100vh - 8px - 24px);
+  box-sizing: border-box;
 }
 </style>
 <script src="./head.js"></script>
 </head>
 
-<body>
+<body onload="TestHarness.onBodyLoad()">
+<input id="frame-location" type="text" readonly>
 <iframe id="frame" src="/"></iframe>
 </body>
 

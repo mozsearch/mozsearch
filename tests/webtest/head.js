@@ -53,12 +53,37 @@ class TestHarness {
     this.tests.push(func);
   }
 
+  static onBodyLoad() {
+    const frameLocation = document.querySelector("#frame-location");
+    const frame = document.querySelector("#frame");
+    window.frame = frame;
+
+    // Show the frame's location.
+    const updateLocation = () => {
+      frameLocation.value = window.frame.contentDocument.location.href;
+    };
+    const onFrameLoad = () => {
+      updateLocation();
+
+      const originalPushState = window.frame.contentWindow.history.pushState;
+      frame.contentWindow.history.pushState = (...args) => {
+        setTimeout(updateLocation, 10);
+        originalPushState.call(frame.contentWindow.history, ...args);
+      };
+      const originalReplaceState = window.frame.contentWindow.history.replaceState;
+      frame.contentWindow.history.replaceState = (...args) => {
+        setTimeout(updateLocation, 10);
+        originalReplaceState.call(frame.contentWindow.history, ...args);
+      };
+    };
+    frame.addEventListener("load", onFrameLoad);
+    onFrameLoad();
+  }
+
   /**
    * Run all subtests and clear them.
    */
   static async runTests() {
-    window.frame = document.querySelector("#frame");
-
     try {
       for (const func of this.tests) {
         this.log("SUBTEST", func.name);
