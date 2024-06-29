@@ -11,6 +11,8 @@ function findClassLayoutMenuItem(menu) {
 }
 
 add_task(async function test_FieldLayoutContextMenu() {
+  // Enabled by default on the test config.
+  await TestUtils.resetFeatureGate("semanticInfo");
   await TestUtils.loadPath("/tests/source/field-layout/field-type.cpp");
 
   const className = frame.contentDocument.querySelector(`span.syn_def[data-symbols="T_field_layout::field_type::S"]`);
