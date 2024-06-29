@@ -48,6 +48,10 @@ class TestHarness {
     this.log("INFO", msg);
   }
 
+  static debug(msg) {
+    this.log("DEBUG", msg);
+  }
+
   /**
    * Add a test function which is an asynchronous function.
    *
@@ -199,7 +203,7 @@ class TestUtils {
   static async loadPath(path) {
     const loadPromise = this.waitForLoad();
 
-    this.info(`Loading ${path}`);
+    TestHarness.debug(`Loading ${path}`);
 
     const frame = document.querySelector("#frame");
     frame.src = path;
@@ -216,16 +220,16 @@ class TestUtils {
    *          Resolves when the subsequent page load finishes.
    */
   static async waitForLoad() {
-    this.info(`Waiting for load`);
+    TestHarness.debug(`Waiting for load`);
 
     const frame = document.querySelector("#frame");
     const loadEvent = Promise.withResolvers();
     const pageshowEvent = Promise.withResolvers();
 
     frame.addEventListener("load", () => {
-      this.info(`Observed load event`);
+      TestHarness.debug(`Observed load event`);
       frame.contentWindow.addEventListener("pageshow", () => {
-        this.info(`Observed pageshow event`);
+        TestHarness.debug(`Observed pageshow event`);
         pageshowEvent.resolve();
       }, { once: true });
       loadEvent.resolve();
@@ -246,7 +250,7 @@ class TestUtils {
    *        The text for the element.
    */
   static setText(elem, text) {
-    this.info(`Setting text ${text}`);
+    TestHarness.debug(`Setting text ${text}`);
 
     elem.value = text;
     const ev = new InputEvent("input", { bubbles: true });
@@ -260,7 +264,7 @@ class TestUtils {
    *        The input element.
    */
   static clickCheckbox(elem) {
-    this.info(`Clicking checkbox`);
+    TestHarness.debug(`Clicking checkbox`);
 
     elem.checked = !elem.checked;
     const ev = new Event("change", { bubbles: true });
@@ -274,7 +278,7 @@ class TestUtils {
    *        The element to be clicked.
    */
   static click(elem) {
-    this.info(`Clicking`);
+    TestHarness.debug(`Clicking`);
 
     const ev = new MouseEvent("click", { bubbles: true });
     elem.dispatchEvent(ev);
@@ -289,7 +293,7 @@ class TestUtils {
    *        The value for the option.
    */
   static selectMenu(elem, value) {
-    this.info(`Selecting value ${value}`);
+    TestHarness.debug(`Selecting value ${value}`);
 
     elem.value = value;
     const ev = new Event("change", { bubbles: true });
@@ -325,7 +329,7 @@ class TestUtils {
    *         Rejects if timeout is exceeded or condition ever throws.
    */
   static async waitForCondition(condition, msg, interval=100, maxTries=50) {
-    this.info(`Waiting for condition: ${msg}`);
+    TestHarness.debug(`Waiting for condition: ${msg}`);
 
     for (let i = 0; i < maxTries; i ++) {
       if (condition()) {
