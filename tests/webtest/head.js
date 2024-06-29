@@ -403,14 +403,14 @@ class TestUtils {
    *
    * @param {any} actual
    *        The actual value.
-   * @param {any} expected
+   * @param {any} unexpected
    *        The unexpected value.
    * @param {String} msg
    *        The message for the condition.
    */
-  static isnot(a, b, msg) {
-    if (Object.is(a, b)) {
-      TestHarness.fail(`${msg} - Didn't expect ${a}, but got it`);
+  static isnot(actual, unexpected, msg) {
+    if (Object.is(actual, unexpected)) {
+      TestHarness.fail(`${msg} - Didn't expect ${actual}, but got it`);
     } else {
       TestHarness.pass(msg);
     }

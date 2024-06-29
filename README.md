@@ -188,6 +188,23 @@ Once you've done that, you might want to read the
 happening under the hood when you run the above make rule.
 
 
+### Testing UI
+
+You can also test the UI part of searchfox by the following inside the docker:
+
+```
+make webtest
+```
+
+If you want to run specific tests, you can run the following, where the
+`FILTER` is a substring-match against the test file's path, which
+
+```
+./scripts/webtest.sh FILTER
+```
+
+For more details, please refer [the webtest document](docs/webtest.md).
+
 ### Testing locally with blame using the "searchfox" test config
 
 The `tests` configuration defined at `tests/config.json` is very helpful, but it
