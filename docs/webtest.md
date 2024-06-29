@@ -108,7 +108,7 @@ In case you want to debug the test, webtest can also be run from the browser.
 
   1. Build the test repo (`make build-test-repo`)
   2. Open `http://localhost:16995/tests/webtest/webtest.html` (The private browsing mode is recommended, in order to avoid interferring with the settings)
-  3. Open console
-  4. Run `TestHarness.loadTest(TES_PATH);`.  e.g. `TestHarness.loadTest("tests/webtest/test_Search.js")`
+  3. Open Web Console
+  4. Run `TestHarness.loadTest(TES_PATH);`.  e.g. `TestHarness.loadTest("tests/webtest/test_Search.js");`
 
 The log is printed to the console.
