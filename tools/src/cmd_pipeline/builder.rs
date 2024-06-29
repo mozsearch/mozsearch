@@ -37,49 +37,59 @@ use super::{cmd_show_html::ShowHtmlCommand, interface::ParallelPipelines};
 
 use super::interface::ServerPipeline;
 
-pub fn fab_command_from_opts(opts: ToolOpts) -> Result<Box<dyn PipelineCommand + Send + Sync>> {
-    match opts.cmd {
-        Command::AugmentResults(ar) => Ok(Box::new(AugmentResultsCommand { args: ar })),
+pub enum CommandSafetyLevel {
+    DangerousToolUseAllowed,
+    WebSafety,
+}
 
-        Command::BatchRender(br) => Ok(Box::new(BatchRenderCommand { args: br })),
+pub fn fab_command_from_opts(opts: ToolOpts, safety: CommandSafetyLevel) -> Result<Box<dyn PipelineCommand + Send + Sync>> {
+    match (opts.cmd, safety) {
+        (Command::AugmentResults(ar), _) => Ok(Box::new(AugmentResultsCommand { args: ar })),
 
-        Command::CatHtml(ch) => Ok(Box::new(CatHtmlCommand { args: ch })),
+        (Command::BatchRender(br), _) => Ok(Box::new(BatchRenderCommand { args: br })),
 
-        Command::CrossrefExpand(ce) => Ok(Box::new(CrossrefExpandCommand { args: ce })),
+        (Command::CatHtml(ch), _) => Ok(Box::new(CatHtmlCommand { args: ch })),
 
-        Command::CrossrefLookup(cl) => Ok(Box::new(CrossrefLookupCommand { args: cl })),
+        (Command::CrossrefExpand(ce), _) => Ok(Box::new(CrossrefExpandCommand { args: ce })),
 
-        Command::FilterAnalysis(fa) => Ok(Box::new(FilterAnalysisCommand { args: fa })),
+        (Command::CrossrefLookup(cl), _) => Ok(Box::new(CrossrefLookupCommand { args: cl })),
 
-        Command::FormatSymbols(fs) => Ok(Box::new(FormatSymbolsCommand { args: fs })),
+        (Command::FilterAnalysis(fa), _) => Ok(Box::new(FilterAnalysisCommand { args: fa })),
 
-        Command::Graph(g) => Ok(Box::new(GraphCommand { args: g })),
+        (Command::FormatSymbols(fs), _) => Ok(Box::new(FormatSymbolsCommand { args: fs })),
 
-        Command::JumprefLookup(cl) => Ok(Box::new(JumprefLookupCommand { args: cl })),
+        (Command::Graph(g), _) => Ok(Box::new(GraphCommand { args: g })),
 
-        Command::MergeAnalyses(ma) => Ok(Box::new(MergeAnalysesCommand { args: ma })),
+        (Command::JumprefLookup(cl), _) => Ok(Box::new(JumprefLookupCommand { args: cl })),
 
-        Command::ProductionFilter(pf) => Ok(Box::new(ProductionFilterCommand { args: pf })),
+        (Command::MergeAnalyses(ma), _) => Ok(Box::new(MergeAnalysesCommand { args: ma })),
 
-        Command::Query(q) => Ok(Box::new(QueryCommand { args: q })),
+        (Command::ProductionFilter(pf), _) => Ok(Box::new(ProductionFilterCommand { args: pf })),
 
-        Command::Render(r) => Ok(Box::new(RenderCommand { args: r })),
+        (Command::Query(q), _) => Ok(Box::new(QueryCommand { args: q })),
 
-        Command::Search(q) => Ok(Box::new(SearchCommand { args: q })),
+        (Command::Render(r), _) => Ok(Box::new(RenderCommand { args: r })),
 
-        Command::SearchFiles(sf) => Ok(Box::new(SearchFilesCommand { args: sf })),
+        (Command::Search(q), _) => Ok(Box::new(SearchCommand { args: q })),
 
-        Command::SearchIdentifiers(si) => Ok(Box::new(SearchIdentifiersCommand { args: si })),
+        (Command::SearchFiles(sf), _) => Ok(Box::new(SearchFilesCommand { args: sf })),
 
-        Command::SearchText(st) => Ok(Box::new(SearchTextCommand { args: st })),
+        (Command::SearchIdentifiers(si), _) => Ok(Box::new(SearchIdentifiersCommand { args: si })),
 
-        Command::ShowHtml(sh) => Ok(Box::new(ShowHtmlCommand { args: sh })),
+        (Command::SearchText(st), _) => Ok(Box::new(SearchTextCommand { args: st })),
 
-        Command::TokenizeSource(ts) => Ok(Box::new(TokenizeSourceCommand { args: ts })),
+        (Command::ShowHtml(sh), _) => Ok(Box::new(ShowHtmlCommand { args: sh })),
 
-        Command::Traverse(t) => Ok(Box::new(TraverseCommand { args: t })),
+        (Command::TokenizeSource(ts), _) => Ok(Box::new(TokenizeSourceCommand { args: ts })),
 
-        Command::Webtest(t) => Ok(Box::new(WebtestCommand { args: t })),
+        (Command::Traverse(t), _) => Ok(Box::new(TraverseCommand { args: t })),
+
+        (Command::Webtest(t), CommandSafetyLevel::DangerousToolUseAllowed) => Ok(Box::new(WebtestCommand { args: t })),
+
+        _ => Err(ServerError::StickyProblem(ErrorDetails {
+            layer: ErrorLayer::BadInput,
+            message: "Command not allowed in this context".to_string(),
+        }))
     }
 }
 
@@ -146,7 +156,11 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         }
 
         trace!(cmd = ?opts.cmd);
-        commands.push(fab_command_from_opts(opts)?);
+        // We only use this method (`build_pipeline`) for searchfox-tool and
+        // test_check_insta, and we allow them to do raw pipeline stuff that we
+        // do not want to expose to the web.  The pipeline-server uses
+        // `build_pipeline_graph` below.  (Also, the "query" command )
+        commands.push(fab_command_from_opts(opts, CommandSafetyLevel::DangerousToolUseAllowed)?);
     }
 
     Ok((
@@ -205,7 +219,7 @@ pub fn build_pipeline_graph(
                     };
 
                     trace!(cmd = ?opts.cmd);
-                    commands.push(fab_command_from_opts(opts)?);
+                    commands.push(fab_command_from_opts(opts, CommandSafetyLevel::WebSafety)?);
                 }
 
                 output_name = group_info
