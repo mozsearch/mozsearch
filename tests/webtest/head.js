@@ -309,11 +309,28 @@ class TestUtils {
    *
    * @param {Element} elem
    *        The element to be clicked.
+   * @param {Object?} options
+   *        The options for the mouse event.
    */
-  static click(elem) {
+  static click(elem, options = { bubbles: true }) {
     TestHarness.debug(`Clicking`);
 
-    const ev = new MouseEvent("click", { bubbles: true });
+    const ev = new MouseEvent("click", options);
+    elem.dispatchEvent(ev);
+  }
+
+  /**
+   * Emulate keypress event.
+   *
+   * @param {Element} elem
+   *        The element for the event..
+   * @param {Object} options
+   *        The options for the event.
+   */
+  static keypress(elem, options) {
+    TestHarness.debug(`dispatching keypress event`);
+
+    const ev = new KeyboardEvent("keypress", options);
     elem.dispatchEvent(ev);
   }
 
