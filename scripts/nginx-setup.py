@@ -167,7 +167,7 @@ for repo in config['trees']:
     if config.get("allow_webtest"):
         location(f'/tests/webtest', [
             f'root {mozsearch_path};',
-            'add_header Cache-Control "must-revalidate";',
+            'add_header Cache-Control "no-cache";',
         ])
 
     location(f'/{repo}/pages/', [f'alias {index_path}/pages/;'])
