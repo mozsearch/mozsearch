@@ -34,7 +34,7 @@ getopts = "0.2.19"
 graphviz-rust = "0.2.0"
 git2 = "0.16.1"
 globset = "0.4.8"
-hyper = "0.10"
+hyper = "0.14"
 include_dir = "0.7.2"
 insta = { version = "1.14.0", features = ["json"] }
 ipdl_parser = { path = "./ipdl_parser" }
