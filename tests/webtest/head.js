@@ -29,7 +29,40 @@ class TestHarness {
    *        The message for the log.
    */
   static log(type, msg) {
-    console.log(`${type} - ${msg}`);
+    let color = "";
+    switch (type) {
+      case "INFO":
+        // blue
+        color = "light-dark(#0000FF, #6060FF)";
+        break;
+      case "DEBUG":
+        // gray
+        color = "light-dark(#A0A0A0, #A0A0A0)";
+        break;
+      case "PASS":
+        // green
+        color = "light-dark(#00A600, #40D940)";
+        break;
+      case "FAIL":
+      case "STACK":
+        // red
+        color = "light-dark(#D00000, #FF4040)";
+        break;
+      case "TEST_START":
+      case "TEST_END":
+        // yellow
+        color = "light-dark(#B0A000, #D0D040)";
+        break;
+      default:
+        // cyan
+        color = "light-dark(#00A6B2, #60E5E5)";
+        break;
+        // unused
+        // magenta
+        // color = "light-dark(#B200B2, #D040D0)";
+    }
+    console.log(`%c${type}%c - ${msg}`,
+                `color: ${color};`, "");
     this.pendingLogs.push([type, `${msg}`]);
   }
 
