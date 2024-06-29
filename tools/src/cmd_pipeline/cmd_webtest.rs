@@ -29,9 +29,11 @@ pub struct WebtestCommand {
 fn print_log(ty: &str, msg: String) {
     let mut stderr = StandardStream::stderr(ColorChoice::Always);
 
+    let mut spec = ColorSpec::new();
+
     let color = match ty {
         "INFO" => Color::Blue,
-        "DEBUG" => Color::Cyan,
+        "DEBUG" => Color::Black,
         "PASS" => Color::Green,
         "FAIL" => Color::Red,
         "STACK" => Color::Red,
@@ -39,8 +41,16 @@ fn print_log(ty: &str, msg: String) {
         "TEST_END" => Color::Yellow,
         _ => Color::Cyan,
     };
+    spec.set_fg(Some(color));
 
-    stderr.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
+    match ty {
+        "DEBUG" => {
+            spec.set_dimmed(true);
+        },
+        _ => {},
+    }
+
+    stderr.set_color(&spec).unwrap();
     write!(&mut stderr, "{}", ty).unwrap();
 
     stderr.reset().unwrap();
