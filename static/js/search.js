@@ -400,6 +400,9 @@ function populateResults(data, full, jumpToSingle) {
   var title = data["*title*"];
   if (title) {
     document.title = title + " - mozsearch";
+
+    // Tell the title to webtest.
+    document.dispatchEvent(new Event("titlechanged"));
   }
   var timed_out = data["*timedout*"];
 

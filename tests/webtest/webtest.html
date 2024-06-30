@@ -8,8 +8,17 @@
 body {
   margin: 0;
 }
+#frame-location-and-title {
+  width: 100vw;
+  height: 24px;
+  display: grid;
+  grid-template-columns: 50vw 50vw;
+}
 #frame-location {
-  width: calc(100vw);
+  height: 24px;
+  box-sizing: border-box;
+}
+#frame-title {
   height: 24px;
   box-sizing: border-box;
 }
@@ -23,7 +32,7 @@ body {
 </head>
 
 <body onload="TestHarness.onBodyLoad()">
-<input id="frame-location" type="text" readonly>
+<div id="frame-location-and-title"><input id="frame-location" type="text" readonly><input id="frame-title" type="text" readonly></div>
 <iframe id="frame" src="/"></iframe>
 </body>
 

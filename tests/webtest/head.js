@@ -107,26 +107,32 @@ class TestHarness {
 
   static onBodyLoad() {
     const frameLocation = document.querySelector("#frame-location");
+    const frameTitle = document.querySelector("#frame-title");
     const frame = document.querySelector("#frame");
     window.frame = frame;
 
-    // Show the frame's location.
-    const updateLocation = () => {
+    // Show the frame's location and title.
+    const updateLocationAndTitle = () => {
       frameLocation.value = window.frame.contentDocument.location.href;
+      frameTitle.value = window.frame.contentDocument.title;
     };
     const onFrameLoad = () => {
-      updateLocation();
+      updateLocationAndTitle();
 
       const originalPushState = window.frame.contentWindow.history.pushState;
       frame.contentWindow.history.pushState = (...args) => {
-        setTimeout(updateLocation, 10);
+        setTimeout(updateLocationAndTitle, 10);
         originalPushState.call(frame.contentWindow.history, ...args);
       };
       const originalReplaceState = window.frame.contentWindow.history.replaceState;
       frame.contentWindow.history.replaceState = (...args) => {
-        setTimeout(updateLocation, 10);
+        setTimeout(updateLocationAndTitle, 10);
         originalReplaceState.call(frame.contentWindow.history, ...args);
       };
+
+      frame.contentDocument.addEventListener("titlechanged", () => {
+        updateLocationAndTitle();
+      });
     };
     frame.addEventListener("load", onFrameLoad);
     onFrameLoad();
