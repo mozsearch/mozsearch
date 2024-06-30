@@ -42,6 +42,9 @@ var DocumentTitler = new (class DocumentTitler {
       return;
     }
     document.title = this.currentTitle = bestTitle;
+
+    // Tell the title to webtest.
+    document.dispatchEvent(new Event("titlechanged"));
   }
 
   /**
