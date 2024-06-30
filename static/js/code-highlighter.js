@@ -652,10 +652,13 @@ var Highlighter = new (class Highlighter {
     {
       let historyHash = hash ? "#" + hash : "";
       if (historyHash != window.location.hash) {
-        // XXX it appears that we can't actually clear the historyHash this way?
-        // Like, if I ctrl-click to remove the last line in our set, we visibly
-        // remove the line, but the hash stays there in my Firefox URL bar?
-        window.history.replaceState(null, "", historyHash);
+        if (historyHash) {
+          window.history.replaceState(null, "", historyHash);
+        } else {
+          // If hash is empty, the 3rd parameter should be either
+          // the filename or the pathname.
+          window.history.replaceState(null, "", document.location.pathname);
+        }
       }
     }
     if (hash) {
