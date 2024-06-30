@@ -510,6 +510,25 @@ class TestUtils {
   }
 
   /**
+   * Set title behavior setting.
+   *
+   * @param {String} name
+   *        The name of the title behavior setting (e.g. "lineSelection")
+   * @param {bool} value
+   *        The value of the title behavior setting.
+   */
+  static async setTitleBehavior(name, value) {
+    await this.loadPath("/tests/pages/settings.html");
+
+    const itemName = name.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
+
+    const checkbox = window.frame.contentDocument.querySelector(`#page-title--${itemName}`);
+    if (checkbox.checked != value) {
+      this.clickCheckbox(checkbox);
+    }
+  }
+
+  /**
    * Click the line number in the source listing to select line(s).
    *
    * @param {Number} lineno
