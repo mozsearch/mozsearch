@@ -143,7 +143,7 @@ add_task(async function test_CopyAsMarkdown() {
      "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#19)",
      "Method symbol is copied instead of local variable symbol");
 
-  // Select the local variable
+  // Shift-select from the start of the class to the currently selected local variable.
   selectLine(11, { bubbles: true, shiftKey: true });
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
@@ -166,7 +166,7 @@ add_task(async function test_CopyAsMarkdown() {
      "```",
      "Code block with multiple lines are copied");
 
-  // Select lines in side a block
+  // Select lines inside a block
   selectLine(15);
   selectLine(17, { bubbles: true, metaKey: true });
   selectLine(19, { bubbles: true, metaKey: true });
