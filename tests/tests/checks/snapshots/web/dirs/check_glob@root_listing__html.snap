@@ -637,6 +637,12 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td><a href="/tests/source/TextInputDelegateTest.kt" class="mimetype-fixed-container mimetype-icon-kt">TextInputDelegateTest.kt</a></td>
+          <td class="description"><a href="/tests/source/TextInputDelegateTest.kt" title=""></td>
+          <td><a href="/tests/source/TextInputDelegateTest.kt">55932</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/third_party" class="mimetype-fixed-container mimetype-icon-folder">third_party</a></td>
           <td class="description"><a href="/tests/source/third_party" title=""></td>
           <td><a href="/tests/source/third_party"></a></td>
