@@ -508,6 +508,20 @@ class TestUtils {
   static async resetFeatureGate(name) {
     await this.setFeatureGate(name, "");
   }
+
+  /**
+   * Click the line number in the source listing to select line(s).
+   *
+   * @param {Number} lineno
+   *        The line number.
+   * @param {Object?} options
+   *        The options for the click event.
+   */
+  static selectLine(lineno, options = undefined) {
+    const elem = window.frame.contentDocument.querySelector(`div[data-line-number="${lineno}"]`);
+
+    TestUtils.click(elem, options);
+  }
 }
 window.TestUtils = TestUtils;
 

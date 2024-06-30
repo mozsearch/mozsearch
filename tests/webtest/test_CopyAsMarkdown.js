@@ -1,11 +1,5 @@
 "use strict";
 
-function selectLine(lineno, options = undefined) {
-  const elem = frame.contentDocument.querySelector(`div[data-line-number="${lineno}"]`);
-
-  TestUtils.click(elem, options);
-}
-
 function sanitizeURL(text) {
   return text.replace(/https?:\/\/[^\/]+\//, "BASE_URL/");
 }
@@ -52,7 +46,7 @@ add_task(async function test_CopyAsMarkdown() {
   is(copiedText, "*unmodified*", "Copy does not happen for disabled Code Block accel");
 
   // Select the top level comment.
-  selectLine(3);
+  TestUtils.selectLine(3);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(symbolButton.disabled, "Symbol Link should be disabled if no symbol is selected");
@@ -82,7 +76,7 @@ add_task(async function test_CopyAsMarkdown() {
   is(copiedText, "*unmodified*", "Copy does not happen for disabled Symbol Link accel");
 
   // Select the global variable.
-  selectLine(5);
+  TestUtils.selectLine(5);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when a symbol exists in the selected line");
@@ -101,7 +95,7 @@ add_task(async function test_CopyAsMarkdown() {
 
   // Select the namespace.
 
-  selectLine(7);
+  TestUtils.selectLine(7);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when the selected line is inside a nesting line");
@@ -113,14 +107,14 @@ add_task(async function test_CopyAsMarkdown() {
      "Namespace symbol is copied");
 
   // Select the comment inside namespace.
-  selectLine(9);
+  TestUtils.selectLine(9);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when the selected line is inside a nesting line");
   ok(!codeButton.disabled, "Code Block should be enabled when a line is selected");
 
   // Select the method
-  selectLine(15);
+  TestUtils.selectLine(15);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when the selected line is inside a nesting line");
@@ -132,7 +126,7 @@ add_task(async function test_CopyAsMarkdown() {
      "Method symbol is copied");
 
   // Select the local variable
-  selectLine(19);
+  TestUtils.selectLine(19);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when the selected line is inside a nesting line");
@@ -144,7 +138,7 @@ add_task(async function test_CopyAsMarkdown() {
      "Method symbol is copied instead of local variable symbol");
 
   // Shift-select from the start of the class to the currently selected local variable.
-  selectLine(11, { bubbles: true, shiftKey: true });
+  TestUtils.selectLine(11, { bubbles: true, shiftKey: true });
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when the selected lines have symbol");
@@ -167,9 +161,9 @@ add_task(async function test_CopyAsMarkdown() {
      "Code block with multiple lines are copied");
 
   // Select lines inside a block
-  selectLine(15);
-  selectLine(17, { bubbles: true, metaKey: true });
-  selectLine(19, { bubbles: true, metaKey: true });
+  TestUtils.selectLine(15);
+  TestUtils.selectLine(17, { bubbles: true, metaKey: true });
+  TestUtils.selectLine(19, { bubbles: true, metaKey: true });
 
   TestUtils.click(codeButton);
   is(copiedText.replace(/https?:\/\/[^\/]+\//, "BASE_URL/"),
@@ -221,7 +215,7 @@ add_task(async function test_CopyAsMarkdown_clicked() {
       copiedText = text;
     };
 
-    selectLine(5);
+    TestUtils.selectLine(5);
 
     TestUtils.click(symbolButton);
     is(sanitizeURL(copiedText),

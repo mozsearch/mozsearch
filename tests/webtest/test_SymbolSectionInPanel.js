@@ -1,11 +1,5 @@
 "use strict";
 
-function selectLine(lineno, options = undefined) {
-  const elem = frame.contentDocument.querySelector(`div[data-line-number="${lineno}"]`);
-
-  TestUtils.click(elem, options);
-}
-
 add_task(async function test_SymbolSectionInPanel() {
   await TestUtils.resetFeatureGate("fancyBar");
   await TestUtils.loadPath("/tests/source/webtest/CopyAsMarkdown.cpp");
@@ -25,21 +19,21 @@ add_task(async function test_SymbolSectionInPanel() {
      "No symbol is shown when nothing is selected");
 
   // Select the top level comment.
-  selectLine(3);
+  TestUtils.selectLine(3);
 
   is(symBox.textContent,
      "(no symbol clicked)",
      "No symbol is shown when nothing is selected");
 
   // Select the global variable.
-  selectLine(5);
+  TestUtils.selectLine(5);
 
   is(symBox.textContent,
      "globalVariable",
      "Selected global variable name is shown");
 
   // Select class name.
-  selectLine(11);
+  TestUtils.selectLine(11);
 
   is(symBox.textContent,
      "copy_as_markdown::CopyAsMarkdown",
