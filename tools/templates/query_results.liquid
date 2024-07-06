@@ -2,6 +2,9 @@
 {% include 'header_query.liquid' title: title, autofocus: true %}
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
+    <div>
+      {% include 'breadcrumbs.liquid' path: "" %}
+    </div>
     {% for result_pair in results %}
       {% case result_pair[0] %}
         {% when "FlattenedResultsBundle" %}
