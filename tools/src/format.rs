@@ -1012,6 +1012,8 @@ pub fn format_diff(
 
     output::generate_header(&opt, writer)?;
 
+    output::generate_breadcrumbs(&opt, writer, path, false)?;
+
     let mut vcs_panel_items = vec![
         PanelItem {
             title: "Show changeset".to_owned(),
