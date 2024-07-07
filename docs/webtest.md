@@ -11,14 +11,14 @@ make webtest
 ```
 
 This does the following:
-  * Build the test repo
+  * Build the tests repo and searchfox repo (`tests/webtest-config.json`)
   * Install geckodriver
   * Download Firefox
   * Start geckodriver
   * Run the `searchfox-tools`s `webtest` command, which loads and runs the tests in headless browser
   * Stop geckodriver
 
-If the test repo is ready, you can also directly run `./scripts/webtest.sh`, which does the above, excluding the build for the test repo.
+If the repositories are ready, you can also directly run `./scripts/webtest.sh`, which does the above, excluding the build for the repositories.
 
 ```
 ./scripts/webtest.sh
@@ -106,7 +106,7 @@ For the complete list, please see `head.js`.
 
 In case you want to debug the test, webtest can also be run from the browser.
 
-  1. Build the test repo (`make build-test-repo`)
+  1. Build the tests repo and searchfox repo (`make build-webtest-repo`)
   2. Open `http://localhost:16995/tests/webtest/webtest.html` (The private browsing mode is recommended, in order to avoid interferring with the settings)
   3. Open Web Console
   4. Run `TestHarness.loadTest(TES_PATH);`.  e.g. `TestHarness.loadTest("tests/webtest/test_Search.js");`
