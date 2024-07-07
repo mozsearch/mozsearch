@@ -55,6 +55,11 @@ expression: "&fb.contents"
 
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
+    
+  <div class="breadcrumbs">
+    <a href="/tests/source/">tests</a>
+  </div>
+
     <script>
       var results = {{BODY}};
       window.addEventListener("load", function() { showSearchResults(results); });
@@ -78,5 +83,3 @@ expression: "&fb.contents"
 </div>
 </body>
 </html>
-
-

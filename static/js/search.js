@@ -623,46 +623,66 @@ function populateResults(data, full, jumpToSingle) {
   let container = document.getElementById("content");
   // Clobber any additional classes that existed on the content container.
   container.setAttribute("class", "content");
-  container.innerHTML = "";
 
-  let limitWarning = "";
-  if (limits_hit.length > 0) {
-    limitWarning = `<div><b>Warning</b>: The following limits were hit in your search: ${limits_hit.join(", ")}</div>`;
+  const items = [];
+
+  const breadcrumbs = document.querySelector(".breadcrumbs");
+  if (breadcrumbs) {
+    // Preserve breadcrumbs if present.
+    items.push(breadcrumbs);
+
+    // Remove path and symbols.
+    //
+    // NOTE: Search can be initiated from source or directory listing,
+    //       where breadcrumbs has path for the file or directory.
+    let foundSep = false;
+    for (const node of [...breadcrumbs.childNodes]) {
+      if (node instanceof HTMLElement) {
+        if (node.classList.contains("path-separator")) {
+          foundSep = true;
+        }
+      }
+      if (foundSep) {
+        breadcrumbs.removeChild(node);
+      }
+    }
   }
 
-  let timeoutWarning = timed_out
-    ? "<div><b>Warning</b>: Results may be incomplete due to server-side search timeout!</div>"
-    : "";
-
   if (!fileCount) {
-    container.insertAdjacentHTML(
-      "beforeend",
-      "<span>No results for current query.</span>"
-    );
-    if (limitWarning) {
-      container.insertAdjacentHTML("beforeend", limitWarning);
-    }
-    if (timeoutWarning) {
-      container.insertAdjacentHTML("beforeend", timeoutWarning);
-    }
+    const div = document.createElement("div");
+    div.textContent = "No results for current query.";
+    items.push(div);
   } else {
     if (count) {
-      container.insertAdjacentHTML(
-        "beforeend",
-        `<div>Number of results: ${count} (maximum is around 4000)</div>`
-      );
+      const div = document.createElement("div");
+      div.textContent = `Number of results: ${count} (maximum is around 4000)`;
+      items.push(div);
     }
-    if (limitWarning) {
-      container.insertAdjacentHTML("beforeend", limitWarning);
-    }
-    if (timeoutWarning) {
-      container.insertAdjacentHTML("beforeend", timeoutWarning);
-    }
+  }
 
+  if (limits_hit.length > 0) {
+    const div = document.createElement("div");
+    const b = document.createElement("b");
+    b.textContent = "Warning";
+    div.append(b);
+    div.append(`: The following limits were hit in your search: ${limits_hit.join(", ")}`);
+    items.push(div);
+  }
+
+  let timeoutWarning = null;
+  if (timed_out) {
+    const div = document.createElement("div");
+    const b = document.createElement("b");
+    b.textContent = "Warning";
+    div.append(b);
+    div.append(": Results may be incomplete due to server-side search timeout!");
+    items.push(div);
+  }
+
+  if (fileCount) {
     var table = document.createElement("table");
     table.className = "results";
-
-    container.appendChild(table);
+    items.push(table);
 
     var counter = 0;
 
@@ -790,6 +810,8 @@ function populateResults(data, full, jumpToSingle) {
       }, 750);
     }
   }
+
+  container.replaceChildren(...items);
 
   Dxr.parseColQuery();
 }
