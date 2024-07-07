@@ -82,6 +82,8 @@ table {
 
   --result-context-color: royalblue;
 
+  --select-arrow-svg: url("../images/select-arrow-light.svg");
+
   --diagram-depth-hue: 270deg;
 
   --base-font-size: 12px;
@@ -165,6 +167,8 @@ table {
     --diff-plus-line-background: #172c47;
 
     --result-context-color: #7892df;
+
+    --select-arrow-svg: url("../images/select-arrow-dark.svg");
 
     color-scheme: dark;
   }
@@ -609,6 +613,46 @@ tr.after-context-line + tr.before-context-line {
   margin: 0;
   padding: 1rem;
   text-align: left;
+}
+
+#tree-switcher {
+  pointer-events: auto;
+  background-color: transparent;
+  background-image: var(--select-arrow-svg);
+  background-position: center center;
+  background-repeat: no-repeat;
+  appearance: none;
+  border: none;
+  vertical-align: middle;
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+#tree-switcher:hover {
+  background-color: var(--button-background);
+}
+#tree-switcher:active {
+  background-color: var(--button-active-background);
+}
+
+#tree-switcher-menu {
+  display: flex;
+  flex-direction: row;
+}
+
+#tree-switcher-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#tree-switcher-menu ul + ul {
+  border-inline-start: 1px solid var(--page-border-color);
+}
+
+#tree-switcher-menu .indent {
+  padding-inline-start: 24px;
+  padding-inline-end: 24px;
 }
 
 /* Footer */

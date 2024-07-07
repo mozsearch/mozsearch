@@ -51,6 +51,9 @@ pub fn generate_breadcrumbs(
 ) -> Result<(), &'static str> {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
+    breadcrumbs.push_str(r#"<button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button>"#);
+    breadcrumbs.push_str(r#"<div id="tree-switcher-menu" role="menu" class="context-menu" style="display: none"></div>"#);
+
     let mut path_so_far = "".to_string();
 
     if !path.is_empty() {
