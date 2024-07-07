@@ -164,12 +164,6 @@ for repo in config['trees']:
     # we use alias because the we don't want the "/{repo}" portion.
     location(f'/{repo}/static/', [f'alias {mozsearch_path}/static/;'])
 
-    if config.get("allow_webtest"):
-        location(f'/tests/webtest', [
-            f'root {mozsearch_path};',
-            'add_header Cache-Control "no-cache";',
-        ])
-
     location(f'/{repo}/pages/', [f'alias {index_path}/pages/;'])
 
     location(f'/{repo}/source', [
@@ -252,5 +246,11 @@ location('= /status.txt', [
     'try_files $uri =404;',
     'add_header Cache-Control "must-revalidate";',
 ])
+
+if config.get("allow_webtest"):
+    location(f'/tests/webtest', [
+        f'root {mozsearch_path};',
+        'add_header Cache-Control "no-cache";',
+    ])
 
 print('}')

@@ -200,5 +200,12 @@ comparison: check-in-vagrant build-clang-plugin build-rust-tools
 	@echo "------------------- Above is the diff between baseline and modified. ---------------------"
 	@echo "--- Run 'diff -u -r -x objdir ~/{baseline,modified}/tests | less' to see it in a pager ---"
 
-webtest: build-test-repo
+build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	mkdir -p ~/index
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests webtest-config.json ~/index
+	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
+	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+
+webtest: build-webtest-repo
 	./scripts/webtest.sh
