@@ -60,6 +60,17 @@ expression: "&fb.contents"
     <a href="/tests/source/">tests</a>
   </div>
 
+    <div class="panel" id="panel">
+  <button id="panel-toggle">
+    <span class="navpanel-icon icon-down-dir" aria-hidden="false"></span>
+    Navigation
+    <a id="show-settings" title="Go to settings page" href="/tests/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
+  </button>
+  <section id="panel-content" aria-expanded="false" aria-hidden="true" style="display: none;">
+    <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
+  </section>
+</div>
+
     <script>
       var results = {{BODY}};
       window.addEventListener("load", function() { showSearchResults(results); });

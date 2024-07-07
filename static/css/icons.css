@@ -53,7 +53,9 @@
 }
 
 .panel label.panel-accel {
-  padding: 0.5rem;
+  display: block;
+  width: 240px;
+  padding: 0 0.5rem;
 }
 
 .panel .accel,

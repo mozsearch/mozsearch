@@ -1,0 +1,15 @@
+<div class="panel" id="panel">
+  <button id="panel-toggle">
+    <span class="navpanel-icon icon-down-dir{% if expanded %} expanded{% endif %}" aria-hidden="false"></span>
+    Navigation
+    <a id="show-settings" title="Go to settings page" href="/{{ tree }}/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
+  </button>
+  <section id="panel-content" {%
+           if expanded
+           %}aria-expanded="true" aria-hidden="false"{%
+           else
+           %}aria-expanded="false" aria-hidden="true" style="display: none;"{%
+           endif %}>
+    <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
+  </section>
+</div>
