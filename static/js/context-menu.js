@@ -2,8 +2,89 @@ function atUnescape(text) {
   return text.replace(/@([0-9A-F][0-9A-F])/g, (_, s) => String.fromCharCode(parseInt(s, 16)));
 }
 
-var ContextMenu = new (class ContextMenu {
+class ContextMenuBase {
   constructor() {
+    this.menu = null;
+
+    window.addEventListener("mousedown", event => this.hideOnMouseDown(event));
+    window.addEventListener("pageshow", event => this.hideOnPageShow(event));
+  }
+
+  hideOnMouseDown(event) {
+    this.hide();
+  }
+
+  hideOnPageShow(event) {
+    this.hide();
+  }
+
+  hide() {
+    if (this.menu) {
+      this.menu.style.display = "none";
+    }
+  }
+
+  populateMenu(menu, menuItems) {
+    let suppression = new Set();
+    menu.innerHTML = "";
+    let lastSection = null;
+    for (const item of menuItems) {
+      // Avoid adding anything we've definitely added before.  This currently
+      // can happen for hierarchical diagrams where we unify based on the
+      // "pretty" and in particular for IDL interfaces/methods where the iface
+      // pretties will be the same as the C++ impl pretty.
+      let itemAsJson = JSON.stringify(item);
+      if (suppression.has(itemAsJson)) {
+        continue;
+      }
+      suppression.add(itemAsJson);
+
+      let li = document.createElement("li");
+      li.classList.add("contextmenu-row");
+      if (lastSection === null) {
+        lastSection = item.section;
+      } else if (lastSection === item.section) {
+        // nothing to do for the same section
+        li.classList.add("contextmenu-same-section");
+      } else {
+        li.classList.add("contextmenu-new-section");
+        lastSection = item.section;
+      }
+
+      let link = li.appendChild(document.createElement("a"));
+      if (item.action) {
+        link.addEventListener("click", (evt) => {
+          evt.preventDefault();
+          evt.stopPropagation();
+          item.action();
+        }, {
+          // Debounce by only letting us hear one click.
+          once: true
+        });
+        link.href = "#";
+      } else if (item.href) {
+        link.href = item.href;
+      }
+
+      link.classList.add("contextmenu-link");
+      if (item.icon) {
+        link.classList.add(`icon-${item.icon}`);
+      }
+      if (item.classNames) {
+        for (const name of item.classNames) {
+          link.classList.add(name);
+        }
+      }
+
+      link.innerHTML = item.html;
+      menu.appendChild(li);
+    }
+  }
+}
+
+var ContextMenu = new (class ContextMenu extends ContextMenuBase {
+  constructor() {
+    super();
     this.menu = document.createElement("ul");
     this.menu.className = this.menu.id = "context-menu";
     this.menu.tabIndex = 0;
@@ -19,8 +100,6 @@ var ContextMenu = new (class ContextMenu {
       event.stopPropagation();
     });
 
-    window.addEventListener("mousedown", () => this.hide());
-    window.addEventListener("pageshow", () => this.hide());
     window.addEventListener("click", event => this.tryShowOnClick(event));
   }
 
@@ -108,6 +187,12 @@ var ContextMenu = new (class ContextMenu {
         !event.target.closest("svg") &&
         !event.target.closest(".breadcrumbs") &&
         !event.target.closest(".symbol-tree-table")) {
+      return;
+    }
+
+    // Tree switcher is inside breadcrumbs, but it has its own menu.
+    if (event.target.closest("#tree-switcher") ||
+        event.target.closest("#tree-switcher-menu")) {
       return;
     }
 
@@ -558,55 +643,7 @@ var ContextMenu = new (class ContextMenu {
       return;
     }
 
-    let suppression = new Set();
-    this.menu.innerHTML = "";
-    let lastSection = null;
-    for (const item of menuItems) {
-      // Avoid adding anything we've definitely added before.  This currently
-      // can happen for hierarchical diagrams where we unify based on the
-      // "pretty" and in particular for IDL interfaces/methods where the iface
-      // pretties will be the same as the C++ impl pretty.
-      let itemAsJson = JSON.stringify(item);
-      if (suppression.has(itemAsJson)) {
-        continue;
-      }
-      suppression.add(itemAsJson);
-
-      let li = document.createElement("li");
-      li.classList.add("contextmenu-row")
-      if (lastSection === null) {
-        lastSection = item.section;
-      } else if (lastSection === item.section) {
-        // nothing to do for the same section
-        li.classList.add("contextmenu-same-section");
-      } else {
-        li.classList.add("contextmenu-new-section");
-        lastSection = item.section;
-      }
-
-      let link = li.appendChild(document.createElement("a"));
-      if (item.action) {
-        link.addEventListener("click", (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          item.action();
-        }, {
-          // Debounce by only letting us hear one click.
-          once: true
-        });
-        link.href = "#";
-      } else if (item.href) {
-        link.href = item.href;
-      }
-
-      link.classList.add("contextmenu-link");
-      if (item.icon) {
-        link.classList.add(`icon-${item.icon}`);
-      }
-
-      link.innerHTML = item.html;
-      this.menu.appendChild(li);
-    }
+    this.populateMenu(this.menu, menuItems);
 
     let x = event.clientX + window.scrollX;
     let y = event.clientY + window.scrollY;
@@ -646,10 +683,6 @@ var ContextMenu = new (class ContextMenu {
     // Now the menu is correctly positioned, show it.
     this.menu.style.opacity = "";
     this.menu.focus();
-  }
-
-  hide() {
-    this.menu.style.display = "none";
   }
 
   get active() {
@@ -866,3 +899,144 @@ function getTargetWord() {
 
   return string.substring(start, end);
 }
+
+var TREE_LIST = [
+  [
+    {
+      name: "Firefox",
+      items: [
+        { value: "mozilla-central" },
+        { value: "mozilla-beta" },
+        { value: "mozilla-release" },
+        { value: "mozilla-esr128" },
+        { value: "mozilla-esr115" },
+        { value: "mozilla-esr102" },
+        { value: "mozilla-esr91" },
+        { value: "mozilla-esr78" },
+        { value: "mozilla-esr68" },
+        { value: "mozilla-esr60" },
+        { value: "mozilla-esr45" },
+        { value: "mozilla-esr31" },
+        { value: "mozilla-esr17" },
+      ],
+    },
+  ],
+  [
+    {
+      name: "Firefox other",
+      items: [
+        { value: "mozilla-mobile" },
+        { value: "mozilla-elm" },
+        { value: "mozilla-cedar" },
+        { value: "mozilla-cypress" },
+      ],
+    },
+    {
+      name: "Thunderbird",
+      items: [
+        { value: "comm-central" },
+        { value: "comm-esr128" },
+        { value: "comm-esr115" },
+        { value: "comm-esr102" },
+        { value: "comm-esr91" },
+        { value: "comm-esr78" },
+        { value: "comm-esr68" },
+        { value: "comm-esr60" },
+      ],
+    },
+  ],
+  [
+    {
+      name: "MinGW",
+      items: [
+        { value: "mingw" },
+        { value: "mingw-moz" },
+      ],
+    },
+    {
+      name: "Other",
+      items: [
+        { label: "KaiOS", value: "kaios" },
+        { value: "glean" },
+        { value: "l10n" },
+        { label: "LLVM", value: "llvm" },
+        { value: "nss" },
+        { label: "Rust", value: "rust" },
+        { label: "TC39 ECMA262 spec", value: "ecma262" },
+        { value: "version-control-tools" },
+        { label: "WHATWG HTML spec", value: "whatwg-html" },
+        { value: "wubkat" },
+      ]
+    }
+  ]
+];
+
+var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
+  constructor() {
+    super();
+    this.button = document.getElementById("tree-switcher");
+    this.menu = document.getElementById("tree-switcher-menu");
+
+    if (!this.button || !this.menu) {
+      return;
+    }
+
+    this.button.addEventListener("click", () => {
+      if (this.menu.style.display == "flex") {
+        this.menu.style.display = "none";
+      } else {
+        this.setupMenu();
+        this.menu.style.display = "flex";
+        this.menu.focus();
+      }
+    });
+  }
+
+  hideOnMouseDown(event) {
+    if (event.target.closest("#tree-switcher-menu")) {
+      return;
+    }
+    if (event.target.closest("#tree-switcher")) {
+      return;
+    }
+
+    this.hide();
+  }
+
+  setupMenu() {
+    const lists = [];
+
+    for (const column of TREE_LIST) {
+      const list = document.createElement("ul");
+
+      const menuItems = [];
+      for (const group of column) {
+
+        menuItems.push({
+          html: `<b>${group.name}</b>`,
+          section: "group-" + group.name,
+        });
+
+        for (const item of group.items) {
+          const label = item.label ? item.label : item.value;
+          const tree = item.value;
+
+          menuItems.push({
+            html: label,
+            classNames: ["indent"],
+            href: document.location.pathname.replace(/^\/[^\/]+\//, `/${tree}/`)
+              + document.location.search
+              + document.location.hash,
+            section: "group-" + group.name,
+          });
+        }
+      }
+
+      this.populateMenu(list, menuItems);
+
+      lists.push(list);
+    }
+
+    this.menu.replaceChildren(...lists);
+  }
+});
