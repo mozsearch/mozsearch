@@ -1305,6 +1305,8 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
+    output::generate_breadcrumbs(&opt, writer, "", false)?;
+
     generate_commit_info(tree_name, &tree_config, writer, commit)?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();

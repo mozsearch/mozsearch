@@ -52,15 +52,18 @@ pub fn generate_breadcrumbs(
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
     let mut path_so_far = "".to_string();
-    for name in path.split('/') {
-        breadcrumbs.push_str("<span class=\"path-separator\">/</span>");
-        path_so_far.push_str(name);
-        breadcrumbs.push_str(&format!(
-            "<a href=\"{}\">{}</a>",
-            file_url(opt, &path_so_far),
-            name
-        ));
-        path_so_far.push('/');
+
+    if !path.is_empty() {
+        for name in path.split('/') {
+            breadcrumbs.push_str("<span class=\"path-separator\">/</span>");
+            path_so_far.push_str(name);
+            breadcrumbs.push_str(&format!(
+                "<a href=\"{}\">{}</a>",
+                file_url(opt, &path_so_far),
+                name
+            ));
+            path_so_far.push('/');
+        }
     }
 
     if generate_symbol {
