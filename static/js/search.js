@@ -48,7 +48,6 @@ var Dxr = new (class Dxr {
       once: true,
     });
 
-    this.fields.query.addEventListener("input", () => this.startSearchSoon());
     // XXX hacky mechanism so that we only run this on pages with a "search"
     // header rather than a "query" header.  We should refactor this and the
     // general code listing generation so that we:
@@ -56,6 +55,7 @@ var Dxr = new (class Dxr {
     //   choice even on any page.
     // - explicitly understand if it's operating in search or query mode.
     if (this.fields.path) {
+      this.fields.query.addEventListener("input", () => this.startSearchSoon());
       this.fields.path.addEventListener("input", () => this.startSearchSoon());
       this.fields.regexp.addEventListener("change", () => this.startSearch());
       this.fields.caseSensitive.addEventListener("change", event => {
