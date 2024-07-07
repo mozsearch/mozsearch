@@ -3,6 +3,7 @@ name = "files"
 version = "0.1.0"
 authors = ["Emilio Cobos Álvarez <emilio@crisal.io>"]
 build = "build.rs"
+edition = "2018"
 
 [lib]
 name = "simple"
