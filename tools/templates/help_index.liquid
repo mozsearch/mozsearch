@@ -2,6 +2,7 @@
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
     {% include 'breadcrumbs.liquid' path: "", hidden: true %}
+    {% include 'navigation_panel.liquid' expanded: false %}
     {{ content }}
   </div>
   {% include 'scroll_footer.liquid' %}

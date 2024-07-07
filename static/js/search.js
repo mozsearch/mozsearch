@@ -650,6 +650,15 @@ function populateResults(data, full, jumpToSingle) {
       }
     }
   }
+  const navigationPanel = document.querySelector("#panel");
+  if (navigationPanel) {
+    // Preserve navigation panel if present.
+    items.push(navigationPanel);
+
+    try {
+      Panel.prepareForSearch();
+    } catch {}
+  }
 
   if (!fileCount) {
     const div = document.createElement("div");

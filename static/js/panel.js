@@ -242,6 +242,10 @@ var Panel = new (class Panel {
     this.icon.classList.toggle("expanded");
   }
 
+  isExpanded() {
+    return this.icon.classList.contains("expanded");
+  }
+
   copyText(copy, text) {
     copy.setAttribute("data-copying", "true");
     navigator.clipboard
@@ -463,8 +467,12 @@ var Panel = new (class Panel {
       ns = sym.slice(0, index + 2);
       local = sym.slice(index + 2);
     }
-    this.selectedSymbolNS.textContent = ns;
-    this.selectedSymbolLocal.textContent = local;
+    if (this.selectedSymbolNS) {
+      this.selectedSymbolNS.textContent = ns;
+    }
+    if (this.selectedSymbolLocal) {
+      this.selectedSymbolLocal.textContent = local;
+    }
   }
 
   // Reflect the line number of selected symbol, if any and if it's outside of
@@ -515,6 +523,22 @@ var Panel = new (class Panel {
   // Returns true if the event is dispatched inside the navigation panel.
   isOnPanel(event) {
     return !!event.target.closest("#panel");
+  }
+
+  prepareForSearch() {
+    // Remove any item not shared between search and other contexts.
+    for (const node of [...this.content.childNodes]) {
+      if (node instanceof HTMLElement) {
+        if (node.classList.contains("panel-accel")) {
+          continue;
+        }
+      }
+      this.content.removeChild(node);
+    }
+
+    if (this.isExpanded()) {
+      this.toggle();
+    }
   }
 })();
 

@@ -4,6 +4,7 @@
   <div id="content" class="content" data-no-results="No results for current query.">
     <div>
       {% include 'breadcrumbs.liquid' path: "", hidden: false %}
+      {% include 'navigation_panel.liquid' expanded: false %}
     </div>
     {% for result_pair in results %}
       {% case result_pair[0] %}
