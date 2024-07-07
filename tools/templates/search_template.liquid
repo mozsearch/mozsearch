@@ -1,7 +1,7 @@
 {% include 'header_search.liquid' title: "{{TITLE}} - mozsearch", autofocus: false %}
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
-    {% include 'breadcrumbs.liquid' path: "" %}
+    {% include 'breadcrumbs.liquid' path: "", hidden: false %}
     <script>
       var results = {{ "{{BODY}}" }};
       window.addEventListener("load", function() { showSearchResults(results); });

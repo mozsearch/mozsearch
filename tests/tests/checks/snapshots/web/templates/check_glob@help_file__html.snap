@@ -55,6 +55,11 @@ expression: "&fb.contents"
 
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
+    
+  <div class="breadcrumbs" style="display: none">
+    <a href="/tests/source/">tests</a>
+  </div>
+
     <div class="intro">
 
 <h1>Welcome to Searchfox [testing]</h1>
@@ -194,5 +199,3 @@ indexes C++ and JavaScript code. This is the help page for Searchfox.
 </div>
 </body>
 </html>
-
-

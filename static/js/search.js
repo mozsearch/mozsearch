@@ -631,6 +631,9 @@ function populateResults(data, full, jumpToSingle) {
     // Preserve breadcrumbs if present.
     items.push(breadcrumbs);
 
+    // Breadcrumbs is hidden in some page.
+    breadcrumbs.style.display = "inline-block";
+
     // Remove path and symbols.
     //
     // NOTE: Search can be initiated from source or directory listing,
