@@ -5,14 +5,14 @@ that you have set up the Vagrant VM as documented in the [top level README](../R
 
 ## 1. Create a tarball with the git repo
 
-This is as simple as running `git clone` to clone the repo locally, and then running `tar` to make a tarball.
-Note that it's best to do this inside your mozsearch folder so that it's automatically mirrored inside the
-vagrant VM instance for other steps below. For example:
+This is as simple as running `git clone` to clone the repo locally, and then running `tar` and `lz4`
+to make an lz4-compressed tarball.  Note that it's best to do this inside your mozsearch folder so
+that it's automatically mirrored inside the vagrant VM instance for other steps below. For example:
 
 ```
 cd $MOZSEARCH
 git clone https://github.com/mozilla/glean git
-tar cf glean.tar git
+tar cf - git | lz4 - glean.tar.lz4
 ```
 
 If you're cloning a hg repo, use cinnabar:
@@ -23,7 +23,7 @@ pushd git
 git branch -m master
 git config fetch.prune true
 popd
-tar cf version-control-tools.tar git
+tar cf - git | lz4 - version-control-tools.tar.lz4
 ```
 
 ## 2. Create a tarball of the blame repo
@@ -40,7 +40,7 @@ pushd tools && cargo +nightly build --release && popd
 mkdir blame
 pushd blame && git init . && popd
 tools/target/release/build-blame ./git ./blame # this might take a while, depending on your repo size
-tar cf glean-blame.tar blame
+tar cf - blame | lz4 - glean-blame.tar.lz4
 ```
 
 ## 3. Upload the two tarballs to the S3 bucket
@@ -53,8 +53,8 @@ and testing the setup.
 
 ```
 cd $MOZSEARCH
-infrastructure/aws/upload.py ./glean.tar searchfox.repositories glean.tar
-infrastructure/aws/upload.py ./glean-blame.tar searchfox.repositories glean-blame.tar
+infrastructure/aws/upload.py ./glean.tar.lz4 searchfox.repositories glean.tar.lz4
+infrastructure/aws/upload.py ./glean-blame.tar.lz4 searchfox.repositories glean-blame.tar.lz4
 ```
 
 The above commands don't provide progress output. You can equivalently do the upload with

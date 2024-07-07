@@ -91,6 +91,30 @@ serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
+# This builds both mozsearch and mozsearch-mozilla using the trees as they exist
+# on github rather than your local copies.  This differs from the
+# "build-searchfox-repo" make target which uses your current tree, which can be
+# useful but where anything that isn't checked-in can cause failures.  (That is,
+# if you run `git status` and anything is modified, output-files can crash when
+# the local checked-out status does not have the same number of lines as the
+# blame repo says there should be.)
+#
+# Notes:
+# - If you want to use a modified version of mozsearch-mozilla, such as one
+#   checked out under "config" in the check-out repo, you can create a symlink
+#   in the VM's home directory via `pushd ~; ln -s /vagrant/config mozsearch-config`.
+build-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	[ -e ~/mozsearch-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozsearch-config
+	mkdir -p ~/mozsearch-index
+	/vagrant/infrastructure/indexer-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index
+	/vagrant/infrastructure/indexer-run.sh ~/mozsearch-config ~/mozsearch-index
+	/vagrant/infrastructure/web-server-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~
+
+serve-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	/vagrant/infrastructure/web-server-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~
+
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
 #   checked out under "config" in the check-out repo, you can create a symlink
