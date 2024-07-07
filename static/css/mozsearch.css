@@ -673,6 +673,7 @@ tr.after-context-line + tr.before-context-line {
   cursor: pointer;
 }
 #show-settings {
+  float: right;
   color: var(--panel-header-color);
 }
 .navpanel-icon {
