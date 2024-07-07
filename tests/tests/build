@@ -128,22 +128,6 @@ done
 # Leave the objdir now that we're done normalizing build-dir paths.
 popd
 
-
-## Normalize the save-analysis paths.
-# Normalize the source root off to make source paths relative.
-NORMALIZE_EXPR='s#/vagrant/tests/tests/files/##g'
-# Normalize the OBJDIR root off to make relative __GENERATED__ paths.  OBJDIR
-# will look like "/home/vagrant/index/tests/objdir" and so will not overlap
-# at all with the source path, prefix-wise.
-NORMALIZE_EXPR+=";s#$OBJDIR#__GENERATED__#g"
-# Apply the equivalent of the __RUST_BUILD_SCRIPT__ transform from the preceding
-# section.  We're including the __GENERATED__ in the input and output for extra
-# paranoia.
-NORMALIZE_EXPR+=';s#"__GENERATED__/(debug|release)/build/([^/]+)-[0-9a-f]+/out/([^"]+)"#"__GENERATED__/__RUST_BUILD_SCRIPT__/\2/\3"#g'
-
-# parallel -q quotes the semicolons
-find $OBJDIR -type f -name "*.json" | parallel -q --halt now,fail=1 sed --in-place -Ee "$NORMALIZE_EXPR" {}
-
 # Firefox generates files named something like Configure.cpp during
 # the build process, but their source files are not around by the time
 # we run the analysis. crossref.rs needs to be able to deal with this
