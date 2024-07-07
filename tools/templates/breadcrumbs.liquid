@@ -1,5 +1,5 @@
 {%- assign path_segments = path | split: "/" %}
-  <div class="breadcrumbs">
+  <div class="breadcrumbs"{%- if hidden %} style="display: none"{% endif -%}>
     <a href="/{{tree}}/source/">{{ tree }}</a>
 {%- for segment in path_segments -%}
   <span class="path-separator">/</span>
