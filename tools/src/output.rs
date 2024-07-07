@@ -350,6 +350,7 @@ pub fn generate_panel(
     opt: &Options,
     writer: &mut dyn Write,
     sections: &[PanelSection],
+    collapsed: bool,
 ) -> Result<(), &'static str> {
     let sections = sections
         .iter()
@@ -422,9 +423,13 @@ pub fn generate_panel(
         F::Indent(vec![
             F::S(r#"<button id="panel-toggle">"#),
             F::Indent(vec![
-                F::S(
-                    r#"<span class="navpanel-icon icon-down-dir expanded" aria-hidden="false"></span>"#,
-                ),
+                F::T(format!(
+                    r#"<span class="navpanel-icon icon-down-dir{}" aria-hidden="false"></span>"#,
+                    if collapsed {
+                        ""
+                    } else {
+                        " expanded"
+                    })),
                 F::S("Navigation"),
                 F::T(format!(
                     r#"<a id="show-settings" title="Go to settings page" href="/{}/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>"#,
@@ -432,7 +437,23 @@ pub fn generate_panel(
                 )),
             ]),
             F::S("</button>"),
-            F::S(r#"<section id="panel-content" aria-expanded="true" aria-hidden="false">"#),
+            F::T(format!(
+                r#"<section id="panel-content" aria-expanded="{}" aria-hidden="{}"{}>"#,
+                if collapsed {
+                    "false"
+                } else {
+                    "true"
+                },
+                if collapsed {
+                    "true"
+                } else {
+                    "false"
+                },
+                if collapsed {
+                    r#" style="display: none""#
+                } else {
+                    ""
+                })),
             F::S(
                 r#"<label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>"#,
             ),

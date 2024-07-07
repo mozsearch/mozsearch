@@ -469,7 +469,7 @@ pub fn format_file_data(
 
     output::generate_breadcrumbs(&opt, writer, path, !analysis.is_empty())?;
 
-    output::generate_panel(&opt, writer, panel)?;
+    output::generate_panel(&opt, writer, panel, false)?;
 
     let info_boxes_container = F::Seq(vec![
         F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
@@ -1051,7 +1051,7 @@ pub fn format_diff(
         items: vcs_panel_items,
         raw_items: vec![],
     }];
-    output::generate_panel(&opt, writer, &sections)?;
+    output::generate_panel(&opt, writer, &sections, false)?;
 
     let f = F::Seq(vec![F::T(format!(
         "<div id=\"file\" class=\"file\" role=\"table\"{}>",
@@ -1306,6 +1306,8 @@ pub fn format_commit(
     output::generate_header(&opt, writer)?;
 
     output::generate_breadcrumbs(&opt, writer, "", false)?;
+
+    output::generate_panel(&opt, writer, &[], true)?;
 
     generate_commit_info(tree_name, &tree_config, writer, commit)?;
 
