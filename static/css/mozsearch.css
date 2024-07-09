@@ -83,6 +83,26 @@ table {
   --result-context-color: royalblue;
 
   --diagram-depth-hue: 270deg;
+
+  --base-font-size: 12px;
+  --base-line-height: 1.5;
+  --source-line-height: 1.3;
+
+  --search-box-padding: 0.8rem;
+  --search-box-old-rev-padding-bottom: 0.4rem;
+
+  --revision-padding-top: 0.2rem;
+
+  --checkbox-margin: 3px;
+  --checkbox-height: 14px;
+
+  --search-box-fieldset-min-height: calc(
+    2 * (
+      var(--checkbox-margin)
+      + var(--checkbox-height)
+      + var(--checkbox-margin)
+    )
+  );
 }
 
 @supports (color-scheme: dark) {
@@ -161,7 +181,7 @@ table {
 }
 
 :root {
-  font: 12px/1.5 Arial, Helvetica, sans-serif;
+  font: var(--base-font-size)/var(--base-line-height) Arial, Helvetica, sans-serif;
 
   background-color: var(--page-background);
   color: var(--page-foreground);
@@ -236,7 +256,7 @@ details > summary > h2 {
 }
 details > summary > h3,
 details > summary > li > h3 {
-  font-size: 12px;
+  font-size: var(--base-font-size);
 }
 
 
@@ -312,7 +332,7 @@ td#line-numbers {
 
 .source-line-with-number {
   padding: 0rem 1rem;
-  line-height: 1.3;
+  line-height: var(--source-line-height);
   display: flex;
 }
 
@@ -446,7 +466,7 @@ body {
    opaque background color for these because those classes don't take effect
    immediately. */
   background-color: var(--page-background-color);
-  top: calc(var(--nesting-level) * 12px * 1.3);
+  top: calc(var(--nesting-level) * var(--base-font-size) * var(--source-line-height));
   z-index: calc(100 - var(--nesting-level));
 }
 /* Search results */
@@ -469,12 +489,12 @@ tr.after-context-line + tr.before-context-line {
 .results tr,
 .file tr {
   border: 0;
-  line-height: 1.3;
+  line-height: var(--source-line-height);
 }
 .file tr .line-number,
 .file tr .code pre code {
   /* don't let bolded code increase the line-height - see bug 1322740 comment 9 */
-  max-height: calc(12px * 1.3);
+  max-height: calc(var(--base-font-size) * var(--source-line-height));
 }
 .left-column,
 .file td:first-child {
@@ -528,7 +548,7 @@ tr.after-context-line + tr.before-context-line {
 }
 
 .result-kind {
-  font-size: 12px;
+  font-size: var(--base-font-size);
   font-weight: 800;
 }
 
@@ -605,7 +625,22 @@ tr.after-context-line + tr.before-context-line {
      block, so it doesn't matter where this node lives in the DOM, apart from
      accessibility tree purposes.) */
   position: fixed;
-  top: 105px;
+  /* We position the navigation panel just below the search box so that when
+   * it is collapsed it exists in the margins of the page so that we can show
+   * it on all pages.
+   *
+   * Previously it was styled to be floating on the page which was only
+   * appropriate on source listing pages where it would usually be in the
+   * right margin of the page. But now we want it visible on all pages.
+   *
+   * Note that on pages where we display the indexed revision as part of the
+   * search box, this offset needs to be adjusted, and we do that below using
+   * the ".old-rev" selector. */
+  top: calc(
+      var(--search-box-padding)
+      + var(--search-box-fieldset-min-height)
+      + var(--search-box-padding)
+  );
   right: 22px;
   background-color: var(--page-background);
   border: 1px solid var(--page-border-color);
@@ -614,6 +649,17 @@ tr.after-context-line + tr.before-context-line {
   overflow-x: hidden;
   max-height: calc(100% - 150px);
   z-index: 102;
+}
+:root.old-rev .panel {
+  /* Adjust the navigation panel location for the presence of the indexed revision.
+   * See above for more. */
+  top: calc(
+      var(--search-box-padding)
+      + var(--search-box-fieldset-min-height)
+      + var(--revision-padding-top)
+      + var(--base-font-size) * var(--base-line-height)
+      + var(--search-box-old-rev-padding-bottom)
+  );
 }
 #panel-toggle {
   display: inline-block;
@@ -752,7 +798,7 @@ span[data-symbols].selected {
 
 /* Help screen */
 .intro, .settings-page {
-  font: 14px/1.5 Arial, Helvetica, sans-serif;
+  font: 14px/var(--base-line-height).5 Arial, Helvetica, sans-serif;
   margin-left: 10%;
   margin-right: 10%;
   margin-bottom: 10%;
@@ -805,7 +851,7 @@ span[data-symbols].selected {
      Also, we add an extra line of padding to compensate for the box-shadow.
      Note: The default must be -1 * the offset for the non-stuck case.
    */
-  scroll-margin-top: calc((var(--nesting-level, -2) + 2) * 12px * 1.3);
+  scroll-margin-top: calc((var(--nesting-level, -2) + 2) * var(--base-font-size) * var(--source-line-height));
 }
 
 .nesting-container > .goto {
@@ -815,7 +861,7 @@ span[data-symbols].selected {
      levels >= 1 and results in an extra line of padding for == 0, but the
      complexity to fix it doesn't seem worth it.
    */
-  scroll-margin-top: calc((var(--nesting-level) + 1) * 12px * 1.3);
+  scroll-margin-top: calc((var(--nesting-level) + 1) * var(--base-font-size) * var(--source-line-height));
 }
 
 /* ## Blame ## */
@@ -918,8 +964,11 @@ input::placeholder {
 #search-box {
   background-image: var(--search-box-background-image);
   border-bottom: 1px solid var(--page-border-color);
-  padding: 0.8rem;
+  padding: var(--search-box-padding);
   width: 100%;
+}
+#search-box > fieldset {
+  min-height: var(--search-box-fieldset-min-height);
 }
 
 #search-box > fieldset {
@@ -933,10 +982,13 @@ input::placeholder {
   align-items: center;
 }
 :root.old-rev #search-box {
-  padding-bottom: 0.4rem;
+  padding-bottom: var(--search-box-old-rev-padding-bottom);
 }
 #revision {
-  padding-top: 0.2rem;
+  padding-top: 0;
+}
+:root.old-rev #revision {
+  padding-top: var(--revision-padding-top);
   color: var(--revision-text-color);
 }
 .v-flex-container {
@@ -956,6 +1008,10 @@ input::placeholder {
   padding: 0 2rem 0 0;
   /*min-width: 9rem;*/
   /*align-self: center;*/
+}
+#option-section input[type="checkbox"] {
+  margin: var(--checkbox-margin);
+  height: var(--checkbox-height);
 }
 #path-section {
   flex: 3;
