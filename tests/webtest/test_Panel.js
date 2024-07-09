@@ -40,7 +40,8 @@ add_task(async function test_PanelOnLoad() {
     {
       path: "/tests/query/default?q=webtest",
       expanded: false,
-      empty: true,
+      // Debug items are added on tests repository.
+      empty: false,
     },
     {
       path: "/searchfox/diff/4e266f75295afe5f94d14eb9b72445c830c095ef/.eslintrc.js",

@@ -163,6 +163,8 @@ var Dxr = new (class Dxr {
     this.historyTimer = setTimeout(() => {
       this.historyTimer = null;
       window.history.pushState({}, "", url.href);
+
+      Panel.updateDebugSectionForLocation();
     }, this.timeouts.history);
   }
 

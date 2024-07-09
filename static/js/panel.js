@@ -169,6 +169,10 @@ var Panel = new (class Panel {
     if (Settings.fancyBar.enabled) {
       this.addSymbolSection();
     }
+
+    if (Settings.debug.ui) {
+      this.addDebugSection();
+    }
   }
 
   get acceleratorsEnabled() {
@@ -454,6 +458,81 @@ var Panel = new (class Panel {
     });
 
     markdownHeader.before(box);
+  }
+
+  addDebugSection() {
+    const items = [];
+
+    const pageContent = document.getElementById("content");
+    if (document.location.pathname.match(/^\/[^\/]+\/source\//) &&
+        pageContent && pageContent.classList.contains("source-listing")) {
+      const li = document.createElement("li");
+      const link = document.createElement("a");
+      link.classList.add("icon");
+      link.classList.add("item");
+      link.href = document.location.href.replace(/\/source\//, "/raw-analysis/");
+      link.textContent = "Raw analysis records";
+      li.append(link);
+      items.push(li);
+    }
+
+    if (window.IS_DEBUG_LOGS_AVAILABLE) {
+      const li = document.createElement("li");
+      const link = document.createElement("a");
+      link.classList.add("icon");
+      link.classList.add("item");
+      li.append(link);
+      items.push(li);
+
+      this.showHideLogsLink = link;
+      this.updateDebugSectionForLocation();
+    }
+
+    this.resultsJSONBox = document.getElementById("query-debug-results-json");
+    this.resultsJSONPre = document.getElementById("query-debug-results-json-pre");
+    if (this.resultsJSONBox && this.resultsJSONPre) {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.classList.add("icon");
+      button.classList.add("item");
+      button.textContent = "Show results JSON";
+      li.append(button);
+      items.push(li);
+
+      button.addEventListener("click", () => {
+        if (this.resultsJSONBox.hasAttribute("aria-hidden")) {
+          this.resultsJSONBox.removeAttribute("aria-hidden");
+          this.resultsJSONPre.textContent = JSON.stringify(window.QUERY_RESULTS_JSON, undefined, 2);
+          button.textContent = "Hide results JSON";
+        } else {
+          this.resultsJSONBox.setAttribute("aria-hidden", "true");
+          this.resultsJSONPre.textContent = "";
+          button.textContent = "Show results JSON";
+        }
+      });
+    }
+
+    if (items.length > 0) {
+      const h4 = document.createElement("h4");
+      h4.textContent = "Debug";
+      this.content.append(h4);
+
+      const ul = document.createElement("ul");
+      ul.append(...items);
+      this.content.append(ul);
+    }
+  }
+
+  updateDebugSectionForLocation() {
+    if (this.showHideLogsLink) {
+      if (document.location.href.includes("&debug=true")) {
+        this.showHideLogsLink.href = document.location.href.replace(/&debug=true/, "");
+        this.showHideLogsLink.textContent = "Hide debug log";
+      } else {
+        this.showHideLogsLink.href = document.location.href + "&debug=true";
+        this.showHideLogsLink.textContent = "Show debug log";
+      }
+    }
   }
 
   // Show the selected symbol's namespace prefix and the local name in the
