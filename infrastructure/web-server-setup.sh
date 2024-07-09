@@ -65,6 +65,9 @@ do
     fi
 done
 
+rm -f $DOCROOT/tree-list.js
+ln -s $CONFIG_REPO/tree-list.js $DOCROOT
+
 # ### Create and emplace the nginx configuration file
 $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > /tmp/nginx
 sudo mv /tmp/nginx /etc/nginx/sites-enabled/mozsearch.conf
