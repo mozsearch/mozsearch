@@ -69,6 +69,46 @@ add_task(async function test_BreadcrumbsOnLoad() {
       is(breadcrumbs.textContent.trim(), text,
          `Breadcrumbs shows the correct path on ${path}`);
     }
+
+    const treeSwitcher = breadcrumbs.querySelector("#tree-switcher");
+    ok(!!treeSwitcher, `Tree switcher node exists on ${path}`);
+    const treeSwitcherMenu = breadcrumbs.querySelector("#tree-switcher-menu");
+    ok(!!treeSwitcherMenu, `Tree switcher menu node exists on ${path}`);
+    is(treeSwitcherMenu.style.display, "none",
+       `Tree switcher menu is hidden on ${path}`);
+
+    if (!hidden) {
+      TestUtils.click(treeSwitcher);
+
+      waitForShown(treeSwitcherMenu,
+                   `Tree switcher menu is shown after clicking switcher`);
+
+      const href = frame.contentDocument.location.href;
+
+      const loadPromise = TestUtils.waitForLoad();
+      const links = treeSwitcherMenu.querySelectorAll("a[href]");
+      is(links[0].textContent, "tests",
+         "The first item should be tests");
+      is(links[1].textContent, "searchfox",
+         "The first item should be searchfox");
+      const isTests = frame.contentDocument.location.href.includes("/tests/");
+      if (isTests) {
+        TestUtils.click(links[1]);
+      } else {
+        TestUtils.click(links[0]);
+      }
+      await loadPromise;
+
+      if (isTests) {
+        is(frame.contentDocument.location.href,
+           href.replace(/tests/, "searchfox"),
+           "Tree should be switched to searchfox");
+      } else {
+        is(frame.contentDocument.location.href,
+           href.replace(/searchfox/, "tests"),
+           "Tree should be switched to tests");
+      }
+    }
   }
 });
 
@@ -139,5 +179,10 @@ add_task(async function test_BreadcrumbsAfterSearch() {
           `Breadcrumbs is shown on the search result from ${path}`);
     is(breadcrumbs.textContent.trim(), tree,
        `Breadcrumbs shows the tree name on the search result from ${path}`);
+
+    const treeSwitcher = breadcrumbs.querySelector("#tree-switcher");
+    ok(!!treeSwitcher, `Tree switcher node exists on the search result from ${path}`);
+    const treeSwitcherMenu = breadcrumbs.querySelector("#tree-switcher-menu");
+    ok(!!treeSwitcherMenu, `Tree switcher menu node exists on the search result from ${path}`);
   }
 });
