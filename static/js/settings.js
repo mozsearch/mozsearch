@@ -86,6 +86,11 @@ const SETTING_DEFS = {
       quality: "alpha",
     },
   },
+  debug: {
+    ui: {
+      default: (document.location.host !== "searchfox.org"),
+    },
+  },
 };
 
 const QUALITY_ORDERING = [
@@ -153,7 +158,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 3;
+const SETTINGS_VERSION = 4;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".

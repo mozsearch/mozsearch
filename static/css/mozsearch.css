@@ -1511,3 +1511,9 @@ g.true-diag g.node polygon {
 #symbol-tree-table-col-selector label + label {
   margin: 0 0 0 8px;
 }
+
+/* Query result debugging */
+
+#query-debug-results-json[aria-hidden] {
+  display: none;
+}

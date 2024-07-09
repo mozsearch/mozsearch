@@ -22,15 +22,29 @@
           Unhandled results type {{result_pair[0]}}!
         {% endcase %}
       {% endfor %}
-      {% if logs != empty %}
+      {% if logs != empty -%}
+      <fieldset id="query-debug-logs">
+        <legend>Logs</legend>
+        {%- for log in logs -%}
         <pre>
-        {% for log in logs %}
-          {{ log | json | escape}}
-        {% endfor %}
+          {{- log | json | escape -}}
         </pre>
-      {% endif %}
+        {%- endfor -%}
+      </fieldset>
+      {%- endif %}
+      <fieldset id="query-debug-results-json" aria-hidden="true">
+        <legend>results JSON</legend>
+        <pre id="query-debug-results-json-pre">
+        </pre>
+      </fieldset>
   </div>
-  <script>var SYM_INFO = {{ SYM_INFO_STR }};</script>
+  <script>
+var SYM_INFO = {{ SYM_INFO_STR }};
+var QUERY_RESULTS_JSON = {{ results | json }};
+// Debug logs are always available for queries, so always set the variable to true;
+// other pages will not have the variable defined and so the page will see undefined as false.
+var IS_DEBUG_LOGS_AVAILABLE = true;
+</script>
   {% include 'scroll_footer.liquid' search: "query" %}
 </div>
 {% include 'footer.liquid' %}
