@@ -247,6 +247,12 @@ location('= /status.txt', [
     'add_header Cache-Control "must-revalidate";',
 ])
 
+location('= /tree-list.js', [
+    f'root {doc_root};',
+    'try_files $uri =404;',
+    'add_header Cache-Control "must-revalidate";',
+])
+
 if config.get("allow_webtest"):
     location(f'/tests/webtest', [
         f'root {mozsearch_path};',

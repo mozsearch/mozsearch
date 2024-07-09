@@ -316,6 +316,7 @@ pub fn generate_footer(
                 r#"<span id="data" data-root="/" data-search="/{}/search" data-tree="{}" data-path="{}"></span>"#,
                 tree_name, tree_name, path
             )),
+            F::S(r#"<script src="/tree-list.js"></script>"#),
             F::Seq(script_tags),
             F::S("</div>"), // close out #scrolling
             F::S("</body>"),
