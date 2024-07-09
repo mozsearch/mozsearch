@@ -103,6 +103,18 @@ on that side of the tag.  So `{{-` /`-}}` can be used instead of `{{`/`}}` and
 `{%-`/`-%}` can be used instead of `{%`/`%}`.  Note that you can make the
 decision independently for the opening and closing tags.
 
+If stripping all whitespaces is not suitable, the other option to control the
+whitespace is to put newlines and spaces inside the `{{`/`}}` and `{%`/`%}`:
+
+```
+<div id="content" %{
+     if expanded
+     %}aria-expanded="true" aria-hidden="false"%{
+     else
+     %}aria-expanded="false" aria-hidden="true"%{
+     endif %}>
+```
+
 ## Liquid-Rust Supported Tags / Filters
 
 ### Built-in
