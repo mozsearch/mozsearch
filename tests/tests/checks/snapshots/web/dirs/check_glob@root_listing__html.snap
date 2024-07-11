@@ -217,7 +217,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/build.rs" class="mimetype-fixed-container mimetype-icon-rs">build.rs</a></td>
           <td class="description"><a href="/tests/source/build.rs" title=""></td>
-          <td><a href="/tests/source/build.rs">337</a></td>
+          <td><a href="/tests/source/build.rs">358</a></td>
         </tr>
 
         <tr>
@@ -229,7 +229,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/Cargo.toml" class="mimetype-fixed-container mimetype-icon-toml">Cargo.toml</a></td>
           <td class="description"><a href="/tests/source/Cargo.toml" title=""></td>
-          <td><a href="/tests/source/Cargo.toml">250</a></td>
+          <td><a href="/tests/source/Cargo.toml">267</a></td>
         </tr>
 
         <tr>
@@ -479,7 +479,7 @@ expression: "&fb.contents"
 ">A grab-bug of rust code to exercise the searchfox indexer.
    Note how this comment ends up in the file description, too!
 </td>
-          <td><a href="/tests/source/simple.rs">1729</a></td>
+          <td><a href="/tests/source/simple.rs">1910</a></td>
         </tr>
 
         <tr>
