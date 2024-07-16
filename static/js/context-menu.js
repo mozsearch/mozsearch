@@ -926,16 +926,30 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
     }
 
     this.button.addEventListener("click", () => {
-      if (this.menu.style.display == "flex") {
-        this.menu.style.display = "none";
+      if (this.isShown()) {
+        this.hide();
       } else {
         this.setupMenu();
-        this.menu.style.display = "flex";
+        this.show();
         this.focusCurrentTree();
       }
     });
 
     this.columns = [];
+  }
+
+  show() {
+    this.menu.style.display = "flex";
+    this.button.setAttribute("aria-expanded", "true");
+  }
+
+  isShown() {
+    return this.menu.style.display == "flex";
+  }
+
+  hide() {
+    super.hide();
+    this.button.setAttribute("aria-expanded", "false");
   }
 
   hideOnMouseDown(event) {
