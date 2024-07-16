@@ -1,6 +1,6 @@
 {%- assign path_segments = path | split: "/" %}
   <div class="breadcrumbs"{%- if hidden %} style="display: none"{% endif -%}>
-    <a href="/{{tree}}/source/">{{ tree }}</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" role="menu" class="context-menu" style="display: none"></div>
+    <a href="/{{tree}}/source/">{{ tree }}</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>
 {%- for segment in path_segments -%}
   <span class="path-separator">/</span>
   {%- assign path_so_far = path_segments | slice: 0, forloop.index | join: "/" -%}

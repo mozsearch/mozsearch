@@ -57,7 +57,7 @@ expression: "&fb.contents"
   <div id="content" class="content" data-no-results="No results for current query.">
     
   <div class="breadcrumbs">
-    <a href="/tests/source/">tests</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" role="menu" class="context-menu" style="display: none"></div><span class="path-separator">/</span><a href="/tests/source/__GENERATED__">__GENERATED__</a>
+    <a href="/tests/source/">tests</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div><span class="path-separator">/</span><a href="/tests/source/__GENERATED__">__GENERATED__</a>
   </div>
 
     <div class="panel" id="panel">
