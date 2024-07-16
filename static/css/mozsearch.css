@@ -634,7 +634,7 @@ tr.after-context-line + tr.before-context-line {
   border-radius: 2px;
 }
 #tree-switcher:hover {
-  background-color: var(--button-background);
+  background-color: var(--list-hover-background);
 }
 #tree-switcher:active {
   background-color: var(--button-active-background);
