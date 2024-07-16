@@ -958,9 +958,14 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
       const column = [];
       for (const group of groups) {
         const menuItems = [];
-        const list = document.createElement("ul");
+
+        const groupIdPart = group.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+        const groupId = "tree-switcher-group-" + groupIdPart;
+        const groupListId = "tree-switcher-group-list-" + groupIdPart;
 
         const label = document.createElement("label");
+        label.id = groupId;
+        label.setAttribute("for", groupListId);
         label.classList.add("context-menu-group-label");
         label.textContent = group.name;
         column.push({
@@ -968,6 +973,8 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
         });
         columnBox.append(label);
 
+        const list = document.createElement("ul");
+        list.id = groupListId;
         for (const item of group.items) {
           const label = item.label ? item.label : item.value;
           const tree = item.value;
@@ -983,6 +990,8 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
             },
             useKeys: true,
           });
+
+          li.setAttribute("aria-labelledby", groupId);
 
           list.append(li);
           column.push({
