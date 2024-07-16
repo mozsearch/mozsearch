@@ -52,6 +52,14 @@ var TREE_LIST = [
   ],
   [
     {
+      name: "Searchfox",
+      items: [
+        { value: "mozsearch" },
+        { value: "mozsearch-mozilla" },
+        { value: "mozsearch-tests" },
+      ],
+    },
+    {
       name: "MinGW",
       items: [
         { value: "mingw" },
