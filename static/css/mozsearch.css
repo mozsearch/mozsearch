@@ -597,6 +597,11 @@ tr.after-context-line + tr.before-context-line {
 .context-menu a {
   display: block;
 }
+.context-menu-group-label {
+  display: block;
+  padding: 0.5em;
+  font-weight: bold;
+}
 .content {
   padding: 1rem 2rem;
 }

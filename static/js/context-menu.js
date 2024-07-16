@@ -24,6 +24,48 @@ class ContextMenuBase {
     }
   }
 
+  createMenuItem(item) {
+    let li = document.createElement("li");
+    li.classList.add("contextmenu-row");
+
+    let link = li.appendChild(document.createElement("a"));
+    if (item.action) {
+      link.addEventListener("click", (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        item.action();
+      }, {
+        // Debounce by only letting us hear one click.
+        once: true
+      });
+      link.href = "#";
+    } else if (item.href) {
+      link.href = item.href;
+    }
+
+    link.classList.add("contextmenu-link");
+    if (item.icon) {
+      link.classList.add(`icon-${item.icon}`);
+    }
+    if (item.classNames) {
+      for (const name of item.classNames) {
+        link.classList.add(name);
+      }
+    }
+    if (item.attrs) {
+      for (const [name, value] of Object.entries(item.attrs)) {
+        link.setAttribute(name, value);
+      }
+    }
+    if (item.useKeys) {
+      link.addEventListener("keydown", this.onKeyDown.bind(this));
+    }
+
+    link.innerHTML = item.html;
+
+    return li;
+  }
+
   populateMenu(menu, menuItems) {
     let suppression = new Set();
     menu.innerHTML = "";
@@ -39,8 +81,7 @@ class ContextMenuBase {
       }
       suppression.add(itemAsJson);
 
-      let li = document.createElement("li");
-      li.classList.add("contextmenu-row");
+      const li = this.createMenuItem(item);
       if (lastSection === null) {
         lastSection = item.section;
       } else if (lastSection === item.section) {
@@ -51,32 +92,6 @@ class ContextMenuBase {
         lastSection = item.section;
       }
 
-      let link = li.appendChild(document.createElement("a"));
-      if (item.action) {
-        link.addEventListener("click", (evt) => {
-          evt.preventDefault();
-          evt.stopPropagation();
-          item.action();
-        }, {
-          // Debounce by only letting us hear one click.
-          once: true
-        });
-        link.href = "#";
-      } else if (item.href) {
-        link.href = item.href;
-      }
-
-      link.classList.add("contextmenu-link");
-      if (item.icon) {
-        link.classList.add(`icon-${item.icon}`);
-      }
-      if (item.classNames) {
-        for (const name of item.classNames) {
-          link.classList.add(name);
-        }
-      }
-
-      link.innerHTML = item.html;
       menu.appendChild(li);
     }
   }
@@ -916,9 +931,11 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
       } else {
         this.setupMenu();
         this.menu.style.display = "flex";
-        this.menu.focus();
+        this.focusCurrentTree();
       }
     });
+
+    this.columns = [];
   }
 
   hideOnMouseDown(event) {
@@ -933,39 +950,180 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
   }
 
   setupMenu() {
-    const lists = [];
+    const columns = [];
+    const columnBoxes = [];
 
-    for (const column of TREE_LIST) {
-      const list = document.createElement("ul");
+    for (const groups of TREE_LIST) {
+      const columnBox = document.createElement("div");
+      const column = [];
+      for (const group of groups) {
+        const menuItems = [];
+        const list = document.createElement("ul");
 
-      const menuItems = [];
-      for (const group of column) {
-
-        menuItems.push({
-          html: `<b>${group.name}</b>`,
-          section: "group-" + group.name,
+        const label = document.createElement("label");
+        label.classList.add("context-menu-group-label");
+        label.textContent = group.name;
+        column.push({
+          label,
         });
+        columnBox.append(label);
 
         for (const item of group.items) {
           const label = item.label ? item.label : item.value;
           const tree = item.value;
 
-          menuItems.push({
+          const li = this.createMenuItem({
             html: label,
             classNames: ["indent"],
             href: document.location.pathname.replace(/^\/[^\/]+\//, `/${tree}/`)
               + document.location.search
               + document.location.hash,
-            section: "group-" + group.name,
+            attrs: {
+              "data-tree": tree,
+            },
+            useKeys: true,
+          });
+
+          list.append(li);
+          column.push({
+            link: li.firstChild,
           });
         }
+        columnBox.append(list);
       }
-
-      this.populateMenu(list, menuItems);
-
-      lists.push(list);
+      columns.push(column);
+      columnBoxes.push(columnBox);
     }
 
-    this.menu.replaceChildren(...lists);
+    this.columns = columns;
+
+    this.menu.replaceChildren(...columnBoxes);
+  }
+
+  getCurrentTree() {
+    const m = document.location.pathname.match(/^\/([^\/]+)\//);
+    if (m) {
+      return m[1];
+    }
+
+    // Fallback
+    return "mozilla-central";
+  }
+
+  focusCurrentTree() {
+    const tree = this.getCurrentTree();
+    const item = this.menu.querySelector(`a[data-tree="${tree}"`);
+    if (!item) {
+      this.menu.focus();
+    }
+    item.focus();
+  }
+
+  getItemPos(target) {
+    for (let col = 0; col < this.columns.length; col++) {
+      const column = this.columns[col];
+      for (let row = 0; row < column.length; row++) {
+        if (column[row].link == target) {
+          return { col, row };
+        }
+      }
+    }
+    return null;
+  }
+
+  focusItemAt(pos) {
+    while (!this.columns[pos.col][pos.row].link) {
+      pos.row++;
+    }
+
+    this.columns[pos.col][pos.row].link.focus();
+  }
+
+  onKeyDown(event) {
+    switch (event.key) {
+      case "Esc":
+      case "Escape":
+        this.hide();
+        return;
+    }
+
+    const pos = this.getItemPos(event.target);
+    if (!pos) {
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowUp":
+      case "Up":
+        pos.row--;
+        if (!this.columns[pos.col][pos.row].link) {
+          // Skip label.
+          pos.row--;
+        }
+        if (pos.row < 0) {
+          if (pos.col > 0) {
+            pos.col--;
+            pos.row = this.columns[pos.col].length - 1;
+          } else {
+            pos.row = 0;
+          }
+        }
+        break;
+
+      case "ArrowDown":
+      case "Down":
+        pos.row++;
+        if (pos.row >= this.columns[pos.col].length) {
+          if (pos.col < this.columns.length - 1) {
+            pos.col++;
+            pos.row = 0;
+          } else {
+            pos.row = this.columns[pos.col].length - 1;
+          }
+        }
+        break;
+
+      case "Home":
+        pos.row = 0;
+        pos.col = 0;
+        break;
+
+      case "End":
+        pos.col = this.columns.length - 1;
+        pos.row = this.columns[pos.col].length - 1;
+        break;
+
+      case "PageUp":
+        pos.row = 0;
+        break;
+
+      case "PageDown":
+        pos.row = this.columns[pos.col].length - 1;
+        break;
+
+      case "ArrowLeft":
+      case "Left":
+        pos.col--;
+        if (pos.col < 0) {
+          pos.col = 0;
+        }
+        if (pos.row >= this.columns[pos.col].length) {
+          pos.row = this.columns[pos.col].length - 1;
+        }
+        break;
+
+      case "ArrowRight":
+      case "Right":
+        pos.col++;
+        if (pos.col >= this.columns.length) {
+          pos.col = this.columns.length - 1;
+        }
+        if (pos.row >= this.columns[pos.col].length) {
+          pos.row = this.columns[pos.col].length - 1;
+        }
+        break;
+    }
+
+    this.focusItemAt(pos);
   }
 });
