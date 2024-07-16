@@ -629,8 +629,8 @@ tr.after-context-line + tr.before-context-line {
   appearance: none;
   border: none;
   vertical-align: middle;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   border-radius: 2px;
 }
 #tree-switcher:hover {
