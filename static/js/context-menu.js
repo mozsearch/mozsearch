@@ -1033,13 +1033,23 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
     return "mozilla-central";
   }
 
+  focusItem(item) {
+    item.focus();
+
+    // Given focus needs user interaction, tell webtest separately.
+    const event = new Event("focusmenuitem");
+    event.targetItem = item;
+    document.dispatchEvent(event);
+  }
+
   focusCurrentTree() {
     const tree = this.getCurrentTree();
     const item = this.menu.querySelector(`a[data-tree="${tree}"`);
     if (!item) {
       this.menu.focus();
     }
-    item.focus();
+
+    this.focusItem(item);
   }
 
   getItemPos(target) {
@@ -1059,7 +1069,7 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
       pos.row++;
     }
 
-    this.columns[pos.col][pos.row].link.focus();
+    this.focusItem(this.columns[pos.col][pos.row].link);
   }
 
   onKeyDown(event) {

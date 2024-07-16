@@ -341,6 +341,21 @@ class TestUtils {
   }
 
   /**
+   * Emulate keydown event.
+   *
+   * @param {Element} elem
+   *        The element for the event..
+   * @param {Object} options
+   *        The options for the event.
+   */
+  static keydown(elem, options) {
+    TestHarness.debug(`dispatching keydown event`);
+
+    const ev = new KeyboardEvent("keydown", options);
+    elem.dispatchEvent(ev);
+  }
+
+  /**
    * Emulate selecting a select option.
    *
    * @param {Element} elem
