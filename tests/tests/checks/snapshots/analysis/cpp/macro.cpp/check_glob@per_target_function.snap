@@ -1,0 +1,102 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00038:88-107",
+    "target": 1,
+    "kind": "use",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
+    "loc": "00047:0-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
+    "loc": "00048:8-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
+    "loc": "00040:88-107",
+    "target": 1,
+    "kind": "use",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
+    "loc": "00042:81-100",
+    "target": 1,
+    "kind": "use",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
+    "loc": "00038:88-107",
+    "source": 1,
+    "syntax": "use,function",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
+    "loc": "00040:88-107",
+    "source": 1,
+    "syntax": "use,function",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
+    "loc": "00042:81-100",
+    "source": 1,
+    "syntax": "use,function",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
+    "loc": "00047:0-19",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
+    "loc": "00048:8-27",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
+    "loc": "00047:0-19",
+    "structured": 1,
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type_pretty": null,
+    "kind": "function",
+    "subsystem": null,
+    "implKind": "",
+    "sizeBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": [],
+    "args": []
+  }
+]

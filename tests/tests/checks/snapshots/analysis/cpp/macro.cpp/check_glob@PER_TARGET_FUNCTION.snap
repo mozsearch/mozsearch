@@ -1,0 +1,76 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00038:8-27",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PER_TARGET_FUNCTION",
+    "sym": "M_51db11c9a44abeec"
+  },
+  {
+    "loc": "00047:0-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PER_TARGET_FUNCTION",
+    "sym": "M_51db11c9a44abeec"
+  },
+  {
+    "loc": "00040:8-27",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PER_TARGET_FUNCTION",
+    "sym": "M_e67221c9a44abeec"
+  },
+  {
+    "loc": "00047:0-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PER_TARGET_FUNCTION",
+    "sym": "M_e67221c9a44abeec"
+  },
+  {
+    "loc": "00042:8-27",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PER_TARGET_FUNCTION",
+    "sym": "M_0ff221c9a44abeec"
+  },
+  {
+    "loc": "00047:0-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PER_TARGET_FUNCTION",
+    "sym": "M_0ff221c9a44abeec"
+  },
+  {
+    "loc": "00038:8-27",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro PER_TARGET_FUNCTION",
+    "sym": "M_51db11c9a44abeec"
+  },
+  {
+    "loc": "00040:8-27",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro PER_TARGET_FUNCTION",
+    "sym": "M_e67221c9a44abeec"
+  },
+  {
+    "loc": "00042:8-27",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro PER_TARGET_FUNCTION",
+    "sym": "M_0ff221c9a44abeec"
+  },
+  {
+    "loc": "00047:0-19",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro PER_TARGET_FUNCTION",
+    "sym": "M_0ff221c9a44abeec,M_e67221c9a44abeec,M_51db11c9a44abeec"
+  }
+]

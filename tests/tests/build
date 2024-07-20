@@ -65,7 +65,8 @@ $MOZSEARCH_PATH/tools/target/release/scip-indexer \
 CPP_FILES=$(
 find . -name '*.cpp' | \
   grep -v /ipdl/ | \
-  grep -v /field-layout/
+  grep -v /field-layout/ | \
+  grep -v /macro.cpp
 )
 
 ## C++ Build Stuff
@@ -79,6 +80,7 @@ done
 ## Pseudo per-platform build
 MULTI_CPP_FILES=$(
   find ./field-layout/ -name '*.cpp'
+  echo "macro.cpp"
 )
 
 for PLATFORM in linux64 macosx64 win64
@@ -93,7 +95,7 @@ do
 
   for PLATFORM in linux64 macosx64 win64
   do
-    $CXX -DTEST_MACRO1 -DTEST_MACRO2 -DTARGET_$PLATFORM $f -std=c++17 -I . -I $OBJDIR -c -o $OBJ_FILE -Wall
+    $CXX -DTEST_MACRO1 -DTEST_MACRO2 -DTARGET_$PLATFORM -DTEST_MACRO_INCLUDE='"nsISupports.h"' $f -std=c++17 -I . -I $OBJDIR -c -o $OBJ_FILE -Wall
     mkdir -p  $(dirname $INDEX_ROOT/analysis-$PLATFORM/$f)
     mv $INDEX_ROOT/analysis/$f $INDEX_ROOT/analysis-$PLATFORM/$f
   done

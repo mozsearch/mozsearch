@@ -1,0 +1,258 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00009:8-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00020:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00021:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00021:33-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00022:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00022:37-48",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00023:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00023:50-61",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00024:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00024:34-45",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00025:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00025:47-58",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00026:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00026:56-67",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:54-65",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:69-80",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:83-94",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00009:8-19",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00020:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00021:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00021:33-44",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00022:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00022:37-48",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00023:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00023:50-61",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00024:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00024:34-45",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00025:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00025:47-58",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00026:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00026:56-67",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:54-65",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:69-80",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:83-94",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  }
+]

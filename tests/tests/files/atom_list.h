@@ -3,3 +3,7 @@
 
 YO_ATOM(Foo, "foo")
 YO_ATOM(Bar, "bar")
+
+#define NESTED_YO_ATOM(A, B) YO_ATOM(A, B)
+
+NESTED_YO_ATOM(Baz, "baz")

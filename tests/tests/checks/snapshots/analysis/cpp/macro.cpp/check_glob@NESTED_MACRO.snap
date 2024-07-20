@@ -1,0 +1,34 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00017:8-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "NESTED_MACRO",
+    "sym": "M_210a01c9a44abeec"
+  },
+  {
+    "loc": "00024:20-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NESTED_MACRO",
+    "sym": "M_210a01c9a44abeec"
+  },
+  {
+    "loc": "00017:8-20",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro NESTED_MACRO",
+    "sym": "M_210a01c9a44abeec"
+  },
+  {
+    "loc": "00024:20-32",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro NESTED_MACRO",
+    "sym": "M_210a01c9a44abeec"
+  }
+]
