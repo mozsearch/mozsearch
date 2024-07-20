@@ -4,6 +4,13 @@ expression: "&json_results"
 ---
 [
   {
+    "loc": "00038:33-52",
+    "target": 1,
+    "kind": "def",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
     "loc": "00038:88-107",
     "target": 1,
     "kind": "use",
@@ -18,6 +25,13 @@ expression: "&json_results"
     "sym": "_Z19per_target_functionv"
   },
   {
+    "loc": "00047:0-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
     "loc": "00048:8-27",
     "target": 1,
     "kind": "use",
@@ -25,9 +39,23 @@ expression: "&json_results"
     "sym": "_Z19per_target_functionv"
   },
   {
+    "loc": "00040:33-52",
+    "target": 1,
+    "kind": "def",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
     "loc": "00040:88-107",
     "target": 1,
     "kind": "use",
+    "pretty": "per_target_function",
+    "sym": "_Z19per_target_functionv"
+  },
+  {
+    "loc": "00042:33-52",
+    "target": 1,
+    "kind": "def",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
@@ -39,6 +67,14 @@ expression: "&json_results"
     "sym": "_Z19per_target_functionv"
   },
   {
+    "loc": "00038:33-52",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
     "loc": "00038:88-107",
     "source": 1,
     "syntax": "use,function",
@@ -47,9 +83,25 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
+    "loc": "00040:33-52",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
     "loc": "00040:88-107",
     "source": 1,
     "syntax": "use,function",
+    "pretty": "function per_target_function",
+    "sym": "_Z19per_target_functionv",
+    "type": "_Bool (void)"
+  },
+  {
+    "loc": "00042:33-52",
+    "source": 1,
+    "syntax": "def,function",
     "pretty": "function per_target_function",
     "sym": "_Z19per_target_functionv",
     "type": "_Bool (void)"
@@ -65,10 +117,30 @@ expression: "&json_results"
   {
     "loc": "00047:0-19",
     "source": 1,
-    "syntax": "def,function",
+    "syntax": "def,function,use",
     "pretty": "function per_target_function",
     "sym": "_Z19per_target_functionv",
-    "type": "_Bool (void)"
+    "type": "_Bool (void)",
+    "inExpansionAt": {
+      "M_0ff221c9a44abeec": {
+        "win64": [
+          5,
+          57
+        ]
+      },
+      "M_51db11c9a44abeec": {
+        "linux64": [
+          5,
+          66
+        ]
+      },
+      "M_e67221c9a44abeec": {
+        "macosx64": [
+          5,
+          66
+        ]
+      }
+    }
   },
   {
     "loc": "00048:8-27",

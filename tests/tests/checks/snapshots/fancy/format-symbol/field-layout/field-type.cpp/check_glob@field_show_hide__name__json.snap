@@ -55,9 +55,6 @@ expression: "&to_value(sttl).unwrap()"
             "overrides": [],
             "props": [],
             "variants": []
-          },
-          "jumps": {
-            "def": "field-layout/field-type.cpp#46"
           }
         },
         "F_<T_field_layout::field_type::S>_macro_fields_2": {
@@ -82,9 +79,6 @@ expression: "&to_value(sttl).unwrap()"
             "overrides": [],
             "props": [],
             "variants": []
-          },
-          "jumps": {
-            "def": "field-layout/field-type.cpp#46"
           }
         },
         "F_<T_field_layout::field_type::S>_macro_fields_3": {
@@ -109,9 +103,6 @@ expression: "&to_value(sttl).unwrap()"
             "overrides": [],
             "props": [],
             "variants": []
-          },
-          "jumps": {
-            "def": "field-layout/field-type.cpp#46"
           }
         },
         "F_<T_field_layout::field_type::S>_multiline_field": {
@@ -791,7 +782,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "",
+                "lineRange": "#46",
                 "pretty": "field_layout::field_type::S::macro_fields_1",
                 "sym": "F_<T_field_layout::field_type::S>_macro_fields_1",
                 "type": "struct field_layout::field_type::Type1",
@@ -807,7 +798,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "",
+                "lineRange": "#46",
                 "pretty": "field_layout::field_type::S::macro_fields_2",
                 "sym": "F_<T_field_layout::field_type::S>_macro_fields_2",
                 "type": "enum field_layout::field_type::Enum1",
@@ -817,7 +808,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
-                "lineRange": "",
+                "lineRange": "#46",
                 "pretty": "field_layout::field_type::S::macro_fields_3",
                 "sym": "F_<T_field_layout::field_type::S>_macro_fields_3",
                 "type": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
@@ -1261,7 +1252,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_def syn_def syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                  "  <span class=\"syn_def syn_def syn_def syn_type syn_type syn_type\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd,T_field_layout::field_type::Container1,T_field_layout::field_type::Enum1,T_field_layout::field_type::Type1\">DEFINE_FIELDS</span>"
                 ],
                 "offsetAndSize": [
                   {
@@ -1282,7 +1273,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_def syn_def syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                  "  <span class=\"syn_def syn_def syn_def syn_type syn_type syn_type\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd,T_field_layout::field_type::Container1,T_field_layout::field_type::Enum1,T_field_layout::field_type::Type1\">DEFINE_FIELDS</span>"
                 ],
                 "offsetAndSize": [
                   {
@@ -1303,7 +1294,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_def syn_def syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                  "  <span class=\"syn_def syn_def syn_def syn_type syn_type syn_type\" data-symbols=\"F_<T_field_layout::field_type::S>_macro_fields_1,F_<T_field_layout::field_type::S>_macro_fields_2,F_<T_field_layout::field_type::S>_macro_fields_3,M_4176c48bcfb9a1bd,T_field_layout::field_type::Container1,T_field_layout::field_type::Enum1,T_field_layout::field_type::Type1\">DEFINE_FIELDS</span>"
                 ],
                 "offsetAndSize": [
                   {
