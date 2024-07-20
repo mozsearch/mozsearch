@@ -179,7 +179,7 @@ class ChannelHelper:
                 self.zoneId = zoneId
 
         if zoneId is not None:
-            RE_SUB = re.compile('^([^.]+)\.searchfox\.org\.$')
+            RE_SUB = re.compile(r'^([^.]+)\.searchfox\.org\.$')
             dr = self.dns.list_resource_record_sets(HostedZoneId=zoneId)
             for rrset in dr['ResourceRecordSets']:
                 # We only care about searchfox.org subdomains
