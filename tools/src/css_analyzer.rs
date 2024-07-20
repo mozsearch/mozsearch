@@ -49,6 +49,7 @@ fn to_source(loc: Location, syntax: Vec<String>, pretty: String, sym: String) ->
             type_pretty: None,
             type_sym: None,
             arg_ranges: vec![],
+            expansion_info: None,
         },
         loc: loc.clone(),
     }

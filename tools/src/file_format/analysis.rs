@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -687,6 +688,15 @@ fn bool_is_false(b: &bool) -> bool {
     !b
 }
 
+/// Maps tracking expansion information.
+/// Both maps are keyd by `{symbol}(,{dependencies})*` then by platform.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ExpansionInfo {
+    ExpandsTo(BTreeMap<String, BTreeMap<String, String>>),
+    InExpansionAt(BTreeMap<String, BTreeMap<String, Vec<usize>>>),
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisSource<StrT = Ustr>
 where
@@ -718,6 +728,8 @@ where
     pub type_sym: Option<StrT>,
     #[serde(rename = "argRanges", default, skip_serializing_if = "Vec::is_empty")]
     pub arg_ranges: Vec<SourceRange>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub expansion_info: Option<ExpansionInfo>,
 }
 
 impl<StrT> AnalysisSource<StrT>
@@ -763,6 +775,36 @@ where
         }
         if let Some(type_sym) = other.type_sym {
             self.type_sym.get_or_insert(type_sym);
+        }
+
+        use ExpansionInfo::*;
+        match (&mut self.expansion_info, &mut other.expansion_info) {
+            (_, None) => {}
+            (expansion_info @ &mut None, m) => *expansion_info = m.take(),
+            (Some(ExpandsTo(_)), Some(InExpansionAt(_)))
+            | (Some(InExpansionAt(_)), Some(ExpandsTo(_))) => {
+                panic!("Trying to merge an expansion and an expanded symbol.")
+            }
+            (&mut Some(ExpandsTo(ref mut a)), &mut Some(ExpandsTo(ref mut b))) => {
+                for (k, mut v) in core::mem::take(b) {
+                    a.entry(k)
+                        .and_modify(|a_v| a_v.append(&mut v))
+                        .or_insert(v);
+                }
+            }
+            (&mut Some(InExpansionAt(ref mut a)), &mut Some(InExpansionAt(ref mut b))) => {
+                for (k, mut v) in core::mem::take(b) {
+                    a.entry(k)
+                        .and_modify(|a_v| {
+                            for (k0, mut v0) in core::mem::take(&mut v) {
+                                a_v.entry(k0)
+                                    .and_modify(|a_v0| a_v0.append(&mut v0))
+                                    .or_insert(v0);
+                            }
+                        })
+                        .or_insert(v);
+                }
+            }
         }
     }
 
