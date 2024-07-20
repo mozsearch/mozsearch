@@ -105,8 +105,10 @@ make this available as a package we can install via PIP, although there is a
 third-party packaging available as a python package, that seems a bit like a
 scary avenue for compromise, so I'm going to suggest:
 - Linux:
-  - Ubuntu: Upgrade to at least 23.04 (lunar), at which point the "awscli"
-    package becomes v2.
+  - Ubuntu:
+    - &gt;= 24.04: The "awscli" package is gone and you have to install a snap:
+      `sudo snap install aws-cli --classic`
+    - &gt;= 23.04: The "awscli" package is v2 and can be installed via apt.
   - Debian: Yeah, v2 is available on some versions, `apt show awscli` and see if
     the major version is >= 2.  Keep upgrading until that's true.
   - Nix: the devShell in our flake.nix provides awscli2. Just call `nix develop`.
