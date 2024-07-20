@@ -330,7 +330,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     if (!event.target.closest("code") &&
         !event.target.closest("svg") &&
         !event.target.closest(".breadcrumbs") &&
-        !event.target.closest(".symbol-tree-table")) {
+        !event.target.closest(".symbol-tree-table") &&
+        !event.target.closest(".symbol")) {
       return;
     }
 
@@ -363,6 +364,21 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     // then these extra menu items which are for new/experimental features where
     // we don't want to mess with muscle memory at the top of the list.
     let extraMenuItems = [];
+
+    let expansions = {};
+    let onlyOneExpansion = true;
+    const expansionToken = event.target.closest("[data-expansions]");
+    if (Settings.expansions.enabled) {
+      if (expansionToken) {
+        expansions = JSON.parse(expansionToken.dataset.expansions);
+        onlyOneExpansion = Object.keys(expansions).length == 1;
+        if (onlyOneExpansion) {
+          for (const key in expansions) {
+            onlyOneExpansion = Object.keys(expansions[key]).length == 1;
+          }
+        }
+      }
+    }
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
@@ -486,6 +502,31 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               icon: "export",
               section: "jumps",
             });
+          }
+
+          for (const key in expansions) {
+            if (key.startsWith(sym)) {
+              for (const platform in expansions[key]) {
+                const expansion = expansions[key][platform]
+                let html;
+                if (onlyOneExpansion) {
+                  html = `Expansion: <code>${expansion}</code>`;
+                } else {
+                  html = `Expansion on ${platform}: <code>${expansion}</code>`;
+                }
+                jumpMenuItems.push({
+                  html: html,
+                  classNames: ["contextmenu-expansion-preview"],
+                  action: () => {
+                    this.hide();
+                    BlamePopup.expansionIndex = [key, platform, jumpref];
+                    BlamePopup.blameElement = expansionToken;
+                    BlameStripHoverHandler.keepVisible = true;
+                  },
+                });
+              }
+              delete expansions[key]
+            }
           }
         }
 
@@ -766,7 +807,33 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       });
     }
 
-    let menuItems = jumpMenuItems.concat(searchMenuItems);
+    let remainingExpansionMenuItems = []
+    for (const key in expansions) {
+      for (const platform in expansions[key]) {
+        const expansion = expansions[key][platform]
+        let html;
+        if (onlyOneExpansion) {
+          html = `Expansion: <code>${expansion}</code>`;
+        } else {
+          html = `Expansion on ${platform}: <code>${expansion}</code>`;
+        }
+        remainingExpansionMenuItems.push({
+          html: html,
+          classNames: ["contextmenu-expansion-preview"],
+          action: () => {
+            this.hide();
+            BlamePopup.expansionIndex = [key, platform];
+            BlamePopup.blameElement = expansionToken;
+            BlameStripHoverHandler.keepVisible = true;
+          },
+        });
+      }
+    }
+
+    let menuItems = [];
+    menuItems.push(...remainingExpansionMenuItems)
+    menuItems.push(...jumpMenuItems)
+    menuItems.push(...searchMenuItems);
 
     let word = getTargetWord();
     if (word) {

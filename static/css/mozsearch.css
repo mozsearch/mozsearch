@@ -610,6 +610,14 @@ tr.after-context-line + tr.before-context-line {
 .context-menu a {
   display: block;
 }
+.contextmenu-expansion-preview {
+  max-width: 600px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.context-menu code {
+  white-space: nowrap;
+}
 .context-menu-group-label {
   display: block;
   padding: 0.5em;
@@ -958,7 +966,6 @@ span[data-symbols].selected {
   /* positioned by BlamePopup in blame.js */
   top: 0;
   left: 0;
-  width: 600px;
   padding: 10px;
   background-color: var(--blame-popup-background);
   color: var(--blame-popup-color);
@@ -970,6 +977,18 @@ span[data-symbols].selected {
   @media (prefers-contrast) {
     border: 1px solid CanvasText;
   }
+}
+.blame-popup .blame-entry {
+  width: 600px;
+}
+.blame-popup code {
+  background-color: var(--page-background);
+  color: var(--page-foreground);
+  display: block;
+  padding: 0.5em;
+  white-space: pre;
+  max-height: 80vh;
+  overflow-y: scroll;
 }
 .deemphasize {
   color: GrayText;

@@ -14,6 +14,7 @@ var BlamePopup = new (class BlamePopup {
 
     // The .blame-strip element for which blame is currently being displayed.
     this._blameElement = null;
+    this._expansionIndex = null;
 
     // The previous blame element for which we have already shown the popup.
     //
@@ -75,28 +76,42 @@ var BlamePopup = new (class BlamePopup {
     // Latch the current element in case by the time our fetch comes back it's
     // no longer the current one.
     const elt = this.blameElement;
-    // The coverage and annotate strips are adjacent and it would be bad UX for
-    // hovering over the coverage strip to occlude the annotate strip, so we
-    // adjust the coverage elements to use the annotate element for positioning.
-    let hoverRightOfElt = elt;
     let content;
+
+    let top;
+    let left;
+
+    const isExpansion = typeof elt.dataset.expansions !== 'undefined' && elt.dataset.expansions !== null;
     const isAnnotate = !!elt.dataset.blame;
-    if (isAnnotate) {
-      content = await this.generateAnnotateContent(elt);
+    if (isExpansion) {
+      content = await this.generateExpansionContent(elt);
+      let rect = elt.getBoundingClientRect();
+      top = rect.bottom + window.scrollY;
+      left = rect.left + window.scrollX;
     } else {
-      content = await this.generateCoverageContent(elt);
-      // This obviously assumes the known hard-coded DOM from `format.rs`.
-      hoverRightOfElt = elt.parentElement.nextElementSibling.firstElementChild;
+      // The coverage and annotate strips are adjacent and it would be bad UX for
+      // hovering over the coverage strip to occlude the annotate strip, so we
+      // adjust the coverage elements to use the annotate element for positioning.
+      let hoverRightOfElt;
+
+      if (isAnnotate) {
+        content = await this.generateAnnotateContent(elt);
+        hoverRightOfElt = elt;
+      } else {
+        content = await this.generateCoverageContent(elt);
+        // This obviously assumes the known hard-coded DOM from `format.rs`.
+        hoverRightOfElt = elt.parentElement.nextElementSibling.firstElementChild;
+      }
+
+      let rect = hoverRightOfElt.getBoundingClientRect();
+      top = rect.top + window.scrollY;
+      left = rect.right + window.scrollX;
     }
 
     // If no content was returned or the blame element has changed, bail.
-    if (!content || this.blameElement != elt || !hoverRightOfElt) {
+    if (!content || this.blameElement != elt) {
       return;
     }
-
-    let rect = hoverRightOfElt.getBoundingClientRect();
-    let top = rect.top + window.scrollY;
-    let left = rect.left + rect.width + window.scrollX;
 
     this.detachFromCurrentOwner();
     this.popup.style.display = "";
@@ -117,10 +132,37 @@ var BlamePopup = new (class BlamePopup {
       this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     }
 
-    if (isAnnotate) {
-      this.hideCoverageStripDetails();
+    if (!isExpansion) {
+      if (isAnnotate) {
+        this.hideCoverageStripDetails();
+      } else {
+        this.showCoverageStripDetails();
+      }
+    }
+  }
+
+  async generateExpansionContent(elt) {
+    const expansions = JSON.parse(elt.dataset.expansions);
+    const sym = this.expansionIndex[0];
+    const platform = this.expansionIndex[1];
+    const jumpref = this.expansionIndex[2];
+    const expansion = expansions[sym][platform];
+    const onlyOneExpansion = Object.keys(expansions).length == 1 && Object.keys(expansions[sym]).length == 1;
+
+    if (jumpref && jumpref.jumps.def) {
+      const tree = document.getElementById("data").getAttribute("data-tree");
+      const jumpFileName = jumpref.jumps.def.slice(jumpref.jumps.def.lastIndexOf(',') + 1)
+      if (onlyOneExpansion) {
+        return `Expansion of <span class="symbol" data-symbols="${sym}">${jumpref.pretty}</span>:<br><code>${expansion}</code>`;
+      } else {
+        return `Expansion of <span class="symbol" data-symbols="${sym}">${jumpref.pretty}</span> on ${platform}:<br><code>${expansion}</code>`;
+      }
     } else {
-      this.showCoverageStripDetails();
+      if (onlyOneExpansion) {
+        return `Expansion:<br><code>${expansion}</code>`;
+      } else {
+        return `Expansion on ${platform}:<br><code>${expansion}</code>`;
+      }
     }
   }
 
@@ -233,6 +275,18 @@ var BlamePopup = new (class BlamePopup {
       return;
     }
     this._blameElement = newElement;
+    this.update();
+  }
+
+  get expansionIndex() {
+    return this._expansionIndex;
+  }
+
+  set expansionIndex(value) {
+    if (this.expansionIndex == value) {
+      return;
+    }
+    this._expansionIndex = value;
     this.update();
   }
 })();

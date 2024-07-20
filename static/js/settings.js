@@ -86,6 +86,11 @@ const SETTING_DEFS = {
       quality: "alpha",
     },
   },
+  expansions: {
+    enabled: {
+      quality: "alpha",
+    },
+  },
   debug: {
     ui: {
       default: (document.location.host !== "searchfox.org"),
