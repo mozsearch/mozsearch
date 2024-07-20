@@ -116,7 +116,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/atom_list.h" class="mimetype-fixed-container mimetype-icon-h">atom_list.h</a></td>
           <td class="description"><a href="/tests/source/atom_list.h" title=""></td>
-          <td><a href="/tests/source/atom_list.h">146</a></td>
+          <td><a href="/tests/source/atom_list.h">218</a></td>
         </tr>
 
         <tr>
@@ -390,7 +390,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/macro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">macro.cpp</a></td>
           <td class="description"><a href="/tests/source/macro.cpp" title=""></td>
-          <td><a href="/tests/source/macro.cpp">66</a></td>
+          <td><a href="/tests/source/macro.cpp">1409</a></td>
         </tr>
 
         <tr>

@@ -1,0 +1,90 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00004:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_51bd7abfa63cac6d"
+  },
+  {
+    "loc": "00004:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00004:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_51bd7abfa63cac6d"
+  },
+  {
+    "loc": "00004:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00005:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_51bd7abfa63cac6d"
+  },
+  {
+    "loc": "00005:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00005:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_51bd7abfa63cac6d"
+  },
+  {
+    "loc": "00005:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_51bd7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_51bd7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  }
+]
