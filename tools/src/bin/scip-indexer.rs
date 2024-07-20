@@ -1279,6 +1279,7 @@ fn analyze_using_scip(
                         type_pretty: sinfo.type_pretty.clone(),
                         type_sym: None,
                         arg_ranges: vec![],
+                        expansion_info: None,
                     },
                     loc,
                 };

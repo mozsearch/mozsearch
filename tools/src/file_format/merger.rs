@@ -13,7 +13,7 @@ use ustr::Ustr;
 
 use super::analysis::AnalysisUnion;
 use super::analysis::{
-    read_analyses, AnalysisSource, AnalysisStructured, Location, WithLocation,
+    read_analyses, AnalysisSource, AnalysisStructured, ExpansionInfo, Location, WithLocation,
 };
 
 #[derive(Debug)]
@@ -40,9 +40,31 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String],  platforms: &Vec<Str
   let src_data = read_analyses(filenames, &mut |obj: Value, loc: &Location, i_file: usize| {
       if let Ok(unified) = from_value::<AnalysisUnion<Ustr>>(obj) {
           match unified {
-              AnalysisUnion::Source(src) => {
+              AnalysisUnion::Source(mut src) => {
                   // return source objects so that they come out of `read_analyses` for
                   // additional processing below.
+
+                  // populate the platform key of expansions and expanded symbols
+                  use ExpansionInfo::*;
+                  match src.expansion_info {
+                      Some(ExpandsTo(ref mut expansions)) => {
+                          for (_, expansions) in expansions {
+                              if let Some(unnamed_expansions) = expansions.remove("") {
+                                  expansions
+                                      .insert(platforms[i_file].clone(), unnamed_expansions);
+                              }
+                          }
+                      }
+                      Some(InExpansionAt(ref mut offsets)) => {
+                          for (_, offsets) in offsets {
+                              if let Some(unnamed_offsets) = offsets.remove("") {
+                                  offsets.insert(platforms[i_file].clone(), unnamed_offsets);
+                              }
+                          }
+                      }
+                      None => {}
+                  }
+
                   return Some(src);
               }
               AnalysisUnion::Target(tgt) => {
