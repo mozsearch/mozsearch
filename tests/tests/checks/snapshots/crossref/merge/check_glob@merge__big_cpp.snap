@@ -1406,7 +1406,13 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro RAND_MAX",
-    "sym": "M_99e652bdd3e78849"
+    "sym": "M_99e652bdd3e78849",
+    "expandsTo": {
+      "M_99e652bdd3e78849": {
+        "bar-plat": "2147483647",
+        "foo-plat": "2147483647"
+      }
+    }
   },
   {
     "loc": "00037:8-12",
@@ -1770,7 +1776,13 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
-    "sym": "M_4b46282064ef3d77"
+    "sym": "M_4b46282064ef3d77",
+    "expandsTo": {
+      "M_4b46282064ef3d77": {
+        "bar-plat": "100",
+        "foo-plat": "100"
+      }
+    }
   },
   {
     "loc": "00194:6-15",
@@ -2205,7 +2217,13 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro HUMAN_HP",
-    "sym": "M_4b46282064ef3d77"
+    "sym": "M_4b46282064ef3d77",
+    "expandsTo": {
+      "M_4b46282064ef3d77": {
+        "bar-plat": "100",
+        "foo-plat": "100"
+      }
+    }
   },
   {
     "loc": "00268:4-15",
@@ -2828,7 +2846,13 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro ART_HP",
-    "sym": "M_872b8b2064ef3d77"
+    "sym": "M_872b8b2064ef3d77",
+    "expandsTo": {
+      "M_872b8b2064ef3d77": {
+        "bar-plat": "100",
+        "foo-plat": "100"
+      }
+    }
   },
   {
     "loc": "00444:15-20",

@@ -22,7 +22,24 @@ expression: "&json_results"
     "source": 1,
     "syntax": "use,macro",
     "pretty": "macro NESTED_YO_ATOM",
-    "sym": "M_0394aa68e2615984"
+    "sym": "M_0394aa68e2615984",
+    "expandsTo": {
+      "M_0394aa68e2615984,M_51bd7abfa63cac6d": {
+        "": "Baz,"
+      }
+    }
+  },
+  {
+    "loc": "00009:0-14",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro NESTED_YO_ATOM",
+    "sym": "M_0394aa68e2615984",
+    "expandsTo": {
+      "M_0394aa68e2615984,M_f81c7abfa63cac6d": {
+        "": "const char16_t Baz_string[sizeof(\"baz\")];"
+      }
+    }
   },
   {
     "loc": "00009:0-14",

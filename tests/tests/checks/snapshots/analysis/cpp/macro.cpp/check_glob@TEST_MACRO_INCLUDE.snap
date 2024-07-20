@@ -15,6 +15,13 @@ expression: "&json_results"
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro TEST_MACRO_INCLUDE",
-    "sym": "M_TEST_MACRO_INCLUDE"
+    "sym": "M_TEST_MACRO_INCLUDE",
+    "expandsTo": {
+      "M_TEST_MACRO_INCLUDE": {
+        "linux64": "\"nsISupports.h\"",
+        "macosx64": "\"nsISupports.h\"",
+        "win64": "\"nsISupports.h\""
+      }
+    }
   }
 ]
