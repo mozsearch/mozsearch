@@ -276,6 +276,10 @@ table {
   width: 100%;
   overflow: auto;
 }
+table.folder-content {
+  margin: 0.5rem 2rem;
+  width: calc(100% - 4rem);
+}
 table#file {
   width: 100%;
 }
@@ -603,9 +607,6 @@ tr.after-context-line + tr.before-context-line {
   font-weight: bold;
 }
 .content {
-  padding: 1rem 2rem;
-}
-.content.source-listing {
   padding: 0.5rem 0rem;
 }
 
@@ -1416,6 +1417,11 @@ g.true-diag g.node polygon {
 }
 
 /* Field Layout */
+
+#symbol-tree-table-col-selector,
+#symbol-tree-table-list {
+  padding: 0 2rem;
+}
 
 #symbol-tree-table-list .type-cell {
   display: none;
