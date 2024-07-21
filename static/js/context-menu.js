@@ -5,6 +5,7 @@ function atUnescape(text) {
 class ContextMenuBase {
   constructor() {
     this.menu = null;
+    this.columns = [];
 
     window.addEventListener("mousedown", event => this.hideOnMouseDown(event));
     window.addEventListener("pageshow", event => this.hideOnPageShow(event));
@@ -59,9 +60,7 @@ class ContextMenuBase {
         link.setAttribute(name, value);
       }
     }
-    if (item.useKeys) {
-      link.addEventListener("keydown", this.onKeyDown.bind(this));
-    }
+    link.addEventListener("keydown", this.onKeyDown.bind(this));
 
     link.innerHTML = item.html;
 
@@ -69,6 +68,8 @@ class ContextMenuBase {
   }
 
   populateMenu(menu, menuItems) {
+    const column = [];
+
     let suppression = new Set();
     menu.innerHTML = "";
     let lastSection = null;
@@ -95,7 +96,132 @@ class ContextMenuBase {
       }
 
       menu.appendChild(li);
+
+      column.push({
+        link: li.firstChild,
+      });
     }
+
+    // Default behavior for single column and no groups.
+    // See TreeSwitcherMenu#setupMenu for multi-column + groups.
+    this.columns = [column];
+  }
+
+  getItemPos(target) {
+    for (let col = 0; col < this.columns.length; col++) {
+      const column = this.columns[col];
+      for (let row = 0; row < column.length; row++) {
+        if (column[row].link == target) {
+          return { col, row };
+        }
+      }
+    }
+    return null;
+  }
+
+  focusItemAt(pos) {
+    while (!this.columns[pos.col][pos.row].link) {
+      pos.row++;
+    }
+
+    this.focusItem(this.columns[pos.col][pos.row].link);
+  }
+
+  focusItem(item) {
+    item.focus();
+
+    // Given focus needs user interaction, tell webtest separately.
+    const event = new Event("focusmenuitem");
+    event.targetItem = item;
+    document.dispatchEvent(event);
+  }
+
+  onKeyDown(event) {
+    switch (event.key) {
+      case "Esc":
+      case "Escape":
+        this.hide();
+        return;
+    }
+
+    const pos = this.getItemPos(event.target);
+    if (!pos) {
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowUp":
+      case "Up":
+        pos.row--;
+        if (pos.row >= 0 && !this.columns[pos.col][pos.row].link) {
+          // Skip label.
+          pos.row--;
+        }
+        if (pos.row < 0) {
+          if (pos.col > 0) {
+            pos.col--;
+            pos.row = this.columns[pos.col].length - 1;
+          } else {
+            pos.row = 0;
+          }
+        }
+        break;
+
+      case "ArrowDown":
+      case "Down":
+        pos.row++;
+        if (pos.row >= this.columns[pos.col].length) {
+          if (pos.col < this.columns.length - 1) {
+            pos.col++;
+            pos.row = 0;
+          } else {
+            pos.row = this.columns[pos.col].length - 1;
+          }
+        }
+        break;
+
+      case "Home":
+        pos.row = 0;
+        pos.col = 0;
+        break;
+
+      case "End":
+        pos.col = this.columns.length - 1;
+        pos.row = this.columns[pos.col].length - 1;
+        break;
+
+      case "PageUp":
+        pos.row = 0;
+        break;
+
+      case "PageDown":
+        pos.row = this.columns[pos.col].length - 1;
+        break;
+
+      case "ArrowLeft":
+      case "Left":
+        pos.col--;
+        if (pos.col < 0) {
+          pos.col = 0;
+        }
+        if (pos.row >= this.columns[pos.col].length) {
+          pos.row = this.columns[pos.col].length - 1;
+        }
+        break;
+
+      case "ArrowRight":
+      case "Right":
+        pos.col++;
+        if (pos.col >= this.columns.length) {
+          pos.col = this.columns.length - 1;
+        }
+        if (pos.row >= this.columns[pos.col].length) {
+          pos.row = this.columns[pos.col].length - 1;
+        }
+        break;
+    }
+
+    this.focusItemAt(pos);
   }
 }
 
@@ -701,6 +827,27 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     // Now the menu is correctly positioned, show it.
     this.menu.style.opacity = "";
     this.menu.focus();
+
+    // Context menu doesn't focus on the item by default.
+    this.menu.addEventListener("keydown", event => {
+      if (event.target != this.menu) {
+        return;
+      }
+
+      switch (event.key) {
+        case "ArrowUp":
+        case "Up": {
+          const column = this.columns[0];
+          this.focusItem(column[column.length - 1].link);
+          break;
+        }
+        case "ArrowDown":
+        case "Down":
+          const column = this.columns[0];
+          this.focusItem(column[0].link);
+          break;
+      }
+    });
   }
 
   get active() {
@@ -937,8 +1084,6 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
         this.focusCurrentTree();
       }
     });
-
-    this.columns = [];
   }
 
   show() {
@@ -1006,7 +1151,6 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
             attrs: {
               "data-tree": tree,
             },
-            useKeys: true,
           });
 
           li.setAttribute("aria-labelledby", groupId);
@@ -1037,15 +1181,6 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
     return "mozilla-central";
   }
 
-  focusItem(item) {
-    item.focus();
-
-    // Given focus needs user interaction, tell webtest separately.
-    const event = new Event("focusmenuitem");
-    event.targetItem = item;
-    document.dispatchEvent(event);
-  }
-
   focusCurrentTree() {
     const tree = this.getCurrentTree();
     const item = this.menu.querySelector(`a[data-tree="${tree}"]`);
@@ -1054,113 +1189,5 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
     }
 
     this.focusItem(item);
-  }
-
-  getItemPos(target) {
-    for (let col = 0; col < this.columns.length; col++) {
-      const column = this.columns[col];
-      for (let row = 0; row < column.length; row++) {
-        if (column[row].link == target) {
-          return { col, row };
-        }
-      }
-    }
-    return null;
-  }
-
-  focusItemAt(pos) {
-    while (!this.columns[pos.col][pos.row].link) {
-      pos.row++;
-    }
-
-    this.focusItem(this.columns[pos.col][pos.row].link);
-  }
-
-  onKeyDown(event) {
-    switch (event.key) {
-      case "Esc":
-      case "Escape":
-        this.hide();
-        return;
-    }
-
-    const pos = this.getItemPos(event.target);
-    if (!pos) {
-      return;
-    }
-
-    switch (event.key) {
-      case "ArrowUp":
-      case "Up":
-        pos.row--;
-        if (!this.columns[pos.col][pos.row].link) {
-          // Skip label.
-          pos.row--;
-        }
-        if (pos.row < 0) {
-          if (pos.col > 0) {
-            pos.col--;
-            pos.row = this.columns[pos.col].length - 1;
-          } else {
-            pos.row = 0;
-          }
-        }
-        break;
-
-      case "ArrowDown":
-      case "Down":
-        pos.row++;
-        if (pos.row >= this.columns[pos.col].length) {
-          if (pos.col < this.columns.length - 1) {
-            pos.col++;
-            pos.row = 0;
-          } else {
-            pos.row = this.columns[pos.col].length - 1;
-          }
-        }
-        break;
-
-      case "Home":
-        pos.row = 0;
-        pos.col = 0;
-        break;
-
-      case "End":
-        pos.col = this.columns.length - 1;
-        pos.row = this.columns[pos.col].length - 1;
-        break;
-
-      case "PageUp":
-        pos.row = 0;
-        break;
-
-      case "PageDown":
-        pos.row = this.columns[pos.col].length - 1;
-        break;
-
-      case "ArrowLeft":
-      case "Left":
-        pos.col--;
-        if (pos.col < 0) {
-          pos.col = 0;
-        }
-        if (pos.row >= this.columns[pos.col].length) {
-          pos.row = this.columns[pos.col].length - 1;
-        }
-        break;
-
-      case "ArrowRight":
-      case "Right":
-        pos.col++;
-        if (pos.col >= this.columns.length) {
-          pos.col = this.columns.length - 1;
-        }
-        if (pos.row >= this.columns[pos.col].length) {
-          pos.row = this.columns[pos.col].length - 1;
-        }
-        break;
-    }
-
-    this.focusItemAt(pos);
   }
 });
