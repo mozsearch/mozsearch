@@ -27,8 +27,10 @@ class ContextMenuBase {
   createMenuItem(item) {
     let li = document.createElement("li");
     li.classList.add("contextmenu-row");
+    li.setAttribute("role", "none");
 
     let link = li.appendChild(document.createElement("a"));
+    link.setAttribute("role", "menuitem");
     if (item.action) {
       link.addEventListener("click", (evt) => {
         evt.preventDefault();
@@ -104,6 +106,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     this.menu.className = this.menu.id = "context-menu";
     this.menu.tabIndex = 0;
     this.menu.style.display = "none";
+    this.menu.setAttribute("role", "menu");
     document.body.appendChild(this.menu);
 
     this.selectedToken = null;
@@ -1002,13 +1005,11 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
               + document.location.hash,
             attrs: {
               "data-tree": tree,
-              role: "menuitem",
             },
             useKeys: true,
           });
 
           li.setAttribute("aria-labelledby", groupId);
-          li.setAttribute("role", "none");
 
           list.append(li);
           column.push({
