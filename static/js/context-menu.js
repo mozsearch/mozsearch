@@ -989,6 +989,7 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
 
         const list = document.createElement("ul");
         list.id = groupListId;
+        list.setAttribute("role", "group");
         for (const item of group.items) {
           const label = item.label ? item.label : item.value;
           const tree = item.value;
@@ -1001,11 +1002,13 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
               + document.location.hash,
             attrs: {
               "data-tree": tree,
+              role: "menuitem",
             },
             useKeys: true,
           });
 
           li.setAttribute("aria-labelledby", groupId);
+          li.setAttribute("role", "none");
 
           list.append(li);
           column.push({
