@@ -1044,7 +1044,7 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
 
   focusCurrentTree() {
     const tree = this.getCurrentTree();
-    const item = this.menu.querySelector(`a[data-tree="${tree}"`);
+    const item = this.menu.querySelector(`a[data-tree="${tree}"]`);
     if (!item) {
       this.menu.focus();
     }
