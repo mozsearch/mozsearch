@@ -2,7 +2,9 @@ use bitflags::bitflags;
 use serde_json::{from_value, json, Map, Value};
 use ustr::Ustr;
 
-use super::analysis::{BindingSlotKind, BindingSlotLang, StructuredBindingSlotInfo};
+use super::analysis::{AnalysisStructured, BindingSlotKind, BindingSlotLang, StructuredBindingSlotInfo};
+
+use crate::format::SemanticTokenKind;
 
 /// Transform a crossref Value that will be written into crossref into the
 /// digested representation we emit into the SYM_INFO structure for source
@@ -187,4 +189,23 @@ pub fn extra_syms_next_step_lookups(
     }
 
     extra_syms
+}
+
+pub fn semantic_token_kind_from_jumpref(jumpref: &Value) -> Option<SemanticTokenKind> {
+  if let Some(meta) = jumpref.get("meta") {
+    if let Some(structured) = from_value::<AnalysisStructured>(meta.clone()).ok() {
+      // TODO handle other semantic token kinds
+      return match structured.kind.as_str() {
+        "enum" => Some(SemanticTokenKind::Enum),
+        "enumConstant" => Some(SemanticTokenKind::EnumConstant),
+        "class" | "struct" | "union" => Some(SemanticTokenKind::Class),
+        "method" => Some(SemanticTokenKind::Method),
+        "function" => Some(SemanticTokenKind::Function),
+        "field" => Some(SemanticTokenKind::Field),
+        "namespace" => Some(SemanticTokenKind::Namespace),
+        _ => None
+      };
+    }
+  }
+  None
 }
