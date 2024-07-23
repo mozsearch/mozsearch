@@ -479,6 +479,15 @@ body {
 }
 /* Search results */
 
+.search-result-header {
+  padding: 0 2rem;
+}
+
+table.results {
+  margin: 0.5rem 2rem;
+  width: calc(100% - 4rem);
+}
+
 /* Make context lines more subtle. */
 .results tr.before-context-line,
 .results tr.after-context-line {

@@ -662,15 +662,19 @@ function populateResults(data, full, jumpToSingle) {
     } catch {}
   }
 
+  const header = document.createElement("div");
+  header.classList.add("search-result-header");
+  items.push(header);
+
   if (!fileCount) {
     const div = document.createElement("div");
     div.textContent = "No results for current query.";
-    items.push(div);
+    header.append(div);
   } else {
     if (count) {
       const div = document.createElement("div");
       div.textContent = `Number of results: ${count} (maximum is around 4000)`;
-      items.push(div);
+      header.append(div);
     }
   }
 
@@ -680,7 +684,7 @@ function populateResults(data, full, jumpToSingle) {
     b.textContent = "Warning";
     div.append(b);
     div.append(`: The following limits were hit in your search: ${limits_hit.join(", ")}`);
-    items.push(div);
+    header.append(div);
   }
 
   let timeoutWarning = null;
@@ -690,7 +694,7 @@ function populateResults(data, full, jumpToSingle) {
     b.textContent = "Warning";
     div.append(b);
     div.append(": Results may be incomplete due to server-side search timeout!");
-    items.push(div);
+    header.append(div);
   }
 
   if (fileCount) {
