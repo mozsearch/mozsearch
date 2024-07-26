@@ -460,6 +460,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/python" class="mimetype-fixed-container mimetype-icon-folder">python</a></td>
+          <td class="description"><a href="/tests/source/python" title=""></td>
+          <td><a href="/tests/source/python"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/README.md" class="mimetype-fixed-container mimetype-icon-md">README.md</a></td>
           <td class="description"><a href="/tests/source/README.md" title="This is a README">This is a README</td>
           <td><a href="/tests/source/README.md">342</a></td>
