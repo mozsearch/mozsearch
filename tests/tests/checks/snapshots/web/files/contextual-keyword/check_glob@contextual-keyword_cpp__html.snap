@@ -1,0 +1,19 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<span data-symbols="FILE_cpp/contextual@2Dkeyword@2Ecpp">(file symbol)</span>
+<span class="syn_def" data-symbols="_Z5finalv">final</span>
+<span class="syn_def" data-symbols="_Z6importv">import</span>
+<span class="syn_def" data-symbols="_Z6modulev">module</span>
+<span class="syn_def" data-symbols="_Z8overridev">override</span>
+<span class="syn_def" data-symbols="_Z1fv">f</span>
+<span data-symbols="_Z5finalv">final</span>
+<span data-symbols="_Z6importv">import</span>
+<span data-symbols="_Z6modulev">module</span>
+<span data-symbols="_Z8overridev">override</span>
+<span class="syn_def syn_type" data-symbols="T_Base">Base</span>
+<span class="syn_def" data-symbols="_ZN4Base3FooEv">Foo</span>
+<span class="syn_def syn_type" data-symbols="T_Sub">Sub</span>
+<span class="syn_type" data-symbols="T_Base">Base</span>
+<span class="syn_def" data-symbols="_ZN3Sub3FooEv">Foo</span>
