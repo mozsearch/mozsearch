@@ -35,16 +35,19 @@
  *     its natural order, so features that depend on other features should
  *     appear after them in the dictionaries and will therefore emergently
  *     support transitive dependency checks correctly.
- *   - `introducedIn`: If present, indicates the `SETTINGS_VERSION` number
- *     version in which the setting was introduced.  The intent is to enable the
- *     ability to badge the settings button to let users know there are new
- *     settings that they might want to check out and then to help highlight
- *     and/or provide a table of contents with direct links to point out the
- *     new settings on the settings page without requiring the user to manually
- *     skim the page and guess what might be new.  This is used in conjunction
- *     with the `userSawVersion` and `userAckedVersion` storage values.
+ *   - `introducedIn`: Indicates the `SETTINGS_VERSION` number version in which
+ *     the setting was introduced.  The intent is to enable the ability to
+ *     badge the settings button to let users know there are new settings that
+ *     they might want to check out and then to help highlight and/or provide a
+ *     table of contents with direct links to point out the new settings on the
+ *     settings page without requiring the user to manually skim the page and
+ *     guess what might be new.  This is used in conjunction with the
+ *     `userSawVersion` and `userAckedVersion` storage values.
+ *     This field is required to ensure the SETTINGS_VERSION is bumped for each
+ *     new entry.
  *
- * Bump SETTINGS_VERSION whenever you add a new entry here! This ensure that
+ * Bump SETTINGS_VERSION whenever you add a new entry here, with setting
+ * `introducedIn` property to the new version's value! This ensure that
  * previously saved settings are migrated by #upgradeSettings().
  */
 const SETTING_DEFS = {
@@ -54,15 +57,18 @@ const SETTING_DEFS = {
       // experimental channels let's turn everything on.  Users can set this
       // back to "release" if they want.
       default: (document.location.host === "searchfox.org") ? "release" : "alpha",
+      introducedIn: 1,
     },
   },
   pageTitle: {
     lineSelection: {
       default: true,
+      introducedIn: 1,
     },
 
     stickySymbol: {
       default: true,
+      introducedIn: 1,
     },
   },
   contextMenu: {
@@ -72,31 +78,37 @@ const SETTING_DEFS = {
     // so they don't have to see options they can't use.
     haveMozillaLdap: {
       default: true,
+      introducedIn: 1,
     }
   },
   fancyBar: {
     enabled: {
       quality: "alpha",
+      introducedIn: 1,
     },
   },
   semanticInfo: {
     enabled: {
       quality: "alpha",
+      introducedIn: 3,
     },
   },
   diagramming: {
     enabled: {
       quality: "alpha",
+      introducedIn: 2,
     },
   },
   expansions: {
     enabled: {
       quality: "alpha",
+      introducedIn: 5,
     },
   },
   debug: {
     ui: {
       default: (document.location.host !== "searchfox.org"),
+      introducedIn: 4,
     },
   },
 };
@@ -142,12 +154,14 @@ const WIDGET_DEFS = {
   openInEditor: {
     enabled: {
       default: false,
+      introducedIn: 1,
     },
     linkTemplate: {
       default: "editor://open/?file={{tree}}/{{path}}",
-    }
+      introducedIn: 1,
+    },
   }
-}
+};
 
 /**
  * This version is stored in local storage as part of our persisted settings
@@ -226,11 +240,33 @@ const Settings = new (class Settings {
   #canonicalData;
 
   constructor() {
+    if (document.location.host !== "searchfox.org") {
+      this.#verifyIntegrity();
+    }
+
     // This will synchronously block if the browser has not been able to preload
     // the LocalStorage for the origin.  This is a hard-block and will not
     // spin an event loop.  This is the worst part of LocalStorage.
     this.#canonicalData = this.#loadCanonicalData();
     this.#applyAndTransformCanonicalDataToSelf();
+  }
+
+  #verifyIntegrity() {
+    // In order to ensure the SETTINGS_VERSION is bumped for each new setting
+    // item, ensure each setting item has valid `introducedIn` property.
+    for (const defs of [SETTING_DEFS, WIDGET_DEFS]) {
+      for (const [groupName, groupDefs] of Object.entries(defs)) {
+        for (const [keyName, keyDef] of Object.entries(groupDefs)) {
+          if (!("introducedIn" in keyDef)) {
+            alert(`settings.js : ${groupName}.${keyName} has no introducedIn property. Please set it after bumping SETTINGS_VERSION.`);
+          }
+
+          if (keyDef.introducedIn > SETTINGS_VERSION) {
+            alert(`settings.js : ${groupName}.${keyName}.introducedIn is greater than SETTINGS_VERSION. Please  bump SETTINGS_VERSION.`);
+          }
+        }
+      }
+    }
   }
 
   #mergeSettingsCanonicalData(settingsRoot, groupName, groupDefs, isWidget) {
