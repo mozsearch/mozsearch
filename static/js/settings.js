@@ -43,6 +43,9 @@
  *     new settings on the settings page without requiring the user to manually
  *     skim the page and guess what might be new.  This is used in conjunction
  *     with the `userSawVersion` and `userAckedVersion` storage values.
+ *
+ * Bump SETTINGS_VERSION whenever you add a new entry here! This ensure that
+ * previously saved settings are migrated by #upgradeSettings().
  */
 const SETTING_DEFS = {
   global: {
@@ -163,7 +166,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 4;
+const SETTINGS_VERSION = 5;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".
