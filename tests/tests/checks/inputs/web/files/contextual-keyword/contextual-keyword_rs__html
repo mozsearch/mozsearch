@@ -1,0 +1,1 @@
+cat-html rust/weak_keyword.rs --select "span[data-symbols]"
