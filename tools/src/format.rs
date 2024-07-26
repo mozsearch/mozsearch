@@ -77,6 +77,15 @@ pub fn format_code(
 
     let mut cur_datum = 0;
 
+    while cur_datum < analysis.len() {
+        let loc = &analysis[cur_datum].loc;
+        if loc.lineno == 1 && loc.col_start == 0 && loc.col_end == 0 {
+            cur_datum += 1;
+        } else {
+            break;
+        }
+    }
+
     fn entity_replace(s: String) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
