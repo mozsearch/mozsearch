@@ -478,6 +478,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/rust" class="mimetype-fixed-container mimetype-icon-folder">rust</a></td>
+          <td class="description"><a href="/tests/source/rust" title=""></td>
+          <td><a href="/tests/source/rust"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/secret-madjewel.js" class="mimetype-fixed-container mimetype-icon-js">secret-madjewel.js</a></td>
           <td class="description"><a href="/tests/source/secret-madjewel.js" title=""></td>
           <td><a href="/tests/source/secret-madjewel.js">361</a></td>
@@ -496,7 +502,7 @@ expression: "&fb.contents"
 ">A grab-bug of rust code to exercise the searchfox indexer.
    Note how this comment ends up in the file description, too!
 </td>
-          <td><a href="/tests/source/simple.rs">1910</a></td>
+          <td><a href="/tests/source/simple.rs">1921</a></td>
         </tr>
 
         <tr>

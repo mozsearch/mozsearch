@@ -89,3 +89,5 @@ impl<'a, T> MultiParams<'a, T> {
     fn fn_with_params_in_signature(&self) {
     }
 }
+
+mod rust;
