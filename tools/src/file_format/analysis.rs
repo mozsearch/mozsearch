@@ -41,6 +41,12 @@ pub struct Location {
     pub col_end: u32,
 }
 
+impl Location {
+    pub fn is_file_target(&self) -> bool {
+        self.lineno == 1 && self.col_start == 0 && self.col_end == 0
+    }
+}
+
 #[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct LineRange {
     /// 1-based starting line-number

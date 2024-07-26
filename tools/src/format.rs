@@ -77,13 +77,10 @@ pub fn format_code(
 
     let mut cur_datum = 0;
 
-    while cur_datum < analysis.len() {
-        let loc = &analysis[cur_datum].loc;
-        if loc.lineno == 1 && loc.col_start == 0 && loc.col_end == 0 {
-            cur_datum += 1;
-        } else {
-            break;
-        }
+    // The analysis records for the file itself are generated at the beginning.
+    // They shouldn't be associated with the actual tokens.
+    while cur_datum < analysis.len() && analysis[cur_datum].loc.is_file_target() {
+        cur_datum += 1;
     }
 
     fn entity_replace(s: String) -> String {
