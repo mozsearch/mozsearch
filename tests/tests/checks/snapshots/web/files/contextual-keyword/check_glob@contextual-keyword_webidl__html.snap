@@ -1,0 +1,10 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<span data-symbols="FILE_webidl/contextual@2Dkeyword@2Ewebidl">(file symbol)</span>
+<span class="syn_def" data-symbols="WEBIDL_Test">Test</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_argumentNameKeyword">argumentNameKeyword</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_async">async</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_required">required</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_includes">_includes</span>

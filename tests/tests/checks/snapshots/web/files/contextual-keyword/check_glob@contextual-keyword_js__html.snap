@@ -1,0 +1,32 @@
+---
+source: tests/test_check_insta.rs
+expression: "&fb.contents"
+---
+<span data-symbols="FILE_js/contextual@2Dkeyword@2Ejs">(file symbol)</span>
+<span class="syn_def" data-symbols="#await">await</span>
+<span class="syn_def" data-symbols="#yield">yield</span>
+<span class="syn_def" data-symbols="#let">let</span>
+<span class="syn_def" data-symbols="#static">static</span>
+<span class="syn_def" data-symbols="#implements">implements</span>
+<span class="syn_def" data-symbols="#interface">interface</span>
+<span class="syn_def" data-symbols="#package">package</span>
+<span class="syn_def" data-symbols="#private">private</span>
+<span class="syn_def" data-symbols="#protected">protected</span>
+<span class="syn_def" data-symbols="#public">public</span>
+<span class="syn_def" data-symbols="#as">as</span>
+<span class="syn_def" data-symbols="#async">async</span>
+<span class="syn_def" data-symbols="#from">from</span>
+<span class="syn_def" data-symbols="#get">get</span>
+<span class="syn_def" data-symbols="#meta">meta</span>
+<span class="syn_def" data-symbols="#of">of</span>
+<span class="syn_def" data-symbols="#set">set</span>
+<span class="syn_def" data-symbols="#target">target</span>
+<span class="syn_def" data-symbols="#f">f</span>
+<span data-symbols="10-0">x</span>
+<span data-symbols="10-1">x</span>
+<span class="syn_def" data-symbols="#C">C</span>
+<span class="syn_def syn_def" data-symbols="#constructor,C#constructor">constructor</span>
+<span class="syn_def syn_def" data-symbols="#foo,C#foo">foo</span>
+<span class="syn_def syn_def" data-symbols="#prop,C#prop">prop</span>
+<span class="syn_def syn_def" data-symbols="#prop,C#prop">prop</span>
+<span data-symbols="10-2">v</span>

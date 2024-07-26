@@ -1,0 +1,1 @@
+cat-html webidl/contextual-keyword.webidl --select "span[data-symbols]"

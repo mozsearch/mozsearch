@@ -256,6 +256,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/cpp" class="mimetype-fixed-container mimetype-icon-folder">cpp</a></td>
+          <td class="description"><a href="/tests/source/cpp" title=""></td>
+          <td><a href="/tests/source/cpp"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/critters-postcard.jpg" class="mimetype-fixed-container mimetype-icon-jpg">critters-postcard.jpg</a></td>
           <td class="description"><a href="/tests/source/critters-postcard.jpg" title=""></td>
           <td><a href="/tests/source/critters-postcard.jpg">108154</a></td>
