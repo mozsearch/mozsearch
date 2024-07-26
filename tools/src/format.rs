@@ -182,7 +182,7 @@ pub fn format_code(
         };
 
         match (&token.kind, datum) {
-            (&tokenize::TokenKind::Identifier(None), Some(d))
+            (&tokenize::TokenKind::Identifier(_), Some(d))
             | (&tokenize::TokenKind::StringLiteral, Some(d)) => {
                 for a in d.iter() {
                     // If this symbol starts a relevant nesting range and we haven't already pushed a
@@ -304,7 +304,7 @@ pub fn format_code(
         let get_symbols =
             |token: &tokenize::Token, datum: &mut dyn Iterator<Item = &AnalysisSource>| {
                 match &token.kind {
-                    &tokenize::TokenKind::Identifier(None)
+                    &tokenize::TokenKind::Identifier(_)
                     | &tokenize::TokenKind::StringLiteral => {
                         // Build the list of symbols for the highlighter.  We do this for all source
                         // records, even ones marked "no_crossref" because we still want to highlight
@@ -341,8 +341,10 @@ pub fn format_code(
         let get_style = |token: &tokenize::Token,
                          datum: &mut dyn Iterator<Item = &AnalysisSource>| {
             match token.kind {
-                tokenize::TokenKind::Identifier(None) => {
+                tokenize::TokenKind::Identifier(ref maybe_style) => {
+                    let mut has_datum = false;
                     let classes = datum.flat_map(|a| {
+                        has_datum = true;
                         a.syntax.iter().flat_map(|s| match s.as_ref() {
                             "type" => vec!["syn_type"],
                             "def" | "decl" | "idl" => vec!["syn_def"],
@@ -352,11 +354,15 @@ pub fn format_code(
                     let classes = classes.collect::<Vec<_>>();
                     if classes.len() > 0 {
                         format!("class=\"{}\" ", classes.join(" "))
+                    } else if has_datum {
+                        // If the token has analysis record, do not apply keyword.
+                        "".to_owned()
+                    } else if let Some(ref style) = maybe_style {
+                        style.clone()
                     } else {
                         "".to_owned()
                     }
                 }
-                tokenize::TokenKind::Identifier(Some(ref style)) => style.clone(),
                 tokenize::TokenKind::StringLiteral => "class=\"syn_string\" ".to_owned(),
                 tokenize::TokenKind::Comment => "class=\"syn_comment\" ".to_owned(),
                 tokenize::TokenKind::TagName => "class=\"syn_tag\" ".to_owned(),

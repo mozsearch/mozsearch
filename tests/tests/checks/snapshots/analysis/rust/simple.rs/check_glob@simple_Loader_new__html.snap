@@ -6,6 +6,6 @@ expression: "&aggr_str"
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="41"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_Loader#new().">new</span>(<span class="syn_def" data-symbols="S_rs_new().(deps_dir)">deps_dir</span>: <span data-symbols="S_rs_path/PathBuf#">PathBuf</span>) -> <span class="syn_reserved" >Self</span> {
+  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_Loader#new().">new</span>(<span class="syn_def" data-symbols="S_rs_new().(deps_dir)">deps_dir</span>: <span data-symbols="S_rs_path/PathBuf#">PathBuf</span>) -> <span data-symbols="S_rs_Loader#">Self</span> {
 </code>
 </div>
