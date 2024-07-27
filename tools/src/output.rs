@@ -1,7 +1,5 @@
 /**
- * Common rust HTML output logic.  Note that any changes in this file potentially require changes
- * to `scripts/output.js` which includes hard-coded HTML that needs to logically be equivalent to
- * what's in this file.
+ * Common rust HTML output logic.
  **/
 use std::io::Write;
 use std::path::Path;
