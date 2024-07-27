@@ -66,3 +66,31 @@ add_task(async function test_FieldLayoutContextMenu_gate() {
     }
   }
 });
+
+add_task(async function test_FieldLayoutContextMenu_emptySubClass() {
+  // Enabled by default on the test config.
+  await TestUtils.resetFeatureGate("semanticInfo");
+  await TestUtils.loadPath("/tests/source/field-layout/empty-subclass.cpp");
+
+  const className = frame.contentDocument.querySelector(`span.syn_def[data-symbols="T_field_layout::empty_subclass::T"]`);
+  TestUtils.click(className);
+
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for symbol click");
+
+  let layoutRow = findClassLayoutMenuItem(menu);
+  ok(!!layoutRow, "Class layout menu item exists for empty subclass");
+  is(layoutRow.textContent, "Class layout of field_layout::empty_subclass::T",
+     "Menu item shows the qualified class name");
+
+  const loadPromise = TestUtils.waitForLoad();
+  const link = layoutRow.querySelector(".contextmenu-link");
+  TestUtils.click(link);
+  await loadPromise;
+  ok(frame.contentDocument.location.href.includes("/query/"),
+     "Navigated to query page");
+
+  const query = frame.contentDocument.querySelector("#query");
+  is(query.value, "field-layout:'field_layout::empty_subclass::T'",
+     "Query for field layout is set");
+});
