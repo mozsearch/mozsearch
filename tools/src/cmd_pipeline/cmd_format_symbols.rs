@@ -898,7 +898,12 @@ impl ClassMap {
             return Ok(());
         }
 
-        let (lines, sym_json) = server.fetch_formatted_lines(path).await?;
+        let result = server.fetch_formatted_lines(path).await;
+        if result.is_err() {
+            return Ok(());
+        }
+
+        let (lines, sym_json) = result.unwrap();
 
         let syms: serde_json::Result<HashMap<String, Value>> = from_str(&sym_json);
         match syms {
