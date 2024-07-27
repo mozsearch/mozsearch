@@ -192,7 +192,12 @@ impl AbstractServer for LocalIndex {
 
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
-        let full_path = format!("{}/{}", self.config_paths.files_path, norm_path);
+        let full_path = if norm_path.starts_with("__GENERATED__/") {
+            format!("{}/{}", self.config_paths.objdir_path,
+                    norm_path.strip_prefix("__GENERATED__/").unwrap())
+        } else {
+            format!("{}/{}", self.config_paths.files_path, norm_path)
+        };
 
         let mut f = File::open(full_path).await?;
         let mut raw_str = String::new();
