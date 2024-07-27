@@ -155,5 +155,17 @@ $CXX -DTEST_MACRO1 -DTEST_MACRO2 $BUILD_TIME_FILE -std=c++17 -c -o $OBJDIR/Build
 rm BuildTimeFile.cpp
 
 GENERATED_FILE=$OBJDIR/GeneratedFile.cpp
-echo "int main() { return 0; }" > $GENERATED_FILE
+cat <<EOF > $GENERATED_FILE
+namespace generated {
+struct GeneratedStruct {
+  int x;
+  int y;
+};
+}
+int main() {
+  generated::GeneratedStruct s;
+  s.x = 10;
+  return s.x;
+}
+EOF
 $CXX -DTEST_MACRO1 -DTEST_MACRO2 $GENERATED_FILE -std=c++17 -c -o $OBJDIR/GeneratedFile.o -Wall
