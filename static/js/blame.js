@@ -100,7 +100,11 @@ var BlamePopup = new (class BlamePopup {
       } else {
         content = await this.generateCoverageContent(elt);
         // This obviously assumes the known hard-coded DOM from `format.rs`.
-        hoverRightOfElt = elt.parentElement.nextElementSibling.firstElementChild;
+        hoverRightOfElt = elt.parentElement.nextElementSibling?.firstElementChild;
+      }
+
+      if (!hoverRightOfElt) {
+        return;
       }
 
       let rect = hoverRightOfElt.getBoundingClientRect();
