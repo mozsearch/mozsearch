@@ -71,5 +71,6 @@ cat $INDEX_ROOT/idl-files | \
 
 cat $INDEX_ROOT/webidl-files | \
     $MOZSEARCH_PATH/scripts/webidl-analyze.py \
-    $INDEX_ROOT $FILES_ROOT $INDEX_ROOT/analysis /tmp
+    $INDEX_ROOT $FILES_ROOT $INDEX_ROOT/analysis /tmp \
+    $WEBIDL_BINDINGS_LOCAL_PATH
 echo $?

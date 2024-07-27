@@ -221,7 +221,7 @@ def read_cpp_analysis_one(path, cpp_symbols):
             builder.maybe_add_impl(j['sym'], j.get('contextsym', ''))
 
 
-def read_cpp_analysis(index_root, local_path):
+def read_cpp_analysis(index_root, local_path, bindings_local_path):
     '''Read analysis files for given WebIDL file and collect C++ symbols
     for generated code.'''
 
@@ -231,21 +231,29 @@ def read_cpp_analysis(index_root, local_path):
     cpp_name = idl_name + 'Binding.cpp'
     cpp_symbols = {}
 
-    generated_dir = os.path.join(index_root, 'analysis', '__GENERATED__')
-    header_local_path = os.path.join('dist', 'include', 'mozilla', 'dom', header_name)
-    cpp_local_path = os.path.join('dom', 'bindings', cpp_name)
+    if bindings_local_path:
+        # Override the paths for bindings for testing.
+        analysis_dir = os.path.join(index_root, 'analysis')
+        p = os.path.join(analysis_dir, bindings_local_path, 'include', header_name)
+        read_cpp_analysis_one(p, cpp_symbols)
+        p = os.path.join(analysis_dir, bindings_local_path, 'src', cpp_name)
+        read_cpp_analysis_one(p, cpp_symbols)
+    else:
+        generated_dir = os.path.join(index_root, 'analysis', '__GENERATED__')
+        header_local_path = os.path.join('dist', 'include', 'mozilla', 'dom', header_name)
+        cpp_local_path = os.path.join('dom', 'bindings', cpp_name)
 
-    p = os.path.join(generated_dir, header_local_path)
-    read_cpp_analysis_one(p, cpp_symbols)
-    p = os.path.join(generated_dir, cpp_local_path)
-    read_cpp_analysis_one(p, cpp_symbols)
+        p = os.path.join(generated_dir, header_local_path)
+        read_cpp_analysis_one(p, cpp_symbols)
+        p = os.path.join(generated_dir, cpp_local_path)
+        read_cpp_analysis_one(p, cpp_symbols)
 
-    for name in os.listdir(generated_dir):
-        if name.startswith('__'):
-            p = os.path.join(generated_dir, name, header_local_path)
-            read_cpp_analysis_one(p, cpp_symbols)
-            p = os.path.join(generated_dir, name, cpp_local_path)
-            read_cpp_analysis_one(p, cpp_symbols)
+        for name in os.listdir(generated_dir):
+            if name.startswith('__'):
+                p = os.path.join(generated_dir, name, header_local_path)
+                read_cpp_analysis_one(p, cpp_symbols)
+                p = os.path.join(generated_dir, name, cpp_local_path)
+                read_cpp_analysis_one(p, cpp_symbols)
 
     return cpp_symbols
 
@@ -812,7 +820,7 @@ def preprocess(lines):
     return result
 
 
-def parse_files(index_root, files_root, cache_dir):
+def parse_files(index_root, files_root, cache_dir, bindings_local_path):
     '''Parse all WebIDL files and load corresponding C++ analysis files.'''
 
     parser = WebIDL.Parser(cache_dir)
@@ -827,7 +835,7 @@ def parse_files(index_root, files_root, cache_dir):
 
         lines = preprocess(open(fname).readlines())
         text = ''.join(lines)
-        cpp_analysis_map[local_path] = read_cpp_analysis(index_root, local_path)
+        cpp_analysis_map[local_path] = read_cpp_analysis(index_root, local_path, bindings_local_path)
 
         try:
             parser.parse(text, local_path)
@@ -895,7 +903,10 @@ index_root = sys.argv[1]
 files_root = sys.argv[2]
 analysis_root = sys.argv[3]
 cache_dir = sys.argv[4]
+bindings_local_path = sys.argv[5]
+if bindings_local_path == 'null':
+    bindings_local_path = None
 
-productions = parse_files(index_root, files_root, cache_dir)
+productions = parse_files(index_root, files_root, cache_dir, bindings_local_path)
 handle_productions(productions)
 write_files(analysis_root)
