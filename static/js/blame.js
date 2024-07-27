@@ -70,7 +70,8 @@ var BlamePopup = new (class BlamePopup {
   async update() {
     // If there's no current element, just bail.
     if (!this.blameElement) {
-      return this.hide();
+      this.hide();
+      return;
     }
 
     // Latch the current element in case by the time our fetch comes back it's
