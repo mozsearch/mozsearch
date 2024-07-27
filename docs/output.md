@@ -3,19 +3,16 @@
 The final stage of indexing is to output a static HTML file for:
 - Every source file via `tools/src/bin/output-file.rs`
 - Every directory, linking to subdirectories and source files via
-  `scripts/output-dir.js`
+  `cmd_batch_render.rs` with `dir_listing.liquid`.
 - The search file template used by `router/router.py` via
-  `scripts/output-template.js`.  (The template is little more than the HTML UI
-  boilerplate, a place to inline the JSON-style results object, and a "load"
-  listener to trigger the JS logic to render the results.)
+  `cmd_batch_render.rs` with `search_template.liquid`.
+  (The template is little more than the HTML UI boilerplate, a place to inline
+  the JSON-style results object, and a "load" listener to trigger the JS logic
+  to render the results.)
 - The `help.html` file at the root of the output tree.
   `scripts/output-help.html` wraps the contents of the config tree's `help.html`
   in the HTML boilerplate of the UI so that the standard search bar is at the
   top of the page.
-
-Because output logic is currently split between rust and JS code, any structural
-changes will require changes to both `scripts/output.js` and
-`tools/src/output.rs`.
 
 ### Indexed Source Files
 
