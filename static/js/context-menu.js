@@ -716,7 +716,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         if (Settings.semanticInfo.enabled) {
           for (const jumpref of diagrammableSyms) {
             if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
-                jumpref?.meta?.fields?.length) {
+                (jumpref?.meta?.fields?.length || jumpref?.meta?.supers?.length)) {
               let queryString = `field-layout:'${jumpref.pretty}'`;
               searchMenuItems.push({
                 html: this.fmt("Class layout of <strong>_</strong>", jumpref.pretty),
