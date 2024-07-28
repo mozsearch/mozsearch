@@ -2440,14 +2440,18 @@ while (true) {
 
   resetState();
 
-  let sourcePath;
-  [fileIndex, sourcePath] = line.split(/ /);
+  const m = line.match(/^([^ ]+) (.+)$/);
+  if (!m) {
+    continue;
+  }
+  fileIndex = m[1];
+  const sourcePath = m[2];
 
   localFile = localRoot + "/" + sourcePath;
   const analysisFile = analysisRoot + "/" + sourcePath;
 
   const origOut = os.file.redirect(analysisFile);
-  
+
   printFileTarget(sourcePath);
 
   analyzeFile(localFile);
