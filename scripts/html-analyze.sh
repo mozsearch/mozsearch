@@ -13,6 +13,9 @@ fi
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
+# Required by std::wcsrtombs, used in os.file.redirect.
+export LC_CTYPE=C.UTF-8
+
 # Add line number for the file list with `nl`, which is used as a global
 # fileIndex and used for local variable symbols.
 #
