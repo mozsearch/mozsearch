@@ -48,6 +48,12 @@ for line in lines:
         continue
     path = path.decode()
 
+    if path.startswith('"') and path.endswith('"'):
+        # `git ls-files` prints files with non-ASCII escaped and quoted.
+        # Do not index them for now.
+        # Each indexer script needs to be tweaked to support them.
+        continue
+
     fullpath = os.path.join(tree_repo, path)
 
     elts = path.split('/')
