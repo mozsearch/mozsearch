@@ -84,6 +84,10 @@ class CppSymbolMemberItem:
 
         self.impl_syms.append(sym)
 
+    def merge(self, other):
+        self.binding_syms += other.binding_syms
+        self.impl_syms += other.impl_syms
+
 
 class CppSymbolsBuilder:
     '''Build the C++ symbol map'''
@@ -601,35 +605,58 @@ def handle_maplike_or_setlike_or_iterable(records, iface_name, target):
             handle_argument(records, arg)
 
 
-def handle_interface_or_namespace(records, target):
+def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
     '''Emit analysis record for IDLInterface, IDLInterfaceMixin, IDLNamespace,
     or IDLPartialInterfaceOrNamespace.'''
+
+    is_mixin = isinstance(target, WebIDL.IDLInterfaceMixin)
 
     name = target.identifier.name
     loc = to_loc(target.identifier.location, name)
     pretty = name
     idl_sym = f'WEBIDL_{name}'
-    cpp_sym = f'NS_mozilla::dom::{name}_Binding'
+    if not is_mixin:
+        cpp_sym = f'NS_mozilla::dom::{name}_Binding'
     js_sym = f'#{name}'
 
-    local_path = target.location.filename
-    cpp_analysis = cpp_analysis_map.get(local_path, None)
-    if cpp_analysis is None:
-        print('warning: WebIDL: No C++ analysis data found for', local_path, file=sys.stderr)
-        cpp_symbols = {}
+    if not is_mixin:
+        local_path = target.location.filename
+        cpp_analysis = cpp_analysis_map.get(local_path, None)
+        if cpp_analysis is None:
+            print('warning: WebIDL: No C++ analysis data found for', local_path, file=sys.stderr)
+            cpp_symbols = {}
+        else:
+            cpp_symbols = cpp_analysis.get(name, {})
     else:
-        cpp_symbols = cpp_analysis.get(name, {})
+        cpp_symbols = {}
+        for iface in mixin_consumers_map.get(name, []):
+            iface_name = iface.identifier.name
+            local_path = iface.location.filename
+            cpp_analysis = cpp_analysis_map.get(local_path, None)
+            if cpp_analysis is None:
+                print('warning: WebIDL: No C++ analysis data found for', local_path, file=sys.stderr)
+            else:
+                iface_cpp_symbols = cpp_analysis.get(iface_name, {})
+                for prop, item in iface_cpp_symbols.items():
+                    if prop not in cpp_symbols:
+                        cpp_symbols[prop] = CppSymbolMemberItem()
+
+                    cpp_symbols[prop].merge(item)
 
     emit_source(records, loc, 'idl', 'class', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    append_slot(slots, 'class', 'cpp', None, cpp_sym)
+    if not is_mixin:
+        append_slot(slots, 'class', 'cpp', None, cpp_sym)
     append_slot(slots, 'interface_name', 'js', None, js_sym)
 
-    supers = []
-    if hasattr(target, 'parent') and target.parent:
-        handle_super(records, supers, target.parent)
+    if not is_mixin:
+        supers = []
+        if hasattr(target, 'parent') and target.parent:
+            handle_super(records, supers, target.parent)
+    else:
+        supers = None
 
     methods = []
     fields = []
@@ -847,16 +874,44 @@ def parse_files(index_root, files_root, analysis_root, cache_dir, bindings_local
     return parser._productions
 
 
+def collect_mixin_consumers_map(productions):
+    iface_map = {}
+    for target in productions:
+        if isinstance(target, WebIDL.IDLInterface):
+            iface_name = target.identifier.name
+            iface_map[iface_name] = target
+
+    mixin_consumers_map = {}
+    for target in productions:
+        if isinstance(target, WebIDL.IDLIncludesStatement):
+            iface_name = target.interface.identifier.name
+            mixin = target.mixin.identifier.name
+
+            if mixin not in mixin_consumers_map:
+                mixin_consumers_map[mixin] = []
+
+            if iface_name in iface_map:
+                iface = iface_map.get(iface_name)
+                mixin_consumers_map[mixin].append(iface)
+
+    return mixin_consumers_map
+
+
 def handle_productions(productions):
     '''Emit analysis records for all productions.'''
 
+    mixin_consumers_map = collect_mixin_consumers_map(productions)
+
     for target in productions:
-        if isinstance(target, WebIDL.IDLInterfaceOrInterfaceMixinOrNamespace):
+        if isinstance(target, WebIDL.IDLInterfaceOrNamespace):
             records = get_records(target)
             handle_interface_or_namespace(records, target)
         elif isinstance(target, WebIDL.IDLPartialInterfaceOrNamespace):
             records = get_records(target)
             handle_interface_or_namespace(records, target)
+        elif isinstance(target, WebIDL.IDLInterfaceMixin):
+            records = get_records(target)
+            handle_interface_or_namespace(records, target, mixin_consumers_map)
         elif isinstance(target, WebIDL.IDLDictionary):
             records = get_records(target)
             handle_dictionary(records, target)

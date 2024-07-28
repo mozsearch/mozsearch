@@ -70,12 +70,6 @@ expression: "&json_results"
     "implKind": "idl",
     "bindingSlots": [
       {
-        "slotKind": "class",
-        "slotLang": "cpp",
-        "ownerLang": "idl",
-        "sym": "NS_mozilla::dom::TestInterfaceMixin_Binding"
-      },
-      {
         "slotKind": "interface_name",
         "slotLang": "js",
         "ownerLang": "idl",
