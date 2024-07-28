@@ -2428,6 +2428,17 @@ function resetState() {
   Analyzer.resetState();
 }
 
+
+function decodeUTF8(s) {
+  if (s.match(/[^\x00-\x7F]/)) {
+    return decodeURIComponent(s.replace(/./g, m => {
+      return "%" + m.charCodeAt(0).toString(16).padStart(2, '0');
+    }));
+  }
+
+  return s;
+}
+
 mozSearchRoot = scriptArgs[0];
 const localRoot = scriptArgs[1];
 const analysisRoot = scriptArgs[2];
@@ -2445,7 +2456,10 @@ while (true) {
     continue;
   }
   fileIndex = m[1];
-  const sourcePath = m[2];
+
+  // readline() returns raw byte sequence.
+  // The filename is UTF-8 encoded in the js-files file.
+  const sourcePath = decodeUTF8(m[2]);
 
   localFile = localRoot + "/" + sourcePath;
   const analysisFile = analysisRoot + "/" + sourcePath;
