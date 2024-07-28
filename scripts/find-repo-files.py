@@ -48,6 +48,16 @@ for line in lines:
         continue
     path = path.decode()
 
+    # NOTE: `path` is raw filename, which can contain any character allowed by
+    # the OS and the file system.
+    #
+    # For safety, ignore the path with characters that may have special meaning
+    # in the HTML context or the shell command context.
+    # They are not allowed on Windows, but allowed on other OS.
+    for c in ['"', '<', '>', '\\']:
+        if c in path:
+            continue
+
     fullpath = os.path.join(tree_repo, path)
 
     elts = path.split('/')
