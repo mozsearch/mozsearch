@@ -82,3 +82,53 @@ add_task(async function test_WebIDLBindings() {
     }
   }
 });
+
+add_task(async function test_WebIDLBindingsWithMixin() {
+  await TestUtils.loadPath("/tests/source/webidl/BindingTestMixin.webidl");
+
+  const tests = [
+    {
+      sym: "WEBIDL_BindingTestMixin_MIXIN_CONST",
+      items: [
+        "mozilla::dom::BindingTestMixed1_Binding::MIXIN_CONST",
+        "mozilla::dom::BindingTestMixed2_Binding::MIXIN_CONST",
+      ],
+    },
+    {
+      sym: "WEBIDL_BindingTestMixin_mixinAttr",
+      items: [
+        "mozilla::dom::BindingTestMixed1_Binding::get_mixinAttr",
+        "mozilla::dom::BindingTestMixed1_Binding::set_mixinAttr",
+        "mozilla::dom::BindingTestMixed1::GetMixinAttr",
+        "mozilla::dom::BindingTestMixed1::SetMixinAttr",
+        "mozilla::dom::BindingTestMixed2_Binding::get_mixinAttr",
+        "mozilla::dom::BindingTestMixed2_Binding::set_mixinAttr",
+        "mozilla::dom::BindingTestMixed2::GetMixinAttr",
+        "mozilla::dom::BindingTestMixed2::SetMixinAttr",
+      ],
+    },
+    {
+      sym: "WEBIDL_BindingTestMixin_mixinMethod",
+      items: [
+        "mozilla::dom::BindingTestMixed1_Binding::mixinMethod",
+        "mozilla::dom::BindingTestMixed1::MixinMethod",
+        "mozilla::dom::BindingTestMixed2_Binding::mixinMethod",
+        "mozilla::dom::BindingTestMixed2::MixinMethod",
+      ],
+    },
+  ];
+  for (const { sym, items } of tests) {
+    const elem = frame.contentDocument.querySelector(`span.syn_def[data-symbols="${sym}"]`);
+    ok(!!elem, `Symbol element exists for ${sym}`);
+
+    TestUtils.click(elem);
+
+    const menu = frame.contentDocument.querySelector("#context-menu");
+    await waitForShown(menu, `Context menu is shown when clicking ${sym} symbol`);
+
+    for (const item of items) {
+      const row = findMenuItem(menu, item);
+      ok(!!row, `Menu item for ${item} exists`);
+    }
+  }
+});
