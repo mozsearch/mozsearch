@@ -23,7 +23,7 @@ except FileNotFoundError:
 
 tree_config = config['trees'][tree_name]
 tree_repo = tree_config['files_path']
-lines = run(['git', 'ls-files', '--recurse-submodules'], cwd=tree_repo).splitlines()
+lines = run(['git', 'ls-files', '-z', '--recurse-submodules'], cwd=tree_repo).split(b'\0')
 if len(lines) == 0:
     # find . -type f -printf '%P\n'
     lines = run(['/usr/bin/find', '.', '-type', 'f', '-printf', '%P\n'], cwd=tree_repo).splitlines()
@@ -47,12 +47,6 @@ for line in lines:
     if not path:
         continue
     path = path.decode()
-
-    if path.startswith('"') and path.endswith('"'):
-        # `git ls-files` prints files with non-ASCII escaped and quoted.
-        # Do not index them for now.
-        # Each indexer script needs to be tweaked to support them.
-        continue
 
     fullpath = os.path.join(tree_repo, path)
 
