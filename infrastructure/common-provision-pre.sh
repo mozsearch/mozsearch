@@ -25,7 +25,8 @@ UBUNTU_RELEASE=$(lsb_release -cs)
 sudo apt-get update
 # software-properties-common: necessary for apt-add-repository to exist
 # gettext-base: necessary for `envsubst` to exist
-sudo apt-get install -y software-properties-common gettext-base rsync
+# zip: used to create lambda zips
+sudo apt-get install -y software-properties-common gettext-base rsync zip
 
 sudo apt-add-repository -y ppa:git-core/ppa    # For latest git
 sudo apt-get update
