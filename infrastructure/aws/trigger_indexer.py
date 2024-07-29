@@ -8,7 +8,7 @@ from trigger_common import TriggerCommandBase
 # dynamically generated hard-coded python script thing.
 class TriggerIndexerCommand(TriggerCommandBase):
     def __init__(self):
-        super().__init__('indexer', 'index.sh', 10)
+        super().__init__('indexer', 'index.sh', 12)
 
     def script_args_after_branch_and_channel(self, args):
         return '''"{mozsearch_repo}" "{config_repo}" config "{config_input}"'''.format(
