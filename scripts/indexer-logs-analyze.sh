@@ -27,7 +27,7 @@ PARSE_EXPR+=' script == "compress-outputs.sh" or script == "check-index.sh" or'
 PARSE_EXPR+=' script == "html-analyze.sh" or script == "css-analyze.sh", args[1], tree) as tree'
 # scripts where the 1st argument has a path segment which is the tree name we
 # can use.  We split the first argument above to be `args0` for this.
-PARSE_EXPR+=' | if(script == "process-chrome-map.py", args0[2], tree) as tree'
+PARSE_EXPR+=' | if(script == "process-chrome-map.py" or script == "replace-aliases.sh", args0[2], tree) as tree'
 
 # - Grep the log in Perl mode looking for the pattern where a "date" invocation
 #   is followed by a script invocation from mozsearch/scripts.
