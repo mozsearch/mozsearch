@@ -10,7 +10,7 @@ var BlamePopup = new (class BlamePopup {
     this.popup.id = "blame-popup";
     this.popup.className = "blame-popup";
     this.popup.style.display = "none";
-    document.documentElement.appendChild(this.popup);
+    document.body.appendChild(this.popup);
 
     // The .blame-strip element for which blame is currently being displayed.
     this._blameElement = null;
