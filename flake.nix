@@ -41,8 +41,8 @@
 
             jq
 
-            awscli2
             (python3.withPackages pythonPackages)
+            awscli2
 
             # Dependencies required to build tools
             rustToolchain
