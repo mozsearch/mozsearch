@@ -50,12 +50,20 @@ def replace_aliases(path, alias_map, reverse_map):
     with open(fullpath, "r") as f:
         for line in f:
             line = line.rstrip()
+
+            # Filter out definitely non-target lines.
             if "URL_" not in line and "RELPATH" not in line:
                 lines.append(line)
                 continue
 
             datum = json.loads(line)
             sym = datum["sym"]
+
+            # Actually test if the symbol is the target.
+            if not sym.startswith("URL_") and sym != "RELPATH":
+                lines.append(line)
+                continue
+
             handled_syms = set()
 
             has_alias = True
