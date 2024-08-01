@@ -207,11 +207,11 @@ pub fn format_code(
                         nesting_stack.push(a);
                     }
 
-                    // XXX This 0-reference thing should be abandoned.  This was an attempt to be
-                    // be more efficient in the face of cross-platform locals frequently ending up
-                    // providing us with 4 different symbol names
-                    if a.sym.len() >= 1 && !generated_sym_info.contains_key(&a.sym[0]) {
-                        let sym = &a.sym[0];
+                    for sym in &a.sym {
+                        if generated_sym_info.contains_key(sym) {
+                            continue;
+                        }
+
                         // Pass-through local symbol information that won't be available from the
                         // cross-reference database because it was marked no_crossref.  This is only
                         // intended to cover type information about the locals; other info like srcsym

@@ -66,7 +66,8 @@ CPP_FILES=$(
 find . -name '*.cpp' | \
   grep -v /ipdl/ | \
   grep -v /field-layout/ | \
-  grep -v /macro.cpp
+  grep -v /macro.cpp | \
+  grep -v /templates6.cpp
 )
 
 ## C++ Build Stuff
@@ -81,6 +82,7 @@ done
 MULTI_CPP_FILES=$(
   find ./field-layout/ -name '*.cpp'
   echo "macro.cpp"
+  echo "templates6.cpp"
 )
 
 for PLATFORM in linux64 macosx64 win64

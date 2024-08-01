@@ -630,6 +630,18 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td><a href="/tests/source/templates6.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates6.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates6.cpp" title=""></td>
+          <td><a href="/tests/source/templates6.cpp">142</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates6.h" class="mimetype-fixed-container mimetype-icon-h">templates6.h</a></td>
+          <td class="description"><a href="/tests/source/templates6.h" title=""></td>
+          <td><a href="/tests/source/templates6.h">67</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/test_custom_element_base.xul" class="mimetype-fixed-container mimetype-icon-xul">test_custom_element_base.xul</a></td>
           <td class="description"><a href="/tests/source/test_custom_element_base.xul" title=""></td>
           <td><a href="/tests/source/test_custom_element_base.xul">14637</a></td>
