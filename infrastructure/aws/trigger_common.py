@@ -79,6 +79,11 @@ class TriggerCommandBase:
         ec2 = boto3.resource('ec2')
         client = boto3.client('ec2')
 
+        if args.channel == "release5":
+            instance_type = 'm5d.4xlarge'
+        else:
+            instance_type = 'm5d.2xlarge'
+
         # Terminate any "running" or "stopped" instances.  We used to only
         # terminate "running" instances with the theory that someone might get
         # around to investigating the "stopped" instance, but the reality is
@@ -129,7 +134,7 @@ class TriggerCommandBase:
             'KeyName': 'Main Key Pair',
             'SecurityGroups': ['indexer-secure'],
             'UserData': user_data,
-            'InstanceType': 'm5d.2xlarge',
+            'InstanceType': instance_type,
             'BlockDeviceMappings': block_devices,
             'IamInstanceProfile': {
                 'Name': 'indexer-role',
