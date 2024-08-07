@@ -12,12 +12,12 @@ set -o pipefail # Check all commands in a pipeline
 # Note that for the most recent LLVM/clang release (ex: right now v13), you
 # would actually want to leave this empty.  Check out https://apt.llvm.org/ for
 # the latest info in all cases.
-CLANG_SUFFIX=-17
+CLANG_SUFFIX=-18
 # Bumping the priority with each version upgrade lets running the provisioning
 # script on an already provisioned machine do the right thing alternative-wise.
 # Actually, we no longer support re-provisioning, but it's fun to increment
 # numbers.
-CLANG_PRIORITY=413
+CLANG_PRIORITY=414
 # The clang packages build the Ubuntu release name in; let's dynamically extract
 # it since I, asuth, once forgot to update this.
 UBUNTU_RELEASE=$(lsb_release -cs)
