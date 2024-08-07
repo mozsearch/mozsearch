@@ -8,40 +8,94 @@ set -o pipefail # Check all commands in a pipeline
 # byproducts live while the indexing is ongoing.  To do this, we need to figure
 # out what the device's partition is.
 #
-# If we run `nvme list -o json` we get output like the following:
+# If we run `nvme list -o json` on an m5d.2xlarge we get output like the
+# following (as of Aug 7th, 2024):
 #
 # {
 #   "Devices" : [
 #     {
+#       "NameSpace" : 1,
 #       "DevicePath" : "/dev/nvme0n1",
-#       "Firmware" : "0",
+#       "Firmware" : "1.0",
 #       "Index" : 0,
+#       "ModelNumber" : "Amazon Elastic Block Store",
+#       "ProductName" : "Non-Volatile memory controller: Amazon.com, Inc. NVMe EBS Controller",
+#       "SerialNumber" : "vol0bbec15c8360404c3",
+#       "UsedBytes" : 21474836480,
+#       "MaximumLBA" : 41943040,
+#       "PhysicalSize" : 21474836480,
+#       "SectorSize" : 512
+#     },
+#     {
+#       "NameSpace" : 1,
+#       "DevicePath" : "/dev/nvme1n1",
+#       "Firmware" : "0",
+#       "Index" : 1,
 #       "ModelNumber" : "Amazon EC2 NVMe Instance Storage",
-#       "ProductName" : "Unknown Device",
-#       "SerialNumber" : "AWS143416FC5A55CA413",
+#       "ProductName" : "Non-Volatile memory controller: Amazon.com, Inc. Me SSD Controller",
+#       "SerialNumber" : "AWS271A679A97BB1AC18",
+#       "UsedBytes" : 300000000000,
+#       "MaximumLBA" : 585937500,
+#       "PhysicalSize" : 300000000000,
+#       "SectorSize" : 512
+#     }
+#   ]
+# }
+#
+# If we run it on an m5d.4xlarge which has 2 instance SSD's attached (as of
+# Aug 7th, 2024), we get:
+#
+# {
+#   "Devices" : [
+#     {
+#       "NameSpace" : 1,
+#       "DevicePath" : "/dev/nvme0n1",
+#       "Firmware" : "1.0",
+#       "Index" : 0,
+#       "ModelNumber" : "Amazon Elastic Block Store",
+#       "ProductName" : "Non-Volatile memory controller: Amazon.com, Inc. NVMe EBS Controller",
+#       "SerialNumber" : "vol0469084c4103e93f6",
+#       "UsedBytes" : 21474836480,
+#       "MaximumLBA" : 41943040,
+#       "PhysicalSize" : 21474836480,
+#       "SectorSize" : 512
+#     },
+#     {
+#       "NameSpace" : 1,
+#       "DevicePath" : "/dev/nvme1n1",
+#       "Firmware" : "0",
+#       "Index" : 1,
+#       "ModelNumber" : "Amazon EC2 NVMe Instance Storage",
+#       "ProductName" : "Non-Volatile memory controller: Amazon.com, Inc. Me SSD Controller",
+#       "SerialNumber" : "AWS3874D9799F2AE3EBE",
 #       "UsedBytes" : 300000000000,
 #       "MaximumLBA" : 585937500,
 #       "PhysicalSize" : 300000000000,
 #       "SectorSize" : 512
 #     },
 #     {
-#       "DevicePath" : "/dev/nvme1n1",
-#       "Firmware" : "1.0",
-#       "Index" : 1,
-#       "ModelNumber" : "Amazon Elastic Block Store",
-#       "ProductName" : "Unknown Device",
-#       "SerialNumber" : "vol0222cf21e3b3dfbc4",
-#       "UsedBytes" : 0,
-#       "MaximumLBA" : 16777216,
-#       "PhysicalSize" : 8589934592,
+#       "NameSpace" : 1,
+#       "DevicePath" : "/dev/nvme2n1",
+#       "Firmware" : "0",
+#       "Index" : 2,
+#       "ModelNumber" : "Amazon EC2 NVMe Instance Storage",
+#       "ProductName" : "Non-Volatile memory controller: Amazon.com, Inc. Me SSD Controller",
+#       "SerialNumber" : "AWS2DECD522BEB58C35D",
+#       "UsedBytes" : 300000000000,
+#       "MaximumLBA" : 585937500,
+#       "PhysicalSize" : 300000000000,
 #       "SectorSize" : 512
 #     }
 #   ]
 # }
 #
 # We are interested in the "Instance Storage" device, and so we can use jq to
-# filter this.
-INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output '.Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath')
+# filter this.  Note that on larger instances like m5d.4xlarge, there will be
+# multiple instance SSDs and currently we only want the 1st one we find.
+#
+# TODO: In the future we might consider doing some kind of performance RAID when
+# there are multiple SSDs.
+INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output 'limit(1; .Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath)')
 sudo mkfs -t ext4 $INSTANCE_STORAGE_DEV
 sudo mount $INSTANCE_STORAGE_DEV /mnt
 sudo mkdir /mnt/index-scratch
