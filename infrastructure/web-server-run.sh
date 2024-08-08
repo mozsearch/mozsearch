@@ -26,6 +26,11 @@ pkill -f tools/target/release/pipeline-server || true
 
 sleep 0.1s
 
+# activate the venv we created for livegrep so we have access to the grpc
+# dependencies.
+LIVEGREP_VENV=$HOME/livegrep-venv
+source $LIVEGREP_VENV/bin/activate
+
 nohup $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/router.log 2> $SERVER_ROOT/router.err < /dev/null &
 
 export RUST_BACKTRACE=1

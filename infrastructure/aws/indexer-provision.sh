@@ -21,17 +21,31 @@ chmod a+rx ~
 sudo apt-get update
 
 # We want the NVME tools, that's how EBS gets mounted now on "nitro" instances.
-sudo apt-get install -y nvme-cli
+# We need unzip to install the AWS CLI
+sudo apt-get install -y nvme-cli unzip
 
 # In order to do the re-partitioning again, we need jq now, even though we'll
 # also try and install it in the non-AWS scripts.
 sudo apt-get install -y jq
 
-# Need pip3 to get the awscli
-sudo apt-get install -y python3-pip
+# Install AWS scripts and command-line tool.
+#
+# In order to get the AWS CLI v2 the current options[1] are to use snap or do
+# the curl + shell dance.  We don't have snap support installed by default and are
+# currently intentionally avoiding adding snaps, so we choose curl + shell.
+#
+# 1: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+#
+# awscli can get credentials via `Ec2InstanceMetadata` which will give it the
+# authorities of the role assigned to the image it's running in.  Look for the
+# `IamInstanceProfile` definition in `trigger_indexer.py` and similar.
 
-# Need AWS client too.
-sudo pip3 install boto3 awscli rich
+mkdir -p awscliv2-install
+pushd awscliv2-install
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+popd
 
 date
 

@@ -369,13 +369,22 @@ impl AbstractServer for LocalIndex {
 
         let mut client = CodeSearchClient::connect(endpoint).await?;
 
+        // Before multiple paths were allowed, an empty path constraint allowed
+        // us to skip the match; now if we pass an empty path in a vec, that
+        // will fail to match, so we want to pass an empty vec.
+        let use_path = if path.is_empty() {
+            vec![]
+        } else {
+            vec![path.into()]
+        };
+
         let query = tonic::Request::new(Query {
             line: pattern.into(),
-            file: path.into(),
+            file: use_path,
             repo: "".into(),
             tags: "".into(),
             fold_case,
-            not_file: "".into(),
+            not_file: vec![],
             not_repo: "".into(),
             not_tags: "".into(),
             // 0 falls back to the default, I believe.
