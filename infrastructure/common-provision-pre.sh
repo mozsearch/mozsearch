@@ -59,8 +59,7 @@ sudo apt-get install -y parallel unzip python3-pip python3-venv lz4
 
 # We want to be able to extract stuff from json (jq) and yaml (yq) and more
 # easily emit JSON from the shell (jo).
-sudo apt-get install -y jq jo
-sudo pip3 install yq
+sudo apt-get install -y jq jo yq
 
 # dos2unix is used to normalize generated files from windows
 sudo apt-get install -y dos2unix
@@ -70,14 +69,15 @@ sudo apt-get install -y fonts-noto-color-emoji
 
 # graphviz for diagramming
 #
-# The most recent release version is 9.0 but the version available in 22.04 is
-# 2.x, so we donwload and use the official packages provided by the graphviz
-# project on gitlab.
-GRAPHVIZ_DEB_BUNDLE=ubuntu_22.04_graphviz-9.0.0-debs.tar.xz
+# We initially started using the official graphviz project debs because 22.04
+# was so far behind, but now we're sticking with the official upstream because
+# they update so frequently and we are a cutting edge user of graphviz so it's
+# nice to have all the fixes and enhancements ASAP.
+GRAPHVIZ_DEB_BUNDLE=ubuntu_24.04_graphviz-12.0.0-debs.tar.xz
 if [ ! -d $HOME/graphviz-install ]; then
   mkdir -p $HOME/graphviz-install
   pushd $HOME/graphviz-install
-  curl -O https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/9.0.0/$GRAPHVIZ_DEB_BUNDLE
+  curl -O https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/12.0.0/$GRAPHVIZ_DEB_BUNDLE
   tar xvf $GRAPHVIZ_DEB_BUNDLE
   # using constrained wildcards here to not care too much about these versions
   sudo apt-get install -y ./graphviz_*_amd64.deb ./libgraphviz4_*_amd64.deb ./libgraphviz-dev_*_amd64.deb
@@ -97,16 +97,25 @@ if [ ! -d bazelisk ]; then
 fi
 BAZEL=~/bazelisk/bazelisk-linux-amd64
 
+# Install gcc-12 because bazel 5.x can't build with gcc-13 because of problems
+# with abseil and simply telling the livesearch bazel to use the latest bazel or
+# clang just gives us different problems.
+sudo apt-get install -y gcc-12 g++-12
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 ${CLANG_PRIORITY}
+
 # Clang
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 sudo apt-add-repository -y "deb https://apt.llvm.org/${UBUNTU_RELEASE}/ llvm-toolchain-${UBUNTU_RELEASE}${CLANG_SUFFIX} main"
 sudo apt-get update
 sudo apt-get install -y clang${CLANG_SUFFIX} libclang${CLANG_SUFFIX}-dev lld${CLANG_SUFFIX}
 
-# Setup direct links to clang
+# Setup direct links to clang, including having clang be cc/c++
 sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config${CLANG_SUFFIX} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/llvm-symbolizer llvm-symbolizer /usr/bin/llvm-symbolizer${CLANG_SUFFIX} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/lld lld /usr/bin/lld${CLANG_SUFFIX} ${CLANG_PRIORITY}
 sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld${CLANG_SUFFIX} ${CLANG_PRIORITY}
@@ -136,38 +145,62 @@ cargo install wasm-snip
 
 # Install codesearch.
 if [ ! -d livegrep ]; then
-  git clone -b mozsearch-version6 https://github.com/mozsearch/livegrep
+  git clone -b mozsearch-version7 https://github.com/mozsearch/livegrep
   pushd livegrep
-    $BAZEL build //src/tools:codesearch
-    sudo install bazel-bin/src/tools/codesearch /usr/local/bin
+  $BAZEL build //src/tools:codesearch
+  sudo install bazel-bin/src/tools/codesearch /usr/local/bin
   popd
   # Remove ~2G of build artifacts that we don't need anymore
   rm -rf .cache/bazel
 
   # Install gRPC python libs and generate the python modules to communicate with the codesearch server
-  sudo pip3 install grpcio grpcio-tools
+  # We need to create a venv for this because Ubuntu 24.04 gets very angry if we
+  # use pip to install things outside of a venv.
+  LIVEGREP_VENV=$HOME/livegrep-venv
+  python3 -m venv $LIVEGREP_VENV
+  $LIVEGREP_VENV/bin/pip install grpcio grpcio-tools
+  # also install "six" in this venv for xpidl.py for now
+  $LIVEGREP_VENV/bin/pip install six
+
   mkdir livegrep-grpc3
-  python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
-  python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
+  $LIVEGREP_VENV/bin/python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
+  $LIVEGREP_VENV/bin/python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
   touch livegrep-grpc3/src/__init__.py
   touch livegrep-grpc3/src/proto/__init__.py
   # Add the generated modules to the python path
-  SITEDIR=$(python3 -m site --user-site)
+  SITEDIR=$($LIVEGREP_VENV/bin/python3 -c "import site; print(site.getsitepackages()[0])")
   mkdir -p "$SITEDIR"
   echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
 fi
 
 # Install AWS scripts and command-line tool.
 #
+# In order to get the AWS CLI v2 the current options[1] are to use snap or do
+# the curl + shell dance.  We don't have snap support installed by default and are
+# currently intentionally avoiding adding snaps, so we choose curl + shell.
+#
+# 1: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+#
 # awscli can get credentials via `Ec2InstanceMetadata` which will give it the
 # authorities of the role assigned to the image it's running in.  Look for the
 # `IamInstanceProfile` definition in `trigger_indexer.py` and similar.
-sudo pip3 install boto3 awscli rich
+#
+# (We check if the install directory already exists because on AWS we install
+# the CLI earlier out of necessity.)
+if [ ! -d awscliv2-install ]; then
+  mkdir -p awscliv2-install
+  pushd awscliv2-install
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip awscliv2.zip
+  sudo ./aws/install
+  popd
+fi
+
+sudo apt-get install -y python3-boto3 python3-rich
 
 # Install git-cinnabar.
 if [ ! -d git-cinnabar ]; then
   # Need mercurial to prevent cinnabar from spewing warnings.
-  # python2.7 is also currently needed, but was installed above.
   sudo apt-get install -y mercurial
   # We started pinning in https://bugzilla.mozilla.org/show_bug.cgi?id=1779939
   # and it seems reasonable to stick to this for more deterministic provisioning.
@@ -185,7 +218,7 @@ if [ ! -d git-cinnabar ]; then
 fi
 
 # Install scip
-SCIP_VERSION=v0.3.3
+SCIP_VERSION=v0.5.0
 curl -L https://github.com/sourcegraph/scip/releases/download/$SCIP_VERSION/scip-linux-amd64.tar.gz | tar xzf - scip
 sudo ln -fs $(pwd)/scip /usr/local/bin/scip
 

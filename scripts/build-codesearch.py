@@ -85,7 +85,7 @@ json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
 run(['codesearch', '/tmp/livegrep.json',
      '-dump_index', tree['codesearch_path'],
      '-index_only',
-     '-max_matches', '1000',
+     '-max_matches', '4000',
      # the default is 27 which is a chunk size of 128 MiB which was resulting in
      # only 2 threads having work to do for very big queries, so we're scaling
      # down by 8 (2**3) to be able to saturate 8 threads and give each thread

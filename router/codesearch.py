@@ -45,7 +45,13 @@ def collateMatches(matches):
 
 def do_search(host, port, pattern, fold_case, file, context_lines):
     t = time.time()
-    query = livegrep_pb2.Query(line = pattern, file = file, fold_case = fold_case,
+    use_file = []
+    # file is now a repeatd arg; if we pass an empty array, no constraints are
+    # applied.  For efficiency, we convert a useless wildcard of '.*' to just be
+    # no constraint.
+    if file and file != '.*':
+        use_file.append(file)
+    query = livegrep_pb2.Query(line = pattern, file = use_file, fold_case = fold_case,
                                context_lines = context_lines)
     log('QUERY %s', repr(query).replace('\n', ', '))
 
@@ -123,6 +129,11 @@ def startup_codesearch(data):
             # is fully loaded via vmtouch before serving begins in earnest.
             '-timeout', '30000',
             '-context_lines', '0']
+    # Dump our arguments to the log so someone investigating things can just
+    # kill the server and then copy and paste the arguments to run it
+    # non-daemonized.  (Unfortunately, we don't have a way to get at its output
+    # otherwise because of how we daemonize it.)
+    log(' '.join(args))
 
     daemonize(args)
     # Sleep a teeny bit to let the server have some exclusive time to spin up
