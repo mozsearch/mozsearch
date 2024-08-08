@@ -20,7 +20,7 @@ CONFIG_REPO_URL=$4
 CONFIG_REPO_PATH=$(readlink -f $5)
 CONFIG_INPUT="$6"
 
-EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
+EC2_INSTANCE_ID=$(ec2metadata --instance-id)
 
 echo "Branch is $BRANCH"
 echo "Channel is $CHANNEL"

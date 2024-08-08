@@ -41,5 +41,5 @@ $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 # Give logger time to catch up
 sleep 30
 
-EC2_INSTANCE_ID=$(wget -q -O - http://instance-data/latest/meta-data/instance-id)
+EC2_INSTANCE_ID=$(ec2metadata --instance-id)
 $AWS_ROOT/terminate-indexer.py $EC2_INSTANCE_ID
