@@ -95,8 +95,24 @@ set -o pipefail # Check all commands in a pipeline
 #
 # TODO: In the future we might consider doing some kind of performance RAID when
 # there are multiple SSDs.
-INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output 'limit(1; .Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath)')
+INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output 'first(.Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath)')
 sudo mkfs -t ext4 $INSTANCE_STORAGE_DEV
 sudo mount $INSTANCE_STORAGE_DEV /mnt
 sudo mkdir /mnt/index-scratch
 sudo chown ubuntu.ubuntu /mnt/index-scratch
+
+# For swap purposes, let's see if there was a 2nd instance storage; we use nth(1; ...)
+# for this.  If there is no 2nd entry, we will get an empty string.
+SWAP_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output 'nth(1; .Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath)')
+
+if [[ $SWAP_STORAGE_DEV ]]; then
+  sudo mkswap $SWAP_STORAGE_DEV
+  sudo swapon $SWAP_STORAGE_DEV
+else
+  SWAP_FILE=/mnt/swapfile
+  # 8 GiB swap
+  sudo dd if=/dev/zero of=$SWAP_FILE bs=128M count=64
+  sudo chmod 600 $SWAP_FILE
+  sudo mkswap $SWAP_FILE
+  sudo swapon $SWAP_FILE
+fi
