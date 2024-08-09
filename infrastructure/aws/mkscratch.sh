@@ -103,9 +103,16 @@ sudo chown ubuntu.ubuntu /mnt/index-scratch
 
 # For swap purposes, let's see if there was a 2nd instance storage; we use nth(1; ...)
 # for this.  If there is no 2nd entry, we will get an empty string.
+#
+# FIXME: On jq 1.6, nth() prints the last item instead of an empty string
+#        even if the index is out of range, which can be the same device as
+#        the first one, used by INSTANCE_STORAGE_DEV.
+#        We should bump jq to 1.7, but it's not available on ubuntu jammy.
 SWAP_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output 'nth(1; .Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath)')
 
-if [[ $SWAP_STORAGE_DEV ]]; then
+# FIXME: Once jq is bumped to 1.7+, the comparison against INSTANCE_STORAGE_DEV
+#        should be removed.
+if [[ $SWAP_STORAGE_DEV && $SWAP_STORAGE_DEV != $INSTANCE_STORAGE_DEV ]]; then
   sudo mkswap $SWAP_STORAGE_DEV
   sudo swapon $SWAP_STORAGE_DEV
 else
