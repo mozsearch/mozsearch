@@ -866,7 +866,7 @@ span[data-symbols].selected {
 
 /* Help screen */
 .intro, .settings-page {
-  font: 14px/var(--base-line-height).5 Arial, Helvetica, sans-serif;
+  font: 14px/var(--base-line-height) Arial, Helvetica, sans-serif;
   margin-left: 10%;
   margin-right: 10%;
   margin-bottom: 10%;
