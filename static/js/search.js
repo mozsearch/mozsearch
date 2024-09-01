@@ -815,7 +815,7 @@ function populateResults(data, full, jumpToSingle) {
 
     table.innerHTML = html;
 
-    for (let element of document.querySelectorAll(".expando")) {
+    for (let element of table.querySelectorAll(".expando")) {
       element.addEventListener("click", onExpandoClick);
     }
 
