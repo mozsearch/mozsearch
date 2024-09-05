@@ -293,7 +293,7 @@ pub trait AbstractServer {
 
     /// Fetch the contents of the analysis file for the given searchfox
     /// tree-local path, decompressing if it's compressed.
-    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>>;
+    async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>>;
 
     /// Fetch the contents of a raw (not HTML rendered) source file
     /// corresponding to the indexed revision like you would get out of revision
