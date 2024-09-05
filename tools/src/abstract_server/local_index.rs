@@ -182,7 +182,7 @@ impl AbstractServer for LocalIndex {
         }
     }
 
-    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
+    async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
         let full_path = self.translate_path(
             SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;

@@ -107,7 +107,7 @@ impl AbstractServer for RemoteServer {
         Err(ServerError::Unsupported)
     }
 
-    async fn fetch_raw_analysis(&self, sf_path: &str) -> Result<BoxStream<Value>> {
+    async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
         let url = self.raw_analysis_base_url.join(sf_path)?;
         let raw_str = get(url).await?.text().await?;
         let values: Result<Vec<Value>> = raw_str

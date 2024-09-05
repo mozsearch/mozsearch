@@ -2265,7 +2265,7 @@ impl SymbolGraphNodeSet {
         sym: &'a Ustr,
         server: &'a Box<dyn AbstractServer + Send + Sync>,
         depth: u32,
-    ) -> Result<(SymbolGraphNodeId, &mut DerivedSymbolInfo)> {
+    ) -> Result<(SymbolGraphNodeId, &'a mut DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {
             let sym_info = self
                 .symbol_crossref_infos
