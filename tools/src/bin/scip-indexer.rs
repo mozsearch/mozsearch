@@ -11,7 +11,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use scip::types::descriptor::Suffix;
 use serde_json::Map;
-use std::collections::{HashMap, BTreeSet};
+use std::collections::{BTreeSet, HashMap};
 use std::fs::{self, File};
 use std::io;
 use std::io::BufReader;
@@ -410,9 +410,19 @@ fn compile_nesting_queries(
             for node_type in &ndef.root_node_type {
                 parts.push(format!(
                     "{}({} {}: (_) @name {}({}) @body)",
-                    indent, node_type, ndef.name_field,
-                    if !ndef.body_field.is_empty() { format!("{}: ", ndef.body_field)} else { "".to_string() },
-                    if ndef.body_node.is_empty() { "_" } else { ndef.body_node }
+                    indent,
+                    node_type,
+                    ndef.name_field,
+                    if !ndef.body_field.is_empty() {
+                        format!("{}: ", ndef.body_field)
+                    } else {
+                        "".to_string()
+                    },
+                    if ndef.body_node.is_empty() {
+                        "_"
+                    } else {
+                        ndef.body_node
+                    }
                 ));
             }
             if ndef.root_node_type.len() > 1 {
@@ -452,18 +462,9 @@ struct SymbolAnalysis {
 
 fn symbol_name(lang_name: &str, subtree_name: Option<&str>, scip_symbol: &str) -> Ustr {
     if let Some(subtree_name) = subtree_name {
-        ustr(&format!(
-            "S_{}_{}_{}",
-            lang_name,
-            subtree_name,
-            scip_symbol
-        ))
+        ustr(&format!("S_{}_{}_{}", lang_name, subtree_name, scip_symbol))
     } else {
-        ustr(&format!(
-            "S_{}_{}",
-            lang_name,
-            scip_symbol
-        ))
+        ustr(&format!("S_{}_{}", lang_name, scip_symbol))
     }
 }
 
@@ -474,8 +475,8 @@ fn analyse_symbol(
     subtree_name: Option<&str>,
     relative_path: &str,
     doc_name: Option<&str>,
-    doc_namespace: Option<&str>)
--> SymbolAnalysis {
+    doc_namespace: Option<&str>,
+) -> SymbolAnalysis {
     let mut pretty_pieces = vec![];
     let mut sym_pieces = vec![];
     let mut last_kind = None;
@@ -503,8 +504,7 @@ fn analyse_symbol(
         };
         let escaped = sanitize_symbol(&descriptor.name);
 
-        let (sym_piece, pretty_action, maybe_kind, contributes_to_parent) = match suffix
-        {
+        let (sym_piece, pretty_action, maybe_kind, contributes_to_parent) = match suffix {
             // Confusingly, package is deprecated in favor of
             // namespace, but right now the SCIP crate parses '/'
             // as Package, not Namespace.
@@ -610,9 +610,7 @@ fn analyse_symbol(
             }
             // Suffix::UnspecifiedSuffix is not possible because we
             // excluded it above, but rust doesn't know that.
-            Suffix::UnspecifiedSuffix => {
-                ("".to_owned(), PrettyAction::Omit, None, false)
-            }
+            Suffix::UnspecifiedSuffix => ("".to_owned(), PrettyAction::Omit, None, false),
         };
         prev_kind = last_kind;
         last_kind = maybe_kind;
@@ -662,7 +660,11 @@ fn analyse_symbol(
 
     // Infer a parent sym if it seems to be a slice
     let parent_sym = if prev_kind == Some("class") && sym_pieces.len() >= 2 {
-        Some(symbol_name(lang_name, subtree_name, &sym_pieces[..sym_pieces.len() - 1].join("")))
+        Some(symbol_name(
+            lang_name,
+            subtree_name,
+            &sym_pieces[..sym_pieces.len() - 1].join(""),
+        ))
     } else {
         None
     };
@@ -863,7 +865,7 @@ fn analyze_using_scip(
                     subtree_name,
                     &doc.relative_path,
                     doc_name.as_deref(),
-                    doc_namespace.as_deref()
+                    doc_namespace.as_deref(),
                 );
 
                 let mut supers = vec![];
@@ -884,7 +886,7 @@ fn analyze_using_scip(
                         subtree_name,
                         &doc.relative_path,
                         None,
-                        None
+                        None,
                     );
 
                     // If our symbol is a local (or if we failed to unwrap its kind for any reason),
@@ -948,10 +950,12 @@ fn analyze_using_scip(
                 // actually unique; we also need to update our helper mapping.
                 if scip_sym_info.symbol.starts_with("local ") {
                     scip_symbol_to_structured.insert(symbol_info.norm_sym.to_string(), structured);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, symbol_info.norm_sym.to_string());
+                    our_symbol_to_scip_sym
+                        .insert(symbol_info.norm_sym, symbol_info.norm_sym.to_string());
                 } else {
                     scip_symbol_to_structured.insert(scip_sym_info.symbol.clone(), structured);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, scip_sym_info.symbol.clone());
+                    our_symbol_to_scip_sym
+                        .insert(symbol_info.norm_sym, scip_sym_info.symbol.clone());
                 }
 
                 if symbol_info.contributes_to_parent {
@@ -1049,17 +1053,16 @@ fn analyze_using_scip(
         // Same thing with Java and Kotlin
         let mut parser = tree_sitter::Parser::new();
         let (ts_lang, ts_nesting): (tree_sitter::Language, &Vec<SitterNesting>) = match &lang {
-            ScipLang::Python => {
-                (tree_sitter_python::LANGUAGE.into(), &PYTHON_NESTING)
-            }
-            ScipLang::Rust => {
-                (tree_sitter_rust::LANGUAGE.into(), &RUST_NESTING)
-            }
+            ScipLang::Python => (tree_sitter_python::LANGUAGE.into(), &PYTHON_NESTING),
+            ScipLang::Rust => (tree_sitter_rust::LANGUAGE.into(), &RUST_NESTING),
             ScipLang::Typescript => {
                 if doc.relative_path.ends_with(".tsx") || doc.relative_path.ends_with(".jsx") {
                     (tree_sitter_typescript::LANGUAGE_TSX.into(), &JS_NESTING)
                 } else {
-                    (tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(), &JS_NESTING)
+                    (
+                        tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+                        &JS_NESTING,
+                    )
                 }
             }
             ScipLang::Jvm => {
@@ -1113,7 +1116,11 @@ fn analyze_using_scip(
                     symbol_name(
                         lang_name,
                         subtree_name,
-                        &format!("{}/#{}", sanitize_symbol(&doc.relative_path), &occurrence.symbol[6..])
+                        &format!(
+                            "{}/#{}",
+                            sanitize_symbol(&doc.relative_path),
+                            &occurrence.symbol[6..]
+                        ),
                     ),
                 )
             } else {
@@ -1134,7 +1141,15 @@ fn analyze_using_scip(
                         }
                     };
 
-                    let symbol_info = analyse_symbol(&symbol, &lang, lang_name, subtree_name, &doc.relative_path, None, None);
+                    let symbol_info = analyse_symbol(
+                        &symbol,
+                        &lang,
+                        lang_name,
+                        subtree_name,
+                        &doc.relative_path,
+                        None,
+                        None,
+                    );
 
                     let fake = AnalysisStructured {
                         structured: StructuredTag::Structured,
@@ -1165,7 +1180,9 @@ fn analyze_using_scip(
                     };
                     scip_symbol_to_structured.insert(norm_scip_sym.to_owned(), fake);
                     our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.to_owned());
-                    scip_symbol_to_structured.get(norm_scip_sym.as_str()).unwrap()
+                    scip_symbol_to_structured
+                        .get(norm_scip_sym.as_str())
+                        .unwrap()
                 }
             };
             let loc = scip_range_to_searchfox_location(&occurrence.range);
@@ -1294,13 +1311,7 @@ fn analyze_using_scip(
 
             // If this was the definition point, then write out the structured record.
             if kind == AnalysisKind::Def {
-                write_line(
-                    &mut file,
-                    &WithLocation {
-                        data: sinfo,
-                        loc,
-                    },
-                );
+                write_line(&mut file, &WithLocation { data: sinfo, loc });
             }
 
             // TODO: Contextual info.
@@ -1352,6 +1363,12 @@ fn main() {
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     for file in cli.inputs {
-        analyze_using_scip(&tree_config, cli.subtree_name.as_deref(), &cli.subtree_root, &cli.platform, file);
+        analyze_using_scip(
+            &tree_config,
+            cli.subtree_name.as_deref(),
+            &cli.subtree_root,
+            &cli.platform,
+            file,
+        );
     }
 }
