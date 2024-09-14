@@ -205,6 +205,7 @@ struct SitterNesting {
     root_node_type: Vec<&'static str>,
     name_field: &'static str,
     body_field: &'static str,
+    body_node: &'static str,
 }
 
 lazy_static! {
@@ -215,11 +216,13 @@ lazy_static! {
             root_node_type: vec!["class_definition"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["function_definition"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
     ];
     // our list is manually derived from the tags.scm file:
@@ -229,31 +232,37 @@ lazy_static! {
             root_node_type: vec!["struct_item"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["enum_item"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["union_item"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["function_item"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["trait_item"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["mod_item"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         // TODO macro_definition lacks a body so the body needs to be the parent
         // node maybe?
@@ -264,6 +273,7 @@ lazy_static! {
             root_node_type: vec!["impl_item"],
             name_field: "type",
             body_field: "body",
+            body_node: "",
         },
     ];
     // tree-sitter support for typescript is a little weird because the
@@ -279,6 +289,7 @@ lazy_static! {
             root_node_type: vec!["method_definition"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         // There's an alt over class and class_declaration; class_declaration
         // becomes "class" if we add a "let blah = " ahead of it (and it stops
@@ -287,6 +298,7 @@ lazy_static! {
             root_node_type: vec!["class", "class_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         // There's also an alt over function/generators
         SitterNesting {
@@ -298,6 +310,7 @@ lazy_static! {
             ],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         // TODO: tags.scm has logic for lexical binds on arrow functions and
         // this is worth considering, although arguably this might also resemble
@@ -317,16 +330,19 @@ lazy_static! {
             root_node_type: vec!["abstract_class_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["module"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["interface_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
     ];
     // https://github.com/tree-sitter/tree-sitter-java/blob/master/queries/tags.scm
@@ -335,16 +351,19 @@ lazy_static! {
             root_node_type: vec!["class_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["method_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["interface_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
     ];
     // no tags.scm in tree-sitter-kotlin
@@ -353,11 +372,13 @@ lazy_static! {
             root_node_type: vec!["class_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
         SitterNesting {
             root_node_type: vec!["function_declaration"],
             name_field: "name",
             body_field: "body",
+            body_node: "",
         },
     ];
 }
