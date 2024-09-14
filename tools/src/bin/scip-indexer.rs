@@ -371,14 +371,14 @@ lazy_static! {
         SitterNesting {
             root_node_type: vec!["class_declaration"],
             name_field: "name",
-            body_field: "body",
-            body_node: "",
+            body_field: "",
+            body_node: "class_body",
         },
         SitterNesting {
             root_node_type: vec!["function_declaration"],
             name_field: "name",
-            body_field: "body",
-            body_node: "",
+            body_field: "",
+            body_node: "function_body",
         },
     ];
 }
@@ -395,7 +395,7 @@ struct NestedSymbol {
 }
 
 fn compile_nesting_queries(
-    lang: tree_sitter::Language,
+    lang: &tree_sitter::Language,
     nesting: &Vec<SitterNesting>,
 ) -> tree_sitter::Query {
     let query_pats: Vec<String> = nesting
@@ -409,8 +409,10 @@ fn compile_nesting_queries(
             }
             for node_type in &ndef.root_node_type {
                 parts.push(format!(
-                    "{}({} {}: (_) @name {}: (_) @body)",
-                    indent, node_type, ndef.name_field, ndef.body_field
+                    "{}({} {}: (_) @name {}({}) @body)",
+                    indent, node_type, ndef.name_field,
+                    if !ndef.body_field.is_empty() { format!("{}: ", ndef.body_field)} else { "".to_string() },
+                    if ndef.body_node.is_empty() { "_" } else { ndef.body_node }
                 ));
             }
             if ndef.root_node_type.len() > 1 {
@@ -1046,49 +1048,32 @@ fn analyze_using_scip(
         // basis.  We should revisit this if profiling shows this is a big problem.
         // Same thing with Java and Kotlin
         let mut parser = tree_sitter::Parser::new();
-        let ts_query = match &lang {
+        let (ts_lang, ts_nesting): (tree_sitter::Language, &Vec<SitterNesting>) = match &lang {
             ScipLang::Python => {
-                parser
-                    .set_language(tree_sitter_python::language())
-                    .expect("Error loading Python grammar");
-                compile_nesting_queries(tree_sitter_python::language(), &PYTHON_NESTING)
+                (tree_sitter_python::LANGUAGE.into(), &PYTHON_NESTING)
             }
             ScipLang::Rust => {
-                parser
-                    .set_language(tree_sitter_rust::language())
-                    .expect("Error loading Rust grammar");
-                compile_nesting_queries(tree_sitter_rust::language(), &RUST_NESTING)
+                (tree_sitter_rust::LANGUAGE.into(), &RUST_NESTING)
             }
             ScipLang::Typescript => {
                 if doc.relative_path.ends_with(".tsx") || doc.relative_path.ends_with(".jsx") {
-                    parser
-                        .set_language(tree_sitter_typescript::language_tsx())
-                        .expect("Error loading TSX grammar");
-                    compile_nesting_queries(tree_sitter_typescript::language_tsx(), &JS_NESTING)
+                    (tree_sitter_typescript::LANGUAGE_TSX.into(), &JS_NESTING)
                 } else {
-                    parser
-                        .set_language(tree_sitter_typescript::language_typescript())
-                        .expect("Error loading Typescript grammar");
-                    compile_nesting_queries(
-                        tree_sitter_typescript::language_typescript(),
-                        &JS_NESTING,
-                    )
+                    (tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(), &JS_NESTING)
                 }
             }
             ScipLang::Jvm => {
                 if doc.relative_path.ends_with(".kt") {
-                    parser
-                        .set_language(tree_sitter_kotlin::language())
-                        .expect("Error loading Kotlin grammar");
-                    compile_nesting_queries(tree_sitter_kotlin::language(), &KOTLIN_NESTING)
+                    (tree_sitter_kotlin_ng::LANGUAGE.into(), &KOTLIN_NESTING)
                 } else {
-                    parser
-                        .set_language(tree_sitter_java::language())
-                        .expect("Error loading Java grammar");
-                    compile_nesting_queries(tree_sitter_java::language(), &JAVA_NESTING)
+                    (tree_sitter_java::LANGUAGE.into(), &JAVA_NESTING)
                 }
             }
         };
+        parser
+            .set_language(&ts_lang)
+            .expect("Error loading grammar");
+        let ts_query = compile_nesting_queries(&ts_lang, &ts_nesting);
         let name_capture_ix = ts_query.capture_index_for_name("name").unwrap();
         let body_capture_ix = ts_query.capture_index_for_name("body").unwrap();
 
