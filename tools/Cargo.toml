@@ -64,13 +64,17 @@ shell-words = "1.0.0"
 termcolor = "1.4.1"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
 tokio-stream = "0.1.8"
-tree-sitter = "0.20.9"
-tree-sitter-mozcpp = "0.20.2"
-tree-sitter-python = "0.20.2"
-tree-sitter-rust = "0.20.3"
-tree-sitter-typescript = "0.20.2"
-tree-sitter-java = "0.20.2"
-tree-sitter-kotlin = { git = "https://github.com/fwcd/tree-sitter-kotlin.git", rev = "5b7ca7a611eac3234cd0a38b6257effa8888f89d" }
+tree-sitter = "0.23.0"
+# We previously used tree-sitter-mozcpp because it understands our XPCOM
+# macrology and doesn't freak out, but since it is only used for our WIP
+# hyperblame implementation and lags behind on updates, we are switching to
+# tree-sitter-cpp for now.
+tree-sitter-cpp = "0.23.0"
+tree-sitter-python = "0.23.2"
+tree-sitter-rust = "0.23.0"
+tree-sitter-typescript = "0.23.0"
+tree-sitter-java = "0.23.2"
+tree-sitter-kotlin-ng = "1.0.1"
 toml = "0.7.3"
 tonic = "0.7.1"
 tracing = "0.1.37"

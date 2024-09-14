@@ -8,7 +8,7 @@ use crate::file_format::history::syntax_files_struct::FileStructureRow;
 static QUERIES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/tokenizer_queries");
 
 fn load_language_queries(
-    ts_lang: tree_sitter::Language,
+    ts_lang: &tree_sitter::Language,
     lang_str: &str,
 ) -> Result<tree_sitter::Query, String> {
     match QUERIES_DIR.get_file(format!("{}.scm", lang_str)) {
@@ -16,7 +16,7 @@ fn load_language_queries(
             let maybe_contents = file.contents_utf8().map(|s| borrow::Cow::from(s));
             match maybe_contents {
                 Some(contents) => {
-                    tree_sitter::Query::new(ts_lang, &contents).map_err(|ts_err| ts_err.message)
+                    tree_sitter::Query::new(&ts_lang, &contents).map_err(|ts_err| ts_err.message)
                 }
                 _ => Err(format!("No queries for lang: {}", lang_str)),
             }
@@ -71,53 +71,48 @@ pub fn hypertokenize_source_file(
     // C preprocessor nodes currently are weird and include the trailing
     // newline.  For our purposes, we never actually want to emit a newline
     // token, so it's easy enough for us to just forbid that node.
-    let (lang, container_query, atom_nodes, ignore_nodes) = match ext {
+    let (lang, ts_lang, ts_query_filename, atom_nodes, ignore_nodes) = match ext {
         "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" => {
-            parser
-                .set_language(tree_sitter_mozcpp::language())
-                .expect("Error loading Mozcpp grammar");
-            let query = load_language_queries(tree_sitter_mozcpp::language(), "cpp")?;
-            let lang = tree_sitter_mozcpp::language();
-            let string_literal = lang.id_for_node_kind("string_literal", true);
-            let char_literal = lang.id_for_node_kind("char_literal", true);
-            let newline = lang.id_for_node_kind("\n", false);
+            let ts_lang: tree_sitter::Language = tree_sitter_cpp::LANGUAGE.into();
+            let string_literal = ts_lang.id_for_node_kind("string_literal", true);
+            let char_literal = ts_lang.id_for_node_kind("char_literal", true);
+            let newline = ts_lang.id_for_node_kind("\n", false);
             (
                 "cpp",
-                query,
+                ts_lang,
+                "cpp",
                 vec![string_literal, char_literal],
                 vec![newline],
             )
         }
-        "js" | "jsm" | "json" | "mjs" | "sjs" | "ts" => {
-            parser
-                .set_language(tree_sitter_typescript::language_typescript())
-                .expect("Error loading Typescript grammar");
-            let query =
-                load_language_queries(tree_sitter_typescript::language_typescript(), "typescript")?;
-            ("js", query, vec![], vec![])
-        }
-        "jsx" | "tsx" => {
-            parser
-                .set_language(tree_sitter_typescript::language_tsx())
-                .expect("Error loading TSX grammar");
-            let query =
-                load_language_queries(tree_sitter_typescript::language_tsx(), "typescript")?;
-            ("js", query, vec![], vec![])
-        }
-        "py" | "build" | "configure" => {
-            parser
-                .set_language(tree_sitter_python::language())
-                .expect("Error loading Python grammar");
-            let query = load_language_queries(tree_sitter_python::language(), "python")?;
-            ("py", query, vec![], vec![])
-        }
-        "rs" => {
-            parser
-                .set_language(tree_sitter_rust::language())
-                .expect("Error loading Rust grammar");
-            let query = load_language_queries(tree_sitter_rust::language(), "rust")?;
-            ("rust", query, vec![], vec![])
-        }
+        "js" | "jsm" | "json" | "mjs" | "sjs" | "ts" => (
+            "js",
+            tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            "typescript",
+            vec![],
+            vec![],
+        ),
+        "jsx" | "tsx" => (
+            "js",
+            tree_sitter_typescript::LANGUAGE_TSX.into(),
+            "typescript",
+            vec![],
+            vec![],
+        ),
+        "py" | "build" | "configure" => (
+            "py",
+            tree_sitter_python::LANGUAGE.into(),
+            "python",
+            vec![],
+            vec![],
+        ),
+        "rs" => (
+            "rust",
+            tree_sitter_rust::LANGUAGE.into(),
+            "rust",
+            vec![],
+            vec![],
+        ),
         // Explicitly skip things we know are binary; this list copied from "langauages.rs"
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
         | "icns" | "ico" | "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" | "class"
@@ -135,6 +130,11 @@ pub fn hypertokenize_source_file(
             });
         }
     };
+    parser
+        .set_language(&ts_lang)
+        .expect("Error loading grammar");
+    let container_query = load_language_queries(&ts_lang, ts_query_filename)?;
+
     let name_capture_ix = container_query.capture_index_for_name("name").unwrap();
     let container_capture_ix = container_query.capture_index_for_name("container").unwrap();
 
