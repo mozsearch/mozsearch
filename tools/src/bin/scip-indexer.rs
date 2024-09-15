@@ -726,20 +726,6 @@ fn analyze_using_scip(
             &doc.relative_path,
         );
 
-        // XXX next steps
-        // finish up the loop before to populate the structured things:
-        // - was thinking we just re-derive the descriptor string ourselves as
-        //   we go and we hold onto the previous state of the derived string so
-        //   that we can do the parent lookup for fields/methods.
-        // - the previous descriptor isn't particularly useful because it's
-        //   always going to be a type.
-        // - extra things:
-        //   - we do want to handle the relationship
-        //   - it could be good to have a basic approach for the documentation
-        //     - for rust that does give us size and alignment which is nice
-        //     - for JS we get the inferred type as well, plus the extracted
-        //       comment as a second string after the type info.
-
         for scip_sym_info in &doc.symbols {
             // Process each symbol to:
             // - Derive a canonical mozsearch symbol name and map it.
