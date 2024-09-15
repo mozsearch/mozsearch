@@ -467,7 +467,25 @@ async fn main() {
         print!("File {}\n", path);
 
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
-        let analysis = read_analysis(&analysis_fname, &mut read_target);
+        let file_sym: Ustr = ustr(&make_file_sym_from_path(path));
+
+        let subsystem = make_subsystem(
+            &path, &file_sym,
+            &mut ingestion, &mut meta_table, &mut pretty_table, &mut id_table);
+
+        // We process the structured records before checking for the source file
+        // to allow us to ingest the structured records from SCIP indexing that
+        // do not actually correspond to a source file.  This is the case for
+        // Java imports from the JDK/Kotlin/Android runtimes.
+        let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
+        for datum in structured_analysis {
+            for piece in datum.data {
+                process_analysis_structured(
+                    piece, subsystem,
+                    &mut meta_table, &mut xref_link_subclass,
+                    &mut xref_link_override, &mut xref_link_slots);
+            }
+        }
 
         // Load the source file and chop it up into `lines` so that we extract
         // the `line` for each result.  In the future this could move to
@@ -495,7 +513,8 @@ async fn main() {
             })
             .collect();
 
-        let file_sym = ustr(&make_file_sym_from_path(path));
+
+        let analysis = read_analysis(&analysis_fname, &mut read_target);
 
         for datum in analysis {
             // If we're going to experience a bad line, skip out before
@@ -511,20 +530,6 @@ async fn main() {
                     piece, &path, &file_sym, lineno, &datum.loc,
                     &mut table, &mut pretty_table, &mut id_table,
                     &mut callees_table, &lines);
-            }
-        }
-
-        let subsystem = make_subsystem(
-            &path, &file_sym,
-            &mut ingestion, &mut meta_table, &mut pretty_table, &mut id_table);
-
-        let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
-        for datum in structured_analysis {
-            for piece in datum.data {
-                process_analysis_structured(
-                    piece, subsystem,
-                    &mut meta_table, &mut xref_link_subclass,
-                    &mut xref_link_override, &mut xref_link_slots);
             }
         }
     }

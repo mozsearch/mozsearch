@@ -11,7 +11,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use scip::types::descriptor::Suffix;
 use serde_json::Map;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::fs::{self, File};
 use std::io;
 use std::io::BufReader;
@@ -22,7 +22,7 @@ use tools::file_format::analysis::{
     StructuredSuperInfo, StructuredTag, TargetTag, WithLocation,
 };
 use tools::file_format::config;
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
 /// Normalize illegal symbol characters into underscores.
 fn sanitize_symbol(sym: &str) -> String {
@@ -694,8 +694,8 @@ fn analyze_using_scip(
     let mut file = protobuf::CodedInputStream::from_buf_read(&mut file);
     let index = Index::parse_from(&mut file).expect("Failed to read scip index");
 
-    let mut scip_symbol_to_structured: HashMap<String, AnalysisStructured> = HashMap::new();
-    let mut our_symbol_to_scip_sym: UstrMap<String> = UstrMap::default();
+    let mut scip_symbol_to_structured: UstrMap<AnalysisStructured> = UstrMap::default();
+    let mut our_symbol_to_scip_sym: UstrMap<Ustr> = UstrMap::default();
 
     let (lang_name, lang) = match index.metadata.tool_info.name.as_str() {
         "rust-analyzer" => ("rs", ScipLang::Rust),
@@ -949,13 +949,13 @@ fn analyze_using_scip(
                 // for local symbols we use our own symbol because the SCIP symbol is not
                 // actually unique; we also need to update our helper mapping.
                 if scip_sym_info.symbol.starts_with("local ") {
-                    scip_symbol_to_structured.insert(symbol_info.norm_sym.to_string(), structured);
+                    scip_symbol_to_structured.insert(symbol_info.norm_sym.clone(), structured);
                     our_symbol_to_scip_sym
-                        .insert(symbol_info.norm_sym, symbol_info.norm_sym.to_string());
+                        .insert(symbol_info.norm_sym, symbol_info.norm_sym.clone());
                 } else {
-                    scip_symbol_to_structured.insert(scip_sym_info.symbol.clone(), structured);
-                    our_symbol_to_scip_sym
-                        .insert(symbol_info.norm_sym, scip_sym_info.symbol.clone());
+                    let usym = ustr(&scip_sym_info.symbol);
+                    scip_symbol_to_structured.insert(usym, structured);
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, usym);
                 }
 
                 if symbol_info.contributes_to_parent {
@@ -1011,6 +1011,10 @@ fn analyze_using_scip(
         None => "analysis".to_string(),
         Some(platform) => format!("analysis-{}", platform),
     });
+
+    // We keep track of what SCIP symbols we have emitted structured records
+    // for so we can emit what's leftover at the end.
+    let mut emitted_scip_structured: UstrSet = UstrSet::default();
 
     for doc in &index.documents {
         let searchfox_path = Path::new(&doc.relative_path).to_owned();
@@ -1127,7 +1131,7 @@ fn analyze_using_scip(
                 (false, ustr(&occurrence.symbol))
             };
 
-            let sinfo = match scip_symbol_to_structured.get(norm_scip_sym.as_str()) {
+            let sinfo = match scip_symbol_to_structured.get(&norm_scip_sym) {
                 Some(s) => s,
                 None => {
                     // For occurences that don't match any symbol, we create a new structured fake,
@@ -1178,11 +1182,9 @@ fn analyze_using_scip(
                         variants: vec![],
                         extra: Map::default(),
                     };
-                    scip_symbol_to_structured.insert(norm_scip_sym.to_owned(), fake);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.to_owned());
-                    scip_symbol_to_structured
-                        .get(norm_scip_sym.as_str())
-                        .unwrap()
+                    scip_symbol_to_structured.insert(norm_scip_sym, fake);
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.clone());
+                    scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
                 }
             };
             let loc = scip_range_to_searchfox_location(&occurrence.range);
@@ -1311,6 +1313,7 @@ fn analyze_using_scip(
 
             // If this was the definition point, then write out the structured record.
             if kind == AnalysisKind::Def {
+                emitted_scip_structured.insert(norm_scip_sym);
                 write_line(&mut file, &WithLocation { data: sinfo, loc });
             }
 
@@ -1346,6 +1349,47 @@ fn analyze_using_scip(
             // and this avoids any consultations of the stack above.
             if let Some(nested) = starts_nest {
                 nesting_stack.push(nested);
+            }
+        }
+    }
+
+    // Emit any external structured records we didn't already emit
+    {
+        // Let's name the analysis file after the SCIP file.
+        let output_file = analysis_root.join(&scip_file.file_name().unwrap());
+        if let Err(err) = create_output_dir(&output_file) {
+            error!(
+                "Couldn't create dir for: {}, {:?}",
+                output_file.display(),
+                err
+            );
+            return;
+        }
+        let mut file = match File::create(&output_file) {
+            Ok(f) => f,
+            Err(err) => {
+                error!(
+                    "Couldn't open output file: {}, {:?}",
+                    output_file.display(),
+                    err
+                );
+                return;
+            }
+        };
+
+        for (scip_sym, sinfo) in scip_symbol_to_structured {
+            if !emitted_scip_structured.contains(&scip_sym) {
+                write_line(
+                    &mut file,
+                    &WithLocation {
+                        data: sinfo,
+                        loc: Location {
+                            lineno: 0,
+                            col_start: 0,
+                            col_end: 0,
+                        },
+                    },
+                );
             }
         }
     }

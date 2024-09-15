@@ -104,7 +104,26 @@ expression: "&to_value(scil).unwrap()"
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "sample",
+          "sym": "S_jvm_sample/",
+          "type_pretty": null,
+          "kind": "",
+          "subsystem": null,
+          "implKind": "impl",
+          "sizeBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
       },
       "relation": "Queried",
       "quality": "ExactIdentifier",
