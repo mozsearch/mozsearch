@@ -750,7 +750,14 @@ async fn main() {
                 // will both be directly processed and have their children
                 // appended as well.
                 let mut pending_method_syms = vec![];
+                let mut is_jvm = false;
                 for sym in root_method_syms {
+                    // XXX We should really have an easy way to figure out the
+                    // implementation language from the structured record.  Right
+                    // now we only really have that for binding slots.
+                    if sym.starts_with("S_jvm_") {
+                        is_jvm = true;
+                    }
                     if let Some(sym_meta) = meta_table.get(&sym) {
                         for over in &sym_meta.overridden_by_syms {
                             pending_method_syms.push(over.clone());
@@ -785,11 +792,19 @@ async fn main() {
                         OntologyRunnableMode::Constructor => {
                             if let Some(class_meta) = meta_table.get(&class_sym) {
                                 let mut syms = vec![];
-                                let class_name = class_meta.pretty.rsplit("::").next().unwrap();
-                                // We expect the constructors to have the same name as the class; currently
-                                // for C++ we don't actually emit a special "props" "constructor" value.
+                                // For C++ we expect the constructors to have the same name as the class;
+                                // currently for C++ we don't actually emit a special "props" "constructor"
+                                // value.
+                                //
+                                // For the JVM we expect constructors to have a pretty name of "<init>".
+                                let constructor_name: &str = if is_jvm {
+                                    "<init>"
+                                } else {
+                                    class_meta.pretty.rsplit("::").next().unwrap()
+                                };
+
                                 let constructor_pretty =
-                                    ustr(&format!("{}::{}", class_meta.pretty, class_name));
+                                    ustr(&format!("{}::{}", class_meta.pretty, constructor_name));
                                 for method in &class_meta.methods {
                                     // Skip constructors that aren't known; this can happen for the copy
                                     // constructor/etc.
