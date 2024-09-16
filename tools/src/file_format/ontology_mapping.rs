@@ -17,9 +17,9 @@ pub struct OntologyMappingConfig {
 pub struct OntologyRule {
     /// When specified, treats the given symbol/identifier as an nsIRunnable::Run
     /// style method where overrides should be treated as runnables and have
-    /// ontology slots allocated to point to the concrete constructors.
-    #[serde(default)]
-    pub runnable: bool,
+    /// ontology slots allocated to point to the concrete constructors (C++) or
+    /// the class (Java/Kotlin reflection idiom)
+    pub runnable: Option<OntologyRunnableMode>,
     /// Given a base class, find all of its subclasses which are expected to be
     /// inner classes and label the outer class that contains them.  This mainly
     /// exists for detecting cycle collection where we have an inner class that
@@ -42,6 +42,18 @@ pub struct OntologyRule {
     /// Labels that we always apply to the class.
     #[serde(default)]
     pub labels: Vec<Ustr>,
+}
+
+#[derive(Eq, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OntologyRunnableMode {
+    /// The original mode, appropriate for C++ and XPCOM, we assume a reference
+    /// to the constructor will result in the runnable subequently running.
+    Constructor,
+    /// Introduce for the "androidx::work::Worker::doWork" Kotlin idiom where
+    /// we only see references to the class in the analysis data, and not the
+    /// constructor.
+    Class,
 }
 
 #[derive(Deserialize)]

@@ -25,34 +25,34 @@
 # itself.
 
 [pretty."nsIRunnable::Run"]
-runnable = true
+runnable = "constructor"
 
 [pretty."mozilla::dom::WorkerRunnable::WorkerRun"]
-runnable = true
+runnable = "constructor"
 
 [pretty."mozilla::dom::WorkerMainThreadRunnable::MainThreadRun"]
-runnable = true
+runnable = "constructor"
 
 [pretty."mozilla::dom::WorkerThreadProxySyncRunnable::RunOnMainThread"]
-runnable = true
+runnable = "constructor"
 
 [pretty."nsIProgressEventSink::OnProgress"]
-runnable = true
+runnable = "constructor"
 
 [pretty."nsIProgressEventSink::OnStatus"]
-runnable = true
+runnable = "constructor"
 
 [pretty."nsIRequestObserver::OnStartRequest"]
-runnable = true
+runnable = "constructor"
 
 [pretty."nsIRequestObserver::OnStopRequest"]
-runnable = true
+runnable = "constructor"
 
 [pretty."nsIStreamListener::OnDataAavailable"]
-runnable = true
+runnable = "constructor"
 
 [pretty."nsIStreamLoaderObserver::OnStreamComplete"]
-runnable = true
+runnable = "constructor"
 
 # Treating nsITimerCallback as a runnable is an improvement on the current
 # behavior of citing `nsTimerImpl::Fire` plus random implementations that
@@ -61,8 +61,20 @@ runnable = true
 # used.  For larger monolithic classes, it would be better to specialize on the
 # call to setup the timer, and this would also work for the smaller classes too.
 [pretty."nsITimerCallback::Notify"]
-runnable = true
+runnable = "constructor"
 
+# #### Java / Kotlin Runnable Things ####
+#
+# These seem like they use reflection to construct the class and so we don't
+# actually see the constructor invoked, so our edges here need to be to
+# references to the class.  We of course also see references to the classes
+# when they are imported, but those thankfully lack a contextsym and so end up
+# being moot.
+[pretty."androidx::work::Worker::doWork"]
+runnable = "class"
+
+[pretty."androidx::work::CoroutineWorker::doWork"]
+runnable = "class"
 
 # ### Class Diagram Directives ###
 #

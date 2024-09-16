@@ -30,6 +30,7 @@ use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
+use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
 };
@@ -723,7 +724,7 @@ async fn main() {
         }
 
         // #### Runnables
-        if rule.runnable {
+        if let Some(runnable_mode) = &rule.runnable {
             info!(" Processing pretty runnable rule for: {}", pretty_id);
             if let Some(root_method_syms) = id_table.get(&pretty_id) {
                 // The list of symbols to process for the runnable relationship.
@@ -763,31 +764,38 @@ async fn main() {
                     info!("  found class sym: {}", class_sym);
 
                     // ### use the class to find its constructors
-                    let constructor_syms = if let Some(class_meta) = meta_table.get(&class_sym) {
-                        let mut syms = vec![];
-                        let class_name = class_meta.pretty.rsplit("::").next().unwrap();
-                        // We expect the constructors to have the same name as the class; currently
-                        // for C++ we don't actually emit a special "props" "constructor" value.
-                        let constructor_pretty =
-                            ustr(&format!("{}::{}", class_meta.pretty, class_name));
-                        for method in &class_meta.methods {
-                            // Skip constructors that aren't known; this can happen for the copy
-                            // constructor/etc.
-                            if method.pretty == constructor_pretty
-                                && table.contains_key(&method.sym)
-                            {
-                                syms.push(method.sym);
+                    let linkage_syms = match runnable_mode {
+                        OntologyRunnableMode::Constructor => {
+                            if let Some(class_meta) = meta_table.get(&class_sym) {
+                                let mut syms = vec![];
+                                let class_name = class_meta.pretty.rsplit("::").next().unwrap();
+                                // We expect the constructors to have the same name as the class; currently
+                                // for C++ we don't actually emit a special "props" "constructor" value.
+                                let constructor_pretty =
+                                    ustr(&format!("{}::{}", class_meta.pretty, class_name));
+                                for method in &class_meta.methods {
+                                    // Skip constructors that aren't known; this can happen for the copy
+                                    // constructor/etc.
+                                    if method.pretty == constructor_pretty
+                                        && table.contains_key(&method.sym)
+                                    {
+                                        syms.push(method.sym);
+                                    }
+                                }
+                                syms
+                            } else {
+                                continue;
                             }
                         }
-                        syms
-                    } else {
-                        continue;
+                        OntologyRunnableMode::Class => {
+                            vec![class_sym]
+                        }
                     };
 
-                    info!("  found constructor syms: {:?}", constructor_syms);
+                    info!("  found linkage syms: {:?}", linkage_syms);
 
                     // ### mutate each of the constructors to have the ontology slot
-                    for con_sym in &constructor_syms {
+                    for con_sym in &linkage_syms {
                         if let Some(con_meta) = meta_table.get_mut(&con_sym) {
                             // XXX we could track precedence for runnable rules so that
                             // we could remove lower precedence relationships here.  This
@@ -804,7 +812,7 @@ async fn main() {
                     if let Some(method_meta) = meta_table.get_mut(&method_sym) {
                         method_meta.ontology_slots.push(OntologySlotInfo {
                             slot_kind: OntologySlotKind::RunnableConstructor,
-                            syms: constructor_syms,
+                            syms: linkage_syms,
                         })
                     }
                 }
