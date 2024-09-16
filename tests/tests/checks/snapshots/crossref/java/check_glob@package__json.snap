@@ -112,7 +112,7 @@ expression: "&to_value(scil).unwrap()"
           "type_pretty": null,
           "kind": "",
           "subsystem": null,
-          "implKind": "impl",
+          "implKind": "external",
           "sizeBytes": null,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
