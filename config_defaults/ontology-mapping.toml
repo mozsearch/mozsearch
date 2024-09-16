@@ -76,6 +76,9 @@ runnable = "class"
 [pretty."androidx::work::CoroutineWorker::doWork"]
 runnable = "class"
 
+[pretty."kotlin::Function3::invoke"]
+runnable = "constructor"
+
 # ### Class Diagram Directives ###
 #
 # - "class-diagram:stop" - This is used for cases where the type is notable and
