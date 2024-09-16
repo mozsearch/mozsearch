@@ -696,6 +696,11 @@ fn analyze_using_scip(
 
     let mut scip_symbol_to_structured: UstrMap<AnalysisStructured> = UstrMap::default();
     let mut our_symbol_to_scip_sym: UstrMap<Ustr> = UstrMap::default();
+    // When walking the relationship edges for doc.symbols we may learn about
+    // superclasses or overridden methods that we never receive more information
+    // for.  (For example. JDK and AndroidX classes.)  We keep track of these so
+    // we can generate best-effort structured representations for these cases.
+    let mut possible_unknown_scip_symbols: UstrMap<SymbolAnalysis> = UstrMap::default();
 
     let (lang_name, lang) = match index.metadata.tool_info.name.as_str() {
         "rust-analyzer" => ("rs", ScipLang::Rust),
@@ -895,6 +900,13 @@ fn analyze_using_scip(
                         }
                         _ => {}
                     }
+                    // Add this symbol to consideration for needing a fake structured rep generated
+                    // if we don't already know about it.  (We will also remove things from the map
+                    // as we add entries to scip_symbol_to_structured.)
+                    let urel_sym = ustr(&rel.symbol);
+                    if !scip_symbol_to_structured.contains_key(&urel_sym) {
+                        possible_unknown_scip_symbols.insert(urel_sym, parent_symbol_info);
+                    }
                 }
 
                 // Ensure that supers and overrides are sorted to avoid flaky tests
@@ -936,11 +948,14 @@ fn analyze_using_scip(
                 // actually unique; we also need to update our helper mapping.
                 if scip_sym_info.symbol.starts_with("local ") {
                     scip_symbol_to_structured.insert(symbol_info.norm_sym.clone(), structured);
+                    // I don't think there should potentially be such a key, but there's no harm.
+                    possible_unknown_scip_symbols.remove(&symbol_info.norm_sym);
                     our_symbol_to_scip_sym
                         .insert(symbol_info.norm_sym, symbol_info.norm_sym.clone());
                 } else {
                     let usym = ustr(&scip_sym_info.symbol);
                     scip_symbol_to_structured.insert(usym, structured);
+                    possible_unknown_scip_symbols.remove(&usym);
                     our_symbol_to_scip_sym.insert(symbol_info.norm_sym, usym);
                 }
 
@@ -1150,7 +1165,11 @@ fn analyze_using_scip(
                         subsystem: None,
                         parent_sym: symbol_info.parent_sym,
                         slot_owner: None,
-                        impl_kind: ustr("impl"),
+                        // Introducing the concept of "external" here to make it
+                        // more obvious when we generate a fake structured
+                        // record and that it is missing much of the expected
+                        // metadata.
+                        impl_kind: ustr("external"),
                         size_bytes: None,
                         own_vf_ptr_bytes: None,
                         binding_slots: vec![],
@@ -1169,6 +1188,7 @@ fn analyze_using_scip(
                         extra: Map::default(),
                     };
                     scip_symbol_to_structured.insert(norm_scip_sym, fake);
+                    possible_unknown_scip_symbols.remove(&norm_scip_sym);
                     our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.clone());
                     scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
                 }
@@ -1339,7 +1359,40 @@ fn analyze_using_scip(
         }
     }
 
-    // Emit any external structured records we didn't already emit
+    // ## Create fake structured records for any remaining unknown scip symbols
+    for symbol_info in possible_unknown_scip_symbols.into_values() {
+        let fake = AnalysisStructured {
+            structured: StructuredTag::Structured,
+            pretty: symbol_info.pretty,
+            sym: symbol_info.norm_sym,
+            type_pretty: None,
+            kind: ustr(symbol_info.kind.unwrap_or("")),
+            subsystem: None,
+            parent_sym: symbol_info.parent_sym,
+            slot_owner: None,
+            // (see previous use above for more context)
+            impl_kind: ustr("external"),
+            size_bytes: None,
+            own_vf_ptr_bytes: None,
+            binding_slots: vec![],
+            ontology_slots: vec![],
+            supers: vec![],
+            methods: vec![],
+            fields: vec![],
+            overrides: vec![],
+            props: vec![],
+            labels: BTreeSet::default(),
+
+            idl_sym: None,
+            subclass_syms: vec![],
+            overridden_by_syms: vec![],
+            variants: vec![],
+            extra: Map::default(),
+        };
+        scip_symbol_to_structured.insert(symbol_info.norm_sym, fake);
+    }
+
+    // ## Emit any external structured records we didn't already emit
     {
         // Let's name the analysis file after the SCIP file.
         let output_file = analysis_root.join(&scip_file.file_name().unwrap());
