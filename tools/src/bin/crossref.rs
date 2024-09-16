@@ -481,6 +481,23 @@ async fn main() {
         let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
         for datum in structured_analysis {
             for piece in datum.data {
+                // If we don't have a location for the structured record then this
+                // is the SCIP external structured record case mentioned above and
+                // we need to insert the pretty and id_table mappings since there
+                // won't be a target record for the definition.
+                if datum.loc.lineno == 0 {
+                    pretty_table.insert(piece.sym, piece.pretty);
+                    // TODO: extract out the logic from process_analysis_target so
+                    // we can generate all the suffix variations here.  But for our
+                    // current needs, just the exact pretty identifier is sufficient.
+                    // (The ontology rule is always on the fully qualified pretty.)
+                    let id_syms = id_table.entry(piece.pretty).or_insert(UstrSet::default());
+                    id_syms.insert(piece.sym);
+                    // We also need to make sure there's a top-level entry in
+                    // the table, even if it's empty, so that when we're
+                    // building the crossref, the structured record gets emitted.
+                    table.entry(piece.sym).or_insert_with(|| BTreeMap::new());
+                }
                 process_analysis_structured(
                     piece, subsystem,
                     &mut meta_table, &mut xref_link_subclass,
