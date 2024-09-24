@@ -43,6 +43,7 @@ pub struct FormattedLine {
 /// provide the metadata for the position:sticky post-processing step.  Caller is responsible
 /// for generating line numbers and any blame information.
 pub fn format_code(
+    cfg: Option<&Config>,
     jumpref_lookup: &Option<CrossrefLookupMap>,
     format: FormatAs,
     path: &str,
@@ -427,7 +428,7 @@ pub fn format_code(
                     tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
                         let mut sanitized = entity_replace(input[last..token.end].to_string());
                         if token.kind == tokenize::TokenKind::PlainText {
-                            sanitized = links::linkify_comment(sanitized);
+                            sanitized = links::linkify_comment(cfg, sanitized);
                         }
                         html.push_str(&sanitized);
                         last = token.end;
@@ -441,7 +442,7 @@ pub fn format_code(
                             if token.kind == tokenize::TokenKind::Comment
                                 || token.kind == tokenize::TokenKind::StringLiteral
                             {
-                                sanitized = links::linkify_comment(sanitized);
+                                sanitized = links::linkify_comment(cfg, sanitized);
                             }
                             html.push_str(&sanitized);
                             html.push_str("</span>");
@@ -528,7 +529,7 @@ pub fn format_code(
             tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
                 let mut sanitized = entity_replace(input[last..token.end].to_string());
                 if token.kind == tokenize::TokenKind::PlainText {
-                    sanitized = links::linkify_comment(sanitized);
+                    sanitized = links::linkify_comment(cfg, sanitized);
                 }
                 output.push_str(&sanitized);
                 last = token.end;
@@ -541,7 +542,7 @@ pub fn format_code(
                     if token.kind == tokenize::TokenKind::Comment
                         || token.kind == tokenize::TokenKind::StringLiteral
                     {
-                        sanitized = links::linkify_comment(sanitized);
+                        sanitized = links::linkify_comment(cfg, sanitized);
                     }
                     output.push_str(&sanitized);
                     output.push_str("</span>");
@@ -610,7 +611,7 @@ pub fn format_file_data(
 
     let slug = format_to_slug_attribute(&format);
     let pre_format_code = Instant::now();
-    let (output_lines, sym_json) = format_code(crossref_lookup_map, format, path, &data, &analysis);
+    let (output_lines, sym_json) = format_code(Some(cfg), crossref_lookup_map, format, path, &data, &analysis);
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
     let pre_blame_lines = Instant::now();
@@ -1177,7 +1178,7 @@ pub fn format_diff(
     };
     let analysis = Vec::new();
     let slug = format_to_slug_attribute(&format);
-    let (formatted_lines, _) = format_code(&None, format, path, &new_lines, &analysis);
+    let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, &new_lines, &analysis);
 
     let (header, _) = blame::commit_header(&commit)?;
 

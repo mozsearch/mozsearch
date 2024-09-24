@@ -3,12 +3,13 @@ use regex::Regex;
 use std::borrow::Cow;
 use itertools::Itertools;
 
+use crate::file_format::config::Config;
 use crate::url_map_handler::get_file_paths_for_url;
 
 /// Turn anything that looks like a link into an actual `<a href>` link using
 /// the `linkify` crate and in-between those links use `linkify_bug_number` to
 /// convert
-pub fn linkify_comment(s: String) -> String {
+pub fn linkify_comment(cfg: Option<&Config>, s: String) -> String {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Url]);
 
@@ -19,7 +20,7 @@ pub fn linkify_comment(s: String) -> String {
         last = link.end();
 
         if link.as_str().starts_with("chrome://") || link.as_str().starts_with("resource://") {
-            if let Some(items) = get_file_paths_for_url(link.as_str()) {
+            if let Some(items) = get_file_paths_for_url(cfg, link.as_str()) {
                 // The corresponding symbol data is not added to SYM_INFO.
                 // The context menu is supposed to generate a pseudo data
                 // for the file.
@@ -128,6 +129,6 @@ fn test_bug_number() {
 #[test]
 fn test_bug_number_inside_link() {
     let link = "http://example.org/browser/editor/libeditor/tests/bug629172.html";
-    let linkified = linkify_comment(link.into());
+    let linkified = linkify_comment(None, link.into());
     assert_eq!(linkified, "<a href=\"http://example.org/browser/editor/libeditor/tests/bug629172.html\">http://example.org/browser/editor/libeditor/tests/<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=629172\">bug629172</a>.html</a>");
 }

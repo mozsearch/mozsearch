@@ -164,6 +164,7 @@ pub struct Config {
     pub trees: BTreeMap<String, TreeConfig>,
     pub mozsearch_path: String,
     pub config_repo_path: String,
+    pub url_map_path: Option<String>,
 }
 
 impl Config {
@@ -245,7 +246,8 @@ pub fn index_blame(
     (blame_map, hg_map)
 }
 
-pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>) -> Config {
+pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>,
+            url_map_path: Option<String>) -> Config {
     let config_file = File::open(config_path).unwrap();
     let mut reader = BufReader::new(&config_file);
     let mut input = String::new();
@@ -312,6 +314,7 @@ pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>) -> C
         trees,
         mozsearch_path: config.mozsearch_path,
         config_repo_path: config.config_repo,
+        url_map_path: url_map_path,
     }
 }
 

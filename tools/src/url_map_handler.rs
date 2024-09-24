@@ -1,21 +1,23 @@
+use std::sync::OnceLock;
+use crate::file_format::config::Config;
 use crate::file_format::url_map::{ URLMap, URLMapItem, read_url_map };
 use crate::file_format::analysis_manglings::mangle_file;
 
-static mut URL_MAP_PATH: Option<String> = None;
+pub fn get_file_paths_for_url(cfg: Option<&Config>, url: &str) -> Option<Vec<URLMapItem>> {
+    static URL_MAP: OnceLock<URLMap> = OnceLock::new();
 
-pub fn set_url_map_path(path: &str) {
-    unsafe {
-        URL_MAP_PATH = Some(path.to_string());
-    }
-}
-
-pub fn get_file_paths_for_url(url: &str) -> Option<Vec<URLMapItem>> {
-    lazy_static! {
-        static ref URL_MAP: URLMap = unsafe {
-            read_url_map(URL_MAP_PATH.as_ref().map(|s| s.as_str()))
-        };
+    if URL_MAP.get().is_none() {
+        URL_MAP.set(match cfg {
+            Some(cfg) => {
+                match &cfg.url_map_path {
+                    Some(url_map_path) => read_url_map(url_map_path),
+                    None => URLMap::new_empty()
+                }
+            },
+            None => URLMap::new_empty(),
+        }).unwrap();
     }
 
     let url_map_key = format!("URL_{}", mangle_file(url));
-    return URL_MAP.get(&url_map_key)
+    return URL_MAP.get().unwrap().get(&url_map_key)
 }
