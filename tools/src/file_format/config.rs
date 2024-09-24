@@ -164,6 +164,7 @@ pub struct Config {
     pub trees: BTreeMap<String, TreeConfig>,
     pub mozsearch_path: String,
     pub config_repo_path: String,
+    // FIXME: Move this to TreeConfig.
     pub url_map_path: Option<String>,
 }
 
