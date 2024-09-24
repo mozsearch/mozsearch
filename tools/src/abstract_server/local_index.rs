@@ -218,6 +218,7 @@ impl AbstractServer for LocalIndex {
         let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
 
         let (raw_lines, sym_json) = format_code(
+            None,
             &jumpref_lookup_map,
             select_formatting(sf_path),
             sf_path,
@@ -478,7 +479,7 @@ pub fn make_local_server(
     config_path: &str,
     tree_name: &str,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
-    let mut config = load(config_path, false, Some(&tree_name));
+    let mut config = load(config_path, false, Some(&tree_name), None);
     let tree_config = match config.trees.remove(&tree_name.to_string()) {
         Some(t) => t,
         None => {
@@ -495,7 +496,7 @@ pub fn make_local_server(
 pub fn make_all_local_servers(
     config_path: &str,
 ) -> Result<BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>> {
-    let config = load(config_path, false, None);
+    let config = load(config_path, false, None, None);
     let mut servers = BTreeMap::new();
     for (tree_name, tree_config) in config.trees {
         let server = fab_server(tree_config, &tree_name, &config.config_repo_path)?;

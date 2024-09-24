@@ -3,12 +3,13 @@ use std::fs::File;
 use serde_json::from_reader;
 use serde::Deserialize;
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct URLMapItem {
     pub pretty: String,
     pub sym: String,
 }
 
+#[derive(Debug)]
 pub struct URLMap {
     data: HashMap<String, Vec<URLMapItem>>,
 }
@@ -20,7 +21,7 @@ impl URLMap {
         }
     }
 
-    fn new_empty() -> Self {
+    pub fn new_empty() -> Self {
         Self {
             data: HashMap::new(),
         }
@@ -32,14 +33,8 @@ impl URLMap {
 }
 
 pub fn read_url_map(
-    maybe_filename: Option<&str>,
+    filename: &String,
 ) -> URLMap {
-    if maybe_filename.is_none() {
-        return URLMap::new_empty();
-    }
-
-    let filename = maybe_filename.unwrap();
-
     let file = match File::open(filename) {
         Ok(f) => f,
         Err(_) => {

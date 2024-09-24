@@ -32,8 +32,6 @@ use tools::languages;
 
 use tools::output::{PanelItem, PanelSection};
 
-use tools::url_map_handler::set_url_map_path;
-
 extern crate flate2;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -49,15 +47,13 @@ fn main() {
 
     let pre_config = Instant::now();
     let tree_name = &base_args[2];
-    let cfg = config::load(&base_args[1], true, Some(&tree_name));
+    let cfg = config::load(&base_args[1], true, Some(&tree_name), Some(base_args[3].to_string()));
     writeln!(
         stdout,
         "Config file read, duration: {}us",
         pre_config.elapsed().as_micros() as u64
     )
     .unwrap();
-
-    set_url_map_path(&base_args[3]);
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
