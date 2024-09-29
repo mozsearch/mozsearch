@@ -1353,6 +1353,18 @@ g.hovered-in-node > polygon {
   fill: #bfb;
 }
 
+g.hovered-cur-edge > path:not(.clicktarget),
+g.hovered-cur-edge > polygon {
+  stroke: #eae;
+  stroke-opacity: 1;
+  stroke-width: 2px;
+}
+
+g.edge > path.clicktarget {
+  stroke:rgba(0,0,0,0);
+  stroke-width: 10px;
+}
+
 g.edge.hovered-out-edge > path,
 g.edge.hovered-out-edge > polygon {
   stroke: blue;

@@ -1951,7 +1951,19 @@ impl HierarchicalRenderState {
         for detail in edge_data {
             match detail {
                 EdgeDetail::Jump(jump_detail) => {
-                    jump = jump_detail.clone();
+                    // If we have multiple jumps, attempt to merge them assuming they're all using
+                    // the same source file and so we can just concatenate the lines.  This is
+                    // intended to deal with the "uses" case where we process each hit individually
+                    // in TraverseCommand without doing any grouping.  The "callees" case will only
+                    // ever have a single jump because crossref pre-aggregates.
+                    jump = if jump.is_empty() {
+                        jump_detail.clone()
+                    } else {
+                        match jump_detail.rsplit_once('#') {
+                            Some((_, lines)) => format!("{},{}", jump, lines),
+                            None => jump
+                        }
+                    }
                 }
                 EdgeDetail::HoverClass(class_detail) => {
                     hover_classes.push(class_detail.clone());
@@ -2367,6 +2379,7 @@ impl SymbolGraphEdgeSet {
                 kind,
                 data,
             });
+            self.edge_lookup.insert((source.0, target.0), index as u32);
             SymbolGraphEdgeId(index as u32)
         };
         graph.ensure_edge(source, target, edge_id);
