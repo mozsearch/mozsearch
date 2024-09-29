@@ -1008,6 +1008,8 @@ impl PipelineCommand for TraverseCommand {
                     //let target_kind = target["kind"].as_str().ok_or_else(bad_data)?;
 
                     let mut edge_info = vec![];
+                    // The jump is precomputed by the crossref process when
+                    // deriving the "callees" kindmap entry.
                     if let Some(Value::String(jump)) = target.get("jump") {
                         edge_info.push(EdgeDetail::Jump(jump.clone()));
                     }
@@ -1089,6 +1091,7 @@ impl PipelineCommand for TraverseCommand {
                 // of the hit fields.  We really just care about the
                 // contextsym.
                 for path_hits in uses {
+                    let path = path_hits["path"].as_str().ok_or_else(bad_data)?;
                     let hits = path_hits["lines"].as_array().ok_or_else(bad_data)?;
                     // For now we're just going to use the path limit for this too.
                     //
@@ -1139,15 +1142,19 @@ impl PipelineCommand for TraverseCommand {
                             .await?;
 
                         if source_info.is_callable() {
-                            // Only process this given use edge once.
+                            // We call this even if our check below determines we've already created
+                            // and traversed this edge because we want to merge in edge detail
+                            // information.
+                            let jump = format!("{}#{}", path, source["lno"].as_u64().unwrap_or(0));
+                            sym_edge_set.ensure_edge_in_graph(
+                                source_id,
+                                sym_id.clone(),
+                                EdgeKind::Default,
+                                vec![EdgeDetail::Jump(jump)],
+                                &mut graph,
+                            );
+                            // Only traverse the edge once.
                             if use_considered.insert(source_info.symbol.clone()) {
-                                sym_edge_set.ensure_edge_in_graph(
-                                    source_id,
-                                    sym_id.clone(),
-                                    EdgeKind::Default,
-                                    vec![],
-                                    &mut graph,
-                                );
                                 if next_depth < max_depth
                                     && considered.insert(source_info.symbol.clone())
                                 {

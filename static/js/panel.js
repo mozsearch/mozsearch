@@ -704,6 +704,26 @@ function blurrifyDiagram() {
 // identifiers is creating a pathological situation?
 //blurrifyDiagram();
 
+// In order to provide more useful click/hover targets for diagram edges, we
+// duplicate line body "path" element to create one with a wider stroke that is
+// not visible.
+function makeDiagramHoverEdges() {
+  const diag = document.querySelector("svg");
+  if (!diag) {
+    return;
+  }
+
+  const edges = diag.querySelectorAll("g.edge > path");
+  for (const path of edges) {
+    const dupe = path.cloneNode(false);
+    dupe.classList.add("clicktarget");
+    // let's insert the clicktarget after the actual path so it is always what
+    // the hit test finds.
+    path.insertAdjacentElement("afterend", dupe);
+  }
+}
+makeDiagramHoverEdges();
+
 // Scroll the first root node of the diagram so that it's centered.  Through use
 // of `?.` this won't freak out if there are no matches.  According to
 // performance.now(), this takes 3ms on the 20,765 line indexedDB/ActorsParent.cpp
