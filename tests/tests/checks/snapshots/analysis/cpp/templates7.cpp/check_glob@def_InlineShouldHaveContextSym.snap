@@ -1,0 +1,25 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00019:14-40",
+    "source": 1,
+    "nestingRange": "19:46-19:47",
+    "syntax": "def,function",
+    "type": "void (int)",
+    "pretty": "function Theme::InlineShouldHaveContextSym",
+    "sym": "_ZN5Theme26InlineShouldHaveContextSymEi"
+  },
+  {
+    "loc": "00019:14-40",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Theme::InlineShouldHaveContextSym",
+    "sym": "_ZN5Theme26InlineShouldHaveContextSymEi",
+    "context": "Theme",
+    "contextsym": "T_Theme",
+    "peekRange": "19-19"
+  }
+]
