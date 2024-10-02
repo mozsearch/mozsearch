@@ -58,6 +58,8 @@
             llvmPackages_18.libllvm
             llvmPackages_18.libclang
 
+            gdb
+
             scip
             protobuf
           ];
