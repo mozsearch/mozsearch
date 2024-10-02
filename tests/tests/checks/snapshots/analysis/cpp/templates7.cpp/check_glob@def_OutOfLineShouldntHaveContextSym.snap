@@ -1,0 +1,23 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00025:12-43",
+    "source": 1,
+    "nestingRange": "25:49-25:50",
+    "syntax": "def,function",
+    "type": "void (int)",
+    "pretty": "function Theme::OutOfLineShouldntHaveContextSym",
+    "sym": "_ZN5Theme31OutOfLineShouldntHaveContextSymEi"
+  },
+  {
+    "loc": "00025:12-43",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Theme::OutOfLineShouldntHaveContextSym",
+    "sym": "_ZN5Theme31OutOfLineShouldntHaveContextSymEi",
+    "peekRange": "25-25"
+  }
+]
