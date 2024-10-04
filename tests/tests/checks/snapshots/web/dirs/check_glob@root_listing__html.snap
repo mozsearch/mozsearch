@@ -382,6 +382,12 @@ expression: "&fb.contents"
         </tr>
 
         <tr>
+          <td><a href="/tests/source/lambdas.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lambdas.cpp</a></td>
+          <td class="description"><a href="/tests/source/lambdas.cpp" title=""></td>
+          <td><a href="/tests/source/lambdas.cpp">219</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/LightweightThemeManager.jsm" class="mimetype-fixed-container mimetype-icon-jsm">LightweightThemeManager.jsm</a></td>
           <td class="description"><a href="/tests/source/LightweightThemeManager.jsm" title="globals AddonManagerPrivate">globals AddonManagerPrivate</td>
           <td><a href="/tests/source/LightweightThemeManager.jsm">25383</a></td>

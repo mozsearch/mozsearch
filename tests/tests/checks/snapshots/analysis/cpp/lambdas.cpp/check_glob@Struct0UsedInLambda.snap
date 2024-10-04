@@ -1,0 +1,58 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00002:9-15",
+    "source": 1,
+    "nestingRange": "2:18-2:19",
+    "syntax": "def,function",
+    "type": "void (void)",
+    "pretty": "function Struct0::method",
+    "sym": "_ZN7Struct06methodEv"
+  },
+  {
+    "loc": "00002:9-15",
+    "structured": 1,
+    "pretty": "Struct0::method",
+    "sym": "_ZN7Struct06methodEv",
+    "args": [],
+    "kind": "method",
+    "parentsym": "T_Struct0",
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ]
+  },
+  {
+    "loc": "00002:9-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Struct0::method",
+    "sym": "_ZN7Struct06methodEv",
+    "context": "Struct0",
+    "contextsym": "T_Struct0",
+    "peekRange": "2-2"
+  },
+  {
+    "loc": "00011:10-16",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void",
+    "pretty": "function Struct0::method",
+    "sym": "_ZN7Struct06methodEv",
+    "argRanges": []
+  },
+  {
+    "loc": "00011:10-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Struct0::method",
+    "sym": "_ZN7Struct06methodEv",
+    "context": "test()::(anonymous class)::operator()",
+    "contextsym": "_ZZ4testvENK3$_0clEOT_",
+    "argRanges": []
+  }
+]
