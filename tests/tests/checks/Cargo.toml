@@ -1,0 +1,10 @@
+# This is a dummy file to make `cargo insta review` okay with this being a root.
+[package]
+name = "dummy-test-package"
+version = "0.1.0"
+authors = ["Tests!"]
+edition = "2018"
+
+[lib]
+name = "dummy_test_package"
+path = "dummy-test-package.rs"
