@@ -7,7 +7,7 @@
 
 plugins {
     // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
-    id("org.jetbrains.kotlin.jvm") version "1.9.10"
+    id("org.jetbrains.kotlin.jvm") version "1.9.25"
 
     // Apply the java-library plugin for API and implementation separation.
     `java-library`
@@ -37,9 +37,9 @@ dependencies {
     implementation("com.google.guava:guava:32.1.1-jre")
 
     //
-    compileOnly("com.sourcegraph:semanticdb-javac:0.9.6")
-    testCompileOnly("com.sourcegraph:semanticdb-javac:0.9.6")
-    kotlinCompilerPluginClasspath("com.sourcegraph:semanticdb-kotlinc:0.3.2")
+    compileOnly("com.sourcegraph:semanticdb-javac:0.10.3")
+    testCompileOnly("com.sourcegraph:semanticdb-javac:0.10.3")
+    kotlinCompilerPluginClasspath("com.sourcegraph:semanticdb-kotlinc:0.4.0")
 }
 
 var sourceroot = rootProject.projectDir.getCanonicalPath()
@@ -59,7 +59,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 // Apply a specific Java toolchain to ease working on different environments.
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(19))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
 
