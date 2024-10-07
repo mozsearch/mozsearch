@@ -36,7 +36,7 @@ git2 = "0.16.1"
 globset = "0.4.8"
 hyper = "0.10"
 include_dir = "0.7.2"
-insta = { version = "1.14.0", features = ["json"] }
+insta = { version = "1.39.0", features = ["json"] }
 ipdl_parser = { path = "./ipdl_parser" }
 json-structural-diff = "0.1.0"
 lazy_static = "1.1"

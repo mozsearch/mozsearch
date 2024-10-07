@@ -63,7 +63,7 @@ review-test-repo:
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 	INSTA_FORCE_PASS=1 /vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
-	cargo insta review --workspace-root=/vagrant/tests/
+	cargo insta review --workspace-root=/vagrant/tests/tests/checks
 
 build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/searchfox-index
