@@ -9,6 +9,10 @@ import os.path
 import time
 from logger import log
 
+# A workaround until https://github.com/grpc/grpc/pull/37666 gets merged.
+import warnings
+warnings.filterwarnings("ignore", "Protobuf gencode version 5.27.2 is older than the runtime version 5.28.2", UserWarning)
+
 import grpc
 from src.proto import livegrep_pb2
 from src.proto import livegrep_pb2_grpc
