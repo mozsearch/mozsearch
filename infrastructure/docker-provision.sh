@@ -13,6 +13,10 @@ USE_GID=$2
 apt-get update
 apt-get install -y apt-utils lsb-release sudo curl wget
 
+# Create the vagrant user with the same UID/GID as the current host user.
+#
+# Remove the the default "ubuntu" user, because it may conflict with UID.
+userdel ubuntu
 USERNAME=vagrant
 useradd -u $USE_UID -o -ms /bin/bash $USERNAME
 groupmod -o -g $USE_GID $USERNAME
