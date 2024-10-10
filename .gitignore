@@ -12,6 +12,8 @@ clang-plugin/testfiles
 clang-plugin/analysis
 clang-plugin/.cache
 clang-plugin/compile_commands.json
+clang-plugin/clang-version.cache
+clang-plugin/clang-version.cache.tmp
 /js
 tools/target
 /scripts/web-analyze/wasm-css-analyzer/target

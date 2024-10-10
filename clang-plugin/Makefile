@@ -6,7 +6,25 @@ CXXFLAGS := $(shell ${LLVM_CONFIG} --cxxflags) -fPIC -Wall -Wno-strict-aliasing 
 	$(if $(DEBUG),-O0 -g)
 LDFLAGS := -fPIC -g -Wl,-R -Wl,'$$ORIGIN' $(LLVM_LDFLAGS) -shared
 
-build: libclang-index-plugin.so
+build: clang-version-guard libclang-index-plugin.so
+
+clang-version-guard:
+	@$(CXX) --version > clang-version.cache.tmp
+	@if [ -f clang-version.cache ]; then \
+		if ! diff -q clang-version.cache clang-version.cache.tmp; then \
+			echo "Clang version mismatch is detected."; \
+			echo "Rebuilding from scratch..."; \
+			mv clang-version.cache.tmp clang-version.cache; \
+			make clean; \
+		else \
+			rm clang-version.cache.tmp; \
+		fi; \
+	else \
+		echo "Previous clang version is not found."; \
+		echo "Rebuilding from scratch..."; \
+		mv clang-version.cache.tmp clang-version.cache; \
+		make clean; \
+	fi
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
@@ -48,4 +66,4 @@ analyze: build
 	@echo "maybe type:"
 	@echo "vim ${ANALYSIS_DIR}/test.cpp"
 
-.PHONY: build clean
+.PHONY: build clean clang-version-guard
