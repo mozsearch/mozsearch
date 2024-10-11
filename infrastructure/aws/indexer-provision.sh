@@ -61,12 +61,14 @@ date
 # command.  Note that the select constraint here is intended more as a check
 # that our assumption about partition sizes hasn't changed, as when provisioning
 # there should only be this single EBS mount.
-ROOT_VOL_ID=$(sudo nvme list -o json | jq --raw-output '.Devices[] | select(.PhysicalSize < 9000000000) | .SerialNumber | sub("^vol"; "vol-")')
+ROOT_DEV_INFO=$(sudo nvme list -o json | jq --raw-output '.Devices[] | select(.PhysicalSize < 9000000000)')
+ROOT_VOL_ID=$(jq -M -r '.SerialNumber | sub("^vol"; "vol-")' <<< "$ROOT_DEV_INFO")
+ROOT_DEV=$(jq -M -r '.DevicePath' <<< "$ROOT_DEV_INFO")
+
 AWS_REGION=us-west-2
 # The size is in gigs.
 aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 20
-# Re: hardcoded devices: The devices should currently be stable.
-#
+
 # We use an until loop because it can take some time for the change to
 # propagate to this VM.  The error will look like:
 #   "NOCHANGE: partition 1 is size 16775135. it cannot be grown"
@@ -75,10 +77,12 @@ aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 2
 #
 # The 5 is arbitrary in both cases.
 sleep 5
-until sudo growpart /dev/nvme0n1 1
+# note the partition is the 2nd arg here
+until sudo growpart ${ROOT_DEV} 1
 do
   sleep 5
 done
-sudo resize2fs /dev/nvme0n1p1
+# and here we identify the partition as part of the block device
+sudo resize2fs ${ROOT_DEV}p1
 
 date
