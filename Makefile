@@ -14,7 +14,7 @@ check-in-vagrant:
 	@[ -d /vagrant ] || (echo "This command must be run inside the vagrant instance" > /dev/stderr; exit 1)
 
 build-clang-plugin: check-in-vagrant
-	$(MAKE) -C clang-plugin
+	$(MAKE) -C clang-plugin build_with_version_check
 
 # This can be built outside the vagrant instance too
 # We specify "--all-targets" in order to minimize rebuilding required when we invoke
