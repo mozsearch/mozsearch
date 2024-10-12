@@ -61,8 +61,8 @@ class TestHarness {
         // magenta
         // color = "light-dark(#B200B2, #D040D0)";
     }
-    console.log(`%c${type}%c - ${msg}`,
-                `color: ${color};`, "");
+    console.log(`%c${type}%c - %s`,
+                `color: ${color};`, "", msg);
     this.pendingLogs.push([type, `${msg}`]);
   }
 
