@@ -21,6 +21,7 @@ use crate::tokenize;
 use crate::file_format::analysis::{AnalysisSource, ExpansionInfo, WithLocation};
 use crate::file_format::config::{Config, GitData, TreeConfig};
 use crate::output::{self, Options, PanelItem, PanelSection, F};
+use crate::url_encode_path::url_encode_path;
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
@@ -951,10 +952,12 @@ pub fn format_path(
         .and_then(|rev| Some(rev.as_ref())) // &String to &str conversion
         .unwrap_or(&"tip");
 
+    let encoded_path = url_encode_path(path);
+
     let mut vcs_panel_items = vec![];
     vcs_panel_items.push(PanelItem {
         title: "Go to latest version".to_owned(),
-        link: format!("/{}/source/{}", tree_name, path),
+        link: format!("/{}/source/{}", tree_name, encoded_path),
         update_link_lineno: "#{}",
         accel_key: None,
         copyable: true,
@@ -962,14 +965,14 @@ pub fn format_path(
     if let Some(ref hg_root) = tree_config.paths.hg_root {
         vcs_panel_items.push(PanelItem {
             title: "Log".to_owned(),
-            link: format!("{}/log/{}/{}", hg_root, hg_rev, path),
+            link: format!("{}/log/{}/{}", hg_root, hg_rev, encoded_path),
             update_link_lineno: "",
             accel_key: Some('L'),
             copyable: true,
         });
         vcs_panel_items.push(PanelItem {
             title: "Raw".to_owned(),
-            link: format!("{}/raw-file/{}/{}", hg_root, hg_rev, path),
+            link: format!("{}/raw-file/{}/{}", hg_root, hg_rev, encoded_path),
             update_link_lineno: "",
             accel_key: Some('R'),
             copyable: true,
