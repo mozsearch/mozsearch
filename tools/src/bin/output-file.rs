@@ -29,6 +29,7 @@ use tools::file_format::analysis::{read_analysis, read_source};
 use tools::format::{create_markdown_panel_section, format_file_data};
 use tools::file_format::crossref_lookup::CrossrefLookupMap;
 use tools::languages;
+use tools::url_encode_path::url_encode_path;
 
 use tools::output::{PanelItem, PanelSection};
 
@@ -276,7 +277,7 @@ fn main() {
         if let Some((other_desc, other_path)) = show_header {
             source_panel_items.push(PanelItem {
                 title: format!("Go to {} file", other_desc),
-                link: other_path,
+                link: url_encode_path(other_path.as_str()),
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: false,
@@ -307,19 +308,21 @@ fn main() {
             });
         };
 
+        let encoded_path = url_encode_path(path.as_str());
+
         if let Some(oid) = head_oid {
             if !path.contains("__GENERATED__") {
                 let mut vcs_panel_items = vec![];
                 vcs_panel_items.push(PanelItem {
                     title: "Permalink".to_owned(),
-                    link: format!("/{}/rev/{}/{}", tree_name, oid, path),
+                    link: format!("/{}/rev/{}/{}", tree_name, oid, encoded_path),
                     update_link_lineno: "#{}",
                     accel_key: Some('Y'),
                     copyable: true,
                 });
                 vcs_panel_items.push(PanelItem {
                     title: "Remove the Permalink".to_owned(),
-                    link: format!("/{}/source/{}", tree_name, path),
+                    link: format!("/{}/source/{}", tree_name, encoded_path),
                     update_link_lineno: "#{}",
                     accel_key: None,
                     copyable: false,
@@ -327,14 +330,14 @@ fn main() {
                 if let Some(ref hg_root) = tree_config.paths.hg_root {
                     vcs_panel_items.push(PanelItem {
                         title: "Log".to_owned(),
-                        link: format!("{}/log/tip/{}", hg_root, path),
+                        link: format!("{}/log/tip/{}", hg_root, encoded_path),
                         update_link_lineno: "",
                         accel_key: Some('L'),
                         copyable: true,
                     });
                     vcs_panel_items.push(PanelItem {
                         title: "Raw".to_owned(),
-                        link: format!("{}/raw-file/tip/{}", hg_root, path),
+                        link: format!("{}/raw-file/tip/{}", hg_root, encoded_path),
                         update_link_lineno: "",
                         accel_key: Some('R'),
                         copyable: true,
@@ -363,7 +366,7 @@ fn main() {
         if let Some(ref hg_root) = tree_config.paths.hg_root {
             tools_items.push(PanelItem {
                 title: "HG Web".to_owned(),
-                link: format!("{}/file/tip/{}", hg_root, path),
+                link: format!("{}/file/tip/{}", hg_root, encoded_path),
                 update_link_lineno: "#l{}",
                 accel_key: None,
                 copyable: false,
@@ -372,7 +375,7 @@ fn main() {
         if let Some(ref ccov_root) = tree_config.paths.ccov_root {
             tools_items.push(PanelItem {
                 title: "Code Coverage".to_owned(),
-                link: format!("{}#revision=latest&path={}&view=file", ccov_root, path),
+                link: format!("{}#revision=latest&path={}&view=file", ccov_root, encoded_path),
                 update_link_lineno: "&line={}",
                 accel_key: None,
                 copyable: false,
@@ -387,7 +390,7 @@ fn main() {
                             "{}/blob/{}/{}",
                             github,
                             head_oid.map_or("master".to_string(), |x| x.to_string()),
-                            path
+                            encoded_path
                         ),
                         update_link_lineno: "",
                         accel_key: None,

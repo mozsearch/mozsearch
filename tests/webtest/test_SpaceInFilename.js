@@ -28,3 +28,13 @@ add_task(async function test_SpaceInFilenameInFileView() {
   is(links[2].getAttribute("href"), "/tests/source/js/with%20space.js",
      "The space in the href should be escaped");
 });
+
+add_task(async function test_SpaceInFilenameInNavigationPanel() {
+  await TestUtils.loadPath("/searchfox/source/tests/tests/files/js/with%20space.js");
+
+  const panel = frame.contentDocument.getElementById("panel");
+  const permalink = panel.querySelector(`.item[title="Permalink"]`);
+
+  ok(permalink.getAttribute("href").includes("/js/with%20space.js"),
+     "The space in the href should be escaped");
+});
