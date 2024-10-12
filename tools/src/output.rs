@@ -6,6 +6,7 @@ use std::path::Path;
 
 extern crate chrono;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
+use crate::url_encode_path::url_encode_path;
 
 use self::chrono::{DateTime, Local};
 
@@ -38,7 +39,7 @@ pub fn choose_icon(path: &str) -> String {
 }
 
 pub fn file_url(opt: &Options, path: &str) -> String {
-    format!("/{}/source/{}", opt.tree_name, path)
+    format!("/{}/source/{}", opt.tree_name, url_encode_path(path))
 }
 
 pub fn generate_breadcrumbs(
