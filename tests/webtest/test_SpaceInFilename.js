@@ -85,4 +85,13 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
     is(links[5].getAttribute("href"), "/searchfox/source/tests/tests/files/js/with%20space.js",
        "The space in the href should be escaped");
   }
+
+  // Test navigation panel.
+  {
+    const panel = frame.contentDocument.getElementById("panel");
+    const goToLatestLink = panel.querySelector(`.item[title="Go to latest version"]`);
+
+    ok(goToLatestLink.getAttribute("href").includes("/js/with%20space.js"),
+       "The space in the href should be escaped");
+  }
 });
