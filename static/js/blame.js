@@ -240,19 +240,19 @@ var BlamePopup = new (class BlamePopup {
       rendered += json[i].header;
 
       let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
-      rendered += `<br>Show <a href="${diffLink}">annotated diff</a>`;
+      rendered += `<br>Show <a href="${encodeURI(diffLink)}">annotated diff</a>`;
 
       if (json[i].fulldiff) {
-        rendered += ` or <a href="${json[i].fulldiff}">full diff</a>`;
+        rendered += ` or <a href="${encodeURI(json[i].fulldiff)}">full diff</a>`;
       }
 
       if (json[i].parent) {
         let parentLink = `/${tree}/rev/${json[i].parent}/${revPath}#${linenoList[i]}`;
-        rendered += `<br><a href="${parentLink}" class="deemphasize">Show latest version without this line</a>`;
+        rendered += `<br><a href="${encodeURI(parentLink)}" class="deemphasize">Show latest version without this line</a>`;
       }
 
       let revLink = `/${tree}/rev/${revList[i]}/${revPath}#${linenoList[i]}`;
-      rendered += `<br><a href="${revLink}" class="deemphasize">Show earliest version with this line</a>`;
+      rendered += `<br><a href="${encodeURI(revLink)}" class="deemphasize">Show earliest version with this line</a>`;
       rendered += "</div>";
 
       if (i < revList.length - 1) {

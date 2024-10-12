@@ -319,9 +319,13 @@ class TestUtils {
    *        The options for the mouse event.
    */
   static click(elem, options = { bubbles: true }) {
-    TestHarness.debug(`Clicking`);
+    TestUtils.dispatchMouseEvent("click", elem, options);
+  }
 
-    const ev = new MouseEvent("click", options);
+  static dispatchMouseEvent(name, elem, options = { bubbles: true }) {
+    TestHarness.debug(`Dispatching MouseEvent ${name}`);
+
+    const ev = new MouseEvent(name, options);
     elem.dispatchEvent(ev);
   }
 

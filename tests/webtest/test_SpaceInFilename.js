@@ -38,3 +38,51 @@ add_task(async function test_SpaceInFilenameInNavigationPanel() {
   ok(permalink.getAttribute("href").includes("/js/with%20space.js"),
      "The space in the href should be escaped");
 });
+
+add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
+  await TestUtils.loadPath("/searchfox/source/tests/tests/files/js/with%20space.js");
+
+  // Test the blame popup
+
+  const blameStrip = frame.contentDocument.querySelector(`#line-2 .blame-strip`);
+
+  TestUtils.dispatchMouseEvent("mouseenter", blameStrip);
+
+  function getLinks() {
+    return frame.contentDocument.querySelectorAll(`#blame-popup a`);
+  }
+
+  await waitForCondition(() => getLinks().length > 0);
+
+  const links = getLinks();
+  is(links.length, 4);
+  is(links[1].textContent, "annotated diff");
+  ok(links[1].getAttribute("href").includes("/js/with%20space.js"),
+     "The space in the href should be escaped");
+
+  is(links[2].textContent, "Show latest version without this line");
+  ok(links[2].getAttribute("href").includes("/js/with%20space.js"),
+     "The space in the href should be escaped");
+
+  is(links[3].textContent, "Show earliest version with this line");
+  ok(links[3].getAttribute("href").includes("/js/with%20space.js"),
+     "The space in the href should be escaped");
+
+  TestUtils.click(links[2]);
+
+  await waitForCondition(
+    () => frame.contentDocument.location.href.includes("/searchfox/rev"),
+    "Navigates to the previous version");
+
+  // In order to avoid hard-coding the old version's hash, continue testing
+  // the UI part of the old version page here.
+
+  // Test breadcrumbs.
+  {
+    const links = frame.contentDocument.querySelectorAll(".breadcrumbs a");
+
+    is(links.length, 6);
+    is(links[5].getAttribute("href"), "/searchfox/source/tests/tests/files/js/with%20space.js",
+       "The space in the href should be escaped");
+  }
+});
