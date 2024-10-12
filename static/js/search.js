@@ -413,7 +413,7 @@ function populateResults(data, full, jumpToSingle) {
   window.scrollTo(0, 0);
 
   function makeURL(path) {
-    return "/" + Dxr.tree + "/source/" + path;
+    return "/" + Dxr.tree + "/source/" + encodeURI(path);
   }
 
   function makeSearchUrl(q) {
