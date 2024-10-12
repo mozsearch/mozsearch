@@ -24,6 +24,8 @@ use tools::file_format::identifiers::IdentMap;
 use tools::format;
 use tools::git_ops;
 
+use tools::url_encode_path::url_decode_path;
+
 struct WebRequest<'a> {
     path: &'a str,
 }
@@ -129,7 +131,7 @@ fn handle(
     ident_map: &HashMap<String, IdentMap>,
     req: WebRequest,
 ) -> WebResponse {
-    let path = req.path.to_owned();
+    let path = url_decode_path(req.path);
     let path = path[1..].split('/').collect::<Vec<_>>();
 
     if path.len() > 0 && path[0] == "static" {
