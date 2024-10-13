@@ -1457,7 +1457,7 @@ fn generate_commit_info(
             file_info[0],
             tree_name,
             commit.id(),
-            file_info[1],
+            url_encode_path(file_info[1]),
             file_info[1]
         ));
         changes.push(f);
