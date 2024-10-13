@@ -98,7 +98,7 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
   }
 });
 
-add_task(async function test_SpaceInFilenameInAnnotatedDiff() {
+add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
   await TestUtils.loadPath("/searchfox/source/tests/tests/files/js/with%20space.js");
 
   const blameStrip = frame.contentDocument.querySelector(`#line-2 .blame-strip`);
@@ -138,6 +138,25 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiff() {
     const goToLatestLink = panel.querySelector(`.item[title="Go to latest version"]`);
 
     ok(goToLatestLink.getAttribute("href").includes("/js/with%20space.js"),
+       "The space in the href should be escaped");
+
+    // In order to avoid hard-coding the old version's hash, continue testing
+    // the UI part of the changeset view.
+
+    const changesetLink = panel.querySelector(`.item[title="Show changeset"]`);
+
+    TestUtils.click(changesetLink);
+  }
+
+  await waitForCondition(
+    () => frame.contentDocument.location.href.includes("/searchfox/commit"),
+    "Navigates to the changeset view");
+
+  // Test file listing.
+  {
+    const link = frame.contentDocument.querySelector(`#content ul li a[href*="space.js"]`);
+
+    ok(link.getAttribute("href").includes("/js/with%20space.js"),
        "The space in the href should be escaped");
   }
 });
