@@ -7,6 +7,17 @@ set -o pipefail # Check all commands in a pipeline
 # I think we used to try and delete the whole dir but we were messing it up.
 #rm -rf $INDEX_ROOT
 
+pushd $GIT_ROOT
+if ! git diff-index --quiet HEAD --; then
+    set +x
+    echo ""
+    echo "!!! CRITICAL !!!: Uncommitted changes found. Please commit them before building."
+    echo ""
+    git status
+    exit 1
+fi
+popd
+
 rm -rf $BLAME_ROOT
 mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
