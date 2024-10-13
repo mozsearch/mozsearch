@@ -1199,6 +1199,8 @@ pub fn format_diff(
 
     output::generate_breadcrumbs(&opt, writer, path, false)?;
 
+    let encoded_path = url_encode_path(path);
+
     let mut vcs_panel_items = vec![
         PanelItem {
             title: "Show changeset".to_owned(),
@@ -1209,14 +1211,14 @@ pub fn format_diff(
         },
         PanelItem {
             title: "Show file without diff".to_owned(),
-            link: format!("/{}/rev/{}/{}", tree_name, rev, path),
+            link: format!("/{}/rev/{}/{}", tree_name, rev, encoded_path),
             update_link_lineno: "#{}",
             accel_key: None,
             copyable: true,
         },
         PanelItem {
             title: "Go to latest version".to_owned(),
-            link: format!("/{}/source/{}", tree_name, path),
+            link: format!("/{}/source/{}", tree_name, encoded_path),
             update_link_lineno: "#{}",
             accel_key: None,
             copyable: false,
@@ -1225,7 +1227,7 @@ pub fn format_diff(
     if let Some(ref hg_root) = tree_config.paths.hg_root {
         vcs_panel_items.push(PanelItem {
             title: "Log".to_owned(),
-            link: format!("{}/log/tip/{}", hg_root, path),
+            link: format!("{}/log/tip/{}", hg_root, encoded_path),
             update_link_lineno: "",
             accel_key: Some('L'),
             copyable: true,
