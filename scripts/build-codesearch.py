@@ -5,7 +5,7 @@ import os
 import sys
 import json
 
-from lib import run
+from lib import run, run_showing_output
 
 def copy_objdir_files(dest_dir, config):
     for d in open(os.path.join(config['index_path'], 'objdir-dirs')).readlines():
@@ -81,8 +81,12 @@ livegrep_config['fs_paths'].append({
 })
 
 json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
+# for debugging assistance, dump what we wrote to disk to stdout
+run_showing_output(['/usr/bin/jq', '.', '/tmp/livegrep.json'])
 
-run(['codesearch', '/tmp/livegrep.json',
+# we also want to see the output of what codesearch is doing
+run_showing_output(
+    ['codesearch', '/tmp/livegrep.json',
      '-dump_index', tree['codesearch_path'],
      '-index_only',
      '-max_matches', '4000',
