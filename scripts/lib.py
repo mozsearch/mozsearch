@@ -17,7 +17,7 @@ def run(cmd, **extra):
 
     return stdout
 
-def run_showing_output(cmd, **extra):
+def run_showing_output(cmd, output_filter=None, **extra):
     print('running', repr(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **extra)
     (stdout, stderr) = p.communicate()
@@ -30,10 +30,17 @@ def run_showing_output(cmd, **extra):
         print(stderr, file=sys.stderr)
         sys.exit(p.returncode)
     else:
+        stdout = stdout.decode()
+        stderr = stderr.decode()
+
+        if output_filter is not None:
+            stdout = output_filter(stdout)
+            stderr = output_filter(stderr)
+
         print('--- stdout')
-        print(stdout.decode())
+        print(stdout)
         print('--- stderr')
-        print(stderr.decode())
+        print(stderr)
         print('--- (end output)')
 
     return stdout
