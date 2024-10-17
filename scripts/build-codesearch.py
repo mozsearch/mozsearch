@@ -84,6 +84,18 @@ json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
 # for debugging assistance, dump what we wrote to disk to stdout
 run_showing_output(['/usr/bin/jq', '.', '/tmp/livegrep.json'])
 
+
+def convert_size_warn_to_info(line):
+    if line.startswith("WARN:") and line.endswith(" is too large to be indexed."):
+        return "INFO" + line[4:]
+
+    return line
+
+
+def output_filter(text):
+    return '\n'.join(map(convert_size_warn_to_info, text.split('\n')))
+
+
 # we also want to see the output of what codesearch is doing
 run_showing_output(
     ['codesearch', '/tmp/livegrep.json',
@@ -102,7 +114,8 @@ run_showing_output(
      # better to give each thread potentialy 8 work units where we currently
      # only see 1.)
      '-chunk_power', '24',
-     '-line_limit', '4096'], stdin=open('/dev/null'), cwd='/tmp/dummy')
+     '-line_limit', '4096'], stdin=open('/dev/null'), cwd='/tmp/dummy',
+     output_filter=output_filter)
 
 run(['rm', '-rf', '/tmp/dummy'])
 run(['rm', '-rf', '/tmp/livegrep.json'])
