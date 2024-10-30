@@ -1,0 +1,71 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00012:2-32",
+    "source": 1,
+    "nestingRange": "12:35-12:36",
+    "syntax": "def,function",
+    "type": "void (void)",
+    "pretty": "function StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
+    "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
+  },
+  {
+    "loc": "00012:2-32",
+    "structured": 1,
+    "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
+    "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev",
+    "args": [],
+    "kind": "method",
+    "parentsym": "T_StructUsedInTypeIndependentNew",
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ]
+  },
+  {
+    "loc": "00012:2-32",
+    "target": 1,
+    "kind": "def",
+    "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
+    "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev",
+    "context": "StructUsedInTypeIndependentNew",
+    "contextsym": "T_StructUsedInTypeIndependentNew"
+  },
+  {
+    "loc": "00016:69-99",
+    "source": 1,
+    "syntax": "use,constructor",
+    "pretty": "constructor StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
+    "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
+  },
+  {
+    "loc": "00016:69-99",
+    "target": 1,
+    "kind": "use",
+    "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
+    "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev",
+    "context": "MakeUniqueWithIndex",
+    "contextsym": "_Z19MakeUniqueWithIndexiDpOT0_"
+  },
+  {
+    "loc": "00021:69-99",
+    "source": 1,
+    "syntax": "use,constructor",
+    "pretty": "constructor StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
+    "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
+  },
+  {
+    "loc": "00021:69-99",
+    "target": 1,
+    "kind": "use",
+    "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
+    "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev",
+    "context": "MakeUnique",
+    "contextsym": "_Z10MakeUniqueDpOT0_"
+  }
+]
