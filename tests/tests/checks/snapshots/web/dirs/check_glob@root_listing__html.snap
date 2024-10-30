@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&fb.contents"
+snapshot_kind: text
 ---
 <!DOCTYPE html>
 <html lang="en-US">
@@ -403,6 +404,12 @@ expression: "&fb.contents"
           <td><a href="/tests/source/macro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">macro.cpp</a></td>
           <td class="description"><a href="/tests/source/macro.cpp" title=""></td>
           <td><a href="/tests/source/macro.cpp">1409</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/MakeUnique.cpp" class="mimetype-fixed-container mimetype-icon-cpp">MakeUnique.cpp</a></td>
+          <td class="description"><a href="/tests/source/MakeUnique.cpp" title=""></td>
+          <td><a href="/tests/source/MakeUnique.cpp">2304</a></td>
         </tr>
 
         <tr>
