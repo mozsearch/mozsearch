@@ -123,7 +123,7 @@ def process_file(yaml_path, bindings_local_path, files_root, analysis_root):
     with open(os.path.join(files_root, yaml_path), 'r') as f:
         lineno = 1
         for line in f:
-            m = re.match('^(- name: )(.+)', line.rstrip())
+            m = re.match('^(- +name: )(.+)', line.rstrip())
             if m:
                 prefix = m.group(1)
                 name = m.group(2)
