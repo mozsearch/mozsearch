@@ -716,7 +716,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
           // If there were multiple language bindings that we think might exist,
           // then generate a single roll-up search.
-          if (allSearchSyms.length > 1) {
+          if (allSearchSyms.length > 1 && implKind !== "StaticPrefs") {
             // Eat the default search if this was IDL, as currently the "search"
             // endpoint search for the synthetic symbol will only do upsells
             // which is not what people are used to.
