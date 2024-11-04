@@ -582,6 +582,12 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td><a href="/tests/source/staticprefs" class="mimetype-fixed-container mimetype-icon-folder">staticprefs</a></td>
+          <td class="description"><a href="/tests/source/staticprefs" title=""></td>
+          <td><a href="/tests/source/staticprefs"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/subdir" class="mimetype-fixed-container mimetype-icon-folder">subdir</a></td>
           <td class="description"><a href="/tests/source/subdir" title=""></td>
           <td><a href="/tests/source/subdir"></a></td>

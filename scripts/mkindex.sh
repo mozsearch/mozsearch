@@ -94,6 +94,10 @@ $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_er
 
 date
 
+$MOZSEARCH_PATH/scripts/staticprefs-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "idl-analyze.sh"
+
+date
+
 $MOZSEARCH_PATH/scripts/ipdl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "ipdl-analyze.sh"
 
 date

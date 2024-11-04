@@ -1,0 +1,119 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:8-16",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "StaticPrefs test.int",
+    "sym": "PREFS_test_int"
+  },
+  {
+    "loc": "1:8-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "StaticPrefs test.int",
+    "sym": "PREFS_test_int"
+  },
+  {
+    "loc": "1:8-16",
+    "structured": 1,
+    "pretty": "StaticPrefs test.int",
+    "sym": "PREFS_test_int",
+    "kind": "prefs",
+    "implKind": "StaticPrefs",
+    "bindingSlots": [
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "sym": "_ZN7mozilla11StaticPrefs8test_intEv"
+      }
+    ]
+  },
+  {
+    "loc": "6:8-18",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "StaticPrefs test2.uint",
+    "sym": "PREFS_test2_uint"
+  },
+  {
+    "loc": "6:8-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "StaticPrefs test2.uint",
+    "sym": "PREFS_test2_uint"
+  },
+  {
+    "loc": "6:8-18",
+    "structured": 1,
+    "pretty": "StaticPrefs test2.uint",
+    "sym": "PREFS_test2_uint",
+    "kind": "prefs",
+    "implKind": "StaticPrefs",
+    "bindingSlots": [
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "sym": "_ZN7mozilla11StaticPrefs10test2_uintEv"
+      }
+    ]
+  },
+  {
+    "loc": "11:8-17",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "StaticPrefs test.bool",
+    "sym": "PREFS_test_bool"
+  },
+  {
+    "loc": "11:8-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "StaticPrefs test.bool",
+    "sym": "PREFS_test_bool"
+  },
+  {
+    "loc": "11:8-17",
+    "structured": 1,
+    "pretty": "StaticPrefs test.bool",
+    "sym": "PREFS_test_bool",
+    "kind": "prefs",
+    "implKind": "StaticPrefs",
+    "bindingSlots": [
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "sym": "_ZN7mozilla11StaticPrefs9test_boolEv"
+      }
+    ]
+  },
+  {
+    "loc": "17:8-16",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "StaticPrefs test.str",
+    "sym": "PREFS_test_str"
+  },
+  {
+    "loc": "17:8-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "StaticPrefs test.str",
+    "sym": "PREFS_test_str"
+  },
+  {
+    "loc": "17:8-16",
+    "structured": 1,
+    "pretty": "StaticPrefs test.str",
+    "sym": "PREFS_test_str",
+    "kind": "prefs",
+    "implKind": "StaticPrefs",
+    "bindingSlots": []
+  }
+]

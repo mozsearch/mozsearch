@@ -38,6 +38,7 @@ css = []
 idl = []
 webidl = []
 ipdl = []
+staticprefs = []
 
 dirs = collections.OrderedDict()
 ipdl_dirs = collections.OrderedDict()
@@ -114,6 +115,11 @@ for line in lines:
 
         css.append(path + '\n')
 
+    name = os.path.basename(path)
+
+    if name == 'StaticPrefList.yaml':
+        staticprefs.append(path + '\n')
+
 index_path = tree_config['index_path']
 open(os.path.join(index_path, 'repo-files'), 'w').writelines(files)
 open(os.path.join(index_path, 'repo-dirs'), 'w').writelines([d + '\n' for d in dirs])
@@ -124,3 +130,4 @@ open(os.path.join(index_path, 'idl-files'), 'w').writelines(idl)
 open(os.path.join(index_path, 'webidl-files'), 'w').writelines(webidl)
 open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
 open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join(['-I ' + d for d in ipdl_dirs]))
+open(os.path.join(index_path, 'staticprefs-files'), 'w').writelines(staticprefs)

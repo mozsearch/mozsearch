@@ -653,6 +653,7 @@ pub enum FormatAs {
     FormatTagLike(&'static LanguageSpec),
     CSS,
     Plain,
+    StaticPrefs,
     Binary,
 }
 
@@ -684,6 +685,16 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         | "icns" | "ico" | "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" | "class"
         | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" => FormatAs::Binary,
 
-        _ => FormatAs::Plain,
+        _ => {
+            let name = match Path::new(filename).file_name() {
+                Some(name) => name.to_str().unwrap(),
+                None => "",
+            };
+
+            match name {
+                "StaticPrefList.yaml" => FormatAs::StaticPrefs,
+                _ => FormatAs::Plain,
+            }
+        }
     }
 }
