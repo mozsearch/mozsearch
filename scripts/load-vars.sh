@@ -25,6 +25,7 @@ export HISTORY_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].history_path" ${CONFIG_FIL
 export TREE_ON_ERROR=$(jq -r ".trees[\"${TREE_NAME}\"].on_error" ${CONFIG_FILE})
 export TREE_CACHING=$(jq -r ".trees[\"${TREE_NAME}\"].cache" ${CONFIG_FILE})
 export WEBIDL_BINDINGS_LOCAL_PATH=$(jq -r ".trees[\"${TREE_NAME}\"].webidl_binding_local_path" ${CONFIG_FILE})
+export STATICPREFS_BINDINGS_LOCAL_PATH=$(jq -r ".trees[\"${TREE_NAME}\"].staticprefs_binding_local_path" ${CONFIG_FILE})
 
 handle_tree_error() {
     local msg=$1

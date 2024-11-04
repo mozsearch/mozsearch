@@ -55,6 +55,7 @@ pub fn format_code(
         FormatAs::Binary => panic!("Unexpected binary file"),
         FormatAs::CSS => tokenize::tokenize_css(&input),
         FormatAs::Plain => tokenize::tokenize_plain(&input),
+        FormatAs::StaticPrefs => tokenize::tokenize_static_prefs(&input),
         FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(&input, spec),
         FormatAs::FormatTagLike(script_spec) => tokenize::tokenize_tag_like(&input, script_spec),
     };
@@ -392,6 +393,7 @@ pub fn format_code(
                 FormatAs::Binary => panic!("Unexpected binary file"),
                 FormatAs::CSS => tokenize::tokenize_css(input),
                 FormatAs::Plain => tokenize::tokenize_plain(input),
+                FormatAs::StaticPrefs => tokenize::tokenize_static_prefs(&input),
                 FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
                 FormatAs::FormatTagLike(script_spec) => {
                     tokenize::tokenize_tag_like(input, script_spec)

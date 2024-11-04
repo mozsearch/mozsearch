@@ -168,6 +168,129 @@ pub fn tokenize_plain(string: &str) -> Vec<Token> {
     tokens
 }
 
+pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
+    let mut tokens = Vec::new();
+
+    let chars: Vec<(usize, char)> = string.char_indices().collect();
+    let cur_pos = Cell::new(0);
+
+    let get_char = || {
+        let p = cur_pos.get();
+        if p == chars.len() {
+            debug!("Attempted read past end");
+            return (p, '\0');
+        }
+        cur_pos.set(p + 1);
+        chars[p]
+    };
+
+    let peek_char = || {
+        if cur_pos.get() == chars.len() {
+            return '\0';
+        }
+
+        let (_, ch) = chars[cur_pos.get()];
+        ch
+    };
+
+    while cur_pos.get() < chars.len() {
+        let (start, mut ch) = get_char();
+
+        match ch {
+            '\n' => {
+                tokens.push(Token {
+                    start,
+                    end: start + 1,
+                    kind: TokenKind::Newline,
+                });
+            }
+            '"' => {
+                let end;
+                loop {
+                    ch = peek_char();
+                    match ch {
+                        '"' | '\0' => {
+                            end = get_char().0;
+                            break;
+                        }
+                        _ => {
+                            get_char();
+                        }
+                    }
+                }
+
+                tokens.push(Token {
+                    start,
+                    end: end + 1,
+                    kind: TokenKind::StringLiteral,
+                });
+            }
+            '#' => {
+                let mut end = start;
+                loop {
+                    ch = peek_char();
+                    match ch {
+                        '\n' | '\0' => {
+                            break;
+                        }
+                        _ => {
+                            end = get_char().0;
+                        }
+                    }
+                }
+
+                tokens.push(Token {
+                    start,
+                    end: end + 1,
+                    kind: TokenKind::Comment,
+                });
+            }
+            'A'..='Z' | 'a'..='z' => {
+                // Treat the entire preference name as single identifier.
+                let mut end = start;
+                loop {
+                    ch = peek_char();
+                    match ch {
+                        'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' => {
+                            end = get_char().0;
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
+                }
+
+                tokens.push(Token {
+                    start,
+                    end: end + 1,
+                    kind: TokenKind::Identifier(None),
+                });
+            }
+            _ => {
+                let mut end = start;
+                loop {
+                    ch = peek_char();
+                    match ch {
+                        '\n' | '"' | '#' | 'A'..='Z' | 'a'..='z' | '\0' => {
+                            break;
+                        }
+                        _ => {
+                            end = get_char().0;
+                        }
+                    }
+                }
+
+                tokens.push(Token {
+                    start,
+                    end: end + 1,
+                    kind: TokenKind::PlainText,
+                });
+            }
+        }
+    }
+    tokens
+}
+
 pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
     let is_ident = |ch: char| -> bool {
         (ch == '_') || ch.is_alphabetic() || ch.is_digit(10) || (ch == '#' && spec.hash_identifier)

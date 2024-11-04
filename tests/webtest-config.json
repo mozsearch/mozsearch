@@ -12,6 +12,7 @@
       "index_path": "$WORKING/tests",
       "files_path": "$WORKING/tests/files",
       "webidl_binding_local_path": "webidl/bindings",
+      "staticprefs_binding_local_path": "staticprefs/bindings",
       "objdir_path": "$WORKING/tests/objdir",
       "wpt_root": "testing/web-platform",
       "codesearch_path": "$WORKING/tests/livegrep.idx",

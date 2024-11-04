@@ -1,0 +1,20 @@
+- name: test.int
+  type: int32_t
+  value: 10
+  mirror: always
+
+- name: test2.uint
+  type: uint32_t
+  value: 20
+  mirror: always
+
+- name: test.bool
+  type: bool
+  value: false
+  mirror: always
+
+# String won't get binding.
+- name: test.str
+  type: String
+  value: "Hello"
+  mirror: never

@@ -370,6 +370,7 @@ pub enum BindingSlotLang {
 #[serde(rename_all = "lowercase")]
 pub enum BindingOwnerLang {
     Idl,
+    Prefs,
     Cpp,
     JS,
     Rust,
