@@ -14,13 +14,13 @@ expression: "&json_results"
     "loc": "1:8-16",
     "target": 1,
     "kind": "def",
-    "pretty": "StaticPrefs test.int",
+    "pretty": "test.int",
     "sym": "PREFS_test_int"
   },
   {
     "loc": "1:8-16",
     "structured": 1,
-    "pretty": "StaticPrefs test.int",
+    "pretty": "test.int",
     "sym": "PREFS_test_int",
     "kind": "prefs",
     "implKind": "StaticPrefs",
@@ -44,13 +44,13 @@ expression: "&json_results"
     "loc": "6:8-18",
     "target": 1,
     "kind": "def",
-    "pretty": "StaticPrefs test2.uint",
+    "pretty": "test2.uint",
     "sym": "PREFS_test2_uint"
   },
   {
     "loc": "6:8-18",
     "structured": 1,
-    "pretty": "StaticPrefs test2.uint",
+    "pretty": "test2.uint",
     "sym": "PREFS_test2_uint",
     "kind": "prefs",
     "implKind": "StaticPrefs",
@@ -74,13 +74,13 @@ expression: "&json_results"
     "loc": "11:8-17",
     "target": 1,
     "kind": "def",
-    "pretty": "StaticPrefs test.bool",
+    "pretty": "test.bool",
     "sym": "PREFS_test_bool"
   },
   {
     "loc": "11:8-17",
     "structured": 1,
-    "pretty": "StaticPrefs test.bool",
+    "pretty": "test.bool",
     "sym": "PREFS_test_bool",
     "kind": "prefs",
     "implKind": "StaticPrefs",
@@ -104,13 +104,13 @@ expression: "&json_results"
     "loc": "17:8-16",
     "target": 1,
     "kind": "def",
-    "pretty": "StaticPrefs test.str",
+    "pretty": "test.str",
     "sym": "PREFS_test_str"
   },
   {
     "loc": "17:8-16",
     "structured": 1,
-    "pretty": "StaticPrefs test.str",
+    "pretty": "test.str",
     "sym": "PREFS_test_str",
     "kind": "prefs",
     "implKind": "StaticPrefs",

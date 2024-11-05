@@ -129,7 +129,6 @@ def process_file(yaml_path, bindings_local_path, files_root, analysis_root):
                 name = m.group(2)
 
                 loc = to_loc_with(lineno, len(prefix), len(name))
-                pretty = f'StaticPrefs {name}'
                 sym = f'PREFS_{mk_id(name)}'
 
                 slots = []
@@ -147,7 +146,7 @@ def process_file(yaml_path, bindings_local_path, files_root, analysis_root):
                     'loc': loc,
                     'source': 1,
                     'syntax': 'def',
-                    'pretty': pretty,
+                    'pretty': f'StaticPrefs {name}',
                     'sym': sym,
                 })
 
@@ -155,14 +154,14 @@ def process_file(yaml_path, bindings_local_path, files_root, analysis_root):
                     'loc': loc,
                     'target': 1,
                     'kind': 'def',
-                    'pretty': pretty,
+                    'pretty': name,
                     'sym': sym,
                 })
 
                 records.append({
                     'loc': loc,
                     'structured': 1,
-                    'pretty': pretty,
+                    'pretty': name,
                     'sym': sym,
                     'kind': 'prefs',
                     'implKind': 'StaticPrefs',
