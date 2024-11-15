@@ -64,3 +64,14 @@ template <typename T> struct DerivedPoint : Pint<T> {
     this->IsThereOne();
   }
 };
+
+template<typename T>
+void func()
+{
+    const auto _ = T::E::Waldo;
+}
+
+void test()
+{
+    func<Foo<int>>();
+}
