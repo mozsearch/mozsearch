@@ -19,8 +19,8 @@ expression: "&to_value(scil).unwrap()"
                   5
                 ],
                 "line": ": mHP(baseHP)",
-                "context": "outerNS::Thing",
-                "contextsym": "T_outerNS::Thing"
+                "context": "outerNS::Thing::Thing",
+                "contextsym": "_ZN7outerNS5ThingC1Ei"
               },
               {
                 "lno": 163,
