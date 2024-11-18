@@ -32,6 +32,7 @@ table {
   --panel-header-color: #fff;
 
   --list-hover-background: #e0e0e0;
+  --list-subtle-background: var(--line-stuck-background);
   --list-hover-color: var(--page-foreground);
 
   --info-box-test-skip-info-background: #eee;
@@ -193,6 +194,10 @@ table {
 
 body {
   margin: 0;
+}
+
+.context-menu .confidence-cppTemplateHeuristic {
+  background-color: var(--list-subtle-background);
 }
 
 /* Link styling */
