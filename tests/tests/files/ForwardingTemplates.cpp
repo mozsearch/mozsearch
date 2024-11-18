@@ -49,3 +49,22 @@ void test() {
   const auto o = MakeUniqueWithLambda<StructUsedInTypeDependentNew1>();
   const auto p = MakeUniqueWithLambda<StructUsedInTypeDependentNew1>();
 }
+
+template <typename T>
+struct Maybe {
+  char storage[sizeof(T)];
+
+  template<typename ...Args>
+  void emplace(Args &&...args) {
+    new (storage) T(std::forward<Args>(args)...);
+  }
+};
+
+struct StructUsedInEmplace {
+  StructUsedInEmplace() {}
+};
+
+void use_maybe() {
+  Maybe<StructUsedInEmplace> m;
+  m.emplace();
+}
