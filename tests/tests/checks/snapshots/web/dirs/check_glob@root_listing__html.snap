@@ -293,6 +293,12 @@ snapshot_kind: text
         </tr>
 
         <tr>
+          <td><a href="/tests/source/ForwardingTemplates.cpp" class="mimetype-fixed-container mimetype-icon-cpp">ForwardingTemplates.cpp</a></td>
+          <td class="description"><a href="/tests/source/ForwardingTemplates.cpp" title=""></td>
+          <td><a href="/tests/source/ForwardingTemplates.cpp">2618</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/GeckoApp.java" class="mimetype-fixed-container mimetype-icon-java">GeckoApp.java</a></td>
           <td class="description"><a href="/tests/source/GeckoApp.java" title=""></td>
           <td><a href="/tests/source/GeckoApp.java">104036</a></td>
@@ -404,12 +410,6 @@ snapshot_kind: text
           <td><a href="/tests/source/macro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">macro.cpp</a></td>
           <td class="description"><a href="/tests/source/macro.cpp" title=""></td>
           <td><a href="/tests/source/macro.cpp">1409</a></td>
-        </tr>
-
-        <tr>
-          <td><a href="/tests/source/MakeUnique.cpp" class="mimetype-fixed-container mimetype-icon-cpp">MakeUnique.cpp</a></td>
-          <td class="description"><a href="/tests/source/MakeUnique.cpp" title=""></td>
-          <td><a href="/tests/source/MakeUnique.cpp">2304</a></td>
         </tr>
 
         <tr>

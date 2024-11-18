@@ -1,0 +1,55 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00064:2-21",
+    "source": 1,
+    "nestingRange": "64:24-64:25",
+    "syntax": "def,function",
+    "type": "void (void)",
+    "pretty": "function StructUsedInEmplace::StructUsedInEmplace",
+    "sym": "_ZN19StructUsedInEmplaceC1Ev"
+  },
+  {
+    "loc": "00064:2-21",
+    "structured": 1,
+    "pretty": "StructUsedInEmplace::StructUsedInEmplace",
+    "sym": "_ZN19StructUsedInEmplaceC1Ev",
+    "args": [],
+    "kind": "method",
+    "parentsym": "T_StructUsedInEmplace",
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ]
+  },
+  {
+    "loc": "00064:2-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "StructUsedInEmplace::StructUsedInEmplace",
+    "sym": "_ZN19StructUsedInEmplaceC1Ev",
+    "context": "StructUsedInEmplace",
+    "contextsym": "T_StructUsedInEmplace"
+  },
+  {
+    "loc": "00069:4-11",
+    "source": 1,
+    "syntax": "use,constructor",
+    "pretty": "constructor StructUsedInEmplace::StructUsedInEmplace",
+    "sym": "_ZN19StructUsedInEmplaceC1Ev"
+  },
+  {
+    "loc": "00069:4-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "StructUsedInEmplace::StructUsedInEmplace",
+    "sym": "_ZN19StructUsedInEmplaceC1Ev",
+    "context": "use_maybe",
+    "contextsym": "_Z9use_maybev"
+  }
+]
