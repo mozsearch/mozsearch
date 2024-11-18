@@ -30,6 +30,10 @@ class ContextMenuBase {
     li.classList.add("contextmenu-row");
     li.setAttribute("role", "none");
 
+    if (item.confidence) {
+      li.classList.add(`confidence-${item.confidence}`);
+    }
+
     let link = li.appendChild(document.createElement("a"));
     link.setAttribute("role", "menuitem");
     if (item.action) {
@@ -389,6 +393,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       }
 
       let symbols = symbolToken.getAttribute("data-symbols").split(",");
+      const confidences = JSON.parse(symbolToken.getAttribute("data-confidences"));
 
       const seenSyms = new Set();
       // For debugging/investigation purposes, expose the symbols that got
@@ -444,12 +449,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       // (For other platforms where the definition is on a different line, the
       // symbol won't be present here because it won't have been mered in by the
       // merge-analyses step.)
-      let filteredSymPairs = [];
+      let filteredSymTuples = [];
       let sawDef = false;
-      for (const sym of symbols) {
+      symbols.forEach((sym, index) => {
         // Avoid processing the same symbol more than once.
         if (seenSyms.has(sym)) {
-          continue;
+          return;
         }
 
         let symInfo = SYM_INFO[sym];
@@ -462,8 +467,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
         // XXX Ignore no_crossref data that's currently not useful/used.
         if (!symInfo || !symInfo.sym || !symInfo.pretty) {
-          continue;
+          return;
         }
+
+        const confidence = confidences[index];
 
         // The symInfo is self-identifying via `pretty` and `sym` so we don't
         // need to try and include any extra context.
@@ -474,15 +481,15 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           if (!sawDef) {
             // Transition to "kick out the implicit constructors" mode.
             sawDef = true;
-            filteredSymPairs = [];
+            filteredSymTuples = [];
           }
-          filteredSymPairs.push([sym, symInfo]);
+          filteredSymTuples.push([sym, confidence, symInfo]);
         } else if (!sawDef) {
-          filteredSymPairs.push([sym, symInfo]);
+          filteredSymTuples.push([sym, confidence, symInfo]);
         }
-      }
+      });
 
-      for (const [sym, symInfo] of filteredSymPairs) {
+      for (const [sym, confidence, symInfo] of filteredSymTuples) {
         let diagrammableSyms = [];
         // We need structured data to do diagramming; no structured data means
         // no diagramming.  Currently we expect this to be the case for our
@@ -513,6 +520,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               href: `/${tree}/source/${jumpref.jumps.idl}`,
               icon: "export-alt",
               section: "jumps",
+              confidence,
             });
           }
 
@@ -522,6 +530,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               href: `/${tree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
               section: "jumps",
+              confidence,
             });
           }
 
@@ -531,6 +540,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               href: `/${tree}/source/${jumpref.jumps.decl}`,
               icon: "export",
               section: "jumps",
+              confidence,
             });
           }
 
@@ -553,6 +563,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                     BlamePopup.blameElement = expansionToken;
                     BlameStripHoverHandler.keepVisible = true;
                   },
+                  confidence,
                 });
               }
               delete expansions[key]
@@ -574,6 +585,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               href: `/${tree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
               section: "jumps",
+              confidence,
             });
           }
         }
@@ -740,6 +752,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             )}&redirect=false`,
             icon: "search",
             section: "symbol-searches",
+            confidence,
           });
         }
 
@@ -756,6 +769,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 // to have muscle memory implications so we can't repurpose it.
                 icon: "docs",
                 section: "layout",
+                confidence,
               });
             }
           }
@@ -779,6 +793,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "brush",
               section: "diagrams",
+              confidence,
             });
 
             // Always offer to diagram uses of things
@@ -788,6 +803,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "brush",
               section: "diagrams",
+              confidence,
             });
 
             if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
@@ -799,6 +815,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 icon: "brush",
                 section: "diagrams",
+                confidence,
               });
             }
 
@@ -822,6 +839,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 icon: "brush",
                 section: "diagrams",
+                confidence,
               });
             }
           }
