@@ -53,7 +53,7 @@ impl WebResponse {
         WebResponse {
             content_type: "text/html".to_owned(),
             output: body,
-            .. WebResponse::default()
+            ..WebResponse::default()
         }
     }
 
@@ -61,7 +61,7 @@ impl WebResponse {
         WebResponse {
             content_type: "application/json".to_owned(),
             output: body,
-            .. WebResponse::default()
+            ..WebResponse::default()
         }
     }
 
@@ -69,7 +69,7 @@ impl WebResponse {
         WebResponse {
             status: StatusCode::InternalServerError,
             output: body,
-            .. WebResponse::default()
+            ..WebResponse::default()
         }
     }
 
@@ -77,7 +77,7 @@ impl WebResponse {
         WebResponse {
             status: StatusCode::NotFound,
             output: "Not found".to_owned(),
-            .. WebResponse::default()
+            ..WebResponse::default()
         }
     }
 
@@ -85,7 +85,7 @@ impl WebResponse {
         WebResponse {
             status: StatusCode::MovedPermanently,
             redirect_location: Some(url),
-            .. WebResponse::default()
+            ..WebResponse::default()
         }
     }
 }
@@ -122,7 +122,7 @@ fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
     WebResponse {
         content_type: content_type.to_owned(),
         output: input,
-        .. WebResponse::default()
+        ..WebResponse::default()
     }
 }
 
@@ -180,13 +180,12 @@ fn handle(
                 .current_dir(&git_path)
                 .output();
             match output_result {
-                Ok(output) if output.status.success() => {
-                    WebResponse::redirect(format!("/{}/rev/{}/{}",
-                        tree_name,
-                        git_ops::decode_bytes(output.stdout).trim(),
-                        path[3..].join("/"))
-                    )
-                }
+                Ok(output) if output.status.success() => WebResponse::redirect(format!(
+                    "/{}/rev/{}/{}",
+                    tree_name,
+                    git_ops::decode_bytes(output.stdout).trim(),
+                    path[3..].join("/")
+                )),
                 Ok(_) => WebResponse::not_found(),
                 Err(err) => WebResponse::internal_error(format!("{:?}", err)),
             }
@@ -317,5 +316,7 @@ fn main() {
     println!("On 8001");
     // Use 4 threads instead of the 2 that would be automatically chosen on our
     // AWS boxes.
-    let _listening = hyper::Server::http("0.0.0.0:8001").unwrap().handle_threads(handler, 4);
+    let _listening = hyper::Server::http("0.0.0.0:8001")
+        .unwrap()
+        .handle_threads(handler, 4);
 }

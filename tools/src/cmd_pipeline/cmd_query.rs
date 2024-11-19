@@ -1,10 +1,14 @@
 use async_trait::async_trait;
-use serde_json::{to_value};
 use clap::Args;
+use serde_json::to_value;
 
-use super::{interface::{JsonValue, PipelineCommand, PipelineValues}, builder::build_pipeline_graph};
+use super::{
+    builder::build_pipeline_graph,
+    interface::{JsonValue, PipelineCommand, PipelineValues},
+};
 use crate::{
-    abstract_server::{AbstractServer, Result}, query::chew_query::chew_query,
+    abstract_server::{AbstractServer, Result},
+    query::chew_query::chew_query,
 };
 
 /// Run a new-style `query-parser` `term:value` query parse against the local
@@ -26,7 +30,6 @@ pub struct QueryCommand {
     pub args: Query,
 }
 
-
 #[async_trait]
 impl PipelineCommand for QueryCommand {
     async fn execute(
@@ -37,7 +40,9 @@ impl PipelineCommand for QueryCommand {
         let pipeline_plan = chew_query(&self.args.query)?;
 
         if self.args.dump_pipeline {
-            return Ok(PipelineValues::JsonValue(JsonValue { value: to_value(pipeline_plan)? }));
+            return Ok(PipelineValues::JsonValue(JsonValue {
+                value: to_value(pipeline_plan)?,
+            }));
         }
 
         let graph = build_pipeline_graph(server.clonify(), pipeline_plan)?;

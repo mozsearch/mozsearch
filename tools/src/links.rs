@@ -1,7 +1,7 @@
+use itertools::Itertools;
 use linkify::{LinkFinder, LinkKind};
 use regex::Regex;
 use std::borrow::Cow;
-use itertools::Itertools;
 
 use crate::file_format::config::Config;
 use crate::url_map_handler::get_file_paths_for_url;

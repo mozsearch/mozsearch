@@ -1,8 +1,8 @@
 use crate::file_format::config::Config;
 use crate::links;
 
+use serde_json::{json, to_string, Map};
 use std::borrow::Cow;
-use serde_json::{json, Map, to_string};
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
@@ -21,11 +21,7 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
     Ok((header, entity_replace(&remainder)))
 }
 
-pub fn get_commit_info(
-    cfg: &Config,
-    tree_name: &str,
-    revs: &str,
-) -> Result<String, &'static str> {
+pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<String, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let mut infos = vec![];

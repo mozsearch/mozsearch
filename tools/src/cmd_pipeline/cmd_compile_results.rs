@@ -1,20 +1,20 @@
 use std::collections::{BTreeMap, HashSet};
 
 use async_trait::async_trait;
-use serde_json::{from_value, Value};
 use clap::Args;
-use ustr::{UstrMap, Ustr, ustr};
+use serde_json::{from_value, Value};
+use ustr::{ustr, Ustr, UstrMap};
 
 use super::interface::{
     FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
-    FlattenedResultsBundle, FlattenedResultsByFile, PipelineJunctionCommand,
-    PipelineValues, PresentationKind, ResultFacetGroup, ResultFacetKind, ResultFacetRoot,
-    SymbolCrossrefInfo, SymbolQuality, SymbolRelation,
+    FlattenedResultsBundle, FlattenedResultsByFile, PipelineJunctionCommand, PipelineValues,
+    PresentationKind, ResultFacetGroup, ResultFacetKind, ResultFacetRoot, SymbolCrossrefInfo,
+    SymbolQuality, SymbolRelation,
 };
 
 use crate::{
     abstract_server::{
-        AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextMatchesByFile, FileMatch,
+        AbstractServer, ErrorDetails, ErrorLayer, FileMatch, Result, ServerError, TextMatchesByFile,
     },
     file_format::analysis::PathSearchResult,
 };
@@ -348,15 +348,17 @@ impl SearchResults {
                     line_spans: vec![],
                 });
             for text_match in file_match.matches {
-                if self.path_line_suppressions
-                    .insert(format!("{}:{}", path, text_match.line_num)) {
-                        file_results.line_spans.push(FlattenedLineSpan {
-                            key_line: text_match.line_num,
-                            line_range: (text_match.line_num, text_match.line_num),
-                            contents: text_match.line_str,
-                            context: ustr(""),
-                            contextsym: ustr(""),
-                        });
+                if self
+                    .path_line_suppressions
+                    .insert(format!("{}:{}", path, text_match.line_num))
+                {
+                    file_results.line_spans.push(FlattenedLineSpan {
+                        key_line: text_match.line_num,
+                        line_range: (text_match.line_num, text_match.line_num),
+                        contents: text_match.line_str,
+                        context: ustr(""),
+                        contextsym: ustr(""),
+                    });
                 }
             }
             // The suppressions could mean we don't actually need this path hit,
@@ -541,8 +543,11 @@ impl MaybeFacetGroup {
             );
         } else if self.nested_groups.len() == 1 {
             let (sole_name, sole_group) = self.nested_groups.into_iter().next().unwrap();
-            let (mut sole_compiled, breadth) =
-                sole_group.compile(prefix.clone() + sole_name.as_str(), clump_thresh, other.clone());
+            let (mut sole_compiled, breadth) = sole_group.compile(
+                prefix.clone() + sole_name.as_str(),
+                clump_thresh,
+                other.clone(),
+            );
 
             if self.values.len() == 0 {
                 // Collapse us into the nested group
@@ -621,8 +626,11 @@ impl MaybeFacetGroup {
 
                 for (name, group) in self.nested_groups {
                     if group.count >= clump_thresh {
-                        let (sub_compiled, sub_breadth) =
-                            group.compile(prefix.clone() + name.as_str(), clump_thresh, other.clone());
+                        let (sub_compiled, sub_breadth) = group.compile(
+                            prefix.clone() + name.as_str(),
+                            clump_thresh,
+                            other.clone(),
+                        );
                         nested_groups.push(sub_compiled);
                         if sub_breadth > breadth {
                             breadth = sub_breadth;

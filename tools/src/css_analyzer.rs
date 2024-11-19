@@ -1,8 +1,8 @@
 use cssparser;
 
 use crate::file_format::analysis::{
-    AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location,
-    SourceRange, SourceTag, TargetTag, WithLocation
+    AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, SourceRange, SourceTag,
+    TargetTag, WithLocation,
 };
 
 // NOTE: This does the same as analysis_manglings::mangle_file without regex
@@ -24,9 +24,11 @@ fn mangle_name(name: &str) -> String {
     s
 }
 
-fn to_loc(first_line: u32,
-          start: &cssparser::SourceLocation,
-          end: &cssparser::SourceLocation) -> Location {
+fn to_loc(
+    first_line: u32,
+    start: &cssparser::SourceLocation,
+    end: &cssparser::SourceLocation,
+) -> Location {
     // cssparser::SourceLocation uses 0-origin line and 1-origin column.
     // analysis::Location uses 1-origin line and 0-origin column.
     // first_line is 1-origin.
@@ -34,10 +36,15 @@ fn to_loc(first_line: u32,
         lineno: first_line + start.line,
         col_start: start.column - 1,
         col_end: end.column - 1,
-    }
+    };
 }
 
-fn to_source(loc: Location, syntax: Vec<String>, pretty: String, sym: String) -> WithLocation<AnalysisSource::<String>> {
+fn to_source(
+    loc: Location,
+    syntax: Vec<String>,
+    pretty: String,
+    sym: String,
+) -> WithLocation<AnalysisSource<String>> {
     WithLocation {
         data: AnalysisSource {
             source: SourceTag::Source,
@@ -55,7 +62,12 @@ fn to_source(loc: Location, syntax: Vec<String>, pretty: String, sym: String) ->
     }
 }
 
-fn to_target(loc: Location, kind: AnalysisKind, pretty: String, sym: String) -> WithLocation<AnalysisTarget::<String>> {
+fn to_target(
+    loc: Location,
+    kind: AnalysisKind,
+    pretty: String,
+    sym: String,
+) -> WithLocation<AnalysisTarget<String>> {
     WithLocation {
         data: AnalysisTarget {
             target: TargetTag::Target,
@@ -74,10 +86,14 @@ fn to_target(loc: Location, kind: AnalysisKind, pretty: String, sym: String) -> 
     }
 }
 
-fn analyze_css_block<F>(input: &mut cssparser::Parser, first_line: u32,
-                        is_curly_children: bool, is_inside_lhs: bool, callback: &mut F)
-where
-    F: FnMut(String)
+fn analyze_css_block<F>(
+    input: &mut cssparser::Parser,
+    first_line: u32,
+    is_curly_children: bool,
+    is_inside_lhs: bool,
+    callback: &mut F,
+) where
+    F: FnMut(String),
 {
     use cssparser::Token::*;
     let mut start = input.current_source_location();
@@ -97,11 +113,20 @@ where
 
                     let (syntax, kind) = if after_at_property {
                         after_at_property = false;
-                        (vec!["decl".to_string(), "cssprop".to_string()], AnalysisKind::Decl)
+                        (
+                            vec!["decl".to_string(), "cssprop".to_string()],
+                            AnalysisKind::Decl,
+                        )
                     } else if is_lhs {
-                        (vec!["def".to_string(), "cssprop".to_string()], AnalysisKind::Def)
+                        (
+                            vec!["def".to_string(), "cssprop".to_string()],
+                            AnalysisKind::Def,
+                        )
                     } else {
-                        (vec!["use".to_string(), "cssprop".to_string()], AnalysisKind::Use)
+                        (
+                            vec!["use".to_string(), "cssprop".to_string()],
+                            AnalysisKind::Use,
+                        )
                     };
 
                     let source = to_source(loc.clone(), syntax, source_pretty, sym.clone());
@@ -165,10 +190,9 @@ where
     }
 }
 
-pub fn analyze_css<F>(path: String, first_line: u32,
-                  text: String, callback: &mut F)
+pub fn analyze_css<F>(path: String, first_line: u32, text: String, callback: &mut F)
 where
-    F: FnMut(String)
+    F: FnMut(String),
 {
     let mut input = cssparser::ParserInput::new(text.as_str());
     let mut input = cssparser::Parser::new(&mut input);

@@ -1,7 +1,7 @@
+use serde::Deserialize;
+use serde_json::from_reader;
 use std::collections::HashMap;
 use std::fs::File;
-use serde_json::from_reader;
-use serde::Deserialize;
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct URLMapItem {
@@ -16,9 +16,7 @@ pub struct URLMap {
 
 impl URLMap {
     fn new(data: HashMap<String, Vec<URLMapItem>>) -> Self {
-        Self {
-            data: data,
-        }
+        Self { data: data }
     }
 
     pub fn new_empty() -> Self {
@@ -32,9 +30,7 @@ impl URLMap {
     }
 }
 
-pub fn read_url_map(
-    filename: &String,
-) -> URLMap {
+pub fn read_url_map(filename: &String) -> URLMap {
     let file = match File::open(filename) {
         Ok(f) => f,
         Err(_) => {

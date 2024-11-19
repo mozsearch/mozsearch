@@ -1,5 +1,5 @@
-use std::path::Path;
 use git2::{Commit, Repository, TreeEntry};
+use std::path::Path;
 
 use crate::file_format::config::GitData;
 

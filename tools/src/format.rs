@@ -304,8 +304,7 @@ pub fn format_code(
         let get_symbols =
             |token: &tokenize::Token, datum: &mut dyn Iterator<Item = &AnalysisSource>| {
                 match &token.kind {
-                    &tokenize::TokenKind::Identifier(_)
-                    | &tokenize::TokenKind::StringLiteral => {
+                    &tokenize::TokenKind::Identifier(_) | &tokenize::TokenKind::StringLiteral => {
                         // Build the list of symbols for the highlighter.  We do this for all source
                         // records, even ones marked "no_crossref" because we still want to highlight
                         // locals.  These will be emitted into a `data-symbols` attribute below.
@@ -375,10 +374,22 @@ pub fn format_code(
 
         // Only get the symbols and style of the symbols that appear directly in the source code, not in expansions
         let datum_outside_expansions = datum.iter().flat_map(|d| d.iter());
-        let has_expansion = |data: &AnalysisSource| matches!(data.expansion_info, Some(ExpansionInfo::ExpandsTo(_)));
+        let has_expansion = |data: &AnalysisSource| {
+            matches!(data.expansion_info, Some(ExpansionInfo::ExpandsTo(_)))
+        };
         let (symbols, style) = if datum_outside_expansions.clone().any(has_expansion) {
-            let symbols = get_symbols(&token, &mut datum_outside_expansions.clone().filter(|&a| has_expansion(a)));
-            let style = get_style(&token, &mut datum_outside_expansions.clone().filter(|&a| has_expansion(a)));
+            let symbols = get_symbols(
+                &token,
+                &mut datum_outside_expansions
+                    .clone()
+                    .filter(|&a| has_expansion(a)),
+            );
+            let style = get_style(
+                &token,
+                &mut datum_outside_expansions
+                    .clone()
+                    .filter(|&a| has_expansion(a)),
+            );
             (symbols, style)
         } else {
             let symbols = get_symbols(&token, &mut datum_outside_expansions.clone());
@@ -470,10 +481,7 @@ pub fn format_code(
                 .flat_map(|e| {
                     e.into_iter().flat_map(|(key, expansions)| {
                         expansions.into_iter().map(move |(platform, expansion)| {
-                            (
-                                key.to_owned(),
-                                (platform.to_owned(), expansion.to_owned()),
-                            )
+                            (key.to_owned(), (platform.to_owned(), expansion.to_owned()))
                         })
                     })
                 })
@@ -481,12 +489,10 @@ pub fn format_code(
             expansions.sort_unstable_by(|a, b| Ord::cmp(&(&a.0, &a.1 .1), &(&b.0, &b.1 .1)));
 
             // Format expansions into html
-            let expansions = expansions
-                .into_iter()
-                .map(|(key, (platform, expansion))| {
-                    let html = expansion_to_html(&key, &platform, &expansion);
-                    (key, (platform, html))
-                });
+            let expansions = expansions.into_iter().map(|(key, (platform, expansion))| {
+                let html = expansion_to_html(&key, &platform, &expansion);
+                (key, (platform, html))
+            });
 
             // Group by key again
             let expansions = expansions.group_by(|(key, _)| key.clone());
@@ -614,7 +620,14 @@ pub fn format_file_data(
 
     let slug = format_to_slug_attribute(&format);
     let pre_format_code = Instant::now();
-    let (output_lines, sym_json) = format_code(Some(cfg), crossref_lookup_map, format, path, &data, &analysis);
+    let (output_lines, sym_json) = format_code(
+        Some(cfg),
+        crossref_lookup_map,
+        format,
+        path,
+        &data,
+        &analysis,
+    );
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
     let pre_blame_lines = Instant::now();

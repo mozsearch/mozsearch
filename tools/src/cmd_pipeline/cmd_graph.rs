@@ -6,7 +6,7 @@ use clap::{Args, ValueEnum};
 use dot_generator::*;
 use dot_structures::*;
 use regex::{Captures, Regex};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use graphviz_rust::cmd::{CommandArg, Format, Layout};
 use graphviz_rust::exec;

@@ -1961,7 +1961,7 @@ impl HierarchicalRenderState {
                     } else {
                         match jump_detail.rsplit_once('#') {
                             Some((_, lines)) => format!("{},{}", jump, lines),
-                            None => jump
+                            None => jump,
                         }
                     }
                 }

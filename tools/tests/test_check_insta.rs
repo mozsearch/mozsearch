@@ -1,6 +1,4 @@
-use std::{
-    str,
-};
+use std::str;
 
 use serde_json::{json, to_value};
 use tokio::fs::{create_dir_all, read_to_string, write};
@@ -8,7 +6,8 @@ use tools::{
     abstract_server::ServerError,
     cmd_pipeline::{build_pipeline, PipelineValues},
     glob_helper::block_in_place_glob_tree,
-    templating::builder::build_and_parse_pipeline_explainer, logging::{init_logging, LoggedSpan},
+    logging::{init_logging, LoggedSpan},
+    templating::builder::build_and_parse_pipeline_explainer,
 };
 use tracing::Instrument;
 
@@ -49,7 +48,7 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
 
         for (rel_path, filename) in input_names {
             if filename.ends_with("~") {
-                continue
+                continue;
             }
 
             let input_path = format!("{}/inputs/{}{}", check_root, rel_path, filename);
@@ -153,7 +152,8 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                         }
                     }
                 })
-                .instrument(logged_span.span.clone()).await;
+                .instrument(logged_span.span.clone())
+                .await;
 
             let log_values = logged_span.retrieve_serde_json().await;
 

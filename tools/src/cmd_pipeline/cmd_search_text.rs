@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use clap::Args;
 
-use super::{interface::{PipelineCommand, PipelineValues}, transforms::path_glob_transform};
+use super::{
+    interface::{PipelineCommand, PipelineValues},
+    transforms::path_glob_transform,
+};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 

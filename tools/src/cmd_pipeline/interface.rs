@@ -1,10 +1,7 @@
 use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::{Args, ValueEnum};
-use serde::{
-    ser::SerializeStruct,
-    Serialize, Serializer,
-};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serde_json::{json, to_string_pretty, Value};
 use std::{
     cmp::Ordering,
@@ -94,10 +91,7 @@ impl SymbolTreeTableList {
                 );
             }
             for (sym, info) in &table.extra_syms {
-                jumprefs.insert(
-                    ustr(sym.as_str()),
-                    info.clone(),
-                );
+                jumprefs.insert(ustr(sym.as_str()), info.clone());
             }
         }
 
@@ -193,7 +187,7 @@ pub struct SymbolTreeTableField {
     pub types: Vec<SymbolTreeTableFieldType>,
     pub lines: Vec<String>,
     #[serde(rename = "offsetAndSize")]
-    pub offset_and_size: Vec<Option<SymbolTreeTableFieldOffsetAndSize>>
+    pub offset_and_size: Vec<Option<SymbolTreeTableFieldOffsetAndSize>>,
 }
 
 impl SymbolTreeTableField {

@@ -26,8 +26,8 @@ extern crate log;
 extern crate tools;
 use crate::languages::FormatAs;
 use tools::file_format::analysis::{read_analysis, read_source};
-use tools::format::{create_markdown_panel_section, format_file_data};
 use tools::file_format::crossref_lookup::CrossrefLookupMap;
+use tools::format::{create_markdown_panel_section, format_file_data};
 use tools::languages;
 use tools::url_encode_path::url_encode_path;
 
@@ -48,7 +48,12 @@ fn main() {
 
     let pre_config = Instant::now();
     let tree_name = &base_args[2];
-    let cfg = config::load(&base_args[1], true, Some(&tree_name), Some(base_args[3].to_string()));
+    let cfg = config::load(
+        &base_args[1],
+        true,
+        Some(&tree_name),
+        Some(base_args[3].to_string()),
+    );
     writeln!(
         stdout,
         "Config file read, duration: {}us",
@@ -81,7 +86,12 @@ fn main() {
     let pre_jumpref = Instant::now();
     let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
 
-    writeln!(stdout, "Jumpref opened, duration: {}us", pre_jumpref.elapsed().as_micros() as u64).unwrap();
+    writeln!(
+        stdout,
+        "Jumpref opened, duration: {}us",
+        pre_jumpref.elapsed().as_micros() as u64
+    )
+    .unwrap();
 
     let pre_lookup_map = Instant::now();
     let file_lookup_path = format!(
@@ -375,7 +385,10 @@ fn main() {
         if let Some(ref ccov_root) = tree_config.paths.ccov_root {
             tools_items.push(PanelItem {
                 title: "Code Coverage".to_owned(),
-                link: format!("{}#revision=latest&path={}&view=file", ccov_root, encoded_path),
+                link: format!(
+                    "{}#revision=latest&path={}&view=file",
+                    ccov_root, encoded_path
+                ),
                 update_link_lineno: "&line={}",
                 accel_key: None,
                 copyable: false,

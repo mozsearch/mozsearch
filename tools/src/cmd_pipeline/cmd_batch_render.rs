@@ -6,7 +6,8 @@ use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
-    templating::builder::build_and_parse_dir_listing, file_utils::write_file_ensuring_parent_dir,
+    file_utils::write_file_ensuring_parent_dir,
+    templating::builder::build_and_parse_dir_listing,
 };
 
 #[derive(Debug, Args)]

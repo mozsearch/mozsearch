@@ -21,7 +21,6 @@ pub struct CrossrefLookupMap {
     extra_mm: Arc<Mmap>,
 }
 
-
 const SPACE: u8 = ' ' as u8;
 const NEWLINE: u8 = '\n' as u8;
 const ID_START: u8 = '!' as u8;
@@ -43,18 +42,14 @@ impl CrossrefLookupMap {
         let inline_file = File::open(inline_path).unwrap();
         let inline_mm = unsafe {
             match Mmap::map(&inline_file) {
-                Ok(mmap) => {
-                    Arc::new(mmap)
-                }
+                Ok(mmap) => Arc::new(mmap),
                 Err(_) => return None,
             }
         };
         let extra_file = File::open(extra_path).unwrap();
         let extra_mm = unsafe {
             match Mmap::map(&extra_file) {
-                Ok(mmap) => {
-                    Arc::new(mmap)
-                }
+                Ok(mmap) => Arc::new(mmap),
                 Err(_) => return None,
             }
         };

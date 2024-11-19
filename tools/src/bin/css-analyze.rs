@@ -7,7 +7,7 @@ fn main() {
     let path = args[1].clone();
     let text = match fs::read_to_string(path.clone()) {
         Ok(text) => text,
-        _ => return
+        _ => return,
     };
     let mut callback = |s| {
         println!("{}", s);

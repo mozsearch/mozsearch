@@ -100,8 +100,9 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
             // Inline method definitions and pure virtual method declarations
             // will both be reported as definitions by the C++ indexer without a
             // declaration, so we need to accept both decls and defs.
-            if (piece.kind == AnalysisKind::Decl || piece.kind == AnalysisKind::Def) &&
-               piece.sym.contains(mangled) {
+            if (piece.kind == AnalysisKind::Decl || piece.kind == AnalysisKind::Def)
+                && piece.sym.contains(mangled)
+            {
                 best_piece = Some(piece);
             }
         }
@@ -110,7 +111,14 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
     return best_piece;
 }
 
-fn output_ipc_data(outputf: &mut File, locstr: &str, ipc_pretty: &str, ipc_sym: &str, send_datum: &AnalysisTarget, recv_datum: &AnalysisTarget) {
+fn output_ipc_data(
+    outputf: &mut File,
+    locstr: &str,
+    ipc_pretty: &str,
+    ipc_sym: &str,
+    send_datum: &AnalysisTarget,
+    recv_datum: &AnalysisTarget,
+) {
     write!(
         outputf,
         "{}",
@@ -218,9 +226,12 @@ fn output_send_recv(
         &format!("{}{}{}", recv_prefix, message.name.id, ctor_suffix),
     );
     let maybe_recv_datum = find_analysis(recv_analysis, &mangled_no_p)
-                           .or_else(|| find_analysis(recv_analysis, &mangled_yes_p));
+        .or_else(|| find_analysis(recv_analysis, &mangled_yes_p));
     if let None = maybe_recv_datum {
-        println!("No analysis target found for recv: {} or {}", mangled_no_p, mangled_yes_p);
+        println!(
+            "No analysis target found for recv: {} or {}",
+            mangled_no_p, mangled_yes_p
+        );
     }
 
     if let (Some(send_datum), Some(recv_datum)) = (maybe_send_datum, maybe_recv_datum) {
@@ -236,7 +247,14 @@ fn output_send_recv(
             protocol.name.id,
             message.name.id
         );
-        output_ipc_data(outputf, &locstr, &ipc_pretty, &ipc_sym, &send_datum, &recv_datum);
+        output_ipc_data(
+            outputf,
+            &locstr,
+            &ipc_pretty,
+            &ipc_sym,
+            &send_datum,
+            &recv_datum,
+        );
     }
 }
 
@@ -344,18 +362,32 @@ fn main() {
             // ### Parent Analyses
             let mut parent_ana_files = vec![];
             if let Some(parent_fname) = objdir_files_map.get(&format!("{}Parent.h", &ns.name.id)) {
-                let parent_path = analysis_path.join(parent_fname).to_string_lossy().into_owned();
+                let parent_path = analysis_path
+                    .join(parent_fname)
+                    .to_string_lossy()
+                    .into_owned();
                 println!("  Reading Parent header {:?}", &parent_path);
                 parent_ana_files.push(parent_path);
             } else {
-                println!("  Unable to find Parent header for protocol: {}", &ns.name.id);
+                println!(
+                    "  Unable to find Parent header for protocol: {}",
+                    &ns.name.id
+                );
             }
-            if let Some(parent_impl_fname) = repo_files_map.get(&format!("{}Parent.h", &ns.name.id[1..])) {
-                let parent_impl_path = analysis_path.join(parent_impl_fname).to_string_lossy().into_owned();
+            if let Some(parent_impl_fname) =
+                repo_files_map.get(&format!("{}Parent.h", &ns.name.id[1..]))
+            {
+                let parent_impl_path = analysis_path
+                    .join(parent_impl_fname)
+                    .to_string_lossy()
+                    .into_owned();
                 println!("  Reading Parent impl header {:?}", &parent_impl_path);
                 parent_ana_files.push(parent_impl_path);
             } else {
-                println!("  Unable to find Parent impl header for protocol: {}", &ns.name.id);
+                println!(
+                    "  Unable to find Parent impl header for protocol: {}",
+                    &ns.name.id
+                );
             }
 
             let parent_analysis = read_analyses(parent_ana_files.as_slice(), &mut read_target);
@@ -363,18 +395,32 @@ fn main() {
             // ### Child Analyses
             let mut child_ana_files = vec![];
             if let Some(child_fname) = objdir_files_map.get(&format!("{}Child.h", &ns.name.id)) {
-                let child_path = analysis_path.join(child_fname).to_string_lossy().into_owned();
+                let child_path = analysis_path
+                    .join(child_fname)
+                    .to_string_lossy()
+                    .into_owned();
                 println!("  Reading Child header {:?}", &child_path);
                 child_ana_files.push(child_path);
             } else {
-                println!("  Unable to find Child header for protocol: {}", &ns.name.id);
+                println!(
+                    "  Unable to find Child header for protocol: {}",
+                    &ns.name.id
+                );
             }
-            if let Some(child_impl_fname) = repo_files_map.get(&format!("{}Child.h", &ns.name.id[1..])) {
-                let child_impl_path = analysis_path.join(child_impl_fname).to_string_lossy().into_owned();
+            if let Some(child_impl_fname) =
+                repo_files_map.get(&format!("{}Child.h", &ns.name.id[1..]))
+            {
+                let child_impl_path = analysis_path
+                    .join(child_impl_fname)
+                    .to_string_lossy()
+                    .into_owned();
                 println!("  Reading Child impl header {:?}", &child_impl_path);
                 child_ana_files.push(child_impl_path);
             } else {
-                println!("  Unable to find Child impl header for protocol: {}", &ns.name.id);
+                println!(
+                    "  Unable to find Child impl header for protocol: {}",
+                    &ns.name.id
+                );
             }
             let child_analysis = read_analyses(child_ana_files.as_slice(), &mut read_target);
 

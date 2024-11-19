@@ -1,12 +1,12 @@
-use std::{cell::Cell, rc::Rc};
 use async_trait::async_trait;
-use lol_html::{element, rewrite_str, HtmlRewriter, RewriteStrSettings, Settings, html_content::ContentType};
 use clap::Args;
+use lol_html::{
+    element, html_content::ContentType, rewrite_str, HtmlRewriter, RewriteStrSettings, Settings,
+};
+use std::{cell::Cell, rc::Rc};
 
 use super::interface::{PipelineCommand, PipelineValues, TextFile};
-use crate::{
-    abstract_server::{AbstractServer, HtmlFileRoot, Result},
-};
+use crate::abstract_server::{AbstractServer, HtmlFileRoot, Result};
 
 /// Dump the contents of a HTML file for a (source) file or rendered directory
 /// listing from disk in its entirety, applying minimal normalization to
@@ -57,15 +57,10 @@ pub struct CatHtmlCommand {
 //   `<span>NORMALIZED</span>` which loses the extra attributes but we don't
 //   care about that level of fidelity.
 fn norm_html_file(s: String) -> String {
-    let element_content_handlers = vec![
-        element!(
-            r#"span.pretty-date"#,
-            |el| {
-                el.replace("<span>NORMALIZED</span>", ContentType::Html);
-                Ok(())
-            }
-        ),
-    ];
+    let element_content_handlers = vec![element!(r#"span.pretty-date"#, |el| {
+        el.replace("<span>NORMALIZED</span>", ContentType::Html);
+        Ok(())
+    })];
 
     rewrite_str(
         &s,
@@ -90,22 +85,17 @@ fn extract_html_snippet(html_str: String, selector: &str) -> String {
 
     let mut rewrite = HtmlRewriter::new(
         Settings {
-            element_content_handlers: vec![
-                element!(
-                    selector,
-                    move |el| {
-                        suppressing.set(false);
-                        let end_suppress = suppressing.clone();
-                        let end_closing = synthetic_closing.clone();
-                        el.on_end_tag(move |end| {
-                            end_closing.set(Some(format!("</{}>", end.name())));
-                            end_suppress.set(true);
-                            Ok(())
-                        })?;
-                        Ok(())
-                    }
-                ),
-            ],
+            element_content_handlers: vec![element!(selector, move |el| {
+                suppressing.set(false);
+                let end_suppress = suppressing.clone();
+                let end_closing = synthetic_closing.clone();
+                el.on_end_tag(move |end| {
+                    end_closing.set(Some(format!("</{}>", end.name())));
+                    end_suppress.set(true);
+                    Ok(())
+                })?;
+                Ok(())
+            })],
             ..Settings::default()
         },
         |c: &[u8]| {
@@ -156,6 +146,5 @@ impl PipelineCommand for CatHtmlCommand {
             mime_type: "text/html".to_string(),
             contents: norm_html_file(html_str),
         }))
-
     }
 }

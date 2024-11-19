@@ -95,12 +95,14 @@ struct EnsureBugUrlFilter;
 
 impl Filter for EnsureBugUrlFilter {
     fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
-
         let s = input.to_kstr();
         if s.starts_with(&"http") {
             Ok(Value::scalar(s.to_string()))
         } else {
-            Ok(Value::scalar(format!("https://bugzilla.mozilla.org/show_bug.cgi?id={}", s)))
+            Ok(Value::scalar(format!(
+                "https://bugzilla.mozilla.org/show_bug.cgi?id={}",
+                s
+            )))
         }
     }
 }

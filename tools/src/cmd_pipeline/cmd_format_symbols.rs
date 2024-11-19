@@ -1,6 +1,6 @@
-use std::collections::{VecDeque, HashMap, HashSet};
 use std::cmp::Ordering;
-use std::hash::{Hash, Hasher, DefaultHasher};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
@@ -9,20 +9,15 @@ use serde_json::{from_str, Value};
 
 use super::{
     interface::{
-        PipelineCommand, PipelineValues, SymbolTreeTable,
+        PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolTreeTable, SymbolTreeTableField,
+        SymbolTreeTableFieldOffsetAndSize, SymbolTreeTableFieldType, SymbolTreeTableItem,
         SymbolTreeTableList, SymbolTreeTableNode,
-        SymbolTreeTableItem,
-        SymbolTreeTableField, SymbolTreeTableFieldType,
-        SymbolTreeTableFieldOffsetAndSize,
-        SymbolCrossrefInfo,
     },
-    symbol_graph::{
-        DerivedSymbolInfo, SymbolGraphNodeId,
-    },
+    symbol_graph::{DerivedSymbolInfo, SymbolGraphNodeId},
 };
 
 use crate::file_format::analysis::{
-    StructuredFieldInfo, StructuredBitPositionInfo, AnalysisStructured,
+    AnalysisStructured, StructuredBitPositionInfo, StructuredFieldInfo,
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -108,14 +103,22 @@ struct Field {
 }
 
 impl Field {
-    fn new(class_id: ClassId, class_traversal_id: TraversalId,
-           class_offset: u32, class_size: Option<u32>, field_id: FieldId,
-           field_type_syms: String,
-           struct_def_path: &Option<String>, identifier_lineno: u64,
-           info: &StructuredFieldInfo) -> Self {
-        let (def_path, start_lineno, end_lineno) =
-            Self::parse_path_and_line_range(info.line_range.to_string(),
-                                            struct_def_path, identifier_lineno);
+    fn new(
+        class_id: ClassId,
+        class_traversal_id: TraversalId,
+        class_offset: u32,
+        class_size: Option<u32>,
+        field_id: FieldId,
+        field_type_syms: String,
+        struct_def_path: &Option<String>,
+        identifier_lineno: u64,
+        info: &StructuredFieldInfo,
+    ) -> Self {
+        let (def_path, start_lineno, end_lineno) = Self::parse_path_and_line_range(
+            info.line_range.to_string(),
+            struct_def_path,
+            identifier_lineno,
+        );
 
         Self {
             class_id: class_id,
@@ -137,8 +140,11 @@ impl Field {
         }
     }
 
-    fn parse_path_and_line_range(s: String, struct_def_path: &Option<String>,
-                                 identifier_lineno: u64) -> (String, u64, u64) {
+    fn parse_path_and_line_range(
+        s: String,
+        struct_def_path: &Option<String>,
+        identifier_lineno: u64,
+    ) -> (String, u64, u64) {
         match s.split_once("#") {
             Some((path, range)) => {
                 let def_path = if path.is_empty() {
@@ -150,28 +156,33 @@ impl Field {
                 };
 
                 match range.split_once("-") {
-                    Some((start, end)) => {
-                        (def_path,
-                         u64::from_str_radix(start, 10).unwrap_or(identifier_lineno),
-                         u64::from_str_radix(end, 10).unwrap_or(identifier_lineno))
-                    }
-                    None => {
-                        (def_path,
-                         u64::from_str_radix(range, 10).unwrap_or(identifier_lineno),
-                         u64::from_str_radix(range, 10).unwrap_or(identifier_lineno))
-                    },
+                    Some((start, end)) => (
+                        def_path,
+                        u64::from_str_radix(start, 10).unwrap_or(identifier_lineno),
+                        u64::from_str_radix(end, 10).unwrap_or(identifier_lineno),
+                    ),
+                    None => (
+                        def_path,
+                        u64::from_str_radix(range, 10).unwrap_or(identifier_lineno),
+                        u64::from_str_radix(range, 10).unwrap_or(identifier_lineno),
+                    ),
                 }
             }
-            None => {
-                (struct_def_path.clone().unwrap_or("".to_string()),
-                 identifier_lineno, identifier_lineno)
-            }
+            None => (
+                struct_def_path.clone().unwrap_or("".to_string()),
+                identifier_lineno,
+                identifier_lineno,
+            ),
         }
     }
 
-    fn new_vtable(class_id: ClassId, class_traversal_id: TraversalId,
-                  class_offset: u32, class_size: u32,
-                  size_bytes: u32) -> Self {
+    fn new_vtable(
+        class_id: ClassId,
+        class_traversal_id: TraversalId,
+        class_offset: u32,
+        class_size: u32,
+        size_bytes: u32,
+    ) -> Self {
         Self {
             class_id: class_id,
             class_traversal_id: class_traversal_id,
@@ -215,10 +226,8 @@ impl FieldsWithHash {
             }
 
             match (&a.bit_positions, &b.bit_positions) {
-                (Some(a_pos), Some(b_pos)) => {
-                    a_pos.begin.cmp(&b_pos.begin)
-                }
-                _ => byte_result
+                (Some(a_pos), Some(b_pos)) => a_pos.begin.cmp(&b_pos.begin),
+                _ => byte_result,
             }
         });
     }
@@ -232,10 +241,14 @@ impl FieldsWithHash {
         for index in 0..len {
             if self.fields[index].offset_bytes > last_end_offset {
                 if index != last_index {
-                    if self.fields[last_index].class_traversal_id != self.fields[index].class_traversal_id {
-                        if let Some(end_offset) = &self.fields[last_index].class_end_offset.clone() {
+                    if self.fields[last_index].class_traversal_id
+                        != self.fields[index].class_traversal_id
+                    {
+                        if let Some(end_offset) = &self.fields[last_index].class_end_offset.clone()
+                        {
                             if last_end_offset < *end_offset {
-                                self.fields[last_index].end_padding_bytes = Some(end_offset - last_end_offset);
+                                self.fields[last_index].end_padding_bytes =
+                                    Some(end_offset - last_end_offset);
                             }
                             last_end_offset = *end_offset;
                         }
@@ -245,7 +258,8 @@ impl FieldsWithHash {
                 }
 
                 if self.fields[index].offset_bytes > last_end_offset {
-                    self.fields[index].hole_bytes = Some(self.fields[index].offset_bytes - last_end_offset);
+                    self.fields[index].hole_bytes =
+                        Some(self.fields[index].offset_bytes - last_end_offset);
                 }
             }
 
@@ -353,10 +367,10 @@ impl Class {
                         if !field_def_paths.contains(&field.def_path) {
                             field_def_paths.push(field.def_path.clone());
                         }
-                    },
+                    }
                     None => {
                         field_variants.push(None);
-                    },
+                    }
                 }
             }
 
@@ -431,7 +445,8 @@ impl PlatformMap {
 
         let platform_id = PlatformId(self.platform_name_to_id.len() as u32);
         self.platform_id_to_name.push(platform.clone());
-        self.platform_name_to_id.insert(platform, platform_id.clone());
+        self.platform_name_to_id
+            .insert(platform, platform_id.clone());
 
         platform_id
     }
@@ -458,7 +473,6 @@ impl PlatformMap {
             .map(|(i, _)| PlatformId(i as u32))
             .collect()
     }
-
 
     fn get_name(&self, platform_id: &PlatformId) -> String {
         self.platform_id_to_name[platform_id.0 as usize].clone()
@@ -503,7 +517,8 @@ impl FieldsPerPlatform {
             return;
         }
 
-        self.fields_per_platform.insert(platform_id.clone(), FieldsWithHash::new_with_field(field));
+        self.fields_per_platform
+            .insert(platform_id.clone(), FieldsWithHash::new_with_field(field));
     }
 
     // Once all fields are populated, process them for further operation.
@@ -517,7 +532,10 @@ impl FieldsPerPlatform {
         }
     }
 
-    fn group_platforms(&self, platform_map: &PlatformMap) -> Vec<(PlatformGroupId, Vec<PlatformId>)> {
+    fn group_platforms(
+        &self,
+        platform_map: &PlatformMap,
+    ) -> Vec<(PlatformGroupId, Vec<PlatformId>)> {
         if self.fields_per_platform.is_empty() {
             // If all fields are platform-agnostic, simply return them.
             return vec![(PlatformGroupId(0), platform_map.platform_ids())];
@@ -538,7 +556,7 @@ impl FieldsPerPlatform {
 
             let result = a_order.cmp(&b_order);
             if result != Ordering::Equal {
-                return result
+                return result;
             }
 
             a_name.cmp(&b_name)
@@ -567,9 +585,14 @@ impl FieldsPerPlatform {
             .collect()
     }
 
-    fn get_fields_for_platforms<'a>(&'a self, platform_ids: &Vec<PlatformId>) -> Option<&'a Vec<Field>> {
+    fn get_fields_for_platforms<'a>(
+        &'a self,
+        platform_ids: &Vec<PlatformId>,
+    ) -> Option<&'a Vec<Field>> {
         let platform_id = &platform_ids[0];
-        self.fields_per_platform.get(&platform_id).map(|fields| &fields.fields)
+        self.fields_per_platform
+            .get(&platform_id)
+            .map(|fields| &fields.fields)
     }
 }
 
@@ -656,7 +679,6 @@ impl SupersMap {
     }
 }
 
-
 struct ClassMap {
     // All processed classes.
     class_map: HashMap<TraversalId, Class>,
@@ -693,8 +715,11 @@ impl ClassMap {
         }
     }
 
-    async fn populate(&mut self, nom_sym_info: SymbolCrossrefInfo,
-                      server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
+    async fn populate(
+        &mut self,
+        nom_sym_info: SymbolCrossrefInfo,
+        server: &Box<dyn AbstractServer + Send + Sync>,
+    ) -> Result<()> {
         let root_sym_id = self.populate_platform_map(nom_sym_info, server).await?;
 
         self.root_class_id = Some(root_sym_id.clone());
@@ -724,10 +749,7 @@ impl ClassMap {
             };
             let struct_def_path = sym_info.get_def_path().map(|s| s.clone());
 
-            let cls = Class::new(
-                class_id.clone(),
-                structured.pretty.to_string(),
-            );
+            let cls = Class::new(class_id.clone(), structured.pretty.to_string());
 
             let traversal_id = TraversalId(traversal_index);
 
@@ -754,15 +776,23 @@ impl ClassMap {
                         if let Some(platform_id) = &maybe_platform_id {
                             let offset = item.get_offset(&platform_id);
                             let field = Field::new_vtable(
-                                class_id.clone(), traversal_id.clone(),
-                                offset, class_size, size_bytes.clone());
+                                class_id.clone(),
+                                traversal_id.clone(),
+                                offset,
+                                class_size,
+                                size_bytes.clone(),
+                            );
                             fields_per_platform.add_field(&platform_id, field.clone());
                         } else {
                             for platform_id in item.platforms() {
                                 let offset = item.get_offset(&platform_id);
                                 let field = Field::new_vtable(
-                                    class_id.clone(), traversal_id.clone(),
-                                    offset, class_size, size_bytes.clone());
+                                    class_id.clone(),
+                                    traversal_id.clone(),
+                                    offset,
+                                    class_size,
+                                    size_bytes.clone(),
+                                );
                                 fields_per_platform.add_field(&platform_id, field.clone());
                             }
                         }
@@ -774,7 +804,8 @@ impl ClassMap {
                 }
 
                 for super_info in &s.supers {
-                    let (super_id, _) = self.stt
+                    let (super_id, _) = self
+                        .stt
                         .node_set
                         .ensure_symbol(&super_info.sym, server, depth + 1)
                         .await?;
@@ -785,18 +816,27 @@ impl ClassMap {
 
                     if let Some(platform_id) = &maybe_platform_id {
                         let offset = item.get_offset(&platform_id);
-                        supers.add(super_id.clone(), platform_id.clone(), offset + super_info.offset_bytes);
+                        supers.add(
+                            super_id.clone(),
+                            platform_id.clone(),
+                            offset + super_info.offset_bytes,
+                        );
                     } else {
                         for platform_id in item.platforms() {
                             let offset = item.get_offset(&platform_id);
-                            supers.add(super_id.clone(), platform_id.clone(), offset + super_info.offset_bytes);
+                            supers.add(
+                                super_id.clone(),
+                                platform_id.clone(),
+                                offset + super_info.offset_bytes,
+                            );
                         }
                     }
                 }
 
                 for field in s.fields.clone() {
                     let (field_id, field_lineno) = {
-                        let (field_id, field_info) = self.stt
+                        let (field_id, field_info) = self
+                            .stt
                             .node_set
                             .ensure_symbol(&field.sym, server, depth + 1)
                             .await?;
@@ -810,7 +850,8 @@ impl ClassMap {
                     // Add field type to the jumprefs, but we don't use the
                     // returned info.
                     if !field.type_sym.is_empty() {
-                        let _ = self.stt
+                        let _ = self
+                            .stt
                             .node_set
                             .ensure_symbol(&field.type_sym, server, depth + 1)
                             .await?;
@@ -823,7 +864,8 @@ impl ClassMap {
                             continue;
                         }
 
-                        let _ = self.stt
+                        let _ = self
+                            .stt
                             .node_set
                             .ensure_symbol(&info.sym, server, depth + 1)
                             .await?;
@@ -832,27 +874,37 @@ impl ClassMap {
                         field_type_syms_set.insert(info.sym.clone());
                     }
 
-                    let field_type_syms = field_type_syms_vec
-                        .iter()
-                        .join(",");
+                    let field_type_syms = field_type_syms_vec.iter().join(",");
 
                     if let Some(platform_id) = &maybe_platform_id {
                         let offset = item.get_offset(&platform_id);
-                        let field = Field::new(class_id.clone(), traversal_id.clone(),
-                                               offset, s.size_bytes.clone(),
-                                               field_id.clone(), field_type_syms,
-                                               &struct_def_path, field_lineno,
-                                               &field);
+                        let field = Field::new(
+                            class_id.clone(),
+                            traversal_id.clone(),
+                            offset,
+                            s.size_bytes.clone(),
+                            field_id.clone(),
+                            field_type_syms,
+                            &struct_def_path,
+                            field_lineno,
+                            &field,
+                        );
                         self.populate_file_lines(&field.def_path, server).await?;
                         fields_per_platform.add_field(&platform_id, field.clone());
                     } else {
                         for platform_id in item.platforms() {
                             let offset = item.get_offset(&platform_id);
-                            let field = Field::new(class_id.clone(), traversal_id.clone(),
-                                                   offset, s.size_bytes.clone(),
-                                                   field_id.clone(), field_type_syms.clone(),
-                                                   &struct_def_path, field_lineno,
-                                                   &field);
+                            let field = Field::new(
+                                class_id.clone(),
+                                traversal_id.clone(),
+                                offset,
+                                s.size_bytes.clone(),
+                                field_id.clone(),
+                                field_type_syms.clone(),
+                                &struct_def_path,
+                                field_lineno,
+                                &field,
+                            );
                             self.populate_file_lines(&field.def_path, server).await?;
                             fields_per_platform.add_field(&platform_id, field.clone());
                         }
@@ -888,8 +940,11 @@ impl ClassMap {
         Ok(())
     }
 
-    async fn populate_file_lines(&mut self, path: &String,
-                                 server: &Box<dyn AbstractServer + Send + Sync>) -> Result<()> {
+    async fn populate_file_lines(
+        &mut self,
+        path: &String,
+        server: &Box<dyn AbstractServer + Send + Sync>,
+    ) -> Result<()> {
         if path.is_empty() {
             return Ok(());
         }
@@ -911,7 +966,7 @@ impl ClassMap {
                 for (sym, info) in syms {
                     self.stt.extra_syms.insert(sym, info);
                 }
-            },
+            }
             Err(_) => {}
         }
 
@@ -927,17 +982,23 @@ impl ClassMap {
 
         // See clang TagTypeKind.
         // https://clang.llvm.org/doxygen/namespaceclang.html#a9237bdb3cf715b9bff8bcb3172635548
-        if structured.kind != "struct" && structured.kind != "__interface" &&
-           structured.kind != "union" && structured.kind != "class" &&
-           structured.kind != "enum" {
+        if structured.kind != "struct"
+            && structured.kind != "__interface"
+            && structured.kind != "union"
+            && structured.kind != "class"
+            && structured.kind != "enum"
+        {
             return None;
         }
 
         Some(structured)
     }
 
-    async fn populate_platform_map(&mut self, nom_sym_info: SymbolCrossrefInfo,
-                                   server: &Box<dyn AbstractServer + Send + Sync>) -> Result<SymbolGraphNodeId> {
+    async fn populate_platform_map(
+        &mut self,
+        nom_sym_info: SymbolCrossrefInfo,
+        server: &Box<dyn AbstractServer + Send + Sync>,
+    ) -> Result<SymbolGraphNodeId> {
         let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
             nom_sym_info.symbol,
             nom_sym_info.crossref_info,
@@ -955,7 +1016,8 @@ impl ClassMap {
             };
 
             for super_info in &structured.supers {
-                let (super_id, _) = self.stt
+                let (super_id, _) = self
+                    .stt
                     .node_set
                     .ensure_symbol(&super_info.sym, server, depth + 1)
                     .await?;
@@ -991,9 +1053,10 @@ impl ClassMap {
             let is_root = cls.id == self.root_class_id.as_ref().unwrap().clone();
 
             let mut class_node = SymbolTreeTableNode::new(
-                format!("{}{}",
-                        cls.name,
-                        if !is_root { " (base class)" } else { "" },
+                format!(
+                    "{}{}",
+                    cls.name,
+                    if !is_root { " (base class)" } else { "" },
                 ),
                 self.stt.node_set.get(&cls.id).symbol.to_string(),
             );
@@ -1041,7 +1104,7 @@ impl ClassMap {
                                         ""
                                     }
                                 )));
-                            },
+                            }
                             None => {
                                 if maybe_field.is_none() {
                                     holes.push(None);
@@ -1064,11 +1127,12 @@ impl ClassMap {
 
                             match &field.field_id {
                                 Some(field_id) => {
-                                    field_symbols = self.stt.node_set.get(&field_id).symbol.to_string();
+                                    field_symbols =
+                                        self.stt.node_set.get(&field_id).symbol.to_string();
                                 }
                                 None => {}
                             }
-                            break
+                            break;
                         }
                         None => {}
                     }
@@ -1085,20 +1149,17 @@ impl ClassMap {
                             if !type_label_set.contains(&field.type_pretty) {
                                 type_label_set.insert(field.type_pretty.clone());
 
-                                field_item.types.push(
-                                    SymbolTreeTableFieldType::new(
-                                        field.type_pretty.clone(),
-                                        match &field.field_type_syms {
-                                            Some(type_syms) => type_syms.clone(),
-                                            None => "".to_string(),
-                                        }
-                                    )
-                                );
+                                field_item.types.push(SymbolTreeTableFieldType::new(
+                                    field.type_pretty.clone(),
+                                    match &field.field_type_syms {
+                                        Some(type_syms) => type_syms.clone(),
+                                        None => "".to_string(),
+                                    },
+                                ));
                             }
 
-                            let key = (field.def_path.clone(),
-                                       field.start_lineno,
-                                       field.end_lineno);
+                            let key =
+                                (field.def_path.clone(), field.start_lineno, field.end_lineno);
                             if !path_and_range_set.contains(&key) {
                                 path_and_range_set.insert(key);
 
@@ -1111,13 +1172,13 @@ impl ClassMap {
                                         if let Some(line) = lines.get(index) {
                                             field_item.lines.push(line.clone());
                                         }
-                                     }
+                                    }
                                 }
                             }
 
                             if let Some(pos) = &field.bit_positions {
-                                field_item.offset_and_size.push(
-                                    Some(SymbolTreeTableFieldOffsetAndSize::new(
+                                field_item.offset_and_size.push(Some(
+                                    SymbolTreeTableFieldOffsetAndSize::new(
                                         format!(
                                             "@ {:#x} + {} bit{}",
                                             field.offset_bytes,
@@ -1128,22 +1189,16 @@ impl ClassMap {
                                             "{} bit{}",
                                             pos.width,
                                             if pos.width > 1 { "s" } else { "" }
-                                        )
-                                    ))
-                                )
-                            } else {
-                                field_item.offset_and_size.push(
-                                    Some(SymbolTreeTableFieldOffsetAndSize::new(
-                                        format!(
-                                            "@ {:#x}",
-                                            field.offset_bytes,
                                         ),
-                                        format!(
-                                            "{}",
-                                            field.size_bytes.unwrap_or(0),
-                                        )
-                                    ))
-                                );
+                                    ),
+                                ))
+                            } else {
+                                field_item.offset_and_size.push(Some(
+                                    SymbolTreeTableFieldOffsetAndSize::new(
+                                        format!("@ {:#x}", field.offset_bytes,),
+                                        format!("{}", field.size_bytes.unwrap_or(0),),
+                                    ),
+                                ));
                             }
                         }
                         None => {
@@ -1152,7 +1207,9 @@ impl ClassMap {
                     }
                 }
 
-                class_node.items.push(SymbolTreeTableItem::Field(field_item));
+                class_node
+                    .items
+                    .push(SymbolTreeTableItem::Field(field_item));
 
                 let mut has_end_padding = false;
                 for maybe_field in field_variants {
@@ -1181,7 +1238,7 @@ impl ClassMap {
                                     end_padding_bytes,
                                     if end_padding_bytes > 1 { "s" } else { "" }
                                 )));
-                            },
+                            }
                             None => {
                                 if maybe_field.is_none() {
                                     end_paddings.push(None);
@@ -1190,7 +1247,9 @@ impl ClassMap {
                         }
                     }
 
-                    class_node.items.push(SymbolTreeTableItem::EndPadding(end_paddings));
+                    class_node
+                        .items
+                        .push(SymbolTreeTableItem::EndPadding(end_paddings));
                 }
             }
 

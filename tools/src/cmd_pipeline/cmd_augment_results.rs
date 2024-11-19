@@ -1,12 +1,14 @@
 use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use async_trait::async_trait;
-use lol_html::{element, HtmlRewriter, Settings};
 use clap::Parser;
+use lol_html::{element, HtmlRewriter, Settings};
 use ustr::UstrMap;
 
 use super::interface::{PipelineCommand, PipelineValues};
-use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, HtmlFileRoot};
+use crate::abstract_server::{
+    AbstractServer, ErrorDetails, ErrorLayer, HtmlFileRoot, Result, ServerError,
+};
 
 /// Augment a FlattenedResultsBundle by scraping the rendered HTML output files
 /// for lines of interest plus any context, plus applying any predicates that
@@ -84,7 +86,9 @@ impl PipelineCommand for AugmentResultsCommand {
             // production.  Or maybe production really wants the performance?
             // Production certainly should have the RAM for our known worst
             // case scenarios.
-            let html_str = server.fetch_html(HtmlFileRoot::FormattedFile, &path).await?;
+            let html_str = server
+                .fetch_html(HtmlFileRoot::FormattedFile, &path)
+                .await?;
 
             let file_lines = path_line_contents
                 .entry(path.clone())
@@ -126,34 +130,28 @@ impl PipelineCommand for AugmentResultsCommand {
             let mut rewrite = HtmlRewriter::new(
                 Settings {
                     element_content_handlers: vec![
-                        element!(
-                            r#"div.nesting-container"#,
-                            move |el| {
-                                nesting_suppress.set(true);
-                                let end_suppress = nesting_suppress.clone();
-                                el.on_end_tag(move |_end| {
-                                    end_suppress.set(true);
-                                    Ok(())
-                                })?;
+                        element!(r#"div.nesting-container"#, move |el| {
+                            nesting_suppress.set(true);
+                            let end_suppress = nesting_suppress.clone();
+                            el.on_end_tag(move |_end| {
+                                end_suppress.set(true);
                                 Ok(())
-                            }
-                        ),
-                        element!(
-                            r#"div.source-line-with-number"#,
-                            |el| {
-                                suppressing.set(false);
-                                if let Some(id_str) = el.get_attribute("id") {
-                                    let id_parts: Vec<&str> = id_str.split("-").collect();
-                                    if id_parts.len() == 2 && id_parts[0] == "line" {
-                                        let lno = id_parts[1].parse().unwrap_or(0);
-                                        cur_line.set(lno);
-                                        want_cur_line.set(lines_to_show.contains(&lno));
-                                    }
+                            })?;
+                            Ok(())
+                        }),
+                        element!(r#"div.source-line-with-number"#, |el| {
+                            suppressing.set(false);
+                            if let Some(id_str) = el.get_attribute("id") {
+                                let id_parts: Vec<&str> = id_str.split("-").collect();
+                                if id_parts.len() == 2 && id_parts[0] == "line" {
+                                    let lno = id_parts[1].parse().unwrap_or(0);
+                                    cur_line.set(lno);
+                                    want_cur_line.set(lines_to_show.contains(&lno));
                                 }
-
-                                Ok(())
                             }
-                        )
+
+                            Ok(())
+                        }),
                     ],
                     ..Settings::default()
                 },

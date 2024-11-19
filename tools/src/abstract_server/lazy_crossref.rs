@@ -33,7 +33,7 @@
 
 use super::{local_index::LocalIndex, server_interface::Result};
 
-use serde_json::{Value};
+use serde_json::Value;
 
 /// Perform the actual lazy cross-reference process.
 ///

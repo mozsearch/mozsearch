@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::{File, self};
+use std::fs::{self, File};
 use std::io::BufReader;
 use std::io::Read;
 use std::str;
@@ -172,7 +172,10 @@ impl Config {
     /// Synchronously read the contents of a file in the given tree's config
     /// directory, falling back to `MOZSEARCH/config_defaults/FILENAME` if
     /// available.
-    pub fn read_tree_config_file_with_default(&self, filename: &str) -> Result<String, &'static str> {
+    pub fn read_tree_config_file_with_default(
+        &self,
+        filename: &str,
+    ) -> Result<String, &'static str> {
         let repo_specific_path = format!("{}/{}", self.config_repo_path, filename);
         if let Ok(data_str) = std::fs::read_to_string(repo_specific_path) {
             return Ok(data_str);
@@ -187,7 +190,12 @@ impl Config {
     /// Synchronously attempt to locate and read the contents of the given file
     /// at the given root using the given tree as context.  Documentation on the
     /// roots can be found on `SourceDescriptor`.
-    pub fn maybe_read_file_from_given_root(&self, tree: &str, root: &str, file: &str) -> Result<Option<String>, &'static str> {
+    pub fn maybe_read_file_from_given_root(
+        &self,
+        tree: &str,
+        root: &str,
+        file: &str,
+    ) -> Result<Option<String>, &'static str> {
         let tree = self.trees.get(tree).unwrap();
 
         let path_root = match root {
@@ -209,7 +217,7 @@ impl Config {
                 // dynamic strings, but for these static strings, let's have fun
                 // with how useless this is!
                 _ => Err("some kind of read error I guess"),
-            }
+            },
             _ => Ok(None),
         }
     }
@@ -247,8 +255,12 @@ pub fn index_blame(
     (blame_map, hg_map)
 }
 
-pub fn load(config_path: &str, need_indexes: bool, only_tree: Option<&str>,
-            url_map_path: Option<String>) -> Config {
+pub fn load(
+    config_path: &str,
+    need_indexes: bool,
+    only_tree: Option<&str>,
+    url_map_path: Option<String>,
+) -> Config {
     let config_file = File::open(config_path).unwrap();
     let mut reader = BufReader::new(&config_file);
     let mut input = String::new();

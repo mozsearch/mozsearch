@@ -1,13 +1,11 @@
-use std::{
-    env::args_os,
-};
+use std::env::args_os;
 
-use serde_json::{to_string_pretty, Value, to_value};
+use serde_json::{to_string_pretty, to_value, Value};
 use tools::{
     abstract_server::{ErrorDetails, ErrorLayer, ServerError},
     cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues},
 };
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[tokio::main]
 async fn main() {

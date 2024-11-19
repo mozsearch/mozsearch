@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use clap::Args;
 
-use super::interface::{
-    PipelineCommand, PipelineValues, JsonValueList, JsonValue,
-};
+use super::interface::{JsonValue, JsonValueList, PipelineCommand, PipelineValues};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
@@ -44,12 +42,7 @@ impl PipelineCommand for JumprefLookupCommand {
             // Right now we're assuming that we're the first command in the
             // pipeline so that we would have no inputs if someone wants to use
             // arguments...
-            PipelineValues::Void => self
-                .args
-                .symbols
-                .iter()
-                .map(|sym| sym.clone())
-                .collect(),
+            PipelineValues::Void => self.args.symbols.iter().map(|sym| sym.clone()).collect(),
             _ => {
                 return Err(ServerError::StickyProblem(ErrorDetails {
                     layer: ErrorLayer::ConfigLayer,
@@ -64,10 +57,8 @@ impl PipelineCommand for JumprefLookupCommand {
             jumpref_values.push(JsonValue { value: info });
         }
 
-        Ok(PipelineValues::JsonValueList(
-            JsonValueList {
-                values: jumpref_values,
-            },
-        ))
+        Ok(PipelineValues::JsonValueList(JsonValueList {
+            values: jumpref_values,
+        }))
     }
 }

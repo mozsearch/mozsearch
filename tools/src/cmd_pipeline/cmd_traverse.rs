@@ -537,14 +537,22 @@ impl PipelineCommand for TraverseCommand {
                             EdgeKind::IPC,
                         ),
                         // For uses, draw an inbound IPC edge from the "send" slot via the IDL symbol
-                        (_, BindingSlotKind::Recv) => {
-                            (self.args.edge == "uses", true, Some("send"), false, EdgeKind::IPC)
-                        }
+                        (_, BindingSlotKind::Recv) => (
+                            self.args.edge == "uses",
+                            true,
+                            Some("send"),
+                            false,
+                            EdgeKind::IPC,
+                        ),
                         // For IDL bindings, we want an upward (inbound) edge from the IDL symbol
-                        (BindingOwnerLang::Idl, _) => (true, false, None, false, EdgeKind::Implementation),
+                        (BindingOwnerLang::Idl, _) => {
+                            (true, false, None, false, EdgeKind::Implementation)
+                        }
                         // Cross-language binding class relationships are weird because
                         // the bindings inside are bidirectional, so let's ignore them.
-                        (_, BindingSlotKind::Class) => (false, false, None, false, EdgeKind::Default),
+                        (_, BindingSlotKind::Class) => {
+                            (false, false, None, false, EdgeKind::Default)
+                        }
                         // This leaves us with cross-language bindings where the slot owner is always the
                         // implementation symbol so slotOwner is always aligned with "callees"; the "uses"
                         // edges hammen when processing bindingSlots.
@@ -662,7 +670,12 @@ impl PipelineCommand for TraverseCommand {
                             // For cross-language wrappers the implementing language is the slotOwner
                             // so the binding slots are edges to the binding.  That is, the slotOwner
                             // constitutes a "uses" edge and the slots constitute a "callees" edge.
-                            (_, _) => (self.args.edge == "uses", true, false, EdgeKind::CrossLanguage),
+                            (_, _) => (
+                                self.args.edge == "uses",
+                                true,
+                                false,
+                                EdgeKind::CrossLanguage,
+                            ),
                         };
                     if should_traverse {
                         // Skipping is conditional on the decision to traverse.
@@ -688,7 +701,6 @@ impl PipelineCommand for TraverseCommand {
                                 vec![],
                                 &mut graph,
                             );
-
                         }
                         if next_depth < max_depth && considered.insert(slot.sym.clone()) {
                             trace!(sym = slot.sym.as_str(), "scheduling bind slot sym");

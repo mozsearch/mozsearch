@@ -593,10 +593,8 @@ impl RepoIngestion {
                     let maybe_description = describe_file(&contents, path_wrapper, &format);
                     if let Some(ref description) = maybe_description {
                         // We currently want to output
-                        let description_fname = format!(
-                            "{}/description/{}",
-                            tree_config.paths.index_path, file_path
-                        );
+                        let description_fname =
+                            format!("{}/description/{}", tree_config.paths.index_path, file_path);
                         let description_file = match File::create(&description_fname) {
                             Ok(df) => df,
                             Err(e) => {
