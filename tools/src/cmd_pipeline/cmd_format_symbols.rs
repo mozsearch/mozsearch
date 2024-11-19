@@ -158,13 +158,13 @@ impl Field {
                 match range.split_once("-") {
                     Some((start, end)) => (
                         def_path,
-                        u64::from_str_radix(start, 10).unwrap_or(identifier_lineno),
-                        u64::from_str_radix(end, 10).unwrap_or(identifier_lineno),
+                        start.parse().unwrap_or(identifier_lineno),
+                        end.parse().unwrap_or(identifier_lineno),
                     ),
                     None => (
                         def_path,
-                        u64::from_str_radix(range, 10).unwrap_or(identifier_lineno),
-                        u64::from_str_radix(range, 10).unwrap_or(identifier_lineno),
+                        range.parse().unwrap_or(identifier_lineno),
+                        range.parse().unwrap_or(identifier_lineno),
                     ),
                 }
             }
