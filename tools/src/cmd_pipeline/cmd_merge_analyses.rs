@@ -1,10 +1,8 @@
 use async_trait::async_trait;
-use serde_json::{from_str, Value};
 use clap::Args;
+use serde_json::{from_str, Value};
 
-use super::interface::{
-    JsonRecords, PipelineCommand, PipelineValues,
-};
+use super::interface::{JsonRecords, PipelineCommand, PipelineValues};
 use crate::{
     abstract_server::{AbstractServer, Result, ServerError},
     cmd_pipeline::interface::JsonRecordsByFile,
@@ -43,7 +41,12 @@ impl PipelineCommand for MergeAnalysesCommand {
             .args
             .files
             .iter()
-            .map(|f| server.translate_path(crate::abstract_server::SearchfoxIndexRoot::CompressedAnalysis, f))
+            .map(|f| {
+                server.translate_path(
+                    crate::abstract_server::SearchfoxIndexRoot::CompressedAnalysis,
+                    f,
+                )
+            })
             .collect();
 
         let mut merged_output = Vec::new();

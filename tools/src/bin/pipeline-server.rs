@@ -7,7 +7,7 @@ use std::{
 use axum::{
     extract::{Path, Query},
     http::{HeaderMap, StatusCode},
-    response::{IntoResponse, Response, Html},
+    response::{Html, IntoResponse, Response},
     routing::get,
     Extension, Json, Router,
 };
@@ -17,8 +17,9 @@ use serde_json::Value;
 use tools::{
     abstract_server::{make_all_local_servers, AbstractServer, ServerError},
     cmd_pipeline::{builder::build_pipeline_graph, PipelineValues},
+    logging::{init_logging, LoggedSpan},
     query::chew_query::chew_query,
-    templating::builder::build_and_parse_query_results, logging::{LoggedSpan, init_logging},
+    templating::builder::build_and_parse_query_results,
 };
 use tracing::Instrument;
 
@@ -42,7 +43,11 @@ async fn handle_query(
     }
 
     let maybe_log = params.contains_key("debug");
-    let logged_span: Option<LoggedSpan> = if maybe_log { Some(LoggedSpan::new_logged_span("query")) } else { None };
+    let logged_span: Option<LoggedSpan> = if maybe_log {
+        Some(LoggedSpan::new_logged_span("query"))
+    } else {
+        None
+    };
 
     let query = match params.get("q") {
         Some(q) => q,
@@ -86,7 +91,8 @@ async fn handle_query(
                 serde_json::to_string(&grb.symbols).unwrap_or_else(|_| "{}".to_string())
             }
             PipelineValues::SymbolTreeTableList(sttl) => {
-                serde_json::to_string(&sttl.unioned_node_sets_as_jumprefs()).unwrap_or_else(|_| "{}".to_string())
+                serde_json::to_string(&sttl.unioned_node_sets_as_jumprefs())
+                    .unwrap_or_else(|_| "{}".to_string())
             }
             _ => "{}".to_string(),
         };

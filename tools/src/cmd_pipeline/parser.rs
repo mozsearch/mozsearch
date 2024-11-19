@@ -53,13 +53,7 @@ pub struct ToolOpts {
     )]
     pub tree: String,
 
-    #[clap(
-        long,
-        short,
-        value_parser,
-        value_enum,
-        default_value = "concise"
-    )]
+    #[clap(long, short, value_parser, value_enum, default_value = "concise")]
     pub output_format: OutputFormat,
 
     #[clap(subcommand)]

@@ -1,13 +1,14 @@
 use std::collections::{HashSet, VecDeque};
 
 use async_trait::async_trait;
-use serde_json::Value;
 use clap::Args;
-use tracing::{trace};
+use serde_json::Value;
+use tracing::trace;
 use ustr::ustr;
 
 use super::interface::{
-    OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolMetaFlags, SymbolRelation
+    OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolCrossrefInfo,
+    SymbolCrossrefInfoList, SymbolMetaFlags, SymbolRelation,
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -192,7 +193,7 @@ impl PipelineCommand for CrossrefExpandCommand {
                             }
                             limits.global_count += arr.len() as u32;
                         }
-                        trace!(edge=ptr, count=arr.len(), "considering");
+                        trace!(edge = ptr, count = arr.len(), "considering");
                         for wrapped in arr.iter() {
                             if let Value::String(sym) = xfunc(wrapped) {
                                 let usym = ustr(sym);

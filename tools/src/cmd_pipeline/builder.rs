@@ -18,7 +18,13 @@ use crate::{
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };
 
-use super::{cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand, cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand, cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand, cmd_webtest::WebtestCommand};
+use super::{
+    cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand,
+    cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand,
+    cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand,
+    cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand,
+    cmd_webtest::WebtestCommand,
+};
 use super::{
     cmd_cat_html::CatHtmlCommand,
     cmd_compile_results::CompileResultsCommand,
@@ -42,7 +48,10 @@ pub enum CommandSafetyLevel {
     WebSafety,
 }
 
-pub fn fab_command_from_opts(opts: ToolOpts, safety: CommandSafetyLevel) -> Result<Box<dyn PipelineCommand + Send + Sync>> {
+pub fn fab_command_from_opts(
+    opts: ToolOpts,
+    safety: CommandSafetyLevel,
+) -> Result<Box<dyn PipelineCommand + Send + Sync>> {
     match (opts.cmd, safety) {
         (Command::AugmentResults(ar), _) => Ok(Box::new(AugmentResultsCommand { args: ar })),
 
@@ -84,12 +93,14 @@ pub fn fab_command_from_opts(opts: ToolOpts, safety: CommandSafetyLevel) -> Resu
 
         (Command::Traverse(t), _) => Ok(Box::new(TraverseCommand { args: t })),
 
-        (Command::Webtest(t), CommandSafetyLevel::DangerousToolUseAllowed) => Ok(Box::new(WebtestCommand { args: t })),
+        (Command::Webtest(t), CommandSafetyLevel::DangerousToolUseAllowed) => {
+            Ok(Box::new(WebtestCommand { args: t }))
+        }
 
         _ => Err(ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::BadInput,
             message: "Command not allowed in this context".to_string(),
-        }))
+        })),
     }
 }
 
@@ -160,7 +171,10 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
         // test_check_insta, and we allow them to do raw pipeline stuff that we
         // do not want to expose to the web.  The pipeline-server uses
         // `build_pipeline_graph` below.  (Also, the "query" command )
-        commands.push(fab_command_from_opts(opts, CommandSafetyLevel::DangerousToolUseAllowed)?);
+        commands.push(fab_command_from_opts(
+            opts,
+            CommandSafetyLevel::DangerousToolUseAllowed,
+        )?);
     }
 
     Ok((

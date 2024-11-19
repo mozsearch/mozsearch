@@ -260,7 +260,7 @@ impl PipelineArgs {
                 if oth_pri > ptr.1 {
                     *ptr = (oth_val, oth_pri);
                 }
-        } else {
+            } else {
                 self.named_args.insert(key, (oth_val, oth_pri));
             }
         }

@@ -1,17 +1,15 @@
-use std::fs;
 use std::collections::HashMap;
-use std::thread;
-use std::time::{ Instant, Duration };
+use std::fs;
 use std::io::Write;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use clap::Args;
 use fantoccini::{Client, ClientBuilder};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use super::interface::{
-    PipelineCommand, PipelineValues,
-};
+use super::interface::{PipelineCommand, PipelineValues};
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
@@ -46,8 +44,8 @@ fn print_log(ty: &str, msg: String) {
     match ty {
         "DEBUG" => {
             spec.set_dimmed(true);
-        },
-        _ => {},
+        }
+        _ => {}
     }
 
     stderr.set_color(&spec).unwrap();
@@ -59,7 +57,9 @@ fn print_log(ty: &str, msg: String) {
 
 fn println_color(color: Color, msg: &str) {
     let mut stderr = StandardStream::stderr(ColorChoice::Always);
-    stderr.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
+    stderr
+        .set_color(ColorSpec::new().set_fg(Some(color)))
+        .unwrap();
     writeln!(&mut stderr, "{}", msg).unwrap();
     stderr.reset().unwrap();
 }
@@ -80,7 +80,9 @@ impl WebtestCommand {
         caps.insert("moz:firefoxOptions".to_string(), opts);
         let client = ClientBuilder::native()
             .capabilities(caps)
-            .connect("http://localhost:4444").await.map_err(|e| format!("{:?}", e))?;
+            .connect("http://localhost:4444")
+            .await
+            .map_err(|e| format!("{:?}", e))?;
 
         let result = self.run_tests(&client).await;
 
@@ -91,7 +93,10 @@ impl WebtestCommand {
         Ok(passed)
     }
 
-    async fn run_tests(&self, client: &Client) -> std::result::Result<bool, fantoccini::error::CmdError> {
+    async fn run_tests(
+        &self,
+        client: &Client,
+    ) -> std::result::Result<bool, fantoccini::error::CmdError> {
         let entire_start = Instant::now();
         let mut test_count = 0;
         let mut subtest_count = 0;
@@ -128,12 +133,12 @@ impl WebtestCommand {
             client.goto(url).await?;
 
             print_log("INFO", format!("Loading {}", path));
-            client.execute(
-                "window.TestHarness.loadTest(...arguments);",
-                vec![
-                    serde_json::json!(path)
-                ]
-            ).await?;
+            client
+                .execute(
+                    "window.TestHarness.loadTest(...arguments);",
+                    vec![serde_json::json!(path)],
+                )
+                .await?;
 
             let start = Instant::now();
             let mut failed = false;
@@ -142,10 +147,9 @@ impl WebtestCommand {
             let timeout = 30 * 1000;
 
             'test_loop: loop {
-                let log_value = client.execute(
-                    "return window.TestHarness.getNewLogs();",
-                    vec![]
-                ).await?;
+                let log_value = client
+                    .execute("return window.TestHarness.getNewLogs();", vec![])
+                    .await?;
                 let log: Vec<(String, String)> = serde_json::value::from_value(log_value)?;
                 for (ty, msg) in log {
                     if ty == "SUBTEST" {
@@ -162,7 +166,10 @@ impl WebtestCommand {
                         if !failed_log.contains_key(&path) {
                             failed_log.insert(path.clone(), vec![]);
                         }
-                        failed_log.get_mut(&path).unwrap().push((ty.clone(), msg.clone()));
+                        failed_log
+                            .get_mut(&path)
+                            .unwrap()
+                            .push((ty.clone(), msg.clone()));
                     }
                     if ty == "TEST_END" {
                         break 'test_loop;
@@ -194,8 +201,12 @@ impl WebtestCommand {
         eprintln!("");
         println_color(Color::Yellow, "Overall Summary");
         println_color(Color::Yellow, "===============");
-        eprintln!("Ran {} tests and {} subtests in {:.3}s.",
-                  test_count, subtest_count, elapsed_time.as_millis() as f64 / 1000.0);
+        eprintln!(
+            "Ran {} tests and {} subtests in {:.3}s.",
+            test_count,
+            subtest_count,
+            elapsed_time.as_millis() as f64 / 1000.0
+        );
         eprintln!("Passed: {} tests", test_count - failed_tests.len());
         eprintln!("Failed: {} tests", failed_tests.len());
         eprintln!("");

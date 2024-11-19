@@ -45,7 +45,10 @@ pub fn block_in_place_glob_tree(root: &str, glob: &str) -> Vec<(String, String)>
                 let rel_path = entry.path().strip_prefix(root_path).unwrap();
                 paths.push((
                     // We want a trailing slash for simplified string formatting.
-                    format!("{}/", rel_path.parent().unwrap().to_str().unwrap().to_string()),
+                    format!(
+                        "{}/",
+                        rel_path.parent().unwrap().to_str().unwrap().to_string()
+                    ),
                     rel_path.file_name().unwrap().to_str().unwrap().to_string(),
                 ));
             }

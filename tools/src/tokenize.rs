@@ -923,8 +923,8 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
 
         match tag_state {
             TagState::TagNone(plain_start) => {
-                let skip = (in_script_tag && !peek_ahead("/script")) ||
-                    (in_style_tag && !peek_ahead("/style"));
+                let skip = (in_script_tag && !peek_ahead("/script"))
+                    || (in_style_tag && !peek_ahead("/style"));
                 if ch == '<' && !skip {
                     if plain_start < start {
                         tokens.push(Token {
@@ -1660,9 +1660,7 @@ mod tests {
 
         check(
             "/foo/",
-            &vec![
-                ("/foo/", TokenKind::RegularExpressionLiteral),
-            ],
+            &vec![("/foo/", TokenKind::RegularExpressionLiteral)],
         );
         check(
             "v = /foo/;",
@@ -1868,7 +1866,10 @@ mod tests {
                 ("=", TokenKind::Punctuation),
                 (">", TokenKind::Punctuation),
                 ("{", TokenKind::Punctuation),
-                ("return", TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string()))),
+                (
+                    "return",
+                    TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())),
+                ),
                 ("/foo/", TokenKind::RegularExpressionLiteral),
                 (";", TokenKind::Punctuation),
                 ("}", TokenKind::Punctuation),

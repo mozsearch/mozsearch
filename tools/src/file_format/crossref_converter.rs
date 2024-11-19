@@ -131,7 +131,9 @@ pub fn determine_desired_extra_syms_from_jumpref(
                     // thoroughly) and the binding slot will reference the pure virtual decl that
                     // we upgrade to a def.  That's not useful, so we also want to traverse its
                     // overridenBy edges so we can provide go to the actual impl definition.
-                    (BindingSlotKind::Method, BindingSlotLang::Cpp) => JumprefTraversals::OverriddenBy,
+                    (BindingSlotKind::Method, BindingSlotLang::Cpp) => {
+                        JumprefTraversals::OverriddenBy
+                    }
                     _ => JumprefTraversals::empty(),
                 };
                 extra_syms.push((slot_info.sym.to_string(), next_step));

@@ -1,4 +1,3 @@
-
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -38,7 +37,6 @@ pub struct SummaryRecordRef {
     /// Summary records should never overlap, so sorting
     pub iso_week_range: (u16, u8, u8),
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TokenDeltaDetails {

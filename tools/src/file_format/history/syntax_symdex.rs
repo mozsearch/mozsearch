@@ -33,9 +33,7 @@ use super::syntax_files_struct::FileStructureRow;
 // than if we eventually want to handle overload / "stop symbol" semantics for
 // some reason.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SymdexHeader {
-
-}
+pub struct SymdexHeader {}
 
 /// The contents of a FileStructuredRow with a path added.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]

@@ -22,8 +22,8 @@ use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::per_file_info::FileLookupMap;
-use crate::languages::select_formatting;
 use crate::format::format_code;
+use crate::languages::select_formatting;
 
 pub mod livegrep {
     tonic::include_proto!("_");
@@ -184,8 +184,7 @@ impl AbstractServer for LocalIndex {
 
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
-        let full_path = self.translate_path(
-            SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
+        let full_path = self.translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
         let values = read_gzipped_ndjson_from_file(&full_path).await?;
         Ok(Box::pin(tokio_stream::iter(values)))
     }
@@ -193,8 +192,11 @@ impl AbstractServer for LocalIndex {
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
         let full_path = if norm_path.starts_with("__GENERATED__/") {
-            format!("{}/{}", self.config_paths.objdir_path,
-                    norm_path.strip_prefix("__GENERATED__/").unwrap())
+            format!(
+                "{}/{}",
+                self.config_paths.objdir_path,
+                norm_path.strip_prefix("__GENERATED__/").unwrap()
+            )
         } else {
             format!("{}/{}", self.config_paths.files_path, norm_path)
         };
@@ -208,8 +210,8 @@ impl AbstractServer for LocalIndex {
     async fn fetch_formatted_lines(&self, sf_path: &str) -> Result<(Vec<String>, String)> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
         let source = self.fetch_raw_source(sf_path).await?;
-        let analysis_path = self.translate_path(
-            SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
+        let analysis_path =
+            self.translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
         let analysis = read_analyses(&[analysis_path], &mut read_source);
 
         let jumpref_path = format!("{}/jumpref", self.config_paths.index_path);
@@ -223,7 +225,7 @@ impl AbstractServer for LocalIndex {
             select_formatting(sf_path),
             sf_path,
             source.as_str(),
-            &analysis
+            &analysis,
         );
 
         let lines = raw_lines.into_iter().map(|line| line.line).collect();

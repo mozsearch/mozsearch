@@ -1,8 +1,4 @@
-use crate::{
-    abstract_server::{
-        ErrorDetails, ErrorLayer, Result, ServerError,
-    },
-};
+use crate::abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError};
 
 pub fn write_file_ensuring_parent_dir(file_path: &str, contents: &str) -> Result<()> {
     let as_path = std::path::Path::new(file_path);

@@ -3,12 +3,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::timeline_common::{SummaryRecordRef, DetailRecordRef, SymbolSyntaxDeltaGroup};
+use super::timeline_common::{DetailRecordRef, SummaryRecordRef, SymbolSyntaxDeltaGroup};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct FileDeltaHeader {
-
-}
+pub struct FileDeltaHeader {}
 
 /// Details changes from a specific revision for the source file containing this
 /// record.  We do not currently

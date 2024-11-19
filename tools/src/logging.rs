@@ -170,7 +170,6 @@ pub fn init_logging() {
             }),
     );
 
-
     {
         let mut global_opt = LOG_GLOBAL.lock().unwrap();
         *global_opt = Some(LogGlobal { handle });

@@ -1,11 +1,9 @@
 use async_trait::async_trait;
+use clap::Args;
 use lazy_static::lazy_static;
-use lol_html::{
-    element, rewrite_str, RewriteStrSettings,
-};
+use lol_html::{element, rewrite_str, RewriteStrSettings};
 use regex::Regex;
 use serde_json::Value;
-use clap::Args;
 
 use super::interface::{
     JsonRecords, JsonRecordsByFile, JsonValue, PipelineCommand, PipelineValues,
@@ -51,13 +49,10 @@ fn norm_json_value(mut val: Value) -> Value {
 /// - Replacing data-i values with "NORM".
 fn norm_html_value(s: String) -> String {
     let element_content_handlers = vec![
-        element!(
-            r#"div.cov-strip, div.blame-strip"#,
-            |el| {
-                el.remove();
-                Ok(())
-            }
-        ),
+        element!(r#"div.cov-strip, div.blame-strip"#, |el| {
+            el.remove();
+            Ok(())
+        }),
         // As a transient thing, remove data-i entirely since this will allow us
         // to update the production checks before landing.  This rule can be
         // removed after we've transitioned as "data-i" should no longer exist.

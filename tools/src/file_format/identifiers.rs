@@ -65,7 +65,7 @@ fn demangle_name(name: &str) -> String {
 impl IdentMap {
     pub fn new(filename: &str) -> Option<IdentMap> {
         let file = match File::open(filename) {
-            Ok(file) => { file }
+            Ok(file) => file,
             Err(e) => {
                 warn!("Failed to open {}: {:?}", filename, e);
                 return None;
@@ -73,14 +73,12 @@ impl IdentMap {
         };
         unsafe {
             match Mmap::map(&file) {
-                Ok(mmap) => {
-                    Some(IdentMap {
-                        mmap: Arc::new(mmap)
-                    })
-                }
+                Ok(mmap) => Some(IdentMap {
+                    mmap: Arc::new(mmap),
+                }),
                 Err(e) => {
                     warn!("Failed to mmap {}: {:?}", filename, e);
-                    return None
+                    return None;
                 }
             }
         }
@@ -172,8 +170,7 @@ impl IdentMap {
             // shorter than the identifier.
             if needle.len() < id.len() {
                 let suffix = &id[needle.len()..];
-                if exact_match || suffix.contains(':') || suffix.contains('.')
-                {
+                if exact_match || suffix.contains(':') || suffix.contains('.') {
                     continue;
                 }
             }

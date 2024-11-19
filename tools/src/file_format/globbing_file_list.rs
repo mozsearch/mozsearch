@@ -72,17 +72,16 @@ impl GlobbingFileList {
                 line.to_string()
             };
 
-            info!("  glob: '{}' normalized to '{}' negated: {}", line, &use_line, negated);
-            if let Ok(glob) = GlobBuilder::new(&use_line)
-                .literal_separator(true)
-                .build() {
+            info!(
+                "  glob: '{}' normalized to '{}' negated: {}",
+                line, &use_line, negated
+            );
+            if let Ok(glob) = GlobBuilder::new(&use_line).literal_separator(true).build() {
                 globs.push((negated, glob.compile_matcher()));
             }
         }
 
-        GlobbingFileList {
-            globs
-        }
+        GlobbingFileList { globs }
     }
 
     pub fn is_match(&self, path: &str) -> bool {

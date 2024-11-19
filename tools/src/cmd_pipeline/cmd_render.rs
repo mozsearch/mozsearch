@@ -6,7 +6,10 @@ use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
-    templating::builder::{build_and_parse_search_template, build_and_parse_help_index, build_and_parse_settings}, file_utils::write_file_ensuring_parent_dir,
+    file_utils::write_file_ensuring_parent_dir,
+    templating::builder::{
+        build_and_parse_help_index, build_and_parse_search_template, build_and_parse_settings,
+    },
 };
 
 /// Render a single template, potentially processing pipeline input.
@@ -55,20 +58,16 @@ impl PipelineCommand for RenderCommand {
                         }));
                     }
                 };
-                let output_path = server.translate_path(
-                    SearchfoxIndexRoot::IndexTemplates,
-                    "search.html",
-                )?;
+                let output_path =
+                    server.translate_path(SearchfoxIndexRoot::IndexTemplates, "search.html")?;
                 write_file_ensuring_parent_dir(&output_path, &rendered)?;
                 Ok(PipelineValues::Void)
             }
             "help" => {
                 let template = build_and_parse_help_index();
 
-                let content_path = server.translate_path(
-                    SearchfoxIndexRoot::ConfigRepo,
-                    "help.html"
-                )?;
+                let content_path =
+                    server.translate_path(SearchfoxIndexRoot::ConfigRepo, "help.html")?;
                 let content = std::fs::read_to_string(content_path)?;
 
                 let liquid_globals = liquid::object!({
@@ -86,13 +85,10 @@ impl PipelineCommand for RenderCommand {
                         }));
                     }
                 };
-                let output_path = server.translate_path(
-                    SearchfoxIndexRoot::IndexTemplates,
-                    "help.html",
-                )?;
+                let output_path =
+                    server.translate_path(SearchfoxIndexRoot::IndexTemplates, "help.html")?;
                 write_file_ensuring_parent_dir(&output_path, &rendered)?;
                 Ok(PipelineValues::Void)
-
             }
             "settings" => {
                 let template = build_and_parse_settings();
@@ -111,13 +107,10 @@ impl PipelineCommand for RenderCommand {
                         }));
                     }
                 };
-                let output_path = server.translate_path(
-                    SearchfoxIndexRoot::IndexPages,
-                    "settings.html",
-                )?;
+                let output_path =
+                    server.translate_path(SearchfoxIndexRoot::IndexPages, "settings.html")?;
                 write_file_ensuring_parent_dir(&output_path, &rendered)?;
                 Ok(PipelineValues::Void)
-
             }
             unknown => Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::ConfigLayer,

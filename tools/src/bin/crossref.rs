@@ -22,9 +22,8 @@ use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis::{
-    read_analysis, read_structured, read_target, AnalysisKind, SearchResult,
-    StructuredBindingSlotInfo, AnalysisTarget, Location, BindingSlotProps,
-    TargetTag, LineRange,
+    read_analysis, read_structured, read_target, AnalysisKind, AnalysisTarget, BindingSlotProps,
+    LineRange, Location, SearchResult, StructuredBindingSlotInfo, TargetTag,
 };
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
@@ -84,10 +83,15 @@ type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
 
 fn process_analysis_target(
     mut piece: AnalysisTarget,
-    path: &Ustr, file_sym: &Ustr, lineno: usize, loc: &Location,
-    table: &mut SearchResultTable, pretty_table: &mut PrettyTable,
-    id_table: &mut IdTable, callees_table: &mut CalleesTable,
-    lines: &Vec<(String, u32)>
+    path: &Ustr,
+    file_sym: &Ustr,
+    lineno: usize,
+    loc: &Location,
+    table: &mut SearchResultTable,
+    pretty_table: &mut PrettyTable,
+    id_table: &mut IdTable,
+    callees_table: &mut CalleesTable,
+    lines: &Vec<(String, u32)>,
 ) {
     if piece.pretty.is_empty() {
         info!("Skipping empty pretty for symbol {}", piece.sym);
@@ -168,7 +172,8 @@ fn process_analysis_target(
 }
 
 fn process_analysis_structured(
-    mut piece: AnalysisStructured, subsystem: Option<Ustr>,
+    mut piece: AnalysisStructured,
+    subsystem: Option<Ustr>,
     meta_table: &mut MetaTable,
     xref_link_subclass: &mut XrefLinkSubclass,
     xref_link_override: &mut XrefLinkOverride,
@@ -186,10 +191,16 @@ fn process_analysis_structured(
         // We remove all bindings infos from AnalysisStructured instances here
         // but add them back both ways when we iterate over xref_link_slots.
         for slot_info in piece.binding_slots.drain(..) {
-            xref_link_slots.insert((piece.sym, slot_info.sym), (slot_info.props, subsystem.clone()));
+            xref_link_slots.insert(
+                (piece.sym, slot_info.sym),
+                (slot_info.props, subsystem.clone()),
+            );
         }
         if let Some(slot_info) = piece.slot_owner.take() {
-            xref_link_slots.insert((slot_info.sym, piece.sym), (slot_info.props, subsystem.clone()));
+            xref_link_slots.insert(
+                (slot_info.sym, piece.sym),
+                (slot_info.props, subsystem.clone()),
+            );
         }
 
         piece.subsystem = subsystem.clone();
@@ -198,10 +209,14 @@ fn process_analysis_structured(
     });
 }
 
-fn make_subsystem(path: &Ustr, file_sym: &Ustr,
-                  ingestion: &mut RepoIngestion,
-                  meta_table: &mut MetaTable, pretty_table: &mut PrettyTable,
-                  id_table: &mut IdTable) -> Option<Ustr> {
+fn make_subsystem(
+    path: &Ustr,
+    file_sym: &Ustr,
+    ingestion: &mut RepoIngestion,
+    meta_table: &mut MetaTable,
+    pretty_table: &mut PrettyTable,
+    id_table: &mut IdTable,
+) -> Option<Ustr> {
     let concise_info = ingestion.state.concise_per_file.get(path);
 
     if let Some(concise) = concise_info {
@@ -471,8 +486,13 @@ async fn main() {
         let file_sym: Ustr = ustr(&make_file_sym_from_path(path));
 
         let subsystem = make_subsystem(
-            &path, &file_sym,
-            &mut ingestion, &mut meta_table, &mut pretty_table, &mut id_table);
+            &path,
+            &file_sym,
+            &mut ingestion,
+            &mut meta_table,
+            &mut pretty_table,
+            &mut id_table,
+        );
 
         // We process the structured records before checking for the source file
         // to allow us to ingest the structured records from SCIP indexing that
@@ -499,9 +519,13 @@ async fn main() {
                     table.entry(piece.sym).or_insert_with(|| BTreeMap::new());
                 }
                 process_analysis_structured(
-                    piece, subsystem,
-                    &mut meta_table, &mut xref_link_subclass,
-                    &mut xref_link_override, &mut xref_link_slots);
+                    piece,
+                    subsystem,
+                    &mut meta_table,
+                    &mut xref_link_subclass,
+                    &mut xref_link_override,
+                    &mut xref_link_slots,
+                );
             }
         }
 
@@ -531,7 +555,6 @@ async fn main() {
             })
             .collect();
 
-
         let analysis = read_analysis(&analysis_fname, &mut read_target);
 
         for datum in analysis {
@@ -545,9 +568,17 @@ async fn main() {
 
             for piece in datum.data {
                 process_analysis_target(
-                    piece, &path, &file_sym, lineno, &datum.loc,
-                    &mut table, &mut pretty_table, &mut id_table,
-                    &mut callees_table, &lines);
+                    piece,
+                    &path,
+                    &file_sym,
+                    lineno,
+                    &datum.loc,
+                    &mut table,
+                    &mut pretty_table,
+                    &mut id_table,
+                    &mut callees_table,
+                    &lines,
+                );
             }
         }
     }
@@ -605,13 +636,26 @@ async fn main() {
         };
 
         process_analysis_target(
-            piece, &path, &file_sym, 0, &loc,
-            &mut table, &mut pretty_table, &mut id_table,
-            &mut callees_table, &lines);
+            piece,
+            &path,
+            &file_sym,
+            0,
+            &loc,
+            &mut table,
+            &mut pretty_table,
+            &mut id_table,
+            &mut callees_table,
+            &lines,
+        );
 
         let _ = make_subsystem(
-            &path, &file_sym,
-            &mut ingestion, &mut meta_table, &mut pretty_table, &mut id_table);
+            &path,
+            &file_sym,
+            &mut ingestion,
+            &mut meta_table,
+            &mut pretty_table,
+            &mut id_table,
+        );
     }
 
     // ## Process deferred meta cross-referencing
@@ -684,13 +728,12 @@ async fn main() {
                 }
 
                 let (ptr_infos, type_labels) = ontology
-                .config
-                .maybe_parse_type_as_pointer(&field.type_pretty);
+                    .config
+                    .maybe_parse_type_as_pointer(&field.type_pretty);
                 for label in type_labels {
                     meta.labels.insert(label);
                 }
-                for (ptr_kind, pointee_pretty) in ptr_infos
-                {
+                for (ptr_kind, pointee_pretty) in ptr_infos {
                     if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
                         // We need to find the first symbol that's referring to a type.
                         // Conveniently, for C++, these will always start with `T_`,

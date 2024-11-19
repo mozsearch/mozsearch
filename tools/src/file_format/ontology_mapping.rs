@@ -478,9 +478,7 @@ impl OntologyMappingConfig {
                             // would have already processed tha type at its ">".
                             false
                         }
-                        Some(OntologyType::Variant) => {
-                            true
-                        }
+                        Some(OntologyType::Variant) => true,
                         Some(OntologyType::Nothing) => {
                             cur_type.is_nothing = true;
                             false
@@ -514,15 +512,11 @@ impl OntologyMappingConfig {
                                 continue;
                             }
                             if arg_type.is_pointer {
-                                results.push((
-                                    OntologyPointerKind::Raw,
-                                    ustr(&arg_type.identifier),
-                                ));
+                                results
+                                    .push((OntologyPointerKind::Raw, ustr(&arg_type.identifier)));
                             } else if arg_type.is_ref {
-                                results.push((
-                                    OntologyPointerKind::Ref,
-                                    ustr(&arg_type.identifier),
-                                ));
+                                results
+                                    .push((OntologyPointerKind::Ref, ustr(&arg_type.identifier)));
                             } else if arg_type.is_tag {
                                 if let Some(OntologyType::Value) =
                                     self.types.get(&ustr(&arg_type.identifier))
@@ -712,12 +706,18 @@ kind = "contains"
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("nsTArray<RefPtr<class SyntheticExample> >"),
-        (vec![(OntologyPointerKind::Strong, ustr("SyntheticExample"))], vec![])
+        (
+            vec![(OntologyPointerKind::Strong, ustr("SyntheticExample"))],
+            vec![]
+        )
     );
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("nsTArray<class SyntheticExample *>"),
-        (vec![(OntologyPointerKind::Raw, ustr("SyntheticExample"))], vec![])
+        (
+            vec![(OntologyPointerKind::Raw, ustr("SyntheticExample"))],
+            vec![]
+        )
     );
 
     assert_eq!(
@@ -753,11 +753,14 @@ kind = "contains"
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("class mozilla::Atomic<class mozilla::dom::WorkerPrivate *>"),
-        (vec![
-            (OntologyPointerKind::Raw, ustr("mozilla::dom::WorkerPrivate"))
-        ], vec![ustr("atomic")])
+        (
+            vec![(
+                OntologyPointerKind::Raw,
+                ustr("mozilla::dom::WorkerPrivate")
+            )],
+            vec![ustr("atomic")]
+        )
     );
-
 
     assert_eq!(
         c.maybe_parse_type_as_pointer("class mozilla::Maybe<class nsTString<char16_t> >"),

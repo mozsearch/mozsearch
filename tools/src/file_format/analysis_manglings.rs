@@ -77,7 +77,10 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
     // make the diagram more legible since it will be immediately clear what
     // we're dealing with.)
     if sym.starts_with("FILE_") {
-        return (pretty.split_inclusive("/").map(|s| s.to_string()).collect(), "");
+        return (
+            pretty.split_inclusive("/").map(|s| s.to_string()).collect(),
+            "",
+        );
     }
 
     let mut pieces = vec![];
@@ -93,8 +96,7 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
                 if state != SplitState::NotInArg {
                     info!(
                         "In arg state with depth {} when ran out of chars on {}.",
-                        arg_depth,
-                        pretty,
+                        arg_depth, pretty,
                     );
                 }
                 if !token.is_empty() {

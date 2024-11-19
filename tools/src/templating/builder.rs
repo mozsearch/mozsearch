@@ -3,7 +3,10 @@ use std::borrow;
 use include_dir::{include_dir, Dir};
 use liquid::Template;
 
-use super::liquid_exts::{CompactPathlikeFilterParser, FileExtFilterParser, JsonFilterParser, StripPrefixOrEmptyFilterParser, EnsureBugUrlFilterParser};
+use super::liquid_exts::{
+    CompactPathlikeFilterParser, EnsureBugUrlFilterParser, FileExtFilterParser, JsonFilterParser,
+    StripPrefixOrEmptyFilterParser,
+};
 
 static TEMPLATE_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 

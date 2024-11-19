@@ -21,10 +21,7 @@ pub fn read_record_file_contents<
     Some((header, records))
 }
 
-pub fn record_file_contents_to_string<
-    Header: Serialize,
-    Record: Serialize,
->(
+pub fn record_file_contents_to_string<Header: Serialize, Record: Serialize>(
     header: &Header,
     records: &Vec<Record>,
 ) -> String {

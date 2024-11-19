@@ -3,7 +3,8 @@ use clap::Args;
 use ustr::{ustr, Ustr};
 
 use super::interface::{
-    PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolMetaFlags, SymbolQuality, SymbolRelation
+    PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolMetaFlags,
+    SymbolQuality, SymbolRelation,
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};

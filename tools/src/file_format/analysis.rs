@@ -19,9 +19,9 @@ use itertools::Itertools;
 #[cfg(not(target_arch = "wasm32"))]
 use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{from_value, Map, Value};
 #[cfg(not(target_arch = "wasm32"))]
 use serde_json::from_str;
+use serde_json::{from_value, Map, Value};
 use serde_repr::*;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -57,8 +57,8 @@ pub struct LineRange {
 
 impl LineRange {
     pub fn is_empty(&self) -> bool {
-        (self.start_lineno == 0 && self.end_lineno == 0) ||
-        (self.start_lineno == u32::MAX && self.end_lineno == u32::MAX)
+        (self.start_lineno == 0 && self.end_lineno == 0)
+            || (self.start_lineno == u32::MAX && self.end_lineno == u32::MAX)
     }
 }
 
@@ -181,7 +181,7 @@ impl FromStr for String {
 
 fn string_or_ustr_is_empty<StrT>(s: &StrT) -> bool
 where
-    StrT: Deref<Target = str>
+    StrT: Deref<Target = str>,
 {
     s.is_empty()
 }
@@ -189,7 +189,7 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisTarget<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     pub target: TargetTag,
     pub kind: AnalysisKind,
@@ -221,7 +221,7 @@ pub enum StructuredTag {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredSuperInfo<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     #[serde(default)]
     pub sym: StrT,
@@ -234,7 +234,7 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredArgInfo<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     pub name: StrT,
     #[serde(rename = "type", default)]
@@ -246,7 +246,7 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredMethodInfo<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     #[serde(default)]
     pub pretty: StrT,
@@ -275,7 +275,7 @@ pub struct StructuredOverrideInfo<StrT = Ustr> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredFieldInfo<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     /// The field definition's location in "PATH#line-line" or "PATH#line" format.
     ///
@@ -313,7 +313,7 @@ where
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredPointerInfo<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     pub kind: OntologyPointerKind,
     pub sym: StrT,
@@ -415,7 +415,7 @@ pub struct BindingSlotProps {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StructuredBindingSlotInfo<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     #[serde(flatten)]
     pub props: BindingSlotProps,
@@ -492,7 +492,7 @@ pub enum OntologySlotKind {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OntologySlotInfo<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     #[serde(rename = "slotKind")]
     pub slot_kind: OntologySlotKind,
@@ -512,7 +512,7 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisStructured<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     pub structured: StructuredTag,
     #[serde(default)]
@@ -574,7 +574,11 @@ where
     // as being symbol only.
     #[serde(rename = "subclasses", default, skip_serializing_if = "Vec::is_empty")]
     pub subclass_syms: Vec<StrT>,
-    #[serde(rename = "overriddenBy", default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        rename = "overriddenBy",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub overridden_by_syms: Vec<StrT>,
 
     #[serde(default)]
@@ -586,14 +590,22 @@ where
 
 impl<StrT> AnalysisStructured<StrT>
 where
-    StrT: Clone + Debug + serde::de::DeserializeOwned + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone
+        + Debug
+        + serde::de::DeserializeOwned
+        + Default
+        + Deref<Target = str>
+        + FromStr
+        + Hash
+        + Ord
+        + PartialEq,
 {
     // Retrieve the platforms from "extra" if present; this could arguably just
     // be serialized in the first place.
     pub fn platforms(&self) -> Vec<String> {
         match self.extra.get("platforms") {
             Some(val) => from_value(val.clone()).unwrap_or_default(),
-            _ => vec![]
+            _ => vec![],
         }
     }
 
@@ -650,14 +662,14 @@ mod bool_as_int {
 
 struct SerializeVecString<StrT>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     phantom: PhantomData<StrT>,
 }
 
 impl<StrT> SerializeVecString<StrT>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     pub fn serialize<S>(arr: &Vec<StrT>, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -676,8 +688,7 @@ where
     }
 
     pub fn join(arr: &Vec<StrT>) -> String {
-        arr
-            .iter()
+        arr.iter()
             .map(|x| x.as_ref())
             .collect::<Vec<&str>>()
             .join(",")
@@ -707,13 +718,19 @@ pub enum ExpansionInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisSource<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     pub source: SourceTag,
-    #[serde(serialize_with = "SerializeVecString::<StrT>::serialize", deserialize_with = "SerializeVecString::<StrT>::deserialize")]
+    #[serde(
+        serialize_with = "SerializeVecString::<StrT>::serialize",
+        deserialize_with = "SerializeVecString::<StrT>::deserialize"
+    )]
     pub syntax: Vec<StrT>,
     pub pretty: StrT,
-    #[serde(serialize_with = "SerializeVecString::<StrT>::serialize", deserialize_with = "SerializeVecString::<StrT>::deserialize")]
+    #[serde(
+        serialize_with = "SerializeVecString::<StrT>::serialize",
+        deserialize_with = "SerializeVecString::<StrT>::deserialize"
+    )]
     pub sym: Vec<StrT>,
     #[serde(default, with = "bool_as_int", skip_serializing_if = "bool_is_false")]
     pub no_crossref: bool,
@@ -741,7 +758,7 @@ where
 
 impl<StrT> AnalysisSource<StrT>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
     /// Merges the `syntax`, `sym`, `no_crossref`, and `nesting_range` fields from `other`
     /// into `self`. The `no_crossref` field can be different sometimes
@@ -794,9 +811,7 @@ where
             }
             (&mut Some(ExpandsTo(ref mut a)), &mut Some(ExpandsTo(ref mut b))) => {
                 for (k, mut v) in core::mem::take(b) {
-                    a.entry(k)
-                        .and_modify(|a_v| a_v.append(&mut v))
-                        .or_insert(v);
+                    a.entry(k).and_modify(|a_v| a_v.append(&mut v)).or_insert(v);
                 }
             }
             (&mut Some(InExpansionAt(ref mut a)), &mut Some(InExpansionAt(ref mut b))) => {
@@ -838,11 +853,11 @@ where
 #[serde(untagged)]
 pub enum AnalysisUnion<StrT = Ustr>
 where
-    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
-    Target(AnalysisTarget::<StrT>),
-    Source(AnalysisSource::<StrT>),
-    Structured(AnalysisStructured::<StrT>),
+    Target(AnalysisTarget<StrT>),
+    Source(AnalysisSource<StrT>),
+    Structured(AnalysisStructured<StrT>),
 }
 
 pub fn parse_location(loc: &str) -> Location {
@@ -1072,7 +1087,7 @@ pub fn read_analyses<T>(
     result2
 }
 
-pub fn read_target(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisTarget::<Ustr>> {
+pub fn read_target(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisTarget<Ustr>> {
     // XXX this shouldn't be necessary thanks to our tag, so this should be removable
     if obj.get("target").is_none() {
         return None;
@@ -1081,7 +1096,11 @@ pub fn read_target(obj: Value, _loc: &Location, _i_size: usize) -> Option<Analys
     from_value(obj).ok()
 }
 
-pub fn read_structured(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisStructured::<Ustr>> {
+pub fn read_structured(
+    obj: Value,
+    _loc: &Location,
+    _i_size: usize,
+) -> Option<AnalysisStructured<Ustr>> {
     // XXX this shouldn't be necessary thanks to our tag, so this should be removable
     if obj.get("structured").is_none() {
         return None;
@@ -1090,7 +1109,7 @@ pub fn read_structured(obj: Value, _loc: &Location, _i_size: usize) -> Option<An
     from_value(obj).ok()
 }
 
-pub fn read_source(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisSource::<Ustr>> {
+pub fn read_source(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisSource<Ustr>> {
     // XXX this shouldn't be necessary thanks to our tag, so this should be removable
     if obj.get("source").is_none() {
         return None;
