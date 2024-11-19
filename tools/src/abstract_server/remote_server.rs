@@ -135,11 +135,7 @@ impl AbstractServer for RemoteServer {
             return Err(ServerError::Unsupported);
         }
         // Our tree-relative paths should not start with a slash
-        let norm_path = if sf_path.starts_with('/') {
-            &sf_path[1..]
-        } else {
-            sf_path
-        };
+        let norm_path = sf_path.strip_prefix('/').unwrap_or(sf_path);
         // We don't both caring about the presence of ".." here because we don't
         // have any security-ish things to worry about for a public web server.
 
