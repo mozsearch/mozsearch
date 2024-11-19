@@ -967,9 +967,7 @@ impl ClassMap {
     }
 
     fn get_struct_structured(sym_info: &DerivedSymbolInfo) -> Option<AnalysisStructured> {
-        let Some(structured) = sym_info.get_structured() else {
-            return None;
-        };
+        let structured = sym_info.get_structured()?;
 
         // See clang TagTypeKind.
         // https://clang.llvm.org/doxygen/namespaceclang.html#a9237bdb3cf715b9bff8bcb3172635548
