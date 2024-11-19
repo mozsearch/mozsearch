@@ -761,16 +761,13 @@ pub fn format_file_data(
             last_color = color;
             let class = if color { 1 } else { 2 };
             let data = format!(
-                r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="{}" aria-expanded="false""#,
+                r#" class="blame-strip c{}" data-blame="{}#{}#{}" role="button" aria-label="{} hash {}" aria-expanded="false""#,
                 class,
                 revs,
                 filespecs,
                 blame_linenos,
-                format!(
-                    "{} hash {}",
-                    if same_rev_as_last { "same" } else { "new" },
-                    human_id
-                )
+                if same_rev_as_last { "same" } else { "new" },
+                human_id,
             );
             data
         } else {
