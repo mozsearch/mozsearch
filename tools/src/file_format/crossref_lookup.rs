@@ -1,10 +1,10 @@
 extern crate memmap;
 
 use self::memmap::Mmap;
-use std::collections::HashMap;
 use std::fs::File;
 use std::str;
 use std::sync::Arc;
+use std::{cmp::Ordering, collections::HashMap};
 
 use serde_json::{from_slice, Value};
 
@@ -143,50 +143,54 @@ impl CrossrefLookupMap {
 
             let (line_sym, line_start, line_end) = self.get_id_line(pos);
 
-            if line_sym == search_sym {
-                // Exact Match!  Extract the payload line.
-                let payload_start = line_end + 1;
-                let mut payload_end = payload_start + 1;
-                while payload_end < mmap_end && bytes[payload_end] != NEWLINE {
-                    payload_end += 1;
+            match line_sym.cmp(search_sym) {
+                Ordering::Equal => {
+                    // Exact Match!  Extract the payload line.
+                    let payload_start = line_end + 1;
+                    let mut payload_end = payload_start + 1;
+                    while payload_end < mmap_end && bytes[payload_end] != NEWLINE {
+                        payload_end += 1;
+                    }
+                    return &bytes[payload_start..payload_end];
                 }
-                return &bytes[payload_start..payload_end];
-            } else if line_sym < search_sym {
-                // ## Bisect latter half
-                // The line we found was less than our needle, so the answer is
-                // in the second half of our current range of [first, first + count).
-                // The second half of the range is [pos, first + count), but
-                // this also includes at least some of our payload line, and we
-                // want to skip that.  (Actually need, by our rules.)
-                //
-                // If `pos` was in an id line, then `line_end` will be greater
-                // than `pos` and we should use `line_end + 1` because it's
-                // already pointing at a newline.  If `pos` is greater, then it
-                // must be in the value line.
-                if pos <= line_end {
-                    pos = line_end + 1
-                }
+                Ordering::Less => {
+                    // ## Bisect latter half
+                    // The line we found was less than our needle, so the answer is
+                    // in the second half of our current range of [first, first + count).
+                    // The second half of the range is [pos, first + count), but
+                    // this also includes at least some of our payload line, and we
+                    // want to skip that.  (Actually need, by our rules.)
+                    //
+                    // If `pos` was in an id line, then `line_end` will be greater
+                    // than `pos` and we should use `line_end + 1` because it's
+                    // already pointing at a newline.  If `pos` is greater, then it
+                    // must be in the value line.
+                    if pos <= line_end {
+                        pos = line_end + 1
+                    }
 
-                // Now scan forward until we find the newline ending the value.
-                while pos < mmap_end && bytes[pos] != NEWLINE {
+                    // Now scan forward until we find the newline ending the value.
+                    while pos < mmap_end && bytes[pos] != NEWLINE {
+                        pos += 1;
+                    }
+                    // move past the newline
                     pos += 1;
-                }
-                // move past the newline
-                pos += 1;
 
-                // Our new range now wants to be [pos, first + count).
-                // We want to halve the count, but we also want to compensate
-                // for the extra data to skip.  `pos` is effectively
-                // `first + step + value_length` so subtracting off `first` from
-                // `pos` gets us the step plus the extra length.
-                count -= pos - first;
-                // And now we want to be starting from the `pos`.
-                first = pos;
-            } else {
-                // ## Bisect first half
-                // Halve count and subtract off the part of the identifier line that
-                // we can eliminate from consideration.
-                count = step - (pos - line_start)
+                    // Our new range now wants to be [pos, first + count).
+                    // We want to halve the count, but we also want to compensate
+                    // for the extra data to skip.  `pos` is effectively
+                    // `first + step + value_length` so subtracting off `first` from
+                    // `pos` gets us the step plus the extra length.
+                    count -= pos - first;
+                    // And now we want to be starting from the `pos`.
+                    first = pos;
+                }
+                Ordering::Greater => {
+                    // ## Bisect first half
+                    // Halve count and subtract off the part of the identifier line that
+                    // we can eliminate from consideration.
+                    count = step - (pos - line_start)
+                }
             }
         }
 
