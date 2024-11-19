@@ -487,7 +487,7 @@ pub fn make_local_server(
     tree_name: &str,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
     let mut config = load(config_path, false, Some(tree_name), None);
-    let tree_config = match config.trees.remove(&tree_name.to_string()) {
+    let tree_config = match config.trees.remove(tree_name) {
         Some(t) => t,
         None => {
             return Err(ServerError::StickyProblem(ErrorDetails {
