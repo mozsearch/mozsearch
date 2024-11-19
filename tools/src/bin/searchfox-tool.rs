@@ -25,7 +25,7 @@ async fn main() {
             "This command expects a single argument that it can parse up; quote in your shell."
         );
         println!("Example: `searchfox-tool 'cmd1 --arg | cmd2 --arg | cmd3'");
-        println!("");
+        println!();
         println!(
             "The built-in help will work, but the arg parser gets invoked once for each pipe."
         );

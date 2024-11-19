@@ -90,7 +90,7 @@ is working.
 */
 
 pub fn make_safe_port_id(dubious_id: &str) -> String {
-    return dubious_id.replace(|x| x == '<' || x == '>' || x == ':' || x == '"', "_");
+    dubious_id.replace(['<', '>', ':', '"'], "_")
 }
 
 /// A symbol and its cross-reference information plus caching helpers.
@@ -186,7 +186,7 @@ impl DerivedSymbolInfo {
     pub fn get_pretty(&self) -> Ustr {
         match self.crossref_info.pointer("/meta/pretty") {
             Some(Value::String(pretty)) => ustr(pretty),
-            _ => self.symbol.clone(),
+            _ => self.symbol,
         }
     }
 
@@ -342,12 +342,12 @@ impl SymbolGraphCollection {
         let mut edges = BTreeMap::new();
         for (source_id, target_id, _edge_id) in graph.list_edges() {
             let source_info = self.node_set.get(&source_id);
-            nodes.insert(source_info.symbol.clone());
-            let source_sym = source_info.symbol.clone();
+            nodes.insert(source_info.symbol);
+            let source_sym = source_info.symbol;
 
             let target_info = self.node_set.get(&target_id);
-            nodes.insert(target_info.symbol.clone());
-            let target_sym = target_info.symbol.clone();
+            nodes.insert(target_info.symbol);
+            let target_sym = target_info.symbol;
 
             edges.insert(
                 format!("{}-{}", source_sym, target_sym),
@@ -393,16 +393,16 @@ impl SymbolGraphCollection {
         let mut nodes = BTreeSet::new();
         for (source_id, target_id, _edge_id) in graph.list_edges() {
             let source_info = self.node_set.get(&source_id);
-            let source_sym = source_info.symbol.clone();
-            if nodes.insert(source_sym.clone()) {
+            let source_sym = source_info.symbol;
+            if nodes.insert(source_sym) {
                 let mut node = node!(esc source_sym.clone(); attr!("label", esc escape_quotes(&source_info.get_pretty())));
                 node_decorate(&mut node, source_info);
                 dot_graph.add_stmt(stmt!(node));
             }
 
             let target_info = self.node_set.get(&target_id);
-            let target_sym = target_info.symbol.clone();
-            if nodes.insert(target_sym.clone()) {
+            let target_sym = target_info.symbol;
+            if nodes.insert(target_sym) {
                 let mut node = node!(esc target_sym.clone(); attr!("label", esc escape_quotes(&target_info.get_pretty())));
                 node_decorate(&mut node, target_info);
                 dot_graph.add_stmt(stmt!(node));
@@ -547,12 +547,11 @@ impl SymbolGraphCollection {
                         if let Some((match_sym, _)) = server
                             .search_identifiers(&pretty_so_far, true, false, 1)
                             .await?
-                            .iter()
-                            .next()
+                            .first()
                         {
                             let (match_sym_id, match_sym_info) = self
                                 .node_set
-                                .ensure_symbol(&match_sym, server, SYNTHETIC_DEPTH)
+                                .ensure_symbol(match_sym, server, SYNTHETIC_DEPTH)
                                 .await?;
 
                             let needs_pop = if container_is_class && match_sym_info.is_class() {
@@ -622,7 +621,7 @@ impl SymbolGraphCollection {
                         let subsystem = match &pieces_and_syms[first_real_sym].1 {
                             Some(sym) => self
                                 .node_set
-                                .get(&sym)
+                                .get(sym)
                                 .get_subsystem()
                                 .map(|x| x.as_str())
                                 .unwrap_or(""),
@@ -644,7 +643,7 @@ impl SymbolGraphCollection {
                         let path = match &pieces_and_syms[pieces_and_syms.len() - 1].1 {
                             Some(sym) => self
                                 .node_set
-                                .get(&sym)
+                                .get(sym)
                                 .get_def_path()
                                 .map(|x| x.as_str())
                                 .unwrap_or(""),
@@ -737,7 +736,7 @@ impl SymbolGraphCollection {
 
         graph
             .root
-            .compile(&policies, 0, 0, false, &self.node_set, &mut state);
+            .compile(policies, 0, 0, false, &self.node_set, &mut state);
 
         let mut dot_graph = Graph::DiGraph {
             id: id!("g"),
@@ -751,11 +750,8 @@ impl SymbolGraphCollection {
         // happening in the graph rendering process below; we really need to
         // figure out where this should happen, but this hybrid approach is
         // somewhat reasonable for now.
-        match graph_layout {
-            GraphLayout::Neato => {
-                dot_graph.add_stmt(stmt!(node!("graph"; attr!("overlap","prism"), attr!("mode","hier"), attr!("sep",esc "+10"))));
-            }
-            _ => {}
+        if graph_layout == &GraphLayout::Neato {
+            dot_graph.add_stmt(stmt!(node!("graph"; attr!("overlap","prism"), attr!("mode","hier"), attr!("sep",esc "+10"))));
         }
 
         // Note that the root node renders the default style directives.
@@ -1184,7 +1180,7 @@ impl HierarchicalNode {
         let symbols: Vec<Ustr> = self
             .symbols
             .iter()
-            .map(|id| node_set.get(id).symbol.clone())
+            .map(|id| node_set.get(id).symbol)
             .collect();
         let action = match &self.action {
             None => Value::Null,
@@ -1223,7 +1219,7 @@ impl HierarchicalNode {
         let children: Vec<Value> = self
             .children
             .values()
-            .map(|kid| kid.to_json(&node_set))
+            .map(|kid| kid.to_json(node_set))
             .collect();
         let edges: Vec<Value> = self
             .edges
@@ -1275,10 +1271,8 @@ impl HierarchicalNode {
             // The height of the kid may have updated, so potentially update our
             // height.  This will bubble upwards appropriately.
             self.height = core::cmp::max(self.height, kid.height + 1);
-        } else {
-            if !self.symbols.contains(&sym_id) {
-                self.symbols.push(sym_id);
-            }
+        } else if !self.symbols.contains(&sym_id) {
+            self.symbols.push(sym_id);
         }
     }
 
@@ -1313,7 +1307,7 @@ impl HierarchicalNode {
     ) {
         let is_root = depth == 0;
 
-        let is_class = if self.symbols.len() >= 1 {
+        let is_class = if !self.symbols.is_empty() {
             let sym_info = node_set.get(&self.symbols[0]);
             sym_info.is_class()
         } else {
@@ -1323,10 +1317,10 @@ impl HierarchicalNode {
 
         // If the node has only one child and no edges, we can collapse it UNLESS
         // the child is a class, in which case we really don't want to.
-        if !is_root && !be_class && self.children.len() == 1 && self.edges.len() == 0 {
+        if !is_root && !be_class && self.children.len() == 1 && self.edges.is_empty() {
             let sole_kid = self.children.values_mut().next().unwrap();
             // (not all nodes will have associated symbols)
-            let kid_is_class = if let Some(kid_id) = sole_kid.symbols.get(0) {
+            let kid_is_class = if let Some(kid_id) = sole_kid.symbols.first() {
                 node_set.get(kid_id).is_class()
             } else {
                 false
@@ -1376,7 +1370,7 @@ impl HierarchicalNode {
                     state,
                 );
             }
-        } else if self.edges.len() > 0 && self.children.len() > 0 {
+        } else if !self.edges.is_empty() && !self.children.is_empty() {
             // If there are edges at this level, it does not make sense to be a
             // table because the self-edges end up quite gratuitous.  (The edges
             // vec only contains edges among our immediate children.)
@@ -1434,7 +1428,7 @@ impl HierarchicalNode {
                 kid.action = Some(HierarchicalLayoutAction::Record(kid_id_str));
             }
             self.action = Some(HierarchicalLayoutAction::Table(parent_id_str));
-        } else if self.children.len() > 0 {
+        } else if !self.children.is_empty() {
             // If there are kids, we want to be a cluster after all.
             be_cluster = true;
         } else {
@@ -1481,10 +1475,10 @@ impl HierarchicalNode {
         node_set: &SymbolGraphNodeSet,
         state: &mut HierarchicalRenderState,
     ) -> String {
-        if self.symbols.len() >= 1 {
+        if !self.symbols.is_empty() {
             self.symbols
                 .iter()
-                .map(|sym_id| node_set.get(sym_id).symbol.clone())
+                .map(|sym_id| node_set.get(sym_id).symbol)
                 .join(",")
         } else {
             state.issue_new_synthetic_id()
@@ -1591,12 +1585,9 @@ impl HierarchicalNode {
                     sg.stmts
                         .extend(kid.render(policies, node_set, edge_set, state));
 
-                    if !kid.symbols.iter().any(|id| internal_targets.contains(&id)) {
-                        match &kid.action {
-                            Some(HierarchicalLayoutAction::Node(kid_id)) => {
-                                top_nodes.stmts.push(stmt!(node!(esc kid_id)));
-                            }
-                            _ => {}
+                    if !kid.symbols.iter().any(|id| internal_targets.contains(id)) {
+                        if let Some(HierarchicalLayoutAction::Node(kid_id)) = &kid.action {
+                            top_nodes.stmts.push(stmt!(node!(esc kid_id)));
                         }
                     }
                 }
@@ -1643,7 +1634,7 @@ impl HierarchicalNode {
                         })
                         .into_iter()
                         .collect_vec();
-                    grouped.sort_by_cached_key(|(g, _)| g.clone());
+                    grouped.sort_by_cached_key(|(g, _)| *g);
                     grouped
                 } else {
                     self.children
@@ -1867,6 +1858,12 @@ pub struct SvgEdgeExtra {
     pub jump: String,
 }
 
+impl Default for HierarchicalRenderState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HierarchicalRenderState {
     pub fn new() -> Self {
         Self {
@@ -1971,10 +1968,7 @@ impl HierarchicalRenderState {
             }
         }
 
-        let from_extra = self
-            .svg_node_extra
-            .entry(from_eid.clone())
-            .or_insert_with(|| SvgNodeExtra::default());
+        let from_extra = self.svg_node_extra.entry(from_eid.clone()).or_default();
         from_extra.out_edges.push(edge_eid.clone());
         from_extra.out_nodes.push((to_eid.clone(), hover_classes));
 
@@ -1985,10 +1979,7 @@ impl HierarchicalRenderState {
                 .insert(edge_eid.clone(), SvgEdgeExtra { jump });
         }
 
-        let to_extra = self
-            .svg_node_extra
-            .entry(to_eid)
-            .or_insert_with(|| SvgNodeExtra::default());
+        let to_extra = self.svg_node_extra.entry(to_eid).or_default();
         to_extra.in_edges.push(edge_eid);
         to_extra.in_nodes.push((from_eid, vec![]));
     }
@@ -2039,6 +2030,12 @@ fn make_data_invariant_err() -> ServerError {
         layer: ErrorLayer::RuntimeInvariantViolation,
         message: "SymbolGraphNodeSet desynchronized".to_string(),
     })
+}
+
+impl Default for SymbolGraphNodeSet {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SymbolGraphNodeSet {
@@ -2212,7 +2209,7 @@ impl SymbolGraphNodeSet {
     ) -> SymbolGraphNodeId {
         let info = self.get(node_id);
         match new_symbol_set.symbol_to_index_map.get(&info.symbol) {
-            Some(index) => SymbolGraphNodeId(*index as u32),
+            Some(index) => SymbolGraphNodeId(*index),
             None => new_symbol_set.add_symbol(info.clone()).0,
         }
     }
@@ -2246,7 +2243,7 @@ impl SymbolGraphNodeSet {
         if let Some(Value::Array(labels_json)) = sym_info.crossref_info.pointer("/meta/labels") {
             for label in labels_json {
                 if let Value::String(label) = label {
-                    if let Some((pri, shorter_label)) = label_to_badge_info(&label) {
+                    if let Some((pri, shorter_label)) = label_to_badge_info(label) {
                         sym_info.badges.push(SymbolBadge {
                             pri,
                             label: ustr(shorter_label),
@@ -2258,7 +2255,7 @@ impl SymbolGraphNodeSet {
         }
         // Insert the symbol and issue a node id.
         let index = self.symbol_crossref_infos.len();
-        let symbol = sym_info.symbol.clone();
+        let symbol = sym_info.symbol;
         self.symbol_crossref_infos.push(sym_info);
         self.symbol_to_index_map.insert(symbol, index as u32);
         (
@@ -2286,8 +2283,8 @@ impl SymbolGraphNodeSet {
             return Ok((SymbolGraphNodeId(*index), sym_info));
         }
 
-        let info = server.crossref_lookup(&sym, false).await?;
-        Ok(self.add_symbol(DerivedSymbolInfo::new(sym.clone(), info, depth)))
+        let info = server.crossref_lookup(sym, false).await?;
+        Ok(self.add_symbol(DerivedSymbolInfo::new(*sym, info, depth)))
     }
 
     /// Destructively return a sorted Object mapping from symbol identifiers to
@@ -2308,7 +2305,7 @@ impl SymbolGraphNodeSet {
         for sym_info in self.symbol_crossref_infos.iter_mut() {
             let info = sym_info.crossref_info.take();
             jumprefs.insert(
-                sym_info.symbol.clone(),
+                sym_info.symbol,
                 convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
             );
         }
@@ -2323,12 +2320,18 @@ impl SymbolGraphNodeSet {
             // XXX This is inefficient!
             let info = sym_info.crossref_info.clone();
             jumprefs.insert(
-                sym_info.symbol.clone(),
+                sym_info.symbol,
                 convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
             );
         }
 
         json!(jumprefs)
+    }
+}
+
+impl Default for SymbolGraphEdgeSet {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

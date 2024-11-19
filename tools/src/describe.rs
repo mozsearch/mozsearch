@@ -21,7 +21,7 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
     match format {
         FormatAs::CSS => describe_from_c_comment(substr),
         FormatAs::FormatTagLike(_) => describe_html(substr),
-        FormatAs::FormatCLike(ref spec) => {
+        FormatAs::FormatCLike(spec) => {
             if spec.rust_tweaks {
                 describe_from_rust_comment(substr).or_else(|| describe_from_c_comment(substr))
             } else if spec.c_style_comments {
@@ -73,8 +73,7 @@ fn describe_py(contents: &str) -> Option<String> {
 fn describe_readme(contents: &str) -> Option<String> {
     contents
         .lines()
-        .filter(|s| !s.trim().is_empty())
-        .next()
+        .find(|s| !s.trim().is_empty())
         .map(str::to_string)
 }
 
@@ -91,7 +90,7 @@ fn describe_from_rust_comment(contents: &str) -> Option<String> {
         }
         in_comment = true;
         if !description.is_empty() {
-            description.push_str("\n");
+            description.push('\n');
         }
         description.push_str(line.trim_start_matches("//!"));
     }

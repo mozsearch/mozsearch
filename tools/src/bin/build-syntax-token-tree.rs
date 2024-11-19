@@ -29,7 +29,7 @@ use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
 use tools::tree_sitter_support::cst_tokenizer::{hypertokenize_source_file, HyperTokenized};
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
-    write!(helper.stdin.as_mut().unwrap(), "{}\n", git_oid).unwrap();
+    writeln!(helper.stdin.as_mut().unwrap(), "{}", git_oid).unwrap();
     let mut reader = BufReader::new(helper.stdout.as_mut().unwrap());
     let mut result = String::new();
     reader.read_line(&mut result).unwrap();
@@ -109,9 +109,9 @@ fn read_path_oid(
     commit: &SyntaxRepoCommit,
     path: &Path,
 ) -> Option<String> {
-    write!(
+    writeln!(
         import_helper.stdin.as_mut().unwrap(),
-        "ls {} {}\n",
+        "ls {} {}",
         commit,
         sanitize(path)
     )
@@ -144,7 +144,7 @@ fn read_path_blob(
     path: &Path,
 ) -> Option<Vec<u8>> {
     let oid = read_path_oid(import_helper, commit, path)?;
-    write!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}\n", oid).unwrap();
+    writeln!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}", oid).unwrap();
     let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
     let mut description = String::new();
     reader.read_line(&mut description).unwrap();
@@ -331,9 +331,9 @@ fn recursively_process_source_tree(
                             continue 'outer;
                         }
                     };
-                    write!(
+                    writeln!(
                         import_helper.stdin.as_mut().unwrap(),
-                        "M {:06o} {} {}\n",
+                        "M {:06o} {} {}",
                         entry.filemode(),
                         oid,
                         sanitize(&tokenize_path)
@@ -343,9 +343,9 @@ fn recursively_process_source_tree(
                     // "files-struct" entry
                     let oid =
                         read_path_oid(import_helper, &syntax_parents[i], &struct_path).unwrap();
-                    write!(
+                    writeln!(
                         import_helper.stdin.as_mut().unwrap(),
-                        "M {:06o} {} {}\n",
+                        "M {:06o} {} {}",
                         entry.filemode(),
                         oid,
                         sanitize(&struct_path)
@@ -374,11 +374,9 @@ fn recursively_process_source_tree(
                             Some(lang) => lang,
                             _ => continue,
                         };
-                        let by_lang = symdex.entry(lang.clone()).or_insert_with(|| HashMap::new());
+                        let by_lang = symdex.entry(lang.clone()).or_default();
                         for record in records {
-                            let sym_notes = by_lang
-                                .entry(record.pretty.clone())
-                                .or_insert_with(|| SymbolNotes::default());
+                            let sym_notes = by_lang.entry(record.pretty.clone()).or_default();
                             sym_notes.files_to_filter.insert(path.clone());
                         }
                     }
@@ -403,14 +401,14 @@ fn recursively_process_source_tree(
                     // ## Write the tokenized file contents
                     let tokenized_text = hypertokenized.tokenized.join("\n");
                     let tokenized_bytes = tokenized_text.as_bytes();
-                    write!(
+                    writeln!(
                         import_stream,
-                        "M {:06o} inline {}\n",
+                        "M {:06o} inline {}",
                         entry.filemode(),
                         sanitize(&tokenize_path)
                     )
                     .unwrap();
-                    write!(import_stream, "data {}\n", tokenized_bytes.len()).unwrap();
+                    writeln!(import_stream, "data {}", tokenized_bytes.len()).unwrap();
                     import_stream.write(tokenized_bytes).unwrap();
                     // We skip the optional trailing LF character here since in practice it
                     // wasn't particularly useful for debugging. Also the blame blobs we write
@@ -425,22 +423,20 @@ fn recursively_process_source_tree(
                     );
                     let struct_bytes = struct_text.as_bytes();
 
-                    write!(
+                    writeln!(
                         import_stream,
-                        "M {:06o} inline {}\n",
+                        "M {:06o} inline {}",
                         entry.filemode(),
                         sanitize(&struct_path)
                     )
                     .unwrap();
-                    write!(import_stream, "data {}\n", struct_bytes.len()).unwrap();
+                    writeln!(import_stream, "data {}", struct_bytes.len()).unwrap();
                     import_stream.write(struct_bytes).unwrap();
                     // (skipping trailing LF again)
 
                     // ## Accumulate the symdex data.
-                    if hypertokenized.structure.len() > 0 {
-                        let by_lang = symdex
-                            .entry(hypertokenized.lang.clone())
-                            .or_insert_with(|| HashMap::new());
+                    if !hypertokenized.structure.is_empty() {
+                        let by_lang = symdex.entry(hypertokenized.lang.clone()).or_default();
                         let source_path = path.to_str().unwrap();
                         for record in &hypertokenized.structure {
                             // Place the record on its parent if it has one too.
@@ -448,9 +444,7 @@ fn recursively_process_source_tree(
                             // maybe the parent doesn't really want the child present, but I think
                             // I came around to believing the linkage might be useful.
                             if let Some((parent, _)) = record.pretty.rsplit_once("::") {
-                                let sym_notes = by_lang
-                                    .entry(parent.to_string())
-                                    .or_insert_with(|| SymbolNotes::default());
+                                let sym_notes = by_lang.entry(parent.to_string()).or_default();
                                 sym_notes.symdex_records.push(SymdexRecord {
                                     file_row: record.clone(),
                                     path: source_path.to_string(),
@@ -458,9 +452,7 @@ fn recursively_process_source_tree(
                             }
 
                             // Add the entry for the symbol itself.
-                            let sym_notes = by_lang
-                                .entry(record.pretty.clone())
-                                .or_insert_with(|| SymbolNotes::default());
+                            let sym_notes = by_lang.entry(record.pretty.clone()).or_default();
                             sym_notes.symdex_records.push(SymdexRecord {
                                 file_row: record.clone(),
                                 path: source_path.to_string(),
@@ -599,11 +591,11 @@ fn process_symdex_tree(
             let header = SymdexHeader {};
 
             // Delete the file if we no longer have any records for the file.
-            if records.len() == 0 {
+            if records.is_empty() {
                 info!("  Deleting moot symdex file {}", sym_path.display());
-                write!(
+                writeln!(
                     import_helper.stdin.as_mut().unwrap(),
-                    "D {}\n",
+                    "D {}",
                     sanitize(&sym_path)
                 )
                 .unwrap();
@@ -618,8 +610,8 @@ fn process_symdex_tree(
                 );
                 let import_stream = import_helper.stdin.as_mut().unwrap();
 
-                write!(import_stream, "M 100644 inline {}\n", sanitize(&sym_path)).unwrap();
-                write!(import_stream, "data {}\n", symdex_bytes.len()).unwrap();
+                writeln!(import_stream, "M 100644 inline {}", sanitize(&sym_path)).unwrap();
+                writeln!(import_stream, "data {}", symdex_bytes.len()).unwrap();
                 import_stream.write(symdex_bytes).unwrap();
                 // (skipping trailing LF again)
             }
@@ -803,7 +795,7 @@ fn main() {
         rev_done += 1;
 
         let hg_rev = match hg_helper {
-            Some(ref mut helper) => get_hg_rev(helper, &git_oid),
+            Some(ref mut helper) => get_hg_rev(helper, git_oid),
             None => None, // we don't support mapfiles any more.
         };
 
@@ -828,8 +820,8 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_commit
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
-            write!(import_stream, "commit {}\n", blame_ref).unwrap();
-            write!(import_stream, "mark :{}\n", rev_done).unwrap();
+            writeln!(import_stream, "commit {}", blame_ref).unwrap();
+            writeln!(import_stream, "mark :{}", rev_done).unwrap();
             blame_map.insert(*git_oid, SyntaxRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
@@ -842,9 +834,9 @@ fn main() {
                 // default "raw" format is the easiest for us to write. Refer to
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-coderawcode
                 let when = sig.when();
-                write!(
+                writeln!(
                     import_stream,
-                    "{} {}{:02}{:02}\n",
+                    "{} {}{:02}{:02}",
                     when.seconds(),
                     when.sign(),
                     when.offset_minutes().abs() / 60,
@@ -863,25 +855,25 @@ fn main() {
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
             if let Some(first_parent) = blame_parents.first() {
-                write!(import_stream, "from {}\n", first_parent).unwrap();
+                writeln!(import_stream, "from {}", first_parent).unwrap();
             } else {
                 // This is a new root commit, so we need to use a special null
                 // parent commit identifier for git-fast-import to know that.
-                write!(
+                writeln!(
                     import_stream,
-                    "from 0000000000000000000000000000000000000000\n"
+                    "from 0000000000000000000000000000000000000000"
                 )
                 .unwrap();
             }
             for additional_parent in blame_parents.iter().skip(1) {
-                write!(import_stream, "merge {}\n", additional_parent).unwrap();
+                writeln!(import_stream, "merge {}", additional_parent).unwrap();
             }
             // In a change from "build-blame.rs", we don't use "deleteall" because we
             // want to retain the existing contents of the "symdex" subdir.  However,
             // we do want the semantics of starting from deletion for "files" and
             // "files-struct", so we do explicitly delete those subdirectories.
-            write!(import_stream, "D files\n").unwrap();
-            write!(import_stream, "D files-struct\n").unwrap();
+            writeln!(import_stream, "D files").unwrap();
+            writeln!(import_stream, "D files-struct").unwrap();
             import_stream.flush().unwrap();
         }
 
@@ -907,7 +899,7 @@ fn main() {
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
-            write!(import_helper.stdin.as_mut().unwrap(), "checkpoint\n").unwrap();
+            writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
         }
     }
 

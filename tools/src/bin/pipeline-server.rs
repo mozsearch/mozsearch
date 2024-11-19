@@ -57,10 +57,9 @@ async fn handle_query(
     };
 
     let graph = {
-        let _log_entered = match &logged_span {
-            Some(lspan) => Some(lspan.span.clone().entered()),
-            _ => None,
-        };
+        let _log_entered = logged_span
+            .as_ref()
+            .map(|lspan| lspan.span.clone().entered());
 
         let pipeline_plan = chew_query(query)?;
 
@@ -74,7 +73,7 @@ async fn handle_query(
 
     let accept = headers
         .get("accept")
-        .map(|x| x.to_str().unwrap_or_else(|_| "text/html"));
+        .map(|x| x.to_str().unwrap_or("text/html"));
     let make_html = match accept {
         Some("application/json") => false,
         _ => true,

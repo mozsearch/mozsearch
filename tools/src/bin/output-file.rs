@@ -51,7 +51,7 @@ fn main() {
     let cfg = config::load(
         &base_args[1],
         true,
-        Some(&tree_name),
+        Some(tree_name),
         Some(base_args[3].to_string()),
     );
     writeln!(
@@ -107,8 +107,8 @@ fn main() {
     .unwrap();
 
     let pre_blame_prep = Instant::now();
-    let (blame_commit, head_oid) = match &tree_config.git {
-        &Some(ref git) => {
+    let (blame_commit, head_oid) = match tree_config.git {
+        Some(ref git) => {
             let head_oid = git.repo.refname_to_id("HEAD").unwrap();
             let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
                 let blame_oid = blame_repo.refname_to_id("HEAD").unwrap();
@@ -118,7 +118,7 @@ fn main() {
             };
             (blame_commit, Some(head_oid))
         }
-        &None => (None, None),
+        None => (None, None),
     };
 
     let head_commit =
@@ -198,12 +198,9 @@ fn main() {
 
         let mut reader = BufReader::new(&source_file);
 
-        match format {
-            FormatAs::Binary => {
-                let _ = io::copy(&mut reader, &mut writer);
-                continue;
-            }
-            _ => {}
+        if let FormatAs::Binary = format {
+            let _ = io::copy(&mut reader, &mut writer);
+            continue;
         };
 
         let pre_analysis_load = Instant::now();
@@ -258,11 +255,11 @@ fn main() {
 
         let extension = path_wrapper
             .extension()
-            .unwrap_or(&OsStr::new(""))
+            .unwrap_or(OsStr::new(""))
             .to_str()
             .unwrap();
         let show_header = match extension_mapping.get(extension) {
-            Some(&(ref description, ref try_extensions)) => {
+            Some((description, try_extensions)) => {
                 let mut result = None;
                 for try_ext in try_extensions {
                     let try_buf = path_wrapper.with_extension(try_ext);

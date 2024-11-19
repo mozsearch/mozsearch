@@ -80,7 +80,7 @@ fn mangle_nested_name(ns: &[String], protocol: &str, name: &str) -> String {
     format!(
         "_ZN{}{}{}E",
         ns.iter()
-            .map(|id| mangle_simple(&id))
+            .map(|id| mangle_simple(id))
             .collect::<Vec<_>>()
             .join(""),
         mangle_simple(protocol),
@@ -108,7 +108,7 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
         }
     }
 
-    return best_piece;
+    best_piece
 }
 
 fn output_ipc_data(
@@ -131,7 +131,7 @@ fn output_ipc_data(
         })
     )
     .unwrap();
-    write!(outputf, "\n").unwrap();
+    writeln!(outputf).unwrap();
     write!(
         outputf,
         "{}",
@@ -144,7 +144,7 @@ fn output_ipc_data(
         })
     )
     .unwrap();
-    write!(outputf, "\n").unwrap();
+    writeln!(outputf).unwrap();
     write!(
         outputf,
         "{}",
@@ -173,7 +173,7 @@ fn output_ipc_data(
         })
     )
     .unwrap();
-    write!(outputf, "\n").unwrap();
+    writeln!(outputf).unwrap();
 }
 
 fn output_send_recv(
@@ -206,7 +206,7 @@ fn output_send_recv(
         &format!("{}{}{}", send_prefix, message.name.id, ctor_suffix),
     );
     let maybe_send_datum = find_analysis(send_analysis, &mangled);
-    if let None = maybe_send_datum {
+    if maybe_send_datum.is_none() {
         println!("No analysis target found for send: {}", mangled);
     }
 
@@ -227,7 +227,7 @@ fn output_send_recv(
     );
     let maybe_recv_datum = find_analysis(recv_analysis, &mangled_no_p)
         .or_else(|| find_analysis(recv_analysis, &mangled_yes_p));
-    if let None = maybe_recv_datum {
+    if maybe_recv_datum.is_none() {
         println!(
             "No analysis target found for recv: {} or {}",
             mangled_no_p, mangled_yes_p
@@ -249,11 +249,11 @@ fn output_send_recv(
         );
         output_ipc_data(
             outputf,
-            &locstr,
+            locstr,
             &ipc_pretty,
             &ipc_sym,
-            &send_datum,
-            &recv_datum,
+            send_datum,
+            recv_datum,
         );
     }
 }
@@ -424,7 +424,7 @@ fn main() {
             }
             let child_analysis = read_analyses(child_ana_files.as_slice(), &mut read_target);
 
-            let is_toplevel = protocol.managers.len() == 0;
+            let is_toplevel = protocol.managers.is_empty();
 
             for message in protocol.messages {
                 let loc = &message.name.loc;

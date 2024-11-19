@@ -18,7 +18,7 @@ pub struct LanguageSpec {
     pub markdown_slug: &'static str,
 }
 
-pub const SYN_RESERVED_CLASS: &'static str = "class=\"syn_reserved\" ";
+pub const SYN_RESERVED_CLASS: &str = "class=\"syn_reserved\" ";
 
 fn make_reserved(v: &[&str]) -> HashMap<String, String> {
     let mut reserved_words = HashMap::new();
@@ -28,7 +28,7 @@ fn make_reserved(v: &[&str]) -> HashMap<String, String> {
     reserved_words
 }
 
-static RESERVED_WORDS_JS: &'static [&'static str] = &[
+static RESERVED_WORDS_JS: &[&str] = &[
     "abstract",
     "else",
     "instanceof",
@@ -93,7 +93,7 @@ static RESERVED_WORDS_JS: &'static [&'static str] = &[
     "set",
 ];
 
-static RESERVED_WORDS_CPP: &'static [&'static str] = &[
+static RESERVED_WORDS_CPP: &[&str] = &[
     "alignas",
     "alignof",
     "and",
@@ -201,7 +201,7 @@ static RESERVED_WORDS_CPP: &'static [&'static str] = &[
     "defined",
 ];
 
-static RESERVED_WORDS_AIDL: &'static [&'static str] = &[
+static RESERVED_WORDS_AIDL: &[&str] = &[
     "parcelable",
     "import",
     "package",
@@ -219,7 +219,7 @@ static RESERVED_WORDS_AIDL: &'static [&'static str] = &[
 ];
 
 // From 'reserved' in ipc/ipdl/ipdl/parser.py
-static RESERVED_WORDS_IPDL: &'static [&'static str] = &[
+static RESERVED_WORDS_IPDL: &[&str] = &[
     "async",
     "both",
     "child",
@@ -250,7 +250,7 @@ static RESERVED_WORDS_IPDL: &'static [&'static str] = &[
     "verify",
 ];
 
-static RESERVED_WORDS_IDL: &'static [&'static str] = &[
+static RESERVED_WORDS_IDL: &[&str] = &[
     "cenum",
     "const",
     "interface",
@@ -306,7 +306,7 @@ static RESERVED_WORDS_IDL: &'static [&'static str] = &[
     "can_run_script",
 ];
 
-static RESERVED_WORDS_WEBIDL: &'static [&'static str] = &[
+static RESERVED_WORDS_WEBIDL: &[&str] = &[
     "module",
     "interface",
     "partial",
@@ -412,7 +412,7 @@ static RESERVED_WORDS_WEBIDL: &'static [&'static str] = &[
     "Unscopable",
 ];
 
-static RESERVED_WORDS_PYTHON: &'static [&'static str] = &[
+static RESERVED_WORDS_PYTHON: &[&str] = &[
     "and", "del", "from", "not", "while", "as", "elif", "global", "or", "with", "assert", "else",
     "if", "pass", "yield", "break", "except", "import", "print", "class", "exec", "in", "raise",
     "continue", "finally", "is", "return", "def", "for", "lambda", "try",
@@ -420,7 +420,7 @@ static RESERVED_WORDS_PYTHON: &'static [&'static str] = &[
 
 // List of Rust reserved words pulled from
 // https://github.com/rust-lang/rust/blob/master/src/libsyntax/symbol.rs
-static RESERVED_WORDS_RUST: &'static [&'static str] = &[
+static RESERVED_WORDS_RUST: &[&str] = &[
     "as", "box", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn",
     "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
     "return", "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe",
@@ -429,7 +429,7 @@ static RESERVED_WORDS_RUST: &'static [&'static str] = &[
     "default", "union",
 ];
 
-static RESERVED_WORDS_JAVA: &'static [&'static str] = &[
+static RESERVED_WORDS_JAVA: &[&str] = &[
     "abstract",
     "continue",
     "for",
@@ -486,7 +486,7 @@ static RESERVED_WORDS_JAVA: &'static [&'static str] = &[
 ];
 
 // http://kotlinlang.org/docs/reference/keyword-reference.html
-static RESERVED_WORDS_KOTLIN: &'static [&'static str] = &[
+static RESERVED_WORDS_KOTLIN: &[&str] = &[
     "as",
     "as?",
     "break",
@@ -569,7 +569,7 @@ static RESERVED_WORDS_KOTLIN: &'static [&'static str] = &[
 
 lazy_static! {
     static ref JS_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_JS),
+        reserved_words: make_reserved(RESERVED_WORDS_JS),
         hash_identifier: true,
         c_style_comments: true,
         backtick_strings: true,
@@ -584,7 +584,7 @@ lazy_static! {
     };
 
     static ref CPP_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_CPP),
+        reserved_words: make_reserved(RESERVED_WORDS_CPP),
         c_style_comments: true,
         c_preprocessor: true,
         cxx14_digit_separators: true,
@@ -593,31 +593,31 @@ lazy_static! {
     };
 
     static ref AIDL_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_AIDL),
+        reserved_words: make_reserved(RESERVED_WORDS_AIDL),
         c_style_comments: true,
         .. LanguageSpec::default()
     };
 
     static ref IPDL_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_IPDL),
+        reserved_words: make_reserved(RESERVED_WORDS_IPDL),
         c_style_comments: true,
         .. LanguageSpec::default()
     };
 
     static ref IDL_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_IDL),
+        reserved_words: make_reserved(RESERVED_WORDS_IDL),
         c_style_comments: true,
         .. LanguageSpec::default()
     };
 
     static ref WEBIDL_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_WEBIDL),
+        reserved_words: make_reserved(RESERVED_WORDS_WEBIDL),
         c_style_comments: true,
         .. LanguageSpec::default()
     };
 
     static ref PYTHON_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_PYTHON),
+        reserved_words: make_reserved(RESERVED_WORDS_PYTHON),
         hash_comment: true,
         triple_quote_literals: true,
         markdown_slug: "py",
@@ -625,7 +625,7 @@ lazy_static! {
     };
 
     static ref RUST_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_RUST),
+        reserved_words: make_reserved(RESERVED_WORDS_RUST),
         hash_comment: true, // for now, for attributes
         c_style_comments: true,
         rust_tweaks: true,
@@ -634,14 +634,14 @@ lazy_static! {
     };
 
     static ref JAVA_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_JAVA),
+        reserved_words: make_reserved(RESERVED_WORDS_JAVA),
         c_style_comments: true,
         markdown_slug: "java",
         .. LanguageSpec::default()
     };
 
     static ref KOTLIN_SPEC : LanguageSpec = LanguageSpec {
-        reserved_words: make_reserved(&*RESERVED_WORDS_KOTLIN),
+        reserved_words: make_reserved(RESERVED_WORDS_KOTLIN),
         c_style_comments: true,
         .. LanguageSpec::default()
     };
@@ -664,19 +664,19 @@ pub fn select_formatting(filename: &str) -> FormatAs {
     };
     match ext {
         "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" | "inc" | "mm" | "m" => {
-            FormatAs::FormatCLike(&*CPP_SPEC)
+            FormatAs::FormatCLike(&CPP_SPEC)
         }
-        "aidl" => FormatAs::FormatCLike(&*AIDL_SPEC),
-        "ipdl" | "ipdlh" => FormatAs::FormatCLike(&*IPDL_SPEC),
-        "idl" => FormatAs::FormatCLike(&*IDL_SPEC),
-        "webidl" => FormatAs::FormatCLike(&*WEBIDL_SPEC),
-        "js" | "jsm" | "json" | "mjs" | "sjs" => FormatAs::FormatCLike(&*JS_SPEC),
-        "py" | "build" | "configure" => FormatAs::FormatCLike(&*PYTHON_SPEC),
-        "rs" => FormatAs::FormatCLike(&*RUST_SPEC),
-        "java" => FormatAs::FormatCLike(&*JAVA_SPEC),
-        "kt" => FormatAs::FormatCLike(&*KOTLIN_SPEC),
+        "aidl" => FormatAs::FormatCLike(&AIDL_SPEC),
+        "ipdl" | "ipdlh" => FormatAs::FormatCLike(&IPDL_SPEC),
+        "idl" => FormatAs::FormatCLike(&IDL_SPEC),
+        "webidl" => FormatAs::FormatCLike(&WEBIDL_SPEC),
+        "js" | "jsm" | "json" | "mjs" | "sjs" => FormatAs::FormatCLike(&JS_SPEC),
+        "py" | "build" | "configure" => FormatAs::FormatCLike(&PYTHON_SPEC),
+        "rs" => FormatAs::FormatCLike(&RUST_SPEC),
+        "java" => FormatAs::FormatCLike(&JAVA_SPEC),
+        "kt" => FormatAs::FormatCLike(&KOTLIN_SPEC),
 
-        "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&*HTML_SPEC),
+        "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&HTML_SPEC),
 
         "css" => FormatAs::CSS,
 

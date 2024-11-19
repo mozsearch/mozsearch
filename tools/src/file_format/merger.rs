@@ -54,7 +54,7 @@ pub fn merge_files<W: std::io::Write>(
                         use ExpansionInfo::*;
                         match src.expansion_info {
                             Some(ExpandsTo(ref mut expansions)) => {
-                                for (_, expansions) in expansions {
+                                for expansions in expansions.values_mut() {
                                     if let Some(unnamed_expansions) = expansions.remove("") {
                                         expansions
                                             .insert(platforms[i_file].clone(), unnamed_expansions);
@@ -62,7 +62,7 @@ pub fn merge_files<W: std::io::Write>(
                                 }
                             }
                             Some(InExpansionAt(ref mut offsets)) => {
-                                for (_, offsets) in offsets {
+                                for offsets in offsets.values_mut() {
                                     if let Some(unnamed_offsets) = offsets.remove("") {
                                         offsets.insert(platforms[i_file].clone(), unnamed_offsets);
                                     }
@@ -78,7 +78,7 @@ pub fn merge_files<W: std::io::Write>(
                         // hashset to deduplicate them.
                         let target_str = to_string(&WithLocation {
                             data: tgt,
-                            loc: loc.clone(),
+                            loc: *loc,
                         })
                         .unwrap();
                         if !unique_targets.contains(&target_str) {
@@ -99,7 +99,7 @@ pub fn merge_files<W: std::io::Write>(
                         // and in reality we just want to hash the JSON string, but it's already
                         // been parsed into a Value, which is why we're not using the string.
                         let variants = structured_syms
-                            .entry(structured.sym.clone())
+                            .entry(structured.sym)
                             .or_insert(HashMap::new());
                         let json_str = to_string(&structured).unwrap();
                         let mut hasher = DefaultHasher::new();
@@ -107,7 +107,7 @@ pub fn merge_files<W: std::io::Write>(
                         let hash_key = hasher.finish();
                         let hs = variants.entry(hash_key).or_insert(HashedStructured {
                             platforms: vec![],
-                            loc: loc.clone(),
+                            loc: *loc,
                             data: structured,
                         });
                         hs.platforms.push(i_file);
@@ -126,7 +126,7 @@ pub fn merge_files<W: std::io::Write>(
     for mut loc_data in src_data {
         loc_data.data.sort_by(|s1, s2| s1.pretty.cmp(&s2.pretty));
         let mut last_entry: Option<AnalysisSource> = None;
-        for analysis_entry in std::mem::replace(&mut loc_data.data, Vec::new()) {
+        for analysis_entry in std::mem::take(&mut loc_data.data) {
             match last_entry {
                 Some(mut e) => {
                     if e.pretty == analysis_entry.pretty {

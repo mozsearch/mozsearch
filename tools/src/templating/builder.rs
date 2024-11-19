@@ -24,7 +24,7 @@ impl liquid::partials::PartialSource for StaticTemplateSource {
 
     fn try_get<'a>(&'a self, name: &str) -> Option<borrow::Cow<'a, str>> {
         match TEMPLATE_DIR.get_file(name) {
-            Some(file) => file.contents_utf8().map(|s| borrow::Cow::from(s)),
+            Some(file) => file.contents_utf8().map(borrow::Cow::from),
             _ => None,
         }
     }

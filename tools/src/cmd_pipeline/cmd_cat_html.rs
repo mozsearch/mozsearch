@@ -105,7 +105,7 @@ fn extract_html_snippet(html_str: String, selector: &str) -> String {
                 }
                 // Flush if this was apparently a transition from accumulating
                 // into our buffer.
-                if buf.len() > 0 {
+                if !buf.is_empty() {
                     excerpts.push(String::from_utf8_lossy(&buf).to_string());
                     buf.clear();
                 }

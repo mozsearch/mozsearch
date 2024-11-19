@@ -41,11 +41,8 @@ fn print_log(ty: &str, msg: String) {
     };
     spec.set_fg(Some(color));
 
-    match ty {
-        "DEBUG" => {
-            spec.set_dimmed(true);
-        }
-        _ => {}
+    if ty == "DEBUG" {
+        spec.set_dimmed(true);
     }
 
     stderr.set_color(&spec).unwrap();
@@ -198,7 +195,7 @@ impl WebtestCommand {
         }
 
         let elapsed_time = entire_start.elapsed();
-        eprintln!("");
+        eprintln!();
         println_color(Color::Yellow, "Overall Summary");
         println_color(Color::Yellow, "===============");
         eprintln!(
@@ -209,7 +206,7 @@ impl WebtestCommand {
         );
         eprintln!("Passed: {} tests", test_count - failed_tests.len());
         eprintln!("Failed: {} tests", failed_tests.len());
-        eprintln!("");
+        eprintln!();
 
         let passed = failed_tests.is_empty();
 

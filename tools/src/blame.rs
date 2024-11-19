@@ -28,7 +28,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
     for rev in revs.split(',') {
         let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
         let commit = commit_obj.as_commit().ok_or("Bad revision")?;
-        let (msg, _) = commit_header(&commit)?;
+        let (msg, _) = commit_header(commit)?;
 
         let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
         let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
@@ -53,14 +53,13 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
 
         obj.insert("date".to_owned(), json!(t));
 
-        match (&tree_config.paths.hg_root, git.hg_map.get(&commit_obj.id())) {
-            (Some(hg_path), Some(hg_id)) => {
-                obj.insert(
-                    "fulldiff".to_owned(),
-                    json!(format!("{}/rev/{}", hg_path, hg_id)),
-                );
-            }
-            _ => (),
+        if let (Some(hg_path), Some(hg_id)) =
+            (&tree_config.paths.hg_root, git.hg_map.get(&commit_obj.id()))
+        {
+            obj.insert(
+                "fulldiff".to_owned(),
+                json!(format!("{}/rev/{}", hg_path, hg_id)),
+            );
         };
 
         infos.push(json!(obj));

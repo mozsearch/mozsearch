@@ -609,7 +609,7 @@ where
         }
     }
 
-    pub fn per_platform<'a>(&'a self) -> Vec<(Option<String>, &'a Self)> {
+    pub fn per_platform(&self) -> Vec<(Option<String>, &Self)> {
         // XXX at least for things that are subclassed it seems like we can end up with multiple
         // structured representations right now, so we need to keep track of platforms we've seen
         // so we can avoid adding them a subsequent time.
@@ -634,7 +634,7 @@ where
                     continue;
                 }
 
-                results.push((Some(p.clone()), &v));
+                results.push((Some(p.clone()), v));
             }
         }
         results
@@ -872,9 +872,9 @@ pub fn parse_location(loc: &str) -> Location {
     let col_start = col_start.parse::<u32>().unwrap();
     let col_end = col_end.parse::<u32>().unwrap();
     Location {
-        lineno: lineno,
-        col_start: col_start,
-        col_end: col_end,
+        lineno,
+        col_start,
+        col_end,
     }
 }
 
@@ -998,7 +998,7 @@ pub fn read_analyses<T>(
     filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
 ) -> Vec<WithLocation<Vec<T>>> {
     let mut result = Vec::new();
-    for (i_file, filename) in filenames.into_iter().enumerate() {
+    for (i_file, filename) in filenames.iter().enumerate() {
         let file = match File::open(filename) {
             Ok(f) => f,
             Err(_) => {
@@ -1043,9 +1043,8 @@ pub fn read_analyses<T>(
             // Destructively pull the "loc" out before passing it into the filter.  This is for
             // read_structured which stores everything it doesn't directly process in `payload`.
             let loc = parse_location(obj.remove("loc").unwrap().as_str().unwrap());
-            match filter(data, &loc, i_file) {
-                Some(v) => result.push(WithLocation { data: v, loc: loc }),
-                None => {}
+            if let Some(v) = filter(data, &loc, i_file) {
+                result.push(WithLocation { data: v, loc })
             }
         }
     }
@@ -1076,12 +1075,11 @@ pub fn read_analyses<T>(
         last_vec.push(r.data);
     }
 
-    match last_loc {
-        Some(ll) => result2.push(WithLocation {
+    if let Some(ll) = last_loc {
+        result2.push(WithLocation {
             loc: ll,
             data: last_vec,
-        }),
-        None => {}
+        })
     }
 
     result2
@@ -1089,9 +1087,7 @@ pub fn read_analyses<T>(
 
 pub fn read_target(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisTarget<Ustr>> {
     // XXX this shouldn't be necessary thanks to our tag, so this should be removable
-    if obj.get("target").is_none() {
-        return None;
-    }
+    obj.get("target")?;
 
     from_value(obj).ok()
 }
@@ -1102,18 +1098,14 @@ pub fn read_structured(
     _i_size: usize,
 ) -> Option<AnalysisStructured<Ustr>> {
     // XXX this shouldn't be necessary thanks to our tag, so this should be removable
-    if obj.get("structured").is_none() {
-        return None;
-    }
+    obj.get("structured")?;
 
     from_value(obj).ok()
 }
 
 pub fn read_source(obj: Value, _loc: &Location, _i_size: usize) -> Option<AnalysisSource<Ustr>> {
     // XXX this shouldn't be necessary thanks to our tag, so this should be removable
-    if obj.get("source").is_none() {
-        return None;
-    }
+    obj.get("source")?;
 
     from_value(obj).ok()
 }

@@ -16,7 +16,7 @@ fn mangle_name(name: &str) -> String {
                 s.push(c as char);
             }
             _ => {
-                s.push_str(format!("@{:02X}", c as u8).as_str());
+                s.push_str(format!("@{:02X}", { c }).as_str());
             }
         }
     }
@@ -32,11 +32,11 @@ fn to_loc(
     // cssparser::SourceLocation uses 0-origin line and 1-origin column.
     // analysis::Location uses 1-origin line and 0-origin column.
     // first_line is 1-origin.
-    return Location {
+    Location {
         lineno: first_line + start.line,
         col_start: start.column - 1,
         col_end: end.column - 1,
-    };
+    }
 }
 
 fn to_source(
@@ -48,8 +48,8 @@ fn to_source(
     WithLocation {
         data: AnalysisSource {
             source: SourceTag::Source,
-            syntax: syntax,
-            pretty: pretty,
+            syntax,
+            pretty,
             sym: vec![sym],
             no_crossref: false,
             nesting_range: SourceRange::default(),
@@ -58,7 +58,7 @@ fn to_source(
             arg_ranges: vec![],
             expansion_info: None,
         },
-        loc: loc.clone(),
+        loc,
     }
 }
 
@@ -71,9 +71,9 @@ fn to_target(
     WithLocation {
         data: AnalysisTarget {
             target: TargetTag::Target,
-            kind: kind,
-            pretty: pretty,
-            sym: sym,
+            kind,
+            pretty,
+            sym,
             context: "".to_string(),
             contextsym: "".to_string(),
             peek_range: LineRange {
@@ -82,7 +82,7 @@ fn to_target(
             },
             arg_ranges: vec![],
         },
-        loc: loc,
+        loc,
     }
 }
 
@@ -129,7 +129,7 @@ fn analyze_css_block<F>(
                         )
                     };
 
-                    let source = to_source(loc.clone(), syntax, source_pretty, sym.clone());
+                    let source = to_source(loc, syntax, source_pretty, sym.clone());
                     callback(serde_json::to_string(&source).unwrap());
                     let target = to_target(loc, kind, target_pretty, sym);
                     callback(serde_json::to_string(&target).unwrap());
@@ -159,7 +159,7 @@ fn analyze_css_block<F>(
                     let syntax = vec!["use".to_string(), "file".to_string()];
                     let kind = AnalysisKind::Use;
 
-                    let source = to_source(loc.clone(), syntax, source_pretty, sym.clone());
+                    let source = to_source(loc, syntax, source_pretty, sym.clone());
                     callback(serde_json::to_string(&source).unwrap());
                     let target = to_target(loc, kind, target_pretty, sym);
                     callback(serde_json::to_string(&target).unwrap());

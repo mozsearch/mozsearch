@@ -17,8 +17,8 @@ use super::config::Config;
 fn uppercase(s: &[u8]) -> Vec<u8> {
     let mut result = vec![];
     for i in 0..s.len() {
-        result.push(if s[i] >= 'a' as u8 && s[i] <= 'z' as u8 {
-            s[i] - ('a' as u8) + ('A' as u8)
+        result.push(if s[i] >= b'a' && s[i] <= b'z' {
+            s[i] - b'a' + b'A'
         } else {
             s[i]
         });
@@ -78,7 +78,7 @@ impl IdentMap {
                 }),
                 Err(e) => {
                     warn!("Failed to mmap {}: {:?}", filename, e);
-                    return None;
+                    None
                 }
             }
         }
@@ -99,19 +99,19 @@ impl IdentMap {
     fn get_line(&self, pos: usize) -> &[u8] {
         let mut pos = pos;
         let bytes = self.mmap.as_ref();
-        if bytes[pos] == '\n' as u8 {
+        if bytes[pos] == b'\n' {
             pos -= 1;
         }
 
         let mut start = pos;
         let mut end = pos;
 
-        while start > 0 && bytes[start - 1] != '\n' as u8 {
+        while start > 0 && bytes[start - 1] != b'\n' {
             start -= 1;
         }
 
         let size = bytes.len();
-        while end < size && bytes[end] != '\n' as u8 {
+        while end < size && bytes[end] != b'\n' {
             end += 1;
         }
 
@@ -121,7 +121,7 @@ impl IdentMap {
     fn bisect(&self, needle: &[u8], upper_bound: bool) -> usize {
         let mut needle = uppercase(needle);
         if upper_bound {
-            needle.push('~' as u8);
+            needle.push(b'~');
         }
 
         let mut first = 0;

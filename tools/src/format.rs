@@ -53,11 +53,11 @@ pub fn format_code(
 ) -> (Vec<FormattedLine>, String) {
     let tokens = match format {
         FormatAs::Binary => panic!("Unexpected binary file"),
-        FormatAs::CSS => tokenize::tokenize_css(&input),
-        FormatAs::Plain => tokenize::tokenize_plain(&input),
-        FormatAs::StaticPrefs => tokenize::tokenize_static_prefs(&input),
-        FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(&input, spec),
-        FormatAs::FormatTagLike(script_spec) => tokenize::tokenize_tag_like(&input, script_spec),
+        FormatAs::CSS => tokenize::tokenize_css(input),
+        FormatAs::Plain => tokenize::tokenize_plain(input),
+        FormatAs::StaticPrefs => tokenize::tokenize_static_prefs(input),
+        FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
+        FormatAs::FormatTagLike(script_spec) => tokenize::tokenize_tag_like(input, script_spec),
     };
 
     let mut output_lines = Vec::new();
@@ -118,40 +118,37 @@ pub fn format_code(
         assert!(token.start <= token.end);
         last_pos = token.end;
 
-        match token.kind {
-            tokenize::TokenKind::Newline => {
-                output.push_str(&input[last..token.start]);
+        if token.kind == tokenize::TokenKind::Newline {
+            output.push_str(&input[last..token.start]);
 
-                // Pop nesting symbols whose end is on the NEXT line.  That is, it doesn't make
-                // sense for the position:sticky overlay to cover up the line that contains the
-                // token that closes the nesting range.
-                //
-                // The check below accomplishes this by scanning until we find an (endline - 1)
-                // that is beyond the current line.
-                let truncate_to = match nesting_stack
-                    .iter()
-                    .rposition(|a| a.nesting_range.end_lineno - 1 > cur_line)
-                {
-                    Some(first_keep) => first_keep + 1,
-                    None => 0,
-                };
-                let pop_count = nesting_stack.len() - truncate_to;
-                nesting_stack.truncate(truncate_to);
+            // Pop nesting symbols whose end is on the NEXT line.  That is, it doesn't make
+            // sense for the position:sticky overlay to cover up the line that contains the
+            // token that closes the nesting range.
+            //
+            // The check below accomplishes this by scanning until we find an (endline - 1)
+            // that is beyond the current line.
+            let truncate_to = match nesting_stack
+                .iter()
+                .rposition(|a| a.nesting_range.end_lineno - 1 > cur_line)
+            {
+                Some(first_keep) => first_keep + 1,
+                None => 0,
+            };
+            let pop_count = nesting_stack.len() - truncate_to;
+            nesting_stack.truncate(truncate_to);
 
-                output_lines.push(FormattedLine {
-                    line: fixup(output),
-                    sym_starts_nest: starts_nest.take(),
-                    pop_nest_count: pop_count as u32,
-                });
-                output = String::new();
+            output_lines.push(FormattedLine {
+                line: fixup(output),
+                sym_starts_nest: starts_nest.take(),
+                pop_nest_count: pop_count as u32,
+            });
+            output = String::new();
 
-                cur_line += 1;
-                line_start = token.end;
-                last = token.end;
+            cur_line += 1;
+            line_start = token.end;
+            last = token.end;
 
-                continue;
-            }
-            _ => {}
+            continue;
         }
 
         let column = (token.start - line_start) as u32;
@@ -160,18 +157,18 @@ pub fn format_code(
         // to tokens we've already gone past. This effectively advances
         // cur_datum such that `analysis[cur_datum]` is the analysis data
         // for our current token (if there is any).
-        while cur_datum < analysis.len() && cur_line as u32 > analysis[cur_datum].loc.lineno {
+        while cur_datum < analysis.len() && cur_line > analysis[cur_datum].loc.lineno {
             cur_datum += 1
         }
         while cur_datum < analysis.len()
-            && cur_line as u32 == analysis[cur_datum].loc.lineno
+            && cur_line == analysis[cur_datum].loc.lineno
             && column > analysis[cur_datum].loc.col_start
         {
             cur_datum += 1
         }
 
         let datum = if cur_datum < analysis.len()
-            && cur_line as u32 == analysis[cur_datum].loc.lineno
+            && cur_line == analysis[cur_datum].loc.lineno
             && column == analysis[cur_datum].loc.col_start
         {
             let r = &analysis[cur_datum].data;
@@ -232,10 +229,10 @@ pub fn format_code(
                                 if let Some(type_sym) = &a.type_sym {
                                     obj.insert("typesym".to_string(), json!(type_sym.to_string()));
                                 }
-                                generated_sym_info.insert(sym.clone(), json!(obj));
+                                generated_sym_info.insert(*sym, json!(obj));
                             }
                         } else if let Some(lookup) = jumpref_lookup {
-                            if let Ok(jumpref) = lookup.lookup(&sym) {
+                            if let Ok(jumpref) = lookup.lookup(sym) {
                                 // See if there are any binding slot symbols that we should also
                                 // include.  This allows us to do things like, when presenting a
                                 // context menu for a synthetic XPIDL symbol, we can also provide an
@@ -243,7 +240,7 @@ pub fn format_code(
                                 let mut extra_syms =
                                     determine_desired_extra_syms_from_jumpref(&jumpref);
                                 jumpref_traversed
-                                    .entry(sym.clone())
+                                    .entry(*sym)
                                     .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
                                     .or_insert(JumprefTraversals::NormalExtra);
                                 while let Some((extra_sym, next_step)) = extra_syms.pop() {
@@ -266,6 +263,19 @@ pub fn format_code(
                                         {
                                             for (next_sym, next_traversals) in
                                                 extra_syms_next_step_lookups(
+                                                    extra_jumpref,
+                                                    next_step,
+                                                )
+                                            {
+                                                extra_syms.push((next_sym, next_traversals));
+                                            }
+                                        }
+                                    } else if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
+                                        // If there is a next step, process the info for what to contribute
+                                        // to extra_syms before we consume the value by storing it.
+                                        if !next_step.is_empty() {
+                                            for (next_sym, next_traversals) in
+                                                extra_syms_next_step_lookups(
                                                     &extra_jumpref,
                                                     next_step,
                                                 )
@@ -273,26 +283,11 @@ pub fn format_code(
                                                 extra_syms.push((next_sym, next_traversals));
                                             }
                                         }
-                                    } else {
-                                        if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
-                                            // If there is a next step, process the info for what to contribute
-                                            // to extra_syms before we consume the value by storing it.
-                                            if !next_step.is_empty() {
-                                                for (next_sym, next_traversals) in
-                                                    extra_syms_next_step_lookups(
-                                                        &extra_jumpref,
-                                                        next_step,
-                                                    )
-                                                {
-                                                    extra_syms.push((next_sym, next_traversals));
-                                                }
-                                            }
-                                            jumpref_traversed.insert(extra_sym.clone(), next_step);
-                                            generated_sym_info.insert(extra_sym, extra_jumpref);
-                                        }
+                                        jumpref_traversed.insert(extra_sym, next_step);
+                                        generated_sym_info.insert(extra_sym, extra_jumpref);
                                     }
                                 }
-                                generated_sym_info.insert(sym.clone(), jumpref);
+                                generated_sym_info.insert(*sym, jumpref);
                             }
                         }
                     }
@@ -318,16 +313,16 @@ pub fn format_code(
                                 if seen_syms.contains(sym) {
                                     continue;
                                 }
-                                if seen_syms.len() > 0 {
-                                    syms.push_str(",");
+                                if !seen_syms.is_empty() {
+                                    syms.push(',');
                                 }
-                                seen_syms.push(sym.clone());
+                                seen_syms.push(*sym);
                                 syms.push_str(sym)
                             }
                             syms
                         };
 
-                        if syms.len() > 0 {
+                        if !syms.is_empty() {
                             format!("data-symbols=\"{}\"", syms)
                         } else {
                             "".to_owned()
@@ -351,7 +346,7 @@ pub fn format_code(
                         })
                     });
                     let classes = classes.collect::<Vec<_>>();
-                    if classes.len() > 0 {
+                    if !classes.is_empty() {
                         format!("class=\"{}\" ", classes.join(" "))
                     } else if has_datum {
                         // If the token has analysis record, do not apply keyword.
@@ -404,7 +399,7 @@ pub fn format_code(
                 FormatAs::Binary => panic!("Unexpected binary file"),
                 FormatAs::CSS => tokenize::tokenize_css(input),
                 FormatAs::Plain => tokenize::tokenize_plain(input),
-                FormatAs::StaticPrefs => tokenize::tokenize_static_prefs(&input),
+                FormatAs::StaticPrefs => tokenize::tokenize_static_prefs(input),
                 FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
                 FormatAs::FormatTagLike(script_spec) => {
                     tokenize::tokenize_tag_like(input, script_spec)
@@ -420,7 +415,7 @@ pub fn format_code(
                             .get(key)
                             .and_then(|o| o.get(platform))
                             .into_iter()
-                            .flat_map(|v| v.into_iter())
+                            .flat_map(|v| v.iter())
                             .map(move |&offset| (offset, data)),
                     ),
                     _ => None,
@@ -435,8 +430,8 @@ pub fn format_code(
                     .get(&token.start)
                     .map(Deref::deref)
                     .unwrap_or(&[]);
-                let style = get_style(&token, &mut token_symbols.iter().map(|&a| a));
-                let symbols = get_symbols(&token, &mut token_symbols.iter().map(|&a| a));
+                let style = get_style(&token, &mut token_symbols.iter().copied());
+                let symbols = get_symbols(&token, &mut token_symbols.iter().copied());
 
                 match token.kind {
                     tokenize::TokenKind::Punctuation | tokenize::TokenKind::PlainText => {
@@ -448,7 +443,7 @@ pub fn format_code(
                         last = token.end;
                     }
                     _ => {
-                        if style != "" || symbols != "" {
+                        if !style.is_empty() || !symbols.is_empty() {
                             html.push_str(&entity_replace(input[last..token.start].to_string()));
                             html.push_str(&format!("<span {}{}>", style, symbols));
                             let mut sanitized =
@@ -479,8 +474,8 @@ pub fn format_code(
             // Turn BTreeMap<String, BTreeMap<String, String>> into Vec<(key: String, (platform: String, expansion: String))> and sort by (key, expansion)
             let mut expansions: Vec<_> = expansions
                 .flat_map(|e| {
-                    e.into_iter().flat_map(|(key, expansions)| {
-                        expansions.into_iter().map(move |(platform, expansion)| {
+                    e.iter().flat_map(|(key, expansions)| {
+                        expansions.iter().map(move |(platform, expansion)| {
                             (key.to_owned(), (platform.to_owned(), expansion.to_owned()))
                         })
                     })
@@ -544,7 +539,7 @@ pub fn format_code(
                 last = token.end;
             }
             _ => {
-                if expansions != "" || style != "" || symbols != "" {
+                if !expansions.is_empty() || !style.is_empty() || !symbols.is_empty() {
                     output.push_str(&entity_replace(input[last..token.start].to_string()));
                     output.push_str(&format!("<span {}{}{}>", expansions, style, symbols));
                     let mut sanitized = entity_replace(input[token.start..token.end].to_string());
@@ -563,7 +558,7 @@ pub fn format_code(
 
     output.push_str(&entity_replace(input[last..].to_string()));
 
-    if output.len() > 0 {
+    if !output.is_empty() {
         output_lines.push(FormattedLine {
             line: fixup(output),
             sym_starts_nest: starts_nest.take(),
@@ -610,12 +605,9 @@ pub fn format_file_data(
     let mut format_perf = FormatPerfInfo::default();
 
     let format = languages::select_formatting(path);
-    match format {
-        FormatAs::Binary => {
-            write!(writer, "Binary file").unwrap();
-            return Ok(format_perf);
-        }
-        _ => {}
+    if let FormatAs::Binary = format {
+        write!(writer, "Binary file").unwrap();
+        return Ok(format_perf);
     };
 
     let slug = format_to_slug_attribute(&format);
@@ -626,7 +618,7 @@ pub fn format_file_data(
         format,
         path,
         &data,
-        &analysis,
+        analysis,
     );
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
@@ -635,13 +627,13 @@ pub fn format_file_data(
     format_perf.blame_lines_duration_us = pre_blame_lines.elapsed().as_micros() as u64;
 
     let pre_commit = Instant::now();
-    let revision_owned = match commit {
-        &Some(ref commit) => {
+    let revision_owned = match *commit {
+        Some(ref commit) => {
             let rev = commit.id().to_string();
             let (header, _) = blame::commit_header(commit)?;
             Some((rev, header))
         }
-        &None => None,
+        None => None,
     };
     let revision = match revision_owned {
         Some((ref rev, ref header)) => Some((rev.as_str(), header.as_str())),
@@ -740,7 +732,7 @@ pub fn format_file_data(
 
         // Compute the blame data for this line (if any)
         let blame_data = if let Some(ref lines) = blame_lines {
-            let blame_line = blame::LineData::deserialize(&lines[i as usize]);
+            let blame_line = blame::LineData::deserialize(&lines[i]);
 
             // These store the final data we ship to the front-end.
             // Each of these is a comma-separated list with one element
@@ -849,7 +841,7 @@ pub fn format_file_data(
     let f = F::Seq(vec![F::S("</div>")]);
     output::generate_formatted(writer, &f, 0).unwrap();
 
-    write!(writer, "<script>var SYM_INFO = {};</script>\n", sym_json,).unwrap();
+    writeln!(writer, "<script>var SYM_INFO = {};</script>", sym_json,).unwrap();
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
@@ -860,8 +852,8 @@ pub fn format_file_data(
 
 fn format_to_slug_attribute(format: &FormatAs) -> String {
     let slug = match format {
-        FormatAs::FormatTagLike(ref spec) => spec.markdown_slug,
-        FormatAs::FormatCLike(ref spec) => spec.markdown_slug,
+        FormatAs::FormatTagLike(spec) => spec.markdown_slug,
+        FormatAs::FormatCLike(spec) => spec.markdown_slug,
         _ => "",
     };
 
@@ -964,8 +956,8 @@ pub fn format_path(
         .git
         .as_ref()
         .and_then(|git| git.hg_map.get(&commit.id()))
-        .and_then(|rev| Some(rev.as_ref())) // &String to &str conversion
-        .unwrap_or(&"tip");
+        .map(|rev| rev.as_ref()) // &String to &str conversion
+        .unwrap_or("tip");
 
     let encoded_path = url_encode_path(path);
 
@@ -1064,7 +1056,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
 
 fn split_lines(s: &str) -> Vec<&str> {
     let mut split = s.split('\n').collect::<Vec<_>>();
-    if split[split.len() - 1].len() == 0 {
+    if split[split.len() - 1].is_empty() {
         split.pop();
     }
     split
@@ -1093,7 +1085,7 @@ pub fn format_diff(
         .arg(rev)
         .arg("--")
         .arg(path)
-        .current_dir(&git_path)
+        .current_dir(git_path)
         .output()
         .map_err(|_| "Diff failed 1")?;
     if !output.status.success() {
@@ -1102,7 +1094,7 @@ pub fn format_diff(
     }
     let difftxt = git_ops::decode_bytes(output.stdout);
 
-    if difftxt.len() == 0 {
+    if difftxt.is_empty() {
         return format_path(cfg, tree_name, rev, path, writer);
     }
 
@@ -1156,7 +1148,7 @@ pub fn format_diff(
 
     let mut output = Vec::new();
     for line in lines {
-        if line.len() == 0 || line.starts_with('\\') {
+        if line.is_empty() || line.starts_with('\\') {
             continue;
         }
 
@@ -1188,17 +1180,14 @@ pub fn format_diff(
     }
 
     let format = languages::select_formatting(path);
-    match format {
-        FormatAs::Binary => {
-            return Err("Cannot diff binary file");
-        }
-        _ => {}
+    if let FormatAs::Binary = format {
+        return Err("Cannot diff binary file");
     };
     let analysis = Vec::new();
     let slug = format_to_slug_attribute(&format);
     let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, &new_lines, &analysis);
 
-    let (header, _) = blame::commit_header(&commit)?;
+    let (header, _) = blame::commit_header(commit)?;
 
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
@@ -1358,7 +1347,7 @@ fn generate_commit_info(
     writer: &mut dyn Write,
     commit: &git2::Commit,
 ) -> Result<(), &'static str> {
-    let (header, remainder) = blame::commit_header(&commit)?;
+    let (header, remainder) = blame::commit_header(commit)?;
 
     fn format_rev(tree_name: &str, oid: git2::Oid) -> String {
         format!("<a href=\"/{}/commit/{}\">{}</a>", tree_name, oid, oid)
@@ -1445,7 +1434,7 @@ fn generate_commit_info(
         .arg("--pretty=format:")
         .arg("--raw")
         .arg(id_string)
-        .current_dir(&git_path)
+        .current_dir(git_path)
         .output()
         .map_err(|_| "Diff failed 1")?;
     if !output.status.success() {
@@ -1457,7 +1446,7 @@ fn generate_commit_info(
     let lines = split_lines(&difftxt);
     let mut changes = Vec::new();
     for line in lines {
-        if line.len() == 0 {
+        if line.is_empty() {
             continue;
         }
 
@@ -1499,7 +1488,7 @@ pub fn format_commit(
     let title = format!("{} - mozsearch", rev);
     let opt = Options {
         title: &title,
-        tree_name: tree_name,
+        tree_name,
         include_date: true,
         revision: None,
         extra_content_classes: "commit",
@@ -1511,7 +1500,7 @@ pub fn format_commit(
 
     output::generate_panel(&opt, writer, &[], true)?;
 
-    generate_commit_info(tree_name, &tree_config, writer, commit)?;
+    generate_commit_info(tree_name, tree_config, writer, commit)?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 

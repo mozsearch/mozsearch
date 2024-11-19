@@ -28,7 +28,7 @@ impl From<regex::Error> for ServerError {
     fn from(err: regex::Error) -> ServerError {
         ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::BadInput,
-            message: format!("bad regexp: {}", err.to_string()),
+            message: format!("bad regexp: {}", err),
         })
     }
 }
@@ -46,7 +46,7 @@ impl From<tokio::task::JoinError> for ServerError {
         */
         ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::RuntimeInvariantViolation,
-            message: format!("task panicked?: {}", err.to_string()),
+            message: format!("task panicked?: {}", err),
         })
     }
 }
@@ -55,7 +55,7 @@ impl From<liquid::Error> for ServerError {
     fn from(err: liquid::Error) -> ServerError {
         ServerError::StickyProblem(ErrorDetails {
             layer: ErrorLayer::ConfigLayer,
-            message: format!("Liquid error: {}", err.to_string()),
+            message: format!("Liquid error: {}", err),
         })
     }
 }

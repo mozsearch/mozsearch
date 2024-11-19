@@ -86,7 +86,7 @@ impl SymbolTreeTableList {
             for sym_info in table.node_set.symbol_crossref_infos.iter() {
                 let info = sym_info.crossref_info.clone();
                 jumprefs.insert(
-                    sym_info.symbol.clone(),
+                    sym_info.symbol,
                     convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
                 );
             }
@@ -165,8 +165,8 @@ pub struct SymbolTreeTableNode {
 impl SymbolTreeTableNode {
     pub fn new(name: String, symbols: String) -> Self {
         Self {
-            name: name,
-            symbols: symbols,
+            name,
+            symbols,
             items: vec![],
         }
     }
@@ -193,8 +193,8 @@ pub struct SymbolTreeTableField {
 impl SymbolTreeTableField {
     pub fn new(name: String, symbols: String) -> Self {
         Self {
-            name: name,
-            symbols: symbols,
+            name,
+            symbols,
             types: vec![],
             lines: vec![],
             offset_and_size: vec![],
@@ -210,10 +210,7 @@ pub struct SymbolTreeTableFieldType {
 
 impl SymbolTreeTableFieldType {
     pub fn new(name: String, symbols: String) -> Self {
-        Self {
-            name: name,
-            symbols: symbols,
-        }
+        Self { name, symbols }
     }
 }
 
@@ -225,10 +222,13 @@ pub struct SymbolTreeTableFieldOffsetAndSize {
 
 impl SymbolTreeTableFieldOffsetAndSize {
     pub fn new(offset: String, size: String) -> Self {
-        Self {
-            offset: offset,
-            size: size,
-        }
+        Self { offset, size }
+    }
+}
+
+impl Default for SymbolTreeTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -498,13 +498,13 @@ impl SymbolCrossrefInfo {
         if let Some(Value::String(s)) = self.crossref_info.pointer("/meta/pretty") {
             ustr(s)
         } else {
-            self.symbol.clone()
+            self.symbol
         }
     }
 
     pub fn get_method_symbols(&self) -> Option<Vec<Ustr>> {
         if let Some(Value::Array(arr)) = self.crossref_info.pointer("/meta/methods") {
-            if arr.len() == 0 {
+            if arr.is_empty() {
                 return None;
             }
             Some(
@@ -556,7 +556,7 @@ impl FlattenedResultsBundle {
     ) {
         self.content_type = "text/html".to_string();
         for path_kind_group in &mut self.path_kind_results {
-            path_kind_group.ingest_html_lines(&path_line_contents, before, after);
+            path_kind_group.ingest_html_lines(path_line_contents, before, after);
         }
     }
 }
@@ -571,12 +571,12 @@ pub struct FlattenedPathKindGroupResults {
 impl FlattenedPathKindGroupResults {
     pub fn accumulate_path_line_sets(
         &self,
-        mut path_line_sets: &mut UstrMap<HashSet<u32>>,
+        path_line_sets: &mut UstrMap<HashSet<u32>>,
         before: u32,
         after: u32,
     ) {
         for kind_group in &self.kind_groups {
-            kind_group.accumulate_path_line_sets(&mut path_line_sets, before, after);
+            kind_group.accumulate_path_line_sets(path_line_sets, before, after);
         }
     }
 
@@ -587,7 +587,7 @@ impl FlattenedPathKindGroupResults {
         after: u32,
     ) {
         for kind_group in &mut self.kind_groups {
-            kind_group.ingest_html_lines(&path_line_contents, before, after);
+            kind_group.ingest_html_lines(path_line_contents, before, after);
         }
     }
 }
@@ -648,12 +648,12 @@ pub struct FlattenedKindGroupResults {
 impl FlattenedKindGroupResults {
     pub fn accumulate_path_line_sets(
         &self,
-        mut path_line_sets: &mut UstrMap<HashSet<u32>>,
+        path_line_sets: &mut UstrMap<HashSet<u32>>,
         before: u32,
         after: u32,
     ) {
         for by_file in &self.by_file {
-            by_file.accumulate_path_line_sets(&mut path_line_sets, before, after);
+            by_file.accumulate_path_line_sets(path_line_sets, before, after);
         }
     }
 
@@ -664,7 +664,7 @@ impl FlattenedKindGroupResults {
         after: u32,
     ) {
         for by_file in &mut self.by_file {
-            by_file.ingest_html_lines(&path_line_contents, before, after);
+            by_file.ingest_html_lines(path_line_contents, before, after);
         }
     }
 }
@@ -682,9 +682,7 @@ impl FlattenedResultsByFile {
         before: u32,
         after: u32,
     ) {
-        let line_set = path_line_sets
-            .entry(self.file.clone())
-            .or_insert_with(|| HashSet::new());
+        let line_set = path_line_sets.entry(self.file).or_default();
         for span in &self.line_spans {
             let range = span.expand_range_in_isolation(before, after);
             for line in range.0..=range.1 {

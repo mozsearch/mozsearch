@@ -160,10 +160,7 @@ fn flatten_args(user_val: &str, priority: u32, args: &Table) -> PipelineArgs {
 
 impl QueryPipelineGroupBuilder {
     fn ensure_pipeline_step(&mut self, group_name: String, command: String, args: PipelineArgs) {
-        let group = self
-            .groups
-            .entry(group_name)
-            .or_insert_with(|| PipelineGroup::default());
+        let group = self.groups.entry(group_name).or_default();
 
         group.ensure_pipeline_step(command, args);
     }
@@ -287,7 +284,7 @@ impl PipelineArgs {
         for (key, (val, _pri)) in &self.named_args {
             args.push(format!("--{}={}", key, val));
         }
-        if self.positional_args.len() > 0 {
+        if !self.positional_args.is_empty() {
             args.push("--".to_string());
             for arg in &self.positional_args {
                 args.push(arg.clone());
@@ -379,14 +376,14 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 builder
                     .groups
                     .entry(group_name.clone())
-                    .or_insert_with(|| PipelineGroup::default()),
+                    .or_insert_with(PipelineGroup::default),
             ) {
                 group.input = use_input;
                 if let Some(input_name) = &group.input {
                     root_groups.remove(&group_name);
                     inputs_to_names
                         .entry(input_name.clone())
-                        .or_insert_with(|| vec![])
+                        .or_insert_with(std::vec::Vec::new)
                         .push(group_name.clone());
                 }
                 // group.output will be set and next/junction will be processed
@@ -409,12 +406,12 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 builder
                     .junctions
                     .entry(junction_name.clone())
-                    .or_insert_with(|| JunctionNode::default()),
+                    .or_insert_with(JunctionNode::default),
                 use_input,
             ) {
                 inputs_to_names
                     .entry(input.clone())
-                    .or_insert_with(|| vec![])
+                    .or_insert_with(std::vec::Vec::new)
                     .push(junction_name.clone());
                 junction.inputs.push(input);
 
@@ -503,7 +500,7 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     // `next_groups` which accumulate into the current phase, and when the inner
     // loop completes it looks for any groups that the junctions in that phase
     // produces.
-    while next_groups.len() > 0 {
+    while !next_groups.is_empty() {
         let mut cur_phase = PipelinePhase::default();
         while let Some((thing_name, group_slot)) = next_groups.pop_front() {
             if let Some(group) = builder.groups.get(&thing_name) {

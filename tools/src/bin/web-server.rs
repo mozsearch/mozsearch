@@ -134,7 +134,7 @@ fn handle(
     let path = url_decode_path(req.path);
     let path = path[1..].split('/').collect::<Vec<_>>();
 
-    if path.len() > 0 && path[0] == "static" {
+    if !path.is_empty() && path[0] == "static" {
         let path = cfg.mozsearch_path.clone() + req.path;
         return handle_static(path, None);
     }
@@ -159,7 +159,7 @@ fn handle(
             let path = path.join("/");
 
             let mut writer = Vec::new();
-            match format::format_path(cfg, &tree_name, &rev, &path, &mut writer) {
+            match format::format_path(cfg, tree_name, rev, &path, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
                 Err(err) => WebResponse::internal_error(err.to_owned()),
             }
@@ -177,7 +177,7 @@ fn handle(
                 .arg("cinnabar")
                 .arg("hg2git")
                 .arg(hg_rev)
-                .current_dir(&git_path)
+                .current_dir(git_path)
                 .output();
             match output_result {
                 Ok(output) if output.status.success() => WebResponse::redirect(format!(
@@ -198,7 +198,7 @@ fn handle(
             let tree_config = &cfg.trees[*tree_name];
 
             let path = format!("{}/file/{}", tree_config.paths.index_path, path);
-            return handle_static(path, Some("text/html"));
+            handle_static(path, Some("text/html"))
         }
 
         "diff" => {
@@ -211,7 +211,7 @@ fn handle(
             let path = path.join("/");
 
             let mut writer = Vec::new();
-            match format::format_diff(cfg, &tree_name, &rev, &path, &mut writer) {
+            match format::format_diff(cfg, tree_name, rev, &path, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
                 Err(err) => WebResponse::internal_error(err.to_owned()),
             }
@@ -225,7 +225,7 @@ fn handle(
             let rev = &path[2];
 
             let mut writer = Vec::new();
-            match format::format_commit(cfg, &tree_name, &rev, &mut writer) {
+            match format::format_commit(cfg, tree_name, rev, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
                 Err(err) => WebResponse::internal_error(err.to_owned()),
             }
@@ -237,7 +237,7 @@ fn handle(
             }
 
             let rev = &path[2];
-            match blame::get_commit_info(&cfg, tree_name, rev) {
+            match blame::get_commit_info(cfg, tree_name, rev) {
                 Ok(json) => WebResponse::json(json),
                 Err(err) => WebResponse::internal_error(err.to_owned()),
             }
@@ -245,10 +245,10 @@ fn handle(
 
         "complete" => {
             if let Some(ids) = ident_map.get(&tree_name.to_string()) {
-                let json = ids.lookup_json(&path[2], false, false, 6);
+                let json = ids.lookup_json(path[2], false, false, 6);
                 WebResponse::json(json)
             } else {
-                return WebResponse::not_found();
+                WebResponse::not_found()
             }
         }
 
@@ -268,7 +268,7 @@ fn main() {
     let handler = move |req: Request, mut res: Response| {
         if req.method != Method::Get {
             *res.status_mut() = StatusCode::MethodNotAllowed;
-            let resp = format!("Invalid method").into_bytes();
+            let resp = "Invalid method".to_string().into_bytes();
             if let Err(e) = res.send(&resp) {
                 eprintln!("Error when replying to {}: {:?}", req.uri, e);
             }
@@ -287,7 +287,7 @@ fn main() {
         };
         let (ref cfg, ref ident_map) = *guard;
 
-        let response = handle(&cfg, &ident_map, WebRequest { path: &path });
+        let response = handle(cfg, ident_map, WebRequest { path: &path });
 
         *res.status_mut() = response.status;
         let output = response.output.into_bytes();
@@ -308,7 +308,7 @@ fn main() {
         let mut status_out = OpenOptions::new()
             .append(true)
             .create(true)
-            .open(&env::args().nth(2).unwrap())
+            .open(env::args().nth(2).unwrap())
             .unwrap();
         writeln!(status_out, "web-server.rs loaded").unwrap();
     }

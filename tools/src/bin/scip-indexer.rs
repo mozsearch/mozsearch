@@ -143,7 +143,7 @@ fn scip_roles_to_searchfox_analysis_kind(roles: i32) -> AnalysisKind {
     map_to_searchfox!(Test, Use);
     map_to_searchfox!(Import, Use);
 
-    return AnalysisKind::Use;
+    AnalysisKind::Use
 }
 
 /// Our specifically handled languages for conditional logic.  We currently
@@ -852,7 +852,7 @@ fn analyze_using_scip(
                 let mut symbol_info = analyse_symbol(
                     &scip_sym,
                     &lang,
-                    &lang_name,
+                    lang_name,
                     subtree_name,
                     &doc.relative_path,
                     doc_name.as_deref(),
@@ -873,7 +873,7 @@ fn analyze_using_scip(
                     let parent_symbol_info = analyse_symbol(
                         &rel_scip_sym,
                         &lang,
-                        &lang_name,
+                        lang_name,
                         subtree_name,
                         &doc.relative_path,
                         None,
@@ -947,11 +947,10 @@ fn analyze_using_scip(
                 // for local symbols we use our own symbol because the SCIP symbol is not
                 // actually unique; we also need to update our helper mapping.
                 if scip_sym_info.symbol.starts_with("local ") {
-                    scip_symbol_to_structured.insert(symbol_info.norm_sym.clone(), structured);
+                    scip_symbol_to_structured.insert(symbol_info.norm_sym, structured);
                     // I don't think there should potentially be such a key, but there's no harm.
                     possible_unknown_scip_symbols.remove(&symbol_info.norm_sym);
-                    our_symbol_to_scip_sym
-                        .insert(symbol_info.norm_sym, symbol_info.norm_sym.clone());
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, symbol_info.norm_sym);
                 } else {
                     let usym = ustr(&scip_sym_info.symbol);
                     scip_symbol_to_structured.insert(usym, structured);
@@ -1081,7 +1080,7 @@ fn analyze_using_scip(
         parser
             .set_language(&ts_lang)
             .expect("Error loading grammar");
-        let ts_query = compile_nesting_queries(&ts_lang, &ts_nesting);
+        let ts_query = compile_nesting_queries(&ts_lang, ts_nesting);
         let name_capture_ix = ts_query.capture_index_for_name("name").unwrap();
         let body_capture_ix = ts_query.capture_index_for_name("body").unwrap();
 
@@ -1189,7 +1188,7 @@ fn analyze_using_scip(
                     };
                     scip_symbol_to_structured.insert(norm_scip_sym, fake);
                     possible_unknown_scip_symbols.remove(&norm_scip_sym);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym.clone());
+                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym);
                     scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
                 }
             };
@@ -1279,8 +1278,8 @@ fn analyze_using_scip(
                 // line.  format.rs handles this and we similarly require any
                 // other consumers to handle this.
                 Some(NestedSymbol {
-                    sym: sinfo.sym.clone(),
-                    pretty: sinfo.pretty.clone(),
+                    sym: sinfo.sym,
+                    pretty: sinfo.pretty,
                     nesting_range: next_parse_nesting.clone(),
                 })
             } else {
@@ -1292,14 +1291,14 @@ fn analyze_using_scip(
             {
                 let mut syntax = vec![kind.to_ustr()];
                 if !sinfo.kind.is_empty() {
-                    syntax.push(sinfo.kind.clone());
+                    syntax.push(sinfo.kind);
                 }
                 let source_data = WithLocation {
                     data: AnalysisSource {
                         source: SourceTag::Source,
                         syntax,
                         pretty: ustr(&format!("{} {}", sinfo.kind, sinfo.pretty)),
-                        sym: vec![sinfo.sym.clone()],
+                        sym: vec![sinfo.sym],
                         no_crossref,
                         nesting_range: if let Some(nest) = &starts_nest {
                             nest.nesting_range.clone()
@@ -1307,7 +1306,7 @@ fn analyze_using_scip(
                             SourceRange::default()
                         },
                         // TODO: Expose type information for fields/etc.
-                        type_pretty: sinfo.type_pretty.clone(),
+                        type_pretty: sinfo.type_pretty,
                         type_sym: None,
                         arg_ranges: vec![],
                         expansion_info: None,
@@ -1327,7 +1326,7 @@ fn analyze_using_scip(
 
             if !no_crossref {
                 let (contextsym, context) = if let Some(nested) = nesting_stack.last() {
-                    (nested.sym.clone(), nested.pretty.clone())
+                    (nested.sym, nested.pretty)
                 } else {
                     (ustr(""), ustr(""))
                 };
@@ -1336,8 +1335,8 @@ fn analyze_using_scip(
                     data: AnalysisTarget {
                         target: TargetTag::Target,
                         kind,
-                        pretty: sinfo.pretty.clone(),
-                        sym: sinfo.sym.clone(),
+                        pretty: sinfo.pretty,
+                        sym: sinfo.sym,
                         context,
                         contextsym,
                         peek_range: LineRange {
@@ -1346,7 +1345,7 @@ fn analyze_using_scip(
                         },
                         arg_ranges: vec![],
                     },
-                    loc: loc.clone(),
+                    loc,
                 };
                 write_line(&mut file, &target_data);
             }
@@ -1395,7 +1394,7 @@ fn analyze_using_scip(
     // ## Emit any external structured records we didn't already emit
     {
         // Let's name the analysis file after the SCIP file.
-        let output_file = analysis_root.join(&scip_file.file_name().unwrap());
+        let output_file = analysis_root.join(scip_file.file_name().unwrap());
         if let Err(err) = create_output_dir(&output_file) {
             error!(
                 "Couldn't create dir for: {}, {:?}",
@@ -1442,12 +1441,12 @@ fn main() {
     let cli = ScipIndexerCli::parse();
 
     let tree_name = &cli.tree_name;
-    let cfg = config::load(&cli.config_file, false, Some(&tree_name), None);
+    let cfg = config::load(&cli.config_file, false, Some(tree_name), None);
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     for file in cli.inputs {
         analyze_using_scip(
-            &tree_config,
+            tree_config,
             cli.subtree_name.as_deref(),
             &cli.subtree_root,
             &cli.platform,
