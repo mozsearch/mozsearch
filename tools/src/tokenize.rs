@@ -883,7 +883,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
         }
         let sub = &chars[p..p + s.len()];
         let sub = sub.iter().map(|&(_, ch)| ch).collect::<String>();
-        &sub == s
+        sub == s
     };
 
     let peek_pos = || {
