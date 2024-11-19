@@ -30,8 +30,6 @@ pub struct MergeAnalysesCommand {
 
 #[async_trait]
 impl PipelineCommand for MergeAnalysesCommand {
-    ///
-    ///
     async fn execute(
         &self,
         server: &(dyn AbstractServer + Send + Sync),
