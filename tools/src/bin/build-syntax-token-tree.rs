@@ -409,7 +409,7 @@ fn recursively_process_source_tree(
                     )
                     .unwrap();
                     writeln!(import_stream, "data {}", tokenized_bytes.len()).unwrap();
-                    import_stream.write(tokenized_bytes).unwrap();
+                    import_stream.write_all(tokenized_bytes).unwrap();
                     // We skip the optional trailing LF character here since in practice it
                     // wasn't particularly useful for debugging. Also the blame blobs we write
                     // here always have a trailing LF anyway.
@@ -431,7 +431,7 @@ fn recursively_process_source_tree(
                     )
                     .unwrap();
                     writeln!(import_stream, "data {}", struct_bytes.len()).unwrap();
-                    import_stream.write(struct_bytes).unwrap();
+                    import_stream.write_all(struct_bytes).unwrap();
                     // (skipping trailing LF again)
 
                     // ## Accumulate the symdex data.
@@ -612,7 +612,7 @@ fn process_symdex_tree(
 
                 writeln!(import_stream, "M 100644 inline {}", sanitize(&sym_path)).unwrap();
                 writeln!(import_stream, "data {}", symdex_bytes.len()).unwrap();
-                import_stream.write(symdex_bytes).unwrap();
+                import_stream.write_all(symdex_bytes).unwrap();
                 // (skipping trailing LF again)
             }
         }
@@ -826,9 +826,9 @@ fn main() {
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
-                import_stream.write(sig.name_bytes()).unwrap();
+                import_stream.write_all(sig.name_bytes()).unwrap();
                 write!(import_stream, " <").unwrap();
-                import_stream.write(sig.email_bytes()).unwrap();
+                import_stream.write_all(sig.email_bytes()).unwrap();
                 write!(import_stream, "> ").unwrap();
                 // git-fast-import can take a few different date formats, but the
                 // default "raw" format is the easiest for us to write. Refer to
