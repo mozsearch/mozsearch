@@ -39,7 +39,7 @@ pub struct CrossrefLookupCommand {
 impl PipelineCommand for CrossrefLookupCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         // Because this pipeline stage can receive symbols from unfiltered user

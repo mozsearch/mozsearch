@@ -35,7 +35,7 @@ pub struct RenderCommand {
 impl PipelineCommand for RenderCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let tree_info = server.tree_info()?;

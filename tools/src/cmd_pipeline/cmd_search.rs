@@ -105,7 +105,7 @@ fn dictify_root(mut val: Value) -> Value {
 impl PipelineCommand for SearchCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         let mut value = server.perform_query(&self.args.query).await?;

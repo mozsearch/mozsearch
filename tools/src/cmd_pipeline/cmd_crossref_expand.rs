@@ -80,7 +80,7 @@ struct LimitGroup {
 impl PipelineCommand for CrossrefExpandCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         let source_crossrefs = match input {

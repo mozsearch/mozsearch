@@ -722,7 +722,7 @@ fn analyze_file(
 // combination of backslashes and forward slashes for windows platform builds
 // because the paths are normalized by a sed script that will match backslashes
 // and output front-slashes.  The sed script could be made smarter.
-fn linuxized_path(path: &PathBuf) -> PathBuf {
+fn linuxized_path(path: &Path) -> PathBuf {
     if let Some(pathstr) = path.to_str() {
         if pathstr.find('\\').is_some() {
             // Pesky backslashes, get rid of them!
@@ -740,7 +740,7 @@ fn linuxized_path(path: &PathBuf) -> PathBuf {
         }
     }
     // Already a valid path!
-    path.clone()
+    path.to_path_buf()
 }
 
 fn analyze_crate(analysis: &data::Analysis, defs: &Defs, tree_info: &TreeInfo) {

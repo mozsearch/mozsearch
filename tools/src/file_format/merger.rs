@@ -32,11 +32,7 @@ pub struct HashedStructured {
 /// The logic could almost certainly be further unified into the `cmd_pipeline`
 /// data model, with callers potentially altered to use searchfox-tool and
 /// eliminate the standalone merge-analyses.rs binary.  But there's no urgency.
-pub fn merge_files<W: std::io::Write>(
-    filenames: &[String],
-    platforms: &Vec<String>,
-    mut writer: W,
-) {
+pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String], mut writer: W) {
     let mut unique_targets = HashSet::new();
     // Maps from symbol name to a HashMap<u64 hash, HashedStructured>
     let mut structured_syms = BTreeMap::new();

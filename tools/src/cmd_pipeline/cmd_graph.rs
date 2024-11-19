@@ -242,7 +242,7 @@ fn transform_svg(svg: &str) -> String {
 impl PipelineCommand for GraphCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         let mut graphs = match input {

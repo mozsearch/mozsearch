@@ -34,7 +34,7 @@ impl PipelineCommand for MergeAnalysesCommand {
     ///
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let abs_paths: Result<Vec<String>> = self

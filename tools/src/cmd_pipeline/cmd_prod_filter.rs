@@ -84,7 +84,7 @@ fn norm_html_value(s: String) -> String {
 impl PipelineCommand for ProductionFilterCommand {
     async fn execute(
         &self,
-        _server: &Box<dyn AbstractServer + Send + Sync>,
+        _server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         Ok(match input {

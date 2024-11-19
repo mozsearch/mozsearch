@@ -671,7 +671,7 @@ impl<StrT> SerializeVecString<StrT>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
 {
-    pub fn serialize<S>(arr: &Vec<StrT>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(arr: &[StrT], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -687,7 +687,7 @@ where
         Ok(s.split(',').map(|s| FromStr::from(s)).collect())
     }
 
-    pub fn join(arr: &Vec<StrT>) -> String {
+    pub fn join(arr: &[StrT]) -> String {
         arr.iter()
             .map(|x| x.as_ref())
             .collect::<Vec<&str>>()

@@ -34,7 +34,7 @@ pub struct QueryCommand {
 impl PipelineCommand for QueryCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let pipeline_plan = chew_query(&self.args.query)?;

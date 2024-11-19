@@ -859,7 +859,7 @@ pub struct TextFile {
 pub trait PipelineCommand: Debug {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues>;
 }
@@ -870,7 +870,7 @@ pub trait PipelineCommand: Debug {
 pub trait PipelineJunctionCommand: Debug {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: Vec<(String, PipelineValues)>,
     ) -> Result<PipelineValues>;
 }
@@ -904,7 +904,7 @@ impl NamedPipeline {
             let span = trace_span!("run_named_pipeline_step", cmd = ?cmd);
 
             match cmd
-                .execute(&server, cur_values)
+                .execute(server.as_ref(), cur_values)
                 .instrument(span.clone())
                 .await
             {
@@ -949,7 +949,7 @@ impl JunctionInvocation {
 
         let result = match self
             .command
-            .execute(&server, input_values)
+            .execute(server.as_ref(), input_values)
             .instrument(span.clone())
             .await
         {
@@ -992,7 +992,7 @@ impl ServerPipeline {
             let span = trace_span!("run_pipeline_step", cmd = ?cmd);
 
             match cmd
-                .execute(&self.server, cur_values)
+                .execute(self.server.as_ref(), cur_values)
                 .instrument(span.clone())
                 .await
             {

@@ -126,7 +126,7 @@ fn extract_html_snippet(html_str: String, selector: &str) -> String {
 impl PipelineCommand for CatHtmlCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let root = if self.args.dir {

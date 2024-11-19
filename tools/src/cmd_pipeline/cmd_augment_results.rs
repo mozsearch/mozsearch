@@ -55,7 +55,7 @@ pub struct AugmentResultsCommand {
 impl PipelineCommand for AugmentResultsCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         let mut results = match input {

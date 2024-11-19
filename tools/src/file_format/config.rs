@@ -150,7 +150,7 @@ impl TreeConfig {
         format!("{}/{}", &self.paths.files_path, path)
     }
 
-    pub fn should_ignore_missing_file(&self, path: &String) -> bool {
+    pub fn should_ignore_missing_file(&self, path: &str) -> bool {
         for prefix in &self.paths.ignore_missing_path_prefixes {
             if path.starts_with(prefix) {
                 return true;

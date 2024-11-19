@@ -46,7 +46,7 @@ pub struct SearchTextCommand {
 impl PipelineCommand for SearchTextCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let re_pattern = if let Some(re) = &self.args.re {

@@ -476,7 +476,7 @@ impl PlatformMap {
     }
 }
 
-fn platform_name_to_order(name: &String) -> u32 {
+fn platform_name_to_order(name: &str) -> u32 {
     if name.starts_with("win") {
         return 0;
     }
@@ -582,14 +582,11 @@ impl FieldsPerPlatform {
             .collect()
     }
 
-    fn get_fields_for_platforms<'a>(
-        &'a self,
-        platform_ids: &Vec<PlatformId>,
-    ) -> Option<&'a Vec<Field>> {
+    fn get_fields_for_platforms<'a>(&'a self, platform_ids: &[PlatformId]) -> Option<&'a [Field]> {
         let platform_id = &platform_ids[0];
         self.fields_per_platform
             .get(platform_id)
-            .map(|fields| &fields.fields)
+            .map(|fields| fields.fields.as_slice())
     }
 }
 
@@ -715,7 +712,7 @@ impl ClassMap {
     async fn populate(
         &mut self,
         nom_sym_info: SymbolCrossrefInfo,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<()> {
         let root_sym_id = self.populate_platform_map(nom_sym_info, server).await?;
 
@@ -940,7 +937,7 @@ impl ClassMap {
     async fn populate_file_lines(
         &mut self,
         path: &String,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<()> {
         if path.is_empty() {
             return Ok(());
@@ -991,7 +988,7 @@ impl ClassMap {
     async fn populate_platform_map(
         &mut self,
         nom_sym_info: SymbolCrossrefInfo,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<SymbolGraphNodeId> {
         let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
             nom_sym_info.symbol,
@@ -1252,7 +1249,7 @@ impl ClassMap {
 impl PipelineCommand for FormatSymbolsCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         let cil = match input {
