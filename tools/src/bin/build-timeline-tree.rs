@@ -455,7 +455,7 @@ fn build_blame_tree(
                 )
                 .unwrap();
                 writeln!(import_stream, "data {}", blame_bytes.len()).unwrap();
-                import_stream.write(blame_bytes).unwrap();
+                import_stream.write_all(blame_bytes).unwrap();
                 // We skip the optional trailing LF character here since in practice it
                 // wasn't particularly useful for debugging. Also the blame blobs we write
                 // here always have a trailing LF anyway.
@@ -779,9 +779,9 @@ fn main() {
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
-                import_stream.write(sig.name_bytes()).unwrap();
+                import_stream.write_all(sig.name_bytes()).unwrap();
                 write!(import_stream, " <").unwrap();
-                import_stream.write(sig.email_bytes()).unwrap();
+                import_stream.write_all(sig.email_bytes()).unwrap();
                 write!(import_stream, "> ").unwrap();
                 // git-fast-import can take a few different date formats, but the
                 // default "raw" format is the easiest for us to write. Refer to
