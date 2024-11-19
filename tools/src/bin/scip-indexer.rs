@@ -396,7 +396,7 @@ struct NestedSymbol {
 
 fn compile_nesting_queries(
     lang: &tree_sitter::Language,
-    nesting: &Vec<SitterNesting>,
+    nesting: &[SitterNesting],
 ) -> tree_sitter::Query {
     let query_pats: Vec<String> = nesting
         .iter()

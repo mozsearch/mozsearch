@@ -91,7 +91,7 @@ fn process_analysis_target(
     pretty_table: &mut PrettyTable,
     id_table: &mut IdTable,
     callees_table: &mut CalleesTable,
-    lines: &Vec<(String, u32)>,
+    lines: &[(String, u32)],
 ) {
     if piece.pretty.is_empty() {
         info!("Skipping empty pretty for symbol {}", piece.sym);

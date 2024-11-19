@@ -427,7 +427,7 @@ impl SymbolGraphCollection {
         &mut self,
         policies: &HierarchyPolicies,
         graph_idx: usize,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<()> {
         trace!("derive_hierarchical_graph");
         let graph = match self.graphs.get(graph_idx) {
@@ -1918,7 +1918,7 @@ impl HierarchicalRenderState {
 
     /// Return a node identifier for the set of nodes.  We just pick the first
     /// one.
-    pub fn id_for_nodes(&self, nodes: &Vec<SymbolGraphNodeId>) -> String {
+    pub fn id_for_nodes(&self, nodes: &[SymbolGraphNodeId]) -> String {
         // XXX there are cases where nodes is empty and the code assumed it
         // would not be.
         if nodes.is_empty() {
@@ -1937,7 +1937,7 @@ impl HierarchicalRenderState {
         from_id: &SymbolGraphNodeId,
         to_id: &SymbolGraphNodeId,
         edge_id: &SymbolGraphEdgeId,
-        edge_data: &Vec<EdgeDetail>,
+        edge_data: &[EdgeDetail],
     ) {
         let from_eid = self.id_for_node(from_id);
         let to_eid = self.id_for_node(to_id);
@@ -2272,7 +2272,7 @@ impl SymbolGraphNodeSet {
     pub async fn ensure_symbol<'a>(
         &'a mut self,
         sym: &'a Ustr,
-        server: &'a Box<dyn AbstractServer + Send + Sync>,
+        server: &'a (dyn AbstractServer + Send + Sync),
         depth: u32,
     ) -> Result<(SymbolGraphNodeId, &'a mut DerivedSymbolInfo)> {
         if let Some(index) = self.symbol_to_index_map.get(sym) {

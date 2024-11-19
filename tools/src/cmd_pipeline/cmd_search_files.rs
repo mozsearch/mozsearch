@@ -47,7 +47,7 @@ const FILE_MATCH_LIMIT: usize = 2_000_000;
 impl PipelineCommand for SearchFilesCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let pathre_pattern = if let Some(pathre) = &self.args.pathre {

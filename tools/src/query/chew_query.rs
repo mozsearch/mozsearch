@@ -122,7 +122,7 @@ pub struct QueryPipelineGroupBuilder {
     pub phases: Vec<PipelinePhase>,
 }
 
-fn apply_transforms(user_val: String, transforms: &Vec<String>) -> String {
+fn apply_transforms(user_val: String, transforms: &[String]) -> String {
     let mut val = user_val;
     for transform in transforms.iter() {
         val = match transform.as_str() {

@@ -674,7 +674,7 @@ pub struct CompileResultsCommand {
 impl PipelineJunctionCommand for CompileResultsCommand {
     async fn execute(
         &self,
-        _server: &Box<dyn AbstractServer + Send + Sync>,
+        _server: &(dyn AbstractServer + Send + Sync),
         input: Vec<(String, PipelineValues)>,
     ) -> Result<PipelineValues> {
         let mut results = SearchResults::default();

@@ -33,7 +33,7 @@ pub struct ShowHtmlCommand {
 impl PipelineCommand for ShowHtmlCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
         let jr = match input {

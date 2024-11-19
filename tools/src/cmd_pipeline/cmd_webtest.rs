@@ -233,7 +233,7 @@ impl WebtestCommand {
 impl PipelineCommand for WebtestCommand {
     async fn execute(
         &self,
-        _server: &Box<dyn AbstractServer + Send + Sync>,
+        _server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let passed = self.setup_webdriver_and_run_tests().await.map_err(|e| {

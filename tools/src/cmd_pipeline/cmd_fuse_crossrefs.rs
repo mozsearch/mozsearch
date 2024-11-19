@@ -29,7 +29,7 @@ pub struct FuseCrossrefsCommand {
 impl PipelineJunctionCommand for FuseCrossrefsCommand {
     async fn execute(
         &self,
-        _server: &Box<dyn AbstractServer + Send + Sync>,
+        _server: &(dyn AbstractServer + Send + Sync),
         input: Vec<(String, PipelineValues)>,
     ) -> Result<PipelineValues> {
         let mut fused_crossref = vec![];

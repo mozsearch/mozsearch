@@ -40,7 +40,7 @@ pub struct FilterAnalysisCommand {
 impl PipelineCommand for FilterAnalysisCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let mut filtered = server.fetch_raw_analysis(&self.args.file).await?;

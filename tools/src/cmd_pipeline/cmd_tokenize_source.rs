@@ -35,7 +35,7 @@ pub struct TokenizeSourceCommand {
 impl PipelineCommand for TokenizeSourceCommand {
     async fn execute(
         &self,
-        server: &Box<dyn AbstractServer + Send + Sync>,
+        server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
         let source_str = server.fetch_raw_source(&self.args.file).await?;
