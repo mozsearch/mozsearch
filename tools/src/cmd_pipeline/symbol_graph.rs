@@ -736,7 +736,7 @@ impl SymbolGraphCollection {
 
         graph
             .root
-            .compile(policies, 0, 0, false, &self.node_set, &mut state);
+            .compile(policies, 0, false, &self.node_set, &mut state);
 
         let mut dot_graph = Graph::DiGraph {
             id: id!("g"),
@@ -1300,7 +1300,6 @@ impl HierarchicalNode {
         &mut self,
         policies: &HierarchyPolicies,
         depth: usize,
-        collapsed_ancestors: u32,
         has_class_ancestor: bool,
         node_set: &SymbolGraphNodeSet,
         state: &mut HierarchicalRenderState,
@@ -1344,14 +1343,7 @@ impl HierarchicalNode {
                         format!("{}{}{}", self.display_name, delim, sole_kid.display_name);
                     self.display_name = "".to_string();
                 }
-                sole_kid.compile(
-                    policies,
-                    depth + 1,
-                    collapsed_ancestors + 1,
-                    be_class,
-                    node_set,
-                    state,
-                );
+                sole_kid.compile(policies, depth + 1, be_class, node_set, state);
                 return;
             }
         }
@@ -1361,14 +1353,7 @@ impl HierarchicalNode {
         if is_root {
             self.action = Some(HierarchicalLayoutAction::Flatten);
             for kid in self.children.values_mut() {
-                kid.compile(
-                    policies,
-                    depth + 1,
-                    collapsed_ancestors,
-                    be_class,
-                    node_set,
-                    state,
-                );
+                kid.compile(policies, depth + 1, be_class, node_set, state);
             }
         } else if !self.edges.is_empty() && !self.children.is_empty() {
             // If there are edges at this level, it does not make sense to be a
@@ -1457,7 +1442,7 @@ impl HierarchicalNode {
             );
 
             for kid in self.children.values_mut() {
-                kid.compile(policies, depth + 1, 0, be_class, node_set, state);
+                kid.compile(policies, depth + 1, be_class, node_set, state);
             }
         }
     }
