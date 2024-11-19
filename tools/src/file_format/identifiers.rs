@@ -15,15 +15,7 @@ use serde_json::to_string;
 use super::config::Config;
 
 fn uppercase(s: &[u8]) -> Vec<u8> {
-    let mut result = vec![];
-    for i in 0..s.len() {
-        result.push(if s[i] >= b'a' && s[i] <= b'z' {
-            s[i] - b'a' + b'A'
-        } else {
-            s[i]
-        });
-    }
-    result
+    s.iter().map(u8::to_ascii_uppercase).collect()
 }
 
 #[derive(Clone, Debug)]

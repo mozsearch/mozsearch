@@ -69,8 +69,7 @@ pub fn interpolate_coverage(mut raw: Vec<i64>) -> Vec<i64> {
         // configure for that base-case.
         have_interp_val = true;
         interp_val = -1;
-        for j in (i + 1)..raw.len() {
-            let next_val = raw[j];
+        for &next_val in raw.iter().skip(i + 1) {
             if next_val == -1 {
                 continue;
             }
