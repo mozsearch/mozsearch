@@ -135,11 +135,7 @@ impl LocalIndex {
     fn normalize_and_validate_path<'a>(&self, sf_path: &'a str) -> Result<&'a str> {
         // We normalize off any leading "/" mainly to support our test cases
         // being able to use "/" to indicate they're interested in a root dir.
-        let norm_path = if sf_path.starts_with('/') {
-            &sf_path[1..]
-        } else {
-            sf_path
-        };
+        let norm_path = sf_path.strip_prefix('/').unwrap_or(sf_path);
         // We don't want anyone trying to construct a path that escapes the
         // sub-tree.
         validate_absoluteish_path(norm_path)?;
