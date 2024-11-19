@@ -393,7 +393,6 @@ impl Ord for SymbolQuality {
     }
 }
 
-///
 #[derive(Clone, Serialize)]
 pub enum OverloadKind {
     /// There's just too many overrides!  This would happen for
