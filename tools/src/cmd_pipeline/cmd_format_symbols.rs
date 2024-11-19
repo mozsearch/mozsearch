@@ -1108,16 +1108,12 @@ impl ClassMap {
                 let mut field_name = "".to_string();
                 let mut field_symbols = "".to_string();
 
-                for maybe_field in field_variants {
-                    if let Some(field) = maybe_field {
-                        let pretty = field.pretty.clone();
-                        field_name = pretty.replace(&field_prefix, "");
+                if let Some(field) = field_variants.iter().flatten().next() {
+                    let pretty = field.pretty.clone();
+                    field_name = pretty.replace(&field_prefix, "");
 
-                        if let Some(field_id) = &field.field_id {
-                            field_symbols =
-                                self.stt.node_set.get(field_id).symbol.to_string();
-                        }
-                        break;
+                    if let Some(field_id) = &field.field_id {
+                        field_symbols = self.stt.node_set.get(field_id).symbol.to_string();
                     }
                 }
 
