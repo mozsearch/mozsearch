@@ -74,10 +74,7 @@ async fn handle_query(
     let accept = headers
         .get("accept")
         .map(|x| x.to_str().unwrap_or("text/html"));
-    let make_html = match accept {
-        Some("application/json") => false,
-        _ => true,
-    };
+    let make_html = !matches!(accept, Some("application/json"));
 
     let logs = match logged_span {
         Some(lspan) => lspan.retrieve_serde_json().await,
