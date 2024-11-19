@@ -156,8 +156,7 @@ impl SearchResults {
         // There are other ways we could get this mapping like always baking the
         // "pretty" into the SymbolRelation or having our crossref infos be in a
         // map, but that complicates ownership issues massively.
-        self.sym_to_pretty
-            .insert(info.symbol.clone(), info.get_pretty());
+        self.sym_to_pretty.insert(info.symbol, info.get_pretty());
 
         // Skip symbols that are only here for class relationship purposes.
         let (root_sym, relation_facet): (Ustr, &'static Ustr) = match &info.relation {
@@ -166,22 +165,18 @@ impl SearchResults {
             | SymbolRelation::CousinClassOf(_, _) => {
                 return Ok(());
             }
-            SymbolRelation::Queried => (info.symbol.clone(), &SELF),
-            SymbolRelation::OverrideOf(sym, _) => (sym.clone(), &OVERRIDDEN_BY),
-            SymbolRelation::OverriddenBy(sym, _) => (sym.clone(), &OVERRIDES),
-            SymbolRelation::CousinOverrideOf(sym, _) => (sym.clone(), &COUSIN_OVERRIDES),
+            SymbolRelation::Queried => (info.symbol, &SELF),
+            SymbolRelation::OverrideOf(sym, _) => (*sym, &OVERRIDDEN_BY),
+            SymbolRelation::OverriddenBy(sym, _) => (*sym, &OVERRIDES),
+            SymbolRelation::CousinOverrideOf(sym, _) => (*sym, &COUSIN_OVERRIDES),
         };
 
-        let root_pretty = self
-            .sym_to_pretty
-            .get(&root_sym)
-            .ok_or_else(|| {
-                ServerError::StickyProblem(ErrorDetails {
-                    layer: ErrorLayer::RuntimeInvariantViolation,
-                    message: format!("no pretty available for root_sym {}", root_sym),
-                })
-            })?
-            .clone();
+        let root_pretty = *self.sym_to_pretty.get(&root_sym).ok_or_else(|| {
+            ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::RuntimeInvariantViolation,
+                message: format!("no pretty available for root_sym {}", root_sym),
+            })
+        })?;
 
         if let Value::Object(obj) = info.crossref_info {
             // This generic traversal is currently somewhat required because we
@@ -199,7 +194,7 @@ impl SearchResults {
                     "uses" => PresentationKind::Uses,
                     "meta" => {
                         // We save off the meta for this symbol for the UI.
-                        self.sym_to_meta.insert(info.symbol.clone(), val);
+                        self.sym_to_meta.insert(info.symbol, val);
                         continue;
                     }
                     // We expect this to match:
@@ -214,7 +209,7 @@ impl SearchResults {
                 let descriptor = QualKindDescriptor {
                     kind: pkind,
                     quality: info.quality.clone(),
-                    pretty: root_pretty.clone(),
+                    pretty: root_pretty,
                 };
 
                 let path_containers: Vec<PathSearchResult> = from_value(val)?;
@@ -242,21 +237,19 @@ impl SearchResults {
         let path_kind_group = self
             .path_kind_groups
             .entry(path_container.path_kind)
-            .or_insert_with(|| PathKindGroup::default());
+            .or_default();
         let qual_kind_group = path_kind_group
             .qual_kind_groups
             .entry(descriptor)
-            .or_insert_with(|| QualKindGroup::new());
+            .or_insert_with(QualKindGroup::new);
 
         // ### path faceting
         let path_sans_filename = match path_container.path.rfind('/') {
             Some(offset) => ustr(&path_container.path[0..offset + 1]),
             None => ustr(""),
         };
-        let mut path_pieces: Vec<Ustr> = path_sans_filename
-            .split_inclusive('/')
-            .map(|s| ustr(s))
-            .collect();
+        let mut path_pieces: Vec<Ustr> =
+            path_sans_filename.split_inclusive('/').map(ustr).collect();
         // drop the filename portion.
         path_pieces.truncate(path_pieces.len() - 1);
         qual_kind_group
@@ -266,14 +259,14 @@ impl SearchResults {
         // ### symbol relation faceting
         qual_kind_group
             .relation_facet
-            .place_item(vec![relation_facet.clone()], sym.clone());
+            .place_item(vec![*relation_facet], *sym);
 
         // ### line results
         let file_results = qual_kind_group
             .path_hits
-            .entry(path_container.path.clone())
+            .entry(path_container.path)
             .or_insert_with(|| FlattenedResultsByFile {
-                file: path_container.path.clone(),
+                file: path_container.path,
                 line_spans: vec![],
             });
         for search_result in path_container.lines {
@@ -314,8 +307,8 @@ impl SearchResults {
         for file_match in file_matches {
             let path_kind_group = self
                 .path_kind_groups
-                .entry(file_match.concise.path_kind.clone())
-                .or_insert_with(|| PathKindGroup::default());
+                .entry(file_match.concise.path_kind)
+                .or_default();
             path_kind_group.file_names.push(file_match.path);
         }
     }
@@ -333,20 +326,21 @@ impl SearchResults {
             let path_kind_group = self
                 .path_kind_groups
                 .entry(file_match.path_kind)
-                .or_insert_with(|| PathKindGroup::default());
+                .or_default();
             let qual_kind_group = path_kind_group
                 .qual_kind_groups
                 .entry(descriptor.clone())
-                .or_insert_with(|| QualKindGroup::new());
+                .or_insert_with(QualKindGroup::new);
 
             // ### line results
-            let file_results = qual_kind_group
-                .path_hits
-                .entry(path.clone())
-                .or_insert_with(|| FlattenedResultsByFile {
-                    file: path.clone(),
-                    line_spans: vec![],
-                });
+            let file_results =
+                qual_kind_group
+                    .path_hits
+                    .entry(path)
+                    .or_insert_with(|| FlattenedResultsByFile {
+                        file: path,
+                        line_spans: vec![],
+                    });
             for text_match in file_match.matches {
                 if self
                     .path_line_suppressions
@@ -367,7 +361,7 @@ impl SearchResults {
             // TODO: We should potentially back out the qual_kind_group and
             // path_kind_group here or have the `compile` step notice that the
             // path_hits is empty and so on.
-            if file_results.line_spans.len() == 0 {
+            if file_results.line_spans.is_empty() {
                 qual_kind_group.path_hits.remove(&path);
             } else {
                 // ### path faceting (now that we know we're keeping the hits)
@@ -375,10 +369,8 @@ impl SearchResults {
                     Some(offset) => ustr(&path[0..offset + 1]),
                     None => ustr(""),
                 };
-                let mut path_pieces: Vec<Ustr> = path_sans_filename
-                    .split_inclusive('/')
-                    .map(|s| ustr(s))
-                    .collect();
+                let mut path_pieces: Vec<Ustr> =
+                    path_sans_filename.split_inclusive('/').map(ustr).collect();
                 // drop the filename portion.
                 path_pieces.truncate(path_pieces.len() - 1);
                 qual_kind_group
@@ -407,7 +399,7 @@ impl SearchResults {
                 // The path_hits within each file are not guaranteed to be sorted,
                 // so we sort them now.
                 for results in by_file.iter_mut() {
-                    results.line_spans.sort_by_key(|x| x.line_range.clone());
+                    results.line_spans.sort_by_key(|x| x.line_range);
                 }
 
                 kind_groups.push(FlattenedKindGroupResults {
@@ -479,13 +471,13 @@ impl MaybeFacetRoot {
         };
         let (compiled, breadth) = self.root.compile("".to_string(), clump_thresh, other);
         if breadth > 1 {
-            return Some(ResultFacetRoot {
+            Some(ResultFacetRoot {
                 label,
                 kind: self.kind,
                 groups: compiled.nested_groups,
-            });
+            })
         } else {
-            return None;
+            None
         }
     }
 }
@@ -505,7 +497,7 @@ impl MaybeFacetGroup {
         if let Some(next_piece) = reversed_pieces.pop() {
             self.nested_groups
                 .entry(next_piece)
-                .or_insert_with(|| MaybeFacetGroup::default())
+                .or_default()
                 .place_item(reversed_pieces, value);
         } else {
             self.values.push(value);
@@ -518,7 +510,7 @@ impl MaybeFacetGroup {
             self.values.append(&mut sub_flattened);
         }
 
-        return self.values;
+        self.values
     }
 
     /// Compiles the current group, returning the compiled result and the
@@ -530,7 +522,7 @@ impl MaybeFacetGroup {
         clump_thresh: u32,
         other: Option<String>,
     ) -> (ResultFacetGroup, u32) {
-        if self.nested_groups.len() == 0 {
+        if self.nested_groups.is_empty() {
             // No sub-groups means we are a leaf node and should return as-is.
             return (
                 ResultFacetGroup {
@@ -549,7 +541,7 @@ impl MaybeFacetGroup {
                 other.clone(),
             );
 
-            if self.values.len() == 0 {
+            if self.values.is_empty() {
                 // Collapse us into the nested group
                 return (sole_compiled, breadth);
             }
@@ -643,7 +635,7 @@ impl MaybeFacetGroup {
                 nested_groups.push(other_group);
             }
 
-            return (
+            (
                 ResultFacetGroup {
                     label: prefix,
                     values: self.values,
@@ -651,7 +643,7 @@ impl MaybeFacetGroup {
                     count: self.count,
                 },
                 breadth,
-            );
+            )
         } else {
             // We're not going to materialize this group; just fold everything
             // in to ourselves.
@@ -660,7 +652,7 @@ impl MaybeFacetGroup {
                 self.values.append(&mut sub_flattened);
             }
 
-            return (
+            (
                 ResultFacetGroup {
                     label: prefix,
                     values: self.values,
@@ -668,7 +660,7 @@ impl MaybeFacetGroup {
                     count: self.count,
                 },
                 1,
-            );
+            )
         }
     }
 }

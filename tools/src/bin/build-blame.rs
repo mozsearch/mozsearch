@@ -28,7 +28,7 @@ use tools::blame::LineData;
 use tools::file_format::config::index_blame;
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
-    write!(helper.stdin.as_mut().unwrap(), "{}\n", git_oid).unwrap();
+    writeln!(helper.stdin.as_mut().unwrap(), "{}", git_oid).unwrap();
     let mut reader = BufReader::new(helper.stdout.as_mut().unwrap());
     let mut result = String::new();
     reader.read_line(&mut result).unwrap();
@@ -108,9 +108,9 @@ fn read_path_oid(
     commit: &BlameRepoCommit,
     path: &Path,
 ) -> Option<String> {
-    write!(
+    writeln!(
         import_helper.stdin.as_mut().unwrap(),
-        "ls {} {}\n",
+        "ls {} {}",
         commit,
         sanitize(path)
     )
@@ -143,7 +143,7 @@ fn read_path_blob(
     path: &Path,
 ) -> Option<Vec<u8>> {
     let oid = read_path_oid(import_helper, commit, path)?;
-    write!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}\n", oid).unwrap();
+    writeln!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}", oid).unwrap();
     let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
     let mut description = String::new();
     reader.read_line(&mut description).unwrap();
@@ -283,7 +283,7 @@ fn blame_for_path(
     blame_parents: &[BlameRepoCommit],
     path: &Path,
 ) -> Result<String, git2::Error> {
-    let linecount = count_lines(&blob);
+    let linecount = count_lines(blob);
     let mut line_data = LineData {
         rev: Cow::Owned(commit.id().to_string()),
         path: LineData::path_unchanged(),
@@ -423,9 +423,9 @@ fn build_blame_tree(
                     // Item at `path` is the same in the tree for `commit` as in
                     // `parent_trees[i]`, so the blame must be the same too
                     let oid = read_path_oid(import_helper, &blame_parents[i], &path).unwrap();
-                    write!(
+                    writeln!(
                         import_helper.stdin.as_mut().unwrap(),
-                        "M {:06o} {} {}\n",
+                        "M {:06o} {} {}",
                         entry.filemode(),
                         oid,
                         sanitize(&path)
@@ -452,14 +452,14 @@ fn build_blame_tree(
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Exactbytecountformat
                 let blame_bytes = blame_text.as_bytes();
                 let import_stream = import_helper.stdin.as_mut().unwrap();
-                write!(
+                writeln!(
                     import_stream,
-                    "M {:06o} inline {}\n",
+                    "M {:06o} inline {}",
                     entry.filemode(),
                     sanitize(&path)
                 )
                 .unwrap();
-                write!(import_stream, "data {}\n", blame_bytes.len()).unwrap();
+                writeln!(import_stream, "data {}", blame_bytes.len()).unwrap();
                 import_stream.write(blame_bytes).unwrap();
                 // We skip the optional trailing LF character here since in practice it
                 // wasn't particularly useful for debugging. Also the blame blobs we write
@@ -473,9 +473,9 @@ fn build_blame_tree(
                 // For the external ref data format documentation, refer to
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Externaldataformat
                 assert_eq!(entry.filemode(), 0o160000);
-                write!(
+                writeln!(
                     import_helper.stdin.as_mut().unwrap(),
-                    "M {:06o} 4b825dc642cb6eb9a060e54bf8d69288fbee4904 {}\n",
+                    "M {:06o} 4b825dc642cb6eb9a060e54bf8d69288fbee4904 {}",
                     entry.filemode(),
                     sanitize(&path)
                 )
@@ -753,7 +753,7 @@ fn main() {
         rev_done += 1;
 
         let hg_rev = match hg_helper {
-            Some(ref mut helper) => get_hg_rev(helper, &git_oid),
+            Some(ref mut helper) => get_hg_rev(helper, git_oid),
             None => None, // we don't support mapfiles any more.
         };
 
@@ -778,8 +778,8 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_commit
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
-            write!(import_stream, "commit {}\n", blame_ref).unwrap();
-            write!(import_stream, "mark :{}\n", rev_done).unwrap();
+            writeln!(import_stream, "commit {}", blame_ref).unwrap();
+            writeln!(import_stream, "mark :{}", rev_done).unwrap();
             blame_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
@@ -792,9 +792,9 @@ fn main() {
                 // default "raw" format is the easiest for us to write. Refer to
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-coderawcode
                 let when = sig.when();
-                write!(
+                writeln!(
                     import_stream,
-                    "{} {}{:02}{:02}\n",
+                    "{} {}{:02}{:02}",
                     when.seconds(),
                     when.sign(),
                     when.offset_minutes().abs() / 60,
@@ -813,18 +813,18 @@ fn main() {
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
             if let Some(first_parent) = blame_parents.first() {
-                write!(import_stream, "from {}\n", first_parent).unwrap();
+                writeln!(import_stream, "from {}", first_parent).unwrap();
             } else {
                 // This is a new root commit, so we need to use a special null
                 // parent commit identifier for git-fast-import to know that.
-                write!(
+                writeln!(
                     import_stream,
-                    "from 0000000000000000000000000000000000000000\n"
+                    "from 0000000000000000000000000000000000000000"
                 )
                 .unwrap();
             }
             for additional_parent in blame_parents.iter().skip(1) {
-                write!(import_stream, "merge {}\n", additional_parent).unwrap();
+                writeln!(import_stream, "merge {}", additional_parent).unwrap();
             }
             // For each commit, we start with a clean slate (all files deleted), and then
             // the build_blame_tree call below will add new files or link pre-existing
@@ -834,7 +834,7 @@ fn main() {
             // well for us, particularly in the case of merge commits where we might
             // need to pull some entries from one parent and other entries from the other
             // parent.
-            write!(import_stream, "deleteall\n").unwrap();
+            writeln!(import_stream, "deleteall").unwrap();
             import_stream.flush().unwrap();
         }
 
@@ -852,7 +852,7 @@ fn main() {
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
-            write!(import_helper.stdin.as_mut().unwrap(), "checkpoint\n").unwrap();
+            writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
         }
     }
 

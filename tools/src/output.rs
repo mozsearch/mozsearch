@@ -75,12 +75,8 @@ pub fn generate_breadcrumbs(
         ));
     }
 
-    write!(
-        *writer,
-        "<div class=\"breadcrumbs\">{}</div>\n",
-        breadcrumbs
-    )
-    .map_err(|_| "Write err")?;
+    writeln!(*writer, "<div class=\"breadcrumbs\">{}</div>", breadcrumbs)
+        .map_err(|_| "Write err")?;
 
     Ok(())
 }
@@ -112,13 +108,13 @@ pub fn generate_formatted(
     match *formatted {
         F::Indent(ref seq) => {
             for f in seq {
-                generate_formatted(writer, &f, indent + 1)?;
+                generate_formatted(writer, f, indent + 1)?;
             }
             Ok(())
         }
         F::Seq(ref seq) => {
             for f in seq {
-                generate_formatted(writer, &f, indent)?;
+                generate_formatted(writer, f, indent)?;
             }
             Ok(())
         }
@@ -126,14 +122,14 @@ pub fn generate_formatted(
             for _ in 0..indent {
                 write!(writer, "  ").map_err(|_| "Write err")?;
             }
-            write!(writer, "{}\n", text).map_err(|_| "Write err")?;
+            writeln!(writer, "{}", text).map_err(|_| "Write err")?;
             Ok(())
         }
         F::S(text) => {
             for _ in 0..indent {
                 write!(writer, "  ").map_err(|_| "Write err")?;
             }
-            write!(writer, "{}\n", text).map_err(|_| "Write err")?;
+            writeln!(writer, "{}", text).map_err(|_| "Write err")?;
             Ok(())
         }
     }

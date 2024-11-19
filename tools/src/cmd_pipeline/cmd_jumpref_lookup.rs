@@ -42,7 +42,7 @@ impl PipelineCommand for JumprefLookupCommand {
             // Right now we're assuming that we're the first command in the
             // pipeline so that we would have no inputs if someone wants to use
             // arguments...
-            PipelineValues::Void => self.args.symbols.iter().map(|sym| sym.clone()).collect(),
+            PipelineValues::Void => self.args.symbols.to_vec(),
             _ => {
                 return Err(ServerError::StickyProblem(ErrorDetails {
                     layer: ErrorLayer::ConfigLayer,

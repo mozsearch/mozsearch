@@ -51,7 +51,7 @@ impl FileLookupMap {
     /// The general concern is to avoid interning a bunch of incorrect query
     /// strings.
     pub fn lookup_file_from_ustr(&self, path_ustr: &Ustr) -> Option<&ConcisePerFileInfo<Ustr>> {
-        self.concise_per_file.get(&path_ustr)
+        self.concise_per_file.get(path_ustr)
     }
 
     /// File lookup when we don't have a Ustr already available; this is
@@ -84,7 +84,7 @@ impl FileLookupMap {
                 }
             })
             .map(|v| FileMatch {
-                path: v.0.clone(),
+                path: *v.0,
                 concise: v.1.clone(),
             })
             .take(limit)

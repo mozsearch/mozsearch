@@ -84,7 +84,7 @@ pub fn linkify_commit_header(s: &str) -> String {
         let s = linkify_bug_numbers(s);
         WPT_SYNC_REGEX
             .replace_all(
-                &*s,
+                &s,
                 r#"[<a href="https://github.com/web-platform-tests/wpt/pull/$prno">wpt PR $prno</a>]"#,
             )
             .into_owned()

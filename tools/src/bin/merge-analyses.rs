@@ -28,7 +28,7 @@ fn main() {
 
     let args: Vec<_> = env::args().skip(1).collect();
 
-    if args.len() == 0 {
+    if args.is_empty() {
         eprintln!("Usage: merge-analyses <filename> [<filename> [...]]");
         eprintln!("  This tool will merge the analysis data from the given files");
         eprintln!("  and print it to stdout; each line will be in a normalized format.");

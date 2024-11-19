@@ -216,7 +216,7 @@ pub fn build_pipeline_graph(
                     // The args needs to include a fake binary name, then the
                     // command, then the args.
                     let full_args: Vec<String> =
-                        vec!["searchfox-tool".to_string(), segment.command.clone()]
+                        ["searchfox-tool".to_string(), segment.command.clone()]
                             .iter()
                             .chain(&segment.args.to_vec())
                             .cloned()
@@ -265,7 +265,7 @@ pub fn build_pipeline_graph(
                 })
             })?;
 
-            let full_args: Vec<String> = vec![
+            let full_args: Vec<String> = [
                 "searchfox-tool".to_string(),
                 junction_info.command.command.clone(),
             ]

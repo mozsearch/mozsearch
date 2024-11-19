@@ -64,7 +64,7 @@ impl LoggedSpan {
 
         {
             let mut span_map = SPAN_MAP.lock().unwrap();
-            span_map.insert(id.clone(), tx);
+            span_map.insert(id, tx);
         }
 
         LoggedSpan { span, rx }
@@ -73,8 +73,8 @@ impl LoggedSpan {
     pub async fn retrieve(self) -> Tree {
         info!("logged_span_end");
         drop(self.span);
-        let tree = self.rx.await.unwrap();
-        tree
+
+        self.rx.await.unwrap()
     }
 
     pub async fn retrieve_serde_json(self) -> Value {

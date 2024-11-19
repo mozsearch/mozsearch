@@ -13,10 +13,10 @@ fn load_language_queries(
 ) -> Result<tree_sitter::Query, String> {
     match QUERIES_DIR.get_file(format!("{}.scm", lang_str)) {
         Some(file) => {
-            let maybe_contents = file.contents_utf8().map(|s| borrow::Cow::from(s));
+            let maybe_contents = file.contents_utf8().map(borrow::Cow::from);
             match maybe_contents {
                 Some(contents) => {
-                    tree_sitter::Query::new(&ts_lang, &contents).map_err(|ts_err| ts_err.message)
+                    tree_sitter::Query::new(ts_lang, &contents).map_err(|ts_err| ts_err.message)
                 }
                 _ => Err(format!("No queries for lang: {}", lang_str)),
             }
@@ -291,9 +291,9 @@ pub fn hypertokenize_source_file(
         }
     }
 
-    return Ok(HyperTokenized {
+    Ok(HyperTokenized {
         lang: lang.to_string(),
         tokenized,
         structure,
-    });
+    })
 }

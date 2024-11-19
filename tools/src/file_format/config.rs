@@ -130,16 +130,16 @@ pub struct TreeConfig {
 
 impl TreeConfig {
     pub fn get_git(&self) -> Result<&GitData, &'static str> {
-        match &self.git {
-            &Some(ref git) => Ok(git),
-            &None => Err("History data unavailable"),
+        match self.git {
+            Some(ref git) => Ok(git),
+            None => Err("History data unavailable"),
         }
     }
 
     pub fn get_git_path(&self) -> Result<&str, &'static str> {
-        match &self.paths.git_path {
-            &Some(ref git_path) => Ok(git_path),
-            &None => Err("History data unavailable"),
+        match self.paths.git_path {
+            Some(ref git_path) => Ok(git_path),
+            None => Err("History data unavailable"),
         }
     }
 
@@ -156,7 +156,7 @@ impl TreeConfig {
                 return true;
             }
         }
-        return false;
+        false
     }
 }
 
@@ -276,12 +276,12 @@ pub fn load(
         }
 
         let git = match (&paths.git_path, &paths.git_blame_path) {
-            (&Some(ref git_path), &Some(ref git_blame_path)) => {
-                let repo = Repository::open(&git_path).unwrap();
+            (Some(git_path), Some(git_blame_path)) => {
+                let repo = Repository::open(git_path).unwrap();
                 let mailmap = Mailmap::load(&repo);
                 let blame_ignore = BlameIgnoreList::load(&repo);
 
-                let blame_repo = Repository::open(&git_blame_path).unwrap();
+                let blame_repo = Repository::open(git_blame_path).unwrap();
                 let (blame_map, hg_map) = if need_indexes {
                     index_blame(&blame_repo, None)
                 } else {
@@ -289,45 +289,39 @@ pub fn load(
                 };
 
                 Some(GitData {
-                    repo: repo,
+                    repo,
                     blame_repo: Some(blame_repo),
-                    blame_map: blame_map,
-                    hg_map: hg_map,
-                    mailmap: mailmap,
-                    blame_ignore: blame_ignore,
+                    blame_map,
+                    hg_map,
+                    mailmap,
+                    blame_ignore,
                 })
             }
-            (&Some(ref git_path), &None) => {
-                let repo = Repository::open(&git_path).unwrap();
+            (Some(git_path), &None) => {
+                let repo = Repository::open(git_path).unwrap();
                 let mailmap = Mailmap::load(&repo);
                 let blame_ignore = BlameIgnoreList::load(&repo);
 
                 Some(GitData {
-                    repo: repo,
+                    repo,
                     blame_repo: None,
                     blame_map: HashMap::new(),
                     hg_map: HashMap::new(),
-                    mailmap: mailmap,
-                    blame_ignore: blame_ignore,
+                    mailmap,
+                    blame_ignore,
                 })
             }
             _ => None,
         };
 
-        trees.insert(
-            tree_name,
-            TreeConfig {
-                paths: paths,
-                git: git,
-            },
-        );
+        trees.insert(tree_name, TreeConfig { paths, git });
     }
 
     Config {
         trees,
         mozsearch_path: config.mozsearch_path,
         config_repo_path: config.config_repo,
-        url_map_path: url_map_path,
+        url_map_path,
     }
 }
 
@@ -350,7 +344,7 @@ impl Mailmap {
 
         // Try to look up with both name & email.
         let mut key = MailmapKey(Some(name.to_owned()), Some(email.to_owned()));
-        if let Some(&MailmapKey(ref new_name, ref new_email)) = self.entries.get(&key) {
+        if let Some(MailmapKey(new_name, new_email)) = self.entries.get(&key) {
             return (
                 new_name.as_ref().map(String::as_str).unwrap_or(name),
                 new_email.as_ref().map(String::as_str).unwrap_or(email),
@@ -359,7 +353,7 @@ impl Mailmap {
 
         // Try looking up only by email.
         key.0 = None;
-        if let Some(&MailmapKey(ref new_name, ref new_email)) = self.entries.get(&key) {
+        if let Some(MailmapKey(new_name, new_email)) = self.entries.get(&key) {
             return (
                 new_name.as_ref().map(String::as_str).unwrap_or(name),
                 new_email.as_ref().map(String::as_str).unwrap_or(email),

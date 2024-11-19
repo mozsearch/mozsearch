@@ -90,11 +90,7 @@ impl GlobbingFileList {
         for (negated, matcher) in &self.globs {
             if matcher.is_match(path) {
                 // (I feel this reads better than assigning `!*negated`.)
-                if *negated {
-                    matches = false;
-                } else {
-                    matches = true;
-                }
+                matches = !(*negated);
             }
         }
 

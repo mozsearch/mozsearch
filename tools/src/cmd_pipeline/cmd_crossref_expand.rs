@@ -110,9 +110,9 @@ impl PipelineCommand for CrossrefExpandCommand {
         let mut considered = HashSet::new();
 
         for info in source_crossrefs.symbol_crossref_infos {
-            considered.insert(info.symbol.clone());
+            considered.insert(info.symbol);
             to_traverse.push_back((
-                info.symbol.clone(),
+                info.symbol,
                 info.relation.clone(),
                 info.quality.clone(),
                 Some(info),
@@ -141,7 +141,7 @@ impl PipelineCommand for CrossrefExpandCommand {
                 None => {
                     let fresh_info = server.crossref_lookup(&symbol, false).await?;
                     SymbolCrossrefInfo {
-                        symbol: symbol.clone(),
+                        symbol,
                         crossref_info: fresh_info,
                         relation: relation.clone(),
                         quality,
@@ -197,9 +197,9 @@ impl PipelineCommand for CrossrefExpandCommand {
                         for wrapped in arr.iter() {
                             if let Value::String(sym) = xfunc(wrapped) {
                                 let usym = ustr(sym);
-                                if considered.insert(usym.clone()) {
+                                if considered.insert(usym) {
                                     to_traverse.push_back((
-                                        usym.clone(),
+                                        usym,
                                         use_relation.clone(),
                                         info.quality.clone(),
                                         None,
@@ -230,26 +230,26 @@ impl PipelineCommand for CrossrefExpandCommand {
                 SymbolRelation::Queried => {
                     proc_ptr(
                         "/meta/overridenBy",
-                        &|x| &x,
-                        SymbolRelation::OverrideOf(symbol.clone(), 1),
+                        &|x| x,
+                        SymbolRelation::OverrideOf(symbol, 1),
                         Some(&mut override_limits),
                     );
                     proc_ptr(
                         "/meta/overrides",
                         &|x| &x["sym"],
-                        SymbolRelation::OverriddenBy(symbol.clone(), 1),
+                        SymbolRelation::OverriddenBy(symbol, 1),
                         None,
                     );
                     proc_ptr(
                         "/meta/subclasses",
-                        &|x| &x,
-                        SymbolRelation::SubclassOf(symbol.clone(), 1),
+                        &|x| x,
+                        SymbolRelation::SubclassOf(symbol, 1),
                         Some(&mut subclass_limits),
                     );
                     proc_ptr(
                         "/meta/supers",
                         &|x| &x["sym"],
-                        SymbolRelation::SuperclassOf(symbol.clone(), 1),
+                        SymbolRelation::SuperclassOf(symbol, 1),
                         None,
                     );
                 }
@@ -257,37 +257,37 @@ impl PipelineCommand for CrossrefExpandCommand {
                     proc_ptr(
                         "/meta/overrides",
                         &|x| &x["sym"],
-                        SymbolRelation::OverriddenBy(root_sym.clone(), dist + 1),
+                        SymbolRelation::OverriddenBy(*root_sym, dist + 1),
                         None,
                     );
                     proc_ptr(
                         "/meta/overridenBy",
-                        &|x| &x,
-                        SymbolRelation::CousinOverrideOf(root_sym.clone(), dist + 1),
+                        &|x| x,
+                        SymbolRelation::CousinOverrideOf(*root_sym, dist + 1),
                         Some(&mut override_limits),
                     );
                 }
                 SymbolRelation::OverrideOf(root_sym, dist) => {
                     proc_ptr(
                         "/meta/overridenBy",
-                        &|x| &x,
-                        SymbolRelation::OverrideOf(root_sym.clone(), dist + 1),
+                        &|x| x,
+                        SymbolRelation::OverrideOf(*root_sym, dist + 1),
                         Some(&mut override_limits),
                     );
                 }
                 SymbolRelation::CousinOverrideOf(root_sym, dist) => {
                     proc_ptr(
                         "/meta/overridenBy",
-                        &|x| &x,
-                        SymbolRelation::CousinOverrideOf(root_sym.clone(), dist + 1),
+                        &|x| x,
+                        SymbolRelation::CousinOverrideOf(*root_sym, dist + 1),
                         Some(&mut override_limits),
                     );
                 }
                 SymbolRelation::SubclassOf(root_sym, dist) => {
                     proc_ptr(
                         "/meta/subclasses",
-                        &|x| &x,
-                        SymbolRelation::SubclassOf(root_sym.clone(), dist + 1),
+                        &|x| x,
+                        SymbolRelation::SubclassOf(*root_sym, dist + 1),
                         Some(&mut subclass_limits),
                     );
                 }
@@ -295,21 +295,21 @@ impl PipelineCommand for CrossrefExpandCommand {
                     proc_ptr(
                         "/meta/supers",
                         &|x| &x["sym"],
-                        SymbolRelation::SuperclassOf(root_sym.clone(), dist + 1),
+                        SymbolRelation::SuperclassOf(*root_sym, dist + 1),
                         None,
                     );
                     proc_ptr(
                         "/meta/subclasses",
-                        &|x| &x,
-                        SymbolRelation::CousinClassOf(root_sym.clone(), dist + 1),
+                        &|x| x,
+                        SymbolRelation::CousinClassOf(*root_sym, dist + 1),
                         Some(&mut subclass_limits),
                     );
                 }
                 SymbolRelation::CousinClassOf(root_sym, dist) => {
                     proc_ptr(
                         "/meta/subclasses",
-                        &|x| &x,
-                        SymbolRelation::CousinClassOf(root_sym.clone(), dist + 1),
+                        &|x| x,
+                        SymbolRelation::CousinClassOf(*root_sym, dist + 1),
                         Some(&mut subclass_limits),
                     );
                 }

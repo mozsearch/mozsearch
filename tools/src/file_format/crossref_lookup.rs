@@ -21,11 +21,11 @@ pub struct CrossrefLookupMap {
     extra_mm: Arc<Mmap>,
 }
 
-const SPACE: u8 = ' ' as u8;
-const NEWLINE: u8 = '\n' as u8;
-const ID_START: u8 = '!' as u8;
-const INLINE_STORED: u8 = ':' as u8;
-const EXTERNALLY_STORED: u8 = '@' as u8;
+const SPACE: u8 = b' ';
+const NEWLINE: u8 = b'\n';
+const ID_START: u8 = b'!';
+const INLINE_STORED: u8 = b':';
+const EXTERNALLY_STORED: u8 = b'@';
 
 fn make_crossref_data_error(sym: &str) -> ServerError {
     ServerError::StickyProblem(ErrorDetails {
@@ -230,8 +230,8 @@ impl CrossrefLookupMap {
         };
 
         let extra_bytes: &[u8] = self.extra_mm.as_ref();
-        return Ok(from_slice(
+        Ok(from_slice(
             &extra_bytes[brace_offset..brace_offset + length_with_newline - 1],
-        )?);
+        )?)
     }
 }

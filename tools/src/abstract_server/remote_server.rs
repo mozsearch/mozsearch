@@ -112,7 +112,7 @@ impl AbstractServer for RemoteServer {
         let raw_str = get(url).await?.text().await?;
         let values: Result<Vec<Value>> = raw_str
             .lines()
-            .map(|s| from_str(s).map_err(|e| ServerError::from(e)))
+            .map(|s| from_str(s).map_err(ServerError::from))
             .collect();
         Ok(Box::pin(tokio_stream::iter(values?)))
     }

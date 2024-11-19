@@ -35,7 +35,7 @@ pub fn get_blame_lines(
                 blame_repo: Some(ref blame_repo),
                 ..
             }),
-            &Some(ref blame_commit),
+            Some(blame_commit),
         ) => {
             let blame_tree = blame_commit.tree().ok()?;
 

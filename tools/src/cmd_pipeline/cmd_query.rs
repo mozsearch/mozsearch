@@ -47,7 +47,6 @@ impl PipelineCommand for QueryCommand {
 
         let graph = build_pipeline_graph(server.clonify(), pipeline_plan)?;
 
-        let result = graph.run(true).await;
-        result
+        graph.run(true).await
     }
 }

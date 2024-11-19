@@ -66,7 +66,7 @@ async fn test_check_glob() -> Result<(), std::io::Error> {
                 .bind_async(async {
                     let command = read_to_string(input_path).await.unwrap();
 
-                    let pipeline = match build_pipeline(&"searchfox-tool", &command) {
+                    let pipeline = match build_pipeline("searchfox-tool", &command) {
                         Ok((pipeline, _)) => pipeline,
                         Err(err) => {
                             insta::assert_snapshot!(format!("Pipeline Build Error: {:?}", err));

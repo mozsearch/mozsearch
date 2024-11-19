@@ -16,7 +16,7 @@ pub struct URLMap {
 
 impl URLMap {
     fn new(data: HashMap<String, Vec<URLMapItem>>) -> Self {
-        Self { data: data }
+        Self { data }
     }
 
     pub fn new_empty() -> Self {

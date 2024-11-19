@@ -75,7 +75,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
             // TODO: Need to handle the IDL search permutations issue that currently allows
             // the language indexer to define multiple symbol groupings.
 
-            if jumps.len() > 0 {
+            if !jumps.is_empty() {
                 rep.insert("jumps".to_string(), json!(jumps));
             }
 

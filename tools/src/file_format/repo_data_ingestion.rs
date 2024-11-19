@@ -183,7 +183,7 @@ impl ProbeConfig {
         if let Some(path_regex) = &self.path {
             return path_regex.is_match(path);
         }
-        return false;
+        false
     }
 }
 
@@ -223,7 +223,7 @@ impl JsonEvalDictIngestion {
                 trace!(key = %key);
             }
             let existing = mix_into.remove(key).unwrap_or(Value::Null);
-            let evaled = value_ingest.eval(&ctx, probing, input_val, existing);
+            let evaled = value_ingest.eval(ctx, probing, input_val, existing);
 
             if !evaled.is_null() {
                 if probing {
@@ -238,7 +238,7 @@ impl JsonEvalDictIngestion {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.extra.is_empty();
+        self.extra.is_empty()
     }
 }
 
@@ -262,7 +262,7 @@ impl JsonEvalMapIngestion {
             Value::Array(arr) => Value::Array(
                 arr.into_iter()
                     .skip(self.first_index)
-                    .map(|v| self.each.eval(&ctx, probing, &v, Value::Null))
+                    .map(|v| self.each.eval(ctx, probing, &v, Value::Null))
                     .collect(),
             ),
             _ => Value::Null,
@@ -373,7 +373,7 @@ impl JsonEvalNodeIngestion {
         } else if let Some(liquid_str) = &self.liquid {
             let template = self
                 .liquid_cache
-                .get_or_insert_with(|| build_and_parse(&liquid_str));
+                .get_or_insert_with(|| build_and_parse(liquid_str));
             let globals = liquid::object!({
                 "value": traversed,
                 "context": ctx.obj,
@@ -472,12 +472,12 @@ impl IngestionState {
     {
         let concise_storage = self
             .concise_per_file
-            .entry(path.clone())
+            .entry(*path)
             .or_insert_with(|| ConcisePerFileInfo::default_is_dir(is_dir));
 
         let detailed_storage = self
             .detailed_per_file
-            .entry(path.clone())
+            .entry(*path)
             .or_insert_with(|| DetailedPerFileInfo::default_is_dir(is_dir));
 
         f(concise_storage, detailed_storage);
@@ -556,7 +556,7 @@ impl RepoIngestion {
     ) {
         let mut ordered_path_kinds: Vec<&PathKindConfig> = self.config.pathkind.values().collect();
         ordered_path_kinds.sort_unstable_by_key(|x| x.decision_order);
-        let default_pk = ordered_path_kinds[0].name.clone();
+        let default_pk = ordered_path_kinds[0].name;
 
         for file_path in files {
             // split in reverse order so we can skip the filename itself.
@@ -567,12 +567,12 @@ impl RepoIngestion {
                     .heuristics
                     .file_matches(file_path, segments.clone())
                 {
-                    use_path_kind = pk_config.name.clone();
+                    use_path_kind = pk_config.name;
                     break;
                 }
             }
 
-            let raw_file_path = tree_config.find_source_file(&file_path);
+            let raw_file_path = tree_config.find_source_file(file_path);
             let path_wrapper = Path::new(&raw_file_path);
             let metadata = match fs::symlink_metadata(path_wrapper) {
                 Ok(m) => m,
@@ -740,7 +740,7 @@ impl RepoIngestion {
                         match concise.tags.binary_search(&tag) {
                             Ok(_) => {} // nothing to do, tag already present
                             Err(pos) => {
-                                concise.tags.insert(pos, tag.clone());
+                                concise.tags.insert(pos, tag);
                             }
                         }
                     }
@@ -755,9 +755,7 @@ impl RepoIngestion {
                 }
                 Ok(())
             }
-            x => {
-                return Err(format!("Unsupported file format '{}'", x));
-            }
+            x => Err(format!("Unsupported file format '{}'", x)),
         }
     }
 
@@ -782,7 +780,7 @@ impl RepoIngestion {
         probe_config: &ProbeConfig,
     ) -> Result<(), String> {
         info!("Processing JSON file: {}", name);
-        let mut config = match self.config.jsonfile.get_mut(name) {
+        let config = match self.config.jsonfile.get_mut(name) {
             Some(config) => config,
             None => {
                 return Err(format!("No config for {}", name));
@@ -791,7 +789,7 @@ impl RepoIngestion {
 
         let mut lookups = None;
         if let Some(value_lookup) = &config.ingestion.value_lookup {
-            match input_val.pointer_mut(&value_lookup) {
+            match input_val.pointer_mut(value_lookup) {
                 Some(Value::Object(obj)) => {
                     lookups = Some(obj.clone());
                 }
@@ -821,7 +819,7 @@ impl RepoIngestion {
                     if let Value::Object(obj) = root {
                         for (_, partitioned_root) in obj {
                             self.state.recurse_dir_dict_with_lookup(
-                                &mut config,
+                                config,
                                 probe_config,
                                 &lookups,
                                 &path_prefix,
@@ -832,7 +830,7 @@ impl RepoIngestion {
                     Ok(())
                 } else {
                     self.state.recurse_dir_dict_with_lookup(
-                        &mut config,
+                        config,
                         probe_config,
                         &lookups,
                         &path_prefix,
@@ -845,7 +843,7 @@ impl RepoIngestion {
                 if let Some(children_key) = &config.ingestion.nesting_key.clone() {
                     let path_prefix = config.ingestion.path_prefix.clone();
                     self.state.recurse_nested_explicit_children(
-                        &mut config,
+                        config,
                         probe_config,
                         children_key,
                         &path_prefix,
@@ -874,9 +872,9 @@ impl RepoIngestion {
                     for (_, result_array_val) in root_obj.into_iter() {
                         if let Value::Array(result_array) = result_array_val {
                             for val in result_array {
-                                if let Some(Value::String(path)) = val.get(path_key).clone() {
+                                if let Some(Value::String(path)) = val.get(path_key) {
                                     self.state.eval_file_values(
-                                        &mut config,
+                                        config,
                                         probe_config,
                                         false,
                                         &ustr(&format!("{}{}", &path_prefix, path)),
@@ -926,7 +924,7 @@ impl RepoIngestion {
                                 let path =
                                     format!("{}{}/{}", use_path_prefix, dir_path, use_filename);
                                 self.state.eval_file_values(
-                                    &mut config,
+                                    config,
                                     probe_config,
                                     false,
                                     &ustr(&path),
@@ -973,7 +971,7 @@ impl IngestionState {
 
         let probing = parent_probing || ctx.probe.should_probe_path(path);
 
-        let concise_entry = self.concise_per_file.entry(path.clone());
+        let concise_entry = self.concise_per_file.entry(*path);
         if let Entry::Vacant(_) = &concise_entry {
             if !create_if_does_not_exist {
                 return;
@@ -1008,7 +1006,7 @@ impl IngestionState {
 
         let detailed_storage = self
             .detailed_per_file
-            .entry(path.clone())
+            .entry(*path)
             .or_insert_with(|| DetailedPerFileInfo::default_is_dir(is_dir));
 
         if let Some(ingestion) = &mut config.detailed.coverage_lines {
@@ -1052,25 +1050,13 @@ impl IngestionState {
                 };
                 if value.is_object() {
                     self.recurse_dir_dict_with_lookup(config, probe_config, lookups, &path, value)?;
-                } else {
-                    if let Some(lookup_values) = lookups {
-                        let lookup_key = match value {
-                            Value::String(s) => s,
-                            Value::Number(n) => format!("{}", n),
-                            _ => "".to_string(),
-                        };
-                        if let Some(looked_up_value) = lookup_values.get(&lookup_key) {
-                            self.eval_file_values(
-                                config,
-                                probe_config,
-                                false,
-                                &ustr(&path),
-                                false,
-                                false,
-                                &looked_up_value,
-                            );
-                        }
-                    } else {
+                } else if let Some(lookup_values) = lookups {
+                    let lookup_key = match value {
+                        Value::String(s) => s,
+                        Value::Number(n) => format!("{}", n),
+                        _ => "".to_string(),
+                    };
+                    if let Some(looked_up_value) = lookup_values.get(&lookup_key) {
                         self.eval_file_values(
                             config,
                             probe_config,
@@ -1078,9 +1064,19 @@ impl IngestionState {
                             &ustr(&path),
                             false,
                             false,
-                            &value,
+                            looked_up_value,
                         );
                     }
+                } else {
+                    self.eval_file_values(
+                        config,
+                        probe_config,
+                        false,
+                        &ustr(&path),
+                        false,
+                        false,
+                        &value,
+                    );
                 }
             }
             Ok(())
@@ -1106,7 +1102,7 @@ impl IngestionState {
         // Currently the `children_key` is only for directories and there is no
         // other way to currently distinguish in the coverage file format, so we
         // key off of this.
-        if let Some(v) = cur.get_mut(&children_key) {
+        if let Some(v) = cur.get_mut(children_key) {
             if let Value::Object(obj) = v.take() {
                 for (filename, value) in obj {
                     let path = if path_so_far.is_empty() {
@@ -1131,7 +1127,7 @@ impl IngestionState {
                 config,
                 probe_config,
                 false,
-                &ustr(&path_so_far),
+                &ustr(path_so_far),
                 false,
                 false,
                 &cur,

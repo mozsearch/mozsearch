@@ -315,7 +315,7 @@ impl OntologyMappingConfig {
                 // - After a ",", so token.len() == 0
                 // - After a ">", but we handle that via the `Closing` state.
                 (TypeParseState::Typish, Some(' ')) => {
-                    if token.len() > 0 {
+                    if !token.is_empty() {
                         if token.as_str() == "const" {
                             cur_type.is_const = true;
                         } else if token.as_str() == "union" {
@@ -338,7 +338,7 @@ impl OntologyMappingConfig {
                             // rabbit hole.
                             return (results, labels_to_apply);
                         } else {
-                            if cur_type.identifier.len() > 0 {
+                            if !cur_type.identifier.is_empty() {
                                 info!(
                                     type_str,
                                     prev_id = cur_type.identifier,
@@ -360,7 +360,7 @@ impl OntologyMappingConfig {
                     cur_type.is_ref = true;
                 }
                 (TypeParseState::Typish, Some('<')) => {
-                    if cur_type.identifier.len() > 0 {
+                    if !cur_type.identifier.is_empty() {
                         info!(
                             type_str,
                             prev_id = cur_type.identifier,
@@ -375,7 +375,7 @@ impl OntologyMappingConfig {
                     cur_type = ShoddyType::default();
                 }
                 (TypeParseState::Typish, Some(',')) => {
-                    if cur_type.identifier.len() > 0 {
+                    if !cur_type.identifier.is_empty() {
                         info!(
                             type_str,
                             prev_id = cur_type.identifier,
@@ -394,11 +394,8 @@ impl OntologyMappingConfig {
                     // those will have a > and then be in closing and then see a
                     // ',', but we can do better or at least add more comments.
                     let parent_name = ustr(&cur_type.identifier);
-                    match self.types.get(&parent_name) {
-                        Some(OntologyType::Nothing) => {
-                            cur_type.is_nothing = true;
-                        }
-                        _ => {}
+                    if let Some(OntologyType::Nothing) = self.types.get(&parent_name) {
+                        cur_type.is_nothing = true;
                     }
 
                     if let Some(container_type) = type_stack.last_mut() {
@@ -411,19 +408,17 @@ impl OntologyMappingConfig {
                 }
                 (TypeParseState::Typish, Some('>')) | (TypeParseState::Closing, Some('>')) => {
                     // In the closing state we don't process the token.
-                    if state == TypeParseState::Typish {
-                        if token.len() > 0 {
-                            if cur_type.identifier.len() > 0 {
-                                info!(
-                                    type_str,
-                                    prev_id = cur_type.identifier,
-                                    new_id = token,
-                                    "Got an identifier when already had an identifier!"
-                                );
-                            }
-                            cur_type.identifier = token;
-                            token = String::new();
+                    if state == TypeParseState::Typish && !token.is_empty() {
+                        if !cur_type.identifier.is_empty() {
+                            info!(
+                                type_str,
+                                prev_id = cur_type.identifier,
+                                new_id = token,
+                                "Got an identifier when already had an identifier!"
+                            );
                         }
+                        cur_type.identifier = token;
+                        token = String::new();
                     }
 
                     // A type is being closed out, the cur_type goes in the parent,
@@ -443,7 +438,7 @@ impl OntologyMappingConfig {
                     let process_args = match self.types.get(&parent_name) {
                         Some(OntologyType::Decorator(dec)) => {
                             for label in &dec.labels {
-                                labels_to_apply.push(label.clone());
+                                labels_to_apply.push(*label);
                             }
                             // Process the arguments on their own still.
                             true
@@ -568,7 +563,7 @@ impl OntologyMappingConfig {
             }
         }
 
-        if token.len() > 0 {
+        if !token.is_empty() {
             cur_type.identifier = token;
         }
 

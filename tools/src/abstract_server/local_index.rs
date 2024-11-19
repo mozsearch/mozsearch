@@ -89,7 +89,7 @@ async fn read_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
 
     raw_str
         .lines()
-        .map(|s| from_str(s).map_err(|e| ServerError::from(e)))
+        .map(|s| from_str(s).map_err(ServerError::from))
         .collect()
 }
 
@@ -247,7 +247,7 @@ impl AbstractServer for LocalIndex {
                 // to do either.  The exception is that for the root directory, ""
                 // is the right choice because our "no leading /" rule trumps our
                 // "yes trailing /" rule for path manipulation.
-                let norm_path = if norm_path == "" {
+                let norm_path = if norm_path.is_empty() {
                     "".to_string()
                 } else if norm_path.ends_with('/') {
                     norm_path.to_string()
@@ -302,7 +302,7 @@ impl AbstractServer for LocalIndex {
             symbol
         );
         if result.is_ok() && extra_processing {
-            perform_lazy_crossref(&self, result.unwrap()).await
+            perform_lazy_crossref(self, result.unwrap()).await
         } else {
             result
         }
@@ -417,7 +417,7 @@ impl AbstractServer for LocalIndex {
                     let path_kind = self
                         .file_lookup_map
                         .lookup_file_from_ustr(&path)
-                        .map_or_else(|| ustr(""), |fi| fi.path_kind.clone());
+                        .map_or_else(|| ustr(""), |fi| fi.path_kind);
                     TextMatchesByFile {
                         file: path,
                         path_kind,
@@ -490,7 +490,7 @@ pub fn make_local_server(
     config_path: &str,
     tree_name: &str,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
-    let mut config = load(config_path, false, Some(&tree_name), None);
+    let mut config = load(config_path, false, Some(tree_name), None);
     let tree_config = match config.trees.remove(&tree_name.to_string()) {
         Some(t) => t,
         None => {

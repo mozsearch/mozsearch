@@ -90,9 +90,7 @@ impl PipelineCommand for AugmentResultsCommand {
                 .fetch_html(HtmlFileRoot::FormattedFile, &path)
                 .await?;
 
-            let file_lines = path_line_contents
-                .entry(path.clone())
-                .or_insert_with(|| HashMap::new());
+            let file_lines = path_line_contents.entry(path).or_default();
 
             // ### HTML Extraction: What We Want
             //
