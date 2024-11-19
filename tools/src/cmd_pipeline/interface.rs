@@ -379,9 +379,7 @@ impl SymbolQuality {
 
 impl PartialOrd for SymbolQuality {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let self_rank = self.numeric_rank();
-        let other_rank = other.numeric_rank();
-        self_rank.partial_cmp(&other_rank)
+        Some(self.cmp(other))
     }
 }
 
