@@ -362,7 +362,7 @@ impl JsonEvalNodeIngestion {
                     Value::Object(obj) => json!(obj.len()),
                     _ => Value::Null,
                 },
-                __ => traversed,
+                _ => traversed,
             };
             if probing {
                 trace!(val = ?traversed, "length");
