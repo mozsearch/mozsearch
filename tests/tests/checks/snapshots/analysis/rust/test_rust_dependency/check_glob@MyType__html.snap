@@ -7,6 +7,6 @@ snapshot_kind: text
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="13"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_MyType#do_foo().">do_foo</span>(<span class="syn_def" data-symbols="S_rs_do_foo().(self)">self</span>) -> <span data-symbols="S_rs_MyType#">MyType</span> {
+  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_MyType#do_foo()." data-confidences="[&quot;concrete&quot;]">do_foo</span>(<span class="syn_def" data-symbols="S_rs_do_foo().(self)" data-confidences="[&quot;concrete&quot;]">self</span>) -> <span data-symbols="S_rs_MyType#" data-confidences="[&quot;concrete&quot;]">MyType</span> {
 </code>
 </div>

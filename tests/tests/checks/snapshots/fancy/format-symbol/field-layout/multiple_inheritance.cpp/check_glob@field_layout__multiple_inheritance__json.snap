@@ -1486,7 +1486,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1\">sub_sub_sub_a_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_sub_sub_a_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1523,7 +1523,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1\">sub_sub_c_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_sub_c_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1560,7 +1560,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1\">sub_sub_b_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_sub_b_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1591,7 +1591,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1\">sub_a_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_a_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1616,7 +1616,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int16_t\">int16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2\">sub_a_2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int16_t\" data-confidences=\"[&quot;concrete&quot;]\">int16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_a_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1653,7 +1653,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1\">sub_b_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_b_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1678,7 +1678,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2\">sub_b_2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_b_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1715,7 +1715,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3\">sub_b_3</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\" data-confidences=\"[&quot;concrete&quot;]\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3\" data-confidences=\"[&quot;concrete&quot;]\">sub_b_3</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1743,7 +1743,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1\">sub_d_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_d_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1768,7 +1768,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2\">sub_d_2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_d_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1811,7 +1811,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1\">sub_e_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\" data-confidences=\"[&quot;concrete&quot;]\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_e_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1836,7 +1836,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2\">sub_e_2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_e_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1877,7 +1877,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1\">sub_c_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_c_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1908,7 +1908,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2\">sub_c_2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_c_2</span>;"
                 ],
                 "offsetAndSize": [
                   {

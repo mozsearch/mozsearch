@@ -303,27 +303,38 @@ pub fn format_code(
                         // Build the list of symbols for the highlighter.  We do this for all source
                         // records, even ones marked "no_crossref" because we still want to highlight
                         // locals.  These will be emitted into a `data-symbols` attribute below.
-                        let syms = {
+                        let (syms, confidences) = {
                             let mut syms = String::new();
+                            let mut confidences = Vec::new();
                             // Suppress including the symbol multiple times.  This was possible under the
                             // ANALYSIS_DATA regime where "source" records mapped directly to "searches",
                             // but this may now be moot.
                             let mut seen_syms = Vec::new();
-                            for sym in datum.flat_map(|item| item.sym.iter()) {
-                                if seen_syms.contains(sym) {
+                            for (sym, confidence) in
+                                datum.flat_map(|item| item.sym.iter().zip(item.confidences()))
+                            {
+                                if let Some(index) = seen_syms.iter().position(|s| s == sym) {
+                                    confidences[index] = confidence.max(confidences[index]);
                                     continue;
                                 }
                                 if !seen_syms.is_empty() {
                                     syms.push(',');
                                 }
                                 seen_syms.push(*sym);
-                                syms.push_str(sym)
+                                syms.push_str(sym);
+                                confidences.push(confidence);
                             }
-                            syms
+                            (syms, confidences)
                         };
 
                         if !syms.is_empty() {
-                            format!("data-symbols=\"{}\"", syms)
+                            format!(
+                                "data-symbols=\"{}\" data-confidences=\"{}\"",
+                                syms,
+                                serde_json::to_string(&confidences)
+                                    .unwrap()
+                                    .replace('"', "&quot;")
+                            )
                         } else {
                             "".to_owned()
                         }

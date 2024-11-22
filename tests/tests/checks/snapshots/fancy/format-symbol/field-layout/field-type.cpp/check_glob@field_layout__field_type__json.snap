@@ -1054,7 +1054,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_value_field\">value_field</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_value_field\" data-confidences=\"[&quot;concrete&quot;]\">value_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1080,7 +1080,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_reserved\" >const</span> <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>* <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_pointer_field\">pointer_field</span>;"
+                  "  <span class=\"syn_reserved\" >const</span> <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span>* <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_pointer_field\" data-confidences=\"[&quot;concrete&quot;]\">pointer_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1101,7 +1101,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_template_field_1\">template_field_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\" data-confidences=\"[&quot;concrete&quot;]\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_template_field_1\" data-confidences=\"[&quot;concrete&quot;]\">template_field_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1122,7 +1122,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container2\">Container2</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>, <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Enum1\">Enum1</span>::<span data-symbols=\"E_<T_field_layout::field_type::Enum1>_No\">No</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_template_field_2\">template_field_2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container2\" data-confidences=\"[&quot;concrete&quot;]\">Container2</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span>, <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Enum1\" data-confidences=\"[&quot;concrete&quot;]\">Enum1</span>::<span data-symbols=\"E_<T_field_layout::field_type::Enum1>_No\" data-confidences=\"[&quot;concrete&quot;]\">No</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_template_field_2\" data-confidences=\"[&quot;concrete&quot;]\">template_field_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1148,7 +1148,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::vector\">vector</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_vector_field\">vector_field</span>;"
+                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::vector\" data-confidences=\"[&quot;concrete&quot;]\">vector</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_vector_field\" data-confidences=\"[&quot;concrete&quot;]\">vector_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1169,7 +1169,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::Rooted\">Rooted</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_rooted_field\">rooted_field</span>;"
+                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::Rooted\" data-confidences=\"[&quot;concrete&quot;]\">Rooted</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\" data-confidences=\"[&quot;concrete&quot;]\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_rooted_field\" data-confidences=\"[&quot;concrete&quot;]\">rooted_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1190,7 +1190,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::RootedVector\">RootedVector</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_rooted_vec_field\">rooted_vec_field</span>;"
+                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::RootedVector\" data-confidences=\"[&quot;concrete&quot;]\">RootedVector</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\" data-confidences=\"[&quot;concrete&quot;]\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_rooted_vec_field\" data-confidences=\"[&quot;concrete&quot;]\">rooted_vec_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1211,7 +1211,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::GCHashMap\">GCHashMap</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>, <span class=\"syn_type\" data-symbols=\"T_JSObject\">JSObject</span>*> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_hash_map_field\">hash_map_field</span>;"
+                  "  JS::<span class=\"syn_type\" data-symbols=\"T_JS::GCHashMap\" data-confidences=\"[&quot;concrete&quot;]\">GCHashMap</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\" data-confidences=\"[&quot;concrete&quot;]\">Value</span>, <span class=\"syn_type\" data-symbols=\"T_JSObject\" data-confidences=\"[&quot;concrete&quot;]\">JSObject</span>*> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_hash_map_field\" data-confidences=\"[&quot;concrete&quot;]\">hash_map_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1232,7 +1232,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\">TestLockData</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_protected_field\">protected_field</span>;"
+                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\" data-confidences=\"[&quot;concrete&quot;]\">TestLockData</span>&lt;JS::<span class=\"syn_type\" data-symbols=\"T_JS::Value\" data-confidences=\"[&quot;concrete&quot;]\">Value</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_protected_field\" data-confidences=\"[&quot;concrete&quot;]\">protected_field</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1253,7 +1253,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span data-expansions=\"{&quot;M_4176c48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot;>Type1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_1\\&quot;>macro_fields_1&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Enum1\\&quot;>Enum1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_2\\&quot;>macro_fields_2&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Container1\\&quot;>Container1&lt;/span>&amp;lt;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot;>Type1&lt;/span>> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_3\\&quot;>macro_fields_3&lt;/span>;&quot;}}\" data-symbols=\"M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                  "  <span data-expansions=\"{&quot;M_4176c48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Type1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_1&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Enum1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Enum1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_2\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_2&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Container1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Container1&lt;/span>&amp;lt;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Type1&lt;/span>> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_3\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_3&lt;/span>;&quot;}}\" data-symbols=\"M_4176c48bcfb9a1bd\" data-confidences=\"[&quot;concrete&quot;]\">DEFINE_FIELDS</span>"
                 ],
                 "offsetAndSize": [
                   {
@@ -1274,7 +1274,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span data-expansions=\"{&quot;M_4176c48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot;>Type1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_1\\&quot;>macro_fields_1&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Enum1\\&quot;>Enum1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_2\\&quot;>macro_fields_2&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Container1\\&quot;>Container1&lt;/span>&amp;lt;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot;>Type1&lt;/span>> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_3\\&quot;>macro_fields_3&lt;/span>;&quot;}}\" data-symbols=\"M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                  "  <span data-expansions=\"{&quot;M_4176c48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Type1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_1&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Enum1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Enum1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_2\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_2&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Container1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Container1&lt;/span>&amp;lt;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Type1&lt;/span>> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_3\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_3&lt;/span>;&quot;}}\" data-symbols=\"M_4176c48bcfb9a1bd\" data-confidences=\"[&quot;concrete&quot;]\">DEFINE_FIELDS</span>"
                 ],
                 "offsetAndSize": [
                   {
@@ -1295,7 +1295,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span data-expansions=\"{&quot;M_4176c48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot;>Type1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_1\\&quot;>macro_fields_1&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Enum1\\&quot;>Enum1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_2\\&quot;>macro_fields_2&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Container1\\&quot;>Container1&lt;/span>&amp;lt;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot;>Type1&lt;/span>> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_3\\&quot;>macro_fields_3&lt;/span>;&quot;}}\" data-symbols=\"M_4176c48bcfb9a1bd\">DEFINE_FIELDS</span>"
+                  "  <span data-expansions=\"{&quot;M_4176c48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Type1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_1&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Enum1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Enum1&lt;/span> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_2\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_2&lt;/span>;\\n&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Container1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Container1&lt;/span>&amp;lt;&lt;span class=\\&quot;syn_type\\&quot; data-symbols=\\&quot;T_field_layout::field_type::Type1\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>Type1&lt;/span>> &lt;span class=\\&quot;syn_def\\&quot; data-symbols=\\&quot;F_&lt;T_field_layout::field_type::S>_macro_fields_3\\&quot; data-confidences=\\&quot;[&amp;quot;concrete&amp;quot;]\\&quot;>macro_fields_3&lt;/span>;&quot;}}\" data-symbols=\"M_4176c48bcfb9a1bd\" data-confidences=\"[&quot;concrete&quot;]\">DEFINE_FIELDS</span>"
                 ],
                 "offsetAndSize": [
                   {
@@ -1316,7 +1316,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\">TestLockData</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_multiline_field\">multiline_field</span> <span data-expansions=\"{&quot;M_03edc48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;__attribute__((annotate(&lt;span class=\\&quot;syn_string\\&quot; >\\&quot;some_annotation\\&quot;&lt;/span>)))&quot;}}\" data-symbols=\"M_03edc48bcfb9a1bd\">SOME_ANNOTATION</span>;"
+                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\" data-confidences=\"[&quot;concrete&quot;]\">TestLockData</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_multiline_field\" data-confidences=\"[&quot;concrete&quot;]\">multiline_field</span> <span data-expansions=\"{&quot;M_03edc48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;__attribute__((annotate(&lt;span class=\\&quot;syn_string\\&quot; >\\&quot;some_annotation\\&quot;&lt;/span>)))&quot;}}\" data-symbols=\"M_03edc48bcfb9a1bd\" data-confidences=\"[&quot;concrete&quot;]\">SOME_ANNOTATION</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1337,7 +1337,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field1\">other_file_field1</span>;"
+                  "<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field1\" data-confidences=\"[&quot;concrete&quot;]\">other_file_field1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1358,7 +1358,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field2\">other_file_field2</span>;"
+                  "<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\" data-confidences=\"[&quot;concrete&quot;]\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field2\" data-confidences=\"[&quot;concrete&quot;]\">other_file_field2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1384,7 +1384,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "std::<span class=\"syn_type\" data-symbols=\"T_std::vector\">vector</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field3\">other_file_field3</span>;"
+                  "std::<span class=\"syn_type\" data-symbols=\"T_std::vector\" data-confidences=\"[&quot;concrete&quot;]\">vector</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\" data-confidences=\"[&quot;concrete&quot;]\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field3\" data-confidences=\"[&quot;concrete&quot;]\">other_file_field3</span>;"
                 ],
                 "offsetAndSize": [
                   {

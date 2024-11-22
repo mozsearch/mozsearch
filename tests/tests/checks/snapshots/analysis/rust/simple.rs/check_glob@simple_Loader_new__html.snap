@@ -7,6 +7,6 @@ snapshot_kind: text
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="43"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_Loader#new().">new</span>(<span class="syn_def" data-symbols="S_rs_new().(deps_dir)">deps_dir</span>: <span data-symbols="S_rs_path/PathBuf#">PathBuf</span>) -> <span data-symbols="S_rs_Loader#">Self</span> {
+  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_Loader#new()." data-confidences="[&quot;concrete&quot;]">new</span>(<span class="syn_def" data-symbols="S_rs_new().(deps_dir)" data-confidences="[&quot;concrete&quot;]">deps_dir</span>: <span data-symbols="S_rs_path/PathBuf#" data-confidences="[&quot;concrete&quot;]">PathBuf</span>) -> <span data-symbols="S_rs_Loader#" data-confidences="[&quot;concrete&quot;]">Self</span> {
 </code>
 </div>

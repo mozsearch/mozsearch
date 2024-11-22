@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
+snapshot_kind: text
 ---
 {
   "tables": [
@@ -826,7 +827,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::SubSub>_z\">z</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::SubSub>_z\" data-confidences=\"[&quot;concrete&quot;]\">z</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -858,7 +859,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1a>_x\">x</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1a>_x\" data-confidences=\"[&quot;concrete&quot;]\">x</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -890,7 +891,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1b>_y\">y</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1b>_y\" data-confidences=\"[&quot;concrete&quot;]\">y</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -922,7 +923,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub2>_w\">w</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub2>_w\" data-confidences=\"[&quot;concrete&quot;]\">w</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -973,7 +974,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub3>_v\">v</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub3>_v\" data-confidences=\"[&quot;concrete&quot;]\">v</span>;"
                 ],
                 "offsetAndSize": [
                   {
