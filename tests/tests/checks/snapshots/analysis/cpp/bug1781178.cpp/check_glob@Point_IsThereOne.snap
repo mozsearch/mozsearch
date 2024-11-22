@@ -28,7 +28,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "_Bool (void)",
     "pretty": "function Point::IsThereOne",
-    "sym": "_ZN5Point10IsThereOneEv"
+    "sym": "_ZN5Point10IsThereOneEv",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00054:4-14",
@@ -45,7 +48,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "_Bool (void)",
     "pretty": "function Point::IsThereOne",
-    "sym": "_ZN5Point10IsThereOneEv"
+    "sym": "_ZN5Point10IsThereOneEv",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00065:21-31",

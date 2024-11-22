@@ -28,7 +28,10 @@ snapshot_kind: text
     "syntax": "use,field",
     "type": "int",
     "pretty": "field Foo::Nested::field",
-    "sym": "F_<T_Foo::Nested>_field"
+    "sym": "F_<T_Foo::Nested>_field",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00033:17-22",

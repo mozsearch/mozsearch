@@ -48,7 +48,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (Point<F>)",
     "pretty": "function Foo::Project",
-    "sym": "_ZN3Foo7ProjectE5PointITL0__E"
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00026:4-11",
@@ -56,7 +59,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (Point<F>, Point<F>)",
     "pretty": "function Foo::Project",
-    "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_"
+    "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00026:4-11",
@@ -82,7 +88,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (Point<F>)",
     "pretty": "function Foo::Project",
-    "sym": "_ZN3Foo7ProjectE5PointITL0__E"
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00029:10-17",
@@ -90,7 +99,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (Point<F>, Point<F>)",
     "pretty": "function Foo::Project",
-    "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_"
+    "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00029:10-17",

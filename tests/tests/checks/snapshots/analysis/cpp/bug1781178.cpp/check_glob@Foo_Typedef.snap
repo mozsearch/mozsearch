@@ -27,7 +27,10 @@ snapshot_kind: text
     "syntax": "use,type",
     "type": "int",
     "pretty": "type Foo::Typedef",
-    "sym": "TA_Foo::Typedef"
+    "sym": "TA_Foo::Typedef",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00052:35-42",

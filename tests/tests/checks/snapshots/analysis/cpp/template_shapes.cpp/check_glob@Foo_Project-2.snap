@@ -64,7 +64,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (Circle)",
     "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE6Circle"
+    "sym": "_ZN14DrawingContext4drawE6Circle",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00030:4-8",
@@ -72,7 +75,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (Rectangle)",
     "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE9Rectangle"
+    "sym": "_ZN14DrawingContext4drawE9Rectangle",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00030:4-8",
@@ -80,7 +86,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (Triangle)",
     "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE8Triangle"
+    "sym": "_ZN14DrawingContext4drawE8Triangle",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00030:4-8",
