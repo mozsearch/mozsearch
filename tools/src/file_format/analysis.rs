@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 #[cfg(not(target_arch = "wasm32"))]
@@ -715,6 +716,29 @@ pub enum ExpansionInfo {
     InExpansionAt(BTreeMap<String, BTreeMap<String, Vec<usize>>>),
 }
 
+/// Confidence Level
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum ConfidenceLevel {
+    CppTemplateHeuristic,
+    Concrete,
+}
+
+enum ConfidenceIterator<'a> {
+    Set(std::iter::Copied<std::slice::Iter<'a, ConfidenceLevel>>),
+    Default(std::iter::RepeatN<ConfidenceLevel>),
+}
+
+impl Iterator for ConfidenceIterator<'_> {
+    type Item = ConfidenceLevel;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Set(it) => it.next(),
+            Self::Default(it) => it.next(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisSource<StrT = Ustr>
 where
@@ -754,6 +778,11 @@ where
     pub arg_ranges: Vec<SourceRange>,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub expansion_info: Option<ExpansionInfo>,
+    /// Confidence level for each symbol.
+    /// When Some it should have the same length as sym and defines the confidence level for each symbol.
+    /// When None all symbols are assumed to have the highest confidence level.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<Vec<ConfidenceLevel>>,
 }
 
 impl<StrT> AnalysisSource<StrT>
@@ -788,8 +817,30 @@ where
         //
         // This currently will give precedence to the order in "other" rather than "self", but
         // it's still consistent.
-        other.sym.append(&mut self.sym);
-        self.sym.extend(other.sym.drain(0..).unique());
+        if self.confidence.is_none() && other.confidence.is_none() {
+            other.sym.append(&mut self.sym);
+            self.sym.extend(other.sym.drain(0..).unique());
+            // self.confidence stays None, everything is assumed to be Concrete
+        } else {
+            let confidence: Vec<_> = other.confidences().chain(self.confidences()).collect();
+
+            other.sym.append(&mut self.sym);
+
+            let mut confidences = HashMap::<StrT, ConfidenceLevel>::new();
+            for (sym, confidence) in other.sym.into_iter().zip(confidence.into_iter()) {
+                let entry = confidences.entry(sym);
+                entry
+                    .and_modify(|existing_confidence| {
+                        *existing_confidence = confidence.max(*existing_confidence)
+                    })
+                    .or_insert_with_key(|sym| {
+                        self.sym.push(sym.clone());
+                        confidence
+                    });
+            }
+            self.confidence = Some(self.sym.iter().map(|sym| confidences[sym]).collect());
+        }
+
         self.nesting_range.union(other.nesting_range);
         // We regrettably have no guarantee that the types are the same, so just pick a type when
         // we have it.
@@ -827,6 +878,16 @@ where
                         .or_insert(v);
                 }
             }
+        }
+    }
+
+    pub fn confidences(&self) -> impl Iterator<Item = ConfidenceLevel> + use<'_, StrT> {
+        match &self.confidence {
+            Some(confidence) => ConfidenceIterator::Set(confidence.iter().copied()),
+            None => ConfidenceIterator::Default(std::iter::repeat_n(
+                ConfidenceLevel::Concrete,
+                self.sym.len(),
+            )),
         }
     }
 

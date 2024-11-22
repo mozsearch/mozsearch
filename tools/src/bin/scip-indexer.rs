@@ -1310,6 +1310,7 @@ fn analyze_using_scip(
                         type_sym: None,
                         arg_ranges: vec![],
                         expansion_info: None,
+                        confidence: None,
                     },
                     loc,
                 };

@@ -463,6 +463,7 @@ fn visit_common(
             type_sym: None,
             arg_ranges: vec![],
             expansion_info: None,
+            confidence: None,
         },
         loc,
     };
@@ -997,6 +998,7 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                         type_sym: None,
                         arg_ranges: vec![],
                         expansion_info: None,
+                        confidence: None,
                     },
                     loc,
                 };
