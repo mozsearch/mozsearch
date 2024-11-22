@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
-snapshot_kind: text
 ---
 [
   {
@@ -39,23 +38,5 @@ snapshot_kind: text
     "sym": "T_Foo::E",
     "context": "Foo::Bar",
     "contextsym": "_ZN3Foo3BarEv"
-  },
-  {
-    "loc": "00071:22-23",
-    "source": 1,
-    "syntax": "use,type",
-    "type": "enum Foo<int>::E",
-    "typesym": "T_Foo::E",
-    "pretty": "type Foo::E",
-    "sym": "T_Foo::E"
-  },
-  {
-    "loc": "00071:22-23",
-    "target": 1,
-    "kind": "use",
-    "pretty": "Foo::E",
-    "sym": "T_Foo::E",
-    "context": "func",
-    "contextsym": "_Z4funcv"
   }
 ]
