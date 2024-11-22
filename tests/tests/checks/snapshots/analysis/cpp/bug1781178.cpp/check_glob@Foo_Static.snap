@@ -28,7 +28,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (void)",
     "pretty": "function Foo::Static",
-    "sym": "_ZN3Foo6StaticEv"
+    "sym": "_ZN3Foo6StaticEv",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00040:16-22",

@@ -28,7 +28,10 @@ snapshot_kind: text
     "syntax": "use,function",
     "type": "void (void)",
     "pretty": "function Foo::Simple",
-    "sym": "_ZN3Foo6SimpleEv"
+    "sym": "_ZN3Foo6SimpleEv",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00031:10-16",

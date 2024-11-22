@@ -29,7 +29,10 @@ snapshot_kind: text
     "type": "enum Foo::E",
     "typesym": "T_Foo::E",
     "pretty": "enum Foo::E::Waldo",
-    "sym": "E_<T_Foo::E>_Waldo"
+    "sym": "E_<T_Foo::E>_Waldo",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   },
   {
     "loc": "00035:13-18",
