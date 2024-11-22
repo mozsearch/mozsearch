@@ -57,6 +57,7 @@ fn to_source(
             type_sym: None,
             arg_ranges: vec![],
             expansion_info: None,
+            confidence: None,
         },
         loc,
     }
