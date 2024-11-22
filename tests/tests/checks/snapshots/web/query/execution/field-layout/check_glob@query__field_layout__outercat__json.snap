@@ -695,7 +695,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsFriendly\">mIsFriendly</span>;"
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsFriendly\" data-confidences=\"[&quot;concrete&quot;]\">mIsFriendly</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -716,7 +716,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly\">mIsSecretlyUnfriendly</span>;"
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly\" data-confidences=\"[&quot;concrete&quot;]\">mIsSecretlyUnfriendly</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -742,7 +742,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::shared_ptr\">shared_ptr</span>&lt;<span class=\"syn_type\" data-symbols=\"T_outerNS::Human\">Human</span>> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mOwner\">mOwner</span>;"
+                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::shared_ptr\" data-confidences=\"[&quot;concrete&quot;]\">shared_ptr</span>&lt;<span class=\"syn_type\" data-symbols=\"T_outerNS::Human\" data-confidences=\"[&quot;concrete&quot;]\">Human</span>> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mOwner\" data-confidences=\"[&quot;concrete&quot;]\">mOwner</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -763,7 +763,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"T_outerNS::Couch\">Couch</span>* <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mFavoriteCouch\">mFavoriteCouch</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"T_outerNS::Couch\" data-confidences=\"[&quot;concrete&quot;]\">Couch</span>* <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mFavoriteCouch\" data-confidences=\"[&quot;concrete&quot;]\">mFavoriteCouch</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -809,7 +809,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_reserved\" >int</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mHP\">mHP</span>;"
+                  "  <span class=\"syn_reserved\" >int</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mHP\" data-confidences=\"[&quot;concrete&quot;]\">mHP</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -830,7 +830,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mDefunct\">mDefunct</span>;"
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mDefunct\" data-confidences=\"[&quot;concrete&quot;]\">mDefunct</span>;"
                 ],
                 "offsetAndSize": [
                   {

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
+snapshot_kind: text
 ---
 {
   "tables": [
@@ -691,7 +692,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S3>_f6\">f6</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S3>_f6\" data-confidences=\"[&quot;concrete&quot;]\">f6</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -733,7 +734,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S2>_f4\">f4</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S2>_f4\" data-confidences=\"[&quot;concrete&quot;]\">f4</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -762,7 +763,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S2>_f5\">f5</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S2>_f5\" data-confidences=\"[&quot;concrete&quot;]\">f5</span>;"
                 ],
                 "offsetAndSize": [
                   null,
@@ -791,7 +792,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f1\">f1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f1\" data-confidences=\"[&quot;concrete&quot;]\">f1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -820,7 +821,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f2\">f2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f2\" data-confidences=\"[&quot;concrete&quot;]\">f2</span>;"
                 ],
                 "offsetAndSize": [
                   null,
@@ -846,7 +847,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f3\">f3</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_field::S1>_f3\" data-confidences=\"[&quot;concrete&quot;]\">f3</span>;"
                 ],
                 "offsetAndSize": [
                   {

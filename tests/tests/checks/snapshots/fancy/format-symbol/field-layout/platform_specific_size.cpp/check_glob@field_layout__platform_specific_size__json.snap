@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
+snapshot_kind: text
 ---
 {
   "tables": [
@@ -193,7 +194,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_field_layout::platform_specific_size::T1\">T1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_size::S>_f1\">f1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_field_layout::platform_specific_size::T1\" data-confidences=\"[&quot;concrete&quot;]\">T1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_size::S>_f1\" data-confidences=\"[&quot;concrete&quot;]\">f1</span>;"
                 ],
                 "offsetAndSize": [
                   {

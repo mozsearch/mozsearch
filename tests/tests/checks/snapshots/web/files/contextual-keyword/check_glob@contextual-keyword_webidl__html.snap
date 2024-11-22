@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&fb.contents"
+snapshot_kind: text
 ---
 <span data-symbols="FILE_webidl/contextual@2Dkeyword@2Ewebidl">(file symbol)</span>
-<span class="syn_def" data-symbols="WEBIDL_Test">Test</span>
-<span class="syn_def" data-symbols="WEBIDL_Test_argumentNameKeyword">argumentNameKeyword</span>
-<span class="syn_def" data-symbols="WEBIDL_Test_async">async</span>
-<span class="syn_def" data-symbols="WEBIDL_Test_required">required</span>
-<span class="syn_def" data-symbols="WEBIDL_Test_includes">_includes</span>
+<span class="syn_def" data-symbols="WEBIDL_Test" data-confidences="[&quot;concrete&quot;]">Test</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_argumentNameKeyword" data-confidences="[&quot;concrete&quot;]">argumentNameKeyword</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_async" data-confidences="[&quot;concrete&quot;]">async</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_required" data-confidences="[&quot;concrete&quot;]">required</span>
+<span class="syn_def" data-symbols="WEBIDL_Test_includes" data-confidences="[&quot;concrete&quot;]">_includes</span>

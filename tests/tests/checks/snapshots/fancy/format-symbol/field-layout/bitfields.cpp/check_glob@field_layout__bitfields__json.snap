@@ -324,7 +324,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b1\">b1</span> : 1;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b1\" data-confidences=\"[&quot;concrete&quot;]\">b1</span> : 1;"
                 ],
                 "offsetAndSize": [
                   {
@@ -345,7 +345,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b2\">b2</span> : 3;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b2\" data-confidences=\"[&quot;concrete&quot;]\">b2</span> : 3;"
                 ],
                 "offsetAndSize": [
                   {
@@ -366,7 +366,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b3\">b3</span> : 7;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b3\" data-confidences=\"[&quot;concrete&quot;]\">b3</span> : 7;"
                 ],
                 "offsetAndSize": [
                   {
@@ -387,7 +387,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b4\">b4</span> : 4;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b4\" data-confidences=\"[&quot;concrete&quot;]\">b4</span> : 4;"
                 ],
                 "offsetAndSize": [
                   {
@@ -408,7 +408,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b5\">b5</span> : 3;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b5\" data-confidences=\"[&quot;concrete&quot;]\">b5</span> : 3;"
                 ],
                 "offsetAndSize": [
                   {
@@ -429,7 +429,7 @@ snapshot_kind: text
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint16_t\">uint16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b6\">b6</span> : 2;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint16_t\" data-confidences=\"[&quot;concrete&quot;]\">uint16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::bitfields::S>_b6\" data-confidences=\"[&quot;concrete&quot;]\">b6</span> : 2;"
                 ],
                 "offsetAndSize": [
                   {
