@@ -255,8 +255,8 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "outerNS::Thing::mHP",
     "sym": "F_<T_outerNS::Thing>_mHP",
-    "context": "outerNS::Thing::Thing",
-    "contextsym": "_ZN7outerNS5ThingC1Ei"
+    "context": "outerNS::Thing",
+    "contextsym": "T_outerNS::Thing"
   },
   {
     "loc": "00156:4-12",
@@ -264,8 +264,8 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "outerNS::Thing::mDefunct",
     "sym": "F_<T_outerNS::Thing>_mDefunct",
-    "context": "outerNS::Thing::Thing",
-    "contextsym": "_ZN7outerNS5ThingC1Ei"
+    "context": "outerNS::Thing",
+    "contextsym": "T_outerNS::Thing"
   },
   {
     "loc": "00160:7-13",
@@ -720,8 +720,8 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "outerNS::OuterCat::mIsFriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
-    "context": "outerNS::OuterCat::OuterCat",
-    "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
+    "context": "outerNS::OuterCat",
+    "contextsym": "T_outerNS::OuterCat"
   },
   {
     "loc": "00272:4-25",
@@ -729,8 +729,8 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
     "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
-    "context": "outerNS::OuterCat::OuterCat",
-    "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
+    "context": "outerNS::OuterCat",
+    "contextsym": "T_outerNS::OuterCat"
   },
   {
     "loc": "00320:7-20",
@@ -1288,8 +1288,8 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "outerNS::StackArtHolder::mHeldArt",
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
-    "context": "outerNS::StackArtHolder::StackArtHolder",
-    "contextsym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE"
+    "context": "outerNS::StackArtHolder",
+    "contextsym": "T_outerNS::StackArtHolder"
   },
   {
     "loc": "00466:10-17",
