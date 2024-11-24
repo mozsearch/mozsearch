@@ -28,12 +28,6 @@ expression: "&to_value(scil).unwrap()"
         ],
         "callees": [
           {
-            "jump": "big_cpp.cpp#463",
-            "kind": "field",
-            "pretty": "outerNS::StackArtHolder::mHeldArt",
-            "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt"
-          },
-          {
             "jump": "big_cpp.cpp#460",
             "kind": "class",
             "pretty": "outerNS::PracticalArt",
