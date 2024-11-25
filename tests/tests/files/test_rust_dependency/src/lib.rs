@@ -1,4 +1,3 @@
-
 //! A description of this very interesting module.
 //!
 //! This is an overview of yada yada yada...
@@ -33,7 +32,9 @@ extern "C" {
 }
 
 impl MyTrait for MyType {
-    fn do_bar() -> i32 { 100 }
+    fn do_bar() -> i32 {
+        100
+    }
 }
 
 #[cfg(test)]
