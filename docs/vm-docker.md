@@ -17,4 +17,3 @@ relevant image id.
 ```
 docker run -it --entrypoint bash $IMAGE_ID
 ```
-

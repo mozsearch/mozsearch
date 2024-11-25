@@ -57,4 +57,3 @@ mach build [file/dir]
 
 mach serve
   Do step A and start server. Ideally just the rust server, which would be able to do everything.
-

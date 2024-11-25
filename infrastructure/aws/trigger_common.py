@@ -181,4 +181,3 @@ class TriggerCommandBase:
             print(repr(launch_spec))
 
         return client.run_instances(MinCount=1, MaxCount=1, **launch_spec)
-

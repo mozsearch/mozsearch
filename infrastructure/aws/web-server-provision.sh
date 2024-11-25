@@ -78,4 +78,3 @@ do
 done
 # and here we identify the partition as part of the block device
 sudo resize2fs ${ROOT_DEV}p1
-

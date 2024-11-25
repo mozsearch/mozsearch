@@ -12,4 +12,3 @@ There also won't be any blame information.
 
 I'll tar all this up at the end and upload it to AWS, like all the
 other stuff.
-

@@ -6,4 +6,3 @@ def exec():
 
 print()
 exec()
-

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(fm).unwrap()"
+snapshot_kind: text
 ---
 {
   "file_matches": [
@@ -9,7 +10,7 @@ expression: "&to_value(fm).unwrap()"
       "concise": {
         "path_kind": "Normal",
         "is_dir": false,
-        "file_size": 10485,
+        "file_size": 10479,
         "bugzilla_component": null,
         "subsystem": null,
         "tags": [],

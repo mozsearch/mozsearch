@@ -1,5 +1,22 @@
-exclude: (?:^flake.lock$|/__GENERATED__/|^tests/tests/mc-(?:analysis|generated))
+exclude: (?:^flake.lock$|/__GENERATED__/|^tests/tests/mc-(?:analysis|generated)|\.snap$)
 repos:
+  # Common
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: (?:\.patch$)
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-xml
+      - id: check-yaml
+      - id: check-json
+        exclude: (?:^tests/tests/files/test_talosconfig_browser_config.json$)
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-executables-have-shebangs
+
   # C++
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: 'v19.1.4'

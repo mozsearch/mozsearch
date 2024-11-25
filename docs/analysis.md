@@ -320,7 +320,7 @@ Raw record info.  These are attributes that will be found in the analysis files.
     - `virtual`: It's a virtual base class if present.
 - `methods`: For class-like symbols, an array of:
   - `pretty`: The pretty name/identifier for this method.
-  - `sym`: The searchfox symbol for this method.  
+  - `sym`: The searchfox symbol for this method.
   - `props`: An array of strings whose presence indicates a semantic attribute:
     - `static`: It's a static method (implies not "instance").
     - `instance`: It's a method on the instance (implies not "static").
