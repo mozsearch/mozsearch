@@ -1,19 +1,20 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00041:11-14",
+    "loc": "00043:11-14",
     "source": 1,
     "syntax": "def,method",
     "pretty": "method Loader::new",
     "sym": "S_rs_Loader#new().",
-    "nestingRange": "41:42-47:5",
+    "nestingRange": "43:42-49:5",
     "type": "pub fn new(deps_dir: PathBuf) -> Self"
   },
   {
-    "loc": "00041:11-14",
+    "loc": "00043:11-14",
     "target": 1,
     "kind": "def",
     "pretty": "Loader::new",

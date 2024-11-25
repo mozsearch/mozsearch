@@ -1,7 +1,7 @@
-use std::fs::File;
 use std::env;
-use std::path::Path;
+use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
 fn main() {
     let path = Path::new(&env::var_os("OUT_DIR").unwrap()).join("generated.rs");

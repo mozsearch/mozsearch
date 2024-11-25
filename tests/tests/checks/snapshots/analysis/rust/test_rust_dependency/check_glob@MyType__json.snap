@@ -1,19 +1,20 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00014:11-17",
+    "loc": "00013:11-17",
     "source": 1,
     "syntax": "def,method",
     "pretty": "method MyType::do_foo",
     "sym": "S_rs_MyType#do_foo().",
-    "nestingRange": "14:34-16:5",
+    "nestingRange": "13:34-15:5",
     "type": "pub fn do_foo(self) -> MyType"
   },
   {
-    "loc": "00014:11-17",
+    "loc": "00013:11-17",
     "target": 1,
     "kind": "def",
     "pretty": "MyType::do_foo",

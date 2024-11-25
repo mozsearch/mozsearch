@@ -1,9 +1,9 @@
 extern crate test_rust_dependency;
 
 use std::path::{Path, PathBuf};
-use test_rust_dependency::{MyType, MyTrait};
 #[allow(unused_imports)]
 use test_rust_dependency::my_mod::MyOtherType;
+use test_rust_dependency::{MyTrait, MyType};
 
 /* A grab-bug of rust code to exercise the searchfox indexer.
    Note how this comment ends up in the file description, too!
@@ -23,7 +23,9 @@ pub struct Loader {
 }
 
 impl MyTrait for Loader {
-    fn do_bar() -> i32 { 10000 }
+    fn do_bar() -> i32 {
+        10000
+    }
 
     fn do_foo() -> MyType {
         MyType::new().do_foo()
@@ -40,7 +42,7 @@ extern "C" fn WithNoMangle() {}
 impl Loader {
     pub fn new(deps_dir: PathBuf) -> Self {
         Self {
-            whatever: build_time_generated::GeneratedType{ some_num: 1 },
+            whatever: build_time_generated::GeneratedType { some_num: 1 },
             deps_dir,
             my_type: MyType::new(),
         }
@@ -57,7 +59,9 @@ impl Loader {
         MyType::new().do_foo();
     }
 
-    fn abs_path_prefix(&self) -> Option<PathBuf> { None }
+    fn abs_path_prefix(&self) -> Option<PathBuf> {
+        None
+    }
     fn search_directories(&self) -> Vec<PathBuf> {
         vec![self.deps_dir.clone()]
     }
@@ -86,8 +90,7 @@ struct MultiParams<'a, T> {
 
 #[allow(dead_code)]
 impl<'a, T> MultiParams<'a, T> {
-    fn fn_with_params_in_signature(&self) {
-    }
+    fn fn_with_params_in_signature(&self) {}
 }
 
 mod rust;

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(jvl).unwrap()"
+snapshot_kind: text
 ---
 {
   "values": [
@@ -29,7 +30,7 @@ expression: "&to_value(jvl).unwrap()"
           "variants": []
         },
         "jumps": {
-          "def": "simple.rs#49"
+          "def": "simple.rs#51"
         }
       }
     }
