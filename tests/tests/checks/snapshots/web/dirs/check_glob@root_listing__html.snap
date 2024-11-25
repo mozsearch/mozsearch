@@ -95,7 +95,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/.gitattributes" class="mimetype-fixed-container mimetype-icon-gitattributes">.gitattributes</a></td>
           <td class="description"><a href="/tests/source/.gitattributes" title=""></td>
-          <td><a href="/tests/source/.gitattributes">214</a></td>
+          <td><a href="/tests/source/.gitattributes">213</a></td>
         </tr>
 
         <tr>
@@ -201,7 +201,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/bug1446220_unicode.html" class="mimetype-fixed-container mimetype-icon-html">bug1446220_unicode.html</a></td>
           <td class="description"><a href="/tests/source/bug1446220_unicode.html" title="Font family name parsing tests">Font family name parsing tests</td>
-          <td><a href="/tests/source/bug1446220_unicode.html">10485</a></td>
+          <td><a href="/tests/source/bug1446220_unicode.html">10479</a></td>
         </tr>
 
         <tr>
@@ -243,7 +243,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/Cargo.lock" class="mimetype-fixed-container mimetype-icon-lock">Cargo.lock</a></td>
           <td class="description"><a href="/tests/source/Cargo.lock" title=""></td>
-          <td><a href="/tests/source/Cargo.lock">248</a></td>
+          <td><a href="/tests/source/Cargo.lock">254</a></td>
         </tr>
 
         <tr>
@@ -441,7 +441,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/mochitest.ini" class="mimetype-fixed-container mimetype-icon-ini">mochitest.ini</a></td>
           <td class="description"><a href="/tests/source/mochitest.ini" title=""></td>
-          <td><a href="/tests/source/mochitest.ini">142</a></td>
+          <td><a href="/tests/source/mochitest.ini">140</a></td>
         </tr>
 
         <tr>
@@ -677,7 +677,7 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/test_custom_element_base.xul" class="mimetype-fixed-container mimetype-icon-xul">test_custom_element_base.xul</a></td>
           <td class="description"><a href="/tests/source/test_custom_element_base.xul" title=""></td>
-          <td><a href="/tests/source/test_custom_element_base.xul">14637</a></td>
+          <td><a href="/tests/source/test_custom_element_base.xul">14636</a></td>
         </tr>
 
         <tr>
@@ -701,7 +701,7 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/test_talosconfig_browser_config.json" class="mimetype-fixed-container mimetype-icon-json">test_talosconfig_browser_config.json</a></td>
           <td class="description"><a href="/tests/source/test_talosconfig_browser_config.json" title=""></td>
-          <td><a href="/tests/source/test_talosconfig_browser_config.json">3355</a></td>
+          <td><a href="/tests/source/test_talosconfig_browser_config.json">3356</a></td>
         </tr>
 
         <tr>

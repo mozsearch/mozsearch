@@ -345,4 +345,3 @@ next = "semantic-format"
 
 [group.semantic-format]
 output = "result"
-

@@ -17,5 +17,3 @@ Font license info
    Author:    Stephen Hutchings
    License:   SIL (http://scripts.sil.org/OFL)
    Homepage:  http://typicons.com/
-
-

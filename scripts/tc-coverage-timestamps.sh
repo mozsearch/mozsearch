@@ -54,19 +54,19 @@ while read -r sf_rev; read -r sf_taskid; do
   COMPLETED_SF=$(taskcluster api queue status $sf_taskid | jq -M -r '.status.runs[0].resolved')
   SF_DEF_INFO=$(taskcluster task def $sf_taskid)
   SF_SOURCE_REPO=$(jq -M -r '.payload.env.MOZ_SOURCE_REPO' <<< "$SF_DEF_INFO")
-  
+
   # Filter out searchfox jobs that aren't from our desired repo.
   if [[ ${SF_SOURCE_REPO} != ${SOURCE_REPO} ]]; then
     continue
   fi
-  
+
   SF_REV_COMPLETED[${sf_rev}]=${COMPLETED_SF}
   #echo "Set '${sf_rev}' to ${SF_REVS_PRESENT[${sf_rev}]}"
   ARTIFACT_NAME=project.relman.code-coverage.production.repo.mozilla-central.${sf_rev}
-  
+
   echo "- ${sf_rev} artifact ${ARTIFACT_NAME}"
   echo "  - $COMPLETED_SF - indexing completed in job $sf_taskid"
-  
+
   ARTIFACT_FINDTASK_INFO=$(taskcluster api index findTask ${ARTIFACT_NAME} 2>/dev/null || true)
   # The artifact may not exist.
   if [[ ${ARTIFACT_FINDTASK_INFO} == "" ]]; then
@@ -85,5 +85,3 @@ while read -r sf_rev; read -r sf_taskid; do
   QUEUE_STATUS=$(jq -Mc '.status.runs[] | { state, reasonResolved, started, resolved }' <<< $QUEUE_INFO)
   echo "  - artifact job statuses: $QUEUE_STATUS"
 done <<< "$SF_JOB_REVS"
-
-
