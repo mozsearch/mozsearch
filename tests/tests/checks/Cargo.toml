@@ -7,4 +7,4 @@ edition = "2018"
 
 [lib]
 name = "dummy_test_package"
-path = "dummy-test-package.rs"
+path = "src/dummy-test-package.rs"
