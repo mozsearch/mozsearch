@@ -12,23 +12,29 @@ struct StructUsedInTypeIndependentNew {
   StructUsedInTypeIndependentNew() {}
 };
 
-template <typename T, typename... Args> std::unique_ptr<T> MakeUniqueWithIndex(int i, Args &&...args) {
-  const auto _ = std::unique_ptr<StructUsedInTypeIndependentNew>{new StructUsedInTypeIndependentNew()};
+template <typename T, typename... Args>
+std::unique_ptr<T> MakeUniqueWithIndex(int i, Args&&... args) {
+  const auto _ = std::unique_ptr<StructUsedInTypeIndependentNew>{
+      new StructUsedInTypeIndependentNew()};
   return std::unique_ptr<T>{new T(std::forward<Args>(args)...)};
 }
 
-template <typename T, typename... Args> std::unique_ptr<T> MakeUnique(Args &&...args) {
-  const auto _ = std::unique_ptr<StructUsedInTypeIndependentNew>{new StructUsedInTypeIndependentNew()};
+template <typename T, typename... Args>
+std::unique_ptr<T> MakeUnique(Args&&... args) {
+  const auto _ = std::unique_ptr<StructUsedInTypeIndependentNew>{
+      new StructUsedInTypeIndependentNew()};
   return MakeUniqueWithIndex<T>(0, std::forward<Args>(args)...);
 }
 
-template <typename T, typename... Args> std::unique_ptr<T> RecursiveMakeUnique(Args &&...args) {
+template <typename T, typename... Args>
+std::unique_ptr<T> RecursiveMakeUnique(Args&&... args) {
   const auto _ = RecursiveMakeUnique<T>(std::forward<Args>(args)...);
   return MakeUnique<T>(std::forward<Args>(args)...);
 }
 
-template <typename T, typename... Args> std::unique_ptr<T> MakeUniqueWithLambda(Args &&...args) {
-  return std::unique_ptr<T>{[t = new T()]{ return t; }()};
+template <typename T, typename... Args>
+std::unique_ptr<T> MakeUniqueWithLambda(Args&&... args) {
+  return std::unique_ptr<T>{[t = new T()] { return t; }()};
 }
 
 void test() {
@@ -54,8 +60,8 @@ template <typename T>
 struct Maybe {
   char storage[sizeof(T)];
 
-  template<typename ...Args>
-  void emplace(Args &&...args) {
+  template <typename... Args>
+  void emplace(Args&&... args) {
     new (storage) T(std::forward<Args>(args)...);
   }
 };

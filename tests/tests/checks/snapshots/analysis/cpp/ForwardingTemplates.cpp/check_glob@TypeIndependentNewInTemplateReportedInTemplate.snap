@@ -37,14 +37,14 @@ snapshot_kind: text
     "contextsym": "T_StructUsedInTypeIndependentNew"
   },
   {
-    "loc": "00016:69-99",
+    "loc": "00018:10-40",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
     "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
   },
   {
-    "loc": "00016:69-99",
+    "loc": "00018:10-40",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
@@ -53,14 +53,14 @@ snapshot_kind: text
     "contextsym": "_Z19MakeUniqueWithIndexiDpOT0_"
   },
   {
-    "loc": "00021:69-99",
+    "loc": "00025:10-40",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
     "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
   },
   {
-    "loc": "00021:69-99",
+    "loc": "00025:10-40",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",

@@ -7,8 +7,7 @@
 #define atom_magic_h___
 
 struct YoAtoms {
-#define YO_ATOM(name_, value_) \
-  const char16_t name_##_string[sizeof(value_)];
+#define YO_ATOM(name_, value_) const char16_t name_##_string[sizeof(value_)];
 #include "atom_list.h"
 #undef YO_ATOM
 

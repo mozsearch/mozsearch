@@ -4,60 +4,53 @@
  **/
 
 class DoubleBase {
-  public:
-
+ public:
   virtual void doublePure() = 0;
 };
 
 class DoubleSubOne : public DoubleBase {
-  public:
-
+ public:
   void doublePure() override {
     // Sub one.
   }
 };
 
 class DoubleSubTwo : public DoubleBase {
-  public:
-
+ public:
   void doublePure() override {
     // Sub two.
   }
 };
 
 class TripleBase {
-  public:
-
+ public:
   virtual void triplePure() = 0;
 };
 
 class TripleSubOne : public TripleBase {
-  public:
-
+ public:
   void triplePure() override {
     // Triple sub one.
   }
 };
 
 class TripleSubTwo : public TripleBase {
-  public:
-
+ public:
   void triplePure() override {
     // Triple sub two.
   }
 };
 
 class TripleSubThree : public TripleBase {
-  public:
-
+ public:
   void triplePure() override {
     // Triple sub three.
   }
 };
 
 void generateDoubleUses(void) {
-  DoubleBase *subOne = new DoubleSubOne();
-  DoubleBase *subTwo = new DoubleSubTwo();
+  DoubleBase* subOne = new DoubleSubOne();
+  DoubleBase* subTwo = new DoubleSubTwo();
   DoubleSubOne explicitOne;
   DoubleSubTwo explicitTwo;
 
@@ -69,9 +62,9 @@ void generateDoubleUses(void) {
 }
 
 void generateTripleUses(void) {
-  TripleBase *subOne = new TripleSubOne();
-  TripleBase *subTwo = new TripleSubTwo();
-  TripleBase *subThree = new TripleSubThree();
+  TripleBase* subOne = new TripleSubOne();
+  TripleBase* subTwo = new TripleSubTwo();
+  TripleBase* subThree = new TripleSubThree();
   TripleSubOne explicitOne;
   TripleSubTwo explicitTwo;
   TripleSubThree explicitThree;

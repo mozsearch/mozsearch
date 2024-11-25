@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00013:4-9",
+    "loc": "00013:11-16",
     "source": 1,
     "syntax": "def,enum constant",
     "type": "enum Foo::E",
@@ -13,7 +14,7 @@ expression: "&json_results"
     "sym": "E_<T_Foo::E>_Waldo"
   },
   {
-    "loc": "00013:4-9",
+    "loc": "00013:11-16",
     "target": 1,
     "kind": "def",
     "pretty": "Foo::E::Waldo",
@@ -22,7 +23,7 @@ expression: "&json_results"
     "contextsym": "T_Foo::E"
   },
   {
-    "loc": "00036:13-18",
+    "loc": "00035:13-18",
     "source": 1,
     "syntax": "use,enum",
     "type": "enum Foo::E",
@@ -31,7 +32,7 @@ expression: "&json_results"
     "sym": "E_<T_Foo::E>_Waldo"
   },
   {
-    "loc": "00036:13-18",
+    "loc": "00035:13-18",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::E::Waldo",
@@ -40,7 +41,7 @@ expression: "&json_results"
     "contextsym": "_ZN3Foo3BarEv"
   },
   {
-    "loc": "00071:25-30",
+    "loc": "00070:23-28",
     "source": 1,
     "syntax": "use,enum",
     "type": "enum Foo<int>::E",
@@ -49,7 +50,7 @@ expression: "&json_results"
     "sym": "E_<T_Foo::E>_Waldo"
   },
   {
-    "loc": "00071:25-30",
+    "loc": "00070:23-28",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::E::Waldo",

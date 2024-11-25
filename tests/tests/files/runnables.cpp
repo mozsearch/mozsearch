@@ -4,60 +4,55 @@
 class Dispatcher;
 
 class nsIRunnable {
-    public:
-    virtual void Run(Dispatcher *aDispatcher) = 0;
+ public:
+  virtual void Run(Dispatcher* aDispatcher) = 0;
 };
 
-void common_shoe_related_method(void) {
-    printf("shoes do things\n");
-}
+void common_shoe_related_method(void) { printf("shoes do things\n"); }
 
 class Dispatcher {
-    public:
-    void Dispatch(nsIRunnable *aRunnable) {
-        // eh, we don't do anything right now.
-    }
+ public:
+  void Dispatch(nsIRunnable* aRunnable) {
+    // eh, we don't do anything right now.
+  }
 };
 
 class ShoelaceRunnable : public nsIRunnable {
-    public:
+ public:
+  ShoelaceRunnable() = default;
 
-    ShoelaceRunnable() = default;
-
-    void Run(Dispatcher *aDispatcher) override {
-        printf("I am a shoelace!\n");
-        common_shoe_related_method();
-    }
+  void Run(Dispatcher* aDispatcher) override {
+    printf("I am a shoelace!\n");
+    common_shoe_related_method();
+  }
 };
 
 class ShoeRunnable : public nsIRunnable {
-    public:
+ public:
+  ShoeRunnable() = default;
 
-    ShoeRunnable() = default;
-
-    void Run(Dispatcher *aDispatcher) override {
-        printf("I am a shoe that runs!\n");
-        ShoelaceRunnable shoelace;
-        aDispatcher->Dispatch(&shoelace);
-    }
+  void Run(Dispatcher* aDispatcher) override {
+    printf("I am a shoe that runs!\n");
+    ShoelaceRunnable shoelace;
+    aDispatcher->Dispatch(&shoelace);
+  }
 };
 
 class SandalRunnable : public ShoeRunnable {
-    public:
+ public:
+  SandalRunnable() = default;
 
-    SandalRunnable() = default;
-
-    void Run(Dispatcher *aDispatcher) override {
-        printf("I am a shoe that is a sandal that runs!\n");
-        common_shoe_related_method();
-    }
+  void Run(Dispatcher* aDispatcher) override {
+    printf("I am a shoe that is a sandal that runs!\n");
+    common_shoe_related_method();
+  }
 };
 
 int main(void) {
-    Dispatcher d;
+  Dispatcher d;
 
-    ShoeRunnable shoe;
-    SandalRunnable sandal;
-    d.Dispatch(&shoe);
-    d.Dispatch(&sandal);
+  ShoeRunnable shoe;
+  SandalRunnable sandal;
+  d.Dispatch(&shoe);
+  d.Dispatch(&sandal);
 }

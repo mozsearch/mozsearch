@@ -1,19 +1,20 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00006:9-15",
+    "loc": "00006:7-13",
     "source": 1,
-    "nestingRange": "6:24-6:25",
+    "nestingRange": "6:22-6:23",
     "syntax": "def,function",
     "type": "void (void) const",
     "pretty": "function Struct1::method",
     "sym": "_ZNK7Struct16methodEv"
   },
   {
-    "loc": "00006:9-15",
+    "loc": "00006:7-13",
     "structured": 1,
     "pretty": "Struct1::method",
     "sym": "_ZNK7Struct16methodEv",
@@ -27,7 +28,7 @@ expression: "&json_results"
     ]
   },
   {
-    "loc": "00006:9-15",
+    "loc": "00006:7-13",
     "target": 1,
     "kind": "def",
     "pretty": "Struct1::method",
@@ -37,7 +38,7 @@ expression: "&json_results"
     "peekRange": "6-6"
   },
   {
-    "loc": "00011:10-16",
+    "loc": "00010:39-45",
     "source": 1,
     "syntax": "use,function",
     "type": "void",
@@ -46,7 +47,7 @@ expression: "&json_results"
     "argRanges": []
   },
   {
-    "loc": "00011:10-16",
+    "loc": "00010:39-45",
     "target": 1,
     "kind": "use",
     "pretty": "Struct1::method",

@@ -1,73 +1,74 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00038:33-52",
+    "loc": "00041:9-28",
     "target": 1,
     "kind": "def",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00038:88-107",
+    "loc": "00046:12-31",
     "target": 1,
     "kind": "use",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00047:0-19",
+    "loc": "00066:0-19",
     "target": 1,
     "kind": "def",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00047:0-19",
+    "loc": "00066:0-19",
     "target": 1,
     "kind": "use",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00048:8-27",
+    "loc": "00067:8-27",
     "target": 1,
     "kind": "use",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00040:33-52",
+    "loc": "00049:9-28",
     "target": 1,
     "kind": "def",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00040:88-107",
+    "loc": "00054:12-31",
     "target": 1,
     "kind": "use",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00042:33-52",
+    "loc": "00057:9-28",
     "target": 1,
     "kind": "def",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00042:81-100",
+    "loc": "00061:12-31",
     "target": 1,
     "kind": "use",
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv"
   },
   {
-    "loc": "00038:33-52",
+    "loc": "00041:9-28",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function per_target_function",
@@ -75,7 +76,7 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
-    "loc": "00038:88-107",
+    "loc": "00046:12-31",
     "source": 1,
     "syntax": "use,function",
     "pretty": "function per_target_function",
@@ -83,7 +84,7 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
-    "loc": "00040:33-52",
+    "loc": "00049:9-28",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function per_target_function",
@@ -91,7 +92,7 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
-    "loc": "00040:88-107",
+    "loc": "00054:12-31",
     "source": 1,
     "syntax": "use,function",
     "pretty": "function per_target_function",
@@ -99,7 +100,7 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
-    "loc": "00042:33-52",
+    "loc": "00057:9-28",
     "source": 1,
     "syntax": "def,function",
     "pretty": "function per_target_function",
@@ -107,7 +108,7 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
-    "loc": "00042:81-100",
+    "loc": "00061:12-31",
     "source": 1,
     "syntax": "use,function",
     "pretty": "function per_target_function",
@@ -115,26 +116,26 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
-    "loc": "00047:0-19",
+    "loc": "00066:0-19",
     "source": 1,
     "syntax": "def,function,use",
     "pretty": "function per_target_function",
     "sym": "_Z19per_target_functionv",
     "type": "_Bool (void)",
     "inExpansionAt": {
-      "M_0ff221c9a44abeec": {
-        "win64": [
-          5,
-          57
-        ]
-      },
-      "M_51db11c9a44abeec": {
+      "M_774175e1e9d206ca": {
         "linux64": [
           5,
           66
         ]
       },
-      "M_e67221c9a44abeec": {
+      "M_e377c6e1e9d206ca": {
+        "win64": [
+          5,
+          57
+        ]
+      },
+      "M_f777b5e1e9d206ca": {
         "macosx64": [
           5,
           66
@@ -143,7 +144,7 @@ expression: "&json_results"
     }
   },
   {
-    "loc": "00048:8-27",
+    "loc": "00067:8-27",
     "source": 1,
     "syntax": "function,use",
     "pretty": "function per_target_function",
@@ -151,7 +152,7 @@ expression: "&json_results"
     "type": "_Bool (void)"
   },
   {
-    "loc": "00047:0-19",
+    "loc": "00066:0-19",
     "structured": 1,
     "pretty": "per_target_function",
     "sym": "_Z19per_target_functionv",

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
@@ -36,14 +37,14 @@ expression: "&json_results"
     "contextsym": "T_StructUsedInTypeDependentNew0"
   },
   {
-    "loc": "00035:17-36",
+    "loc": "00041:17-36",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00035:17-36",
+    "loc": "00041:17-36",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -52,14 +53,14 @@ expression: "&json_results"
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00036:17-36",
+    "loc": "00042:17-36",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00036:17-36",
+    "loc": "00042:17-36",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -68,14 +69,14 @@ expression: "&json_results"
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00039:17-27",
+    "loc": "00045:17-27",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00039:17-27",
+    "loc": "00045:17-27",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -84,14 +85,14 @@ expression: "&json_results"
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00040:17-27",
+    "loc": "00046:17-27",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00040:17-27",
+    "loc": "00046:17-27",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -100,14 +101,14 @@ expression: "&json_results"
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00043:17-36",
+    "loc": "00049:17-36",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00043:17-36",
+    "loc": "00049:17-36",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -116,14 +117,14 @@ expression: "&json_results"
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00044:17-36",
+    "loc": "00050:17-36",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00044:17-36",
+    "loc": "00050:17-36",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -132,14 +133,14 @@ expression: "&json_results"
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00047:17-37",
+    "loc": "00053:17-37",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00047:17-37",
+    "loc": "00053:17-37",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -148,14 +149,14 @@ expression: "&json_results"
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00048:17-37",
+    "loc": "00054:17-37",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00048:17-37",
+    "loc": "00054:17-37",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",

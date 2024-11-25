@@ -1,25 +1,26 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00017:14-48",
+    "loc": "00018:14-48",
     "source": 1,
-    "nestingRange": "17:52-17:53",
+    "nestingRange": "18:52-18:53",
     "syntax": "def,function",
     "type": "void (T)",
     "pretty": "function Theme::InlineTemplateShouldHaveContextSym",
     "sym": "_ZN5Theme34InlineTemplateShouldHaveContextSymET_"
   },
   {
-    "loc": "00017:14-48",
+    "loc": "00018:14-48",
     "target": 1,
     "kind": "def",
     "pretty": "Theme::InlineTemplateShouldHaveContextSym",
     "sym": "_ZN5Theme34InlineTemplateShouldHaveContextSymET_",
     "context": "Theme",
     "contextsym": "T_Theme",
-    "peekRange": "17-17"
+    "peekRange": "18-18"
   }
 ]

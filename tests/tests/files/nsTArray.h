@@ -7,25 +7,22 @@
 #define nsTArray_h__
 
 template <class T>
-class Span
-{
-private:
+class Span {
+ private:
   T* mRawPtr;
 };
 
-template<class E>
+template <class E>
 class nsTArray {
-  template<class Item>
-  E* AppendElements(const Item* aArray, unsigned aArrayLen)
-  {
+  template <class Item>
+  E* AppendElements(const Item* aArray, unsigned aArrayLen) {
     return nullptr;
   }
 
-  template<class Item>
-  E* AppendElements(Span<const Item> aSpan)
-  {
+  template <class Item>
+  E* AppendElements(Span<const Item> aSpan) {
     return AppendElements<Item>(aSpan.Elements(), aSpan.Length());
   }
 };
 
-#endif // nsTArray_h__
+#endif  // nsTArray_h__

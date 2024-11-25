@@ -18,14 +18,15 @@ class Rectangle {};
 class Triangle {};
 class Circle {};
 
-template <typename Surface> struct DrawingContext {
+template <typename Surface>
+struct DrawingContext {
   void draw(Rectangle);
   void draw(Triangle);
   void draw(Circle);
 };
 
 template <typename Surface, typename Shape>
-void foo(DrawingContext<Surface> &d, Shape &s) {
+void foo(DrawingContext<Surface>& d, Shape& s) {
   d.draw(s);
 }
 

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
@@ -8,9 +9,9 @@ expression: "&json_results"
     "source": 1,
     "syntax": "use,macro",
     "pretty": "macro YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d",
+    "sym": "M_4d6d7abfa63cac6d",
     "expandsTo": {
-      "M_51bd7abfa63cac6d": {
+      "M_4d6d7abfa63cac6d": {
         "": "Foo,"
       }
     }
@@ -32,7 +33,7 @@ expression: "&json_results"
     "target": 1,
     "kind": "use",
     "pretty": "YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d"
+    "sym": "M_4d6d7abfa63cac6d"
   },
   {
     "loc": "00004:0-7",
@@ -46,9 +47,9 @@ expression: "&json_results"
     "source": 1,
     "syntax": "use,macro",
     "pretty": "macro YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d",
+    "sym": "M_4d6d7abfa63cac6d",
     "expandsTo": {
-      "M_51bd7abfa63cac6d": {
+      "M_4d6d7abfa63cac6d": {
         "": "Bar,"
       }
     }
@@ -70,7 +71,7 @@ expression: "&json_results"
     "target": 1,
     "kind": "use",
     "pretty": "YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d"
+    "sym": "M_4d6d7abfa63cac6d"
   },
   {
     "loc": "00005:0-7",
@@ -84,7 +85,7 @@ expression: "&json_results"
     "source": 1,
     "syntax": "use,macro",
     "pretty": "macro YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d"
+    "sym": "M_4d6d7abfa63cac6d"
   },
   {
     "loc": "00007:29-36",
@@ -98,7 +99,7 @@ expression: "&json_results"
     "target": 1,
     "kind": "use",
     "pretty": "YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d"
+    "sym": "M_4d6d7abfa63cac6d"
   },
   {
     "loc": "00007:29-36",
@@ -112,7 +113,7 @@ expression: "&json_results"
     "source": 1,
     "syntax": "use,macro",
     "pretty": "macro YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d"
+    "sym": "M_4d6d7abfa63cac6d"
   },
   {
     "loc": "00009:0-14",
@@ -126,7 +127,7 @@ expression: "&json_results"
     "target": 1,
     "kind": "use",
     "pretty": "YO_ATOM",
-    "sym": "M_51bd7abfa63cac6d"
+    "sym": "M_4d6d7abfa63cac6d"
   },
   {
     "loc": "00009:0-14",

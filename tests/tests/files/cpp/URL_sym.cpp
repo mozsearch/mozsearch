@@ -6,4 +6,4 @@ struct S {
   int32_t scriptURL_;
 };
 
-}
+}  // namespace url_sym

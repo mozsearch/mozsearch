@@ -4,14 +4,13 @@ namespace field_layout {
 
 namespace empty {
 
-struct S {
-};
+struct S {};
 
 S f() {
   S s;
   return s;
 }
 
-}
+}  // namespace empty
 
-}
+}  // namespace field_layout

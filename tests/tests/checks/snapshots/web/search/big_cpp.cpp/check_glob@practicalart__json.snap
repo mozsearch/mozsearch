@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&jv.value"
+snapshot_kind: text
 ---
 {
   "normal": {
@@ -9,7 +10,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 447,
+            "lno": 421,
             "bounds": [
               6,
               18
@@ -17,7 +18,7 @@ expression: "&jv.value"
             "line": "class PracticalArt : public AbstractArt {",
             "context": "",
             "contextsym": "",
-            "peekRange": "447-447"
+            "peekRange": "421-421"
           }
         ]
       }
@@ -27,7 +28,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 437,
+            "lno": 412,
             "bounds": [
               6,
               18
@@ -35,7 +36,7 @@ expression: "&jv.value"
             "line": "class AbstractArt : public Thing {",
             "context": "",
             "contextsym": "",
-            "peekRange": "437-437",
+            "peekRange": "412-412",
             "upsearch": "symbol:T_outerNS::AbstractArt"
           }
         ]
@@ -46,22 +47,22 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 460,
+            "lno": 433,
             "bounds": [
               0,
               12
             ],
-            "line": "PracticalArt &mHeldArt;",
+            "line": "PracticalArt& mHeldArt;",
             "context": "outerNS::StackArtHolder",
             "contextsym": "T_outerNS::StackArtHolder"
           },
           {
-            "lno": 463,
+            "lno": 436,
             "bounds": [
               15,
               27
             ],
-            "line": "StackArtHolder(PracticalArt &aArt) : mHeldArt(aArt) {}",
+            "line": "StackArtHolder(PracticalArt& aArt) : mHeldArt(aArt) {}",
             "context": "outerNS::StackArtHolder::StackArtHolder",
             "contextsym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE"
           }

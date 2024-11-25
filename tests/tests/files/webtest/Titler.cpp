@@ -187,7 +187,6 @@ namespace pagetitler {
 //
 //
 
-class PageTitler {
-};
+class PageTitler {};
 
-};
+};  // namespace pagetitler

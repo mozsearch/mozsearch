@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
+snapshot_kind: text
 ---
 {
   "tables": [
@@ -30,7 +31,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/non-struct.cpp#11"
+            "def": "field-layout/non-struct.cpp#10"
           }
         },
         "T_field_layout::non_struct::Proxy": {
@@ -52,7 +53,7 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [
               {
-                "lineRange": "#11",
+                "lineRange": "#10",
                 "pretty": "field_layout::non_struct::Proxy::x",
                 "sym": "F_<T_field_layout::non_struct::Proxy>_x",
                 "type": "signed char",
@@ -67,7 +68,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/non-struct.cpp#10"
+            "def": "field-layout/non-struct.cpp#9"
           }
         }
       },

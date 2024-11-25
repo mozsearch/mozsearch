@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00008:8-13",
+    "loc": "00009:8-13",
     "source": 1,
     "syntax": "def,field",
     "type": "int",
@@ -12,17 +13,17 @@ expression: "&json_results"
     "sym": "F_<T_Foo::Nested>_field"
   },
   {
-    "loc": "00008:8-13",
+    "loc": "00009:8-13",
     "target": 1,
     "kind": "def",
     "pretty": "Foo::Nested::field",
     "sym": "F_<T_Foo::Nested>_field",
     "context": "Foo::Nested",
     "contextsym": "T_Foo::Nested",
-    "peekRange": "8-8"
+    "peekRange": "9-9"
   },
   {
-    "loc": "00034:17-22",
+    "loc": "00033:17-22",
     "source": 1,
     "syntax": "use,field",
     "type": "int",
@@ -30,7 +31,7 @@ expression: "&json_results"
     "sym": "F_<T_Foo::Nested>_field"
   },
   {
-    "loc": "00034:17-22",
+    "loc": "00033:17-22",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Nested::field",

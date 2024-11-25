@@ -1,28 +1,29 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00012:7-8",
+    "loc": "00013:7-8",
     "source": 1,
-    "nestingRange": "12:9-14:2",
+    "nestingRange": "13:9-13:17",
     "syntax": "def,type",
     "pretty": "type Foo::E",
     "sym": "T_Foo::E"
   },
   {
-    "loc": "00012:7-8",
+    "loc": "00013:7-8",
     "target": 1,
     "kind": "def",
     "pretty": "Foo::E",
     "sym": "T_Foo::E",
     "context": "Foo",
     "contextsym": "T_Foo",
-    "peekRange": "12-12"
+    "peekRange": "13-13"
   },
   {
-    "loc": "00036:10-11",
+    "loc": "00035:10-11",
     "source": 1,
     "syntax": "use,type",
     "type": "enum Foo::E",
@@ -31,7 +32,7 @@ expression: "&json_results"
     "sym": "T_Foo::E"
   },
   {
-    "loc": "00036:10-11",
+    "loc": "00035:10-11",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::E",
@@ -40,7 +41,7 @@ expression: "&json_results"
     "contextsym": "_ZN3Foo3BarEv"
   },
   {
-    "loc": "00071:22-23",
+    "loc": "00070:20-21",
     "source": 1,
     "syntax": "use,type",
     "type": "enum Foo<int>::E",
@@ -49,7 +50,7 @@ expression: "&json_results"
     "sym": "T_Foo::E"
   },
   {
-    "loc": "00071:22-23",
+    "loc": "00070:20-21",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::E",

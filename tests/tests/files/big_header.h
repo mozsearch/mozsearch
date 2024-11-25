@@ -5,12 +5,9 @@
 
 extern "C" void i_was_declared_in_the_header();
 
-void
-header_foo();
+void header_foo();
 
-int
-inline_header_definition()
-{
+int inline_header_definition() {
   int i = 0;
   i++;
   i--;
@@ -19,20 +16,16 @@ inline_header_definition()
   return i;
 }
 
-namespace
-namey {
-  namespace
-  inner_namey {
-    void name_name_name();
+namespace namey {
+namespace inner_namey {
+void name_name_name();
 
-    int nom_nom_nom(
-      int foo
-    );
-  }
-}
+int nom_nom_nom(int foo);
+}  // namespace inner_namey
+}  // namespace namey
 
 class CoolAlloc {
-public:
+ public:
   static void ChewGumAndAllocateMemory() {
     // nom nom nom
   }
@@ -47,23 +40,18 @@ class JokeBase {
 };
 
 template <class T, class Alloc>
-class WhatsYourVector_impl
-  : public JokeBase<T> {
-public:
+class WhatsYourVector_impl : public JokeBase<T> {
+ public:
   typedef T* elem_type;
 
   elem_type mStorage;
 
-  WhatsYourVector_impl(elem_type thing)
-  : mStorage(thing) {
-  }
+  WhatsYourVector_impl(elem_type thing) : mStorage(thing) {}
 
   int forwardDeclaredThingInlinedBelow();
 
   template <class Item, typename ActualAlloc = Alloc>
-  elem_type forwardDeclaredTemplateThingInlinedBelow(
-    const Item* aThing);
-
+  elem_type forwardDeclaredTemplateThingInlinedBelow(const Item* aThing);
 };
 
 template <class T, class Alloc>
@@ -74,13 +62,12 @@ int WhatsYourVector_impl<T, Alloc>::forwardDeclaredThingInlinedBelow() {
   return i;
 }
 
-
 template <typename T, class Alloc>
 template <class Item, typename ActualAlloc>
 auto WhatsYourVector_impl<T, Alloc>::forwardDeclaredTemplateThingInlinedBelow(
-  const Item* aThing) -> elem_type {
+    const Item* aThing) -> elem_type {
   int i = 0;
-  if (aThing)  {
+  if (aThing) {
     i++;
   }
   i--;
@@ -89,14 +76,12 @@ auto WhatsYourVector_impl<T, Alloc>::forwardDeclaredTemplateThingInlinedBelow(
 }
 
 template <class T>
-class WhatsYourVector: public WhatsYourVector_impl<T, CoolAlloc> {
-public:
+class WhatsYourVector : public WhatsYourVector_impl<T, CoolAlloc> {
+ public:
   typedef T* elem_type;
 
   WhatsYourVector(elem_type thing)
-  : WhatsYourVector_impl<T, CoolAlloc>(thing) {
-  }
-
+      : WhatsYourVector_impl<T, CoolAlloc>(thing) {}
 };
 
 /* pad out the end of the file so we can more easily ensure that the

@@ -55,6 +55,6 @@ SubSub f(int8_t n) {
   return s;
 }
 
-}
+}  // namespace vtable
 
-}
+}  // namespace field_layout

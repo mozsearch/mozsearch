@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00141:6-11",
+    "loc": "00136:6-11",
     "structured": 1,
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
@@ -83,7 +84,7 @@ expression: "&json_results"
     ],
     "fields": [
       {
-        "lineRange": "#147",
+        "lineRange": "#142",
         "pretty": "outerNS::Thing::mHP",
         "sym": "F_<T_outerNS::Thing>_mHP",
         "type": "int",
@@ -91,7 +92,7 @@ expression: "&json_results"
         "sizeBytes": 4
       },
       {
-        "lineRange": "#151",
+        "lineRange": "#146",
         "pretty": "outerNS::Thing::mDefunct",
         "sym": "F_<T_outerNS::Thing>_mDefunct",
         "type": "_Bool",

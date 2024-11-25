@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(grb).unwrap()"
+snapshot_kind: text
 ---
 {
   "graphs": [
@@ -87,16 +88,16 @@ expression: "&to_value(grb).unwrap()"
         },
         "edges": {
           "Gide0": {
-            "jump": "big_cpp.cpp#411"
+            "jump": "big_cpp.cpp#387"
           },
           "Gide1": {
-            "jump": "big_cpp.cpp#372"
+            "jump": "big_cpp.cpp#349"
           },
           "Gide2": {
-            "jump": "big_cpp.cpp#419,422,425,428,431"
+            "jump": "big_cpp.cpp#394,397,400,403,406"
           },
           "Gide3": {
-            "jump": "big_cpp.cpp#382,403"
+            "jump": "big_cpp.cpp#359,380"
           }
         }
       }
@@ -108,7 +109,7 @@ expression: "&to_value(grb).unwrap()"
       "sym": "NS_outerNS",
       "pretty": "NS_outerNS",
       "jumps": {
-        "def": "big_cpp.cpp#132"
+        "def": "big_cpp.cpp#128"
       }
     },
     "T_outerNS::OuterCat": {
@@ -254,7 +255,7 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [
           {
-            "lineRange": "#241",
+            "lineRange": "#224",
             "pretty": "outerNS::OuterCat::mIsFriendly",
             "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
             "type": "_Bool",
@@ -264,7 +265,7 @@ expression: "&to_value(grb).unwrap()"
             "sizeBytes": 1
           },
           {
-            "lineRange": "#242",
+            "lineRange": "#225",
             "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
             "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
             "type": "_Bool",
@@ -274,7 +275,7 @@ expression: "&to_value(grb).unwrap()"
             "sizeBytes": 1
           },
           {
-            "lineRange": "#244",
+            "lineRange": "#227",
             "pretty": "outerNS::OuterCat::mOwner",
             "sym": "F_<T_outerNS::OuterCat>_mOwner",
             "type": "class std::shared_ptr<class outerNS::Human>",
@@ -293,7 +294,7 @@ expression: "&to_value(grb).unwrap()"
             ]
           },
           {
-            "lineRange": "#245",
+            "lineRange": "#228",
             "pretty": "outerNS::OuterCat::mFavoriteCouch",
             "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
             "type": "class outerNS::Couch *",
@@ -320,7 +321,7 @@ expression: "&to_value(grb).unwrap()"
         "variants": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#227"
+        "def": "big_cpp.cpp#210"
       }
     },
     "T_outerNS::Thing": {
@@ -418,7 +419,7 @@ expression: "&to_value(grb).unwrap()"
         ],
         "fields": [
           {
-            "lineRange": "#147",
+            "lineRange": "#142",
             "pretty": "outerNS::Thing::mHP",
             "sym": "F_<T_outerNS::Thing>_mHP",
             "type": "int",
@@ -428,7 +429,7 @@ expression: "&to_value(grb).unwrap()"
             "sizeBytes": 4
           },
           {
-            "lineRange": "#151",
+            "lineRange": "#146",
             "pretty": "outerNS::Thing::mDefunct",
             "sym": "F_<T_outerNS::Thing>_mDefunct",
             "type": "_Bool",
@@ -449,7 +450,7 @@ expression: "&to_value(grb).unwrap()"
         "variants": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#141"
+        "def": "big_cpp.cpp#136"
       }
     },
     "_ZN7outerNS5Thing10takeDamageEi": {
@@ -489,7 +490,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#162"
+        "def": "big_cpp.cpp#155"
       }
     },
     "_ZN7outerNS8OuterCat4meetERNS_5CouchE": {
@@ -526,7 +527,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#371"
+        "def": "big_cpp.cpp#348"
       }
     },
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
@@ -563,7 +564,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#410"
+        "def": "big_cpp.cpp#387"
       }
     },
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
@@ -600,7 +601,7 @@ expression: "&to_value(grb).unwrap()"
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#417"
+        "def": "big_cpp.cpp#392"
       }
     }
   }

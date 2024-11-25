@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&jv.value"
+snapshot_kind: text
 ---
 {
   "normal": {
@@ -9,7 +10,7 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
-            "lno": 9,
+            "lno": 8,
             "bounds": [
               13,
               23
@@ -17,7 +18,7 @@ expression: "&jv.value"
             "line": "virtual void doublePure() = 0;",
             "context": "DoubleBase",
             "contextsym": "T_DoubleBase",
-            "peekRange": "9-9"
+            "peekRange": "8-8"
           }
         ]
       }
@@ -27,7 +28,7 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
-            "lno": 15,
+            "lno": 13,
             "bounds": [
               5,
               15
@@ -35,11 +36,11 @@ expression: "&jv.value"
             "line": "void doublePure() override {",
             "context": "DoubleSubOne",
             "contextsym": "T_DoubleSubOne",
-            "peekRange": "15-15",
+            "peekRange": "13-13",
             "upsearch": "symbol:_ZN12DoubleSubOne10doublePureEv"
           },
           {
-            "lno": 23,
+            "lno": 20,
             "bounds": [
               5,
               15
@@ -47,7 +48,7 @@ expression: "&jv.value"
             "line": "void doublePure() override {",
             "context": "DoubleSubTwo",
             "contextsym": "T_DoubleSubTwo",
-            "peekRange": "23-23",
+            "peekRange": "20-20",
             "upsearch": "symbol:_ZN12DoubleSubTwo10doublePureEv"
           }
         ]
@@ -58,7 +59,7 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
-            "lno": 64,
+            "lno": 57,
             "bounds": [
               8,
               18
@@ -68,7 +69,7 @@ expression: "&jv.value"
             "contextsym": "_Z18generateDoubleUsesv"
           },
           {
-            "lno": 65,
+            "lno": 58,
             "bounds": [
               8,
               18

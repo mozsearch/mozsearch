@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&jv.value"
+snapshot_kind: text
 ---
 {
   "normal": {
@@ -9,15 +10,15 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 185,
+            "lno": 178,
             "bounds": [
               6,
               11
             ],
-            "line": "class Human: public Thing {",
+            "line": "class Human : public Thing {",
             "context": "",
             "contextsym": "",
-            "peekRange": "185-185"
+            "peekRange": "178-178"
           }
         ]
       }
@@ -27,7 +28,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 141,
+            "lno": 136,
             "bounds": [
               6,
               11
@@ -35,7 +36,7 @@ expression: "&jv.value"
             "line": "class Thing {",
             "context": "",
             "contextsym": "",
-            "peekRange": "141-141",
+            "peekRange": "136-136",
             "upsearch": "symbol:T_outerNS::Thing"
           }
         ]
@@ -46,7 +47,7 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 194,
+            "lno": 183,
             "bounds": [
               6,
               11
@@ -54,7 +55,7 @@ expression: "&jv.value"
             "line": "class Superhero : public Human {",
             "context": "",
             "contextsym": "",
-            "peekRange": "194-194",
+            "peekRange": "183-183",
             "upsearch": "symbol:T_outerNS::Superhero"
           }
         ]
@@ -65,17 +66,17 @@ expression: "&jv.value"
         "path": "big_cpp.cpp",
         "lines": [
           {
-            "lno": 198,
+            "lno": 185,
             "bounds": [
-              2,
-              7
+              14,
+              19
             ],
-            "line": ": Human() {",
+            "line": "Superhero() : Human() {}",
             "context": "outerNS::Superhero::Superhero",
             "contextsym": "_ZN7outerNS9SuperheroC1Ev"
           },
           {
-            "lno": 219,
+            "lno": 202,
             "bounds": [
               0,
               5
@@ -85,7 +86,7 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
-            "lno": 220,
+            "lno": 203,
             "bounds": [
               16,
               21
@@ -95,7 +96,7 @@ expression: "&jv.value"
             "contextsym": "_ZN7outerNS5CouchC1Ei"
           },
           {
-            "lno": 244,
+            "lno": 227,
             "bounds": [
               16,
               21
@@ -105,12 +106,12 @@ expression: "&jv.value"
             "contextsym": "T_outerNS::OuterCat"
           },
           {
-            "lno": 360,
+            "lno": 339,
             "bounds": [
               10,
               15
             ],
-            "line": "void meet(Human &human) {",
+            "line": "void meet(Human& human) { human.ignore(); }",
             "context": "outerNS::OuterCat::meet",
             "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
           }

@@ -2,8 +2,7 @@
 enum ArenaObjectID {
   eArenaObjectID_DummyBeforeFirstObjectID = 0,
 
-#define PRES_ARENA_OBJECT(name_) \
-  eArenaObjectID_##name_,
+#define PRES_ARENA_OBJECT(name_) eArenaObjectID_##name_,
 #include "enummacro.h"
 #undef PRES_ARENA_OBJECT
 
@@ -11,5 +10,5 @@ enum ArenaObjectID {
 };
 
 void someFunction() {
-    ArenaObjectID useTheEnum = ArenaObjectID::eArenaObjectID_nsRuleNode;
+  ArenaObjectID useTheEnum = ArenaObjectID::eArenaObjectID_nsRuleNode;
 }

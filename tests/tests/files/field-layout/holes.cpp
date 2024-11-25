@@ -23,6 +23,6 @@ Sub f(int32_t n) {
   return s;
 }
 
-}
+}  // namespace holes
 
-}
+}  // namespace field_layout

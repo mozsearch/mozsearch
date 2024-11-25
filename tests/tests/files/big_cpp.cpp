@@ -23,8 +23,7 @@
 #include "atom_magic.h"
 
 class GlobalContext {
-  public:
-
+ public:
   static bool decideBooleanTrait() {
     int rval = rand();
 
@@ -69,12 +68,10 @@ class GlobalContext {
     return decideEnigmaticAnimalBooleanTrait();
   }
 
-  static bool decideBestFriendBooleanTrait() {
-    return decideBooleanTrait();
-  }
+  static bool decideBestFriendBooleanTrait() { return decideBooleanTrait(); }
 
   class LessGlobalContext {
-    public:
+   public:
     // BARK
     //     BARK
     //         BARK
@@ -84,8 +81,7 @@ class GlobalContext {
     //                         BARK
     //                             BARK
     //                                 BARK
-    static bool
-    decideWhetherToDecide() {
+    static bool decideWhetherToDecide() {
       // BEEP BEEP BEEP BEEP
       // BEEP           BEEP
       // BEEP           BEEP
@@ -134,12 +130,11 @@ namespace outerNS {
 #define HUMAN_HP 100
 
 class CycleCollectingMagic {
-  virtual void unlink(void *raw) {
-  }
+  virtual void unlink(void* raw) {}
 };
 
 class Thing {
-  protected:
+ protected:
   // Finally, an example class that could evolve into a MUD!
   //
   // Health
@@ -150,10 +145,8 @@ class Thing {
   // Points
   bool mDefunct;
 
-  public:
-  Thing(int baseHP)
-  : mHP(baseHP)
-  , mDefunct(false) {
+ public:
+  Thing(int baseHP) : mHP(baseHP), mDefunct(false) {
     // bop.
   }
 
@@ -182,22 +175,14 @@ void Thing::ignore() {
   // i g n o r e
 }
 
-class Human: public Thing {
-  public:
-
-  Human()
-  : Thing(HUMAN_HP) {
-
-  }
+class Human : public Thing {
+ public:
+  Human() : Thing(HUMAN_HP) {}
 };
 
 class Superhero : public Human {
-  public:
-
-  Superhero()
-  : Human() {
-
-  }
+ public:
+  Superhero() : Human() {}
 
   void takeDamage(int damage) override {
     // nope
@@ -209,10 +194,8 @@ class Superhero : public Human {
 };
 
 class Couch : public Thing {
-  public:
-
-  Couch(int couchHP=20)
-  : Thing (couchHP) {
+ public:
+  Couch(int couchHP = 20) : Thing(couchHP) {
     Superhero superBob;
     WhatsYourVector<Superhero> victor(&superBob);
 
@@ -225,7 +208,7 @@ class Couch : public Thing {
 };
 
 class OuterCat : Thing {
-  private:
+ private:
   // Cat secrets!
   // The secrets of cats!
   // These cannot be known to humans.
@@ -242,9 +225,9 @@ class OuterCat : Thing {
   bool mIsSecretlyUnfriendly;
 
   std::shared_ptr<Human> mOwner;
-  Couch *mFavoriteCouch;
+  Couch* mFavoriteCouch;
 
-  public:
+ public:
   // These things can be known.
   // But they are methods.
   // So they're not really things you know.
@@ -255,21 +238,22 @@ class OuterCat : Thing {
   // The comments don't get better.
 
   OuterCat(bool beFriendly,
-    // what gets position:sticky'd here do you suppose
-    // and how long does it last?
-    // ...
-    // ...
-    // hm.
-    bool beSecretlyUnfriendly)
-    // more hm.
-    // yes, very hm.
-    // hm hm hm.
-  : Thing(9 * HUMAN_HP)
-  , mIsFriendly(beFriendly)
-  // Unknown.
-  // ...
-  // Okay, we can probably implement things now.
-  , mIsSecretlyUnfriendly(beSecretlyUnfriendly) {
+           // what gets position:sticky'd here do you suppose
+           // and how long does it last?
+           // ...
+           // ...
+           // hm.
+           bool beSecretlyUnfriendly)
+      // more hm.
+      // yes, very hm.
+      // hm hm hm.
+      : Thing(9 * HUMAN_HP),
+        mIsFriendly(beFriendly)
+        // Unknown.
+        // ...
+        // Okay, we can probably implement things now.
+        ,
+        mIsSecretlyUnfriendly(beSecretlyUnfriendly) {
     // Meow
     //  Meow
     //   Meow
@@ -305,8 +289,7 @@ class OuterCat : Thing {
     //                                     Meow
   }
 
-
-  protected:
+ protected:
   // Sorta secret things.
   // Like, other cats know these things.
   // But still, not for humans.
@@ -317,9 +300,7 @@ class OuterCat : Thing {
   // Humanity is come so far, and yet we don't have a specialized cat x-ray...
   // one capable of seeing into the true nature of a cat.
 
-  bool isFriendlyCat() {
-    return mIsFriendly;
-  }
+  bool isFriendlyCat() { return mIsFriendly; }
 
   bool isSecretlyUnfriendly() {
     //                                             Meow
@@ -344,11 +325,10 @@ class OuterCat : Thing {
     return isFriendlyCat();
   }
 
-  public:
-
+ public:
   class CycleCollectingCat : CycleCollectingMagic {
-    void unlink(void *raw) override {
-      OuterCat *cat = (OuterCat *)raw;
+    void unlink(void* raw) override {
+      OuterCat* cat = (OuterCat*)raw;
       cat->mOwner = nullptr;
       cat->mFavoriteCouch = nullptr;
     }
@@ -356,10 +336,7 @@ class OuterCat : Thing {
 
   friend class CycleCollectingCat;
 
-
-  void meet(Human &human) {
-    human.ignore();
-  }
+  void meet(Human& human) { human.ignore(); }
 
   /**
    * Something there is that doesn't love a couch.
@@ -368,7 +345,7 @@ class OuterCat : Thing {
    *
    * A cat doesn't love a couch.
    */
-  void meet(Couch &couch) {
+  void meet(Couch& couch) {
     shred(couch);
 
     if (!isFriendlyCat()) {
@@ -407,14 +384,12 @@ class OuterCat : Thing {
   /**
    * Standard cat destruction.
    */
-  void shred(Thing &thing) {
-    thing.takeDamage(1);
-  }
+  void shred(Thing& thing) { thing.takeDamage(1); }
 
   /**
    * More thorough cat destruction.
    */
-  void destroy(Thing &thing) {
+  void destroy(Thing& thing) {
     // s
     shred(thing);
 
@@ -435,9 +410,8 @@ class OuterCat : Thing {
 #define ART_HP 100
 
 class AbstractArt : public Thing {
-public:
-  AbstractArt()
-  : Thing(ART_HP) {}
+ public:
+  AbstractArt() : Thing(ART_HP) {}
 
   // This pure virtual method needs to be treated like a definition for our
   // structured record emission purposes.
@@ -445,9 +419,8 @@ public:
 };
 
 class PracticalArt : public AbstractArt {
-public:
-  PracticalArt()
-  : AbstractArt() {}
+ public:
+  PracticalArt() : AbstractArt() {}
 
   // This should properly see the beArt as something it's overriding.
   void beArt() override {
@@ -457,44 +430,35 @@ public:
 };
 
 class StackArtHolder {
-  PracticalArt &mHeldArt;
+  PracticalArt& mHeldArt;
 
-  public:
-  StackArtHolder(PracticalArt &aArt) : mHeldArt(aArt) {}
+ public:
+  StackArtHolder(PracticalArt& aArt) : mHeldArt(aArt) {}
 };
 
 namespace innerNS {
 
-class InnerCat {
-
-};
+class InnerCat {};
 
 namespace {
 
-class AnonCat {
-
-};
+class AnonCat {};
 
 #ifdef DEBUG
 
-class DebugAnonCat {
+class DebugAnonCat {};
 
-};
+#else  // not ifdef DEBUG
 
-#else // not ifdef DEBUG
-
-class NondebugAnonCat {
-
-};
+class NondebugAnonCat {};
 
 #endif
 
-}; // end anonymous namespace
+};  // end anonymous namespace
 
-} // end namespace innerNS
+}  // end namespace innerNS
 
-} // end namespace outerNS
-
+}  // end namespace outerNS
 
 void i_was_declared_in_the_header() {
   // Perhaps there was a bug where the declaration might have been treated as a

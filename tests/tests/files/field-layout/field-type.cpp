@@ -11,7 +11,7 @@ struct Type1 {
   uint8_t a;
 };
 
-template<typename T>
+template <typename T>
 struct Container1 {
   T a;
 };
@@ -21,12 +21,12 @@ enum class Enum1 : uint8_t {
   Yes,
 };
 
-template<typename T, Enum1 e>
+template <typename T, Enum1 e>
 struct Container2 {
   T a;
 };
 
-#define DEFINE_FIELDS \
+#define DEFINE_FIELDS   \
   Type1 macro_fields_1; \
   Enum1 macro_fields_2; \
   Container1<Type1> macro_fields_3;
@@ -44,11 +44,7 @@ struct S {
   JS::GCHashMap<JS::Value, JSObject*> hash_map_field;
   js::TestLockData<JS::Value> protected_field;
   DEFINE_FIELDS
-  js::TestLockData<
-    Type1
-  >
-  multiline_field
-  SOME_ANNOTATION;
+  js::TestLockData<Type1> multiline_field SOME_ANNOTATION;
 #include "field-type-include.h"
 };
 
@@ -57,6 +53,6 @@ S f() {
   return s;
 }
 
-}
+}  // namespace field_type
 
-}
+}  // namespace field_layout

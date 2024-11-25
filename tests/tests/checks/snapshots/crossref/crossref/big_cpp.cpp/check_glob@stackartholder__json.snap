@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(scil).unwrap()"
+snapshot_kind: text
 ---
 {
   "symbol_crossref_infos": [
@@ -13,7 +14,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 459,
+                "lno": 432,
                 "bounds": [
                   6,
                   20
@@ -21,14 +22,14 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class StackArtHolder {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "459-459"
+                "peekRange": "432-432"
               }
             ]
           }
         ],
         "callees": [
           {
-            "jump": "big_cpp.cpp#460",
+            "jump": "big_cpp.cpp#433",
             "kind": "class",
             "pretty": "outerNS::PracticalArt",
             "sym": "T_outerNS::PracticalArt"
@@ -60,7 +61,7 @@ expression: "&to_value(scil).unwrap()"
           ],
           "fields": [
             {
-              "lineRange": "#460",
+              "lineRange": "#433",
               "pretty": "outerNS::StackArtHolder::mHeldArt",
               "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
               "type": "class outerNS::PracticalArt &",

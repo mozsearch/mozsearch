@@ -60,6 +60,6 @@ S3 f() {
   return s;
 }
 
-}
+}  // namespace platform_specific_field
 
-}
+}  // namespace field_layout
