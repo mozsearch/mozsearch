@@ -1,3 +1,2 @@
-fn main() {
-  true
-}
+#[allow(dead_code)]
+fn main() {}
