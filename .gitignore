@@ -32,3 +32,7 @@ addons
 !/tree-configs/README.md
 .direnv
 mozsearch-firefox*
+/tests/tests/checks/target
+/tests/tests/files/target
+/tests/tests/files/test_rust_dependency/Cargo.lock
+/tests/tests/files/test_rust_dependency/target
