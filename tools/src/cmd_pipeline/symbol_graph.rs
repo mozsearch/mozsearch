@@ -88,7 +88,6 @@ is working.
   to surface through the pipeline as results or interesting intermediary
   states for debugging.
 */
-
 pub fn make_safe_port_id(dubious_id: &str) -> String {
     dubious_id.replace(['<', '>', ':', '"'], "_")
 }
@@ -2071,6 +2070,7 @@ impl SymbolGraphNodeSet {
         min_depth
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn propagate_paths(
         &self,
         nsgraph: &mut NamedSymbolGraph,
@@ -2163,6 +2163,7 @@ impl SymbolGraphNodeSet {
 
     /// Given a pair of symbols in the current set, ensure that they exist in
     /// the new node set and propagate the edge and its info in the new graph as well.
+    #[allow(clippy::too_many_arguments)]
     pub fn propagate_edge(
         &self,
         edge_set: &SymbolGraphEdgeSet,

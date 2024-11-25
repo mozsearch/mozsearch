@@ -274,6 +274,7 @@ struct SymbolNotes {
 /// the existing syntax tree nodes.  A nice simplification here is that we don't
 /// actually need to walk the syntax repo "files" and "files-struct" subtrees;
 /// we can just look up their contents when we're propagating them.
+#[allow(clippy::too_many_arguments)]
 fn recursively_process_source_tree(
     syntax_data: &SyntaxTreeData,
     symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,

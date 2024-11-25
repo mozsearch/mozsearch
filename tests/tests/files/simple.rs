@@ -88,7 +88,7 @@ struct MultiParams<'a, T> {
     another_var: &'a u32,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::needless_lifetimes)]
 impl<'a, T> MultiParams<'a, T> {
     fn fn_with_params_in_signature(&self) {}
 }

@@ -150,6 +150,7 @@ bitflags! {
 ///
 #[async_trait]
 impl PipelineCommand for TraverseCommand {
+    #[allow(clippy::match_like_matches_macro)]
     async fn execute(
         &self,
         server: &(dyn AbstractServer + Send + Sync),

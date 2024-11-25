@@ -839,7 +839,7 @@ where
     /// pretty name.
     pub fn get_syntax_kind(&self) -> Option<&str> {
         // It's a given that we're using a standard ASCII space character.
-        return self.pretty.split(' ').next();
+        self.pretty.split(' ').next()
     }
 
     /// Returns the `sym` array joined with ",".  This convenience method exists

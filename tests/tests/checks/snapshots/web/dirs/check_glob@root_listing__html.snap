@@ -529,7 +529,7 @@ snapshot_kind: text
 ">A grab-bug of rust code to exercise the searchfox indexer.
    Note how this comment ends up in the file description, too!
 </td>
-          <td><a href="/tests/source/simple.rs">1941</a></td>
+          <td><a href="/tests/source/simple.rs">1969</a></td>
         </tr>
 
         <tr>

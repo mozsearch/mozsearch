@@ -81,6 +81,7 @@ type XrefLinkSubclass = Vec<(Ustr, Ustr)>;
 type XrefLinkOverride = Vec<(Ustr, Ustr)>;
 type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
 
+#[allow(clippy::too_many_arguments)]
 fn process_analysis_target(
     mut piece: AnalysisTarget,
     path: &Ustr,

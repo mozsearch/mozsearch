@@ -586,6 +586,7 @@ pub struct FormatPerfInfo {
 /// The caller provides the panel sections.  Currently used by `output-file.rs` to statically
 /// generate the tip of whatever branch it's on with semantic analysis data, and `format_path` to
 /// dynamically generate the contents of a file without semantic analysis data.
+#[allow(clippy::too_many_arguments)]
 pub fn format_file_data(
     cfg: &Config,
     tree_name: &str,

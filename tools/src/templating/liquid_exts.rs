@@ -33,7 +33,6 @@ impl Filter for JsonFilter {
     description = "Extract the file extension from a path string, defaulting to the empty string.",
     parsed(FileExtFilter)
 )]
-
 pub struct FileExtFilterParser;
 
 #[derive(Debug, Default, Display_filter)]
@@ -57,7 +56,6 @@ impl Filter for FileExtFilter {
     description = "Remove excess whitespace in a path-like string",
     parsed(CompactPathlikeFilter)
 )]
-
 pub struct CompactPathlikeFilterParser;
 
 #[derive(Debug, Default, Display_filter)]
@@ -86,7 +84,6 @@ impl Filter for CompactPathlikeFilter {
     description = "Given something that may be a bug URL or a bug ID, provide a bug URL",
     parsed(EnsureBugUrlFilter)
 )]
-
 pub struct EnsureBugUrlFilterParser;
 
 #[derive(Debug, Default, Display_filter)]
@@ -120,7 +117,6 @@ struct StripPrefixArgs {
     parameters(StripPrefixArgs),
     parsed(StripPrefixOrEmptyFilter)
 )]
-
 pub struct StripPrefixOrEmptyFilterParser;
 
 #[derive(Debug, FromFilterParameters, Display_filter)]

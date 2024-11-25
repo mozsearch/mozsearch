@@ -1003,9 +1003,6 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                 write_line(&mut file, &source_data);
             }
 
-            // TODO: Contextual info.
-            let context = None;
-
             let get_target_data = |sym: &str, kind: AnalysisKind| -> WithLocation<AnalysisTarget> {
                 let global = sanitize_symbol(sym);
                 let pretty = pretty_symbol(sym);
@@ -1015,8 +1012,9 @@ fn analyze_using_scip(tree_info: &TreeInfo, scip_prefix: Option<&PathBuf>, scip_
                         kind,
                         pretty: ustr(&pretty),
                         sym: ustr(&global),
-                        context: ustr(context.unwrap_or("")),
-                        contextsym: ustr(context.unwrap_or("")),
+                        // TODO: Contextual info.
+                        context: ustr(""),
+                        contextsym: ustr(""),
                         peek_range: LineRange {
                             start_lineno: 0,
                             end_lineno: 0,

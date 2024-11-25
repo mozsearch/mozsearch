@@ -176,6 +176,7 @@ fn output_ipc_data(
     writeln!(outputf).unwrap();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn output_send_recv(
     outputf: &mut File,
     locstr: &str,
