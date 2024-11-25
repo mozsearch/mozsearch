@@ -71,3 +71,16 @@ void func() {
 }
 
 void test() { func<Foo<int>>(); }
+
+struct WithOverloads {
+  static void Overloaded(int);
+  static void Overloaded(float);
+  static void Overloaded(bool);
+
+  template <typename T>
+  static void Caller() {
+    Overloaded(T());
+  }
+};
+
+void test_overload() { WithOverloads::Caller<int>(); }
