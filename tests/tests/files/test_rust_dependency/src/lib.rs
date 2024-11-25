@@ -2,7 +2,7 @@
 //!
 //! This is an overview of yada yada yada...
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct MyType(());
 
 impl MyType {

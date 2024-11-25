@@ -19,5 +19,5 @@ pub fn get_file_paths_for_url(cfg: Option<&Config>, url: &str) -> Option<Vec<URL
     }
 
     let url_map_key = format!("URL_{}", mangle_file(url));
-    return URL_MAP.get().unwrap().get(&url_map_key);
+    URL_MAP.get().unwrap().get(&url_map_key)
 }

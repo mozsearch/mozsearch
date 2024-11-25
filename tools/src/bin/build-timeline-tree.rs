@@ -395,6 +395,7 @@ fn find_unmodified_lines(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_blame_tree(
     diff_data: &DiffData,
     git_repo: &git2::Repository,

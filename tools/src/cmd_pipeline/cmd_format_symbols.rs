@@ -103,6 +103,7 @@ struct Field {
 }
 
 impl Field {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         class_id: ClassId,
         class_traversal_id: TraversalId,

@@ -143,6 +143,7 @@ fn main() {
     let mut stdin = io::stdin().lock();
 
     let mut path_buf = String::new();
+    #[allow(clippy::unit_cmp)]
     while () == path_buf.clear() && stdin.read_line(&mut path_buf).unwrap() > 0 {
         let path = ustr(path_buf.trim_end());
         let file_start = Instant::now();

@@ -952,6 +952,7 @@ impl RepoIngestion {
 }
 
 impl IngestionState {
+    #[allow(clippy::too_many_arguments)]
     pub fn eval_file_values(
         &mut self,
         config: &mut JsonFileConfig,

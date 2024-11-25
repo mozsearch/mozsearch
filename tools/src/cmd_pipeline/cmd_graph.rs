@@ -27,7 +27,9 @@ pub enum GraphFormat {
     Json,
     // Raw dot syntax without any layout performed.
     RawDot,
+    #[allow(clippy::upper_case_acronyms)]
     SVG,
+    #[allow(clippy::upper_case_acronyms)]
     PNG,
     // Dot with layout information.
     Dot,
