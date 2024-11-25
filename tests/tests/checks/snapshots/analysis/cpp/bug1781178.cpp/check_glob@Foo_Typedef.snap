@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00044:8-15",
+    "loc": "00043:8-15",
     "source": 1,
     "syntax": "alias,type",
     "type": "int",
@@ -12,7 +13,7 @@ expression: "&json_results"
     "sym": "TA_Foo::Typedef"
   },
   {
-    "loc": "00044:8-15",
+    "loc": "00043:8-15",
     "target": 1,
     "kind": "alias",
     "pretty": "Foo::Typedef",
@@ -21,7 +22,7 @@ expression: "&json_results"
     "contextsym": "T_Foo"
   },
   {
-    "loc": "00052:57-64",
+    "loc": "00052:35-42",
     "source": 1,
     "syntax": "use,type",
     "type": "int",
@@ -29,7 +30,7 @@ expression: "&json_results"
     "sym": "TA_Foo::Typedef"
   },
   {
-    "loc": "00052:57-64",
+    "loc": "00052:35-42",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Typedef",

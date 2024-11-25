@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(frb).unwrap()"
+snapshot_kind: text
 ---
 {
   "path_kind_results": [
@@ -17,12 +18,12 @@ expression: "&to_value(frb).unwrap()"
               "file": "overs.cpp",
               "line_spans": [
                 {
-                  "key_line": 9,
+                  "key_line": 8,
                   "line_range": [
-                    9,
-                    9
+                    8,
+                    8
                   ],
-                  "contents": "<div role=\"row\" id=\"line-9\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"9\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >virtual</span> <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN10DoubleBase10doublePureEv\">doublePure</span>() = 0;\n</code>\n</div>\n",
+                  "contents": "<div role=\"row\" id=\"line-8\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"8\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >virtual</span> <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN10DoubleBase10doublePureEv\">doublePure</span>() = 0;\n</code>\n</div>\n",
                   "context": "DoubleBase",
                   "contextsym": "T_DoubleBase"
                 }
@@ -39,22 +40,22 @@ expression: "&to_value(frb).unwrap()"
               "file": "overs.cpp",
               "line_spans": [
                 {
-                  "key_line": 64,
+                  "key_line": 57,
                   "line_range": [
-                    64,
-                    64
+                    57,
+                    57
                   ],
-                  "contents": "<div role=\"row\" id=\"line-64\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"64\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_20d15eb0fb5c5192_1d39c9c1356\">subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\">doublePure</span>();\n</code>\n</div>\n",
+                  "contents": "<div role=\"row\" id=\"line-57\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"57\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_b5641eb0fb5c5192_1d39c9c1356\">subOne</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\">doublePure</span>();\n</code>\n</div>\n",
                   "context": "generateDoubleUses",
                   "contextsym": "_Z18generateDoubleUsesv"
                 },
                 {
-                  "key_line": 65,
+                  "key_line": 58,
                   "line_range": [
-                    65,
-                    65
+                    58,
+                    58
                   ],
-                  "contents": "<div role=\"row\" id=\"line-65\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"65\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_a1642fb0fb5c5192_94aac9c1356\">subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\">doublePure</span>();\n</code>\n</div>\n",
+                  "contents": "<div role=\"row\" id=\"line-58\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div class=\"cov-strip cov-no-data\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"58\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-symbols=\"V_cb2d1eb0fb5c5192_94aac9c1356\">subTwo</span>-><span data-symbols=\"_ZN10DoubleBase10doublePureEv\">doublePure</span>();\n</code>\n</div>\n",
                   "context": "generateDoubleUses",
                   "contextsym": "_Z18generateDoubleUsesv"
                 }

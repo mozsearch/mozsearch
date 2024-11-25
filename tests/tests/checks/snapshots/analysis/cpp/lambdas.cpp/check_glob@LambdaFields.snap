@@ -1,23 +1,40 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00017:53-59",
+    "loc": "00015:52-58",
     "structured": 1,
     "pretty": "test::(anonymous)::(anonymous)",
-    "sym": "F_<T_26bb4ec31a255159>_",
+    "sym": "F_<T_e92a3ec31a255159>_",
     "kind": "field",
-    "parentsym": "T_26bb4ec31a255159"
+    "parentsym": "T_e92a3ec31a255159"
   },
   {
-    "loc": "00018:49-55",
+    "loc": "00016:48-54",
     "structured": 1,
     "pretty": "test::(anonymous)::(anonymous)",
-    "sym": "F_<T_8a745ec31a255159>_",
+    "sym": "F_<T_4ee24ec31a255159>_",
     "kind": "field",
-    "parentsym": "T_8a745ec31a255159"
+    "parentsym": "T_4ee24ec31a255159"
+  },
+  {
+    "loc": "00017:42-48",
+    "structured": 1,
+    "pretty": "test::(anonymous)::(anonymous)",
+    "sym": "F_<T_06bb4ec31a255159>_",
+    "kind": "field",
+    "parentsym": "T_06bb4ec31a255159"
+  },
+  {
+    "loc": "00018:37-43",
+    "structured": 1,
+    "pretty": "test::(anonymous)::(anonymous)",
+    "sym": "F_<T_6a745ec31a255159>_",
+    "kind": "field",
+    "parentsym": "T_6a745ec31a255159"
   },
   {
     "loc": "00019:44-50",
@@ -34,21 +51,5 @@ expression: "&json_results"
     "sym": "F_<T_12df2fc31a255159>_",
     "kind": "field",
     "parentsym": "T_12df2fc31a255159"
-  },
-  {
-    "loc": "00021:46-52",
-    "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
-    "sym": "F_<T_f9983fc31a255159>_",
-    "kind": "field",
-    "parentsym": "T_f9983fc31a255159"
-  },
-  {
-    "loc": "00022:41-47",
-    "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
-    "sym": "F_<T_cf514fc31a255159>_",
-    "kind": "field",
-    "parentsym": "T_cf514fc31a255159"
   }
 ]

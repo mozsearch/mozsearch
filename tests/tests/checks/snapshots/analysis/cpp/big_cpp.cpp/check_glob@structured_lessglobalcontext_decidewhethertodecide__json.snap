@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00088:4-25",
+    "loc": "00084:16-37",
     "structured": 1,
     "pretty": "GlobalContext::LessGlobalContext::decideWhetherToDecide",
     "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv",

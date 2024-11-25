@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(jvl).unwrap()"
+snapshot_kind: text
 ---
 {
   "values": [
@@ -38,7 +39,7 @@ expression: "&to_value(jvl).unwrap()"
           "args": []
         },
         "jumps": {
-          "def": "big_cpp.cpp#453"
+          "def": "big_cpp.cpp#426"
         }
       }
     }

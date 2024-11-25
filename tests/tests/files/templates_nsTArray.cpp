@@ -2,7 +2,6 @@
 
 struct ServoAttrSnapshot {};
 
-class ServoElementSnapshot
-{
+class ServoElementSnapshot {
   nsTArray<ServoAttrSnapshot> mAttrs;
 };

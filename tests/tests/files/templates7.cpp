@@ -1,4 +1,5 @@
-// Testcase proposed by Botond on https://bugzilla.mozilla.org/show_bug.cgi?id=1833695
+// Testcase proposed by Botond on
+// https://bugzilla.mozilla.org/show_bug.cgi?id=1833695
 
 struct Theme {
   void CreateWebRenderCommandsForWidget() {
@@ -8,12 +9,12 @@ struct Theme {
     InlineShouldHaveContextSym(0);
   }
 
-  template<typename T>
+  template <typename T>
   void OutOfLineTemplateShouldntHaveContextSym(T);
 
   void OutOfLineShouldntHaveContextSym(int);
 
-  template<typename T>
+  template <typename T>
   inline void InlineTemplateShouldHaveContextSym(T) {}
 
   inline void InlineShouldHaveContextSym(int) {}

@@ -19,7 +19,6 @@
 
 class nsISupports {};
 
-
 class nsAString;
 class nsString;
 
@@ -28,9 +27,9 @@ class nsCString;
 
 class nsIID;
 
-template<class E>
+template <class E>
 class RefPtr {};
 
 struct PRTime;
 
-#endif // nsISupports_h__
+#endif  // nsISupports_h__

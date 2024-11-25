@@ -1,12 +1,13 @@
-template<typename T>
+template <typename T>
 class nsTArray {
-public:
+ public:
   nsTArray(const T& aT) : myT(aT) {}
 
-  template<typename Foo = T>
+  template <typename Foo = T>
   bool Contains(T aT, Foo foo) {
     return myT == aT || myT == foo;
   }
-private:
+
+ private:
   T myT;
 };

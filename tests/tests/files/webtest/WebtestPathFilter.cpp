@@ -1,6 +1,5 @@
 namespace webtest_path {
 
-class PathFilter {
-};
+class PathFilter {};
 
-}
+}  // namespace webtest_path

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
@@ -11,14 +12,14 @@ expression: "&json_results"
     "sym": "M_b42801c9a44abeec"
   },
   {
-    "loc": "00017:21-32",
+    "loc": "00014:21-32",
     "target": 1,
     "kind": "use",
     "pretty": "CONST_MACRO",
     "sym": "M_b42801c9a44abeec"
   },
   {
-    "loc": "00021:20-31",
+    "loc": "00018:20-31",
     "target": 1,
     "kind": "use",
     "pretty": "CONST_MACRO",
@@ -32,7 +33,7 @@ expression: "&json_results"
     "sym": "M_b42801c9a44abeec"
   },
   {
-    "loc": "00026:42-53",
+    "loc": "00028:42-53",
     "target": 1,
     "kind": "use",
     "pretty": "CONST_MACRO",
@@ -46,14 +47,14 @@ expression: "&json_results"
     "sym": "M_b42801c9a44abeec"
   },
   {
-    "loc": "00017:21-32",
+    "loc": "00014:21-32",
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro CONST_MACRO",
     "sym": "M_b42801c9a44abeec"
   },
   {
-    "loc": "00021:20-31",
+    "loc": "00018:20-31",
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro CONST_MACRO",
@@ -74,7 +75,7 @@ expression: "&json_results"
     "sym": "M_b42801c9a44abeec"
   },
   {
-    "loc": "00026:42-53",
+    "loc": "00028:42-53",
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro CONST_MACRO",

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(scil).unwrap()"
+snapshot_kind: text
 ---
 {
   "symbol_crossref_infos": [
@@ -13,7 +14,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 172,
+                "lno": 165,
                 "bounds": [
                   5,
                   10
@@ -23,27 +24,27 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5Thing6ignoreEv"
               },
               {
-                "lno": 185,
+                "lno": 178,
                 "bounds": [
-                  20,
-                  25
+                  21,
+                  26
                 ],
-                "line": "class Human: public Thing {",
+                "line": "class Human : public Thing {",
                 "context": "outerNS::Human",
                 "contextsym": "T_outerNS::Human"
               },
               {
-                "lno": 189,
+                "lno": 180,
                 "bounds": [
-                  2,
-                  7
+                  10,
+                  15
                 ],
-                "line": ": Thing(HUMAN_HP) {",
+                "line": "Human() : Thing(HUMAN_HP) {}",
                 "context": "outerNS::Human::Human",
                 "contextsym": "_ZN7outerNS5HumanC1Ev"
               },
               {
-                "lno": 211,
+                "lno": 196,
                 "bounds": [
                   21,
                   26
@@ -53,17 +54,17 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::Couch"
               },
               {
-                "lno": 215,
+                "lno": 198,
                 "bounds": [
-                  2,
-                  7
+                  26,
+                  31
                 ],
-                "line": ": Thing (couchHP) {",
+                "line": "Couch(int couchHP = 20) : Thing(couchHP) {",
                 "context": "outerNS::Couch::Couch",
                 "contextsym": "_ZN7outerNS5CouchC1Ei"
               },
               {
-                "lno": 227,
+                "lno": 210,
                 "bounds": [
                   17,
                   22
@@ -73,37 +74,37 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::OuterCat"
               },
               {
-                "lno": 267,
+                "lno": 250,
                 "bounds": [
                   2,
                   7
                 ],
-                "line": ": Thing(9 * HUMAN_HP)",
+                "line": ": Thing(9 * HUMAN_HP),",
                 "context": "outerNS::OuterCat::OuterCat",
                 "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
               },
               {
-                "lno": 410,
+                "lno": 387,
                 "bounds": [
                   11,
                   16
                 ],
-                "line": "void shred(Thing &thing) {",
+                "line": "void shred(Thing& thing) { thing.takeDamage(1); }",
                 "context": "outerNS::OuterCat::shred",
                 "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
               },
               {
-                "lno": 417,
+                "lno": 392,
                 "bounds": [
                   13,
                   18
                 ],
-                "line": "void destroy(Thing &thing) {",
+                "line": "void destroy(Thing& thing) {",
                 "context": "outerNS::OuterCat::destroy",
                 "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
               },
               {
-                "lno": 437,
+                "lno": 412,
                 "bounds": [
                   27,
                   32
@@ -113,12 +114,12 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "T_outerNS::AbstractArt"
               },
               {
-                "lno": 440,
+                "lno": 414,
                 "bounds": [
-                  2,
-                  7
+                  16,
+                  21
                 ],
-                "line": ": Thing(ART_HP) {}",
+                "line": "AbstractArt() : Thing(ART_HP) {}",
                 "context": "outerNS::AbstractArt::AbstractArt",
                 "contextsym": "_ZN7outerNS11AbstractArtC1Ev"
               }
@@ -131,7 +132,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 141,
+                "lno": 136,
                 "bounds": [
                   6,
                   11
@@ -139,7 +140,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "class Thing {",
                 "context": "",
                 "contextsym": "",
-                "peekRange": "141-141"
+                "peekRange": "136-136"
               }
             ]
           }
@@ -236,7 +237,7 @@ expression: "&to_value(scil).unwrap()"
           ],
           "fields": [
             {
-              "lineRange": "#147",
+              "lineRange": "#142",
               "pretty": "outerNS::Thing::mHP",
               "sym": "F_<T_outerNS::Thing>_mHP",
               "type": "int",
@@ -246,7 +247,7 @@ expression: "&to_value(scil).unwrap()"
               "sizeBytes": 4
             },
             {
-              "lineRange": "#151",
+              "lineRange": "#146",
               "pretty": "outerNS::Thing::mDefunct",
               "sym": "F_<T_outerNS::Thing>_mDefunct",
               "type": "_Bool",

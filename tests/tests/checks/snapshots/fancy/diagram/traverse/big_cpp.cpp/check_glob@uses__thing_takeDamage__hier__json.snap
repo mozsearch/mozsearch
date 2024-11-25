@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: sgc.to_json()
+snapshot_kind: text
 ---
 {
   "jumprefs": {
@@ -8,7 +9,7 @@ expression: sgc.to_json()
       "sym": "NS_outerNS",
       "pretty": "NS_outerNS",
       "jumps": {
-        "def": "big_cpp.cpp#132"
+        "def": "big_cpp.cpp#128"
       }
     },
     "T_outerNS::OuterCat": {
@@ -154,7 +155,7 @@ expression: sgc.to_json()
         ],
         "fields": [
           {
-            "lineRange": "#241",
+            "lineRange": "#224",
             "pretty": "outerNS::OuterCat::mIsFriendly",
             "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
             "type": "_Bool",
@@ -164,7 +165,7 @@ expression: sgc.to_json()
             "sizeBytes": 1
           },
           {
-            "lineRange": "#242",
+            "lineRange": "#225",
             "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
             "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
             "type": "_Bool",
@@ -174,7 +175,7 @@ expression: sgc.to_json()
             "sizeBytes": 1
           },
           {
-            "lineRange": "#244",
+            "lineRange": "#227",
             "pretty": "outerNS::OuterCat::mOwner",
             "sym": "F_<T_outerNS::OuterCat>_mOwner",
             "type": "class std::shared_ptr<class outerNS::Human>",
@@ -193,7 +194,7 @@ expression: sgc.to_json()
             ]
           },
           {
-            "lineRange": "#245",
+            "lineRange": "#228",
             "pretty": "outerNS::OuterCat::mFavoriteCouch",
             "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
             "type": "class outerNS::Couch *",
@@ -220,7 +221,7 @@ expression: sgc.to_json()
         "variants": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#227"
+        "def": "big_cpp.cpp#210"
       }
     },
     "T_outerNS::Thing": {
@@ -318,7 +319,7 @@ expression: sgc.to_json()
         ],
         "fields": [
           {
-            "lineRange": "#147",
+            "lineRange": "#142",
             "pretty": "outerNS::Thing::mHP",
             "sym": "F_<T_outerNS::Thing>_mHP",
             "type": "int",
@@ -328,7 +329,7 @@ expression: sgc.to_json()
             "sizeBytes": 4
           },
           {
-            "lineRange": "#151",
+            "lineRange": "#146",
             "pretty": "outerNS::Thing::mDefunct",
             "sym": "F_<T_outerNS::Thing>_mDefunct",
             "type": "_Bool",
@@ -349,7 +350,7 @@ expression: sgc.to_json()
         "variants": []
       },
       "jumps": {
-        "def": "big_cpp.cpp#141"
+        "def": "big_cpp.cpp#136"
       }
     },
     "_ZN7outerNS5Thing10takeDamageEi": {
@@ -389,7 +390,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#162"
+        "def": "big_cpp.cpp#155"
       }
     },
     "_ZN7outerNS8OuterCat4meetERNS_5CouchE": {
@@ -426,7 +427,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#371"
+        "def": "big_cpp.cpp#348"
       }
     },
     "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
@@ -463,7 +464,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#410"
+        "def": "big_cpp.cpp#387"
       }
     },
     "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
@@ -500,7 +501,7 @@ expression: sgc.to_json()
         ]
       },
       "jumps": {
-        "def": "big_cpp.cpp#417"
+        "def": "big_cpp.cpp#392"
       }
     }
   },

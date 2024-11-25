@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&jv.value"
+snapshot_kind: text
 ---
 {
   "normal": {
@@ -9,7 +10,7 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
-            "lno": 31,
+            "lno": 27,
             "bounds": [
               13,
               23
@@ -17,7 +18,7 @@ expression: "&jv.value"
             "line": "virtual void triplePure() = 0;",
             "context": "TripleBase",
             "contextsym": "T_TripleBase",
-            "peekRange": "31-31"
+            "peekRange": "27-27"
           }
         ]
       }
@@ -27,7 +28,7 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
-            "lno": 37,
+            "lno": 32,
             "bounds": [
               5,
               15
@@ -35,11 +36,11 @@ expression: "&jv.value"
             "line": "void triplePure() override {",
             "context": "TripleSubOne",
             "contextsym": "T_TripleSubOne",
-            "peekRange": "37-37",
+            "peekRange": "32-32",
             "upsearch": "symbol:_ZN12TripleSubOne10triplePureEv"
           },
           {
-            "lno": 45,
+            "lno": 39,
             "bounds": [
               5,
               15
@@ -47,11 +48,11 @@ expression: "&jv.value"
             "line": "void triplePure() override {",
             "context": "TripleSubTwo",
             "contextsym": "T_TripleSubTwo",
-            "peekRange": "45-45",
+            "peekRange": "39-39",
             "upsearch": "symbol:_ZN12TripleSubTwo10triplePureEv"
           },
           {
-            "lno": 53,
+            "lno": 46,
             "bounds": [
               5,
               15
@@ -59,7 +60,7 @@ expression: "&jv.value"
             "line": "void triplePure() override {",
             "context": "TripleSubThree",
             "contextsym": "T_TripleSubThree",
-            "peekRange": "53-53",
+            "peekRange": "46-46",
             "upsearch": "symbol:_ZN14TripleSubThree10triplePureEv"
           }
         ]
@@ -70,7 +71,7 @@ expression: "&jv.value"
         "path": "overs.cpp",
         "lines": [
           {
-            "lno": 79,
+            "lno": 72,
             "bounds": [
               8,
               18
@@ -80,7 +81,7 @@ expression: "&jv.value"
             "contextsym": "_Z18generateTripleUsesv"
           },
           {
-            "lno": 80,
+            "lno": 73,
             "bounds": [
               8,
               18
@@ -90,7 +91,7 @@ expression: "&jv.value"
             "contextsym": "_Z18generateTripleUsesv"
           },
           {
-            "lno": 81,
+            "lno": 74,
             "bounds": [
               10,
               20

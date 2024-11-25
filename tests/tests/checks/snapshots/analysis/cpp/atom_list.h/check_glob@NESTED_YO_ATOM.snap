@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
@@ -24,7 +25,7 @@ expression: "&json_results"
     "pretty": "macro NESTED_YO_ATOM",
     "sym": "M_0394aa68e2615984",
     "expandsTo": {
-      "M_0394aa68e2615984,M_51bd7abfa63cac6d": {
+      "M_0394aa68e2615984,M_4d6d7abfa63cac6d": {
         "": "Baz,"
       }
     }

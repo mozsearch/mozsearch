@@ -1,15 +1,11 @@
 namespace webtest {
 
-class SimpleSearch {
-};
+class SimpleSearch {};
 
-class CaseSensitiveness1 {
-};
+class CaseSensitiveness1 {};
 
-class casesensitiveness2 {
-};
+class casesensitiveness2 {};
 
-class PathFilter {
-};
+class PathFilter {};
 
-}
+}  // namespace webtest

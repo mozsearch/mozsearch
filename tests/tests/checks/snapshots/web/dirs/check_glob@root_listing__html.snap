@@ -81,6 +81,12 @@ snapshot_kind: text
     </thead>
     <tbody>
         <tr>
+          <td><a href="/tests/source/.clang-format" class="mimetype-fixed-container mimetype-icon-clang-format">.clang-format</a></td>
+          <td class="description"><a href="/tests/source/.clang-format" title=""></td>
+          <td><a href="/tests/source/.clang-format">1169</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/.eslintignore" class="mimetype-fixed-container mimetype-icon-eslintignore">.eslintignore</a></td>
           <td class="description"><a href="/tests/source/.eslintignore" title=""></td>
           <td><a href="/tests/source/.eslintignore">236</a></td>
@@ -129,7 +135,7 @@ snapshot_kind: text
    `atom_list.h` while also providing an example of a header file that&#39;s
    included multiple times.  (We didn&#39;t really have coverage for this before,
    and this is important for our merging logic.) </td>
-          <td><a href="/tests/source/atom_magic.h">619</a></td>
+          <td><a href="/tests/source/atom_magic.h">615</a></td>
         </tr>
 
         <tr>
@@ -161,13 +167,13 @@ snapshot_kind: text
    that cats and dogs work.
  - Not using templates.
  </td>
-          <td><a href="/tests/source/big_cpp.cpp">10247</a></td>
+          <td><a href="/tests/source/big_cpp.cpp">10261</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/big_header.h" class="mimetype-fixed-container mimetype-icon-h">big_header.h</a></td>
           <td class="description"><a href="/tests/source/big_header.h" title=""></td>
-          <td><a href="/tests/source/big_header.h">9508</a></td>
+          <td><a href="/tests/source/big_header.h">9519</a></td>
         </tr>
 
         <tr>
@@ -178,16 +184,18 @@ snapshot_kind: text
 
         <tr>
           <td><a href="/tests/source/bug1432300.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1432300.cpp</a></td>
-          <td class="description"><a href="/tests/source/bug1432300.cpp" title="This simulates the code from JS::ProfilingFrameIterator::getPhysicalFrameAndEntry
- which was highlighting incorrectly in bug 1432300 ">This simulates the code from JS::ProfilingFrameIterator::getPhysicalFrameAndEntry
- which was highlighting incorrectly in bug 1432300 </td>
-          <td><a href="/tests/source/bug1432300.cpp">428</a></td>
+          <td class="description"><a href="/tests/source/bug1432300.cpp" title="This simulates the code from
+ JS::ProfilingFrameIterator::getPhysicalFrameAndEntry which was highlighting
+ incorrectly in bug 1432300 ">This simulates the code from
+ JS::ProfilingFrameIterator::getPhysicalFrameAndEntry which was highlighting
+ incorrectly in bug 1432300 </td>
+          <td><a href="/tests/source/bug1432300.cpp">444</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/bug1435345.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1435345.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1435345.cpp" title="Searchfox should analyze uses of operator== ">Searchfox should analyze uses of operator== </td>
-          <td><a href="/tests/source/bug1435345.cpp">271</a></td>
+          <td><a href="/tests/source/bug1435345.cpp">247</a></td>
         </tr>
 
         <tr>
@@ -199,7 +207,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/bug1449291.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1449291.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1449291.cpp" title=""></td>
-          <td><a href="/tests/source/bug1449291.cpp">729</a></td>
+          <td><a href="/tests/source/bug1449291.cpp">578</a></td>
         </tr>
 
         <tr>
@@ -217,7 +225,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/bug1781178.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1781178.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1781178.cpp" title=""></td>
-          <td><a href="/tests/source/bug1781178.cpp">1060</a></td>
+          <td><a href="/tests/source/bug1781178.cpp">1037</a></td>
         </tr>
 
         <tr>
@@ -277,7 +285,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/enummacro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">enummacro.cpp</a></td>
           <td class="description"><a href="/tests/source/enummacro.cpp" title=""></td>
-          <td><a href="/tests/source/enummacro.cpp">359</a></td>
+          <td><a href="/tests/source/enummacro.cpp">353</a></td>
         </tr>
 
         <tr>
@@ -295,7 +303,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/ForwardingTemplates.cpp" class="mimetype-fixed-container mimetype-icon-cpp">ForwardingTemplates.cpp</a></td>
           <td class="description"><a href="/tests/source/ForwardingTemplates.cpp" title=""></td>
-          <td><a href="/tests/source/ForwardingTemplates.cpp">2618</a></td>
+          <td><a href="/tests/source/ForwardingTemplates.cpp">2634</a></td>
         </tr>
 
         <tr>
@@ -355,7 +363,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/implicit.cpp" class="mimetype-fixed-container mimetype-icon-cpp">implicit.cpp</a></td>
           <td class="description"><a href="/tests/source/implicit.cpp" title=""></td>
-          <td><a href="/tests/source/implicit.cpp">208</a></td>
+          <td><a href="/tests/source/implicit.cpp">193</a></td>
         </tr>
 
         <tr>
@@ -379,7 +387,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/jni.cpp" class="mimetype-fixed-container mimetype-icon-cpp">jni.cpp</a></td>
           <td class="description"><a href="/tests/source/jni.cpp" title=""></td>
-          <td><a href="/tests/source/jni.cpp">1699</a></td>
+          <td><a href="/tests/source/jni.cpp">1742</a></td>
         </tr>
 
         <tr>
@@ -391,7 +399,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/lambdas.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lambdas.cpp</a></td>
           <td class="description"><a href="/tests/source/lambdas.cpp" title=""></td>
-          <td><a href="/tests/source/lambdas.cpp">636</a></td>
+          <td><a href="/tests/source/lambdas.cpp">608</a></td>
         </tr>
 
         <tr>
@@ -403,13 +411,13 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/lots_of_calls.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lots_of_calls.cpp</a></td>
           <td class="description"><a href="/tests/source/lots_of_calls.cpp" title=""></td>
-          <td><a href="/tests/source/lots_of_calls.cpp">1659</a></td>
+          <td><a href="/tests/source/lots_of_calls.cpp">1663</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/macro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">macro.cpp</a></td>
           <td class="description"><a href="/tests/source/macro.cpp" title=""></td>
-          <td><a href="/tests/source/macro.cpp">1409</a></td>
+          <td><a href="/tests/source/macro.cpp">1757</a></td>
         </tr>
 
         <tr>
@@ -447,19 +455,19 @@ snapshot_kind: text
           <td class="description"><a href="/tests/source/multiline.cpp" title="Some documentation.
  ">Some documentation.
  </td>
-          <td><a href="/tests/source/multiline.cpp">331</a></td>
+          <td><a href="/tests/source/multiline.cpp">319</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/nsISupports.h" class="mimetype-fixed-container mimetype-icon-h">nsISupports.h</a></td>
           <td class="description"><a href="/tests/source/nsISupports.h" title=""></td>
-          <td><a href="/tests/source/nsISupports.h">729</a></td>
+          <td><a href="/tests/source/nsISupports.h">730</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/nsTArray.h" class="mimetype-fixed-container mimetype-icon-h">nsTArray.h</a></td>
           <td class="description"><a href="/tests/source/nsTArray.h" title=""></td>
-          <td><a href="/tests/source/nsTArray.h">672</a></td>
+          <td><a href="/tests/source/nsTArray.h">673</a></td>
         </tr>
 
         <tr>
@@ -469,7 +477,7 @@ snapshot_kind: text
 ">This file is intended to create interesting test cases for searches against
  a base class with a limited number of overrides.
 </td>
-          <td><a href="/tests/source/overs.cpp">1535</a></td>
+          <td><a href="/tests/source/overs.cpp">1521</a></td>
         </tr>
 
         <tr>
@@ -493,7 +501,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/runnables.cpp" class="mimetype-fixed-container mimetype-icon-cpp">runnables.cpp</a></td>
           <td class="description"><a href="/tests/source/runnables.cpp" title=""></td>
-          <td><a href="/tests/source/runnables.cpp">1234</a></td>
+          <td><a href="/tests/source/runnables.cpp">1146</a></td>
         </tr>
 
         <tr>
@@ -511,7 +519,7 @@ snapshot_kind: text
         <tr>
           <td><a href="/tests/source/simple.cpp" class="mimetype-fixed-container mimetype-icon-cpp">simple.cpp</a></td>
           <td class="description"><a href="/tests/source/simple.cpp" title=""></td>
-          <td><a href="/tests/source/simple.cpp">1941</a></td>
+          <td><a href="/tests/source/simple.cpp">1839</a></td>
         </tr>
 
         <tr>
@@ -615,19 +623,19 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/templates1.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates1.cpp</a></td>
           <td class="description"><a href="/tests/source/templates1.cpp" title=""></td>
-          <td><a href="/tests/source/templates1.cpp">267</a></td>
+          <td><a href="/tests/source/templates1.cpp">247</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates2.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates2.cpp</a></td>
           <td class="description"><a href="/tests/source/templates2.cpp" title=""></td>
-          <td><a href="/tests/source/templates2.cpp">452</a></td>
+          <td><a href="/tests/source/templates2.cpp">408</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates3.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates3.cpp</a></td>
           <td class="description"><a href="/tests/source/templates3.cpp" title=""></td>
-          <td><a href="/tests/source/templates3.cpp">439</a></td>
+          <td><a href="/tests/source/templates3.cpp">414</a></td>
         </tr>
 
         <tr>
@@ -639,19 +647,19 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/templates5.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates5.cpp</a></td>
           <td class="description"><a href="/tests/source/templates5.cpp" title=""></td>
-          <td><a href="/tests/source/templates5.cpp">179</a></td>
+          <td><a href="/tests/source/templates5.cpp">170</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates5.h" class="mimetype-fixed-container mimetype-icon-h">templates5.h</a></td>
           <td class="description"><a href="/tests/source/templates5.h" title=""></td>
-          <td><a href="/tests/source/templates5.h">207</a></td>
+          <td><a href="/tests/source/templates5.h">212</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates6.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates6.cpp</a></td>
           <td class="description"><a href="/tests/source/templates6.cpp" title=""></td>
-          <td><a href="/tests/source/templates6.cpp">142</a></td>
+          <td><a href="/tests/source/templates6.cpp">144</a></td>
         </tr>
 
         <tr>
@@ -663,7 +671,7 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/templates7.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates7.cpp</a></td>
           <td class="description"><a href="/tests/source/templates7.cpp" title=""></td>
-          <td><a href="/tests/source/templates7.cpp">704</a></td>
+          <td><a href="/tests/source/templates7.cpp">709</a></td>
         </tr>
 
         <tr>
@@ -717,7 +725,7 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/tricky_symbol_names.cpp" class="mimetype-fixed-container mimetype-icon-cpp">tricky_symbol_names.cpp</a></td>
           <td class="description"><a href="/tests/source/tricky_symbol_names.cpp" title=""></td>
-          <td><a href="/tests/source/tricky_symbol_names.cpp">319</a></td>
+          <td><a href="/tests/source/tricky_symbol_names.cpp">313</a></td>
         </tr>
 
         <tr>
@@ -729,7 +737,7 @@ Spread over multiple lines.
         <tr>
           <td><a href="/tests/source/using.cpp" class="mimetype-fixed-container mimetype-icon-cpp">using.cpp</a></td>
           <td class="description"><a href="/tests/source/using.cpp" title=""></td>
-          <td><a href="/tests/source/using.cpp">245</a></td>
+          <td><a href="/tests/source/using.cpp">233</a></td>
         </tr>
 
         <tr>

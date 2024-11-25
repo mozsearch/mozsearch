@@ -11,5 +11,5 @@ class BindingTestMixed1 {
   void MixinMethod() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

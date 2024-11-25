@@ -1,37 +1,38 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00017:8-20",
+    "loc": "00014:8-20",
     "target": 1,
     "kind": "def",
     "pretty": "NESTED_MACRO",
-    "sym": "M_210a01c9a44abeec"
+    "sym": "M_f43901c9a44abeec"
   },
   {
     "loc": "00024:20-32",
     "target": 1,
     "kind": "use",
     "pretty": "NESTED_MACRO",
-    "sym": "M_210a01c9a44abeec"
+    "sym": "M_f43901c9a44abeec"
   },
   {
-    "loc": "00017:8-20",
+    "loc": "00014:8-20",
     "source": 1,
     "syntax": "def,macro",
     "pretty": "macro NESTED_MACRO",
-    "sym": "M_210a01c9a44abeec"
+    "sym": "M_f43901c9a44abeec"
   },
   {
     "loc": "00024:20-32",
     "source": 1,
     "syntax": "macro,use",
     "pretty": "macro NESTED_MACRO",
-    "sym": "M_210a01c9a44abeec",
+    "sym": "M_f43901c9a44abeec",
     "expandsTo": {
-      "M_210a01c9a44abeec,M_b42801c9a44abeec": {
+      "M_f43901c9a44abeec,M_b42801c9a44abeec": {
         "linux64": "15",
         "macosx64": "15",
         "win64": "15"

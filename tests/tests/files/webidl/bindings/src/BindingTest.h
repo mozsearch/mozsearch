@@ -9,5 +9,5 @@ class BindingTest {
   void Method1() {}
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

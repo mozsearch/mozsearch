@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00162:15-25",
+    "loc": "00155:15-25",
     "structured": 1,
     "pretty": "outerNS::Thing::takeDamage",
     "sym": "_ZN7outerNS5Thing10takeDamageEi",

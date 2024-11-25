@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(scil).unwrap()"
+snapshot_kind: text
 ---
 {
   "symbol_crossref_infos": [
@@ -13,7 +14,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 444,
+                "lno": 418,
                 "bounds": [
                   13,
                   18
@@ -21,7 +22,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "virtual void beArt() = 0;",
                 "context": "outerNS::AbstractArt",
                 "contextsym": "T_outerNS::AbstractArt",
-                "peekRange": "442-444"
+                "peekRange": "416-418"
               }
             ]
           }

@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
+snapshot_kind: text
 ---
 {
   "tables": [
@@ -30,7 +31,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#11"
+            "def": "field-layout/multiple_inheritance.cpp#10"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2": {
@@ -57,7 +58,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#12"
+            "def": "field-layout/multiple_inheritance.cpp#11"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1": {
@@ -84,7 +85,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#16"
+            "def": "field-layout/multiple_inheritance.cpp#15"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2": {
@@ -111,7 +112,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#17"
+            "def": "field-layout/multiple_inheritance.cpp#16"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3": {
@@ -138,7 +139,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#19"
+            "def": "field-layout/multiple_inheritance.cpp#18"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1": {
@@ -165,7 +166,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#24"
+            "def": "field-layout/multiple_inheritance.cpp#23"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2": {
@@ -192,7 +193,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#25"
+            "def": "field-layout/multiple_inheritance.cpp#24"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1": {
@@ -219,7 +220,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#29"
+            "def": "field-layout/multiple_inheritance.cpp#28"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2": {
@@ -246,7 +247,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#30"
+            "def": "field-layout/multiple_inheritance.cpp#29"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1": {
@@ -273,7 +274,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#34"
+            "def": "field-layout/multiple_inheritance.cpp#33"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2": {
@@ -300,7 +301,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#35"
+            "def": "field-layout/multiple_inheritance.cpp#34"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1": {
@@ -327,7 +328,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#42"
+            "def": "field-layout/multiple_inheritance.cpp#38"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1": {
@@ -354,7 +355,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#46"
+            "def": "field-layout/multiple_inheritance.cpp#42"
           }
         },
         "F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1": {
@@ -381,7 +382,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#51"
+            "def": "field-layout/multiple_inheritance.cpp#46"
           }
         },
         "T_field_layout::multiple_inheritance::BaseEmpty": {
@@ -520,7 +521,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#11",
+                "lineRange": "#10",
                 "pretty": "field_layout::multiple_inheritance::SubA::sub_a_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1",
                 "type": "int",
@@ -530,7 +531,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
-                "lineRange": "#12",
+                "lineRange": "#11",
                 "pretty": "field_layout::multiple_inheritance::SubA::sub_a_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2",
                 "type": "short",
@@ -548,7 +549,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#10"
+            "def": "field-layout/multiple_inheritance.cpp#9"
           }
         },
         "T_field_layout::multiple_inheritance::SubB": {
@@ -615,7 +616,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#16",
+                "lineRange": "#15",
                 "pretty": "field_layout::multiple_inheritance::SubB::sub_b_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1",
                 "type": "int",
@@ -625,7 +626,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
-                "lineRange": "#17",
+                "lineRange": "#16",
                 "pretty": "field_layout::multiple_inheritance::SubB::sub_b_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2",
                 "type": "signed char",
@@ -635,7 +636,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
-                "lineRange": "#19",
+                "lineRange": "#18",
                 "pretty": "field_layout::multiple_inheritance::SubB::sub_b_3",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_3",
                 "type": "long",
@@ -712,7 +713,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
-                    "lineRange": "#16",
+                    "lineRange": "#15",
                     "pretty": "field_layout::multiple_inheritance::SubB::sub_b_1",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_1",
                     "type": "int",
@@ -722,7 +723,7 @@ expression: "&to_value(sttl).unwrap()"
                     "sizeBytes": 4
                   },
                   {
-                    "lineRange": "#17",
+                    "lineRange": "#16",
                     "pretty": "field_layout::multiple_inheritance::SubB::sub_b_2",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubB>_sub_b_2",
                     "type": "signed char",
@@ -746,7 +747,7 @@ expression: "&to_value(sttl).unwrap()"
             ]
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#15"
+            "def": "field-layout/multiple_inheritance.cpp#14"
           }
         },
         "T_field_layout::multiple_inheritance::SubC": {
@@ -813,7 +814,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#24",
+                "lineRange": "#23",
                 "pretty": "field_layout::multiple_inheritance::SubC::sub_c_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1",
                 "type": "signed char",
@@ -823,7 +824,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
-                "lineRange": "#25",
+                "lineRange": "#24",
                 "pretty": "field_layout::multiple_inheritance::SubC::sub_c_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2",
                 "type": "int",
@@ -841,7 +842,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#23"
+            "def": "field-layout/multiple_inheritance.cpp#22"
           }
         },
         "T_field_layout::multiple_inheritance::SubD": {
@@ -908,7 +909,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#29",
+                "lineRange": "#28",
                 "pretty": "field_layout::multiple_inheritance::SubD::sub_d_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1",
                 "type": "int",
@@ -918,7 +919,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
-                "lineRange": "#30",
+                "lineRange": "#29",
                 "pretty": "field_layout::multiple_inheritance::SubD::sub_d_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2",
                 "type": "signed char",
@@ -936,7 +937,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#28"
+            "def": "field-layout/multiple_inheritance.cpp#27"
           }
         },
         "T_field_layout::multiple_inheritance::SubE": {
@@ -1003,7 +1004,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#34",
+                "lineRange": "#33",
                 "pretty": "field_layout::multiple_inheritance::SubE::sub_e_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1",
                 "type": "long",
@@ -1013,7 +1014,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 8
               },
               {
-                "lineRange": "#35",
+                "lineRange": "#34",
                 "pretty": "field_layout::multiple_inheritance::SubE::sub_e_2",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2",
                 "type": "int",
@@ -1031,7 +1032,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#33"
+            "def": "field-layout/multiple_inheritance.cpp#32"
           }
         },
         "T_field_layout::multiple_inheritance::SubSubA": {
@@ -1108,7 +1109,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#42",
+                "lineRange": "#38",
                 "pretty": "field_layout::multiple_inheritance::SubSubA::sub_sub_c_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1",
                 "type": "int",
@@ -1195,7 +1196,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
-                    "lineRange": "#42",
+                    "lineRange": "#38",
                     "pretty": "field_layout::multiple_inheritance::SubSubA::sub_sub_c_1",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubSubA>_sub_sub_c_1",
                     "type": "int",
@@ -1219,7 +1220,7 @@ expression: "&to_value(sttl).unwrap()"
             ]
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#39"
+            "def": "field-layout/multiple_inheritance.cpp#37"
           }
         },
         "T_field_layout::multiple_inheritance::SubSubB": {
@@ -1286,7 +1287,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#46",
+                "lineRange": "#42",
                 "pretty": "field_layout::multiple_inheritance::SubSubB::sub_sub_b_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1",
                 "type": "int",
@@ -1304,7 +1305,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#45"
+            "def": "field-layout/multiple_inheritance.cpp#41"
           }
         },
         "T_field_layout::multiple_inheritance::SubSubSubA": {
@@ -1367,7 +1368,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#51",
+                "lineRange": "#46",
                 "pretty": "field_layout::multiple_inheritance::SubSubSubA::sub_sub_sub_a_1",
                 "sym": "F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1",
                 "type": "int",
@@ -1437,7 +1438,7 @@ expression: "&to_value(sttl).unwrap()"
                 ],
                 "fields": [
                   {
-                    "lineRange": "#51",
+                    "lineRange": "#46",
                     "pretty": "field_layout::multiple_inheritance::SubSubSubA::sub_sub_sub_a_1",
                     "sym": "F_<T_field_layout::multiple_inheritance::SubSubSubA>_sub_sub_sub_a_1",
                     "type": "int",
@@ -1461,7 +1462,7 @@ expression: "&to_value(sttl).unwrap()"
             ]
           },
           "jumps": {
-            "def": "field-layout/multiple_inheritance.cpp#49"
+            "def": "field-layout/multiple_inheritance.cpp#45"
           }
         }
       },

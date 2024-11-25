@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00049:7-11",
+    "loc": "00048:5-9",
     "source": 1,
     "syntax": "decl,function",
     "type": "void (void)",
@@ -12,12 +13,12 @@ expression: "&json_results"
     "sym": "_ZN8internal4ReadEv"
   },
   {
-    "loc": "00049:7-11",
+    "loc": "00048:5-9",
     "target": 1,
     "kind": "decl",
     "pretty": "internal::Read",
     "sym": "_ZN8internal4ReadEv",
-    "peekRange": "49-49"
+    "peekRange": "48-48"
   },
   {
     "loc": "00057:2-6",

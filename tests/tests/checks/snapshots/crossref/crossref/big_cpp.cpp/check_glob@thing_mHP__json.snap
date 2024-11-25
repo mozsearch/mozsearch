@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(scil).unwrap()"
+snapshot_kind: text
 ---
 {
   "symbol_crossref_infos": [
@@ -13,17 +14,17 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 155,
+                "lno": 149,
                 "bounds": [
-                  2,
-                  5
+                  20,
+                  23
                 ],
-                "line": ": mHP(baseHP)",
+                "line": "Thing(int baseHP) : mHP(baseHP), mDefunct(false) {",
                 "context": "outerNS::Thing::Thing",
                 "contextsym": "_ZN7outerNS5ThingC1Ei"
               },
               {
-                "lno": 163,
+                "lno": 156,
                 "bounds": [
                   0,
                   3
@@ -33,7 +34,7 @@ expression: "&to_value(scil).unwrap()"
                 "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
               },
               {
-                "lno": 455,
+                "lno": 428,
                 "bounds": [
                   0,
                   3
@@ -51,7 +52,7 @@ expression: "&to_value(scil).unwrap()"
             "path_kind": "Normal",
             "lines": [
               {
-                "lno": 147,
+                "lno": 142,
                 "bounds": [
                   4,
                   7
@@ -59,7 +60,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "int mHP;",
                 "context": "outerNS::Thing",
                 "contextsym": "T_outerNS::Thing",
-                "peekRange": "143-147"
+                "peekRange": "138-142"
               }
             ]
           }

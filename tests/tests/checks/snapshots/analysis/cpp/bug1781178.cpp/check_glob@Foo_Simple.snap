@@ -1,10 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
-    "loc": "00016:7-13",
+    "loc": "00015:7-13",
     "source": 1,
     "syntax": "decl,function",
     "type": "void (void)",
@@ -12,17 +13,17 @@ expression: "&json_results"
     "sym": "_ZN3Foo6SimpleEv"
   },
   {
-    "loc": "00016:7-13",
+    "loc": "00015:7-13",
     "target": 1,
     "kind": "decl",
     "pretty": "Foo::Simple",
     "sym": "_ZN3Foo6SimpleEv",
     "context": "Foo",
     "contextsym": "T_Foo",
-    "peekRange": "16-16"
+    "peekRange": "15-15"
   },
   {
-    "loc": "00032:10-16",
+    "loc": "00031:10-16",
     "source": 1,
     "syntax": "use,function",
     "type": "void (void)",
@@ -30,7 +31,7 @@ expression: "&json_results"
     "sym": "_ZN3Foo6SimpleEv"
   },
   {
-    "loc": "00032:10-16",
+    "loc": "00031:10-16",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Simple",

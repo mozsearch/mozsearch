@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
+snapshot_kind: text
 ---
 {
   "tables": [
@@ -30,7 +31,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#245"
+            "def": "big_cpp.cpp#228"
           }
         },
         "F_<T_outerNS::OuterCat>_mIsFriendly": {
@@ -57,7 +58,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#241"
+            "def": "big_cpp.cpp#224"
           }
         },
         "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly": {
@@ -84,7 +85,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#242"
+            "def": "big_cpp.cpp#225"
           }
         },
         "F_<T_outerNS::OuterCat>_mOwner": {
@@ -111,7 +112,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#244"
+            "def": "big_cpp.cpp#227"
           }
         },
         "F_<T_outerNS::Thing>_mDefunct": {
@@ -138,7 +139,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#151"
+            "def": "big_cpp.cpp#146"
           }
         },
         "F_<T_outerNS::Thing>_mHP": {
@@ -165,7 +166,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#147"
+            "def": "big_cpp.cpp#142"
           }
         },
         "T_outerNS::Couch": {
@@ -234,7 +235,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#211"
+            "def": "big_cpp.cpp#196"
           }
         },
         "T_outerNS::Human": {
@@ -326,7 +327,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#185"
+            "def": "big_cpp.cpp#178"
           }
         },
         "T_outerNS::OuterCat": {
@@ -472,7 +473,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#241",
+                "lineRange": "#224",
                 "pretty": "outerNS::OuterCat::mIsFriendly",
                 "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
                 "type": "_Bool",
@@ -482,7 +483,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
-                "lineRange": "#242",
+                "lineRange": "#225",
                 "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
                 "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
                 "type": "_Bool",
@@ -492,7 +493,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 1
               },
               {
-                "lineRange": "#244",
+                "lineRange": "#227",
                 "pretty": "outerNS::OuterCat::mOwner",
                 "sym": "F_<T_outerNS::OuterCat>_mOwner",
                 "type": "class std::shared_ptr<class outerNS::Human>",
@@ -511,7 +512,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#245",
+                "lineRange": "#228",
                 "pretty": "outerNS::OuterCat::mFavoriteCouch",
                 "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
                 "type": "class outerNS::Couch *",
@@ -538,7 +539,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#227"
+            "def": "big_cpp.cpp#210"
           }
         },
         "T_outerNS::Thing": {
@@ -636,7 +637,7 @@ expression: "&to_value(sttl).unwrap()"
             ],
             "fields": [
               {
-                "lineRange": "#147",
+                "lineRange": "#142",
                 "pretty": "outerNS::Thing::mHP",
                 "sym": "F_<T_outerNS::Thing>_mHP",
                 "type": "int",
@@ -646,7 +647,7 @@ expression: "&to_value(sttl).unwrap()"
                 "sizeBytes": 4
               },
               {
-                "lineRange": "#151",
+                "lineRange": "#146",
                 "pretty": "outerNS::Thing::mDefunct",
                 "sym": "F_<T_outerNS::Thing>_mDefunct",
                 "type": "_Bool",
@@ -667,7 +668,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "big_cpp.cpp#141"
+            "def": "big_cpp.cpp#136"
           }
         },
         "T_std::shared_ptr": {
@@ -762,7 +763,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"T_outerNS::Couch\">Couch</span> *<span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mFavoriteCouch\">mFavoriteCouch</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"T_outerNS::Couch\">Couch</span>* <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mFavoriteCouch\">mFavoriteCouch</span>;"
                 ],
                 "offsetAndSize": [
                   {

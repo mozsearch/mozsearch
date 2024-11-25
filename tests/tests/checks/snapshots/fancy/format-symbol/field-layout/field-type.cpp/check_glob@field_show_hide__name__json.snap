@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
+snapshot_kind: text
 ---
 {
   "tables": [
@@ -129,7 +130,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.cpp#50"
+            "def": "field-layout/field-type.cpp#47"
           }
         },
         "F_<T_field_layout::field_type::S>_other_file_field1": {
@@ -183,7 +184,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type-include.h#4"
+            "def": "field-layout/field-type-include.h#3"
           }
         },
         "F_<T_field_layout::field_type::S>_other_file_field3": {
@@ -210,7 +211,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type-include.h#9"
+            "def": "field-layout/field-type-include.h#5"
           }
         },
         "F_<T_field_layout::field_type::S>_pointer_field": {
@@ -433,21 +434,21 @@ expression: "&to_value(sttl).unwrap()"
           "sym": "T_JS::GCHashMap",
           "pretty": "T_JS::GCHashMap",
           "jumps": {
-            "def": "field-layout/field-type.h#34"
+            "def": "field-layout/field-type.h#26"
           }
         },
         "T_JS::Rooted": {
           "sym": "T_JS::Rooted",
           "pretty": "T_JS::Rooted",
           "jumps": {
-            "def": "field-layout/field-type.h#11"
+            "def": "field-layout/field-type.h#8"
           }
         },
         "T_JS::RootedVector": {
           "sym": "T_JS::RootedVector",
           "pretty": "T_JS::RootedVector",
           "jumps": {
-            "def": "field-layout/field-type.h#24"
+            "def": "field-layout/field-type.h#18"
           }
         },
         "T_JS::Value": {
@@ -469,7 +470,7 @@ expression: "&to_value(sttl).unwrap()"
             "methods": [],
             "fields": [
               {
-                "lineRange": "#29",
+                "lineRange": "#22",
                 "pretty": "JS::Value::asBits_",
                 "sym": "F_<T_JS::Value>_asBits_",
                 "type": "unsigned long",
@@ -484,7 +485,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.h#27"
+            "def": "field-layout/field-type.h#20"
           }
         },
         "T_JSObject": {
@@ -824,7 +825,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "#47-50",
+                "lineRange": "#47",
                 "pretty": "field_layout::field_type::S::multiline_field",
                 "sym": "F_<T_field_layout::field_type::S>_multiline_field",
                 "type": "class js::ProtectedDataNoCheckArgs<class js::TestCheck, struct field_layout::field_type::Type1>",
@@ -860,7 +861,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "field-layout/field-type-include.h#3-4",
+                "lineRange": "field-layout/field-type-include.h#3",
                 "pretty": "field_layout::field_type::S::other_file_field2",
                 "sym": "F_<T_field_layout::field_type::S>_other_file_field2",
                 "type": "struct field_layout::field_type::Container1<struct field_layout::field_type::Type1>",
@@ -876,7 +877,7 @@ expression: "&to_value(sttl).unwrap()"
                 ]
               },
               {
-                "lineRange": "field-layout/field-type-include.h#6-9",
+                "lineRange": "field-layout/field-type-include.h#5",
                 "pretty": "field_layout::field_type::S::other_file_field3",
                 "sym": "F_<T_field_layout::field_type::S>_other_file_field3",
                 "type": "class std::vector<struct field_layout::field_type::Type1, class std::allocator<struct field_layout::field_type::Type1> >",
@@ -1000,7 +1001,7 @@ expression: "&to_value(sttl).unwrap()"
           "sym": "T_js::ProtectedDataNoCheckArgs",
           "pretty": "T_js::ProtectedDataNoCheckArgs",
           "jumps": {
-            "def": "field-layout/field-type.h#45"
+            "def": "field-layout/field-type.h#35"
           }
         },
         "T_js::TestCheck": {
@@ -1026,7 +1027,7 @@ expression: "&to_value(sttl).unwrap()"
             "variants": []
           },
           "jumps": {
-            "def": "field-layout/field-type.h#41"
+            "def": "field-layout/field-type.h#32"
           }
         },
         "T_std::vector": {
@@ -1315,10 +1316,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\">TestLockData</span>&lt;",
-                  "    <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>",
-                  "  >",
-                  "  <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_multiline_field\">multiline_field</span>"
+                  "  js::<span class=\"syn_type\" data-symbols=\"TA_js::TestLockData\">TestLockData</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_multiline_field\">multiline_field</span> <span data-expansions=\"{&quot;M_03edc48bcfb9a1bd&quot;:{&quot;linux64 macosx64 win64&quot;:&quot;__attribute__((annotate(&lt;span class=\\&quot;syn_string\\&quot; >\\&quot;some_annotation\\&quot;&lt;/span>)))&quot;}}\" data-symbols=\"M_03edc48bcfb9a1bd\">SOME_ANNOTATION</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1339,7 +1337,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field1\">other_file_field1</span>;"
+                  "<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field1\">other_file_field1</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1360,8 +1358,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>>",
-                  "    <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field2\">other_file_field2</span>;"
+                  "<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Container1\">Container1</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field2\">other_file_field2</span>;"
                 ],
                 "offsetAndSize": [
                   {
@@ -1387,10 +1384,7 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::vector\">vector</span>&lt;",
-                  "    <span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>",
-                  "  >",
-                  "    <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field3\">other_file_field3</span>;"
+                  "std::<span class=\"syn_type\" data-symbols=\"T_std::vector\">vector</span>&lt;<span class=\"syn_type\" data-symbols=\"T_field_layout::field_type::Type1\">Type1</span>> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::field_type::S>_other_file_field3\">other_file_field3</span>;"
                 ],
                 "offsetAndSize": [
                   {

@@ -25,6 +25,6 @@ S f() {
   return s;
 }
 
-}
+}  // namespace platform_specific_size
 
-}
+}  // namespace field_layout
