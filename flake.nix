@@ -68,6 +68,8 @@
 
             scip
             protobuf
+
+            pre-commit
           ];
 
           PODMAN_USERNS = "keep-id";
