@@ -1,0 +1,15 @@
+exclude: (?:^flake.lock$|/__GENERATED__/|^tests/tests/mc-(?:analysis|generated))
+repos:
+  # C++
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: 'v19.1.4'
+    hooks:
+      - id: clang-format
+        exclude: (?:\.js$|\.json$|\.java$|\.mjs$)
+
+  # Rust
+  - repo: https://github.com/kykosic/pre-commit-rust
+    rev: '0.4.0'
+    hooks:
+      - id: cargo-fmt
+      - id: cargo-clippy
