@@ -59,14 +59,26 @@ void test() {
 }
 
 template <typename T>
+struct Maybe;
+
+template <typename T>
 struct Maybe {
   char storage[sizeof(T)];
 
   template <typename... Args>
-  void emplace(Args&&... args) {
+  void emplace_inline(Args&&... args) {
     new (storage) T(std::forward<Args>(args)...);
   }
+
+  template <typename... Args>
+  void emplace_out_of_line(Args&&... args);
 };
+
+template <typename T>
+template <typename... Args>
+void Maybe<T>::emplace_out_of_line(Args&&... args) {
+  new (storage) T(std::forward<Args>(args)...);
+}
 
 struct StructUsedInEmplace {
   StructUsedInEmplace() {}
@@ -74,5 +86,6 @@ struct StructUsedInEmplace {
 
 void use_maybe() {
   Maybe<StructUsedInEmplace> m;
-  m.emplace();
+  m.emplace_inline();
+  m.emplace_out_of_line();
 }

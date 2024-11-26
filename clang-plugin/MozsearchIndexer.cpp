@@ -1138,6 +1138,45 @@ public:
     return CurDeclContext && CurDeclContext->VisitImplicit;
   }
 
+  // We don't want to traverse all specializations everytime we find a forward
+  // declaration, so only traverse specializations related to an actual
+  // definition.
+  //
+  // ```
+  // // This is the canonical declaration for Maybe but isn't really useful.
+  // template <typename T>
+  // struct Maybe;
+  //
+  // // This is another ClassTemplateDecl, but not the canonical one, where we
+  // // actually have the definition. This is the one we want to traverse.
+  // template <typename T>
+  // struct Maybe {
+  //   // This is both the canonical declaration and the definition for
+  //   // inline_method and we want to traverse it.
+  //   template <typename... Args>
+  //   T *inline_method(Args&&... args) {
+  //     // definition
+  //   }
+  //
+  //   // This is the canonical declaration, TraverseFunctionTemplateDecl
+  //   // traverses its out of line definition too.
+  //   template <typename... Args>
+  //   T *out_of_line_method(Args&&... args);
+  // }
+  //
+  // // This is the definition for Maybe<T>::out_of_line_method<Args...>
+  // // It is traversed when calling TraverseFunctionTemplateDecl on the
+  // // canonical declaration.
+  // template <typename T>
+  // template <typename... Args>
+  // T *maybe(Args&&... args) {
+  //   // definition
+  // }
+  // ```
+  //
+  // So:
+  // - for class templates we check isThisDeclarationADefinition
+  // - for function templates we check isCanonicalDecl
   bool TraverseClassTemplateDecl(ClassTemplateDecl *D) {
     AutoTemplateContext Atc(this);
     Super::TraverseClassTemplateDecl(D);
@@ -1148,9 +1187,8 @@ public:
 
     Atc.switchMode();
 
-    if (D != D->getCanonicalDecl()) {
+    if (!D->isThisDeclarationADefinition())
       return true;
-    }
 
     for (auto *Spec : D->specializations()) {
       for (auto *Rd : Spec->redecls()) {
@@ -1165,6 +1203,7 @@ public:
     return true;
   }
 
+  // See also comment above TraverseClassTemplateDecl
   bool TraverseFunctionTemplateDecl(FunctionTemplateDecl *D) {
     AutoTemplateContext Atc(this);
     if (Atc.inGatherMode()) {
@@ -1177,9 +1216,8 @@ public:
 
     Atc.switchMode();
 
-    if (D != D->getCanonicalDecl()) {
+    if (!D->isCanonicalDecl())
       return true;
-    }
 
     for (auto *Spec : D->specializations()) {
       for (auto *Rd : Spec->redecls()) {
