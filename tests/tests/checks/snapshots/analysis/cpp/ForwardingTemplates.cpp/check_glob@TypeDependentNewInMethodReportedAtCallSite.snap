@@ -5,16 +5,16 @@ snapshot_kind: text
 ---
 [
   {
-    "loc": "00084:2-21",
+    "loc": "00085:2-21",
     "source": 1,
-    "nestingRange": "84:24-84:25",
+    "nestingRange": "85:24-85:25",
     "syntax": "def,function",
     "type": "void (void)",
     "pretty": "function StructUsedInEmplace::StructUsedInEmplace",
     "sym": "_ZN19StructUsedInEmplaceC1Ev"
   },
   {
-    "loc": "00084:2-21",
+    "loc": "00085:2-21",
     "structured": 1,
     "pretty": "StructUsedInEmplace::StructUsedInEmplace",
     "sym": "_ZN19StructUsedInEmplaceC1Ev",
@@ -28,7 +28,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00084:2-21",
+    "loc": "00085:2-21",
     "target": 1,
     "kind": "def",
     "pretty": "StructUsedInEmplace::StructUsedInEmplace",
@@ -37,14 +37,14 @@ snapshot_kind: text
     "contextsym": "T_StructUsedInEmplace"
   },
   {
-    "loc": "00089:4-18",
+    "loc": "00090:4-18",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInEmplace::StructUsedInEmplace",
     "sym": "_ZN19StructUsedInEmplaceC1Ev"
   },
   {
-    "loc": "00089:4-18",
+    "loc": "00090:4-18",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInEmplace::StructUsedInEmplace",
@@ -53,14 +53,30 @@ snapshot_kind: text
     "contextsym": "_Z9use_maybev"
   },
   {
-    "loc": "00090:4-23",
+    "loc": "00091:4-23",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInEmplace::StructUsedInEmplace",
     "sym": "_ZN19StructUsedInEmplaceC1Ev"
   },
   {
-    "loc": "00090:4-23",
+    "loc": "00091:4-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "StructUsedInEmplace::StructUsedInEmplace",
+    "sym": "_ZN19StructUsedInEmplaceC1Ev",
+    "context": "use_maybe",
+    "contextsym": "_Z9use_maybev"
+  },
+  {
+    "loc": "00094:4-16",
+    "source": 1,
+    "syntax": "use,constructor",
+    "pretty": "constructor StructUsedInEmplace::StructUsedInEmplace",
+    "sym": "_ZN19StructUsedInEmplaceC1Ev"
+  },
+  {
+    "loc": "00094:4-16",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInEmplace::StructUsedInEmplace",

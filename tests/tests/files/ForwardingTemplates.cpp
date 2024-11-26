@@ -1,4 +1,5 @@
 #include <memory>
+#include <vector>
 
 struct StructUsedInTypeDependentNew0 {
   StructUsedInTypeDependentNew0() {}
@@ -88,4 +89,7 @@ void use_maybe() {
   Maybe<StructUsedInEmplace> m;
   m.emplace_inline();
   m.emplace_out_of_line();
+
+  std::vector<StructUsedInEmplace> v;
+  v.emplace_back();
 }

@@ -5,16 +5,16 @@ snapshot_kind: text
 ---
 [
   {
-    "loc": "00012:2-32",
+    "loc": "00013:2-32",
     "source": 1,
-    "nestingRange": "12:35-12:36",
+    "nestingRange": "13:35-13:36",
     "syntax": "def,function",
     "type": "void (void)",
     "pretty": "function StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
     "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
   },
   {
-    "loc": "00012:2-32",
+    "loc": "00013:2-32",
     "structured": 1,
     "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
     "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev",
@@ -28,7 +28,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00012:2-32",
+    "loc": "00013:2-32",
     "target": 1,
     "kind": "def",
     "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
@@ -37,14 +37,14 @@ snapshot_kind: text
     "contextsym": "T_StructUsedInTypeIndependentNew"
   },
   {
-    "loc": "00018:10-40",
+    "loc": "00019:10-40",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
     "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
   },
   {
-    "loc": "00018:10-40",
+    "loc": "00019:10-40",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
@@ -53,14 +53,14 @@ snapshot_kind: text
     "contextsym": "_Z19MakeUniqueWithIndexiDpOT0_"
   },
   {
-    "loc": "00025:10-40",
+    "loc": "00026:10-40",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",
     "sym": "_ZN30StructUsedInTypeIndependentNewC1Ev"
   },
   {
-    "loc": "00025:10-40",
+    "loc": "00026:10-40",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeIndependentNew::StructUsedInTypeIndependentNew",

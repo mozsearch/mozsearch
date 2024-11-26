@@ -5,16 +5,16 @@ snapshot_kind: text
 ---
 [
   {
-    "loc": "00004:2-31",
+    "loc": "00005:2-31",
     "source": 1,
-    "nestingRange": "4:34-4:35",
+    "nestingRange": "5:34-5:35",
     "syntax": "def,function",
     "type": "void (void)",
     "pretty": "function StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00004:2-31",
+    "loc": "00005:2-31",
     "structured": 1,
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev",
@@ -28,7 +28,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00004:2-31",
+    "loc": "00005:2-31",
     "target": 1,
     "kind": "def",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -37,22 +37,6 @@ snapshot_kind: text
     "contextsym": "T_StructUsedInTypeDependentNew0"
   },
   {
-    "loc": "00041:17-36",
-    "source": 1,
-    "syntax": "use,constructor",
-    "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
-    "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
-  },
-  {
-    "loc": "00041:17-36",
-    "target": 1,
-    "kind": "use",
-    "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
-    "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev",
-    "context": "test",
-    "contextsym": "_Z4testv"
-  },
-  {
     "loc": "00042:17-36",
     "source": 1,
     "syntax": "use,constructor",
@@ -69,14 +53,14 @@ snapshot_kind: text
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00045:17-27",
+    "loc": "00043:17-36",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00045:17-27",
+    "loc": "00043:17-36",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -101,14 +85,14 @@ snapshot_kind: text
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00049:17-36",
+    "loc": "00047:17-27",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00049:17-36",
+    "loc": "00047:17-27",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -133,14 +117,14 @@ snapshot_kind: text
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00053:17-37",
+    "loc": "00051:17-36",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00053:17-37",
+    "loc": "00051:17-36",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
@@ -165,14 +149,30 @@ snapshot_kind: text
     "contextsym": "_Z4testv"
   },
   {
-    "loc": "00058:24-35",
+    "loc": "00055:17-37",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
     "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
   },
   {
-    "loc": "00058:24-35",
+    "loc": "00055:17-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
+    "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev",
+    "context": "test",
+    "contextsym": "_Z4testv"
+  },
+  {
+    "loc": "00059:24-35",
+    "source": 1,
+    "syntax": "use,constructor",
+    "pretty": "constructor StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",
+    "sym": "_ZN29StructUsedInTypeDependentNew0C1Ev"
+  },
+  {
+    "loc": "00059:24-35",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInTypeDependentNew0::StructUsedInTypeDependentNew0",

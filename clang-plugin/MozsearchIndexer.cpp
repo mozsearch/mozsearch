@@ -2228,21 +2228,48 @@ public:
     return true;
   }
 
-  bool VisitUnresolvedLookupExpr(UnresolvedLookupExpr *E) {
-    // If we are in a template and the callee is type-dependent, register it in
-    // ForwardedTemplateLocations to forward its uses to the surrounding
-    // template call site
-    if (TemplateStack && TemplateStack->inGatherMode()) {
-      if (E->isTypeDependent()) {
-        TemplateStack->visitDependent(E->getBeginLoc());
-        ForwardedTemplateLocations.insert(E->getBeginLoc().getRawEncoding());
+  bool VisitCallExpr(CallExpr *E) {
+    Expr *CalleeExpr = E->getCallee()->IgnoreParenImpCasts();
+
+    if (TemplateStack) {
+      const auto CalleeLocation = [&] {
+        if (const auto *Member =
+                dyn_cast<CXXDependentScopeMemberExpr>(CalleeExpr)) {
+          return Member->getMemberLoc();
+        }
+        if (const auto *DeclRef =
+                dyn_cast<DependentScopeDeclRefExpr>(CalleeExpr)) {
+          return DeclRef->getLocation();
+        }
+        if (const auto *DeclRef = dyn_cast<DeclRefExpr>(CalleeExpr)) {
+          return DeclRef->getLocation();
+        }
+
+        // Does the right thing for MemberExpr and UnresolvedMemberExpr at
+        // least.
+        return CalleeExpr->getExprLoc();
+      }();
+
+      // If we are in a template:
+      // - when in GatherDependent mode and the callee is type-dependent,
+      //   register it in ForwardedTemplateLocations
+      // - when in AnalyseDependent mode and the callee is in
+      //   ForwardedTemplateLocations, convert the location to an actual Stmt*
+      //   in ForwardingTemplates
+      if (TemplateStack->inGatherMode()) {
+        if (CalleeExpr->isTypeDependent()) {
+          TemplateStack->visitDependent(CalleeLocation);
+          ForwardedTemplateLocations.insert(CalleeLocation.getRawEncoding());
+        }
+      } else {
+        if (ForwardedTemplateLocations.find(CalleeLocation.getRawEncoding()) !=
+            ForwardedTemplateLocations.end()) {
+          ForwardingTemplates.insert(
+              {getCurrentFunctionTemplateInstantiation(), E});
+        }
       }
     }
 
-    return true;
-  }
-
-  bool VisitCallExpr(CallExpr *E) {
     Decl *Callee = E->getCalleeDecl();
     if (!Callee || !FunctionDecl::classof(Callee)) {
       return true;
@@ -2259,8 +2286,6 @@ public:
 
     std::string Mangled = getMangledName(CurMangleContext, NamedCallee);
     int Flags = 0;
-
-    Expr *CalleeExpr = E->getCallee()->IgnoreParenImpCasts();
 
     if (CXXOperatorCallExpr::classof(E)) {
       // Just take the first token.
@@ -2383,6 +2408,11 @@ public:
   }
 
   void VisitForwardedStatements(const Expr *E, SourceLocation Loc) {
+    // If Loc itself is forwarded to its callers, do nothing
+    if (ForwardedTemplateLocations.find(Loc.getRawEncoding()) !=
+        ForwardedTemplateLocations.cend())
+      return;
+
     // If this is a forwarding template (eg MakeUnique), visit the forwarded
     // statements
     auto todo = std::stack{std::vector<const Stmt *>{E}};
@@ -2423,20 +2453,6 @@ public:
     SourceLocation Loc = E->getExprLoc();
     if (!isInterestingLocation(Loc)) {
       return true;
-    }
-
-    // If we are in a template and find a Stmt that was registed in
-    // ForwardedTemplateLocations, convert the location to an actual Stmt* in
-    // ForwardingTemplates
-    if (TemplateStack && !TemplateStack->inGatherMode()) {
-      const auto IsForwarded =
-          ForwardedTemplateLocations.find(E->getBeginLoc().getRawEncoding()) !=
-          ForwardedTemplateLocations.end();
-      if (IsForwarded) {
-        ForwardingTemplates.insert(
-            {getCurrentFunctionTemplateInstantiation(), E});
-        return true;
-      }
     }
 
     SourceLocation SpellingLoc = SM.getSpellingLoc(Loc);
