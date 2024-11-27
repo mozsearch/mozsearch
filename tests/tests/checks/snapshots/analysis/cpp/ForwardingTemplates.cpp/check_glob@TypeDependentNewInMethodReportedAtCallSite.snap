@@ -5,16 +5,16 @@ snapshot_kind: text
 ---
 [
   {
-    "loc": "00070:2-21",
+    "loc": "00072:2-21",
     "source": 1,
-    "nestingRange": "70:24-70:25",
+    "nestingRange": "72:24-72:25",
     "syntax": "def,function",
     "type": "void (void)",
     "pretty": "function StructUsedInEmplace::StructUsedInEmplace",
     "sym": "_ZN19StructUsedInEmplaceC1Ev"
   },
   {
-    "loc": "00070:2-21",
+    "loc": "00072:2-21",
     "structured": 1,
     "pretty": "StructUsedInEmplace::StructUsedInEmplace",
     "sym": "_ZN19StructUsedInEmplaceC1Ev",
@@ -28,7 +28,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00070:2-21",
+    "loc": "00072:2-21",
     "target": 1,
     "kind": "def",
     "pretty": "StructUsedInEmplace::StructUsedInEmplace",
@@ -37,14 +37,14 @@ snapshot_kind: text
     "contextsym": "T_StructUsedInEmplace"
   },
   {
-    "loc": "00075:4-11",
+    "loc": "00077:4-11",
     "source": 1,
     "syntax": "use,constructor",
     "pretty": "constructor StructUsedInEmplace::StructUsedInEmplace",
     "sym": "_ZN19StructUsedInEmplaceC1Ev"
   },
   {
-    "loc": "00075:4-11",
+    "loc": "00077:4-11",
     "target": 1,
     "kind": "use",
     "pretty": "StructUsedInEmplace::StructUsedInEmplace",
