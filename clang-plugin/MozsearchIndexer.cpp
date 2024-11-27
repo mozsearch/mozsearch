@@ -2144,11 +2144,6 @@ public:
   }
 
   bool VisitCXXConstructExpr(const CXXConstructExpr *E) {
-    SourceLocation Loc = E->getBeginLoc();
-    if (!isInterestingLocation(Loc)) {
-      return true;
-    }
-
     // If we are in a template and find a Stmt that was registed in
     // ForwardedTemplateLocations, convert the location to an actual Stmt* in
     // ForwardingTemplates
@@ -2159,6 +2154,11 @@ public:
             {getCurrentFunctionTemplateInstantiation(), E});
         return true;
       }
+    }
+
+    SourceLocation Loc = E->getBeginLoc();
+    if (!isInterestingLocation(Loc)) {
+      return true;
     }
 
     return VisitCXXConstructExpr(E, Loc);
@@ -2556,12 +2556,6 @@ public:
   }
 
   bool VisitCXXNewExpr(CXXNewExpr *N) {
-    SourceLocation Loc = N->getExprLoc();
-    normalizeLocation(&Loc);
-    if (!isInterestingLocation(Loc)) {
-      return true;
-    }
-
     // If we are in a template and the new is type-dependent, register it in
     // ForwardedTemplateLocations to forward its uses to the surrounding
     // template call site

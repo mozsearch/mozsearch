@@ -54,6 +54,8 @@ void test() {
   const auto n = MakeUniqueWithLambda<StructUsedInTypeDependentNew0>();
   const auto o = MakeUniqueWithLambda<StructUsedInTypeDependentNew1>();
   const auto p = MakeUniqueWithLambda<StructUsedInTypeDependentNew1>();
+
+  const auto stl = std::make_unique<StructUsedInTypeDependentNew0>();
 }
 
 template <typename T>
