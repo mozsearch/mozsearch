@@ -615,6 +615,12 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td><a href="/tests/source/template_specialization.cpp" class="mimetype-fixed-container mimetype-icon-cpp">template_specialization.cpp</a></td>
+          <td class="description"><a href="/tests/source/template_specialization.cpp" title=""></td>
+          <td><a href="/tests/source/template_specialization.cpp">288</a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/templates_nsTArray.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates_nsTArray.cpp</a></td>
           <td class="description"><a href="/tests/source/templates_nsTArray.cpp" title=""></td>
           <td><a href="/tests/source/templates_nsTArray.cpp">123</a></td>

@@ -1,0 +1,42 @@
+---
+source: tests/test_check_insta.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00002:14-27",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (void)",
+    "pretty": "function SomeStruct::some_function",
+    "sym": "_ZN10SomeStruct13some_functionEv"
+  },
+  {
+    "loc": "00002:14-27",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "SomeStruct::some_function",
+    "sym": "_ZN10SomeStruct13some_functionEv",
+    "context": "SomeStruct",
+    "contextsym": "T_SomeStruct",
+    "peekRange": "2-2"
+  },
+  {
+    "loc": "00010:35-48",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (void)",
+    "pretty": "function SomeStruct::some_function",
+    "sym": "_ZN10SomeStruct13some_functionEv"
+  },
+  {
+    "loc": "00010:35-48",
+    "target": 1,
+    "kind": "use",
+    "pretty": "SomeStruct::some_function",
+    "sym": "_ZN10SomeStruct13some_functionEv",
+    "context": "SomeTemplate<int, type-parameter-0-0>::call_function",
+    "contextsym": "_ZN12SomeTemplateIiT_E13call_functionEv"
+  }
+]

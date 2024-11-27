@@ -1181,6 +1181,15 @@ public:
     AutoTemplateContext Atc(this);
     Super::TraverseClassTemplateDecl(D);
 
+    // Gather dependent locations from partial specializations too
+    SmallVector<ClassTemplatePartialSpecializationDecl *> PS;
+    D->getPartialSpecializations(PS);
+    for (auto *Spec : PS) {
+      for (auto *Rd : Spec->redecls()) {
+        TraverseDecl(Rd);
+      }
+    }
+
     if (!Atc.needsAnalysis()) {
       return true;
     }
