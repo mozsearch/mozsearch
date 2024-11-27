@@ -2197,8 +2197,10 @@ public:
     if (TemplateStack && !TemplateStack->inGatherMode()) {
       if (ForwardedTemplateLocations.find(E->getBeginLoc().getRawEncoding()) !=
           ForwardedTemplateLocations.end()) {
-        ForwardingTemplates.insert(
-            {getCurrentFunctionTemplateInstantiation(), E});
+        if (const auto *currentTemplate =
+                getCurrentFunctionTemplateInstantiation()) {
+          ForwardingTemplates.insert({currentTemplate, E});
+        }
         return true;
       }
     }
@@ -2264,8 +2266,10 @@ public:
       } else {
         if (ForwardedTemplateLocations.find(CalleeLocation.getRawEncoding()) !=
             ForwardedTemplateLocations.end()) {
-          ForwardingTemplates.insert(
-              {getCurrentFunctionTemplateInstantiation(), E});
+          if (const auto *currentTemplate =
+                  getCurrentFunctionTemplateInstantiation()) {
+            ForwardingTemplates.insert({currentTemplate, E});
+          }
         }
       }
     }
