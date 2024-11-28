@@ -21,7 +21,7 @@ snapshot_kind: text
     "peekRange": "48-48"
   },
   {
-    "loc": "00057:2-6",
+    "loc": "00058:2-6",
     "source": 1,
     "syntax": "use,function",
     "type": "void (void)",
@@ -32,7 +32,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00057:2-6",
+    "loc": "00058:2-6",
     "target": 1,
     "kind": "use",
     "pretty": "internal::Read",
