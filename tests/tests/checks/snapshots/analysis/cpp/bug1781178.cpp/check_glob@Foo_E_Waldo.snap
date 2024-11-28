@@ -44,7 +44,7 @@ snapshot_kind: text
     "contextsym": "_ZN3Foo3BarEv"
   },
   {
-    "loc": "00070:23-28",
+    "loc": "00071:23-28",
     "source": 1,
     "syntax": "use,enum",
     "type": "enum Foo<int>::E",
@@ -53,7 +53,7 @@ snapshot_kind: text
     "sym": "E_<T_Foo::E>_Waldo"
   },
   {
-    "loc": "00070:23-28",
+    "loc": "00071:23-28",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::E::Waldo",

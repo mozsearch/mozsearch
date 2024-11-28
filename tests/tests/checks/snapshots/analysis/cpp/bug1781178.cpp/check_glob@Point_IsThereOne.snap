@@ -43,7 +43,7 @@ snapshot_kind: text
     "contextsym": "_Z12TemplateFuncN3FooIT_E7TypedefE"
   },
   {
-    "loc": "00065:21-31",
+    "loc": "00066:21-31",
     "source": 1,
     "syntax": "use,function",
     "type": "_Bool (void)",
@@ -54,7 +54,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00065:21-31",
+    "loc": "00066:21-31",
     "target": 1,
     "kind": "use",
     "pretty": "Point::IsThereOne",
