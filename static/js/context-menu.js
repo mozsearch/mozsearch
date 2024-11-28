@@ -393,7 +393,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       }
 
       let symbols = symbolToken.getAttribute("data-symbols").split(",");
-      const confidences = JSON.parse(symbolToken.getAttribute("data-confidences"));
+      let confidences = JSON.parse(symbolToken.getAttribute("data-confidences"));
+      // if data-confidences is missing, assume everything is concrete
+      if (!confidences) {
+        confidences = Array(symbols.length);
+        confidences.fill("concrete");
+      }
 
       const seenSyms = new Set();
       // For debugging/investigation purposes, expose the symbols that got
