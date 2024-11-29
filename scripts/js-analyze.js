@@ -280,7 +280,13 @@ const FILENAME_INTERVENTIONS = [
     includes_list: ["/wubkat/"],
     severity: "INFO",
     prepend: "Wubkat failsafe: "
-  }
+  },
+  {
+    includes_list: ["devtools/client/debugger/test/mochitest/examples/inline-preview.js",
+                    "devtools/client/debugger/test/mochitest/examples/preview.js"],
+    severity: "INFO",
+    prepend: "It may contain experimental syntax: ",
+  },
 ];
 
 function logError(msg)
