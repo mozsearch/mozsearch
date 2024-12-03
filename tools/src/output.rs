@@ -371,6 +371,11 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
+                    let data_accel = if let Some(key) = item.accel_key {
+                        format!(r#" data-accel="{key}""#)
+                    } else {
+                        String::new()
+                    };
                     let is_link = !item.link.is_empty();
                     let copy = if item.copyable {
                         if is_link {
@@ -393,8 +398,16 @@ pub fn generate_panel(
                     F::Seq(vec![
                         F::S("<li>"),
                         F::T(format!(
-                            r#"<{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
-                            tag, href, item.title, update_attr, item.title, accel, copy, tag
+                            r#"<{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
+                            tag,
+                            href,
+                            data_accel,
+                            item.title,
+                            update_attr,
+                            item.title,
+                            accel,
+                            copy,
+                            tag
                         )),
                         F::S("</li>"),
                     ])
