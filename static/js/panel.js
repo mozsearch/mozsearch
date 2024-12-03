@@ -13,8 +13,6 @@ var Panel = new (class Panel {
 
     this.permalinkNode = this.findItem("Permalink");
     this.unpermalinkNode = this.findItem("Remove the Permalink");
-    this.logNode = this.findItem("Log");
-    this.rawNode = this.findItem("Raw");
 
     this.selectedSymbol = null;
 

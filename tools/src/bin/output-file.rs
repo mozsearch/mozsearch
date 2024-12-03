@@ -335,22 +335,56 @@ fn main() {
                     accel_key: None,
                     copyable: false,
                 });
-                if let Some(ref hg_root) = tree_config.paths.hg_root {
+
+                let gh_log_link = tree_config
+                    .paths
+                    .github_repo
+                    .as_ref()
+                    .map(|gh_root| format!("{}/commits/HEAD/{}", gh_root, encoded_path));
+                let hg_log_link = tree_config
+                    .paths
+                    .hg_root
+                    .as_ref()
+                    .map(|hg_root| format!("{}/log/tip/{}", hg_root, encoded_path));
+                if let Some(link) = gh_log_link {
                     vcs_panel_items.push(PanelItem {
-                        title: "Log".to_owned(),
-                        link: format!("{}/log/tip/{}", hg_root, encoded_path),
+                        title: "Git log".to_owned(),
+                        link,
+                        update_link_lineno: "",
+                        accel_key: hg_log_link.is_none().then_some('L'),
+                        copyable: true,
+                    });
+                }
+                if let Some(link) = hg_log_link {
+                    vcs_panel_items.push(PanelItem {
+                        title: "Mercurial log".to_owned(),
+                        link,
                         update_link_lineno: "",
                         accel_key: Some('L'),
                         copyable: true,
                     });
+                }
+
+                let gh_raw_link = tree_config
+                    .paths
+                    .github_repo
+                    .as_ref()
+                    .map(|gh_root| format!("{}/raw/HEAD/{}", gh_root, encoded_path));
+                let hg_raw_link = tree_config
+                    .paths
+                    .hg_root
+                    .as_ref()
+                    .map(|hg_root| format!("{}/raw-file/tip/{}", hg_root, encoded_path));
+                if let Some(link) = gh_raw_link.or(hg_raw_link) {
                     vcs_panel_items.push(PanelItem {
                         title: "Raw".to_owned(),
-                        link: format!("{}/raw-file/tip/{}", hg_root, encoded_path),
+                        link,
                         update_link_lineno: "",
                         accel_key: Some('R'),
                         copyable: true,
                     });
                 }
+
                 if tree_config.paths.git_blame_path.is_some() {
                     vcs_panel_items.push(PanelItem {
                         title: "Blame".to_owned(),
