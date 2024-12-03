@@ -198,6 +198,10 @@ var Panel = new (class Panel {
     return this.panel.querySelector(`.item[title="${title}"]`);
   }
 
+  findAccel(key) {
+    return this.panel.querySelector(`.item[data-accel="${key}"]`);
+  }
+
   maybeHandleAccelerator(event) {
     if (!this.acceleratorsEnabled) {
       return;
@@ -213,22 +217,22 @@ var Panel = new (class Panel {
       switch (event.key) {
         case "y":
         case "Y":
-          return this.permalinkNode;
+          return this.findAccel('Y');
         case "l":
         case "L":
-          return this.logNode;
+          return this.findAccel('L');
         case "r":
         case "R":
-          return this.rawNode;
+          return this.findAccel('R');
         case "f":
         case "F":
-          return this.markdown.filename.node;
+          return this.findAccel('F');
         case "s":
         case "S":
-          return this.markdown.symbol.node;
+          return this.findAccel('S');
         case "c":
         case "C":
-          return this.markdown.block.node;
+          return this.findAccel('C');
       }
     })();
 
