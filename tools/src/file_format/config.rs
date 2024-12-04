@@ -164,8 +164,9 @@ pub struct Config {
     pub trees: BTreeMap<String, TreeConfig>,
     pub mozsearch_path: String,
     pub config_repo_path: String,
-    // FIXME: Move this to TreeConfig.
+    // FIXME: Move these to TreeConfig.
     pub url_map_path: Option<String>,
+    pub doc_trees_path: Option<String>,
 }
 
 impl Config {
@@ -260,6 +261,7 @@ pub fn load(
     need_indexes: bool,
     only_tree: Option<&str>,
     url_map_path: Option<String>,
+    doc_trees_path: Option<String>,
 ) -> Config {
     let config_file = File::open(config_path).unwrap();
     let mut reader = BufReader::new(&config_file);
@@ -322,6 +324,7 @@ pub fn load(
         mozsearch_path: config.mozsearch_path,
         config_repo_path: config.config_repo,
         url_map_path,
+        doc_trees_path,
     }
 }
 

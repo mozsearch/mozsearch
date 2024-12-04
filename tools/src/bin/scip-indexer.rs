@@ -1442,7 +1442,7 @@ fn main() {
     let cli = ScipIndexerCli::parse();
 
     let tree_name = &cli.tree_name;
-    let cfg = config::load(&cli.config_file, false, Some(tree_name), None);
+    let cfg = config::load(&cli.config_file, false, Some(tree_name), None, None);
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     for file in cli.inputs {

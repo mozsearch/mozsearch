@@ -73,6 +73,7 @@ $MOZSEARCH_PATH/scripts/objdir-mkdirs.sh
 date
 
 URL_MAP_PATH=$INDEX_ROOT/aliases/url-map.json
+DOC_TREES_MAP=$INDEX_ROOT/doc-trees.json
 
 $MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $URL_MAP_PATH $INDEX_ROOT/*.chrome-map.json || handle_tree_error "process-chrome-map.py"
 
@@ -123,7 +124,7 @@ $MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH
 
 date
 
-$MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME $URL_MAP_PATH || handle_tree_error "output.sh"
+$MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME $URL_MAP_PATH $DOC_TREES_MAP || handle_tree_error "output.sh"
 
 date
 

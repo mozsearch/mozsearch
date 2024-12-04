@@ -259,7 +259,7 @@ fn handle(
 fn main() {
     env_logger::init();
 
-    let cfg = config::load(&env::args().nth(1).unwrap(), true, None, None);
+    let cfg = config::load(&env::args().nth(1).unwrap(), true, None, None, None);
 
     let ident_map = IdentMap::load(&cfg);
 

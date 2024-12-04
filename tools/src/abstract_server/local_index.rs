@@ -486,7 +486,7 @@ pub fn make_local_server(
     config_path: &str,
     tree_name: &str,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
-    let mut config = load(config_path, false, Some(tree_name), None);
+    let mut config = load(config_path, false, Some(tree_name), None, None);
     let tree_config = match config.trees.remove(tree_name) {
         Some(t) => t,
         None => {
@@ -503,7 +503,7 @@ pub fn make_local_server(
 pub fn make_all_local_servers(
     config_path: &str,
 ) -> Result<BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>> {
-    let config = load(config_path, false, None, None);
+    let config = load(config_path, false, None, None, None);
     let mut servers = BTreeMap::new();
     for (tree_name, tree_config) in config.trees {
         let server = fab_server(tree_config, &tree_name, &config.config_repo_path)?;

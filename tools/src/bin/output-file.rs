@@ -25,6 +25,7 @@ extern crate env_logger;
 extern crate log;
 extern crate tools;
 use crate::languages::FormatAs;
+use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::crossref_lookup::CrossrefLookupMap;
 use tools::format::{create_markdown_panel_section, format_file_data};
@@ -42,7 +43,7 @@ fn main() {
 
     let args: Vec<_> = env::args().collect();
     // TODO: refactor _fname_args out of existence; we now require paths to come via stdin.
-    let (base_args, _fname_args) = args.split_at(4);
+    let (base_args, _fname_args) = args.split_at(5);
 
     let mut stdout = io::stdout().lock();
 
@@ -53,6 +54,7 @@ fn main() {
         true,
         Some(tree_name),
         Some(base_args[3].to_string()),
+        Some(base_args[4].to_string()),
     );
     writeln!(
         stdout,
@@ -426,11 +428,25 @@ fn main() {
                 copyable: false,
             });
         }
-        if let Some(ref github) = tree_config.paths.github_repo {
-            match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
-                Some("md") | Some("rst") => {
+
+        match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
+            Some("md") | Some("rst") => {
+                match find_doc_url(&cfg, path.as_str()) {
+                    Some(url) => {
+                        tools_items.push(PanelItem {
+                            title: "Source Docs".to_owned(),
+                            link: url,
+                            update_link_lineno: "",
+                            accel_key: None,
+                            copyable: false,
+                        });
+                    }
+                    None => {}
+                }
+
+                if let Some(ref github) = tree_config.paths.github_repo {
                     tools_items.push(PanelItem {
-                        title: "Rendered view".to_owned(),
+                        title: "GitHub Rendered view".to_owned(),
                         link: format!(
                             "{}/blob/{}/{}",
                             github,
@@ -442,8 +458,8 @@ fn main() {
                         copyable: false,
                     });
                 }
-                _ => (),
-            };
+            }
+            _ => {}
         }
 
         let liquid_globals = liquid::object!({
