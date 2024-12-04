@@ -15,6 +15,8 @@ pub mod crossref_converter;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod crossref_lookup;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod doc_trees;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod globbing_file_list;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod identifiers;
