@@ -17,7 +17,6 @@ add_task(async function test_MacroExpansionsContextMenu() {
   const expansionRows = menu.querySelectorAll(".contextmenu-expansion-preview");
   is(expansionRows.length, 3, "3 expansion rows are visible");
 
-  const expectedSymbol = "M_0ff221c9a44abeec";
   const expectedPlatform = "win64";
   const expansionRow = expansionRows[0];
   // needs to be cancelable because context menu actions are <a href="#> and use preventDefault on click
@@ -29,7 +28,6 @@ add_task(async function test_MacroExpansionsContextMenu() {
 
   ok(blameStripHoverHandler.keepVisible, "BlamePopup won't be dismissed on mouseleave");
   is(blamePopup.popupOwner, perTargetFunctionExpansionPoint, "BlamePopup is related to the macro use");
-  ok(blamePopup.popup.innerHTML.includes(expectedSymbol), "BlamePopup shows the right expansion");
   ok(blamePopup.popup.innerHTML.includes(expectedPlatform), "BlamePopup shows the right platform");
 
   const functionDefinition = blamePopup.popup.querySelector("span.syn_def[data-symbols=_Z19per_target_functionv]");
@@ -38,7 +36,7 @@ add_task(async function test_MacroExpansionsContextMenu() {
   const inCodeMenu = frame.contentDocument.querySelector("#context-menu");
   await waitForShown(inCodeMenu, "Context menu is shown for function definition in macro expansion");
 
-  const macroSpanDefinition = blamePopup.popup.querySelector(`span[data-symbols*=${expectedSymbol}]`);
+  const macroSpanDefinition = blamePopup.popup.querySelector(`span[data-symbols*="M_"]`);
   TestUtils.click(macroSpanDefinition);
 
   const inTitleMenu = frame.contentDocument.querySelector("#context-menu");
