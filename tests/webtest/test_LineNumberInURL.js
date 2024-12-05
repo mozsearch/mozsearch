@@ -38,8 +38,8 @@ add_task(async function test_LinNumberInUrl() {
      "#3-4,6-7,9-11",
      "Meta click deselects line");
 
-  TestUtils.selectLine(12);
+  TestUtils.selectLine(11);
   is(frame.contentDocument.location.hash,
-     "#12",
+     "#11",
      "Normal click deselects all lines and select the clicked line");
 });
