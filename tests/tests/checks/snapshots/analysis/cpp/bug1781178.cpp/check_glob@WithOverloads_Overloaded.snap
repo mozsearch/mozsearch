@@ -5,7 +5,7 @@ snapshot_kind: text
 ---
 [
   {
-    "loc": "00076:14-24",
+    "loc": "00077:14-24",
     "source": 1,
     "syntax": "decl,function",
     "type": "void (int)",
@@ -13,29 +13,11 @@ snapshot_kind: text
     "sym": "_ZN13WithOverloads10OverloadedEi"
   },
   {
-    "loc": "00076:14-24",
+    "loc": "00077:14-24",
     "target": 1,
     "kind": "decl",
     "pretty": "WithOverloads::Overloaded",
     "sym": "_ZN13WithOverloads10OverloadedEi",
-    "context": "WithOverloads",
-    "contextsym": "T_WithOverloads",
-    "peekRange": "76-76"
-  },
-  {
-    "loc": "00077:14-24",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (float)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEf"
-  },
-  {
-    "loc": "00077:14-24",
-    "target": 1,
-    "kind": "decl",
-    "pretty": "WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEf",
     "context": "WithOverloads",
     "contextsym": "T_WithOverloads",
     "peekRange": "77-77"
@@ -44,22 +26,40 @@ snapshot_kind: text
     "loc": "00078:14-24",
     "source": 1,
     "syntax": "decl,function",
-    "type": "void (_Bool)",
+    "type": "void (float)",
     "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEb"
+    "sym": "_ZN13WithOverloads10OverloadedEf"
   },
   {
     "loc": "00078:14-24",
     "target": 1,
     "kind": "decl",
     "pretty": "WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEb",
+    "sym": "_ZN13WithOverloads10OverloadedEf",
     "context": "WithOverloads",
     "contextsym": "T_WithOverloads",
     "peekRange": "78-78"
   },
   {
-    "loc": "00082:4-14",
+    "loc": "00079:14-24",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (_Bool)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb"
+  },
+  {
+    "loc": "00079:14-24",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb",
+    "context": "WithOverloads",
+    "contextsym": "T_WithOverloads",
+    "peekRange": "79-79"
+  },
+  {
+    "loc": "00083:4-14",
     "source": 1,
     "syntax": "use,function",
     "type": "void (_Bool)",
@@ -70,7 +70,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00082:4-14",
+    "loc": "00083:4-14",
     "source": 1,
     "syntax": "use,function",
     "type": "void (float)",
@@ -81,7 +81,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00082:4-14",
+    "loc": "00083:4-14",
     "source": 1,
     "syntax": "use,function",
     "type": "void (int)",
@@ -92,7 +92,7 @@ snapshot_kind: text
     ]
   },
   {
-    "loc": "00082:4-14",
+    "loc": "00083:4-14",
     "source": 1,
     "syntax": "use,function",
     "type": "void (int)",
@@ -100,7 +100,7 @@ snapshot_kind: text
     "sym": "_ZN13WithOverloads10OverloadedEi"
   },
   {
-    "loc": "00082:4-14",
+    "loc": "00083:4-14",
     "target": 1,
     "kind": "use",
     "pretty": "WithOverloads::Overloaded",
@@ -109,7 +109,7 @@ snapshot_kind: text
     "contextsym": "_ZN13WithOverloads6CallerEv"
   },
   {
-    "loc": "00082:4-14",
+    "loc": "00083:4-14",
     "target": 1,
     "kind": "use",
     "pretty": "WithOverloads::Overloaded",
@@ -118,7 +118,7 @@ snapshot_kind: text
     "contextsym": "_ZN13WithOverloads6CallerEv"
   },
   {
-    "loc": "00082:4-14",
+    "loc": "00083:4-14",
     "target": 1,
     "kind": "use",
     "pretty": "WithOverloads::Overloaded",

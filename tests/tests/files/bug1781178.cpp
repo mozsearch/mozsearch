@@ -55,6 +55,7 @@ void TemplateFunc(typename Foo<T>::Typedef) {
 
   using internal::Read;
   Read(p);
+  Read();
 }
 
 template <typename T>
