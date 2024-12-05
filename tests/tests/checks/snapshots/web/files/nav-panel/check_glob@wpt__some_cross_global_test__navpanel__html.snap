@@ -1,6 +1,7 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&fb.contents"
+snapshot_kind: text
 ---
 <div class="panel" id="panel">
   <button id="panel-toggle">
@@ -19,13 +20,13 @@ expression: "&fb.contents"
   <h4>Copy as Markdown</h4>
   <ul>
   <li>
-  <button title="Filename Link" class="icon item">Filename Link <span class="accel">F</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  <button data-accel="F" title="Filename Link" class="icon item">Filename Link <span class="accel">F</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
   </li>
   <li>
-  <button title="Symbol Link" class="icon item">Symbol Link <span class="accel">S</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  <button data-accel="S" title="Symbol Link" class="icon item">Symbol Link <span class="accel">S</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
   </li>
   <li>
-  <button title="Code Block" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  <button data-accel="C" title="Code Block" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
   </li>
   </ul>
   </section>
