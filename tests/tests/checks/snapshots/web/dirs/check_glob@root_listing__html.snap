@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&fb.contents"
-snapshot_kind: text
 ---
 <!DOCTYPE html>
 <html lang="en-US">
@@ -280,6 +279,12 @@ snapshot_kind: text
           <td><a href="/tests/source/css" class="mimetype-fixed-container mimetype-icon-folder">css</a></td>
           <td class="description"><a href="/tests/source/css" title=""></td>
           <td><a href="/tests/source/css"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/docs" class="mimetype-fixed-container mimetype-icon-folder">docs</a></td>
+          <td class="description"><a href="/tests/source/docs" title=""></td>
+          <td><a href="/tests/source/docs"></a></td>
         </tr>
 
         <tr>
