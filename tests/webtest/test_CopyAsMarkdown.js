@@ -114,7 +114,7 @@ add_task(async function test_CopyAsMarkdown() {
   ok(!codeButton.disabled, "Code Block should be enabled when a line is selected");
 
   // Select the method
-  TestUtils.selectLine(15);
+  TestUtils.selectLine(14);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when the selected line is inside a nesting line");
@@ -122,11 +122,11 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(symbolButton);
   is(sanitizeURL(copiedText),
-     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#15)",
+     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#14)",
      "Method symbol is copied");
 
   // Select the local variable
-  TestUtils.selectLine(19);
+  TestUtils.selectLine(17);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(!symbolButton.disabled, "Symbol Link should be enabled when the selected line is inside a nesting line");
@@ -134,7 +134,7 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(symbolButton);
   is(sanitizeURL(copiedText),
-     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#19)",
+     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#17)",
      "Method symbol is copied instead of local variable symbol");
 
   // Shift-select from the start of the class to the currently selected local variable.
@@ -146,14 +146,12 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(codeButton);
   is(copiedText.replace(/https?:\/\/[^\/]+\//, "BASE_URL/"),
-     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#11-19\n" +
+     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#11-17\n" +
      "```cpp\n" +
      "class CopyAsMarkdown {\n" +
-     "\n" +
      "  // Comment inside class.\n" +
      "\n" +
      "  void SomeMethod() {\n" +
-     "\n" +
      "    // Comment inside method.\n" +
      "\n" +
      "    bool LocalVariable = true;\n" +
@@ -161,16 +159,15 @@ add_task(async function test_CopyAsMarkdown() {
      "Code block with multiple lines are copied");
 
   // Select lines inside a block
-  TestUtils.selectLine(15);
+  TestUtils.selectLine(14);
+  TestUtils.selectLine(15, { bubbles: true, metaKey: true });
   TestUtils.selectLine(17, { bubbles: true, metaKey: true });
-  TestUtils.selectLine(19, { bubbles: true, metaKey: true });
 
   TestUtils.click(codeButton);
   is(copiedText.replace(/https?:\/\/[^\/]+\//, "BASE_URL/"),
-     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#15,17,19\n" +
+     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#14-15,17\n" +
      "```cpp\n" +
      "void SomeMethod() {\n" +
-     "...\n" +
      "  // Comment inside method.\n" +
      "...\n" +
      "  bool LocalVariable = true;\n" +
@@ -229,7 +226,7 @@ add_task(async function test_CopyAsMarkdown_clicked() {
     TestUtils.click(symbolButton);
     if (enabled) {
       is(sanitizeURL(copiedText),
-         "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#5,15)",
+         "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#5,14)",
          "Method symbol is copied if clicked-symbol is enabled, with global variable line number in URL");
     } else {
       is(sanitizeURL(copiedText),
