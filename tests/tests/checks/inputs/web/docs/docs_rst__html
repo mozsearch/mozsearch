@@ -1,0 +1,1 @@
+cat-html docs/rst_test/index.rst --select "#panel a[href*=\"firefox-source-docs\"]"
