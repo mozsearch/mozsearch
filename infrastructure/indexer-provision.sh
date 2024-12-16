@@ -29,7 +29,14 @@ cargo install cargo-insta
 # invaluable when trying to just get things to work when packages are involved
 # that may involve native modules/libraries which can make it hard to uniformly
 # use the latest revision.  I'm somewhat hopeful that
-cargo install mise
+#
+# We are currently installing an older version of mise because as of 2014-12-15
+# rust nightly has problems with usage-lib related to miette.  The version
+# 2024.10.1 was specifically chosen because it was the version we were using on
+# the last successful provision.  The include graph for this seems potentially
+# way more than we need to be able to run node, so I think we will want to drop
+# this dep in the future absent some very good reason.
+cargo install mise@2024.10.1
 
 # Install node.js for scip-typescript; github lists v18 and v20 as supported;
 # we are sticking with v18 for now because currently all the invocations
