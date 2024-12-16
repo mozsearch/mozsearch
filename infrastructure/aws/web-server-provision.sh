@@ -49,7 +49,8 @@ popd
 
 date
 
-# Size up our root partition to 12G
+# Size up our root partition to 16G.  This is up from 12G when we were hitting
+# the limit for the self-update process during the rust build.
 #
 # To this end we need to know the volume id in order to issue an EBS resizing
 # command.  Note that the select constraint here is intended more as a check
@@ -61,7 +62,7 @@ ROOT_DEV=$(jq -M -r '.DevicePath' <<< "$ROOT_DEV_INFO")
 
 AWS_REGION=us-west-2
 # The size is in gigs.
-aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 12
+aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 16
 
 # We use an until loop because it can take some time for the change to
 # propagate to this VM.  The error will look like:
