@@ -21,7 +21,7 @@
         rustToolchain = pkgs.fenix.stable.toolchain;
 
         # A symlink from `docker` to `podman`, because the scripts call `docker`.
-        dockerCompat = pkgs.runCommandNoCC "docker-podman-compat" {} ''
+        dockerCompat = pkgs.runCommand "docker-podman-compat" {} ''
           mkdir -p $out/bin
           ln -s ${pkgs.podman}/bin/podman $out/bin/docker
         '';
@@ -57,7 +57,7 @@
             pkg-config
 
             # Must be before (unwrapped) clang in path
-            clang-tools_19
+            llvmPackages_19.clang-tools
 
             # Dependencies required to build clang-plugin
             clang_19
