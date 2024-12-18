@@ -40,6 +40,10 @@ jobs:
       - name: Indexer Provision
         run: $GITHUB_WORKSPACE/infrastructure/indexer-provision.sh
         working-directory: /home/runner
+      - name: Set Clang plugin path
+        run: echo "MOZSEARCH_CLANG_PLUGIN_DIR=/nix/var/nix/profiles/default/lib" >> "$GITHUB_ENV"
+      - name: Set wasm analyzer path
+        run: echo "MOZSEARCH_WASM_DIR=/nix/var/nix/profiles/default/share/wasm-css-analyzer" >> "$GITHUB_ENV"
       - name: Web Server Provision
         run: $GITHUB_WORKSPACE/infrastructure/web-server-provision.sh
         working-directory: /home/runner
@@ -54,16 +58,6 @@ jobs:
         run: echo "$HOME/livegrep-venv/bin" >> "$GITHUB_PATH"
       - name: Give www-data access to the user's home directory
         run: chmod a+rx ~
-
-      # Bulding
-      - name: Build Clang plugin
-        run: make -C $GITHUB_WORKSPACE/clang-plugin
-      - name: Set Clang plugin path
-        run: echo "MOZSEARCH_CLANG_PLUGIN_DIR=$GITHUB_WORKSPACE/clang-plugin" >> "$GITHUB_ENV"
-      - name: Build Rust tools
-        run: make -C $GITHUB_WORKSPACE build-rust-tools
-      - name: Set wasm analyzer path
-        run: echo "MOZSEARCH_WASM_DIR=$GITHUB_WORKSPACE/scripts/web-analyze/wasm-css-analyzer/out" >> "$GITHUB_ENV"
 
       # Test repo
       - run: mkdir ~/index

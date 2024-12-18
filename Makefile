@@ -8,23 +8,13 @@ help:
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison favicon internal-check-vars internal-build-repo internal-serve-repo internal-test-repo
+.PHONY: help check-in-vagrant update-indexer-packages build-test-repo build-mozilla-repo baseline comparison favicon internal-check-vars internal-build-repo internal-serve-repo internal-test-repo
 
 check-in-vagrant:
 	@[ -d /vagrant ] || (echo "This command must be run inside the vagrant instance" > /dev/stderr; exit 1)
 
-build-clang-plugin: check-in-vagrant
-	$(MAKE) -C clang-plugin build_with_version_check
-
-# This can be built outside the vagrant instance too
-# We specify "--all-targets" in order to minimize rebuilding required when we invoke
-# `cargo test` to validate the build.
-build-rust-tools:
-	cd tools && CARGO_INCREMENTAL=1 cargo install --locked --path .
-	cd scripts/web-analyze/wasm-css-analyzer && ./build.sh
-
-test-rust-tools:
-	cd tools && cargo test --release --verbose
+update-indexer-packages: check-in-vagrant
+	sudo -i nix profile upgrade indexerPackages serverPackages --accept-flake-config
 
 # Building blocks for building/serving/testing repositories.
 # They use different environment variable than the infrastructure scripts,
@@ -55,12 +45,12 @@ build-test-repo: _INDEX_ROOT=~/index
 build-test-repo: _CONFIG_REPO=/vagrant/tests
 build-test-repo: _CONFIG_NAME=config.json
 build-test-repo: export CHECK_WARNINGS=1
-build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo internal-test-repo
+build-test-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo internal-test-repo
 
 serve-test-repo: _INDEX_ROOT=~/index
 serve-test-repo: _CONFIG_REPO=/vagrant/tests
 serve-test-repo: _CONFIG_NAME=config.json
-serve-test-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-test-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 check-test-repo: _INDEX_ROOT=~/index
 check-test-repo: _CONFIG_REPO=/vagrant/tests
@@ -101,7 +91,7 @@ build-searchfox-repo: _CONFIG_REPO=/vagrant/tests
 build-searchfox-repo: _CONFIG_NAME=searchfox-config.json
 build-searchfox-repo: export CHECK_WARNINGS=1
 build-searchfox-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
-build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-searchfox-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 # Notes:
 # - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
@@ -110,12 +100,12 @@ build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools inter
 build-mozilla-repo: _INDEX_ROOT=~/mozilla-index
 build-mozilla-repo: _CONFIG_REPO=/vagrant/config
 build-mozilla-repo: _CONFIG_NAME=just-mc.json
-build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-mozilla-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 serve-mozilla-repo: _INDEX_ROOT=~/mozilla-index
 serve-mozilla-repo: _CONFIG_REPO=/vagrant/config
 serve-mozilla-repo: _CONFIG_NAME=just-mc.json
-serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-mozilla-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 # Notes:
 # - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
@@ -124,12 +114,12 @@ serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools interna
 build-firefox-repo: _INDEX_ROOT=~/firefox-index
 build-firefox-repo: _CONFIG_REPO=/vagrant/config
 build-firefox-repo: _CONFIG_NAME=just-fm.json
-build-firefox-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-firefox-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 serve-firefox-repo: _INDEX_ROOT=~/firefox-index
 serve-firefox-repo: _CONFIG_REPO=/vagrant/config
 serve-firefox-repo: _CONFIG_NAME=just-fm.json
-serve-firefox-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-firefox-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 # This builds both mozsearch and mozsearch-mozilla using the trees as they exist
 # on github rather than your local copies.  This differs from the
@@ -141,59 +131,59 @@ serve-firefox-repo: check-in-vagrant build-clang-plugin build-rust-tools interna
 build-mozsearch-repo: _INDEX_ROOT=~/mozsearch-index
 build-mozsearch-repo: _CONFIG_REPO=/vagrant/config
 build-mozsearch-repo: _CONFIG_NAME=just-mozsearch.json
-build-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-mozsearch-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 serve-mozsearch-repo: _INDEX_ROOT=~/mozsearch-index
 serve-mozsearch-repo: _CONFIG_REPO=/vagrant/config
 serve-mozsearch-repo: _CONFIG_NAME=just-mozsearch.json
-serve-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-mozsearch-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 build-blonk-repo: _INDEX_ROOT=~/blonk-index
 build-blonk-repo: _CONFIG_REPO=/vagrant/config
 build-blonk-repo: _CONFIG_NAME=config6.json
-build-blonk-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-blonk-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 serve-blonk-repo: _INDEX_ROOT=~/blonk-index
 serve-blonk-repo: _CONFIG_REPO=/vagrant/config
 serve-blonk-repo: _CONFIG_NAME=config6.json
-serve-blonk-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-blonk-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 build-llvm-repo: _INDEX_ROOT=~/llvm-index
 build-llvm-repo: _CONFIG_REPO=/vagrant/config
 build-llvm-repo: _CONFIG_NAME=just-llvm.json
-build-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-llvm-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 serve-llvm-repo: _INDEX_ROOT=~/llvm-index
 serve-llvm-repo: _CONFIG_REPO=/vagrant/config
 serve-llvm-repo: _CONFIG_NAME=just-llvm.json
-serve-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-llvm-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 build-graphviz-repo: _INDEX_ROOT=~/graphviz-index
 build-graphviz-repo: _CONFIG_REPO=/vagrant/config
 build-graphviz-repo: _CONFIG_NAME=just-graphviz.json
-build-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-graphviz-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 serve-graphviz-repo: _INDEX_ROOT=~/graphviz-index
 serve-graphviz-repo: _CONFIG_REPO=/vagrant/config
 serve-graphviz-repo: _CONFIG_NAME=just-graphviz.json
-serve-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-graphviz-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 build-trees: _INDEX_ROOT=~/trees-index
 build-trees: _CONFIG_REPO=/vagrant/tree-configs
 build-trees: _CONFIG_NAME=config.json
-build-trees: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo internal-test-repo
+build-trees: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo internal-test-repo
 
 serve-trees: _INDEX_ROOT=~/trees-index
 serve-trees: _CONFIG_REPO=/vagrant/tree-configs
 serve-trees: _CONFIG_NAME=config.json
-serve-trees: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-trees: check-in-vagrant update-indexer-packages internal-serve-repo
 
 trypush: _INDEX_ROOT=~/trypush-index
 trypush: _CONFIG_REPO=/vagrant/config
 trypush: _CONFIG_NAME=just-fm.json
-trypush: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+trypush: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
-nss-reblame: check-in-vagrant build-rust-tools
+nss-reblame: check-in-vagrant update-indexer-packages
 	mkdir -p ~/reblame
 	/vagrant/infrastructure/reblame-run.sh /vagrant/config just-nss.json ~/reblame
 
@@ -210,7 +200,7 @@ baseline: _INDEX_ROOT=~/diffable
 baseline: _CONFIG_REPO=/vagrant/tests
 baseline: _CONFIG_NAME=config.json
 baseline: export MOZSEARCH_DIFFABLE=1
-baseline: check-in-vagrant build-clang-plugin build-rust-tools baseline-prep internal-build-repo
+baseline: check-in-vagrant update-indexer-packages baseline-prep internal-build-repo
 	mv ~/diffable ~/baseline
 
 comparison-prep:
@@ -220,7 +210,7 @@ comparison: _INDEX_ROOT=~/diffable
 comparison: _CONFIG_REPO=/vagrant/tests
 comparison: _CONFIG_NAME=config.json
 comparison: export MOZSEARCH_DIFFABLE=1
-comparison: check-in-vagrant build-clang-plugin build-rust-tools comparison-prep internal-build-repo
+comparison: check-in-vagrant update-indexer-packages comparison-prep internal-build-repo
 	mv ~/diffable ~/modified
 	@echo "------------------- Below is the diff between baseline and modified. ---------------------"
 	diff -u -r -x objdir ~/baseline/tests ~/modified/tests || true
@@ -232,13 +222,13 @@ build-webtest-repo: _CONFIG_REPO=/vagrant/tests
 build-webtest-repo: _CONFIG_NAME=webtest-config.json
 build-webtest-repo: export CHECK_WARNINGS=1
 build-webtest-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
-build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
+build-webtest-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
 serve-webtest-repo: _INDEX_ROOT=~/index
 serve-webtest-repo: _CONFIG_REPO=/vagrant/tests
 serve-webtest-repo: _CONFIG_NAME=webtest-config.json
 serve-webtest-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
-serve-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
+serve-webtest-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
 webtest: export MOZSEARCH_SOURCE_PATH=/vagrant
 webtest: build-webtest-repo

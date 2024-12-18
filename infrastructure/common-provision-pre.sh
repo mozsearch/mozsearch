@@ -137,10 +137,6 @@ fi
 # install ripgrep so we can stop experiencing grep pain / footguns
 sudo apt-get install ripgrep
 
-# Install tools for web-analyze WASM bindings.
-cargo install wasm-pack
-cargo install --locked --git https://github.com/mozsearch/wasm-snip --tag 0.5.0
-
 # Install codesearch gRPC python libs.
 if [ ! -d livegrep ]; then
   git clone https://github.com/livegrep/livegrep --revision=44b2fb62ac4685ab3070f030d7130a21c2f67e31 --depth=1

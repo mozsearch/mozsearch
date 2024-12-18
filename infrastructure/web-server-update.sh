@@ -32,11 +32,3 @@ fi
 
 # Install Nix-provided packages
 sudo -i nix profile add "$(pwd)/mozsearch#serverPackages" --accept-flake-config --print-build-logs --priority 4
-
-# Update Rust
-rustup update
-
-pushd mozsearch/tools
-CARGO_INCREMENTAL=false cargo install --locked --path . --verbose
-rm -rf target
-popd
