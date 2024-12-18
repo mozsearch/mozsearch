@@ -40,6 +40,8 @@
 
         mkSbtDerivation = sbt.mkSbtDerivation.${system};
 
+        livegrep-grpc3 = pkgs.callPackage ./nix/livegrep/livegrep-grpc3.nix {};
+
         pythonPackages = p:
           with p; [
             boto3
@@ -52,6 +54,7 @@
           scip-java = pkgs.callPackage ./nix/scip-java {
             inherit mkSbtDerivation;
           };
+          codesearch = pkgs.callPackage ./nix/livegrep/codesearch.nix {};
           wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
         };
 
