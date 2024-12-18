@@ -30,11 +30,6 @@ sudo apt install -y npm
 # Install scip-typescript under node.js v18
 sudo npm install -g @sourcegraph/scip-typescript
 
-# Install scip-python under node.js v18 as well
-#npm install -g @sourcegraph/scip-python
-# To get my fix https://github.com/sourcegraph/scip-python/pull/150
-sudo npm install -g @asutherland/scip-python
-
 # Install a JDK and Coursier.
 # v17 is the version used on Firefox CI.
 sudo apt install -y openjdk-17-jdk
