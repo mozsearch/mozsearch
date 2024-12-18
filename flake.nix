@@ -1,5 +1,6 @@
 {
   inputs = {
+    self.submodules = true;
     nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
     flake-utils.url = github:numtide/flake-utils;
     fenix = {
@@ -38,7 +39,14 @@
           targets.wasm32-unknown-unknown.stable.rust-std
         ]);
 
+        rustPlatform = pkgs.makeRustPlatform {
+          cargo = rustToolchain;
+          rustc = rustToolchain;
+        };
+
         mkSbtDerivation = sbt.mkSbtDerivation.${system};
+
+        llvmPackages = pkgs.llvmPackages_18;
 
         livegrep-grpc3 = pkgs.callPackage ./nix/livegrep/livegrep-grpc3.nix {};
 
@@ -56,6 +64,13 @@
           };
           codesearch = pkgs.callPackage ./nix/livegrep/codesearch.nix {};
           wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
+
+          mozsearch-tools = pkgs.callPackage ./nix/mozsearch/tools.nix {inherit rustPlatform;};
+          mozsearch-clang-plugin = pkgs.callPackage ./nix/mozsearch/clang-plugin.nix {inherit llvmPackages;};
+          mozsearch-wasm-css-analyzer = pkgs.callPackage ./nix/mozsearch/wasm-css-analyzer.nix {
+            inherit rustPlatform;
+            inherit (packages) wasm-snip;
+          };
         };
 
         devShells.default = pkgs.mkShell {
