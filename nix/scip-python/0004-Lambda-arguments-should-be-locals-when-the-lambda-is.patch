@@ -1,0 +1,54 @@
+From 1df2d02e3a72a39007bb6e2c5571ecfa139b8163 Mon Sep 17 00:00:00 2001
+From: Andrew Sutherland <asutherland@asutherland.org>
+Date: Thu, 22 Feb 2024 12:12:51 -0500
+Subject: [PATCH] Lambda arguments should be locals when the lambda is a local.
+
+Currently, an attempt is made to add a parameter descriptor to the
+lambda, but it is not legal for a local to have a descriptor, so the
+argument itself should be a local.
+---
+ .../output/single_function/src/single_function.py        | 4 ++--
+ packages/pyright-scip/src/treeVisitor.ts                 | 9 ++++++++-
+ 2 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/packages/pyright-scip/snapshots/output/single_function/src/single_function.py b/packages/pyright-scip/snapshots/output/single_function/src/single_function.py
+index d8b46e233..0b95dc4f4 100644
+--- a/packages/pyright-scip/snapshots/output/single_function/src/single_function.py
++++ b/packages/pyright-scip/snapshots/output/single_function/src/single_function.py
+@@ -18,10 +18,10 @@ def my_cool_function_2(a: str):
+     x = ", world"
+ #   ^ definition local 1
+     return (lambda y: a + x + y)("oh no")
+-#                  ^ definition local 2(y)
++#                  ^ definition local 3
+ #                     ^ reference  snapshot-util 0.1 `src.single_function`/my_cool_function_2().(a)
+ #                         ^ reference local 1
+-#                             ^ reference local 2(y)
++#                             ^ reference local 3
+ 
+ def next_level():
+ #   ^^^^^^^^^^ definition  snapshot-util 0.1 `src.single_function`/next_level().
+diff --git a/packages/pyright-scip/src/treeVisitor.ts b/packages/pyright-scip/src/treeVisitor.ts
+index 69115d90e..488cb3e55 100644
+--- a/packages/pyright-scip/src/treeVisitor.ts
++++ b/packages/pyright-scip/src/treeVisitor.ts
+@@ -1090,8 +1090,15 @@ export class TreeVisitor extends ParseTreeWalker {
+                     log.debug('Paramerter with no name', node);
+                     return ScipSymbol.local(this.counter.next());
+                 }
++                // If the parent is a lambda, we can't generate a legal symbol
++                // by appending a descriptor; the parameter needs to be a local
++                // too.
++                const parentSymbol = this.getScipSymbol(node.parent!);
++                if (parentSymbol.isLocal()) {
++                    return ScipSymbol.local(this.counter.next());
++                }
+ 
+-                return Symbols.makeParameter(this.getScipSymbol(node.parent!), node.name.value);
++                return Symbols.makeParameter(parentSymbol, node.name.value);
+             }
+             case ParseNodeType.Class: {
+                 return Symbols.makeType(this.getScipSymbol(node.parent!), (node as ClassNode).name.value);
+-- 
+2.54.0
+

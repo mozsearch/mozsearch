@@ -1,0 +1,33 @@
+From 2f6a5e321740b0921698fcf65a2023534361e77a Mon Sep 17 00:00:00 2001
+From: Nicolas Guichard <nicolas.guichard@kdab.com>
+Date: Thu, 9 Apr 2026 13:16:58 +0200
+Subject: [PATCH 3/3] Fix build
+
+---
+ packages/pyright-internal/src/common/collectionUtils.ts | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/packages/pyright-internal/src/common/collectionUtils.ts b/packages/pyright-internal/src/common/collectionUtils.ts
+index a5e1acaba..0133d7b63 100644
+--- a/packages/pyright-internal/src/common/collectionUtils.ts
++++ b/packages/pyright-internal/src/common/collectionUtils.ts
+@@ -292,13 +292,13 @@ export function binarySearchKey<T, U>(
+  * @param array The array to flatten.
+  */
+ export function flatten<T>(array: T[][] | readonly (T | readonly T[] | undefined)[]): T[] {
+-    const result = [];
++    const result: T[] = [];
+     for (const v of array) {
+         if (v) {
+             if (isArray(v)) {
+-                addRange(result, v);
++                addRange(result, v as readonly T[]);
+             } else {
+-                result.push(v);
++                result.push(v as T);
+             }
+         }
+     }
+-- 
+2.54.0
+

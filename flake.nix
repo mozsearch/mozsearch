@@ -36,17 +36,22 @@
             rich
           ];
 
+        scip-python = pkgs.callPackage ./nix/scip-python {};
+
         commonPackages = with pkgs; [
           livegrep
         ];
 
         indexerPackages = with pkgs; [
+          scip-python
         ];
 
         serverPackages = with pkgs; [
         ];
       in {
         packages = {
+          inherit scip-python;
+
           indexerPackages = pkgs.symlinkJoin {
             name = "indexerPackages";
             paths = commonPackages ++ indexerPackages;
