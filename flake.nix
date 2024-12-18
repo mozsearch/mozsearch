@@ -38,6 +38,8 @@
 
         scip-python = pkgs.callPackage ./nix/scip-python {};
 
+        wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
+
         commonPackages = with pkgs; [
           livegrep
         ];
@@ -51,7 +53,7 @@
         ];
       in {
         packages = {
-          inherit scip-python;
+          inherit scip-python wasm-snip;
 
           indexerPackages = pkgs.symlinkJoin {
             name = "indexerPackages";
