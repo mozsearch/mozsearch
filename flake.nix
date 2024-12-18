@@ -42,6 +42,7 @@
           ];
       in rec {
         packages = {
+          scip-python = pkgs.callPackage ./nix/scip-python {};
           scip-java = pkgs.callPackage ./nix/scip-java {
             inherit mkSbtDerivation;
           };
