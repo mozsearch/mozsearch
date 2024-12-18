@@ -1,7 +1,9 @@
 {
   inputs = {
+    self.submodules = true;
     nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
     flake-utils.url = github:numtide/flake-utils;
+    crane.url = "github:ipetkov/crane";
   };
 
   nixConfig = {
@@ -17,6 +19,7 @@
     self,
     nixpkgs,
     flake-utils,
+    crane,
   }: (
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -24,11 +27,15 @@
           inherit system;
         };
 
+        craneLib = crane.mkLib pkgs;
+
         # A symlink from `docker` to `podman`, because the scripts call `docker`.
         dockerCompat = pkgs.runCommand "docker-podman-compat" {} ''
           mkdir -p $out/bin
           ln -s ${pkgs.podman}/bin/podman $out/bin/docker
         '';
+
+        llvmPackages = pkgs.llvmPackages_21;
 
         pythonPackages = p:
           with p; [
@@ -40,13 +47,26 @@
 
         wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
 
+        mozsearch-tools = pkgs.callPackage ./nix/mozsearch/tools.nix {
+          inherit craneLib;
+        };
+        mozsearch-clang-plugin = pkgs.callPackage ./nix/mozsearch/clang-plugin.nix {
+          inherit llvmPackages;
+        };
+        mozsearch-wasm-css-analyzer = pkgs.callPackage ./nix/mozsearch/wasm-css-analyzer.nix {
+          inherit wasm-snip craneLib;
+        };
+
         commonPackages = with pkgs; [
           livegrep
+          mozsearch-tools
         ];
 
         indexerPackages = with pkgs; [
           rust-analyzer
           scip-python
+          mozsearch-clang-plugin
+          mozsearch-wasm-css-analyzer
         ];
 
         serverPackages = with pkgs; [
@@ -54,6 +74,7 @@
       in {
         packages = {
           inherit scip-python wasm-snip;
+          inherit mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer;
 
           indexerPackages = pkgs.symlinkJoin {
             name = "indexerPackages";
@@ -67,6 +88,12 @@
         };
 
         devShells.default = pkgs.mkShell {
+          inputsFrom = with self.packages.${system}; [
+            mozsearch-tools
+            mozsearch-clang-plugin
+            mozsearch-wasm-css-analyzer
+          ];
+
           packages = with pkgs; [
             dockerCompat
             podman
@@ -84,22 +111,9 @@
             (python3.withPackages pythonPackages)
             awscli2
 
-            # Dependencies required to build tools
-            rustc
-            cargo
             rust-analyzer
             rustfmt
-            openssl
-            cmake
-            pkg-config
-
-            # Must be before (unwrapped) clang in path
-            llvmPackages_21.clang-tools
-
-            # Dependencies required to build clang-plugin
-            clang_21
-            llvmPackages_21.libllvm
-            llvmPackages_21.libclang
+            llvmPackages.clang-tools
 
             gdb
 

@@ -32,9 +32,6 @@ fi
 # Install Nix-provided packages
 sudo -i nix profile add "$(pwd)/mozsearch#indexerPackages" --accept-flake-config --print-build-logs --priority 3
 
-# Update Rust
-rustup update
-
 # Install SpiderMonkey.
 rm -rf target.jsshell.zip js
 wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
@@ -46,22 +43,17 @@ sudo install *.so /usr/local/lib
 sudo ldconfig
 popd
 
-pushd mozsearch/clang-plugin
-make
-popd
+# TODO: remove after next provisioning
+# This is where the wasm-css-analyzer will be built
+# Set it in ~/.profile for indexer-update call on indexer start and also now for indexer-update call at the end of this file.
+echo 'export MOZSEARCH_WASM_DIR="/nix/var/nix/profiles/default/share/wasm-css-analyzer"' >> ~/.profile
+export MOZSEARCH_WASM_DIR="/nix/var/nix/profiles/default/share/wasm-css-analyzer"
 
-pushd mozsearch/tools
-CARGO_INCREMENTAL=false cargo install --locked --path . --verbose
-rm -rf target
-popd
-
-pushd mozsearch/scripts/web-analyze/wasm-css-analyzer
-./build.sh
-mkdir -p "$MOZSEARCH_WASM_DIR"
-if ! [ out -ef "$MOZSEARCH_WASM_DIR" ]; then
-    mv out/* "$MOZSEARCH_WASM_DIR"
-fi
-popd
+# TODO: remove after next provisioning
+# This is where the clang plugin will be built
+# Set it in ~/.profile for indexer-update call on indexer start and also now for indexer-update call at the end of this file.
+echo 'export MOZSEARCH_CLANG_PLUGIN_DIR="/nix/var/nix/profiles/default/lib"' >> ~/.profile
+export MOZSEARCH_CLANG_PLUGIN_DIR="/nix/var/nix/profiles/default/lib"
 
 PYMODULES=$HOME/pymodules
 
