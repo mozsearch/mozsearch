@@ -31,7 +31,12 @@
       system: let
         pkgs = nixpkgs.legacyPackages.${system}.extend fenix.overlays.default;
 
-        rustToolchain = pkgs.fenix.stable.toolchain;
+        rustToolchain = pkgs.fenix.combine (with pkgs.fenix; [
+          stable.minimalToolchain
+          stable.rust-src
+          rust-analyzer
+          targets.wasm32-unknown-unknown.stable.rust-std
+        ]);
 
         mkSbtDerivation = sbt.mkSbtDerivation.${system};
 
@@ -47,6 +52,7 @@
           scip-java = pkgs.callPackage ./nix/scip-java {
             inherit mkSbtDerivation;
           };
+          wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
         };
 
         devShells.default = pkgs.mkShell {
