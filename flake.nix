@@ -6,6 +6,13 @@
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    sbt = {
+      url = "github:zaninime/sbt-derivation";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "flake-utils";
+      };
+    };
   };
 
   nixConfig = {
@@ -18,6 +25,7 @@
     nixpkgs,
     flake-utils,
     fenix,
+    sbt,
   }: (
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -25,13 +33,20 @@
 
         rustToolchain = pkgs.fenix.stable.toolchain;
 
+        mkSbtDerivation = sbt.mkSbtDerivation.${system};
 
         pythonPackages = p:
           with p; [
             boto3
             rich
           ];
-      in {
+      in rec {
+        packages = {
+          scip-java = pkgs.callPackage ./nix/scip-java {
+            inherit mkSbtDerivation;
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             jq
