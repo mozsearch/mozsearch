@@ -27,5 +27,6 @@ rustup component remove rust-docs || true
 rustup update
 
 pushd mozsearch/tools
-cargo build --release --verbose
+CARGO_INCREMENTAL=false cargo build --release --verbose
+rm -rf target/build target/deps
 popd
