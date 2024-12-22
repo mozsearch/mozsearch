@@ -48,6 +48,8 @@ jobs:
       # Bulding
       - name: Build Clang plugin
         run: make -C $GITHUB_WORKSPACE/clang-plugin
+      - name: Set Clang plugin path
+        run: echo "MOZSEARCH_CLANG_PLUGIN_DIR=$GITHUB_WORKSPACE/clang-plugin" >> "$GITHUB_ENV"
       - name: Build Rust tools
         run: make -C $GITHUB_WORKSPACE build-rust-tools
       - name: Set wasm analyzer path
