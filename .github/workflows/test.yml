@@ -1,0 +1,92 @@
+name: Test Mozsearch
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    env:
+      # Force cargo insta to generate all new snapshots so we can upload them
+      INSTA_FORCE_PASS: 1
+      # By default cargo insta detects that we are running on a CI (via the $CI env var) and doesn't save the updated snapshots…
+      # See https://insta.rs/docs/advanced/#controlling-snapshot-updating
+      INSTA_UPDATE: new
+      MOZSEARCH_REPO: ${{ github.server_url }}/${{ github.repository }}
+      MOZSEARCH_BRANCH: ${{ github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      # Provisioning
+      - name: Common Provision (pre)
+        run: $GITHUB_WORKSPACE/infrastructure/common-provision-pre.sh
+        working-directory: /home/runner
+      - name: Indexer Provision
+        run: $GITHUB_WORKSPACE/infrastructure/indexer-provision.sh
+        working-directory: /home/runner
+      - name: Web Server Provision
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-provision.sh
+        working-directory: /home/runner
+      - name: Common Provision (post)
+        run: $GITHUB_WORKSPACE/infrastructure/common-provision-post.sh
+        working-directory: /home/runner
+      - name: Add scip-java to PATH
+        run: echo "$HOME/.local/share/coursier/bin" >> "$GITHUB_PATH"
+      - name: Give www-data access to the user's home directory
+        run: chmod a+rx ~
+
+      # Bulding
+      - name: Build Clang plugin
+        run: make -C $GITHUB_WORKSPACE/clang-plugin
+      - name: Build Rust tools
+        run: make -C $GITHUB_WORKSPACE build-rust-tools
+
+      # Test repo
+      - run: mkdir ~/index
+      - name: "Test config: Indexer setup"
+        run: $GITHUB_WORKSPACE/infrastructure/indexer-setup.sh $GITHUB_WORKSPACE/tests config.json ~/index
+      - name: "Test config: Indexer run and test"
+        run: $GITHUB_WORKSPACE/infrastructure/indexer-run.sh $GITHUB_WORKSPACE/tests ~/index
+      - name: "Test config: Web server setup"
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-setup.sh $GITHUB_WORKSPACE/tests config.json ~/index ~
+      - name: "Test config: Web server run"
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-run.sh $GITHUB_WORKSPACE/tests ~/index ~ WAIT
+      - name: "Test config: Web server test"
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-check.sh $GITHUB_WORKSPACE/tests ~/index "http://127.0.0.1/"
+      - name: "Test config: Upload updated snapshots"
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-test-snapshots
+          path: tests/tests/checks/snapshots/**/*.snap.new
+          if-no-files-found: ignore
+      - name: "Test config: Fail if any snapshot updated"
+        run: test $(find tests/tests/checks/snapshots -name "*.snap.new" -printf '.' | wc -c) -eq 0
+      - run: rm -rf ~/index
+
+      # Webtest repo
+      - run: mkdir ~/index
+      - name: "Webtest config: Indexer setup"
+        run: $GITHUB_WORKSPACE/infrastructure/indexer-setup.sh $GITHUB_WORKSPACE/tests webtest-config.json ~/index
+      - name: "Webtest config: Indexer run and test"
+        run: $GITHUB_WORKSPACE/infrastructure/indexer-run.sh $GITHUB_WORKSPACE/tests ~/index
+      - name: "Webtest config: Web server setup"
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-setup.sh $GITHUB_WORKSPACE/tests webtest-config.json ~/index ~
+      - name: "Webtest config: Web server run"
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-run.sh $GITHUB_WORKSPACE/tests ~/index ~ WAIT
+      - name: "Webtest config: Web server test"
+        run: $GITHUB_WORKSPACE/scripts/webtest.sh
+      - name: "Webtest config: Upload updated snapshots"
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-webtest-snapshots
+          path: tests/tests/checks/snapshots/**/*.snap.new
+          if-no-files-found: ignore
+      - name: "Webtest config: Fail if any snapshot updated"
+        run: test $(find tests/tests/checks/snapshots -name "*.snap.new" -printf '.' | wc -c) -eq 0
+      - run: rm -rf ~/index
