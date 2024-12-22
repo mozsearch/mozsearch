@@ -43,7 +43,7 @@ if [[ $SCIP_SUBTREE_INFOS ]]; then
     scip_tree_name=$(jq -Mr '.key' <<< "$subtree_obj")
     scip_index_path=$(jq -Mr '.value.scip_index_path' <<< "$subtree_obj")
     subtree_root=$(jq -Mr '.value.subtree_root' <<< "$subtree_obj")
-    $MOZSEARCH_PATH/tools/target/release/scip-indexer \
+    scip-indexer \
       "$CONFIG_FILE" \
       "$TREE_NAME" \
       --subtree-name "${scip_tree_name}" \

@@ -18,7 +18,7 @@ TREE_NAME=$2
 # all that matters is consistency and so pre-normalizing is fine.
 pushd $FILES_ROOT
 cat $INDEX_ROOT/ipdl-files | \
-    xargs $MOZSEARCH_PATH/tools/target/release/ipdl-analyze $(cat $INDEX_ROOT/ipdl-includes) \
+    xargs ipdl-analyze $(cat $INDEX_ROOT/ipdl-includes) \
           -f $INDEX_ROOT/repo-files \
           -o $INDEX_ROOT/objdir-files \
           -b $(realpath $FILES_ROOT) \

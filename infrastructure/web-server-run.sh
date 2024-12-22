@@ -21,8 +21,8 @@ STATUS_FILE="${SERVER_ROOT}/docroot/status.txt"
 
 pkill -x codesearch || true
 pkill -f router/router.py || true
-pkill -f tools/target/release/web-server || true
-pkill -f tools/target/release/pipeline-server || true
+pkill -x web-server || true
+pkill -x pipeline-server || true
 
 sleep 0.1s
 
@@ -34,7 +34,7 @@ PATH="$LIVEGREP_VENV/bin:$PATH"
 nohup $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/router.log 2> $SERVER_ROOT/router.err < /dev/null &
 
 export RUST_BACKTRACE=1
-nohup $MOZSEARCH_PATH/tools/target/release/web-server $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &
+nohup web-server $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &
 
 # Let's try and stop the pipeline-server from causing problems by setting a ulimit
 # on virtual memory usage.  We use du to figure out the total sizes of all of
@@ -64,7 +64,7 @@ ulimit -v $PIPELINE_SERVER_VM_LIMIT_K
 
 # Note that we do not currently wait for the pipeline-server and it does not
 # write to the STATUS_FILE.
-nohup $MOZSEARCH_PATH/tools/target/release/pipeline-server $CONFIG_FILE > $SERVER_ROOT/pipeline-server.log 2> $SERVER_ROOT/pipeline-server.err < /dev/null &
+nohup pipeline-server $CONFIG_FILE > $SERVER_ROOT/pipeline-server.log 2> $SERVER_ROOT/pipeline-server.err < /dev/null &
 
 # If WAIT was passed, wait until the servers report they loaded.
 if [[ ${4:-} = "WAIT" ]]; then
