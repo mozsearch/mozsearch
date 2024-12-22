@@ -134,6 +134,7 @@ if [ ! -d $HOME/.cargo ]; then
   rustup install nightly
   rustup default nightly
   rustup uninstall stable
+  rustup component add rust-analyzer
 fi
 
 # install ripgrep so we can stop experiencing grep pain / footguns
@@ -220,10 +221,3 @@ fi
 SCIP_VERSION=v0.5.0
 curl -L https://github.com/sourcegraph/scip/releases/download/$SCIP_VERSION/scip-linux-amd64.tar.gz | tar xzf - scip
 sudo ln -fs $(pwd)/scip /usr/local/bin/scip
-
-# Install rust-analyzer
-RUST_ANALYZER_VERSION=nightly
-rm -rf rust-analyzer rust-analyzer-linux-x64.vsix
-wget https://github.com/rust-lang/rust-analyzer/releases/download/$RUST_ANALYZER_VERSION/rust-analyzer-linux-x64.vsix
-unzip -o -d rust-analyzer rust-analyzer-linux-x64.vsix
-sudo ln -fs $(pwd)/rust-analyzer/extension/server/rust-analyzer /usr/local/bin/rust-analyzer
