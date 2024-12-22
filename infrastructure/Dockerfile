@@ -18,6 +18,7 @@ ENV PATH=/home/vagrant/livegrep-venv/bin:/home/vagrant/.cargo/bin:$PATH
 RUN /infrastructure/indexer-provision.sh
 ENV PYTHONPATH=/home/vagrant/pymodules
 ENV MOZSEARCH_WASM_DIR=/home/vagrant/mozsearch-wasm
+ENV MOZSEARCH_CLANG_PLUGIN_DIR=/home/vagrant/mozsearch-clang-plugin
 
 # indexer-provision.sh installed Coursier, make sure the path is available for
 # the next commands
