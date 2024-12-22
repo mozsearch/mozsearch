@@ -42,6 +42,7 @@ PATH="$PATH:$HOME/.local/share/coursier/bin"
 
 # Install scip-java
 cs install --contrib scip-java
+rm -rf ~/.cache/coursier
 
 # Create update script.
 cat > update.sh <<"THEEND"
