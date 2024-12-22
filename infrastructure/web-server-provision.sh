@@ -37,19 +37,15 @@ echo Config repository is $CONFIG_REPO rev $CONFIG_REV
 # Note: This seems needlessly wasteful but I'm not going to change this while
 # changing other things.
 rm -rf mozsearch
-git clone $MOZSEARCH_REPO mozsearch
+git clone -b $MOZSEARCH_REV $MOZSEARCH_REPO mozsearch --depth=1
 pushd mozsearch
-git checkout $MOZSEARCH_REV
 git submodule init
 git submodule update
 popd
 
 # Install files from the config repo.
 rm -rf config
-git clone $CONFIG_REPO config
-pushd config
-git checkout $CONFIG_REV
-popd
+git clone -b $CONFIG_REV $CONFIG_REPO config --depth=1
 
 date
 

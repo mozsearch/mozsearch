@@ -93,7 +93,7 @@ echo Config repository is $CONFIG_REPO
 
 # Install mozsearch.
 rm -rf mozsearch
-git clone -b $BRANCH $MOZSEARCH_REPO mozsearch
+git clone -b $BRANCH $MOZSEARCH_REPO mozsearch --depth=1
 pushd mozsearch
 git submodule init
 git submodule update
@@ -101,10 +101,7 @@ popd
 
 # Install files from the config repo.
 rm -rf config
-git clone $CONFIG_REPO config
-pushd config
-git checkout $BRANCH -- || true
-popd
+git clone -b $BRANCH $CONFIG_REPO config --depth=1
 
 date
 
