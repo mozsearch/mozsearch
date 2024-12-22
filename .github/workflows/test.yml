@@ -50,6 +50,8 @@ jobs:
         run: make -C $GITHUB_WORKSPACE/clang-plugin
       - name: Build Rust tools
         run: make -C $GITHUB_WORKSPACE build-rust-tools
+      - name: Set wasm analyzer path
+        run: echo "MOZSEARCH_WASM_DIR=$GITHUB_WORKSPACE/scripts/web-analyze/wasm-css-analyzer/out" >> "$GITHUB_ENV"
 
       # Test repo
       - run: mkdir ~/index
