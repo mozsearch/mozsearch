@@ -59,8 +59,8 @@ make
 popd
 
 pushd mozsearch/tools
-CARGO_INCREMENTAL=false cargo build --release --verbose
-rm -rf target/build target/deps
+CARGO_INCREMENTAL=false cargo install --path . --verbose
+rm -rf target
 popd
 
 pushd mozsearch/scripts/web-analyze/wasm-css-analyzer

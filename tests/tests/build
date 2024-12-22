@@ -50,13 +50,13 @@ rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
 scip-java index-semanticdb build/semanticdb-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
 ./gradlew --no-daemon clean
 rm -rf build/
-$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+scip-indexer \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   --subtree-root "." \
   "$OBJDIR/gradle.scip"
 
-$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+scip-indexer \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   --subtree-root "." \
@@ -103,7 +103,7 @@ do
   done
 
   pushd $INDEX_ROOT
-  $MOZSEARCH_PATH/tools/target/release/merge-analyses analysis-*/$f > analysis/$f
+  merge-analyses analysis-*/$f > analysis/$f
   popd
 done
 
@@ -112,7 +112,7 @@ done
 scip-python index --show-progress-rate-limit 0 --project-name python --project-version 0.0.0 --environment ../python-scip-env.json --output python.scip
 mv python.scip $INDEX_ROOT
 
-$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+scip-indexer \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   --subtree-root "." \

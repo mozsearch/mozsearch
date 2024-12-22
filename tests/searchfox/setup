@@ -21,7 +21,7 @@ popd
 rm -rf $BLAME_ROOT
 mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
-$MOZSEARCH_PATH/tools/target/release/build-blame $GIT_ROOT $BLAME_ROOT
+build-blame $GIT_ROOT $BLAME_ROOT
 
 # When actively developing it's nice to purge the existing contents, but the rest
 # of the time it's nice to not reprocess it all.
@@ -33,7 +33,7 @@ git init $HISTORY_ROOT/syntax
 mkdir -p $HISTORY_ROOT/timeline
 git init $HISTORY_ROOT/timeline
 mkdir -p $HISTORY_ROOT/rev-summaries
-$MOZSEARCH_PATH/tools/target/release/build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax
+build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax
 
 
 # Link over the fake metadata and test file information as well.
