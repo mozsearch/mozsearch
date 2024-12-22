@@ -36,7 +36,7 @@ git config --global pull.ff only
 # we have git, so let's check out mozsearch now so we can have our email sending
 # script in case of an error.
 if [ ! -d mozsearch ]; then
-  git clone -b master https://github.com/mozsearch/mozsearch mozsearch
+  git clone -b master https://github.com/mozsearch/mozsearch mozsearch --depth=1
 fi
 
 # the base image we're building against is inherently not up-to-date (new base
@@ -145,7 +145,7 @@ cargo install wasm-snip
 
 # Install codesearch.
 if [ ! -d livegrep ]; then
-  git clone -b mozsearch-version7 https://github.com/mozsearch/livegrep
+  git clone -b mozsearch-version7 https://github.com/mozsearch/livegrep --depth=1
   pushd livegrep
   $BAZEL build //src/tools:codesearch
   sudo install bazel-bin/src/tools/codesearch /usr/local/bin
@@ -205,9 +205,8 @@ if [ ! -d git-cinnabar ]; then
   # We started pinning in https://bugzilla.mozilla.org/show_bug.cgi?id=1779939
   # and it seems reasonable to stick to this for more deterministic provisioning.
   CINNABAR_REVISION=0.6.3
-  git clone https://github.com/glandium/git-cinnabar
+  git clone https://github.com/glandium/git-cinnabar -b $CINNABAR_REVISION --depth=1
   pushd git-cinnabar
-    git checkout $CINNABAR_REVISION
     ./download.py --branch release
     # These need to be symlinks rather than `install`d binaries because cinnabar
     # uses other python code from the repo.
