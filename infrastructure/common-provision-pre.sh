@@ -138,7 +138,7 @@ if [ ! -d $HOME/.cargo ]; then
 fi
 
 # install ripgrep so we can stop experiencing grep pain / footguns
-cargo install ripgrep
+sudo apt-get install ripgrep
 
 # Install tools for web-analyze WASM bindings.
 cargo install wasm-pack
@@ -172,6 +172,7 @@ if [ ! -d livegrep ]; then
   SITEDIR=$($LIVEGREP_VENV/bin/python3 -c "import site; print(site.getsitepackages()[0])")
   mkdir -p "$SITEDIR"
   echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
+  rm -rf livegrep
 fi
 
 # Install AWS scripts and command-line tool.
