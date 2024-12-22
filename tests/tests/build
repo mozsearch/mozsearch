@@ -50,13 +50,13 @@ gradle --no-daemon clean build
 scip-java index-semanticdb build/semanticdb-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
 gradle --no-daemon clean
 rm -rf build/
-$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+scip-indexer \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   --subtree-root "." \
   "$OBJDIR/gradle.scip"
 
-$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+scip-indexer \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   --subtree-root "." \
@@ -103,16 +103,16 @@ do
   done
 
   pushd $INDEX_ROOT
-  $MOZSEARCH_PATH/tools/target/release/merge-analyses analysis-*/$f > analysis/$f
+  merge-analyses analysis-*/$f > analysis/$f
   popd
 done
 
 ## Python Stuff
 
-scip-python index --show-progress-rate-limit 0 --project-name python --output python.scip
+scip-python index --show-progress-rate-limit 0 --project-name python --project-version 0.0.0 --output python.scip
 mv python.scip $INDEX_ROOT
 
-$MOZSEARCH_PATH/tools/target/release/scip-indexer \
+scip-indexer \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   --subtree-root "." \

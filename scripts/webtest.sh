@@ -20,6 +20,6 @@ echo "Starting geckodriver"
 geckodriver >/dev/null 2>&1 &
 
 echo "Running tests"
-./tools/target/release/searchfox-tool "webtest ${FILTER}"
+searchfox-tool "webtest ${FILTER}"
 
 stop_geckodriver

@@ -55,7 +55,7 @@ if [ -d "$RUST_ANALYSIS_IN" ]; then
     exit 0 # Nothing to analyze really
   fi
 
-  $MOZSEARCH_PATH/tools/target/release/rust-indexer \
+  rust-indexer \
     "$FILES_ROOT" \
     "$SF_ANALYSIS_OUT" \
     "$GENERATED_SRC" \
