@@ -175,29 +175,6 @@ if [ ! -d livegrep ]; then
   rm -rf livegrep
 fi
 
-# Install AWS scripts and command-line tool.
-#
-# In order to get the AWS CLI v2 the current options[1] are to use snap or do
-# the curl + shell dance.  We don't have snap support installed by default and are
-# currently intentionally avoiding adding snaps, so we choose curl + shell.
-#
-# 1: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-#
-# awscli can get credentials via `Ec2InstanceMetadata` which will give it the
-# authorities of the role assigned to the image it's running in.  Look for the
-# `IamInstanceProfile` definition in `trigger_indexer.py` and similar.
-#
-# (We check if the install directory already exists because on AWS we install
-# the CLI earlier out of necessity.)
-if [ ! -d awscliv2-install ]; then
-  mkdir -p awscliv2-install
-  pushd awscliv2-install
-  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-  unzip awscliv2.zip
-  sudo ./aws/install
-  popd
-fi
-
 sudo apt-get install -y python3-boto3 python3-rich
 
 # Install git-cinnabar.
