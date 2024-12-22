@@ -64,6 +64,9 @@ popd
 popd
 echo 'export PYTHONPATH="$HOME/pymodules"' >> ~/.profile
 
+# This is where the wasm-css-analyzer will be built
+echo 'export MOZSEARCH_WASM_DIR="$HOME/mozsearch-wasm"' >> ~/.profile
+
 # Create update script.
 cat > update.sh <<"THEEND"
 #!/usr/bin/env bash
