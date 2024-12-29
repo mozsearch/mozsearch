@@ -22,9 +22,6 @@ NGINX_CACHE_DIR=${6:-}
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING
 
-sudo mkdir -p /etc/nginx/sites-enabled
-sudo rm -f /etc/nginx/sites-enabled/default
-
 # ### Create the docroot
 #
 # There is some awkwardness here where we create hierarchies centered on the
@@ -70,8 +67,6 @@ ln -s $CONFIG_REPO/tree-list.js $DOCROOT
 
 # ### Create and emplace the nginx configuration file
 $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > /tmp/nginx
-sudo mv /tmp/nginx /etc/nginx/sites-enabled/mozsearch.conf
-sudo chmod 0644 /etc/nginx/sites-enabled/mozsearch.conf
 
 # ### Caching
 #
@@ -98,5 +93,5 @@ done
 #
 # Under docker nginx might not be running, in which case we need to start it,
 # but only if we don't see existing processes.
-pgrep nginx || sudo /etc/init.d/nginx start
-sudo /etc/init.d/nginx reload
+pkill -x nginx || true
+nginx -c /tmp/nginx -e stderr

@@ -125,7 +125,7 @@ impl WebtestCommand {
                 }
             }
 
-            let url = "http://localhost/tests/webtest/webtest.html";
+            let url = "http://localhost:16995/tests/webtest/webtest.html";
             print_log("INFO", format!("Navigate to {}", url));
             client.goto(url).await?;
 
