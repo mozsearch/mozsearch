@@ -32,14 +32,14 @@ build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
+	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
 
 serve-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 
 check-test-repo:
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
+	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
 
 # Target that:
 # - Runs the check scripts in a special mode that lets the tests run without
@@ -62,7 +62,7 @@ review-test-repo:
 	INSTA_FORCE_PASS=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
-	INSTA_FORCE_PASS=1 /vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
+	INSTA_FORCE_PASS=1 /vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
 	cargo insta review --workspace-root=/vagrant/tests/tests/checks
 
 build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
@@ -153,7 +153,7 @@ build-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tree-configs ~/trees-index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tree-configs ~/trees-index "http://localhost/"
+	/vagrant/infrastructure/web-server-check.sh /vagrant/tree-configs ~/trees-index "http://localhost:16995/"
 
 serve-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~

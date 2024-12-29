@@ -83,7 +83,11 @@ sudo mount $EBS_NVME_DEV ~ubuntu/index
 # - It's bigger and hence also gets more EBS IO ops.
 NGINX_CACHE_DIR=/home/ubuntu/index/nginx-cache
 mkdir $NGINX_CACHE_DIR
-sudo chown www-data:www-data $NGINX_CACHE_DIR
+
+# Redirect port 80 to port 16995, where our root-less nginx listens
+# From https://askubuntu.com/a/595955
+sudo iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 16995
+sudo iptables -t nat -I OUTPUT -p tcp -o lo --dport 80 -j REDIRECT --to-ports 16995
 
 $MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT index ~ hsts $NGINX_CACHE_DIR
 $MOZSEARCH_PATH/web-server-run.sh $CONFIG_REPO index ~

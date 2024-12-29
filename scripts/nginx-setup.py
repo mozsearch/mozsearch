@@ -76,6 +76,134 @@ def location(route, directives):
     print('  }')
     print()
 
+print('''
+pid /tmp/nginx.pid;
+
+events {
+    worker_connections 768;
+    # multi_accept on;
+}
+
+http {
+sendfile on;
+tcp_nopush on;
+types_hash_max_size 2048;
+
+client_body_temp_path /tmp/nginx.body;
+proxy_temp_path /tmp/nginx.proxy;
+fastcgi_temp_path /tmp/nginx.fastcgi;
+uwsgi_temp_path /tmp/nginx.uwsgi;
+scgi_temp_path /tmp/nginx.scgi;
+
+types {
+    text/html                                        html htm shtml;
+    text/css                                         css;
+    text/xml                                         xml;
+    image/gif                                        gif;
+    image/jpeg                                       jpeg jpg;
+    application/javascript                           js;
+    application/atom+xml                             atom;
+    application/rss+xml                              rss;
+
+    text/mathml                                      mml;
+    text/plain                                       txt;
+    text/vnd.sun.j2me.app-descriptor                 jad;
+    text/vnd.wap.wml                                 wml;
+    text/x-component                                 htc;
+
+    image/avif                                       avif;
+    image/png                                        png;
+    image/svg+xml                                    svg svgz;
+    image/tiff                                       tif tiff;
+    image/vnd.wap.wbmp                               wbmp;
+    image/webp                                       webp;
+    image/x-icon                                     ico;
+    image/x-jng                                      jng;
+    image/x-ms-bmp                                   bmp;
+
+    font/woff                                        woff;
+    font/woff2                                       woff2;
+
+    application/java-archive                         jar war ear;
+    application/json                                 json;
+    application/mac-binhex40                         hqx;
+    application/msword                               doc;
+    application/pdf                                  pdf;
+    application/postscript                           ps eps ai;
+    application/rtf                                  rtf;
+    application/vnd.apple.mpegurl                    m3u8;
+    application/vnd.google-earth.kml+xml             kml;
+    application/vnd.google-earth.kmz                 kmz;
+    application/vnd.ms-excel                         xls;
+    application/vnd.ms-fontobject                    eot;
+    application/vnd.ms-powerpoint                    ppt;
+    application/vnd.oasis.opendocument.graphics      odg;
+    application/vnd.oasis.opendocument.presentation  odp;
+    application/vnd.oasis.opendocument.spreadsheet   ods;
+    application/vnd.oasis.opendocument.text          odt;
+    application/vnd.openxmlformats-officedocument.presentationml.presentation
+                                                     pptx;
+    application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                                                     xlsx;
+    application/vnd.openxmlformats-officedocument.wordprocessingml.document
+                                                     docx;
+    application/vnd.wap.wmlc                         wmlc;
+    application/wasm                                 wasm;
+    application/x-7z-compressed                      7z;
+    application/x-cocoa                              cco;
+    application/x-java-archive-diff                  jardiff;
+    application/x-java-jnlp-file                     jnlp;
+    application/x-makeself                           run;
+    application/x-perl                               pl pm;
+    application/x-pilot                              prc pdb;
+    application/x-rar-compressed                     rar;
+    application/x-redhat-package-manager             rpm;
+    application/x-sea                                sea;
+    application/x-shockwave-flash                    swf;
+    application/x-stuffit                            sit;
+    application/x-tcl                                tcl tk;
+    application/x-x509-ca-cert                       der pem crt;
+    application/x-xpinstall                          xpi;
+    application/xhtml+xml                            xhtml;
+    application/xspf+xml                             xspf;
+    application/zip                                  zip;
+
+    application/octet-stream                         bin exe dll;
+    application/octet-stream                         deb;
+    application/octet-stream                         dmg;
+    application/octet-stream                         iso img;
+    application/octet-stream                         msi msp msm;
+
+    audio/midi                                       mid midi kar;
+    audio/mpeg                                       mp3;
+    audio/ogg                                        ogg;
+    audio/x-m4a                                      m4a;
+    audio/x-realaudio                                ra;
+
+    video/3gpp                                       3gpp 3gp;
+    video/mp2t                                       ts;
+    video/mp4                                        mp4;
+    video/mpeg                                       mpeg mpg;
+    video/ogg                                        ogv;
+    video/quicktime                                  mov;
+    video/webm                                       webm;
+    video/x-flv                                      flv;
+    video/x-m4v                                      m4v;
+    video/x-matroska                                 mkv;
+    video/x-mng                                      mng;
+    video/x-ms-asf                                   asx asf;
+    video/x-ms-wmv                                   wmv;
+    video/x-msvideo                                  avi;
+}
+
+default_type application/octet-stream;
+
+ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers on;
+
+gzip on;
+''')
+
 if nginx_cache_dir:
     # Proxy Cache Settings.
     #
@@ -123,9 +251,9 @@ map $status $expires {
 }
 
 server {
-  listen 80 default_server;
+  listen 16995 default_server;
 
-  access_log /var/log/nginx/searchfox.log custom_cache_log ;
+  access_log /tmp/searchfox.log custom_cache_log ;
 
   # Redirect HTTP to HTTPS in release
   if ($http_x_forwarded_proto = "http") {
@@ -258,5 +386,7 @@ if config.get("allow_webtest"):
         f'root {mozsearch_path};',
         'add_header Cache-Control "no-cache";',
     ])
+
+print('}')
 
 print('}')
