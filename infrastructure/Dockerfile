@@ -24,6 +24,6 @@ ENV PATH=$PATH:/home/vagrant/.local/share/coursier/bin
 RUN /infrastructure/web-server-provision.sh
 RUN /infrastructure/common-provision-post.sh
 
-EXPOSE 80/tcp
+EXPOSE 16995/tcp
 
 CMD ["/usr/bin/bash"]

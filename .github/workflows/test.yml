@@ -58,7 +58,7 @@ jobs:
       - name: "Test config: Web server run"
         run: $GITHUB_WORKSPACE/infrastructure/web-server-run.sh $GITHUB_WORKSPACE/tests ~/index ~ WAIT
       - name: "Test config: Web server test"
-        run: $GITHUB_WORKSPACE/infrastructure/web-server-check.sh $GITHUB_WORKSPACE/tests ~/index "http://127.0.0.1/"
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-check.sh $GITHUB_WORKSPACE/tests ~/index "http://127.0.0.1:16995/"
       - name: "Test config: Upload updated snapshots"
         uses: actions/upload-artifact@v4
         with:

@@ -23,8 +23,6 @@ groupmod -o -g $USE_GID $USERNAME
 usermod -aG sudo $USERNAME && echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME
 chmod 0440 /etc/sudoers.d/$USERNAME
 
-chmod a+rx /home/$USERNAME
-
 # This bind point `/vagrant` is technically separate from the username.
 mkdir /vagrant
 chown $USERNAME:$USERNAME /vagrant
