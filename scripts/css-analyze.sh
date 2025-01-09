@@ -15,5 +15,5 @@ TREE_NAME=$2
 
 cat $INDEX_ROOT/css-files | \
     parallel $MOZSEARCH_PATH/tools/target/release/css-analyze \
-    $FILES_ROOT/{} ">" $INDEX_ROOT/analysis/{}
+    $FILES_ROOT {} ">" $INDEX_ROOT/analysis/{}
 echo $?
