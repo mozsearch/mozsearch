@@ -4,6 +4,11 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+MOZSEARCH_REPO="${MOZSEARCH_REPO:-https://github.com/mozsearch/mozsearch}"
+MOZSEARCH_BRANCH="${MOZSEARCH_BRANCH:-master}"
+MOZSEARCH_CONFIG_REPO="${MOZSEARCH_CONFIG_REPO:-https://github.com/mozsearch/mozsearch-mozilla}"
+MOZSEARCH_CONFIG_BRANCH="${MOZSEARCH_CONFIG_BRANCH:-master}"
+
 # Install zlib.h (needed for NSS build)
 sudo apt-get install -y zlib1g-dev
 
@@ -56,23 +61,23 @@ exec > >(tee -a update-log) 2>&1
 
 date
 
-if [ $# != 3 ]
+if [ $# != 4 ]
 then
-    echo "usage: $0 <branch> <mozsearch-repo> <config-repo>"
+    echo "usage: $0 <mozsearch-repo> <mozsearch-rev> <config-repo> <config-rev>"
     exit 1
 fi
 
-BRANCH=$1
-MOZSEARCH_REPO=$2
+MOZSEARCH_REPO=$1
+MOZSEARCH_REV=$2
 CONFIG_REPO=$3
+CONFIG_REV=$4
 
-echo Branch is $BRANCH
-echo Mozsearch repository is $MOZSEARCH_REPO
-echo Config repository is $CONFIG_REPO
+echo Mozsearch repository is $MOZSEARCH_REPO rev $MOZSEARCH_REV
+echo Config repository is $CONFIG_REPO rev $CONFIG_REV
 
 # Install mozsearch.
 rm -rf mozsearch
-git clone -b $BRANCH $MOZSEARCH_REPO mozsearch --depth=1
+git clone -b $MOZSEARCH_REV $MOZSEARCH_REPO mozsearch --depth=1
 pushd mozsearch
 git submodule init
 git submodule update
@@ -80,7 +85,7 @@ popd
 
 # Install files from the config repo.
 rm -rf config
-git clone -b $BRANCH $CONFIG_REPO config --depth=1
+git clone -b $CONFIG_REV $CONFIG_REPO config --depth=1
 
 date
 
@@ -101,10 +106,10 @@ chmod +x update.sh
 # this really is just:
 # - Validating the image can compile and use rust and clang correctly.
 # - Caching some crates in `~/.cargo`.
-./update.sh master https://github.com/mozsearch/mozsearch https://github.com/mozsearch/mozsearch-mozilla
+./update.sh "$MOZSEARCH_REPO" "$MOZSEARCH_BRANCH" "$MOZSEARCH_CONFIG_REPO" "$MOZSEARCH_CONFIG_BRANCH"
 mv update-log provision-update-log-1
 
 # Run this a second time to make sure the script is actually idempotent, so we
 # don't have any surprises when the update script gets run when the VM spins up.
-./update.sh master https://github.com/mozsearch/mozsearch https://github.com/mozsearch/mozsearch-mozilla
+./update.sh "$MOZSEARCH_REPO" "$MOZSEARCH_BRANCH" "$MOZSEARCH_CONFIG_REPO" "$MOZSEARCH_CONFIG_BRANCH"
 mv update-log provision-update-log-2

@@ -4,6 +4,11 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+MOZSEARCH_REPO="${MOZSEARCH_REPO:-https://github.com/mozsearch/mozsearch}"
+MOZSEARCH_BRANCH="${MOZSEARCH_BRANCH:-master}"
+MOZSEARCH_CONFIG_REPO="${MOZSEARCH_CONFIG_REPO:-https://github.com/mozsearch/mozsearch-mozilla}"
+MOZSEARCH_CONFIG_BRANCH="${MOZSEARCH_CONFIG_BRANCH:-master}"
+
 # We currently try to keep the version of clang we use matching the one that
 # will be used by the Firefox build process.  If you have a "mach bootstrap"ped
 # system then you can see the current version locally via
@@ -36,7 +41,7 @@ git config --global pull.ff only
 # we have git, so let's check out mozsearch now so we can have our email sending
 # script in case of an error.
 if [ ! -d mozsearch ]; then
-  git clone -b master https://github.com/mozsearch/mozsearch mozsearch --depth=1
+  git clone -b $MOZSEARCH_BRANCH $MOZSEARCH_REPO mozsearch --depth=1
 fi
 
 # the base image we're building against is inherently not up-to-date (new base
