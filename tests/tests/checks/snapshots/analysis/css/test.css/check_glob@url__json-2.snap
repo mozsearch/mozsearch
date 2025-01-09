@@ -1,14 +1,15 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+snapshot_kind: text
 ---
 [
   {
     "loc": "00001:0",
     "target": 1,
     "kind": "def",
-    "pretty": "file /home/vagrant/index/tests/files/css/test.css",
-    "sym": "FILE_/home/vagrant/index/tests/files/css/test@2Ecss"
+    "pretty": "file css/test.css",
+    "sym": "FILE_css/test@2Ecss"
   },
   {
     "loc": "00010:18-60",
