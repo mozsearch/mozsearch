@@ -1,5 +1,9 @@
 {
   inputs = {
+    self-with-dotgit = {
+      url = "file+file:///dev/null";
+      flake = false;
+    };
     nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
     flake-utils.url = github:numtide/flake-utils;
     fenix = {
@@ -22,6 +26,7 @@
 
   outputs = {
     self,
+    self-with-dotgit,
     nixpkgs,
     flake-utils,
     fenix,
@@ -85,6 +90,11 @@
           tests = pkgs.callPackage ./nix/mozsearch/configs/tests {
             inherit rustToolchain;
             inherit (packages) scip-python scip-java build-index mozsearch-tools mozsearch-clang-plugin serve-index;
+          };
+
+          searchfox = pkgs.callPackage ./nix/mozsearch/configs/searchfox.nix {
+            inherit self-with-dotgit rustToolchain;
+            inherit (packages) build-index mozsearch-tools;
           };
         };
 
