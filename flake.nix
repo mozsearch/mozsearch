@@ -14,6 +14,13 @@
         flake-utils.follows = "flake-utils";
       };
     };
+    # Set this using `--override-input self-with-dotgit path:$(pwd)` to provide access to our own repo, required for building the searchfox index itself.
+    # This is required because Nix does not copy the whole Flake Git repository to the store, since the git repository format is unstable.
+    # See https://github.com/NixOS/nix/issues/6900
+    self-with-dotgit = {
+      url = "file+file:///dev/null";
+      flake = false;
+    };
   };
 
   nixConfig = {
@@ -23,6 +30,7 @@
 
   outputs = {
     self,
+    self-with-dotgit,
     nixpkgs,
     flake-utils,
     fenix,
@@ -88,6 +96,11 @@
           tests = pkgs.callPackage ./nix/mozsearch/configs/tests {
             inherit rustToolchain;
             inherit (packages) scip-python scip-java build-index mozsearch-tools mozsearch-clang-plugin serve-index;
+          };
+
+          searchfox = pkgs.callPackage ./nix/mozsearch/configs/searchfox.nix {
+            inherit self-with-dotgit rustToolchain;
+            inherit (packages) build-index mozsearch-tools;
           };
         };
 
