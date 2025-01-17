@@ -109,7 +109,7 @@ done
 
 ## Python Stuff
 
-scip-python index --show-progress-rate-limit 0 --project-name python --output python.scip
+scip-python index --show-progress-rate-limit 0 --project-name python --project-version 0.0.0 --environment ../python-scip-env.json --output python.scip
 mv python.scip $INDEX_ROOT
 
 $MOZSEARCH_PATH/tools/target/release/scip-indexer \
