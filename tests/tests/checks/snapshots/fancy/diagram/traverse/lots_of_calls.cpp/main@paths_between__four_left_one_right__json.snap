@@ -1,0 +1,197 @@
+---
+source: src/bin/test-index.rs
+expression: sgc.to_json()
+---
+{
+  "jumprefs": {
+    "_ZN10CallerFour9four_leftEv": {
+      "sym": "_ZN10CallerFour9four_leftEv",
+      "pretty": "CallerFour::four_left",
+      "meta": {
+        "structured": 1,
+        "pretty": "CallerFour::four_left",
+        "sym": "_ZN10CallerFour9four_leftEv",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": null,
+        "parentsym": "T_CallerFour",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "user"
+        ],
+        "variants": [],
+        "args": []
+      },
+      "jumps": {
+        "def": "lots_of_calls.cpp#30"
+      }
+    },
+    "_ZN11CallerThree11three_nexusEP10CallerFour": {
+      "sym": "_ZN11CallerThree11three_nexusEP10CallerFour",
+      "pretty": "CallerThree::three_nexus",
+      "meta": {
+        "structured": 1,
+        "pretty": "CallerThree::three_nexus",
+        "sym": "_ZN11CallerThree11three_nexusEP10CallerFour",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": null,
+        "parentsym": "T_CallerThree",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "user"
+        ],
+        "variants": [],
+        "args": [
+          {
+            "name": "four",
+            "type": "CallerFour *",
+            "typesym": "T_CallerFour"
+          }
+        ]
+      },
+      "jumps": {
+        "def": "lots_of_calls.cpp#55",
+        "decl": "lots_of_calls.cpp#25"
+      }
+    },
+    "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour": {
+      "sym": "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
+      "pretty": "CallerOne::one_calls_two_right",
+      "meta": {
+        "structured": 1,
+        "pretty": "CallerOne::one_calls_two_right",
+        "sym": "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": null,
+        "parentsym": "T_CallerOne",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "user"
+        ],
+        "variants": [],
+        "args": [
+          {
+            "name": "two",
+            "type": "CallerTwo *",
+            "typesym": "T_CallerTwo"
+          },
+          {
+            "name": "three",
+            "type": "CallerThree *",
+            "typesym": "T_CallerThree"
+          },
+          {
+            "name": "four",
+            "type": "CallerFour *",
+            "typesym": "T_CallerFour"
+          }
+        ]
+      },
+      "jumps": {
+        "def": "lots_of_calls.cpp#40",
+        "decl": "lots_of_calls.cpp#12"
+      }
+    },
+    "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour": {
+      "sym": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour",
+      "pretty": "CallerTwo::two_right_calls_three_nexus",
+      "meta": {
+        "structured": 1,
+        "pretty": "CallerTwo::two_right_calls_three_nexus",
+        "sym": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": null,
+        "parentsym": "T_CallerTwo",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "user"
+        ],
+        "variants": [],
+        "args": [
+          {
+            "name": "three",
+            "type": "CallerThree *",
+            "typesym": "T_CallerThree"
+          },
+          {
+            "name": "four",
+            "type": "CallerFour *",
+            "typesym": "T_CallerFour"
+          }
+        ]
+      },
+      "jumps": {
+        "def": "lots_of_calls.cpp#50",
+        "decl": "lots_of_calls.cpp#20"
+      }
+    }
+  },
+  "graphs": [
+    {
+      "nodes": [
+        "_ZN10CallerFour9four_leftEv",
+        "_ZN11CallerThree11three_nexusEP10CallerFour",
+        "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
+        "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour"
+      ],
+      "edges": [
+        {
+          "from": "_ZN11CallerThree11three_nexusEP10CallerFour",
+          "to": "_ZN10CallerFour9four_leftEv"
+        },
+        {
+          "from": "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
+          "to": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour"
+        },
+        {
+          "from": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour",
+          "to": "_ZN11CallerThree11three_nexusEP10CallerFour"
+        }
+      ]
+    }
+  ],
+  "hierarchicalGraphs": []
+}

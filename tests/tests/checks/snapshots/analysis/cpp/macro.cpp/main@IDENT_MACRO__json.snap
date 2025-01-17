@@ -1,0 +1,147 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00011:8-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00015:35-46",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00020:20-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00022:20-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00022:32-43",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00026:20-41",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00028:20-41",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00031:26-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00031:4-25",
+    "target": 1,
+    "kind": "use",
+    "pretty": "IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00011:8-19",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00015:35-46",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00020:20-31",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec",
+    "expandsTo": {
+      "M_c86801c9a44abeec": {
+        "linux64": "16",
+        "macosx64": "16",
+        "win64": "16"
+      }
+    }
+  },
+  {
+    "loc": "00022:20-31",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec",
+    "expandsTo": {
+      "M_c86801c9a44abeec": {
+        "linux64": "17",
+        "macosx64": "17",
+        "win64": "17"
+      }
+    }
+  },
+  {
+    "loc": "00022:32-43",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00026:20-41",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00028:20-41",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00031:4-25",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  },
+  {
+    "loc": "00031:26-37",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro IDENT_MACRO",
+    "sym": "M_c86801c9a44abeec"
+  }
+]

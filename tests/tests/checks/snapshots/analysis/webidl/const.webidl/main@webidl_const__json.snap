@@ -1,0 +1,93 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-31",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestInterfaceForConst",
+    "sym": "WEBIDL_TestInterfaceForConst"
+  },
+  {
+    "loc": "1:10-31",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForConst",
+    "sym": "WEBIDL_TestInterfaceForConst"
+  },
+  {
+    "loc": "2:19-25",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL const TestInterfaceForConst::const1",
+    "sym": "WEBIDL_TestInterfaceForConst_const1"
+  },
+  {
+    "loc": "2:19-25",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForConst::const1",
+    "sym": "WEBIDL_TestInterfaceForConst_const1"
+  },
+  {
+    "loc": "2:19-25",
+    "structured": 1,
+    "pretty": "TestInterfaceForConst::const1",
+    "sym": "WEBIDL_TestInterfaceForConst_const1",
+    "kind": "field",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "const",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#const1"
+      }
+    ]
+  },
+  {
+    "loc": "2:8-18",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ConstType1",
+    "sym": "WEBIDL_ConstType1"
+  },
+  {
+    "loc": "2:8-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ConstType1",
+    "sym": "WEBIDL_ConstType1"
+  },
+  {
+    "loc": "1:10-31",
+    "structured": 1,
+    "pretty": "TestInterfaceForConst",
+    "sym": "WEBIDL_TestInterfaceForConst",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestInterfaceForConst_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestInterfaceForConst"
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "TestInterfaceForConst::const1",
+        "sym": "WEBIDL_TestInterfaceForConst_const1",
+        "props": []
+      }
+    ]
+  }
+]

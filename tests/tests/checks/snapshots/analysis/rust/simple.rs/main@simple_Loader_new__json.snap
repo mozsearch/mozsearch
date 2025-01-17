@@ -1,0 +1,24 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00043:11-14",
+    "source": 1,
+    "syntax": "def,method",
+    "pretty": "method Loader::new",
+    "sym": "S_rs_impl#[Loader]new().",
+    "nestingRange": "43:42-49:5",
+    "type": "pub fn new(deps_dir: PathBuf) -> Self"
+  },
+  {
+    "loc": "00043:11-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Loader::new",
+    "sym": "S_rs_impl#[Loader]new().",
+    "context": "Loader",
+    "contextsym": "S_rs_Loader#"
+  }
+]

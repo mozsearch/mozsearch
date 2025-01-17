@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "7:16-26",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property moduleFunc",
+    "sym": "#moduleFunc",
+    "nestingRange": "7:43-9:0"
+  },
+  {
+    "loc": "7:16-26",
+    "target": 1,
+    "kind": "def",
+    "pretty": "moduleFunc",
+    "sym": "#moduleFunc",
+    "context": ""
+  }
+]

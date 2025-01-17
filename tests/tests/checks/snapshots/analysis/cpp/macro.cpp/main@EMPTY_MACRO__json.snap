@@ -1,0 +1,364 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00009:8-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00017:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00018:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00019:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00020:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00021:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00022:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00023:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00024:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00025:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00026:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00027:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00028:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00029:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00030:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00031:38-49",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00031:53-64",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00031:67-78",
+    "target": 1,
+    "kind": "use",
+    "pretty": "EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00009:8-19",
+    "source": 1,
+    "syntax": "def,macro",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00017:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00018:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00019:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00020:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00021:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00022:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00023:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00024:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00025:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00026:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00027:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00028:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00029:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00030:0-11",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  },
+  {
+    "loc": "00031:38-49",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00031:53-64",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec"
+  },
+  {
+    "loc": "00031:67-78",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro EMPTY_MACRO",
+    "sym": "M_33c101c9a44abeec",
+    "expandsTo": {
+      "M_33c101c9a44abeec": {
+        "linux64": "",
+        "macosx64": "",
+        "win64": ""
+      }
+    }
+  }
+]

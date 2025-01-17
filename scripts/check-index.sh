@@ -46,15 +46,13 @@ then
     RUST_LOG=${CARGO_TEST_LOG:-} RUST_BACKTRACE=1 \
       SEARCHFOX_SERVER=${CONFIG_FILE} \
       SEARCHFOX_TREE=${TREE_NAME} \
-      CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
-      cargo test --release test_check_glob ${CARGO_TEST_EXTRA_ARGS:-}
+      cargo run --release --bin test-index -- "${CONFIG_REPO}/${TREE_NAME}/checks"
   fi
   if [[ $CHECK_SERVER_URL ]]; then
     RUST_LOG=${CARGO_TEST_LOG:-} RUST_BACKTRACE=1 \
       SEARCHFOX_SERVER="$CHECK_SERVER_URL" \
       SEARCHFOX_TREE=${TREE_NAME} \
-      CHECK_ROOT=${CONFIG_REPO}/${TREE_NAME}/checks \
-      cargo test --release test_check_glob ${CARGO_TEST_EXTRA_ARGS:-}
+      cargo run --release --bin test-index -- "${CONFIG_REPO}/${TREE_NAME}/checks"
   fi
   popd
   #$CONFIG_REPO/$TREE_NAME/check "$MOZSEARCH_PATH/scripts/check-helper.sh" "$CHECK_DISK" "$CHECK_SERVER_URL"

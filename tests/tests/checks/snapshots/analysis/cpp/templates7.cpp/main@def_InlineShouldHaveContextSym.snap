@@ -1,0 +1,26 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00020:14-40",
+    "source": 1,
+    "nestingRange": "20:46-20:47",
+    "syntax": "def,function",
+    "type": "void (int)",
+    "pretty": "function Theme::InlineShouldHaveContextSym",
+    "sym": "_ZN5Theme26InlineShouldHaveContextSymEi"
+  },
+  {
+    "loc": "00020:14-40",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Theme::InlineShouldHaveContextSym",
+    "sym": "_ZN5Theme26InlineShouldHaveContextSymEi",
+    "context": "Theme",
+    "contextsym": "T_Theme",
+    "peekRange": "20-20"
+  }
+]

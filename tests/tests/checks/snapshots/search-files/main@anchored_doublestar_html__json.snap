@@ -1,0 +1,145 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(fm).unwrap()"
+---
+{
+  "file_matches": [
+    {
+      "path": "bug1446220_unicode.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 10479,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "Font family name parsing tests",
+        "info": {}
+      }
+    },
+    {
+      "path": "css/embed_css.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 598,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "css",
+        "info": {}
+      }
+    },
+    {
+      "path": "html/invalid-entity-ref.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 232,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "Parser shouldn't fail with invalid entity references",
+        "info": {}
+      }
+    },
+    {
+      "path": "html/script.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 402,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "script",
+        "info": {}
+      }
+    },
+    {
+      "path": "mobile/androidTest/asserts/inputs.html",
+      "concise": {
+        "path_kind": "Test files",
+        "is_dir": false,
+        "file_size": 845,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "Inputs",
+        "info": {}
+      }
+    },
+    {
+      "path": "test_DOMWindowCreated_chromeonly.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 728,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "DOMWindowCreated not visible in content",
+        "info": {
+          "test": {
+            "failure_count": 5,
+            "manifest": [
+              "chrome.ini"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "path": "urlmap/chrome1.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 109,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "chrome1",
+        "info": {}
+      }
+    },
+    {
+      "path": "urlmap/mozsrc1.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 109,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "mozsrc1",
+        "info": {}
+      }
+    },
+    {
+      "path": "urlmap/resource1.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 111,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "resource1",
+        "info": {}
+      }
+    },
+    {
+      "path": "urlmap/root.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 2345,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "url map",
+        "info": {}
+      }
+    }
+  ]
+}
