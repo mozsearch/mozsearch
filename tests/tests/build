@@ -46,7 +46,7 @@ mkdir -p $INDEX_ROOT/analysis/
 rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
 
 # Use Gradle from PATH if available
-if which gradle &> /dev/null; then
+if command -v gradle &> /dev/null; then
   GRADLE=gradle
 else
   GRADLE=./gradlew

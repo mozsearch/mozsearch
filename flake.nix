@@ -77,6 +77,18 @@
             inherit webidl xpidl livegrep-grpc3;
             inherit (packages) mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer codesearch;
           };
+
+          build-index = pkgs.callPackage ./nix/mozsearch/build-index.nix {
+            inherit (packages) mozsearch-scripts;
+          };
+          serve-index = pkgs.callPackage ./nix/mozsearch/serve-index.nix {
+            inherit (packages) mozsearch-scripts;
+          };
+
+          tests = pkgs.callPackage ./nix/mozsearch/configs/tests {
+            inherit rustToolchain;
+            inherit (packages) scip-python scip-java build-index mozsearch-tools mozsearch-clang-plugin serve-index;
+          };
         };
 
         devShells.default =
