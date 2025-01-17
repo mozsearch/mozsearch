@@ -1,0 +1,121 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:10-32",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class TestInterfaceForMethod",
+    "sym": "WEBIDL_TestInterfaceForMethod"
+  },
+  {
+    "loc": "1:10-32",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForMethod",
+    "sym": "WEBIDL_TestInterfaceForMethod"
+  },
+  {
+    "loc": "2:10-20",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method TestInterfaceForMethod::MethodName",
+    "sym": "WEBIDL_TestInterfaceForMethod_MethodName"
+  },
+  {
+    "loc": "2:10-20",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestInterfaceForMethod::MethodName",
+    "sym": "WEBIDL_TestInterfaceForMethod_MethodName"
+  },
+  {
+    "loc": "2:10-20",
+    "structured": 1,
+    "pretty": "TestInterfaceForMethod::MethodName",
+    "sym": "WEBIDL_TestInterfaceForMethod_MethodName",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#MethodName"
+      }
+    ]
+  },
+  {
+    "loc": "2:2-9",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type RetType",
+    "sym": "WEBIDL_RetType"
+  },
+  {
+    "loc": "2:2-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "RetType",
+    "sym": "WEBIDL_RetType"
+  },
+  {
+    "loc": "2:21-29",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType1",
+    "sym": "WEBIDL_ArgType1"
+  },
+  {
+    "loc": "2:21-29",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType1",
+    "sym": "WEBIDL_ArgType1"
+  },
+  {
+    "loc": "2:36-44",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType2",
+    "sym": "WEBIDL_ArgType2"
+  },
+  {
+    "loc": "2:36-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType2",
+    "sym": "WEBIDL_ArgType2"
+  },
+  {
+    "loc": "1:10-32",
+    "structured": 1,
+    "pretty": "TestInterfaceForMethod",
+    "sym": "WEBIDL_TestInterfaceForMethod",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::TestInterfaceForMethod_Binding"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#TestInterfaceForMethod"
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "TestInterfaceForMethod::MethodName",
+        "sym": "WEBIDL_TestInterfaceForMethod_MethodName",
+        "props": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,129 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00077:14-24",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (int)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi"
+  },
+  {
+    "loc": "00077:14-24",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi",
+    "context": "WithOverloads",
+    "contextsym": "T_WithOverloads",
+    "peekRange": "77-77"
+  },
+  {
+    "loc": "00078:14-24",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (float)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEf"
+  },
+  {
+    "loc": "00078:14-24",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEf",
+    "context": "WithOverloads",
+    "contextsym": "T_WithOverloads",
+    "peekRange": "78-78"
+  },
+  {
+    "loc": "00079:14-24",
+    "source": 1,
+    "syntax": "decl,function",
+    "type": "void (_Bool)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb"
+  },
+  {
+    "loc": "00079:14-24",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb",
+    "context": "WithOverloads",
+    "contextsym": "T_WithOverloads",
+    "peekRange": "79-79"
+  },
+  {
+    "loc": "00083:4-14",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (_Bool)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
+  },
+  {
+    "loc": "00083:4-14",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (float)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEf",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
+  },
+  {
+    "loc": "00083:4-14",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (int)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
+  },
+  {
+    "loc": "00083:4-14",
+    "source": 1,
+    "syntax": "use,function",
+    "type": "void (int)",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi"
+  },
+  {
+    "loc": "00083:4-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb",
+    "context": "WithOverloads::Caller",
+    "contextsym": "_ZN13WithOverloads6CallerEv"
+  },
+  {
+    "loc": "00083:4-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEf",
+    "context": "WithOverloads::Caller",
+    "contextsym": "_ZN13WithOverloads6CallerEv"
+  },
+  {
+    "loc": "00083:4-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi",
+    "context": "WithOverloads::Caller",
+    "contextsym": "_ZN13WithOverloads6CallerEv"
+  }
+]

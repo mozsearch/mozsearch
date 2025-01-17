@@ -1,0 +1,230 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::platform_specific_size::S>_f1": {
+          "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
+          "pretty": "field_layout::platform_specific_size::S::f1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::platform_specific_size::S::f1",
+            "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::platform_specific_size::S",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/platform_specific_size.cpp#20"
+          }
+        },
+        "T_field_layout::platform_specific_size::S": {
+          "sym": "T_field_layout::platform_specific_size::S",
+          "pretty": "field_layout::platform_specific_size::S",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::platform_specific_size::S",
+            "sym": "T_field_layout::platform_specific_size::S",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 8,
+            "alignmentBytes": 8,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::platform_specific_size::S::S",
+                "sym": "_ZN12field_layout22platform_specific_size1SC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::platform_specific_size::S::S",
+                "sym": "_ZN12field_layout22platform_specific_size1SC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::platform_specific_size::S::S",
+                "sym": "_ZN12field_layout22platform_specific_size1SC1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "lineRange": "#20",
+                "pretty": "field_layout::platform_specific_size::S::f1",
+                "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
+                "type": "unsigned long",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 8
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": [
+              {
+                "structured": 1,
+                "pretty": "field_layout::platform_specific_size::S",
+                "sym": "T_field_layout::platform_specific_size::S",
+                "type_pretty": null,
+                "kind": "struct",
+                "subsystem": null,
+                "implKind": "",
+                "sizeBytes": 4,
+                "alignmentBytes": 4,
+                "ownVFPtrBytes": null,
+                "bindingSlots": [],
+                "ontologySlots": [],
+                "supers": [],
+                "methods": [
+                  {
+                    "pretty": "field_layout::platform_specific_size::S::S",
+                    "sym": "_ZN12field_layout22platform_specific_size1SC1Ev",
+                    "props": [
+                      "instance",
+                      "defaulted"
+                    ],
+                    "args": []
+                  },
+                  {
+                    "pretty": "field_layout::platform_specific_size::S::S",
+                    "sym": "_ZN12field_layout22platform_specific_size1SC1ERKS1_",
+                    "props": [
+                      "instance",
+                      "defaulted",
+                      "constexpr"
+                    ],
+                    "args": []
+                  },
+                  {
+                    "pretty": "field_layout::platform_specific_size::S::S",
+                    "sym": "_ZN12field_layout22platform_specific_size1SC1EOS1_",
+                    "props": [
+                      "instance",
+                      "defaulted",
+                      "constexpr"
+                    ],
+                    "args": []
+                  }
+                ],
+                "fields": [
+                  {
+                    "lineRange": "#20",
+                    "pretty": "field_layout::platform_specific_size::S::f1",
+                    "sym": "F_<T_field_layout::platform_specific_size::S>_f1",
+                    "type": "unsigned int",
+                    "typesym": "",
+                    "offsetBytes": 0,
+                    "bitPositions": null,
+                    "sizeBytes": 4
+                  }
+                ],
+                "overrides": [],
+                "props": [],
+                "variants": [],
+                "platforms": [
+                  "linux64",
+                  "macosx64"
+                ]
+              }
+            ],
+            "platforms": [
+              "win64"
+            ]
+          },
+          "jumps": {
+            "def": "field-layout/platform_specific_size.cpp#19"
+          }
+        }
+      },
+      "platforms": [
+        "win64",
+        "macosx64 linux64"
+      ],
+      "rows": [
+        {
+          "name": "field_layout::platform_specific_size::S",
+          "symbols": "T_field_layout::platform_specific_size::S",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(8)",
+              "size": "8"
+            },
+            {
+              "alignment": "align(4)",
+              "size": "4"
+            }
+          ],
+          "items": [
+            {
+              "Field": {
+                "name": "f1",
+                "symbols": "F_<T_field_layout::platform_specific_size::S>_f1",
+                "types": [
+                  {
+                    "name": "unsigned long",
+                    "symbols": ""
+                  },
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_field_layout::platform_specific_size::T1\" data-confidences=\"[&quot;concrete&quot;]\">T1</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::platform_specific_size::S>_f1\" data-confidences=\"[&quot;concrete&quot;]\">f1</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "8"
+                  },
+                  {
+                    "offset": "@ 0x0",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "className": null
+}

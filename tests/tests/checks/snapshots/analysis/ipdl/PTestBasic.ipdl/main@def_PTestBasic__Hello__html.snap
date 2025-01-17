@@ -1,0 +1,12 @@
+---
+source: src/bin/test-index.rs
+expression: "&aggr_str"
+snapshot_kind: text
+---
+<div role="row" id="line-10" class="source-line-with-number">
+  <div role="cell"><div class="cov-strip cov-no-data"></div></div>
+  <div role="cell"><div class="blame-strip"></div></div>
+  <div role="cell" class="line-number" data-line-number="10"></div>
+  <code role="cell" class="source-line">    <span class="syn_reserved" >async</span> <span class="syn_def syn_def" data-symbols="IPC_mozilla__ipdltest_PTestBasic_Hello" data-confidences="[&quot;concrete&quot;]">Hello</span>();
+</code>
+</div>

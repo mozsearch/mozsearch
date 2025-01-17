@@ -1,0 +1,104 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00136:6-11",
+    "structured": 1,
+    "pretty": "outerNS::Thing",
+    "sym": "T_outerNS::Thing",
+    "kind": "class",
+    "sizeBytes": 16,
+    "alignmentBytes": 8,
+    "ownVFPtrBytes": 8,
+    "supers": [],
+    "methods": [
+      {
+        "pretty": "outerNS::Thing::Thing",
+        "sym": "_ZN7outerNS5ThingC1Ei",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::Thing::ignore",
+        "sym": "_ZN7outerNS5Thing6ignoreEv",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::Thing::takeDamage",
+        "sym": "_ZN7outerNS5Thing10takeDamageEi",
+        "props": [
+          "instance",
+          "virtual",
+          "user"
+        ]
+      },
+      {
+        "pretty": "outerNS::Thing::operator=",
+        "sym": "_ZN7outerNS5ThingaSERKS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Thing::operator=",
+        "sym": "_ZN7outerNS5ThingaSEOS0_",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Thing::~Thing",
+        "sym": "_ZN7outerNS5ThingD1Ev",
+        "props": [
+          "instance",
+          "defaulted"
+        ]
+      },
+      {
+        "pretty": "outerNS::Thing::Thing",
+        "sym": "_ZN7outerNS5ThingC1ERKS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      },
+      {
+        "pretty": "outerNS::Thing::Thing",
+        "sym": "_ZN7outerNS5ThingC1EOS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      }
+    ],
+    "fields": [
+      {
+        "lineRange": "#142",
+        "pretty": "outerNS::Thing::mHP",
+        "sym": "F_<T_outerNS::Thing>_mHP",
+        "type": "int",
+        "offsetBytes": 8,
+        "sizeBytes": 4
+      },
+      {
+        "lineRange": "#146",
+        "pretty": "outerNS::Thing::mDefunct",
+        "sym": "F_<T_outerNS::Thing>_mDefunct",
+        "type": "_Bool",
+        "offsetBytes": 12,
+        "sizeBytes": 1
+      }
+    ]
+  }
+]

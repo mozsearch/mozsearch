@@ -1,0 +1,95 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "F_<T_outerNS::Thing>_mHP",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "big_cpp.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 149,
+                "bounds": [
+                  20,
+                  23
+                ],
+                "line": "Thing(int baseHP) : mHP(baseHP), mDefunct(false) {",
+                "context": "outerNS::Thing::Thing",
+                "contextsym": "_ZN7outerNS5ThingC1Ei"
+              },
+              {
+                "lno": 156,
+                "bounds": [
+                  0,
+                  3
+                ],
+                "line": "mHP -= damage;",
+                "context": "outerNS::Thing::takeDamage",
+                "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
+              },
+              {
+                "lno": 428,
+                "bounds": [
+                  0,
+                  3
+                ],
+                "line": "mHP++;",
+                "context": "outerNS::PracticalArt::beArt",
+                "contextsym": "_ZN7outerNS12PracticalArt5beArtEv"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 142,
+                "bounds": [
+                  4,
+                  7
+                ],
+                "line": "int mHP;",
+                "context": "outerNS::Thing",
+                "contextsym": "T_outerNS::Thing",
+                "peekRange": "138-142"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::Thing::mHP",
+          "sym": "F_<T_outerNS::Thing>_mHP",
+          "type_pretty": null,
+          "kind": "field",
+          "subsystem": "Core/Big",
+          "parentsym": "T_outerNS::Thing",
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+---
+<section class="info-boxes" id="info-boxes-container">
+  <section class="info-box info-box-warning">
+    <h4>Test Info: Warnings</h4>
+    <div>
+      <ul>
+        <li>This test has a <a href="/tests/source/testing/web-platform/meta/fake-standard/test_ima_disabled_wpt.js.ini">WPT meta file</a> that disables it given conditions:
+            <ul>
+                <li><span class="test-skip-info"></span>&nbsp; : <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=12345">12345</a></li>
+                <li><span class="test-skip-info">os == "win"</span>&nbsp; : <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=234567">https://bugzilla.mozilla.org/show_bug.cgi?id=234567</a></li>
+                <li><span class="test-skip-info">os == "linux"</span>&nbsp; : <a href="https://bugzilla.mozilla.org/234567">https://bugzilla.mozilla.org/234567</a></li></ul>
+        </li>
+        <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
+            <ul>
+                <li>/fake-standard/test_ima_disabled_wpt.js - <a href="https://wpt.fyi/results/fake-standard/test_ima_disabled_wpt.js">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent=core::dom: service workers#/fake-standard/test_ima_disabled_wpt.js">Interop Dashboard</a></li></ul>
+        </li>
+      </ul>
+    </div>
+  </section>
+</section>

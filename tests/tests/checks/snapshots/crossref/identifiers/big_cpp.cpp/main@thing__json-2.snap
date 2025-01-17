@@ -1,0 +1,13 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sl).unwrap()"
+---
+{
+  "symbols": [
+    {
+      "symbol": "T_outerNS::Thing",
+      "quality": "ExactIdentifier",
+      "from_identifier": "outerNS::Thing"
+    }
+  ]
+}

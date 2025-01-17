@@ -1,0 +1,21 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00084:16-37",
+    "structured": 1,
+    "pretty": "GlobalContext::LessGlobalContext::decideWhetherToDecide",
+    "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv",
+    "args": [],
+    "kind": "method",
+    "parentsym": "T_GlobalContext::LessGlobalContext",
+    "overrides": [],
+    "props": [
+      "static",
+      "user"
+    ]
+  }
+]

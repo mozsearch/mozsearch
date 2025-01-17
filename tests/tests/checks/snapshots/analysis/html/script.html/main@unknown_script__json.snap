@@ -1,0 +1,5 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[]

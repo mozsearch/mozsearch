@@ -1,0 +1,77 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_jvm_sample/JavaLibrary#A#",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "src/main/java/sample/JavaLibrary.java",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  20,
+                  21
+                ],
+                "line": "interface B extends A {}",
+                "context": "sample::JavaLibrary::B",
+                "contextsym": "S_jvm_sample/JavaLibrary#B#"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "src/main/java/sample/JavaLibrary.java",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 12,
+                "bounds": [
+                  10,
+                  11
+                ],
+                "line": "interface A {}",
+                "context": "sample::JavaLibrary::<init>",
+                "contextsym": "S_jvm_sample/JavaLibrary#<init>()."
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "sample::JavaLibrary::A",
+          "sym": "S_jvm_sample/JavaLibrary#A#",
+          "type_pretty": "interface A",
+          "kind": "class",
+          "subsystem": null,
+          "parentsym": "S_jvm_sample/JavaLibrary#",
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "subclasses": [
+            "S_jvm_sample/JavaLibrary#B#"
+          ],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

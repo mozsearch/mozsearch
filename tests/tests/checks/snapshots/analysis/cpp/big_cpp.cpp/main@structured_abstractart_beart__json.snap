@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00418:15-20",
+    "structured": 1,
+    "pretty": "outerNS::AbstractArt::beArt",
+    "sym": "_ZN7outerNS11AbstractArt5beArtEv",
+    "args": [],
+    "kind": "method",
+    "parentsym": "T_outerNS::AbstractArt",
+    "overrides": [],
+    "props": [
+      "instance",
+      "virtual",
+      "user"
+    ]
+  }
+]
