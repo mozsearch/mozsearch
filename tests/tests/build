@@ -39,8 +39,8 @@ rust-analyzer scip . --output $OBJDIR/rust.scip
 rm -rf target/
 
 ## XPIDL Stuff
-XPIDL_SAVED_GENERATED_FILES=$MOZSEARCH_PATH/tests/tests/mc-generated
-XPIDL_SAVED_ANALYSIS_FILES=$MOZSEARCH_PATH/tests/tests/mc-analysis
+XPIDL_SAVED_GENERATED_FILES=../mc-generated
+XPIDL_SAVED_ANALYSIS_FILES=../mc-analysis
 rsync -av $XPIDL_SAVED_GENERATED_FILES/ $OBJDIR
 mkdir -p $INDEX_ROOT/analysis/
 rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
