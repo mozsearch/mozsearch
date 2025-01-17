@@ -67,9 +67,9 @@ review-test-repo:
 
 build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/searchfox-index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index
+	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/searchfox-index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~
+	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/searchfox-index ~
 
 # Notes:
@@ -224,4 +224,4 @@ build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 
 webtest: build-webtest-repo
-	./scripts/webtest.sh
+	MOZSEARCH_SOURCE_PATH=/vagrant ./scripts/webtest.sh
