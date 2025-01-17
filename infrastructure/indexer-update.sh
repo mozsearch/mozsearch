@@ -67,6 +67,33 @@ pushd mozsearch/scripts/web-analyze/wasm-css-analyzer
 ./build.sh
 popd
 
+PYMODULES=$HOME/pymodules
+
+# Delete the temp dir if IDL parsers are older than a day (in minutes to avoid
+# quantization weirdness).  We'll also try and delete the dir if the file just
+# doesn't exist, which also means if the directory doesn't exist.  (We could
+# have instead done `-mmin +1440` for affirmative confirmation it's old, but
+# since our next check is just for the existence of the directory, this is least
+# likely to result in weirdness.)
+if [ ! "$(find $PYMODULES/xpidl.py -mmin -1440)" ]; then
+    rm -rf $PYMODULES
+fi
+
+# download/copy as needed
+if [ ! -d "${PYMODULES}" ]; then
+    mkdir "${PYMODULES}"
+    pushd "${PYMODULES}"
+    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/xpcom/idl-parser/xpidl/xpidl.py"
+    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/dom/bindings/parser/WebIDL.py"
+    mkdir ply
+    pushd ply
+    for PLYFILE in __init__.py lex.py yacc.py; do
+        wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/third_party/python/ply/ply/${PLYFILE}"
+    done
+    popd
+    popd
+fi
+
 # TODO: remove after next provisioning
 if [ -d "$HOME/livegrep-grpc3/src" ]; then
   rm -rf "$HOME/livegrep-grpc3/src"

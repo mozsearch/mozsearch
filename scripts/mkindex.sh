@@ -26,7 +26,7 @@ TREE_NAME=$3
 # in fact turn out to be fatal later on, but we can address that as situations
 # arise.
 
-export PYTHONPATH=$MOZSEARCH_PATH/scripts
+export PYTHONPATH="$MOZSEARCH_PATH/scripts${PYTHONPATH:+:${PYTHONPATH}}"
 
 # activate the venv we created for livegrep so we have access to the grpc
 # dependencies.

@@ -38,6 +38,8 @@ jobs:
         working-directory: /home/runner
       - name: Add scip-java to PATH
         run: echo "$HOME/.local/share/coursier/bin" >> "$GITHUB_PATH"
+      - name: Add webidl, xpidl and ply to PYTHONPATH
+        run: echo "PYTHONPATH=$HOME/pymodules" >> "$GITHUB_ENV"
       - name: Give www-data access to the user's home directory
         run: chmod a+rx ~
 
