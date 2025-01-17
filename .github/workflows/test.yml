@@ -78,6 +78,8 @@ jobs:
       - run: rm -rf ~/index
 
       # Webtest repo
+      - name: Set mozsearch source path
+        run: echo "MOZSEARCH_SOURCE_PATH=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
       - run: mkdir ~/index
       - name: "Webtest config: Indexer setup"
         run: $GITHUB_WORKSPACE/infrastructure/indexer-setup.sh $GITHUB_WORKSPACE/tests webtest-config.json ~/index
