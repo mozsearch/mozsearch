@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
+input_file: inputs/web/files/urlmap/links_in_string__html
 ---
 <span class="syn_string" data-symbols="FILE_urlmap/chrome1@2Emjs,FILE_urlmap/chrome1b@2Emjs" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">"<span data-symbols="FILE_urlmap/chrome1@2Emjs,FILE_urlmap/chrome1b@2Emjs">chrome://global/content/test/chrome1.mjs</span>"</span>
 <span class="syn_string" >"<a href="https://bugzilla.mozilla.org/">https://bugzilla.mozilla.org/</a>"</span>

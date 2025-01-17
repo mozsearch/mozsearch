@@ -1,0 +1,867 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_outerNS::OuterCat>_mFavoriteCouch": {
+          "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+          "pretty": "outerNS::OuterCat::mFavoriteCouch",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::OuterCat::mFavoriteCouch",
+            "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": "Core/Big",
+            "parentsym": "T_outerNS::OuterCat",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#228"
+          }
+        },
+        "F_<T_outerNS::OuterCat>_mIsFriendly": {
+          "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+          "pretty": "outerNS::OuterCat::mIsFriendly",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::OuterCat::mIsFriendly",
+            "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": "Core/Big",
+            "parentsym": "T_outerNS::OuterCat",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#224"
+          }
+        },
+        "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly": {
+          "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+          "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+            "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": "Core/Big",
+            "parentsym": "T_outerNS::OuterCat",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#225"
+          }
+        },
+        "F_<T_outerNS::OuterCat>_mOwner": {
+          "sym": "F_<T_outerNS::OuterCat>_mOwner",
+          "pretty": "outerNS::OuterCat::mOwner",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::OuterCat::mOwner",
+            "sym": "F_<T_outerNS::OuterCat>_mOwner",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": "Core/Big",
+            "parentsym": "T_outerNS::OuterCat",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#227"
+          }
+        },
+        "F_<T_outerNS::Thing>_mDefunct": {
+          "sym": "F_<T_outerNS::Thing>_mDefunct",
+          "pretty": "outerNS::Thing::mDefunct",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::Thing::mDefunct",
+            "sym": "F_<T_outerNS::Thing>_mDefunct",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": "Core/Big",
+            "parentsym": "T_outerNS::Thing",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#146"
+          }
+        },
+        "F_<T_outerNS::Thing>_mHP": {
+          "sym": "F_<T_outerNS::Thing>_mHP",
+          "pretty": "outerNS::Thing::mHP",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::Thing::mHP",
+            "sym": "F_<T_outerNS::Thing>_mHP",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": "Core/Big",
+            "parentsym": "T_outerNS::Thing",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#142"
+          }
+        },
+        "T_outerNS::Couch": {
+          "sym": "T_outerNS::Couch",
+          "pretty": "outerNS::Couch",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::Couch",
+            "sym": "T_outerNS::Couch",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": "Core/Big",
+            "implKind": "",
+            "sizeBytes": 16,
+            "alignmentBytes": 8,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_outerNS::Thing",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "outerNS::Couch::Couch",
+                "sym": "_ZN7outerNS5CouchC1Ei",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Couch::operator=",
+                "sym": "_ZN7outerNS5CouchaSERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Couch::operator=",
+                "sym": "_ZN7outerNS5CouchaSEOS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Couch::~Couch",
+                "sym": "_ZN7outerNS5CouchD1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#196"
+          }
+        },
+        "T_outerNS::Human": {
+          "sym": "T_outerNS::Human",
+          "pretty": "outerNS::Human",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::Human",
+            "sym": "T_outerNS::Human",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": "Core/Big",
+            "implKind": "",
+            "sizeBytes": 16,
+            "alignmentBytes": 8,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_outerNS::Thing",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "outerNS::Human::Human",
+                "sym": "_ZN7outerNS5HumanC1Ev",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::operator=",
+                "sym": "_ZN7outerNS5HumanaSERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::operator=",
+                "sym": "_ZN7outerNS5HumanaSEOS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::~Human",
+                "sym": "_ZN7outerNS5HumanD1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::Human",
+                "sym": "_ZN7outerNS5HumanC1ERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Human::Human",
+                "sym": "_ZN7outerNS5HumanC1EOS0_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_outerNS::Superhero"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#178"
+          }
+        },
+        "T_outerNS::OuterCat": {
+          "sym": "T_outerNS::OuterCat",
+          "pretty": "outerNS::OuterCat",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::OuterCat",
+            "sym": "T_outerNS::OuterCat",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": "Core/Big",
+            "implKind": "",
+            "sizeBytes": 40,
+            "alignmentBytes": 8,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_outerNS::Thing",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "outerNS::OuterCat::OuterCat",
+                "sym": "_ZN7outerNS8OuterCatC1Ebb",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::isFriendlyCat",
+                "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
+                "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
+                "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::meet",
+                "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::meet",
+                "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::shred",
+                "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::destroy",
+                "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::OuterCat",
+                "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::OuterCat",
+                "sym": "_ZN7outerNS8OuterCatC1EOS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::operator=",
+                "sym": "_ZN7outerNS8OuterCataSERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::operator=",
+                "sym": "_ZN7outerNS8OuterCataSEOS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::OuterCat::~OuterCat",
+                "sym": "_ZN7outerNS8OuterCatD1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "lineRange": "#224",
+                "pretty": "outerNS::OuterCat::mIsFriendly",
+                "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+                "type": "_Bool",
+                "typesym": "",
+                "offsetBytes": 13,
+                "bitPositions": null,
+                "sizeBytes": 1
+              },
+              {
+                "lineRange": "#225",
+                "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+                "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+                "type": "_Bool",
+                "typesym": "",
+                "offsetBytes": 14,
+                "bitPositions": null,
+                "sizeBytes": 1
+              },
+              {
+                "lineRange": "#227",
+                "pretty": "outerNS::OuterCat::mOwner",
+                "sym": "F_<T_outerNS::OuterCat>_mOwner",
+                "type": "class std::shared_ptr<class outerNS::Human>",
+                "typesym": "T_std::shared_ptr",
+                "offsetBytes": 16,
+                "bitPositions": null,
+                "sizeBytes": 16,
+                "labels": [
+                  "cc-unlink"
+                ],
+                "pointerInfo": [
+                  {
+                    "kind": "strong",
+                    "sym": "T_outerNS::Human"
+                  }
+                ]
+              },
+              {
+                "lineRange": "#228",
+                "pretty": "outerNS::OuterCat::mFavoriteCouch",
+                "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+                "type": "class outerNS::Couch *",
+                "typesym": "T_outerNS::Couch",
+                "offsetBytes": 32,
+                "bitPositions": null,
+                "sizeBytes": 8,
+                "labels": [
+                  "cc-unlink"
+                ],
+                "pointerInfo": [
+                  {
+                    "kind": "raw",
+                    "sym": "T_outerNS::Couch"
+                  }
+                ]
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "labels": [
+              "cc"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#210"
+          }
+        },
+        "T_outerNS::Thing": {
+          "sym": "T_outerNS::Thing",
+          "pretty": "outerNS::Thing",
+          "meta": {
+            "structured": 1,
+            "pretty": "outerNS::Thing",
+            "sym": "T_outerNS::Thing",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": "Core/Big",
+            "implKind": "",
+            "sizeBytes": 16,
+            "alignmentBytes": 8,
+            "ownVFPtrBytes": 8,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "outerNS::Thing::Thing",
+                "sym": "_ZN7outerNS5ThingC1Ei",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Thing::ignore",
+                "sym": "_ZN7outerNS5Thing6ignoreEv",
+                "props": [
+                  "instance",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Thing::takeDamage",
+                "sym": "_ZN7outerNS5Thing10takeDamageEi",
+                "props": [
+                  "instance",
+                  "virtual",
+                  "user"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Thing::operator=",
+                "sym": "_ZN7outerNS5ThingaSERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Thing::operator=",
+                "sym": "_ZN7outerNS5ThingaSEOS0_",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Thing::~Thing",
+                "sym": "_ZN7outerNS5ThingD1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Thing::Thing",
+                "sym": "_ZN7outerNS5ThingC1ERKS0_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "outerNS::Thing::Thing",
+                "sym": "_ZN7outerNS5ThingC1EOS0_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "lineRange": "#142",
+                "pretty": "outerNS::Thing::mHP",
+                "sym": "F_<T_outerNS::Thing>_mHP",
+                "type": "int",
+                "typesym": "",
+                "offsetBytes": 8,
+                "bitPositions": null,
+                "sizeBytes": 4
+              },
+              {
+                "lineRange": "#146",
+                "pretty": "outerNS::Thing::mDefunct",
+                "sym": "F_<T_outerNS::Thing>_mDefunct",
+                "type": "_Bool",
+                "typesym": "",
+                "offsetBytes": 12,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_outerNS::Human",
+              "T_outerNS::Couch",
+              "T_outerNS::OuterCat",
+              "T_outerNS::AbstractArt"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "big_cpp.cpp#136"
+          }
+        },
+        "T_std::shared_ptr": {
+          "sym": "T_std::shared_ptr",
+          "pretty": "T_std::shared_ptr"
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": [
+        {
+          "name": "outerNS::OuterCat",
+          "symbols": "T_outerNS::OuterCat",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(8)",
+              "size": "40"
+            }
+          ],
+          "items": [
+            {
+              "Field": {
+                "name": "mIsFriendly",
+                "symbols": "F_<T_outerNS::OuterCat>_mIsFriendly",
+                "types": [
+                  {
+                    "name": "_Bool",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsFriendly\" data-confidences=\"[&quot;concrete&quot;]\">mIsFriendly</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0xd",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "mIsSecretlyUnfriendly",
+                "symbols": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+                "types": [
+                  {
+                    "name": "_Bool",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly\" data-confidences=\"[&quot;concrete&quot;]\">mIsSecretlyUnfriendly</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0xe",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Hole": [
+                "1 byte hole"
+              ]
+            },
+            {
+              "Field": {
+                "name": "mOwner",
+                "symbols": "F_<T_outerNS::OuterCat>_mOwner",
+                "types": [
+                  {
+                    "name": "class std::shared_ptr<class outerNS::Human>",
+                    "symbols": "T_std::shared_ptr,T_outerNS::Human"
+                  }
+                ],
+                "lines": [
+                  "  std::<span class=\"syn_type\" data-symbols=\"T_std::shared_ptr\" data-confidences=\"[&quot;concrete&quot;]\">shared_ptr</span>&lt;<span class=\"syn_type\" data-symbols=\"T_outerNS::Human\" data-confidences=\"[&quot;concrete&quot;]\">Human</span>> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mOwner\" data-confidences=\"[&quot;concrete&quot;]\">mOwner</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x10",
+                    "size": "16"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "mFavoriteCouch",
+                "symbols": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+                "types": [
+                  {
+                    "name": "class outerNS::Couch *",
+                    "symbols": "T_outerNS::Couch"
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"T_outerNS::Couch\" data-confidences=\"[&quot;concrete&quot;]\">Couch</span>* <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::OuterCat>_mFavoriteCouch\" data-confidences=\"[&quot;concrete&quot;]\">mFavoriteCouch</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x20",
+                    "size": "8"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "outerNS::Thing",
+          "symbols": "T_outerNS::Thing",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "(vtable)",
+                "symbols": "",
+                "types": [
+                  {
+                    "name": "",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "8"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "mHP",
+                "symbols": "F_<T_outerNS::Thing>_mHP",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >int</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mHP\" data-confidences=\"[&quot;concrete&quot;]\">mHP</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "4"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "mDefunct",
+                "symbols": "F_<T_outerNS::Thing>_mDefunct",
+                "types": [
+                  {
+                    "name": "_Bool",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_reserved\" >bool</span> <span class=\"syn_def\" data-symbols=\"F_<T_outerNS::Thing>_mDefunct\" data-confidences=\"[&quot;concrete&quot;]\">mDefunct</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0xc",
+                    "size": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "className": null
+}

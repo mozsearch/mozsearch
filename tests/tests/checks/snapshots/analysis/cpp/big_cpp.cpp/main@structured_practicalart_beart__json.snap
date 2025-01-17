@@ -1,0 +1,26 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00426:7-12",
+    "structured": 1,
+    "pretty": "outerNS::PracticalArt::beArt",
+    "sym": "_ZN7outerNS12PracticalArt5beArtEv",
+    "args": [],
+    "kind": "method",
+    "parentsym": "T_outerNS::PracticalArt",
+    "overrides": [
+      {
+        "sym": "_ZN7outerNS11AbstractArt5beArtEv"
+      }
+    ],
+    "props": [
+      "instance",
+      "virtual",
+      "user"
+    ]
+  }
+]

@@ -1,0 +1,277 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "T_outerNS::Thing",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "big_cpp.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 165,
+                "bounds": [
+                  5,
+                  10
+                ],
+                "line": "void Thing::ignore() {",
+                "context": "outerNS::Thing::ignore",
+                "contextsym": "_ZN7outerNS5Thing6ignoreEv"
+              },
+              {
+                "lno": 178,
+                "bounds": [
+                  21,
+                  26
+                ],
+                "line": "class Human : public Thing {",
+                "context": "outerNS::Human",
+                "contextsym": "T_outerNS::Human"
+              },
+              {
+                "lno": 180,
+                "bounds": [
+                  10,
+                  15
+                ],
+                "line": "Human() : Thing(HUMAN_HP) {}",
+                "context": "outerNS::Human::Human",
+                "contextsym": "_ZN7outerNS5HumanC1Ev"
+              },
+              {
+                "lno": 196,
+                "bounds": [
+                  21,
+                  26
+                ],
+                "line": "class Couch : public Thing {",
+                "context": "outerNS::Couch",
+                "contextsym": "T_outerNS::Couch"
+              },
+              {
+                "lno": 198,
+                "bounds": [
+                  26,
+                  31
+                ],
+                "line": "Couch(int couchHP = 20) : Thing(couchHP) {",
+                "context": "outerNS::Couch::Couch",
+                "contextsym": "_ZN7outerNS5CouchC1Ei"
+              },
+              {
+                "lno": 210,
+                "bounds": [
+                  17,
+                  22
+                ],
+                "line": "class OuterCat : Thing {",
+                "context": "outerNS::OuterCat",
+                "contextsym": "T_outerNS::OuterCat"
+              },
+              {
+                "lno": 250,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": ": Thing(9 * HUMAN_HP),",
+                "context": "outerNS::OuterCat::OuterCat",
+                "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
+              },
+              {
+                "lno": 387,
+                "bounds": [
+                  11,
+                  16
+                ],
+                "line": "void shred(Thing& thing) { thing.takeDamage(1); }",
+                "context": "outerNS::OuterCat::shred",
+                "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+              },
+              {
+                "lno": 392,
+                "bounds": [
+                  13,
+                  18
+                ],
+                "line": "void destroy(Thing& thing) {",
+                "context": "outerNS::OuterCat::destroy",
+                "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+              },
+              {
+                "lno": 412,
+                "bounds": [
+                  27,
+                  32
+                ],
+                "line": "class AbstractArt : public Thing {",
+                "context": "outerNS::AbstractArt",
+                "contextsym": "T_outerNS::AbstractArt"
+              },
+              {
+                "lno": 414,
+                "bounds": [
+                  16,
+                  21
+                ],
+                "line": "AbstractArt() : Thing(ART_HP) {}",
+                "context": "outerNS::AbstractArt::AbstractArt",
+                "contextsym": "_ZN7outerNS11AbstractArtC1Ev"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 136,
+                "bounds": [
+                  6,
+                  11
+                ],
+                "line": "class Thing {",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "136-136"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::Thing",
+          "sym": "T_outerNS::Thing",
+          "type_pretty": null,
+          "kind": "class",
+          "subsystem": "Core/Big",
+          "implKind": "",
+          "sizeBytes": 16,
+          "alignmentBytes": 8,
+          "ownVFPtrBytes": 8,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [
+            {
+              "pretty": "outerNS::Thing::Thing",
+              "sym": "_ZN7outerNS5ThingC1Ei",
+              "props": [
+                "instance",
+                "user"
+              ],
+              "args": []
+            },
+            {
+              "pretty": "outerNS::Thing::ignore",
+              "sym": "_ZN7outerNS5Thing6ignoreEv",
+              "props": [
+                "instance",
+                "user"
+              ],
+              "args": []
+            },
+            {
+              "pretty": "outerNS::Thing::takeDamage",
+              "sym": "_ZN7outerNS5Thing10takeDamageEi",
+              "props": [
+                "instance",
+                "virtual",
+                "user"
+              ],
+              "args": []
+            },
+            {
+              "pretty": "outerNS::Thing::operator=",
+              "sym": "_ZN7outerNS5ThingaSERKS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ],
+              "args": []
+            },
+            {
+              "pretty": "outerNS::Thing::operator=",
+              "sym": "_ZN7outerNS5ThingaSEOS0_",
+              "props": [
+                "instance",
+                "defaulted"
+              ],
+              "args": []
+            },
+            {
+              "pretty": "outerNS::Thing::~Thing",
+              "sym": "_ZN7outerNS5ThingD1Ev",
+              "props": [
+                "instance",
+                "defaulted"
+              ],
+              "args": []
+            },
+            {
+              "pretty": "outerNS::Thing::Thing",
+              "sym": "_ZN7outerNS5ThingC1ERKS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ],
+              "args": []
+            },
+            {
+              "pretty": "outerNS::Thing::Thing",
+              "sym": "_ZN7outerNS5ThingC1EOS0_",
+              "props": [
+                "instance",
+                "defaulted",
+                "constexpr"
+              ],
+              "args": []
+            }
+          ],
+          "fields": [
+            {
+              "lineRange": "#142",
+              "pretty": "outerNS::Thing::mHP",
+              "sym": "F_<T_outerNS::Thing>_mHP",
+              "type": "int",
+              "typesym": "",
+              "offsetBytes": 8,
+              "bitPositions": null,
+              "sizeBytes": 4
+            },
+            {
+              "lineRange": "#146",
+              "pretty": "outerNS::Thing::mDefunct",
+              "sym": "F_<T_outerNS::Thing>_mDefunct",
+              "type": "_Bool",
+              "typesym": "",
+              "offsetBytes": 12,
+              "bitPositions": null,
+              "sizeBytes": 1
+            }
+          ],
+          "overrides": [],
+          "props": [],
+          "subclasses": [
+            "T_outerNS::Human",
+            "T_outerNS::Couch",
+            "T_outerNS::OuterCat",
+            "T_outerNS::AbstractArt"
+          ],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

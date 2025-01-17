@@ -1,0 +1,56 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file css/test.css",
+    "sym": "FILE_css/test@2Ecss"
+  },
+  {
+    "loc": "00010:18-60",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
+  },
+  {
+    "loc": "00010:18-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
+  },
+  {
+    "loc": "00014:24-66",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
+  },
+  {
+    "loc": "00014:24-66",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
+  },
+  {
+    "loc": "00018:20-65",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
+  },
+  {
+    "loc": "00018:20-65",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/chrome1.png",
+    "sym": "FILE_urlmap/chrome1@2Epng"
+  }
+]

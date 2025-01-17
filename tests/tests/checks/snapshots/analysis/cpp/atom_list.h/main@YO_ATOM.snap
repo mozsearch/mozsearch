@@ -1,0 +1,139 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+snapshot_kind: text
+---
+[
+  {
+    "loc": "00004:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d",
+    "expandsTo": {
+      "M_4d6d7abfa63cac6d": {
+        "": "Foo,"
+      }
+    }
+  },
+  {
+    "loc": "00004:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d",
+    "expandsTo": {
+      "M_f81c7abfa63cac6d": {
+        "": "const char16_t Foo_string[sizeof(\"foo\")];"
+      }
+    }
+  },
+  {
+    "loc": "00004:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d"
+  },
+  {
+    "loc": "00004:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00005:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d",
+    "expandsTo": {
+      "M_4d6d7abfa63cac6d": {
+        "": "Bar,"
+      }
+    }
+  },
+  {
+    "loc": "00005:0-7",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d",
+    "expandsTo": {
+      "M_f81c7abfa63cac6d": {
+        "": "const char16_t Bar_string[sizeof(\"bar\")];"
+      }
+    }
+  },
+  {
+    "loc": "00005:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d"
+  },
+  {
+    "loc": "00005:0-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d"
+  },
+  {
+    "loc": "00007:29-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00009:0-14",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d"
+  },
+  {
+    "loc": "00009:0-14",
+    "source": 1,
+    "syntax": "use,macro",
+    "pretty": "macro YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  },
+  {
+    "loc": "00009:0-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_4d6d7abfa63cac6d"
+  },
+  {
+    "loc": "00009:0-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "YO_ATOM",
+    "sym": "M_f81c7abfa63cac6d"
+  }
+]

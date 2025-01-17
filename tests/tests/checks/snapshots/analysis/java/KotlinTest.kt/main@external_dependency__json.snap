@@ -1,0 +1,13 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sl).unwrap()"
+---
+{
+  "symbols": [
+    {
+      "symbol": "S_jvm_kotlin/test/Test#",
+      "quality": "ExactIdentifier",
+      "from_identifier": "kotlin::test::Test"
+    }
+  ]
+}

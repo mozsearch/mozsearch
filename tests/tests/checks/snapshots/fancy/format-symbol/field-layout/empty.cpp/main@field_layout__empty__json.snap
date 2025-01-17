@@ -1,0 +1,88 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "T_field_layout::empty::S": {
+          "sym": "T_field_layout::empty::S",
+          "pretty": "field_layout::empty::S",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::empty::S",
+            "sym": "T_field_layout::empty::S",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "alignmentBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [
+              {
+                "pretty": "field_layout::empty::S::S",
+                "sym": "_ZN12field_layout5empty1SC1Ev",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::empty::S::S",
+                "sym": "_ZN12field_layout5empty1SC1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::empty::S::S",
+                "sym": "_ZN12field_layout5empty1SC1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/empty.cpp#7"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": [
+        {
+          "name": "field_layout::empty::S",
+          "symbols": "T_field_layout::empty::S",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(1)",
+              "size": "1"
+            }
+          ],
+          "items": []
+        }
+      ]
+    }
+  ],
+  "className": null
+}

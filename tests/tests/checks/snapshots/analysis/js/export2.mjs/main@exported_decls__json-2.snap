@@ -1,0 +1,28 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/export2.mjs",
+    "sym": "FILE_js/export2@2Emjs"
+  },
+  {
+    "loc": "1:4-9",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property dummy",
+    "sym": "#dummy"
+  },
+  {
+    "loc": "1:4-9",
+    "target": 1,
+    "kind": "def",
+    "pretty": "dummy",
+    "sym": "#dummy",
+    "context": ""
+  }
+]

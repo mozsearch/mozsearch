@@ -1,0 +1,83 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_java_gradle_sample/",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "src/main/java/sample/JavaLibrary.java",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample;",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "src/main/kotlin/sample/KotlinLibrary.kt",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "src/test/java/sample/JavaTest.java",
+            "path_kind": "Test files",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample;",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "src/test/kotlin/sample/KotlinTest.kt",
+            "path_kind": "Test files",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

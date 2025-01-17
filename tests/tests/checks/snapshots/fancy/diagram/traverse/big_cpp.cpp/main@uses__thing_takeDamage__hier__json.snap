@@ -1,0 +1,684 @@
+---
+source: src/bin/test-index.rs
+expression: sgc.to_json()
+---
+{
+  "jumprefs": {
+    "NS_outerNS": {
+      "sym": "NS_outerNS",
+      "pretty": "NS_outerNS",
+      "jumps": {
+        "def": "big_cpp.cpp#128"
+      }
+    },
+    "T_outerNS::OuterCat": {
+      "sym": "T_outerNS::OuterCat",
+      "pretty": "outerNS::OuterCat",
+      "meta": {
+        "structured": 1,
+        "pretty": "outerNS::OuterCat",
+        "sym": "T_outerNS::OuterCat",
+        "type_pretty": null,
+        "kind": "class",
+        "subsystem": "Core/Big",
+        "implKind": "",
+        "sizeBytes": 40,
+        "alignmentBytes": 8,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [
+          {
+            "sym": "T_outerNS::Thing",
+            "offsetBytes": 0,
+            "props": []
+          }
+        ],
+        "methods": [
+          {
+            "pretty": "outerNS::OuterCat::OuterCat",
+            "sym": "_ZN7outerNS8OuterCatC1Ebb",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::isFriendlyCat",
+            "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
+            "sym": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
+            "sym": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::meet",
+            "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::meet",
+            "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::shred",
+            "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::destroy",
+            "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::OuterCat",
+            "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::OuterCat",
+            "sym": "_ZN7outerNS8OuterCatC1EOS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::operator=",
+            "sym": "_ZN7outerNS8OuterCataSERKS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::operator=",
+            "sym": "_ZN7outerNS8OuterCataSEOS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::OuterCat::~OuterCat",
+            "sym": "_ZN7outerNS8OuterCatD1Ev",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          }
+        ],
+        "fields": [
+          {
+            "lineRange": "#224",
+            "pretty": "outerNS::OuterCat::mIsFriendly",
+            "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
+            "type": "_Bool",
+            "typesym": "",
+            "offsetBytes": 13,
+            "bitPositions": null,
+            "sizeBytes": 1
+          },
+          {
+            "lineRange": "#225",
+            "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
+            "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
+            "type": "_Bool",
+            "typesym": "",
+            "offsetBytes": 14,
+            "bitPositions": null,
+            "sizeBytes": 1
+          },
+          {
+            "lineRange": "#227",
+            "pretty": "outerNS::OuterCat::mOwner",
+            "sym": "F_<T_outerNS::OuterCat>_mOwner",
+            "type": "class std::shared_ptr<class outerNS::Human>",
+            "typesym": "T_std::shared_ptr",
+            "offsetBytes": 16,
+            "bitPositions": null,
+            "sizeBytes": 16,
+            "labels": [
+              "cc-unlink"
+            ],
+            "pointerInfo": [
+              {
+                "kind": "strong",
+                "sym": "T_outerNS::Human"
+              }
+            ]
+          },
+          {
+            "lineRange": "#228",
+            "pretty": "outerNS::OuterCat::mFavoriteCouch",
+            "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+            "type": "class outerNS::Couch *",
+            "typesym": "T_outerNS::Couch",
+            "offsetBytes": 32,
+            "bitPositions": null,
+            "sizeBytes": 8,
+            "labels": [
+              "cc-unlink"
+            ],
+            "pointerInfo": [
+              {
+                "kind": "raw",
+                "sym": "T_outerNS::Couch"
+              }
+            ]
+          }
+        ],
+        "overrides": [],
+        "props": [],
+        "labels": [
+          "cc"
+        ],
+        "variants": []
+      },
+      "jumps": {
+        "def": "big_cpp.cpp#210"
+      }
+    },
+    "T_outerNS::Thing": {
+      "sym": "T_outerNS::Thing",
+      "pretty": "outerNS::Thing",
+      "meta": {
+        "structured": 1,
+        "pretty": "outerNS::Thing",
+        "sym": "T_outerNS::Thing",
+        "type_pretty": null,
+        "kind": "class",
+        "subsystem": "Core/Big",
+        "implKind": "",
+        "sizeBytes": 16,
+        "alignmentBytes": 8,
+        "ownVFPtrBytes": 8,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [
+          {
+            "pretty": "outerNS::Thing::Thing",
+            "sym": "_ZN7outerNS5ThingC1Ei",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::Thing::ignore",
+            "sym": "_ZN7outerNS5Thing6ignoreEv",
+            "props": [
+              "instance",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::Thing::takeDamage",
+            "sym": "_ZN7outerNS5Thing10takeDamageEi",
+            "props": [
+              "instance",
+              "virtual",
+              "user"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::Thing::operator=",
+            "sym": "_ZN7outerNS5ThingaSERKS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::Thing::operator=",
+            "sym": "_ZN7outerNS5ThingaSEOS0_",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::Thing::~Thing",
+            "sym": "_ZN7outerNS5ThingD1Ev",
+            "props": [
+              "instance",
+              "defaulted"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::Thing::Thing",
+            "sym": "_ZN7outerNS5ThingC1ERKS0_",
+            "props": [
+              "instance",
+              "defaulted",
+              "constexpr"
+            ],
+            "args": []
+          },
+          {
+            "pretty": "outerNS::Thing::Thing",
+            "sym": "_ZN7outerNS5ThingC1EOS0_",
+            "props": [
+              "instance",
+              "defaulted",
+              "constexpr"
+            ],
+            "args": []
+          }
+        ],
+        "fields": [
+          {
+            "lineRange": "#142",
+            "pretty": "outerNS::Thing::mHP",
+            "sym": "F_<T_outerNS::Thing>_mHP",
+            "type": "int",
+            "typesym": "",
+            "offsetBytes": 8,
+            "bitPositions": null,
+            "sizeBytes": 4
+          },
+          {
+            "lineRange": "#146",
+            "pretty": "outerNS::Thing::mDefunct",
+            "sym": "F_<T_outerNS::Thing>_mDefunct",
+            "type": "_Bool",
+            "typesym": "",
+            "offsetBytes": 12,
+            "bitPositions": null,
+            "sizeBytes": 1
+          }
+        ],
+        "overrides": [],
+        "props": [],
+        "subclasses": [
+          "T_outerNS::Human",
+          "T_outerNS::Couch",
+          "T_outerNS::OuterCat",
+          "T_outerNS::AbstractArt"
+        ],
+        "variants": []
+      },
+      "jumps": {
+        "def": "big_cpp.cpp#136"
+      }
+    },
+    "_ZN7outerNS5Thing10takeDamageEi": {
+      "sym": "_ZN7outerNS5Thing10takeDamageEi",
+      "pretty": "outerNS::Thing::takeDamage",
+      "meta": {
+        "structured": 1,
+        "pretty": "outerNS::Thing::takeDamage",
+        "sym": "_ZN7outerNS5Thing10takeDamageEi",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": "Core/Big",
+        "parentsym": "T_outerNS::Thing",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "virtual",
+          "user"
+        ],
+        "overriddenBy": [
+          "_ZN7outerNS9Superhero10takeDamageEi"
+        ],
+        "variants": [],
+        "args": [
+          {
+            "name": "damage",
+            "type": "int"
+          }
+        ]
+      },
+      "jumps": {
+        "def": "big_cpp.cpp#155"
+      }
+    },
+    "_ZN7outerNS8OuterCat4meetERNS_5CouchE": {
+      "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+      "pretty": "outerNS::OuterCat::meet",
+      "meta": {
+        "structured": 1,
+        "pretty": "outerNS::OuterCat::meet",
+        "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": "Core/Big",
+        "parentsym": "T_outerNS::OuterCat",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "user"
+        ],
+        "variants": [],
+        "args": [
+          {
+            "name": "couch",
+            "type": "Couch &",
+            "typesym": "T_outerNS::Couch"
+          }
+        ]
+      },
+      "jumps": {
+        "def": "big_cpp.cpp#348"
+      }
+    },
+    "_ZN7outerNS8OuterCat5shredERNS_5ThingE": {
+      "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+      "pretty": "outerNS::OuterCat::shred",
+      "meta": {
+        "structured": 1,
+        "pretty": "outerNS::OuterCat::shred",
+        "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": "Core/Big",
+        "parentsym": "T_outerNS::OuterCat",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "user"
+        ],
+        "variants": [],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
+          }
+        ]
+      },
+      "jumps": {
+        "def": "big_cpp.cpp#387"
+      }
+    },
+    "_ZN7outerNS8OuterCat7destroyERNS_5ThingE": {
+      "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+      "pretty": "outerNS::OuterCat::destroy",
+      "meta": {
+        "structured": 1,
+        "pretty": "outerNS::OuterCat::destroy",
+        "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+        "type_pretty": null,
+        "kind": "method",
+        "subsystem": "Core/Big",
+        "parentsym": "T_outerNS::OuterCat",
+        "implKind": "",
+        "sizeBytes": null,
+        "alignmentBytes": null,
+        "ownVFPtrBytes": null,
+        "bindingSlots": [],
+        "ontologySlots": [],
+        "supers": [],
+        "methods": [],
+        "fields": [],
+        "overrides": [],
+        "props": [
+          "instance",
+          "user"
+        ],
+        "variants": [],
+        "args": [
+          {
+            "name": "thing",
+            "type": "Thing &",
+            "typesym": "T_outerNS::Thing"
+          }
+        ]
+      },
+      "jumps": {
+        "def": "big_cpp.cpp#392"
+      }
+    }
+  },
+  "graphs": [
+    {
+      "nodes": [
+        "_ZN7outerNS5Thing10takeDamageEi",
+        "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+        "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+        "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+      ],
+      "edges": [
+        {
+          "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+          "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+        },
+        {
+          "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+          "to": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+        },
+        {
+          "from": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+          "to": "_ZN7outerNS5Thing10takeDamageEi"
+        },
+        {
+          "from": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+          "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+        }
+      ]
+    }
+  ],
+  "hierarchicalGraphs": [
+    {
+      "segment": "",
+      "displayName": "",
+      "height": 3,
+      "symbols": [],
+      "action": {
+        "layoutAction": "flatten"
+      },
+      "children": [
+        {
+          "segment": "outerNS",
+          "displayName": "outerNS",
+          "height": 2,
+          "symbols": [
+            "NS_outerNS"
+          ],
+          "action": {
+            "layoutAction": "cluster",
+            "clusterId": "NS_outerNS",
+            "placeholderId": "SYN_0"
+          },
+          "children": [
+            {
+              "segment": "OuterCat",
+              "displayName": "OuterCat",
+              "height": 1,
+              "symbols": [
+                "T_outerNS::OuterCat"
+              ],
+              "action": {
+                "layoutAction": "cluster",
+                "clusterId": "T_outerNS::OuterCat",
+                "placeholderId": "SYN_1"
+              },
+              "children": [
+                {
+                  "segment": "destroy",
+                  "displayName": "destroy",
+                  "height": 0,
+                  "symbols": [
+                    "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+                  ],
+                  "action": {
+                    "layoutAction": "node",
+                    "nodeId": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+                  },
+                  "children": [],
+                  "edges": [],
+                  "descendantEdgeCount": 0
+                },
+                {
+                  "segment": "meet",
+                  "displayName": "meet",
+                  "height": 0,
+                  "symbols": [
+                    "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
+                  ],
+                  "action": {
+                    "layoutAction": "node",
+                    "nodeId": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
+                  },
+                  "children": [],
+                  "edges": [],
+                  "descendantEdgeCount": 0
+                },
+                {
+                  "segment": "shred",
+                  "displayName": "shred",
+                  "height": 0,
+                  "symbols": [
+                    "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+                  ],
+                  "action": {
+                    "layoutAction": "node",
+                    "nodeId": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+                  },
+                  "children": [],
+                  "edges": [],
+                  "descendantEdgeCount": 0
+                }
+              ],
+              "edges": [
+                {
+                  "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+                  "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+                  "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+                  "to": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+                }
+              ],
+              "descendantEdgeCount": 0
+            },
+            {
+              "segment": "Thing",
+              "displayName": "Thing",
+              "height": 1,
+              "symbols": [
+                "T_outerNS::Thing"
+              ],
+              "action": {
+                "layoutAction": "table",
+                "nodeId": "T_outerNS::Thing"
+              },
+              "children": [
+                {
+                  "segment": "takeDamage",
+                  "displayName": "takeDamage",
+                  "height": 0,
+                  "symbols": [
+                    "_ZN7outerNS5Thing10takeDamageEi"
+                  ],
+                  "action": {
+                    "layoutAction": "record",
+                    "portName": "_ZN7outerNS5Thing10takeDamageEi"
+                  },
+                  "children": [],
+                  "edges": [],
+                  "descendantEdgeCount": 0
+                }
+              ],
+              "edges": [],
+              "descendantEdgeCount": 0
+            }
+          ],
+          "edges": [
+            {
+              "from": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+              "to": "_ZN7outerNS5Thing10takeDamageEi"
+            }
+          ],
+          "descendantEdgeCount": 3
+        }
+      ],
+      "edges": [],
+      "descendantEdgeCount": 4
+    }
+  ]
+}

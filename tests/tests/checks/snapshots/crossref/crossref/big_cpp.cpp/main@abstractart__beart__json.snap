@@ -1,0 +1,65 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "_ZN7outerNS11AbstractArt5beArtEv",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "big_cpp.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 418,
+                "bounds": [
+                  13,
+                  18
+                ],
+                "line": "virtual void beArt() = 0;",
+                "context": "outerNS::AbstractArt",
+                "contextsym": "T_outerNS::AbstractArt",
+                "peekRange": "416-418"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "outerNS::AbstractArt::beArt",
+          "sym": "_ZN7outerNS11AbstractArt5beArtEv",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": "Core/Big",
+          "parentsym": "T_outerNS::AbstractArt",
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [
+            "instance",
+            "virtual",
+            "user"
+          ],
+          "overriddenBy": [
+            "_ZN7outerNS12PracticalArt5beArtEv"
+          ],
+          "variants": [],
+          "args": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

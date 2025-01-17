@@ -1,0 +1,20 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "26:19-33",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "nsIXPCTestObjectReadWrite::stringProperty",
+    "sym": "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
+  },
+  {
+    "loc": "26:19-33",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL attribute nsIXPCTestObjectReadWrite::stringProperty",
+    "sym": "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
+  }
+]
