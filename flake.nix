@@ -49,6 +49,8 @@
         llvmPackages = pkgs.llvmPackages_18;
 
         livegrep-grpc3 = pkgs.callPackage ./nix/livegrep/livegrep-grpc3.nix {};
+        webidl = pkgs.callPackage ./nix/idl/webidl.nix {};
+        xpidl = pkgs.callPackage ./nix/idl/xpidl.nix {};
 
         pythonPackages = p:
           with p; [
