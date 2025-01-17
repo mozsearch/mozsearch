@@ -73,6 +73,10 @@
             inherit rustPlatform;
             inherit (packages) wasm-snip;
           };
+          mozsearch-scripts = pkgs.callPackage ./nix/mozsearch/scripts.nix {
+            inherit webidl xpidl livegrep-grpc3;
+            inherit (packages) mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer codesearch;
+          };
         };
 
         devShells.default =
