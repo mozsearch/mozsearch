@@ -49,6 +49,21 @@ PATH="$PATH:$HOME/.local/share/coursier/bin"
 cs install --contrib scip-java
 rm -rf ~/.cache/coursier
 
+# Install xpidl, webidl and ply
+PYMODULES=$HOME/pymodules
+mkdir "${PYMODULES}"
+pushd "${PYMODULES}"
+wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/xpcom/idl-parser/xpidl/xpidl.py"
+wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/dom/bindings/parser/WebIDL.py"
+mkdir ply
+pushd ply
+for PLYFILE in __init__.py lex.py yacc.py; do
+    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/third_party/python/ply/ply/${PLYFILE}"
+done
+popd
+popd
+echo 'export PYTHONPATH="$HOME/pymodules"' >> ~/.profile
+
 # Create update script.
 cat > update.sh <<"THEEND"
 #!/usr/bin/env bash
