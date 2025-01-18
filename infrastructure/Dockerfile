@@ -13,7 +13,7 @@ RUN /infrastructure/common-provision-pre.sh
 
 # common-provision-pre.sh installed cargo, make sure the path is available for
 # the next commands
-ENV PATH=/home/vagrant/.cargo/bin:$PATH
+ENV PATH=/home/vagrant/livegrep-venv/bin:/home/vagrant/.cargo/bin:$PATH
 
 RUN /infrastructure/indexer-provision.sh
 ENV PYTHONPATH=/home/vagrant/pymodules
