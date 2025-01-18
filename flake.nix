@@ -110,6 +110,24 @@
             type = "app";
             program = "${packages.mozsearch-tools}/bin/test-index";
           };
+
+          review-snapshots = let
+            review-snapshots = pkgs.writeShellApplication {
+              name = "review-snapshots";
+
+              text = ''
+                cargo insta review --workspace-root=tests/tests/checks
+              '';
+
+              runtimeInputs = [
+                pkgs.cargo
+                pkgs.cargo-insta
+              ];
+            };
+          in {
+            type = "app";
+            program = "${review-snapshots}/bin/review-snapshots";
+          };
         };
 
         devShells.default =
