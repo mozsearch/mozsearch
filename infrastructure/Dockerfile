@@ -3,27 +3,21 @@ FROM ubuntu:24.04
 ARG LOCAL_UID
 ARG LOCAL_GID
 
-COPY *.sh /infrastructure/
 # this will create our user "vagrant"
+COPY *.sh /infrastructure/
 RUN /infrastructure/docker-provision.sh $LOCAL_UID $LOCAL_GID
 USER vagrant
 WORKDIR /home/vagrant
+ENV USER=vagrant
 
-RUN /infrastructure/common-provision-pre.sh
+# install Nix
+RUN sudo apt install -y xz-utils
+RUN curl -L https://nixos.org/nix/install | sh -s -- --no-daemon --yes
+RUN mkdir -p "$HOME/.config/nix" && echo "experimental-features = nix-command flakes" >> "$HOME/.config/nix/nix.conf"
+RUN echo "source $HOME/.nix-profile/etc/profile.d/nix.sh" >> "$HOME/.bashrc"
 
-# common-provision-pre.sh installed cargo, make sure the path is available for
-# the next commands
-ENV PATH=/home/vagrant/.cargo/bin:$PATH
+RUN sudo apt install -y make git
 
-RUN /infrastructure/indexer-provision.sh
-
-# indexer-provision.sh installed Coursier, make sure the path is available for
-# the next commands
-ENV PATH=$PATH:/home/vagrant/.local/share/coursier/bin
-
-RUN /infrastructure/web-server-provision.sh
-RUN /infrastructure/common-provision-post.sh
-
-EXPOSE 80/tcp
+EXPOSE 16995/tcp
 
 CMD ["/usr/bin/bash"]
