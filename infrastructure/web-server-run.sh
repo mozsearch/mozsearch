@@ -19,7 +19,7 @@ CONFIG_FILE=$WORKING/config.json
 SERVER_ROOT=$(readlink -f $3)
 STATUS_FILE="${SERVER_ROOT}/docroot/status.txt"
 
-pkill codesearch || true
+pkill -x codesearch || true
 pkill -f router/router.py || true
 pkill -f router/.router.py-wrapped || true # because router.py is wrapped in scripts.nix
 pkill -x web-server || true

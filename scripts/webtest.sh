@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
+set -o pipefail
+set -x
 
-FILTER=$1
+FILTER=${1:-}
 
 stop_geckodriver() {
-    PID=$(pgrep geckodriver)
+    PID=$(pgrep geckodriver || true)
     if [ "x${PID}" != "x" ]; then
         echo "Stopping geckodriver: PID=${PID}"
         kill $PID
     fi
 }
-
-set +e
 
 stop_geckodriver
 
