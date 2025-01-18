@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
+set -o pipefail
+set -x
 
-FILTER=$1
+FILTER=${1:-}
 
 cargo install geckodriver
 
@@ -13,19 +15,24 @@ if ! [ -d mozsearch-firefox ]; then
 fi
 
 stop_geckodriver() {
-    PID=$(pgrep geckodriver)
+    PID=$(pgrep geckodriver || true)
     if [ "x${PID}" != "x" ]; then
         echo "Stopping geckodriver: PID=${PID}"
         kill $PID
     fi
 }
 
-set +e
-
 stop_geckodriver
 
-echo "Starting geckodriver"
-geckodriver -b /vagrant/mozsearch-firefox/firefox >/dev/null 2>&1 &
+# Make a FIFO to wait for geckodriver
+PIPE=$(mktemp -u)
+mkfifo $PIPE
+exec {FD}<>$PIPE
+rm $PIPE
+
+echo "Starting geckodriver (waiting for it to be ready)"
+geckodriver -b "$(pwd)/mozsearch-firefox/firefox" >&$FD &
+grep -q 'Listening on' <&$FD
 
 echo "Running tests"
 ./tools/target/release/searchfox-tool "webtest ${FILTER}"
