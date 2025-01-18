@@ -20,8 +20,6 @@ SERVER_ROOT=$(readlink -f $4)
 USE_HSTS=${5:-}
 NGINX_CACHE_DIR=${6:-}
 
-$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING
-
 # ### Create the docroot
 #
 # There is some awkwardness here where we create hierarchies centered on the
