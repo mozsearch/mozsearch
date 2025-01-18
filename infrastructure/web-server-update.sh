@@ -30,3 +30,23 @@ pushd mozsearch/tools
 CARGO_INCREMENTAL=false cargo build --release --verbose
 rm -rf target/build target/deps
 popd
+
+# TODO: remove after next provisioning
+if [ -d "$HOME/livegrep-grpc3/src" ]; then
+  rm -rf "$HOME/livegrep-grpc3/src"
+
+  LIVEGREP_VENV=$HOME/livegrep-venv
+  PATH=$LIVEGREP_VENV/bin:$PATH
+
+  git clone -b mozsearch-version7 https://github.com/mozsearch/livegrep --depth=1
+
+  rm -rf livegrep-grpc3
+  mkdir livegrep-grpc3
+  pushd livegrep
+  sed 's|import "src/proto/config.proto";|import "livegrep/config.proto";|' -i src/proto/livegrep.proto
+  mkdir build
+  python3 -m grpc_tools.protoc --python_out=build --grpc_python_out=build -I livegrep=src/proto "src/proto/config.proto" "src/proto/livegrep.proto"
+  popd
+  mv livegrep/build/livegrep livegrep-grpc3/livegrep
+  rm -rf livegrep
+fi
