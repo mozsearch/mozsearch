@@ -175,10 +175,12 @@ if [ ! -d livegrep ]; then
   $LIVEGREP_VENV/bin/pip install six
 
   mkdir livegrep-grpc3
-  $LIVEGREP_VENV/bin/python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/config.proto
-  $LIVEGREP_VENV/bin/python3 -m grpc_tools.protoc --python_out=livegrep-grpc3 --grpc_python_out=livegrep-grpc3 -I livegrep/ livegrep/src/proto/livegrep.proto
-  touch livegrep-grpc3/src/__init__.py
-  touch livegrep-grpc3/src/proto/__init__.py
+  pushd livegrep
+  sed 's|import "src/proto/config.proto";|import "livegrep/config.proto";|' -i src/proto/livegrep.proto
+  mkdir build
+  $LIVEGREP_VENV/bin/python3 -m grpc_tools.protoc --python_out=build --grpc_python_out=build -I livegrep=src/proto "src/proto/config.proto" "src/proto/livegrep.proto"
+  popd
+  mv livegrep/build/livegrep livegrep-grpc3/livegrep
   # Add the generated modules to the python path
   SITEDIR=$($LIVEGREP_VENV/bin/python3 -c "import site; print(site.getsitepackages()[0])")
   mkdir -p "$SITEDIR"
