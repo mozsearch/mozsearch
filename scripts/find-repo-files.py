@@ -5,8 +5,9 @@ import json
 import runpy
 import os
 import sys
+import shutil
 
-from lib import run
+from lib import run, try_run
 
 config_repo = sys.argv[1]
 config = json.load(open(sys.argv[2]))
@@ -23,10 +24,13 @@ except FileNotFoundError:
 
 tree_config = config['trees'][tree_name]
 tree_repo = tree_config['files_path']
-lines = run(['git', 'ls-files', '-z', '--recurse-submodules'], cwd=tree_repo).split(b'\0')
-if len(lines) == 0:
+git_output = try_run(['git', 'ls-files', '-z', '--recurse-submodules'], cwd=tree_repo)
+if git_output is not None:
+    lines = git_output.split(b'\0')
+else:
     # find . -type f -printf '%P\n'
-    lines = run(['/usr/bin/find', '.', '-type', 'f', '-printf', '%P\n'], cwd=tree_repo).splitlines()
+    lines = run(['find', '.', '-type', 'f', '-printf', '%P\n'], cwd=tree_repo).splitlines()
+    lines.sort()
 
 if 'modify_file_list' in repo_files:
     lines = repo_files['modify_file_list'](lines, config=tree_config)
