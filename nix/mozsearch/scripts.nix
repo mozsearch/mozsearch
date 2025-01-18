@@ -17,6 +17,8 @@
   nginx,
   vmtouch,
   gnugrep,
+  geckodriver,
+  firefox,
   livegrep-grpc3,
   mozsearch-tools,
   mozsearch-clang-plugin,
@@ -100,6 +102,13 @@ stdenv.mkDerivation {
       codesearch
       mozsearch-tools
       gnugrep
+    ]}
+
+    wrapProgram $out/scripts/webtest.sh --prefix PATH : ${lib.makeBinPath [
+      geckodriver
+      procps
+      firefox
+      mozsearch-tools
     ]}
   '';
 }
