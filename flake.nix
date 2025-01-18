@@ -73,37 +73,34 @@
           };
         };
 
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            jq
+        devShells.default =
+          pkgs.mkShell.override {
+            stdenv = llvmPackages.stdenv;
+          } {
+            packages = with pkgs; [
+              jq
 
-            (python3.withPackages pythonPackages)
-            awscli2
+              (python3.withPackages pythonPackages)
+              awscli2
 
-            # Dependencies required to build tools
-            rustToolchain
-            openssl
-            cmake
-            pkg-config
+              gdb
 
-            # Must be before (unwrapped) clang in path
-            clang-tools_19
+              scip
+              protobuf
 
-            # Dependencies required to build clang-plugin
-            clang_19
-            llvmPackages_19.libllvm
-            llvmPackages_19.libclang
+              pre-commit
 
-            gdb
+              llvmPackages.clang-tools
+            ];
 
-            scip
-            protobuf
+            inputsFrom = [
+              packages.mozsearch-tools
+              packages.mozsearch-clang-plugin
+              packages.mozsearch-wasm-css-analyzer
+            ];
 
-            pre-commit
-          ];
-
-          AWS_PROFILE = "searchfox";
-        };
+            AWS_PROFILE = "searchfox";
+          };
 
         formatter = pkgs.alejandra;
       }
