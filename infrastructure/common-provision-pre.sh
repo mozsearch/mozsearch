@@ -170,19 +170,22 @@ if [ ! -d livegrep ]; then
   # use pip to install things outside of a venv.
   LIVEGREP_VENV=$HOME/livegrep-venv
   python3 -m venv $LIVEGREP_VENV
-  $LIVEGREP_VENV/bin/pip install grpcio grpcio-tools
+  echo "PATH=$LIVEGREP_VENV/bin:$PATH" >> ~/.profile
+  PATH=$LIVEGREP_VENV/bin:$PATH
+
+  pip install grpcio grpcio-tools
   # also install "six" in this venv for xpidl.py for now
-  $LIVEGREP_VENV/bin/pip install six
+  pip install six
 
   mkdir livegrep-grpc3
   pushd livegrep
   sed 's|import "src/proto/config.proto";|import "livegrep/config.proto";|' -i src/proto/livegrep.proto
   mkdir build
-  $LIVEGREP_VENV/bin/python3 -m grpc_tools.protoc --python_out=build --grpc_python_out=build -I livegrep=src/proto "src/proto/config.proto" "src/proto/livegrep.proto"
+  python3 -m grpc_tools.protoc --python_out=build --grpc_python_out=build -I livegrep=src/proto "src/proto/config.proto" "src/proto/livegrep.proto"
   popd
   mv livegrep/build/livegrep livegrep-grpc3/livegrep
   # Add the generated modules to the python path
-  SITEDIR=$($LIVEGREP_VENV/bin/python3 -c "import site; print(site.getsitepackages()[0])")
+  SITEDIR=$(python3 -c "import site; print(site.getsitepackages()[0])")
   mkdir -p "$SITEDIR"
   echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
   rm -rf livegrep

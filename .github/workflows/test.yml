@@ -40,6 +40,8 @@ jobs:
         run: echo "$HOME/.local/share/coursier/bin" >> "$GITHUB_PATH"
       - name: Add webidl, xpidl and ply to PYTHONPATH
         run: echo "PYTHONPATH=$HOME/pymodules" >> "$GITHUB_ENV"
+      - name: Activate livegrep venv
+        run: echo "$HOME/livegrep-venv/bin" >> "$GITHUB_PATH"
       - name: Give www-data access to the user's home directory
         run: chmod a+rx ~
 

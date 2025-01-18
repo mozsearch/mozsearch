@@ -28,10 +28,10 @@ TREE_NAME=$3
 
 export PYTHONPATH="$MOZSEARCH_PATH/scripts${PYTHONPATH:+:${PYTHONPATH}}"
 
-# activate the venv we created for livegrep so we have access to the grpc
-# dependencies.
-LIVEGREP_VENV=$HOME/livegrep-venv
-source $LIVEGREP_VENV/bin/activate
+# activate the venv we created for livegrep
+# TODO: remove after next provisioning
+LIVEGREP_VENV="$HOME/livegrep-venv"
+PATH="$LIVEGREP_VENV/bin:$PATH"
 
 # This was previously "full" but "1" is much more readable.  Obviously change
 # this back if we end up missing things.
