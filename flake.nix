@@ -102,6 +102,11 @@
             inherit self-with-dotgit rustToolchain;
             inherit (packages) build-index mozsearch-tools;
           };
+
+          webtests = pkgs.callPackage ./nix/mozsearch/configs/webtests.nix {
+            inherit self-with-dotgit rustToolchain;
+            inherit (packages) scip-python scip-java build-index mozsearch-tools mozsearch-clang-plugin serve-index mozsearch-scripts;
+          };
         };
 
         devShells.default =
