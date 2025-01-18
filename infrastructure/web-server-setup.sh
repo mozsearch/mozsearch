@@ -15,12 +15,12 @@ MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/..)
 CONFIG_REPO=$(readlink -f $1)
 CONFIG_INPUT="$2"
 WORKING=$(readlink -f $3)
-CONFIG_FILE=$WORKING/config.json
 SERVER_ROOT=$(readlink -f $4)
+CONFIG_FILE="$SERVER_ROOT/config.json"
 USE_HSTS=${5:-}
 NGINX_CACHE_DIR=${6:-}
 
-$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING
+$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING $SERVER_ROOT
 
 # ### Create the docroot
 #

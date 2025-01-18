@@ -26,7 +26,7 @@ else
     rm -rf $WORKING/*
 fi
 
-$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING
+$MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING $WORKING
 CONFIG_FILE=$WORKING/config.json
 
 for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})

@@ -15,8 +15,8 @@ fi
 MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/..)
 
 WORKING=$(readlink -f $2)
-CONFIG_FILE=$WORKING/config.json
 SERVER_ROOT=$(readlink -f $3)
+CONFIG_FILE="$SERVER_ROOT/config.json"
 STATUS_FILE="${SERVER_ROOT}/docroot/status.txt"
 
 pkill -x codesearch || true
