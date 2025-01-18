@@ -109,6 +109,8 @@
           };
         };
 
+        checks = packages;
+
         devShells.default =
           pkgs.mkShell.override {
             stdenv = llvmPackages.stdenv;
