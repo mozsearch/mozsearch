@@ -103,6 +103,8 @@
           };
         };
 
+        checks = packages;
+
         apps = {
           test-index = {
             type = "app";
