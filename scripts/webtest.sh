@@ -19,6 +19,8 @@ stop_geckodriver
 echo "Starting geckodriver"
 geckodriver >/dev/null 2>&1 &
 
+sleep 10
+
 echo "Running tests"
 searchfox-tool "webtest ${FILTER}"
 
