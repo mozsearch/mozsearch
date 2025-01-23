@@ -1117,7 +1117,7 @@ pub fn format_diff(
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
     let git_path = tree_config.get_git_path()?;
-    let output = Command::new("/usr/bin/git")
+    let output = Command::new("git")
         .arg("diff-tree")
         .arg("-p")
         .arg("--cc")
@@ -1492,7 +1492,7 @@ fn generate_commit_info(
     output::generate_formatted(writer, &f, 0)?;
 
     let git_path = tree_config.get_git_path()?;
-    let output = Command::new("/usr/bin/git")
+    let output = Command::new("git")
         .arg("show")
         .arg("--cc")
         .arg("--pretty=format:")

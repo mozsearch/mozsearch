@@ -11,7 +11,7 @@ OTHER_RESOURCES_PATH=$4
 
 echo Root is $INDEX_ROOT
 
-$MOZSEARCH_PATH/tools/target/release/crossref $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH $OTHER_RESOURCES_PATH
+crossref $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH $OTHER_RESOURCES_PATH
 
 # Re-sort the identifiers file so that it's case-insensitive.  (It was written
 # to disk from a case-sensitive BTreeMap.)

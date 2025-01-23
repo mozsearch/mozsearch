@@ -15,6 +15,7 @@ import time
 import errno
 import traceback
 import collections
+import shutil
 
 import crossrefs
 import identifiers
@@ -435,8 +436,9 @@ def search_files(tree_name, path):
     pathFile = os.path.join(index_path(tree_name), 'repo-files')
     objdirFile = os.path.join(index_path(tree_name), 'objdir-files')
     try:
+        grep = shutil.which('grep')
         # We set the locale to make grep much faster.
-        results = subprocess.check_output(['grep', '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'}, universal_newlines=True)
+        results = subprocess.check_output([grep, '-Eih', path, pathFile, objdirFile], env={'LC_CTYPE': 'C'}, universal_newlines=True)
     except subprocess.CalledProcessError:
         return ([], False)
     results = results.strip().split('\n')

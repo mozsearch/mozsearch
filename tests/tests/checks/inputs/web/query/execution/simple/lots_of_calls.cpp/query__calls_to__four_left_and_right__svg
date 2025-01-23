@@ -1,1 +1,0 @@
-query "calls-to:'CallerFour::four_left' calls-to:'CallerFour::four_right'"

@@ -65,24 +65,24 @@ TMPDIR_PATH=${DIAGS_DIR}
 #   which is obviously suboptimal.
 parallel --jobs 8 --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
     --block -1 --halt 2 --env RUST_BACKTRACE \
-    "$MOZSEARCH_PATH/tools/target/release/output-file $CONFIG_FILE $TREE_NAME $URL_MAP_PATH $DOC_TREES_PATH - 2>&1"
+    "output-file $CONFIG_FILE $TREE_NAME $URL_MAP_PATH $DOC_TREES_PATH - 2>&1"
 
 TOOL_CMD="search-files --limit=0 --include-dirs --group-by=directory | batch-render dir"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
-    $MOZSEARCH_PATH/tools/target/release/searchfox-tool "$TOOL_CMD"
+    searchfox-tool "$TOOL_CMD"
 
 TOOL_CMD="render search-template"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
-    $MOZSEARCH_PATH/tools/target/release/searchfox-tool "$TOOL_CMD"
+    searchfox-tool "$TOOL_CMD"
 
 TOOL_CMD="render help"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
-    $MOZSEARCH_PATH/tools/target/release/searchfox-tool "$TOOL_CMD"
+    searchfox-tool "$TOOL_CMD"
 
 TOOL_CMD="render settings"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
-    $MOZSEARCH_PATH/tools/target/release/searchfox-tool "$TOOL_CMD"
+    searchfox-tool "$TOOL_CMD"

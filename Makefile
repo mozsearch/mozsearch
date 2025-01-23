@@ -8,46 +8,35 @@ help:
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison
+.PHONY: help build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison
 
-check-in-vagrant:
-	@[ -d /vagrant ] || (echo "This command must be run inside the vagrant instance" > /dev/stderr; exit 1)
+NIXFLAGS := -L --accept-flake-config --override-input self-with-dotgit path:$(shell pwd)
+MOZSEARCH_MOZILLA := git+https://github.com/nicolas-guichard/mozsearch-mozilla?ref=nixified
 
-build-clang-plugin: check-in-vagrant
-	$(MAKE) -C clang-plugin build_with_version_check
+build-clang-plugin:
+	nix build $(NIXFLAGS) '.?submodules=1#mozsearch-clang-plugin' --no-link
 
 # This can be built outside the vagrant instance too
 # We specify "--all-targets" in order to minimize rebuilding required when we invoke
 # `cargo test` to validate the build.
 build-rust-tools:
-	cd tools && cargo build --release --all-targets
-	cd scripts/web-analyze/wasm-css-analyzer && ./build.sh
+	nix build $(NIXFLAGS) '.?submodules=1#mozsearch-rust-tools' '.?submodules=1#mozsearch-wasm-css-analyzer' --no-link
 
-test-rust-tools:
-	cd tools && cargo test --release --verbose
+test-rust-tools: build-rust-tools
 
-build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	mkdir -p ~/index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
-	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
+build-test-repo:
+	$(eval INDEX := $(shell nix build $(NIXFLAGS) '.?submodules=1#tests.unchecked' --no-link --print-out-paths))
+	nix run $(NIXFLAGS) '.?submodules=1#serve-index' -- $(INDEX)/index srv
 
-serve-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+serve-test-repo: build-test-repo
 
-check-test-repo:
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
+check-test-repo: serve-test-repo
+	SEARCHFOX_SERVER=http://localhost:16995/ SEARCHFOX_TREE=tests INSTA_WORKSPACE_ROOT=$(shell pwd)/tests/tests/checks nix run $(NIXFLAGS) '.?submodules=1#test-index' -- $(shell pwd)/tests/tests/checks
 
 # Target that:
 # - Runs the check scripts in a special mode that lets the tests run without
 #   failing, instead generating the revised expectations for anything that has
 #   changed.
-#   - We need to re-run `indexer-run.sh` too because it embeds the disk check
-#     inside `mkindex.sh`.  Arguably maybe we want to fix web-server-check.sh
-#     to perhaps help run the indexer check.
 # - Runs the `cargo insta review` command which has a cool interactive UI that
 #   shows any differences.
 #
@@ -56,21 +45,12 @@ check-test-repo:
 #   stuff might have changed and I should look at it and maybe approve those
 #   changes."
 # - You know you already have changed stuff and need to review those changes.
-#
-# Depends on `cargo install cargo-insta`.
-review-test-repo:
-	INSTA_FORCE_PASS=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
-	INSTA_FORCE_PASS=1 /vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost/"
-	cargo insta review --workspace-root=/vagrant/tests/tests/checks
+review-test-repo: serve-test-repo
+	INSTA_FORCE_PASS=1 SEARCHFOX_SERVER=http://localhost:16995/ SEARCHFOX_TREE=tests INSTA_WORKSPACE_ROOT=$(shell pwd)/tests/tests/checks nix run $(NIXFLAGS) '.?submodules=1#test-index' -- $(shell pwd)/tests/tests/checks
+	nix run $(NIXFLAGS) '.?submodules=1#review-snapshots'
 
-build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	mkdir -p ~/searchfox-index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index
-	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/searchfox-index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/searchfox-index ~
+build-searchfox-repo:
+	nix build $(NIXFLAGS) '.?submodules=1#searchfox' --no-link --print-out-paths
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
@@ -79,17 +59,12 @@ build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 # - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
 #   that have the relevant jobs scheduled on them.  In particular:
 #   `./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"`
-build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -e ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-	mkdir -p ~/mozilla-index
-	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index
-	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
+build-mozilla-repo:
+	nix run $(NIXFLAGS) '$(MOZSEARCH_MOZILLA)#index-just-mc' --override-input mozsearch '.?submodules=1' -- ~/mozilla-index
+	$(serve-mozilla-repo)
 
-serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
+serve-mozilla-repo:
+	nix run $(NIXFLAGS) '.?submodules=1#serve-index' -- ~/mozilla-index ~/mozilla-srv
 
 # This builds both mozsearch and mozsearch-mozilla using the trees as they exist
 # on github rather than your local copies.  This differs from the
@@ -103,61 +78,41 @@ serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 # - If you want to use a modified version of mozsearch-mozilla, such as one
 #   checked out under "config" in the check-out repo, you can create a symlink
 #   in the VM's home directory via `pushd ~; ln -s /vagrant/config mozsearch-config`.
-build-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -e ~/mozsearch-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozsearch-config
-	mkdir -p ~/mozsearch-index
-	/vagrant/infrastructure/indexer-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index
-	/vagrant/infrastructure/indexer-run.sh ~/mozsearch-config ~/mozsearch-index
-	/vagrant/infrastructure/web-server-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~
+build-mozsearch-repo:
+	nix run $(NIXFLAGS) 'MOZSEARCH_MOZILLA?ref=nixified#index-just-mozsearch' --override-input mozsearch '.?submodules=1' -- ~/mozsearch-index
+	$(serve-mozsearch-repo)
 
-serve-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~
+serve-mozsearch-repo:
+	nix run $(NIXFLAGS) '.?submodules=1#serve-index' -- ~/mozsearch-index ~/mozsearch-srv
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
 #   checked out under "config" in the check-out repo, you can create a symlink
 #   in the VM's home directory via `pushd ~; ln -s /vagrant/config llvm-config`.
-build-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -e ~/llvm-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/llvm-config
-	mkdir -p ~/llvm-index
-	/vagrant/infrastructure/indexer-setup.sh ~/llvm-config just-llvm.json ~/llvm-index
-	/vagrant/infrastructure/indexer-run.sh ~/llvm-config ~/llvm-index
-	/vagrant/infrastructure/web-server-setup.sh ~/llvm-config just-llvm.json ~/llvm-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~
+build-llvm-repo:
+	nix run $(NIXFLAGS) 'MOZSEARCH_MOZILLA?ref=nixified#index-just-llvm' --override-input mozsearch '.?submodules=1' -- ~/mozsearch-index
+	$(serve-llvm-repo)
 
-serve-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh ~/llvm-config just-llvm.json ~/llvm-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~
+serve-llvm-repo:
+	nix run $(NIXFLAGS) '.?submodules=1#serve-index' -- ~/llvm-index ~/llvm-srv
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
 #   checked out under "config" in the check-out repo, you can create a symlink
 #   in the VM's home directory via `pushd ~; ln -s /vagrant/config graphviz-config`.
-build-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -e ~/graphviz-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/graphviz-config
-	mkdir -p ~/graphviz-index
-	/vagrant/infrastructure/indexer-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index
-	/vagrant/infrastructure/indexer-run.sh ~/graphviz-config ~/graphviz-index
-	/vagrant/infrastructure/web-server-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~
+build-graphviz-repo:
+	nix run $(NIXFLAGS) 'MOZSEARCH_MOZILLA?ref=nixified#index-just-graphviz' --override-input mozsearch '.?submodules=1#' -- ~/graphviz-index
+	$(serve-graphviz-repo)
 
-serve-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~
+serve-graphviz-repo:
+	nix run $(NIXFLAGS) '.?submodules=1#serve-index' -- ~/graphviz-index ~/graphviz-srv
 
-build-trees: check-in-vagrant build-clang-plugin build-rust-tools
-	mkdir -p ~/trees-index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tree-configs config.json ~/trees-index
-	/vagrant/infrastructure/indexer-run.sh /vagrant/tree-configs ~/trees-index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tree-configs ~/trees-index "http://localhost/"
+build-trees:
+	nix run $(NIXFLAGS) '.?submodules=1#build-index' -- $(shell pwd)/tree-configs config.json ~/trees-index
+	$(serve-trees)
 
-serve-trees: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
+serve-trees:
+	nix run $(NIXFLAGS) '.?submodules=1#serve-index' -- ~/trees-index ~/trees-srv
 
 # This is similar to build-mozilla-repo, except it strips out the non-mozilla-central trees
 # from config.json and puts the stripped version into trypush.json.
@@ -182,30 +137,22 @@ nss-reblame: check-in-vagrant build-rust-tools
 # generate the index with modifications we can also generate it into the same
 # ~/diffable folder. This eliminates spurious diff results that might
 # come from different absolute paths during the index generation step
-baseline: check-in-vagrant build-clang-plugin build-rust-tools
-	rm -rf ~/diffable ~/baseline
-	mkdir -p ~/diffable
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/diffable
-	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
-	mv ~/diffable ~/baseline
+baseline:
+	unlink ~/baseline
+	$(eval INDEX := $(shell nix build $(NIXFLAGS) '.?submodules=1#tests.diffable' --no-link --print-out-paths))
+	ln -s $(INDEX)/index ~/baseline
 
-comparison: check-in-vagrant build-clang-plugin build-rust-tools
-	rm -rf ~/diffable ~/modified
-	mkdir -p ~/diffable
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/diffable
-	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
-	mv ~/diffable ~/modified
+comparison:
+	unlink ~/modified
+	$(eval INDEX := $(shell nix build $(NIXFLAGS) '.?submodules=1#tests.diffable' --no-link --print-out-paths))
+	ln -s $(INDEX)/index ~/modified
 	@echo "------------------- Below is the diff between baseline and modified. ---------------------"
 	diff -u -r -x objdir ~/baseline/tests ~/modified/tests || true
 	@echo "------------------- Above is the diff between baseline and modified. ---------------------"
 	@echo "--- Run 'diff -u -r -x objdir ~/{baseline,modified}/tests | less' to see it in a pager ---"
 
-build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	mkdir -p ~/index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests webtest-config.json ~/index
-	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+build-webtest-repo:
+	nix build $(NIXFLAGS) '.?submodules=1#webtests.unchecked' --no-link --print-out-paths
 
-webtest: build-webtest-repo
-	./scripts/webtest.sh
+webtest:
+	nix build $(NIXFLAGS) '.?submodules=1#webtests' --no-link --print-out-paths

@@ -11,7 +11,7 @@ indexRoot = os.environ['INDEX_ROOT']
 treeRoot = os.environ['FILES_ROOT']
 objdir = os.environ['OBJDIR']
 
-plugin_folder = os.path.join(mozSearchRoot, 'clang-plugin')
+plugin_folder = os.environ["MOZSEARCH_PLUGIN_DIR"] or os.path.join(mozSearchRoot, 'clang-plugin')
 
 flags = [
     '-load', os.path.join(plugin_folder, 'libclang-index-plugin.so'),

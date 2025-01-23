@@ -2215,7 +2215,6 @@ class CSSAnalyzer {
       return;
     }
 
-    const wasmPath = mozSearchRoot + "/scripts/web-analyze/wasm-css-analyzer/out";
     const wasmBinary = createMappedArrayBuffer(wasmPath + "/wasm_css_analyzer.wasm");
 
     // getrandom crate requires WebCrypto API.
@@ -2448,6 +2447,7 @@ function decodeUTF8(s) {
 mozSearchRoot = scriptArgs[0];
 const localRoot = scriptArgs[1];
 const analysisRoot = scriptArgs[2];
+const wasmPath = scriptArgs[3];
 
 while (true) {
   const line = readline();

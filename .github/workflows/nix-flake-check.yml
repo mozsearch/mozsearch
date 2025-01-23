@@ -1,0 +1,17 @@
+name: Nix Flake Check
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  nix-flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@v2
+      - run: nix flake check -L --accept-flake-config '.?submodules=1#' --override-input self-with-dotgit path:$(pwd)

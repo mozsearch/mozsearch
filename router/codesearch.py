@@ -14,8 +14,8 @@ import warnings
 warnings.filterwarnings("ignore", "Protobuf gencode version 5.27.2 is older than the runtime version 5.28.2", UserWarning)
 
 import grpc
-from src.proto import livegrep_pb2
-from src.proto import livegrep_pb2_grpc
+from livegrep import livegrep_pb2
+from livegrep import livegrep_pb2_grpc
 
 def collateMatches(matches):
     paths = {}
