@@ -1,12 +1,11 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&aggr_str"
-snapshot_kind: text
 ---
 <div role="row" id="line-13" class="source-line-with-number nesting-sticky-line">
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
   <div role="cell"><div class="blame-strip"></div></div>
   <div role="cell" class="line-number" data-line-number="13"></div>
-  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_MyType#do_foo()." data-confidences="[&quot;concrete&quot;]">do_foo</span>(<span class="syn_def" data-symbols="S_rs_do_foo().(self)" data-confidences="[&quot;concrete&quot;]">self</span>) -> <span data-symbols="S_rs_MyType#" data-confidences="[&quot;concrete&quot;]">MyType</span> {
+  <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_impl#[MyType]do_foo()." data-confidences="[&quot;concrete&quot;]">do_foo</span>(<span class="syn_def" data-symbols="S_rs_test_rust_dependency/src/lib.rs/#0" data-confidences="[&quot;concrete&quot;]">self</span>) -> <span data-symbols="S_rs_MyType#" data-confidences="[&quot;concrete&quot;]">MyType</span> {
 </code>
 </div>
