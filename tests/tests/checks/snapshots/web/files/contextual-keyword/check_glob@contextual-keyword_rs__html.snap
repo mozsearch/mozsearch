@@ -1,11 +1,9 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&fb.contents"
-snapshot_kind: text
 ---
 <span data-symbols="FILE_rust/weak_keyword@2Ers">(file symbol)</span>
-<span class="syn_def" data-symbols="S_rs_weak_keyword/rust/f()." data-confidences="[&quot;concrete&quot;]">f</span>
-<span data-symbols="S_rs_rust/weak_keyword.rs/#0" data-confidences="[&quot;concrete&quot;]">i32</span>
+<span class="syn_def" data-symbols="S_rs_rust/weak_keyword/f()." data-confidences="[&quot;concrete&quot;]">f</span>
 <span class="syn_def" data-symbols="S_rs_rust/weak_keyword.rs/#0" data-confidences="[&quot;concrete&quot;]">macro_rules</span>
 <span class="syn_def" data-symbols="S_rs_rust/weak_keyword.rs/#1" data-confidences="[&quot;concrete&quot;]">union</span>
 <span data-symbols="S_rs_rust/weak_keyword.rs/#0" data-confidences="[&quot;concrete&quot;]">macro_rules</span>

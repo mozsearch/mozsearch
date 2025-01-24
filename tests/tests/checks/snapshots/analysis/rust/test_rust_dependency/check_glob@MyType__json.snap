@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
-snapshot_kind: text
 ---
 [
   {
@@ -9,7 +8,7 @@ snapshot_kind: text
     "source": 1,
     "syntax": "def,method",
     "pretty": "method MyType::do_foo",
-    "sym": "S_rs_MyType#do_foo().",
+    "sym": "S_rs_impl#[MyType]do_foo().",
     "nestingRange": "13:34-15:5",
     "type": "pub fn do_foo(self) -> MyType"
   },
@@ -18,7 +17,7 @@ snapshot_kind: text
     "target": 1,
     "kind": "def",
     "pretty": "MyType::do_foo",
-    "sym": "S_rs_MyType#do_foo().",
+    "sym": "S_rs_impl#[MyType]do_foo().",
     "context": "MyType",
     "contextsym": "S_rs_MyType#"
   }
