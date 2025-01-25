@@ -228,6 +228,7 @@ fn make_subsystem(
             slot_owner: None,
             impl_kind: ustr("impl"),
             size_bytes: None,
+            alignment_bytes: None,
             own_vf_ptr_bytes: None,
             binding_slots: vec![],
             ontology_slots: vec![],
