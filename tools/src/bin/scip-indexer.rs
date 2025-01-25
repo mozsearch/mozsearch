@@ -928,6 +928,7 @@ fn analyze_using_scip(
                     } else {
                         None
                     },
+                    alignment_bytes: None,
                     own_vf_ptr_bytes: None,
                     binding_slots: vec![],
                     ontology_slots: vec![],
@@ -1170,6 +1171,7 @@ fn analyze_using_scip(
                         // metadata.
                         impl_kind: ustr("external"),
                         size_bytes: None,
+                        alignment_bytes: None,
                         own_vf_ptr_bytes: None,
                         binding_slots: vec![],
                         ontology_slots: vec![],
@@ -1373,6 +1375,7 @@ fn analyze_using_scip(
             // (see previous use above for more context)
             impl_kind: ustr("external"),
             size_bytes: None,
+            alignment_bytes: None,
             own_vf_ptr_bytes: None,
             binding_slots: vec![],
             ontology_slots: vec![],
