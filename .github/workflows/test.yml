@@ -15,7 +15,7 @@ jobs:
       # See https://insta.rs/docs/advanced/#controlling-snapshot-updating
       INSTA_UPDATE: new
       MOZSEARCH_REPO: ${{ github.server_url }}/${{ github.repository }}
-      MOZSEARCH_BRANCH: ${{ github.ref_name }}
+      MOZSEARCH_BRANCH: ${{ github.ref }}
 
     steps:
       - uses: actions/checkout@v4
