@@ -41,7 +41,13 @@ git config --global pull.ff only
 # we have git, so let's check out mozsearch now so we can have our email sending
 # script in case of an error.
 if [ ! -d mozsearch ]; then
-  git clone -b $MOZSEARCH_BRANCH $MOZSEARCH_REPO mozsearch --depth=1
+  mkdir mozsearch
+  pushd mozsearch
+  git init
+  git remote add origin "$MOZSEARCH_REPO"
+  git fetch origin "$MOZSEARCH_BRANCH"
+  git switch --detach FETCH_HEAD
+  popd
 fi
 
 # the base image we're building against is inherently not up-to-date (new base

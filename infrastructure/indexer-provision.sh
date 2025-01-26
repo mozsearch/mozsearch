@@ -77,8 +77,12 @@ echo Config repository is $CONFIG_REPO rev $CONFIG_REV
 
 # Install mozsearch.
 rm -rf mozsearch
-git clone -b $MOZSEARCH_REV $MOZSEARCH_REPO mozsearch --depth=1
+mkdir mozsearch
 pushd mozsearch
+git init
+git remote add origin "$MOZSEARCH_REPO"
+git fetch origin "$MOZSEARCH_REV"
+git switch --detach FETCH_HEAD
 git submodule init
 git submodule update
 popd
