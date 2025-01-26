@@ -9,9 +9,9 @@ use serde_json::{from_str, Value};
 
 use super::{
     interface::{
-        PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolTreeTable, SymbolTreeTableField,
-        SymbolTreeTableFieldOffsetAndSize, SymbolTreeTableFieldType, SymbolTreeTableItem,
-        SymbolTreeTableList, SymbolTreeTableNode,
+        PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolTreeTable,
+        SymbolTreeTableAlignmentAndSize, SymbolTreeTableField, SymbolTreeTableFieldOffsetAndSize,
+        SymbolTreeTableFieldType, SymbolTreeTableItem, SymbolTreeTableList, SymbolTreeTableNode,
     },
     symbol_graph::{DerivedSymbolInfo, SymbolGraphNodeId},
 };
@@ -301,11 +301,23 @@ struct FieldListItem {
     field_variants: Vec<Option<Field>>,
 }
 
+struct AlignmentAndSize {
+    alignment: Option<u32>,
+    size: u32,
+}
+
+impl AlignmentAndSize {
+    fn new(alignment: Option<u32>, size: u32) -> Self {
+        Self { alignment, size }
+    }
+}
+
 // A struct to represent single class, with
 // fields per each platform group.
 struct Class {
     id: ClassId,
     name: String,
+    alignment_and_size: HashMap<PlatformId, AlignmentAndSize>,
     fields: HashMap<Option<FieldId>, HashMap<PlatformGroupId, Field>>,
     merged_fields: Vec<Vec<Option<Field>>>,
 }
@@ -315,6 +327,7 @@ impl Class {
         Self {
             id,
             name,
+            alignment_and_size: HashMap::new(),
             fields: HashMap::new(),
             merged_fields: vec![],
         }
@@ -744,14 +757,13 @@ impl ClassMap {
             };
             let struct_def_path = sym_info.get_def_path().cloned();
 
-            let cls = Class::new(class_id.clone(), structured.pretty.to_string());
+            let mut cls = Class::new(class_id.clone(), structured.pretty.to_string());
 
             let traversal_id = TraversalId(traversal_index);
 
             traversal_index += 1;
 
             self.class_list.push(traversal_id);
-            self.class_map.insert(traversal_id, cls);
 
             let mut supers = SupersMap::new();
 
@@ -766,27 +778,41 @@ impl ClassMap {
                     maybe_platform_id = Some(platform_id);
                 }
 
-                if let Some(size_bytes) = &s.own_vf_ptr_bytes {
-                    if let Some(class_size) = s.size_bytes {
-                        if let Some(platform_id) = &maybe_platform_id {
+                let class_alignment = s.alignment_bytes;
+
+                if let Some(class_size) = s.size_bytes {
+                    if let Some(platform_id) = &maybe_platform_id {
+                        cls.alignment_and_size.insert(
+                            platform_id.clone(),
+                            AlignmentAndSize::new(class_alignment, class_size),
+                        );
+
+                        if let Some(vtable_size_bytes) = &s.own_vf_ptr_bytes {
                             let offset = item.get_offset(platform_id);
                             let field = Field::new_vtable(
                                 class_id.clone(),
                                 traversal_id,
                                 offset,
                                 class_size,
-                                *size_bytes,
+                                *vtable_size_bytes,
                             );
                             fields_per_platform.add_field(platform_id, field.clone());
-                        } else {
-                            for platform_id in item.platforms() {
+                        }
+                    } else {
+                        for platform_id in item.platforms() {
+                            cls.alignment_and_size.insert(
+                                platform_id,
+                                AlignmentAndSize::new(class_alignment, class_size),
+                            );
+
+                            if let Some(vtable_size_bytes) = &s.own_vf_ptr_bytes {
                                 let offset = item.get_offset(&platform_id);
                                 let field = Field::new_vtable(
                                     class_id.clone(),
                                     traversal_id,
                                     offset,
                                     class_size,
-                                    *size_bytes,
+                                    *vtable_size_bytes,
                                 );
                                 fields_per_platform.add_field(&platform_id, field.clone());
                             }
@@ -906,6 +932,8 @@ impl ClassMap {
                     }
                 }
             }
+
+            self.class_map.insert(traversal_id, cls);
 
             for super_item in supers.into_traversal_items() {
                 pending_items.push_back(super_item);
@@ -1042,13 +1070,33 @@ impl ClassMap {
 
             let is_root = cls.id == self.root_class_id.as_ref().unwrap().clone();
 
+            let mut node_alignment_and_size = vec![];
+
+            if is_root {
+                for (_, platforms) in &self.groups {
+                    let platform_id = platforms[0];
+
+                    let (alignment, size) = match cls.alignment_and_size.get(&platform_id) {
+                        Some(AlignmentAndSize { alignment, size }) => {
+                            if let Some(alignment) = alignment {
+                                (format!("align({})", alignment), format!("{}", size))
+                            } else {
+                                ("".to_string(), format!("{}", size))
+                            }
+                        }
+                        None => ("".to_string(), "?".to_string()),
+                    };
+
+                    node_alignment_and_size
+                        .push(SymbolTreeTableAlignmentAndSize::new(alignment, size));
+                }
+            }
+
             let mut class_node = SymbolTreeTableNode::new(
-                format!(
-                    "{}{}",
-                    cls.name,
-                    if !is_root { " (base class)" } else { "" },
-                ),
+                cls.name.clone(),
                 self.stt.node_set.get(&cls.id).symbol.to_string(),
+                !is_root,
+                node_alignment_and_size,
             );
 
             if self.has_unsupported_multiple_inheritance && is_root {

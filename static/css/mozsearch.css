@@ -1493,6 +1493,11 @@ g.true-diag g.node polygon {
   max-width: 40vw;
 }
 
+.symbol-tree-table .class-size {
+  font-weight: bold;
+}
+
+.symbol-tree-table .class-size,
 .symbol-tree-table .field-offset,
 .symbol-tree-table .field-size,
 .symbol-tree-table .field-hole,
@@ -1521,6 +1526,28 @@ g.true-diag g.node polygon {
 .symbol-tree-table th,
 .symbol-tree-table td {
   border-block-end-width: 1px;
+  border-inline-start-width: 1px;
+}
+
+.symbol-tree-table td.base-class-false {
+  border-block-end-width: 0px;
+}
+
+.symbol-tree-table td.class-size-cell {
+  border-inline-start-width: 0px;
+}
+
+.symbol-tree-table tr.class-alignment-and-size td {
+  border-inline-start-width: 0px;
+}
+
+#symbol-tree-table-list:not(.hide-name) tr.class-alignment-and-size td.name-cell {
+  border-inline-start-width: 1px;
+}
+#symbol-tree-table-list.hide-name.show-type tr.class-alignment-and-size td.type-cell {
+  border-inline-start-width: 1px;
+}
+#symbol-tree-table-list.hide-name:not(.show-type):not(.hide-line) tr.class-alignment-and-size td.line-cell {
   border-inline-start-width: 1px;
 }
 
