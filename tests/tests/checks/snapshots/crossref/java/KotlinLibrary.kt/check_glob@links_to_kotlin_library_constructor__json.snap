@@ -69,6 +69,7 @@ expression: "&to_value(scil).unwrap()"
           "parentsym": "S_jvm_sample/KotlinLibrary#",
           "implKind": "impl",
           "sizeBytes": null,
+          "alignmentBytes": null,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],

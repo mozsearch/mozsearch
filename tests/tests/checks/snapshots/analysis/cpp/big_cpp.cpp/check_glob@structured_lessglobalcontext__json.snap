@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
-snapshot_kind: text
 ---
 [
   {
@@ -11,6 +10,7 @@ snapshot_kind: text
     "sym": "T_GlobalContext::LessGlobalContext",
     "kind": "class",
     "sizeBytes": 1,
+    "alignmentBytes": 1,
     "supers": [],
     "methods": [
       {

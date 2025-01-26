@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(jvl).unwrap()"
-snapshot_kind: text
 ---
 {
   "values": [
@@ -19,6 +18,7 @@ snapshot_kind: text
           "parentsym": "T_outerNS::AbstractArt",
           "implKind": "",
           "sizeBytes": null,
+          "alignmentBytes": null,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],

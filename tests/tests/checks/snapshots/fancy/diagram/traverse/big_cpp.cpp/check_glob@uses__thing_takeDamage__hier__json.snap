@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: sgc.to_json()
-snapshot_kind: text
 ---
 {
   "jumprefs": {
@@ -24,6 +23,7 @@ snapshot_kind: text
         "subsystem": "Core/Big",
         "implKind": "",
         "sizeBytes": 40,
+        "alignmentBytes": 8,
         "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
@@ -236,6 +236,7 @@ snapshot_kind: text
         "subsystem": "Core/Big",
         "implKind": "",
         "sizeBytes": 16,
+        "alignmentBytes": 8,
         "ownVFPtrBytes": 8,
         "bindingSlots": [],
         "ontologySlots": [],
@@ -366,6 +367,7 @@ snapshot_kind: text
         "parentsym": "T_outerNS::Thing",
         "implKind": "",
         "sizeBytes": null,
+        "alignmentBytes": null,
         "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
@@ -406,6 +408,7 @@ snapshot_kind: text
         "parentsym": "T_outerNS::OuterCat",
         "implKind": "",
         "sizeBytes": null,
+        "alignmentBytes": null,
         "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
@@ -443,6 +446,7 @@ snapshot_kind: text
         "parentsym": "T_outerNS::OuterCat",
         "implKind": "",
         "sizeBytes": null,
+        "alignmentBytes": null,
         "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
@@ -480,6 +484,7 @@ snapshot_kind: text
         "parentsym": "T_outerNS::OuterCat",
         "implKind": "",
         "sizeBytes": null,
+        "alignmentBytes": null,
         "ownVFPtrBytes": null,
         "bindingSlots": [],
         "ontologySlots": [],
