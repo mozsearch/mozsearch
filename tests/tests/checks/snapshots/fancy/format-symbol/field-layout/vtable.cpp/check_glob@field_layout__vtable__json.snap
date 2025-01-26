@@ -827,6 +827,13 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::vtable::SubSub",
           "symbols": "T_field_layout::vtable::SubSub",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(8)",
+              "size": "64"
+            }
+          ],
           "items": [
             {
               "Field": {
@@ -857,8 +864,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Sub1a (base class)",
+          "name": "field_layout::vtable::Sub1a",
           "symbols": "T_field_layout::vtable::Sub1a",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -889,8 +898,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Sub1b (base class)",
+          "name": "field_layout::vtable::Sub1b",
           "symbols": "T_field_layout::vtable::Sub1b",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -921,8 +932,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Sub2 (base class)",
+          "name": "field_layout::vtable::Sub2",
           "symbols": "T_field_layout::vtable::Sub2",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -953,8 +966,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Sub3 (base class)",
+          "name": "field_layout::vtable::Sub3",
           "symbols": "T_field_layout::vtable::Sub3",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -999,8 +1014,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Base1 (base class)",
+          "name": "field_layout::vtable::Base1",
           "symbols": "T_field_layout::vtable::Base1",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1024,8 +1041,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Base1 (base class)",
+          "name": "field_layout::vtable::Base1",
           "symbols": "T_field_layout::vtable::Base1",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1049,8 +1068,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Base2 (base class)",
+          "name": "field_layout::vtable::Base2",
           "symbols": "T_field_layout::vtable::Base2",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1074,8 +1095,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Base3 (base class)",
+          "name": "field_layout::vtable::Base3",
           "symbols": "T_field_layout::vtable::Base3",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": []
         }
       ]

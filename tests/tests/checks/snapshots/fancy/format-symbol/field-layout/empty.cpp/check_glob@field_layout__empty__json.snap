@@ -72,6 +72,13 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::empty::S",
           "symbols": "T_field_layout::empty::S",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(1)",
+              "size": "1"
+            }
+          ],
           "items": []
         }
       ]

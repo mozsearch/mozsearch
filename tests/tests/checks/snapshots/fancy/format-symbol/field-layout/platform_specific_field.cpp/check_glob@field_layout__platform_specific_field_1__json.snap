@@ -691,6 +691,21 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::platform_specific_field::S3",
           "symbols": "T_field_layout::platform_specific_field::S3",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(4)",
+              "size": "16"
+            },
+            {
+              "alignment": "align(4)",
+              "size": "16"
+            },
+            {
+              "alignment": "align(4)",
+              "size": "16"
+            }
+          ],
           "items": [
             {
               "Field": {
@@ -731,8 +746,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::platform_specific_field::S2 (base class)",
+          "name": "field_layout::platform_specific_field::S2",
           "symbols": "T_field_layout::platform_specific_field::S2",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -789,8 +806,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::platform_specific_field::S1 (base class)",
+          "name": "field_layout::platform_specific_field::S1",
           "symbols": "T_field_layout::platform_specific_field::S1",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {

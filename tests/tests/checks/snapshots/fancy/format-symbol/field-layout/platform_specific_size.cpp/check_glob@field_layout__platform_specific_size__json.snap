@@ -180,6 +180,17 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::platform_specific_size::S",
           "symbols": "T_field_layout::platform_specific_size::S",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(8)",
+              "size": "8"
+            },
+            {
+              "alignment": "align(4)",
+              "size": "4"
+            }
+          ],
           "items": [
             {
               "Field": {

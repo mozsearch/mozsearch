@@ -80,6 +80,13 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::non_struct::Proxy",
           "symbols": "T_field_layout::non_struct::Proxy",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(1)",
+              "size": "1"
+            }
+          ],
           "items": [
             {
               "Field": {

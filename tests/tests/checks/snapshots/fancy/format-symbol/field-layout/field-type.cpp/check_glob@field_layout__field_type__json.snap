@@ -1063,6 +1063,13 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::field_type::S",
           "symbols": "T_field_layout::field_type::S",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(8)",
+              "size": "88"
+            }
+          ],
           "items": [
             {
               "Field": {

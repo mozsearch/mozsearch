@@ -1499,6 +1499,17 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::multiple_inheritance::SubSubSubA",
           "symbols": "T_field_layout::multiple_inheritance::SubSubSubA",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(8)",
+              "size": "72"
+            },
+            {
+              "alignment": "align(8)",
+              "size": "64"
+            }
+          ],
           "items": [
             {
               "Field": {
@@ -1534,8 +1545,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubSubA (base class)",
+          "name": "field_layout::multiple_inheritance::SubSubA",
           "symbols": "T_field_layout::multiple_inheritance::SubSubA",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1571,8 +1584,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubSubB (base class)",
+          "name": "field_layout::multiple_inheritance::SubSubB",
           "symbols": "T_field_layout::multiple_inheritance::SubSubB",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1602,8 +1617,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubA (base class)",
+          "name": "field_layout::multiple_inheritance::SubA",
           "symbols": "T_field_layout::multiple_inheritance::SubA",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1664,8 +1681,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubB (base class)",
+          "name": "field_layout::multiple_inheritance::SubB",
           "symbols": "T_field_layout::multiple_inheritance::SubB",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1754,8 +1773,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubD (base class)",
+          "name": "field_layout::multiple_inheritance::SubD",
           "symbols": "T_field_layout::multiple_inheritance::SubD",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1816,8 +1837,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubE (base class)",
+          "name": "field_layout::multiple_inheritance::SubE",
           "symbols": "T_field_layout::multiple_inheritance::SubE",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Hole": [
@@ -1878,18 +1901,24 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+          "name": "field_layout::multiple_inheritance::BaseEmpty",
           "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": []
         },
         {
-          "name": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+          "name": "field_layout::multiple_inheritance::BaseEmpty",
           "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": []
         },
         {
-          "name": "field_layout::multiple_inheritance::SubC (base class)",
+          "name": "field_layout::multiple_inheritance::SubC",
           "symbols": "T_field_layout::multiple_inheritance::SubC",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
@@ -1950,13 +1979,17 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+          "name": "field_layout::multiple_inheritance::BaseEmpty",
           "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": []
         },
         {
-          "name": "field_layout::multiple_inheritance::BaseEmpty (base class)",
+          "name": "field_layout::multiple_inheritance::BaseEmpty",
           "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": []
         }
       ]

@@ -376,6 +376,13 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::holes::Sub",
           "symbols": "T_field_layout::holes::Sub",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(4)",
+              "size": "20"
+            }
+          ],
           "items": [
             {
               "Field": {
@@ -427,8 +434,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::holes::Base (base class)",
+          "name": "field_layout::holes::Base",
           "symbols": "T_field_layout::holes::Base",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {
