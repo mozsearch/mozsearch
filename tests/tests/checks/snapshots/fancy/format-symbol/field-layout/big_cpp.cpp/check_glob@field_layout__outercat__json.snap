@@ -692,6 +692,13 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "outerNS::OuterCat",
           "symbols": "T_outerNS::OuterCat",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(8)",
+              "size": "40"
+            }
+          ],
           "items": [
             {
               "Field": {
@@ -785,8 +792,10 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "outerNS::Thing (base class)",
+          "name": "outerNS::Thing",
           "symbols": "T_outerNS::Thing",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
           "items": [
             {
               "Field": {

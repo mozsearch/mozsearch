@@ -318,6 +318,13 @@ expression: "&to_value(sttl).unwrap()"
         {
           "name": "field_layout::bitfields::S",
           "symbols": "T_field_layout::bitfields::S",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(4)",
+              "size": "4"
+            }
+          ],
           "items": [
             {
               "Field": {
