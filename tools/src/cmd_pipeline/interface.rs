@@ -156,17 +156,40 @@ pub enum BasicMarkup {
 }
 
 #[derive(Serialize)]
+pub struct SymbolTreeTableAlignmentAndSize {
+    pub alignment: String,
+    pub size: String,
+}
+
+impl SymbolTreeTableAlignmentAndSize {
+    pub fn new(alignment: String, size: String) -> Self {
+        Self { alignment, size }
+    }
+}
+
+#[derive(Serialize)]
 pub struct SymbolTreeTableNode {
     pub name: String,
     pub symbols: String,
+    #[serde(rename = "isBaseClass")]
+    pub is_base_class: bool,
+    #[serde(rename = "alignmentAndSize")]
+    pub alignment_and_size: Vec<SymbolTreeTableAlignmentAndSize>,
     pub items: Vec<SymbolTreeTableItem>,
 }
 
 impl SymbolTreeTableNode {
-    pub fn new(name: String, symbols: String) -> Self {
+    pub fn new(
+        name: String,
+        symbols: String,
+        is_base_class: bool,
+        alignment_and_size: Vec<SymbolTreeTableAlignmentAndSize>,
+    ) -> Self {
         Self {
             name,
             symbols,
+            is_base_class,
+            alignment_and_size,
             items: vec![],
         }
     }

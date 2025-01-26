@@ -1,14 +1,34 @@
 <tr>
-  <td colspan="{{ platforms.size | times: 2 | plus: 3 }}">
+  <td class="base-class-{{ node.isBaseClass }}" colspan="{{ platforms.size | times: 2 | plus: 3 }}">
     <h3>
       <code>
         <span data-symbols="{{ node.symbols }}">
           {{- node.name | escape -}}
+          {%- if node.isBaseClass == true %} (base class){% endif -%}
         </span>
       </code>
     </h3>
   </td>
 </tr>
+{%- if node.isBaseClass == false -%}
+  <tr class="class-alignment-and-size">
+    <td class="name-cell"></td>
+    <td class="type-cell"></td>
+    <td class="line-cell"></td>
+    {%- for alignmentAndSize in node.alignmentAndSize -%}
+      <td class="class-alignment-cell">
+        <span class="class-alignment">
+          {{- alignmentAndSize.alignment | escape -}}
+        </span>
+      </td>
+      <td class="class-size-cell">
+        <span class="class-size">
+          {{- alignmentAndSize.size | escape -}}
+        </span>
+      </td>
+    {%- endfor -%}
+  </tr>
+{%- endif -%}
 {%- for item in node.items -%}
   {%- if item contains "Field" -%}
     <tr>
@@ -66,7 +86,6 @@
       <td class="name-cell"></td>
       <td class="type-cell"></td>
       <td class="line-cell"></td>
-      </td>
       {%- for hole in item.Hole -%}
         {%- if hole -%}
           <td colspan="2">
@@ -85,7 +104,6 @@
       <td class="name-cell"></td>
       <td class="type-cell"></td>
       <td class="line-cell"></td>
-      </td>
       {%- for padding in item.EndPadding -%}
         {%- if padding -%}
           <td colspan="2">
