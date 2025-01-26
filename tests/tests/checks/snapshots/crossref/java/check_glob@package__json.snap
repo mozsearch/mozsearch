@@ -114,6 +114,7 @@ expression: "&to_value(scil).unwrap()"
           "subsystem": null,
           "implKind": "external",
           "sizeBytes": null,
+          "alignmentBytes": null,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],

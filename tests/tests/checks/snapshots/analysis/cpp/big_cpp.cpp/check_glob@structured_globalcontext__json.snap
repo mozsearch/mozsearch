@@ -10,6 +10,7 @@ expression: "&json_results"
     "sym": "T_GlobalContext",
     "kind": "class",
     "sizeBytes": 1,
+    "alignmentBytes": 1,
     "supers": [],
     "methods": [
       {

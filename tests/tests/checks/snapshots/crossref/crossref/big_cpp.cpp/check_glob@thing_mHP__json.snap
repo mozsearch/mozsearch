@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(scil).unwrap()"
-snapshot_kind: text
 ---
 {
   "symbol_crossref_infos": [
@@ -75,6 +74,7 @@ snapshot_kind: text
           "parentsym": "T_outerNS::Thing",
           "implKind": "",
           "sizeBytes": null,
+          "alignmentBytes": null,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],

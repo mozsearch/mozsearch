@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(scil).unwrap()"
-snapshot_kind: text
 ---
 {
   "symbol_crossref_infos": [
@@ -90,6 +89,7 @@ snapshot_kind: text
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 40,
+          "alignmentBytes": 8,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
@@ -440,6 +440,7 @@ snapshot_kind: text
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
+          "alignmentBytes": 8,
           "ownVFPtrBytes": 8,
           "bindingSlots": [],
           "ontologySlots": [],
@@ -682,6 +683,7 @@ snapshot_kind: text
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
+          "alignmentBytes": 8,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
@@ -847,6 +849,7 @@ snapshot_kind: text
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
+          "alignmentBytes": 8,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
@@ -977,6 +980,7 @@ snapshot_kind: text
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
+          "alignmentBytes": 8,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
@@ -1140,6 +1144,7 @@ snapshot_kind: text
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
+          "alignmentBytes": 8,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],
@@ -1312,6 +1317,7 @@ snapshot_kind: text
           "subsystem": "Core/Big",
           "implKind": "",
           "sizeBytes": 16,
+          "alignmentBytes": 8,
           "ownVFPtrBytes": null,
           "bindingSlots": [],
           "ontologySlots": [],

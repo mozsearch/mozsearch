@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
-snapshot_kind: text
 ---
 [
   {
@@ -161,6 +160,7 @@ snapshot_kind: text
     "subsystem": null,
     "implKind": "",
     "sizeBytes": null,
+    "alignmentBytes": null,
     "ownVFPtrBytes": null,
     "bindingSlots": [],
     "ontologySlots": [],

@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
-snapshot_kind: text
 ---
 {
   "tables": [
@@ -20,6 +19,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::bitfields::S",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -47,6 +47,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::bitfields::S",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -74,6 +75,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::bitfields::S",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -101,6 +103,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::bitfields::S",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -128,6 +131,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::bitfields::S",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -155,6 +159,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::bitfields::S",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -181,6 +186,7 @@ snapshot_kind: text
             "subsystem": null,
             "implKind": "",
             "sizeBytes": 4,
+            "alignmentBytes": 4,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],

@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
-snapshot_kind: text
 ---
 [
   {
@@ -11,6 +10,7 @@ snapshot_kind: text
     "sym": "T_outerNS::OuterCat",
     "kind": "class",
     "sizeBytes": 40,
+    "alignmentBytes": 8,
     "supers": [
       {
         "sym": "T_outerNS::Thing",

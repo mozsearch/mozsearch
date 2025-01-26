@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(sttl).unwrap()"
-snapshot_kind: text
 ---
 {
   "tables": [
@@ -20,6 +19,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::platform_specific_field::T1",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -47,6 +47,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::platform_specific_field::T2",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -74,6 +75,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::platform_specific_field::T2",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -101,6 +103,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::platform_specific_field::T2",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -128,6 +131,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::platform_specific_field::T3",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -155,6 +159,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::platform_specific_field::T3",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -182,6 +187,7 @@ snapshot_kind: text
             "parentsym": "T_field_layout::platform_specific_field::T3",
             "implKind": "",
             "sizeBytes": null,
+            "alignmentBytes": null,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -208,6 +214,7 @@ snapshot_kind: text
             "subsystem": null,
             "implKind": "",
             "sizeBytes": 1,
+            "alignmentBytes": 1,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -287,6 +294,7 @@ snapshot_kind: text
             "subsystem": null,
             "implKind": "",
             "sizeBytes": 12,
+            "alignmentBytes": 4,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -374,6 +382,7 @@ snapshot_kind: text
                 "subsystem": null,
                 "implKind": "",
                 "sizeBytes": 12,
+                "alignmentBytes": 4,
                 "ownVFPtrBytes": null,
                 "bindingSlots": [],
                 "ontologySlots": [],
@@ -475,6 +484,7 @@ snapshot_kind: text
             "subsystem": null,
             "implKind": "",
             "sizeBytes": 20,
+            "alignmentBytes": 4,
             "ownVFPtrBytes": null,
             "bindingSlots": [],
             "ontologySlots": [],
@@ -550,6 +560,7 @@ snapshot_kind: text
                 "subsystem": null,
                 "implKind": "",
                 "sizeBytes": 20,
+                "alignmentBytes": 4,
                 "ownVFPtrBytes": null,
                 "bindingSlots": [],
                 "ontologySlots": [],
