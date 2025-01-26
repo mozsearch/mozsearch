@@ -25,16 +25,7 @@
 # you use; `activate` is for bash but there are different suffixed files for
 # other shell types.
 CONTAINER_NAME=${SEARCHFOX_DOCKER_CONTAINER_NAME:-searchfox}
-# Fully qualify the image name. This avoids docker/podman trying to fetch the
-# image from a remote.
-# See https://docs.docker.com/reference/cli/docker/image/tag/#description:
-# - If you don't specify a hostname, the command uses Docker's public registry
-#   at registry-1.docker.io by default.
-# And https://docs.podman.io/en/stable/markdown/podman-run.1.html#image:
-# - The reference can include a path to a specific registry; if it does not,
-#   the registries listed in registries.conf are queried to find a matching
-#   image.
-IMAGE_NAME=localhost/${SEARCHFOX_DOCKER_IMAGE_NAME:-searchfox}
+IMAGE_NAME=${SEARCHFOX_DOCKER_IMAGE_NAME:-searchfox}
 # Note that the volume is optional!  Also, we suffix it with "-vol" because I
 # saw it in the docs and that seems reasonable to avoid having everything be
 # named like exactly the same.
