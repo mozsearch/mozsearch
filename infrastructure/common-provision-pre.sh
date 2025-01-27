@@ -60,7 +60,7 @@ sudo apt-get remove -y unattended-upgrades
 sudo apt-get install -y gdb python3-dbg
 
 # Other
-sudo apt-get install -y parallel unzip python3-pip python3-venv lz4
+sudo apt-get install -y parallel unzip python3-pip python3-venv lz4 file
 
 # We want to be able to extract stuff from json (jq) and yaml (yq) and more
 # easily emit JSON from the shell (jo).
