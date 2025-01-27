@@ -22,8 +22,11 @@ from six.moves import input
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
-def print_instances():
+def print_instances(select):
     now = None
+
+    ids = {}
+    current_index = 1
 
     for instance in ec2.instances.all():
         if len(instance.security_groups) != 1:
@@ -48,7 +51,19 @@ def print_instances():
         # strip off sub-seconds
         age_str = age_str[:age_str.find('.')]
 
+        if select:
+            print(' {}) '.format(current_index), end='')
+            ids[str(current_index)] = instance.id
+            current_index += 1
+
         print(instance.id, state, group, age_str, ["%s: %s" % (k, tags[k]) for k in sorted(tags.keys())])
+
+    if select:
+        print()
+        while True:
+            index = input('index: ')
+            if index in ids:
+                return ids[index]
 
 def prompt(text):
     while True:
@@ -140,12 +155,19 @@ def log_into(instance):
     sys.exit(p.returncode)
 
 if len(sys.argv) == 1:
-    print('usage: %s <instance-id>' % sys.argv[0])
+    print('usage: %s (<instance-id>|-)' % sys.argv[0])
+    print()
+    print('  -: Show the instances and prompt for selecting it')
     print()
     print('Current instances:')
-    print_instances()
+    print_instances(select=False)
     sys.exit(0)
 
 id = sys.argv[1]
+
+if id == '-':
+    print('Current instances:')
+    id = print_instances(select=True)
+
 instance = ec2.Instance(id)
 log_into(instance)
