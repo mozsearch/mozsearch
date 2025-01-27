@@ -119,7 +119,7 @@ class TriggerCommandBase:
 
     cd ~ubuntu
     {extra_commands}
-    sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{branch}" "{mozsearch_repo}" "{config_repo}"
+    sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{branch}"
     sudo -i -u ubuntu {cmd_env_vars} mozsearch/infrastructure/aws/main.sh {core_script} {max_runtime_hours} "{branch}" "{channel}" {extra_args}
     '''.format(
         core_script=self.core_script,
