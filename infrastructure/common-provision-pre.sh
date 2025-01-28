@@ -142,11 +142,11 @@ sudo apt-get install -y cmake protobuf-compiler
 if [ ! -d $HOME/.cargo ]; then
   curl https://sh.rustup.rs -sSf | sh -s -- -y
   source $HOME/.cargo/env
-  rustup install nightly
-  rustup default nightly
-  rustup uninstall stable
-  rustup component add rust-analyzer
 fi
+rustup install nightly
+rustup default nightly
+rustup uninstall stable
+rustup component add rust-analyzer
 
 # install ripgrep so we can stop experiencing grep pain / footguns
 sudo apt-get install ripgrep
