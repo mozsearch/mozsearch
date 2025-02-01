@@ -26,7 +26,7 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
                 describe_from_rust_comment(substr).or_else(|| describe_from_c_comment(substr))
             } else if spec.c_style_comments {
                 describe_from_c_comment(substr)
-            } else if spec.triple_quote_literals {
+            } else if spec.triple_quote_literals == "py" {
                 describe_py(substr)
             } else {
                 None
