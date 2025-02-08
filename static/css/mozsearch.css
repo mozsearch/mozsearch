@@ -1183,6 +1183,10 @@ input::placeholder {
   }
 }
 
+.svg-preview {
+  padding: 0 1rem;
+}
+
 .svg-preview > h4 {
   margin-bottom: 0;
 }
