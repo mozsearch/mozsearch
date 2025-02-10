@@ -1196,8 +1196,6 @@ input::placeholder {
 }
 
 .svg-preview > a > img {
-  float: left;
-  clear: both;
   min-height: 50px;
   max-height: 300px;
   min-width: 50px;
@@ -1208,11 +1206,7 @@ input::placeholder {
   margin-bottom: 1em;
 }
 
-#svg-preview-checkerboard {
-  margin-inline-start: 0;
-}
-
-#svg-preview-checkerboard:checked + label + a > img {
+#svg-preview-background-checkerboard:checked ~ a > img {
   background-image: linear-gradient(
       45deg,
       #555 25%,
@@ -1231,6 +1225,16 @@ input::placeholder {
     );
   background-size: 10px 10px;
   background-position: 0 0, 5px 5px;
+}
+
+#svg-preview-background-light:checked ~ a > img {
+  background-color: #d8d8d8;
+  color-scheme: light;
+}
+
+#svg-preview-background-dark:checked ~ a > img {
+  background-color: #181818;
+  color-scheme: dark;
 }
 
 .syn_def {
