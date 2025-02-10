@@ -475,8 +475,14 @@ pub fn generate_svg_preview(writer: &mut dyn Write, url: &str) -> Result<(), &'s
         F::S(r#"<div class="svg-preview">"#),
         F::Indent(vec![
             F::S("<h4>SVG Preview (Scaled)</h4>"),
-            F::S(r#"<input type="checkbox" id="svg-preview-checkerboard"/>"#),
-            F::S(r#"<label for="svg-preview-checkerboard">Checkerboard</label>"#),
+            F::S(r#"<input id="svg-preview-background-default" type="radio" name="svg-preview-background" value="default" checked>"#),
+            F::S(r#"<label for="svg-preview-background-default">Default</label>"#),
+            F::S(r#"<input id="svg-preview-background-checkerboard" type="radio" name="svg-preview-background" value="checkerboard">"#),
+            F::S(r#"<label for="svg-preview-background-checkerboard">Checkerboard</label>"#),
+            F::S(r#"<input id="svg-preview-background-light" type="radio" name="svg-preview-background" value="light">"#),
+            F::S(r#"<label for="svg-preview-background-light">Light</label>"#),
+            F::S(r#"<input id="svg-preview-background-dark" type="radio" name="svg-preview-background" value="dark">"#),
+            F::S(r#"<label for="svg-preview-background-dark">Dark</label>"#),
             F::T(format!(r#"<a href="{}">"#, url)),
             F::Indent(vec![F::T(format!(
                 r#"<img src="{0}" alt="Preview of {0}"/>"#,
