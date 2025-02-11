@@ -6,7 +6,7 @@ use std::{
 
 use axum::{
     extract::{Path, Query},
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response},
     routing::get,
     Extension, Json, Router,
@@ -81,6 +81,11 @@ async fn handle_query(
         _ => Value::Null,
     };
 
+    // There are a bunch of ways to return headers to axum; this is the most
+    // legible I found.
+    let mut header_map = HeaderMap::new();
+    header_map.insert(header::VARY, "Accept".parse().unwrap());
+
     if make_html {
         let sym_info_str = match &result {
             PipelineValues::GraphResultsBundle(grb) => {
@@ -103,9 +108,9 @@ async fn handle_query(
         });
 
         let output = templates.query_results.render(&globals)?;
-        Ok(Html(output).into_response())
+        Ok((header_map, Html(output)).into_response())
     } else {
-        Ok(Json(result).into_response())
+        Ok((header_map, Json(result)).into_response())
     }
 }
 
