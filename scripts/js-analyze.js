@@ -75,6 +75,11 @@ const ERROR_INTERVENTIONS = [
     prepend: "(unsupported) import attributes can parse this way: "
   },
   {
+    includes: "import attributes are not currently supported",
+    severity: "INFO",
+    prepend: "(unsupported) import attributes can also parse this way: "
+  },
+  {
     includes: "redeclaration of import",
     severity: "INFO",
     prepend: "Known buggy code pattern is not a problem: "
