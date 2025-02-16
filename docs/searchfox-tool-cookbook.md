@@ -86,6 +86,12 @@ RUST_LOG=trace ~/mozsearch/tools/target/release/searchfox-tool '--server=/home/u
 ```
 
 
+### Debugging the field layout table locally
+
+```
+/vagrant/tools/target/release/searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests search-identifiers field_layout::template_base::Base | crossref-lookup | format-symbols'
+```
+
 
 ### Diffing Query Results
 
