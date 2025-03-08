@@ -4,5 +4,7 @@ expression: "&fb.contents"
 ---
 <span data-symbols="FILE_urlmap/chrome1@2Emjs,FILE_urlmap/chrome1b@2Emjs">chrome://global/content/test/chrome1.mjs</span>
 <span data-symbols="FILE_urlmap/resource1@2Emjs">resource://test/resource1.mjs</span>
+<span data-symbols="FILE_urlmap/mozsrc1.mjs">moz-src:///urlmap/mozsrc1.mjs</span>
 <span data-symbols="FILE_urlmap/chrome1@2Ecss">chrome://global/content/test/chrome1.css</span>
 <span data-symbols="FILE_urlmap/resource1@2Epng">resource://test/resource1.png</span>
+<span data-symbols="FILE_urlmap/mozsrc1.mjs">moz-src:///urlmap/mozsrc1.mjs</span>

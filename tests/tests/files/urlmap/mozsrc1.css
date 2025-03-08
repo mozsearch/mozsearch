@@ -1,0 +1,5 @@
+body {
+  color: red;
+}
+
+@import "moz-src:///urlmap/mozsrc2.css";

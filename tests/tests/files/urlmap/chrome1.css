@@ -1,3 +1,5 @@
 body {
   color: red;
 }
+
+@import "chrome://global/content/test/chrome2.css";

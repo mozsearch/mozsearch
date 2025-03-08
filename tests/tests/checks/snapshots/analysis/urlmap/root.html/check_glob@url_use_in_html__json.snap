@@ -4,6 +4,63 @@ expression: "&json_results"
 ---
 [
   {
+    "loc": "00010:8-50",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file urlmap/chrome1.css",
+    "sym": "FILE_urlmap/chrome1@2Ecss"
+  },
+  {
+    "loc": "00010:8-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/chrome1.css",
+    "sym": "FILE_urlmap/chrome1@2Ecss"
+  },
+  {
+    "loc": "00011:8-39",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file urlmap/resource1.css",
+    "sym": "FILE_urlmap/resource1@2Ecss"
+  },
+  {
+    "loc": "00011:8-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/resource1.css",
+    "sym": "FILE_urlmap/resource1@2Ecss"
+  },
+  {
+    "loc": "00012:8-39",
+    "source": 1,
+    "syntax": "use,file",
+    "pretty": "file moz-src:///urlmap/mozsrc1.css",
+    "sym": "FILE_urlmap/mozsrc1@2Ecss"
+  },
+  {
+    "loc": "00012:8-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc1.css",
+    "sym": "FILE_urlmap/mozsrc1@2Ecss"
+  },
+  {
+    "loc": "7:33-62",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file urlmap/resource1.css",
+    "sym": "FILE_urlmap/resource1@2Ecss"
+  },
+  {
+    "loc": "7:33-62",
+    "target": 1,
+    "kind": "use",
+    "pretty": "file urlmap/resource1.css",
+    "sym": "FILE_urlmap/resource1@2Ecss",
+    "context": ""
+  },
+  {
     "loc": "6:33-73",
     "source": 1,
     "syntax": "file,use",
@@ -19,21 +76,21 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "11:47-89",
+    "loc": "17:47-89",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.mjs",
     "sym": "FILE_urlmap/chrome1@2Emjs"
   },
   {
-    "loc": "11:47-89",
+    "loc": "17:47-89",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1b.mjs",
     "sym": "FILE_urlmap/chrome1b@2Emjs"
   },
   {
-    "loc": "11:47-89",
+    "loc": "17:47-89",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.mjs",
@@ -41,7 +98,7 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "11:47-89",
+    "loc": "17:47-89",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1b.mjs",
@@ -49,14 +106,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "12:49-80",
+    "loc": "18:49-80",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.mjs",
     "sym": "FILE_urlmap/resource1@2Emjs"
   },
   {
-    "loc": "12:49-80",
+    "loc": "18:49-80",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.mjs",
@@ -64,14 +121,29 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "16:11-53",
+    "loc": "19:47-78",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc1.mjs",
+    "sym": "FILE_urlmap/mozsrc1@2Emjs"
+  },
+  {
+    "loc": "19:47-78",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc1.mjs",
+    "sym": "FILE_urlmap/mozsrc1@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "23:11-53",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome2.mjs",
     "sym": "FILE_urlmap/chrome2@2Emjs"
   },
   {
-    "loc": "16:11-53",
+    "loc": "23:11-53",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome2.mjs",
@@ -79,14 +151,14 @@ expression: "&json_results"
     "context": "chrome2"
   },
   {
-    "loc": "17:13-44",
+    "loc": "24:13-44",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource2.mjs",
     "sym": "FILE_urlmap/resource2@2Emjs"
   },
   {
-    "loc": "17:13-44",
+    "loc": "24:13-44",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource2.mjs",
@@ -94,14 +166,29 @@ expression: "&json_results"
     "context": "resource2"
   },
   {
-    "loc": "20:12-55",
+    "loc": "25:11-42",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc2.mjs",
+    "sym": "FILE_urlmap/mozsrc2@2Emjs"
+  },
+  {
+    "loc": "25:11-42",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc2.mjs",
+    "sym": "FILE_urlmap/mozsrc2@2Emjs",
+    "context": "mozsrc2"
+  },
+  {
+    "loc": "28:12-55",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.html",
     "sym": "FILE_urlmap/chrome1@2Ehtml"
   },
   {
-    "loc": "20:12-55",
+    "loc": "28:12-55",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.html",
@@ -109,14 +196,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "21:12-44",
+    "loc": "29:12-44",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.html",
     "sym": "FILE_urlmap/resource1@2Ehtml"
   },
   {
-    "loc": "21:12-44",
+    "loc": "29:12-44",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.html",
@@ -124,14 +211,29 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "24:24-66",
+    "loc": "30:12-44",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc1.html",
+    "sym": "FILE_urlmap/mozsrc1@2Ehtml"
+  },
+  {
+    "loc": "30:12-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc1.html",
+    "sym": "FILE_urlmap/mozsrc1@2Ehtml",
+    "context": ""
+  },
+  {
+    "loc": "33:24-66",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome3.mjs",
     "sym": "FILE_urlmap/chrome3@2Emjs"
   },
   {
-    "loc": "24:24-66",
+    "loc": "33:24-66",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome3.mjs",
@@ -139,14 +241,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "25:26-57",
+    "loc": "34:26-57",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource3.mjs",
     "sym": "FILE_urlmap/resource3@2Emjs"
   },
   {
-    "loc": "25:26-57",
+    "loc": "34:26-57",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource3.mjs",
@@ -154,21 +256,36 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "27:47-89",
+    "loc": "35:24-55",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc3.mjs",
+    "sym": "FILE_urlmap/mozsrc3@2Emjs"
+  },
+  {
+    "loc": "35:24-55",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc3.mjs",
+    "sym": "FILE_urlmap/mozsrc3@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "37:47-89",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.mjs",
     "sym": "FILE_urlmap/chrome1@2Emjs"
   },
   {
-    "loc": "27:47-89",
+    "loc": "37:47-89",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1b.mjs",
     "sym": "FILE_urlmap/chrome1b@2Emjs"
   },
   {
-    "loc": "27:47-89",
+    "loc": "37:47-89",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.mjs",
@@ -176,7 +293,7 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "27:47-89",
+    "loc": "37:47-89",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1b.mjs",
@@ -184,14 +301,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "28:49-80",
+    "loc": "38:49-80",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.mjs",
     "sym": "FILE_urlmap/resource1@2Emjs"
   },
   {
-    "loc": "28:49-80",
+    "loc": "38:49-80",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.mjs",
@@ -199,14 +316,29 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "32:11-53",
+    "loc": "39:47-78",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc1.mjs",
+    "sym": "FILE_urlmap/mozsrc1@2Emjs"
+  },
+  {
+    "loc": "39:47-78",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc1.mjs",
+    "sym": "FILE_urlmap/mozsrc1@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "43:11-53",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome2.mjs",
     "sym": "FILE_urlmap/chrome2@2Emjs"
   },
   {
-    "loc": "32:11-53",
+    "loc": "43:11-53",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome2.mjs",
@@ -214,14 +346,14 @@ expression: "&json_results"
     "context": "chrome2"
   },
   {
-    "loc": "33:13-44",
+    "loc": "44:13-44",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource2.mjs",
     "sym": "FILE_urlmap/resource2@2Emjs"
   },
   {
-    "loc": "33:13-44",
+    "loc": "44:13-44",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource2.mjs",
@@ -229,14 +361,29 @@ expression: "&json_results"
     "context": "resource2"
   },
   {
-    "loc": "36:12-55",
+    "loc": "45:11-42",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc2.mjs",
+    "sym": "FILE_urlmap/mozsrc2@2Emjs"
+  },
+  {
+    "loc": "45:11-42",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc2.mjs",
+    "sym": "FILE_urlmap/mozsrc2@2Emjs",
+    "context": "mozsrc2"
+  },
+  {
+    "loc": "48:12-55",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.html",
     "sym": "FILE_urlmap/chrome1@2Ehtml"
   },
   {
-    "loc": "36:12-55",
+    "loc": "48:12-55",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.html",
@@ -244,14 +391,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "37:12-44",
+    "loc": "49:12-44",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.html",
     "sym": "FILE_urlmap/resource1@2Ehtml"
   },
   {
-    "loc": "37:12-44",
+    "loc": "49:12-44",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.html",
@@ -259,14 +406,29 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "39:31-71",
+    "loc": "50:12-44",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc1.html",
+    "sym": "FILE_urlmap/mozsrc1@2Ehtml"
+  },
+  {
+    "loc": "50:12-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc1.html",
+    "sym": "FILE_urlmap/mozsrc1@2Ehtml",
+    "context": ""
+  },
+  {
+    "loc": "52:31-71",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.mjs",
     "sym": "FILE_urlmap/chrome1@2Emjs"
   },
   {
-    "loc": "39:31-71",
+    "loc": "52:31-71",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.mjs",
@@ -274,14 +436,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "40:31-60",
+    "loc": "53:31-60",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.mjs",
     "sym": "FILE_urlmap/resource1@2Emjs"
   },
   {
-    "loc": "40:31-60",
+    "loc": "53:31-60",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.mjs",
@@ -289,14 +451,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "42:14-43",
+    "loc": "56:14-43",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.png",
     "sym": "FILE_urlmap/resource1@2Epng"
   },
   {
-    "loc": "42:14-43",
+    "loc": "56:14-43",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.png",
@@ -304,14 +466,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "41:14-54",
+    "loc": "55:14-54",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.png",
     "sym": "FILE_urlmap/chrome1@2Epng"
   },
   {
-    "loc": "41:14-54",
+    "loc": "55:14-54",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.png",

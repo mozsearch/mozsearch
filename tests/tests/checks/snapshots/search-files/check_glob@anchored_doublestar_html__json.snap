@@ -1,7 +1,6 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&to_value(fm).unwrap()"
-snapshot_kind: text
 ---
 {
   "file_matches": [
@@ -104,6 +103,19 @@ snapshot_kind: text
       }
     },
     {
+      "path": "urlmap/mozsrc1.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 109,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "mozsrc1",
+        "info": {}
+      }
+    },
+    {
       "path": "urlmap/resource1.html",
       "concise": {
         "path_kind": "Normal",
@@ -121,7 +133,7 @@ snapshot_kind: text
       "concise": {
         "path_kind": "Normal",
         "is_dir": false,
-        "file_size": 1623,
+        "file_size": 2345,
         "bugzilla_component": null,
         "subsystem": null,
         "tags": [],

@@ -34,21 +34,36 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "4:47-89",
+    "loc": "3:24-55",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc3.mjs",
+    "sym": "FILE_urlmap/mozsrc3@2Emjs"
+  },
+  {
+    "loc": "3:24-55",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc3.mjs",
+    "sym": "FILE_urlmap/mozsrc3@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "5:47-89",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.mjs",
     "sym": "FILE_urlmap/chrome1@2Emjs"
   },
   {
-    "loc": "4:47-89",
+    "loc": "5:47-89",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1b.mjs",
     "sym": "FILE_urlmap/chrome1b@2Emjs"
   },
   {
-    "loc": "4:47-89",
+    "loc": "5:47-89",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.mjs",
@@ -56,7 +71,7 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "4:47-89",
+    "loc": "5:47-89",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1b.mjs",
@@ -64,14 +79,14 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "5:49-80",
+    "loc": "6:49-80",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.mjs",
     "sym": "FILE_urlmap/resource1@2Emjs"
   },
   {
-    "loc": "5:49-80",
+    "loc": "6:49-80",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.mjs",
@@ -79,14 +94,29 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "9:11-53",
+    "loc": "7:47-78",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc1.mjs",
+    "sym": "FILE_urlmap/mozsrc1@2Emjs"
+  },
+  {
+    "loc": "7:47-78",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc1.mjs",
+    "sym": "FILE_urlmap/mozsrc1@2Emjs",
+    "context": ""
+  },
+  {
+    "loc": "11:11-53",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome2.mjs",
     "sym": "FILE_urlmap/chrome2@2Emjs"
   },
   {
-    "loc": "9:11-53",
+    "loc": "11:11-53",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome2.mjs",
@@ -94,14 +124,14 @@ expression: "&json_results"
     "context": "chrome2"
   },
   {
-    "loc": "10:13-44",
+    "loc": "12:13-44",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource2.mjs",
     "sym": "FILE_urlmap/resource2@2Emjs"
   },
   {
-    "loc": "10:13-44",
+    "loc": "12:13-44",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource2.mjs",
@@ -109,14 +139,29 @@ expression: "&json_results"
     "context": "resource2"
   },
   {
-    "loc": "13:12-55",
+    "loc": "13:11-42",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc2.mjs",
+    "sym": "FILE_urlmap/mozsrc2@2Emjs"
+  },
+  {
+    "loc": "13:11-42",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc2.mjs",
+    "sym": "FILE_urlmap/mozsrc2@2Emjs",
+    "context": "mozsrc2"
+  },
+  {
+    "loc": "16:12-55",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/chrome1.html",
     "sym": "FILE_urlmap/chrome1@2Ehtml"
   },
   {
-    "loc": "13:12-55",
+    "loc": "16:12-55",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/chrome1.html",
@@ -124,18 +169,33 @@ expression: "&json_results"
     "context": ""
   },
   {
-    "loc": "14:12-44",
+    "loc": "17:12-44",
     "source": 1,
     "syntax": "file,use",
     "pretty": "file urlmap/resource1.html",
     "sym": "FILE_urlmap/resource1@2Ehtml"
   },
   {
-    "loc": "14:12-44",
+    "loc": "17:12-44",
     "target": 1,
     "kind": "use",
     "pretty": "file urlmap/resource1.html",
     "sym": "FILE_urlmap/resource1@2Ehtml",
+    "context": ""
+  },
+  {
+    "loc": "18:12-44",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file moz-src:///urlmap/mozsrc1.html",
+    "sym": "FILE_urlmap/mozsrc1@2Ehtml"
+  },
+  {
+    "loc": "18:12-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "moz-src:///urlmap/mozsrc1.html",
+    "sym": "FILE_urlmap/mozsrc1@2Ehtml",
     "context": ""
   }
 ]
