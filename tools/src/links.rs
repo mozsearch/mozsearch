@@ -36,6 +36,13 @@ pub fn linkify_comment(cfg: Option<&Config>, s: String) -> String {
                 ));
                 continue;
             }
+        } else if link.as_str().starts_with("moz-src:///") {
+            result.push_str(&format!(
+                "<span data-symbols=\"FILE_{}\">{}</span>",
+                link.as_str().get(11..).unwrap(),
+                link.as_str()
+            ));
+            continue;
         }
 
         result.push_str(&format!(

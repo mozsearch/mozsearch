@@ -1,3 +1,5 @@
 body {
   color: blue;
 }
+
+@import "resource://test/resource2.css";

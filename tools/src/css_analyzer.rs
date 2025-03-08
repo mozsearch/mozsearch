@@ -152,11 +152,16 @@ fn analyze_css_block<F>(
                 }
             }
             QuotedString(s) | UnquotedUrl(s) => {
-                if s.starts_with("chrome://") || s.starts_with("resource://") {
+                let is_moz_src = s.starts_with("moz-src:///");
+                if s.starts_with("chrome://") || s.starts_with("resource://") || is_moz_src {
                     let loc = to_loc(first_line, &start, &end);
                     let source_pretty = format!("file {}", s.as_ref());
                     let target_pretty = s.to_string();
-                    let sym = format!("URL_{}", mangle_name(s.as_ref()));
+                    let sym = if is_moz_src {
+                        format!("FILE_{}", mangle_name(s.as_ref().get(11..).unwrap()))
+                    } else {
+                        format!("URL_{}", mangle_name(s.as_ref()))
+                    };
                     let syntax = vec!["use".to_string(), "file".to_string()];
                     let kind = AnalysisKind::Use;
 

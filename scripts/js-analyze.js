@@ -1496,15 +1496,18 @@ let Analyzer = {
       return false;
     }
 
+    const isMozSrc = expr.value.startsWith("moz-src:///");
+
     if (!expr.value.startsWith("chrome://") &&
-        !expr.value.startsWith("resource://")) {
+        !expr.value.startsWith("resource://") &&
+        !isMozSrc) {
       return false;
     }
 
     const name = "\"" + expr.value + "\"";
     const loc = expr.loc;
     const url = expr.value;
-    const sym = "URL_" + atEscape(url);
+    const sym = isMozSrc ? ("FILE_" + atEscape(url.slice(11))) : ("URL_" + atEscape(url));
     this.source(loc, name, "file,use", "file " + url, sym);
     this.target(loc, name, "use", url, sym);
 
