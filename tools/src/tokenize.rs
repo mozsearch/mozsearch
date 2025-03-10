@@ -742,7 +742,10 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             }
             next_token_maybe_regexp_literal = true;
         } else if ch == '\'' || ch == '"' {
-            let need_triple = spec.triple_quote_literals && peek_char() == ch && peek_char2() == ch;
+            let need_triple = (spec.triple_quote_literals == "py"
+                || spec.triple_quote_literals == "kotlin" && ch == '"')
+                && peek_char() == ch
+                && peek_char2() == ch;
             if need_triple {
                 get_char();
                 get_char();
