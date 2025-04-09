@@ -189,22 +189,29 @@ fi
 sudo apt-get install -y python3-boto3 python3-rich
 
 # Install git-cinnabar.
+
+# Need mercurial to prevent cinnabar from spewing warnings.
+sudo apt-get install -y mercurial
+
+# We started pinning in https://bugzilla.mozilla.org/show_bug.cgi?id=1779939
+# and it seems reasonable to stick to this for more deterministic provisioning.
+CINNABAR_REVISION=0.7.2
 if [ ! -d git-cinnabar ]; then
-  # Need mercurial to prevent cinnabar from spewing warnings.
-  sudo apt-get install -y mercurial
-  # We started pinning in https://bugzilla.mozilla.org/show_bug.cgi?id=1779939
-  # and it seems reasonable to stick to this for more deterministic provisioning.
-  CINNABAR_REVISION=0.6.3
   git clone https://github.com/glandium/git-cinnabar -b $CINNABAR_REVISION --depth=1
+else
   pushd git-cinnabar
-    ./download.py --branch release
-    # These need to be symlinks rather than `install`d binaries because cinnabar
-    # uses other python code from the repo.
-    for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
-      sudo ln -fs $(pwd)/$file /usr/local/bin/$file
-    done
+    git fetch --tags --depth=1 origin $CINNABAR_REVISION
+    git checkout $CINNABAR_REVISION
   popd
 fi
+pushd git-cinnabar
+  ./download.py --branch release
+  # These need to be symlinks rather than `install`d binaries because cinnabar
+  # uses other python code from the repo.
+  for file in git-cinnabar git-cinnabar-helper git-remote-hg; do
+    sudo ln -fs $(pwd)/$file /usr/local/bin/$file
+  done
+popd
 
 # Install scip
 SCIP_VERSION=v0.5.0
