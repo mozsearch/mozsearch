@@ -81,15 +81,20 @@ mkdir mozsearch
 pushd mozsearch
 git init
 git remote add origin "$MOZSEARCH_REPO"
-git fetch origin "$MOZSEARCH_REV"
-git switch --detach FETCH_HEAD
-git submodule init
-git submodule update
+git fetch origin --depth=1 "$MOZSEARCH_REV"
+git reset --hard FETCH_HEAD
+git submodule update --init --depth 1
 popd
 
 # Install files from the config repo.
 rm -rf config
-git clone -b $CONFIG_REV $CONFIG_REPO config --depth=1
+mkdir config
+pushd config
+git init
+git remote add origin "$CONFIG_REPO"
+git fetch origin --depth=1 "$CONFIG_REV"
+git reset --hard FETCH_HEAD
+popd
 
 date
 
