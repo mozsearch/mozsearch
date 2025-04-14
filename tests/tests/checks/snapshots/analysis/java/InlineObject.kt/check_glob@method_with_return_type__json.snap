@@ -1,41 +1,18 @@
 ---
 source: tests/test_check_insta.rs
 expression: "&json_results"
+input_file: inputs/analysis/java/InlineObject.kt/method_with_return_type__json
 ---
 [
   {
     "loc": "00011:21-38",
     "structured": 1,
-    "pretty": "someOtherFunction",
-    "sym": "S_jvm_src/main/kotlin/sample/InlineObject.kt/#1",
+    "pretty": "sample::<anonymous object at 137>::someOtherFunction",
+    "sym": "S_jvm_sample/<anonymous_object_at_137>#someOtherFunction().",
     "type_pretty": null,
     "kind": "method",
     "subsystem": null,
-    "implKind": "impl",
-    "sizeBytes": null,
-    "alignmentBytes": null,
-    "ownVFPtrBytes": null,
-    "bindingSlots": [],
-    "ontologySlots": [],
-    "supers": [],
-    "methods": [],
-    "fields": [],
-    "overrides": [
-      {
-        "sym": "S_jvm_sample/Interface#someOtherFunction()."
-      }
-    ],
-    "props": [],
-    "variants": []
-  },
-  {
-    "loc": "00017:21-38",
-    "structured": 1,
-    "pretty": "someOtherFunction",
-    "sym": "S_jvm_src/main/kotlin/sample/InlineObject.kt/#3",
-    "type_pretty": null,
-    "kind": "method",
-    "subsystem": null,
+    "parentsym": "S_jvm_sample/<anonymous_object_at_137>#",
     "implKind": "impl",
     "sizeBytes": null,
     "alignmentBytes": null,
