@@ -56,7 +56,7 @@ sudo DEBIAN_FRONTEND=noninteractive \
   apt-get \
   -o Dpkg::Options::=--force-confold \
   -o Dpkg::Options::=--force-confdef \
-  -y --allow-downgrades --allow-remove-essential --allow-change-held-packages \
+  -y --allow-downgrades --allow-remove-essential \
   dist-upgrade
 
 # unattended upgrades pose a problem for debugging running processes because we
