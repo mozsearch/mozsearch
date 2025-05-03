@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::panic;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -55,7 +56,7 @@ fn start_cinnabar_helper(git_repo: &Repository) -> Child {
 /// is fed for adding to the blame repo. Refer to
 /// https://git-scm.com/docs/git-fast-import for detailed
 /// documentation on git-fast-import.
-fn start_fast_import(git_repo: &Repository) -> Child {
+fn start_fast_import(git_repo: &Repository, marks_file: &str) -> Child {
     // Note that we use the `--force` flag here, because there
     // are cases where the blame repo branch we're building was
     // initialized from some other branch (e.g. gecko-dev beta
@@ -69,6 +70,8 @@ fn start_fast_import(git_repo: &Repository) -> Child {
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
+        .arg(format!("--import-marks-if-exists={}", marks_file))
+        .arg(format!("--export-marks={}", marks_file))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
@@ -87,6 +90,71 @@ fn start_fast_import(git_repo: &Repository) -> Child {
 enum BlameRepoCommit {
     Commit(git2::Oid),
     Mark(usize),
+}
+
+/// Helper to parse the contents of a marks file written by git-fast-import's
+/// `--export-marks=` argument.
+///
+/// This is used by our blame/history preprocessing logic in order to be able to
+///  handle restarting processing when a (large) merge wasn't fully processing
+/// in a single run.  The problem that can happen in those cases is that
+/// `index_blame`/similar methods only revwalk a single branch of our
+/// transformed blame and until the merge commit is ingested, we will lose track
+/// of the first parent of the merge if we've begun processing the second parent
+/// of the merge (modulo any commits they may share).
+///
+/// As the most dramatic example, our revwalk of the blink repository's history
+/// up until the point of the merge of the "chromium" and "link trees" looks
+/// like: [(289k commits of chromium), (182k commits of blink), (merge commit)].
+/// As long as our import process doesn't fail, we're fine, but if we crash or
+/// stop because of our "limit" mechanism once we've moved onto the blink
+/// commits, then they won't be referenced by the single branch tag we're using
+/// in our processing.
+///
+/// To this end, we load up the marks file to augment the information from
+/// index_blame and make sure to pass `--import-marks-if-exists=` when we kick
+/// off git-fast-import.  Note that we currently don't actually reference the
+/// marker identifiers we get from the file since we do have the hashes
+/// available and it makes sense to just use that, so the main reason we want
+/// to tell git-fast-import to import the marks file is so that the contents of
+/// the file are maintained through successive runs rather than only containing
+/// revisions processed in the last run.
+///
+/// Note that another alternative would have been some kind of complex branch
+/// management.  See bug 1782285 for more context.
+fn ingest_git_fast_import_marks_file(
+    blame_repo: &Repository,
+    blame_map: &mut HashMap<Oid, BlameRepoCommit>,
+    marks_file: &str,
+) -> (u32, u32) {
+    // The number of revisions the marker file told us about.
+    let mut marker_revs_exist: u32 = 0;
+    // The number of marker revisions we used to fill in the blame_map.  If this
+    // is zero it means that `index_blame`
+    let mut marker_revs_needed: u32 = 0;
+
+    for line in marks_file.lines() {
+        let line_pieces = line.split_whitespace().collect::<Vec<_>>();
+        let marker_oid = Oid::from_str(line_pieces[1]).unwrap();
+
+        marker_revs_exist += 1;
+
+        let commit = blame_repo.find_commit(marker_oid).unwrap();
+
+        let msg = commit.message().unwrap();
+        // (This must match what's in `index_blame`.)
+        let pieces = msg.split_whitespace().collect::<Vec<_>>();
+
+        let orig_oid = Oid::from_str(pieces[1]).unwrap();
+        blame_map.entry(orig_oid).or_insert_with(|| {
+            marker_revs_needed += 1;
+            BlameRepoCommit::Commit(marker_oid)
+        });
+
+        // (we don't care about pieces[3] which is the hg commit if it's there)
+    }
+
+    (marker_revs_exist, marker_revs_needed)
 }
 
 impl fmt::Display for BlameRepoCommit {
@@ -400,6 +468,14 @@ fn find_unmodified_lines(
     Ok(())
 }
 
+// To deal with a bad "blink" tree state we need the hard-coded empty blob hash
+// of e69de29bb2d1d6434b8b29ae775ad8c2e48c5391.  We could also use a
+// lazy_static and Oid::from_str here.
+static EMPTY_SHA1_BLOB_OID: [u8; 20] = [
+    0xe6, 0x9d, 0xe2, 0x9b, 0xb2, 0xd1, 0xd6, 0x43, 0x4b, 0x8b, 0x29, 0xae, 0x77, 0x5a, 0xd8, 0xc2,
+    0xe4, 0x8c, 0x53, 0x91,
+];
+
 #[allow(clippy::too_many_arguments)]
 fn build_blame_tree(
     diff_data: &DiffData,
@@ -422,8 +498,31 @@ fn build_blame_tree(
             if let Some(parent_entry) = parent_tree.get_name(entry_name) {
                 if parent_entry.id() == entry.id() {
                     // Item at `path` is the same in the tree for `commit` as in
-                    // `parent_trees[i]`, so the blame must be the same too
-                    let oid = read_path_oid(import_helper, &blame_parents[i], &path).unwrap();
+                    // `parent_trees[i]`, so the blame should be the same too.
+                    //
+                    // The exception to this situation is that empty sub-trees
+                    let oid = match read_path_oid(import_helper, &blame_parents[i], &path) {
+                        Some(oid) => oid,
+                        None => match entry.kind() {
+                            Some(ObjectType::Tree) => {
+                                info!("Probably found an empty tree hierarchy: Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}", path, entry.id(), parent_tree.id(), blame_parents[i]);
+                                path.pop();
+                                continue 'outer;
+                            }
+                            Some(ObjectType::Commit) => {
+                                if entry.id().as_bytes() == EMPTY_SHA1_BLOB_OID {
+                                    info!("Missing commit (submodule) blame for empty blob OID for {:?} oid {}, this is expected.", path, entry.id());
+                                } else {
+                                    panic!("Missing commit (submodule) blame, unexpected: Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}", path, entry.id(), parent_tree.id(), blame_parents[i]);
+                                }
+                                path.pop();
+                                continue 'outer;
+                            }
+                            _ => {
+                                panic!("Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}", path, entry.id(), parent_tree.id(), blame_parents[i]);
+                            }
+                        },
+                    };
                     writeln!(
                         import_helper.stdin.as_mut().unwrap(),
                         "M {:06o} {} {}",
@@ -475,14 +574,21 @@ fn build_blame_tree(
                 // For the external ref data format documentation, refer to
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Externaldataformat
                 assert_eq!(entry.filemode(), 0o160000);
-                writeln!(
-                    import_helper.stdin.as_mut().unwrap(),
-                    "M {:06o} {} {}",
-                    entry.filemode(),
-                    entry.id(),
-                    sanitize(&path)
-                )
-                .unwrap();
+                // Unfortunately the "blink" tree commit c1201a71c07d1e3268ebbfe5380aa6c5832c6edb
+                // has a bad git tree where the "clank" submodule commit uses the empty
+                // blob OID and git-fast-import will get upset since that exists in
+                // the blink tree.  So whenever we see an empty blob OID, we just
+                // omit the entry in that case.
+                if entry.id().as_bytes() != EMPTY_SHA1_BLOB_OID {
+                    writeln!(
+                        import_helper.stdin.as_mut().unwrap(),
+                        "M {:06o} {} {}",
+                        entry.filemode(),
+                        entry.id(),
+                        sanitize(&path)
+                    )
+                    .unwrap();
+                }
             }
             Some(ObjectType::Tree) => {
                 let mut parent_subtrees = Vec::with_capacity(parent_trees.len());
@@ -621,7 +727,20 @@ impl ComputeThread {
         let (response_tx, response_rx) = channel();
         let git_repo_path = git_repo_path.to_string();
         thread::spawn(move || {
-            compute_thread_main(query_rx, response_tx, git_repo_path);
+            // When processing the blink repo we experienced a failure and it
+            // turns out that normal handling only gets us the poison panic on
+            // the channel, so we make sure to handle the panic here and dump it
+            // unconditionally.  We then let the panic propagate like normal so
+            // that the app crashes rather than hanging.
+            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                compute_thread_main(query_rx, response_tx, git_repo_path);
+            }));
+            if let Err(err) = result {
+                eprintln!("ComputeThread panicked: {:?}", err);
+                let bt = std::backtrace::Backtrace::force_capture();
+                eprintln!("{bt}");
+                panic::resume_unwind(err);
+            }
         });
 
         ComputeThread {
@@ -660,6 +779,9 @@ fn compute_thread_main(
 fn main() {
     env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
+    // force backtraces on in this file in general
+    std::env::set_var("RUST_BACKTRACE", "full");
+
     let args: Vec<_> = env::args().collect();
     let git_repo_path = args[1].to_string();
     let git_repo = Repository::open(&git_repo_path).unwrap();
@@ -670,6 +792,9 @@ fn main() {
     } else {
         None
     };
+    let marks_file = env::var("MARKS_FILE")
+        .ok()
+        .unwrap_or("/tmp/mozsearch-fast-import.marks".to_string());
     let blame_ref = env::var("BLAME_REF").ok().unwrap_or("HEAD".to_string());
     let commit_limit = env::var("COMMIT_LIMIT")
         .ok()
@@ -685,6 +810,25 @@ fn main() {
             .collect::<HashMap<git2::Oid, BlameRepoCommit>>()
     } else {
         HashMap::new()
+    };
+
+    let mut prev_revs_done: usize = 0;
+    if let Ok(contents) = std::fs::read_to_string(marks_file.clone()) {
+        let (revs_found, revs_needed) =
+            ingest_git_fast_import_marks_file(&blame_repo, &mut blame_map, &contents);
+        prev_revs_done = revs_found as usize;
+        info!("Marks file at {} (MARKS_FILE env overrides) had {} revs, {} were needed to augment branch data.",
+              marks_file, revs_found, revs_needed);
+    } else {
+        info!(
+            "No pre-existing marks file at {} (MARKS_FILE env overrides).",
+            marks_file
+        );
+        if commit_limit > 0 {
+            info!("The marks file will be retained because you specified a LIMIT.");
+        } else {
+            info!("The marks file will be deleted on success but left around on error.");
+        }
     };
 
     let mut walk = git_repo.revwalk().unwrap();
@@ -732,7 +876,7 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&blame_repo);
+    let mut import_helper = start_fast_import(&blame_repo, &marks_file);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -783,8 +927,12 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
-            writeln!(import_stream, "mark :{}", rev_done).unwrap();
-            blame_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
+            // Because we maintain the markers through multiple consecutive runs,
+            // we need to add the count of imported marks so we don't clobber any
+            // existing ones.
+            let mark_id = rev_done + prev_revs_done;
+            writeln!(import_stream, "mark :{}", mark_id).unwrap();
+            blame_map.insert(*git_oid, BlameRepoCommit::Mark(mark_id));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -854,8 +1002,8 @@ fn main() {
         )
         .unwrap();
 
-        if rev_done % 10000 == 0 {
-            info!("Completed 10,000 commits, issuing checkpoint...");
+        if rev_done % 100000 == 0 {
+            info!("Completed 100,000 commits, issuing checkpoint...");
             writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
         }
     }
@@ -870,5 +1018,18 @@ fn main() {
         info!("Done!");
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
+    }
+
+    // The marks file is intended to be retained only in cases where the env var
+    // LIMIT is specified and we need it for subsequent runs or we crash and
+    // it's useful for investigation and then being able to restart without
+    // data-loss.  Also, if we leave it around when it's not expected, it will
+    // cause problems for other trees being indexed on the same machine.
+    if commit_limit == 0 {
+        info!(
+            "Removing marks file {} after successful run because no limit was specified.",
+            marks_file
+        );
+        std::fs::remove_file(marks_file).unwrap();
     }
 }
