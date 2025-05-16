@@ -118,6 +118,22 @@ serve-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
 #   checked out under "config" in the check-out repo, you can create a symlink
+#   in the VM's home directory via `pushd ~; ln -s /vagrant/config blonk-config`.
+build-blonk-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	[ -e ~/blonk-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/blonk-config
+	mkdir -p ~/blonk-index
+	/vagrant/infrastructure/indexer-setup.sh ~/blonk-config config6.json ~/blonk-index
+	/vagrant/infrastructure/indexer-run.sh ~/blonk-config ~/blonk-index
+	/vagrant/infrastructure/web-server-setup.sh ~/blonk-config config6.json ~/blonk-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/blonk-config ~/blonk-index ~
+
+serve-blonk-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	/vagrant/infrastructure/web-server-setup.sh ~/blonk-config config6.json ~/blonk-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/blonk-config ~/blonk-index ~
+
+# Notes:
+# - If you want to use a modified version of mozsearch-mozilla, such as one
+#   checked out under "config" in the check-out repo, you can create a symlink
 #   in the VM's home directory via `pushd ~; ln -s /vagrant/config llvm-config`.
 build-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -e ~/llvm-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/llvm-config

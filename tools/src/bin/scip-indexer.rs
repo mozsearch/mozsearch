@@ -303,7 +303,7 @@ lazy_static! {
         // There's also an alt over function/generators
         SitterNesting {
             root_node_type: vec![
-                "function",
+                "function_expression",
                 "function_declaration",
                 "generator_function",
                 "generator_function_declaration"
