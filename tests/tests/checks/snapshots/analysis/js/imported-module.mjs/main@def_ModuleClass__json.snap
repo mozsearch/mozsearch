@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "11:13-24",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property ModuleClass",
+    "sym": "#ModuleClass",
+    "nestingRange": "11:24-18:0"
+  },
+  {
+    "loc": "11:13-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ModuleClass",
+    "sym": "#ModuleClass",
+    "context": ""
+  }
+]

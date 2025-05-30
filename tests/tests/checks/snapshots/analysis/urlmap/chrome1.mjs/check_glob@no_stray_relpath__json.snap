@@ -1,5 +1,0 @@
----
-source: tests/test_check_insta.rs
-expression: "&json_results"
----
-[]

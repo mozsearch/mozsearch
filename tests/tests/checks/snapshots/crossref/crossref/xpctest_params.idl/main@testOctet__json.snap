@@ -1,0 +1,166 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "XPIDL_nsIXPCTestParams_testOctet",
+      "crossref_info": {
+        "idl": [
+          {
+            "path": "xpidl/xpctest_params.idl",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 24,
+                "bounds": [
+                  22,
+                  31
+                ],
+                "line": "octet                 testOctet(in octet a, inout octet b);",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "nsIXPCTestParams::testOctet",
+          "sym": "XPIDL_nsIXPCTestParams_testOctet",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": null,
+          "implKind": "idl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "method",
+              "slotLang": "js",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "#testOctet"
+            },
+            {
+              "slotKind": "method",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": {
+        "IdentifierPrefix": [
+          27,
+          0
+        ]
+      },
+      "overloads_hit": []
+    },
+    {
+      "symbol": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "xpidl_cpp_consumer.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  8,
+                  17
+                ],
+                "line": "params->TestOctet(1, &b, &out);",
+                "context": "consume_xpidl",
+                "contextsym": "_Z13consume_xpidlP16nsIXPCTestParams"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "__GENERATED__/dist/include/xpctest_params.h",
+            "path_kind": "Generated code",
+            "lines": [
+              {
+                "lno": 51,
+                "bounds": [
+                  33,
+                  42
+                ],
+                "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestOctet(uint8_t a, uint8_t *b, uint8_t *_retval) = 0;",
+                "context": "nsIXPCTestParams",
+                "contextsym": "T_nsIXPCTestParams"
+              }
+            ]
+          }
+        ],
+        "callees": [],
+        "meta": {
+          "structured": 1,
+          "pretty": "nsIXPCTestParams::TestOctet",
+          "sym": "_ZN16nsIXPCTestParams9TestOctetEhPhS0_",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": null,
+          "parentsym": "T_nsIXPCTestParams",
+          "slotOwner": {
+            "slotKind": "method",
+            "slotLang": "cpp",
+            "implKind": null,
+            "ownerLang": "idl",
+            "sym": "XPIDL_nsIXPCTestParams_testOctet"
+          },
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [
+            "instance",
+            "virtual",
+            "user"
+          ],
+          "variants": [],
+          "args": [
+            {
+              "name": "a",
+              "type": "uint8_t"
+            },
+            {
+              "name": "b",
+              "type": "uint8_t *"
+            },
+            {
+              "name": "_retval",
+              "type": "uint8_t *"
+            }
+          ]
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

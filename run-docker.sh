@@ -38,7 +38,7 @@ INSIDE_CONTAINER_DIR=/vagrant
 # connect to this port on your computer
 OUTSIDE_CONTAINER_PORT=16995
 # which is served at this port inside the container
-INSIDE_CONTAINER_PORT=80
+INSIDE_CONTAINER_PORT=16995
 
 SHELL=bash
 

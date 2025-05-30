@@ -17,6 +17,20 @@ def run(cmd, **extra):
 
     return stdout
 
+def try_run(cmd, **extra):
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **extra)
+    (stdout, stderr) = p.communicate()
+
+    if p.returncode:
+        print('Command failed', cmd, file=sys.stderr)
+        print('Return code', p.returncode, file=sys.stderr)
+        print(stdout.decode(), file=sys.stderr)
+        print('---', file=sys.stderr)
+        print(stderr.decode(), file=sys.stderr)
+        return None
+
+    return stdout
+
 def run_showing_output(cmd, output_filter=None, **extra):
     print('running', repr(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **extra)

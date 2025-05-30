@@ -1,5 +1,0 @@
----
-source: tests/test_check_insta.rs
-expression: "&fb.contents"
----
-<a href="https://firefox-source-docs.mozilla.org/rst_test/index.html" title="Source Docs" class="icon item">Source Docs</a>

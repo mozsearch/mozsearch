@@ -1,5 +1,5 @@
 ---
-source: tests/test_check_insta.rs
+source: src/bin/test-index.rs
 expression: "&fb.contents"
 ---
 <span class="syn_string" data-symbols="FILE_urlmap/chrome1@2Emjs,FILE_urlmap/chrome1b@2Emjs" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">"<span data-symbols="FILE_urlmap/chrome1@2Emjs,FILE_urlmap/chrome1b@2Emjs">chrome://global/content/test/chrome1.mjs</span>"</span>

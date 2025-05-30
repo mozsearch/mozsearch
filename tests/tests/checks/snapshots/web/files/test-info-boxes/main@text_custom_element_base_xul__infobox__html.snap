@@ -1,0 +1,15 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+---
+<section class="info-boxes" id="info-boxes-container">
+  <section class="info-box info-box-warning">
+    <h4>Test Info: Warnings</h4>
+    <div>
+      <ul>
+        <li>This test gets skipped with pattern: <span class="test-skip-info">toolkit == 'android' OR verify OR apple_silicon</span></li>
+        <li>Manifest: <a href="/tests/source/mochitest.ini">mochitest.ini</a></li>
+      </ul>
+    </div>
+  </section>
+</section>

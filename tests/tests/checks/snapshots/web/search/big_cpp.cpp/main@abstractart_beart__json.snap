@@ -1,0 +1,49 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+snapshot_kind: text
+---
+{
+  "normal": {
+    "Definitions (outerNS::AbstractArt::beArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "lno": 418,
+            "bounds": [
+              13,
+              18
+            ],
+            "line": "virtual void beArt() = 0;",
+            "context": "outerNS::AbstractArt",
+            "contextsym": "T_outerNS::AbstractArt",
+            "peekRange": "416-418"
+          }
+        ]
+      }
+    ],
+    "Overridden By (outerNS::AbstractArt::beArt)": [
+      {
+        "path": "big_cpp.cpp",
+        "lines": [
+          {
+            "lno": 426,
+            "bounds": [
+              5,
+              10
+            ],
+            "line": "void beArt() override {",
+            "context": "outerNS::PracticalArt",
+            "contextsym": "T_outerNS::PracticalArt",
+            "peekRange": "425-426",
+            "upsearch": "symbol:_ZN7outerNS12PracticalArt5beArtEv"
+          }
+        ]
+      }
+    ]
+  },
+  "*title*": "outerNS::AbstractArt::beArt",
+  "*timedout*": false,
+  "*limits*": []
+}

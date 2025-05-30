@@ -1,0 +1,154 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::non_struct::Proxy>_x": {
+          "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+          "pretty": "field_layout::non_struct::Proxy::x",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::non_struct::Proxy::x",
+            "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::non_struct::Proxy",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/non-struct.cpp#10"
+          }
+        },
+        "T_field_layout::non_struct::Proxy": {
+          "sym": "T_field_layout::non_struct::Proxy",
+          "pretty": "field_layout::non_struct::Proxy",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::non_struct::Proxy",
+            "sym": "T_field_layout::non_struct::Proxy",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "alignmentBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#10",
+                "pretty": "field_layout::non_struct::Proxy::x",
+                "sym": "F_<T_field_layout::non_struct::Proxy>_x",
+                "type": "signed char",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/non-struct.cpp#9"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": [
+        {
+          "name": "field_layout::non_struct::Proxy",
+          "symbols": "T_field_layout::non_struct::Proxy",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(1)",
+              "size": "1"
+            }
+          ],
+          "items": [
+            {
+              "Field": {
+                "name": "x",
+                "symbols": "F_<T_field_layout::non_struct::Proxy>_x",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::non_struct::Proxy>_x\" data-confidences=\"[&quot;concrete&quot;]\">x</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "jumprefs": {
+        "_ZN12field_layout10non_struct5proxyEv": {
+          "sym": "_ZN12field_layout10non_struct5proxyEv",
+          "pretty": "field_layout::non_struct::proxy",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::non_struct::proxy",
+            "sym": "_ZN12field_layout10non_struct5proxyEv",
+            "type_pretty": null,
+            "kind": "function",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": [],
+            "args": []
+          },
+          "jumps": {
+            "def": "field-layout/non-struct.cpp#7"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": []
+    }
+  ],
+  "className": null
+}

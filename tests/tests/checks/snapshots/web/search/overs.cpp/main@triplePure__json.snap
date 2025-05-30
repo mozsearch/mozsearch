@@ -1,0 +1,110 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+snapshot_kind: text
+---
+{
+  "normal": {
+    "Definitions (TripleBase::triplePure)": [
+      {
+        "path": "overs.cpp",
+        "lines": [
+          {
+            "lno": 27,
+            "bounds": [
+              13,
+              23
+            ],
+            "line": "virtual void triplePure() = 0;",
+            "context": "TripleBase",
+            "contextsym": "T_TripleBase",
+            "peekRange": "27-27"
+          }
+        ]
+      }
+    ],
+    "Overridden By (TripleBase::triplePure)": [
+      {
+        "path": "overs.cpp",
+        "lines": [
+          {
+            "lno": 32,
+            "bounds": [
+              5,
+              15
+            ],
+            "line": "void triplePure() override {",
+            "context": "TripleSubOne",
+            "contextsym": "T_TripleSubOne",
+            "peekRange": "32-32",
+            "upsearch": "symbol:_ZN12TripleSubOne10triplePureEv"
+          },
+          {
+            "lno": 39,
+            "bounds": [
+              5,
+              15
+            ],
+            "line": "void triplePure() override {",
+            "context": "TripleSubTwo",
+            "contextsym": "T_TripleSubTwo",
+            "peekRange": "39-39",
+            "upsearch": "symbol:_ZN12TripleSubTwo10triplePureEv"
+          },
+          {
+            "lno": 46,
+            "bounds": [
+              5,
+              15
+            ],
+            "line": "void triplePure() override {",
+            "context": "TripleSubThree",
+            "contextsym": "T_TripleSubThree",
+            "peekRange": "46-46",
+            "upsearch": "symbol:_ZN14TripleSubThree10triplePureEv"
+          }
+        ]
+      }
+    ],
+    "Uses (TripleBase::triplePure)": [
+      {
+        "path": "overs.cpp",
+        "lines": [
+          {
+            "lno": 72,
+            "bounds": [
+              8,
+              18
+            ],
+            "line": "subOne->triplePure();",
+            "context": "generateTripleUses",
+            "contextsym": "_Z18generateTripleUsesv"
+          },
+          {
+            "lno": 73,
+            "bounds": [
+              8,
+              18
+            ],
+            "line": "subTwo->triplePure();",
+            "context": "generateTripleUses",
+            "contextsym": "_Z18generateTripleUsesv"
+          },
+          {
+            "lno": 74,
+            "bounds": [
+              10,
+              20
+            ],
+            "line": "subThree->triplePure();",
+            "context": "generateTripleUses",
+            "contextsym": "_Z18generateTripleUsesv"
+          }
+        ]
+      }
+    ]
+  },
+  "*title*": "TripleBase::triplePure",
+  "*timedout*": false,
+  "*limits*": []
+}

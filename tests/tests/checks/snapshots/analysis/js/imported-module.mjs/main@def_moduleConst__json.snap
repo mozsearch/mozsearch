@@ -1,0 +1,21 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "5:13-24",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property moduleConst",
+    "sym": "#moduleConst"
+  },
+  {
+    "loc": "5:13-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "moduleConst",
+    "sym": "#moduleConst",
+    "context": ""
+  }
+]

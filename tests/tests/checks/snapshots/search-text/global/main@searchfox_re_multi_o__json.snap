@@ -1,0 +1,66 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(tm).unwrap()"
+---
+{
+  "by_file": [
+    {
+      "file": "README.md",
+      "path_kind": "Normal",
+      "matches": [
+        {
+          "line_num": 6,
+          "bounds": {
+            "start": 31,
+            "end_exclusive": 40
+          },
+          "line_str": "This should not be rendered by searchfox."
+        },
+        {
+          "line_num": 10,
+          "bounds": {
+            "start": 34,
+            "end_exclusive": 44
+          },
+          "line_str": "- This software is never known as searchfoox."
+        },
+        {
+          "line_num": 11,
+          "bounds": {
+            "start": 39,
+            "end_exclusive": 49
+          },
+          "line_str": "- This software is also never known as searchfoox."
+        }
+      ]
+    },
+    {
+      "file": "bug1435345.cpp",
+      "path_kind": "Normal",
+      "matches": [
+        {
+          "line_num": 1,
+          "bounds": {
+            "start": 3,
+            "end_exclusive": 12
+          },
+          "line_str": "/* Searchfox should analyze uses of operator== */"
+        }
+      ]
+    },
+    {
+      "file": "simple.rs",
+      "path_kind": "Normal",
+      "matches": [
+        {
+          "line_num": 8,
+          "bounds": {
+            "start": 43,
+            "end_exclusive": 52
+          },
+          "line_str": "/* A grab-bug of rust code to exercise the searchfox indexer."
+        }
+      ]
+    }
+  ]
+}

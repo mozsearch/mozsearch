@@ -1,0 +1,801 @@
+---
+source: src/bin/test-index.rs
+assertion_line: 116
+expression: "&fb.contents"
+---
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <link href="/tests/static/icons/search.png" rel="shortcut icon">
+  <title>/ - mozsearch</title>
+
+  <link href="/tests/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
+  <link href="/tests/static/css/icons.css" rel="stylesheet" media="screen" />
+  <link href="/tests/static/css/font-icons.css" rel="stylesheet" media="screen" />
+</head>
+
+<body>
+<div id="fixed-header">
+  <form method="get" action="/tests/search" class="search-box" id="search-box">
+    <fieldset>
+      <div id="query-section">
+        <label for="query" class="query_label visually-hidden">Find</label>
+        <input type="text" name="q"  value="" maxlength="2048" id="query" accesskey="s" title="Search" placeholder="Search tests" autocomplete="off" />
+        <div class="zero-size-container">
+          <div class="bubble" id="query-bubble">
+          </div>
+        </div>
+        <section id="spinner"></section>
+      </div>
+      <div id="option-section" class="v-flex-container">
+        <label for="case">
+          <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" /><span class="access-key">C</span>ase-sensitive
+        </label>
+        <label for="regexp">
+          <input type="checkbox" name="regexp" id="regexp" class="option-checkbox" value="true" accesskey="r"/><span class="access-key">R</span>egexp search
+        </label>
+      </div>
+      <div id="path-section">
+        <label for="path" class="query_label visually-hidden">Path</label>
+        <input type="text" name="path"  value="" maxlength="2048" id="path" accesskey="s" title="Search" placeholder="Path filter (supports globbing and ^, $)" autocomplete="off" />
+        <div class="zero-size-container">
+          <div class="bubble" id="path-bubble">
+          </div>
+        </div>
+      </div>
+    </fieldset>
+    <!-- We're marking this disabled in order to avoid the user pressing enter
+         triggering the default submit behavior and conflicting with our dynamic
+         logic. -->
+    <input type="submit" value="Search" disabled class="visually-hidden" />
+    <span id="data" data-root="/" data-search="/tests/search" data-tree="tests"></span>
+  </form>
+</div>
+
+<div id="scrolling">
+  <div id="content" class="content" data-no-results="No results for current query.">
+    
+  <div class="breadcrumbs">
+    <a href="/tests/source/">tests</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>
+  </div>
+
+    <div class="panel" id="panel">
+  <button id="panel-toggle">
+    <span class="navpanel-icon icon-down-dir" aria-hidden="false"></span>
+    Navigation
+    <a id="show-settings" title="Go to settings page" href="/tests/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
+  </button>
+  <section id="panel-content" aria-expanded="false" aria-hidden="true" style="display: none;">
+    <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
+  </section>
+</div>
+<table class="folder-content">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Description</th>
+        <th scope="col">Size</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><a href="/tests/source/.clang-format" class="mimetype-fixed-container mimetype-icon-clang-format">.clang-format</a></td>
+          <td class="description"><a href="/tests/source/.clang-format" title=""></td>
+          <td><a href="/tests/source/.clang-format">1169</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/.eslintignore" class="mimetype-fixed-container mimetype-icon-eslintignore">.eslintignore</a></td>
+          <td class="description"><a href="/tests/source/.eslintignore" title=""></td>
+          <td><a href="/tests/source/.eslintignore">236</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/.gitattributes" class="mimetype-fixed-container mimetype-icon-gitattributes">.gitattributes</a></td>
+          <td class="description"><a href="/tests/source/.gitattributes" title=""></td>
+          <td><a href="/tests/source/.gitattributes">205</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/.gitignore" class="mimetype-fixed-container mimetype-icon-gitignore">.gitignore</a></td>
+          <td class="description"><a href="/tests/source/.gitignore" title=""></td>
+          <td><a href="/tests/source/.gitignore">103</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/__GENERATED__" class="mimetype-fixed-container mimetype-icon-folder">__GENERATED__</a></td>
+          <td class="description"><a href="/tests/source/__GENERATED__" title=""></td>
+          <td><a href="/tests/source/__GENERATED__"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/AddonUpdateChecker.jsm" class="mimetype-fixed-container mimetype-icon-jsm">AddonUpdateChecker.jsm</a></td>
+          <td class="description"><a href="/tests/source/AddonUpdateChecker.jsm" title="The AddonUpdateChecker is responsible for retrieving the update information
+ from an add-on&#39;s remote update manifest.
+ ">The AddonUpdateChecker is responsible for retrieving the update information
+ from an add-on&#39;s remote update manifest.
+ </td>
+          <td><a href="/tests/source/AddonUpdateChecker.jsm">32880</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/atom_list.h" class="mimetype-fixed-container mimetype-icon-h">atom_list.h</a></td>
+          <td class="description"><a href="/tests/source/atom_list.h" title=""></td>
+          <td><a href="/tests/source/atom_list.h">218</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/atom_magic.h" class="mimetype-fixed-container mimetype-icon-h">atom_magic.h</a></td>
+          <td class="description"><a href="/tests/source/atom_magic.h" title="This file tries to approximate nsGkAtoms.h by operating in conjunction with
+   `atom_list.h` while also providing an example of a header file that&#39;s
+   included multiple times.  (We didn&#39;t really have coverage for this before,
+   and this is important for our merging logic.) ">This file tries to approximate nsGkAtoms.h by operating in conjunction with
+   `atom_list.h` while also providing an example of a header file that&#39;s
+   included multiple times.  (We didn&#39;t really have coverage for this before,
+   and this is important for our merging logic.) </td>
+          <td><a href="/tests/source/atom_magic.h">615</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/big_cpp.cpp" class="mimetype-fixed-container mimetype-icon-cpp">big_cpp.cpp</a></td>
+          <td class="description"><a href="/tests/source/big_cpp.cpp" title="This test file attempts to create the following situations:
+ - Multiple levels of lexical scoping.
+ - Those lexical blocks are sufficiently large that it&#39;s common for the
+   block open to be off of the screen so that a &quot;position:sticky&quot; style
+   display would be appropriate.
+ - Call structures potentially look interesting if you graph them.
+
+ This is accomplished by:
+ - Many silly comment blocks.
+ - Tons of copy and pasting and search and replace.
+ - Panicking when trying to trying to come up with subject matter and deciding
+   that cats and dogs work.
+ - Not using templates.
+ ">This test file attempts to create the following situations:
+ - Multiple levels of lexical scoping.
+ - Those lexical blocks are sufficiently large that it&#39;s common for the
+   block open to be off of the screen so that a &quot;position:sticky&quot; style
+   display would be appropriate.
+ - Call structures potentially look interesting if you graph them.
+
+ This is accomplished by:
+ - Many silly comment blocks.
+ - Tons of copy and pasting and search and replace.
+ - Panicking when trying to trying to come up with subject matter and deciding
+   that cats and dogs work.
+ - Not using templates.
+ </td>
+          <td><a href="/tests/source/big_cpp.cpp">10261</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/big_header.h" class="mimetype-fixed-container mimetype-icon-h">big_header.h</a></td>
+          <td class="description"><a href="/tests/source/big_header.h" title=""></td>
+          <td><a href="/tests/source/big_header.h">9519</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/browser.ini" class="mimetype-fixed-container mimetype-icon-ini">browser.ini</a></td>
+          <td class="description"><a href="/tests/source/browser.ini" title=""></td>
+          <td><a href="/tests/source/browser.ini">202</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1432300.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1432300.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1432300.cpp" title="This simulates the code from
+ JS::ProfilingFrameIterator::getPhysicalFrameAndEntry which was highlighting
+ incorrectly in bug 1432300 ">This simulates the code from
+ JS::ProfilingFrameIterator::getPhysicalFrameAndEntry which was highlighting
+ incorrectly in bug 1432300 </td>
+          <td><a href="/tests/source/bug1432300.cpp">444</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1435345.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1435345.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1435345.cpp" title="Searchfox should analyze uses of operator== ">Searchfox should analyze uses of operator== </td>
+          <td><a href="/tests/source/bug1435345.cpp">247</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1446220_unicode.html" class="mimetype-fixed-container mimetype-icon-html">bug1446220_unicode.html</a></td>
+          <td class="description"><a href="/tests/source/bug1446220_unicode.html" title="Font family name parsing tests">Font family name parsing tests</td>
+          <td><a href="/tests/source/bug1446220_unicode.html">10479</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1449291.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1449291.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1449291.cpp" title=""></td>
+          <td><a href="/tests/source/bug1449291.cpp">578</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1588908.js" class="mimetype-fixed-container mimetype-icon-js">bug1588908.js</a></td>
+          <td class="description"><a href="/tests/source/bug1588908.js" title="This tests the regexp literal arrow function from
+ BrowserTestUtils.waitForDocLoadAndStopIt, which was breaking syntax
+ highlighting in bug 1588908.
+ ">This tests the regexp literal arrow function from
+ BrowserTestUtils.waitForDocLoadAndStopIt, which was breaking syntax
+ highlighting in bug 1588908.
+ </td>
+          <td><a href="/tests/source/bug1588908.js">325</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/bug1781178.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1781178.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug1781178.cpp" title=""></td>
+          <td><a href="/tests/source/bug1781178.cpp">1301</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/build.gradle.kts" class="mimetype-fixed-container mimetype-icon-kts">build.gradle.kts</a></td>
+          <td class="description"><a href="/tests/source/build.gradle.kts" title=""></td>
+          <td><a href="/tests/source/build.gradle.kts">2436</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/build.rs" class="mimetype-fixed-container mimetype-icon-rs">build.rs</a></td>
+          <td class="description"><a href="/tests/source/build.rs" title=""></td>
+          <td><a href="/tests/source/build.rs">358</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/Cargo.lock" class="mimetype-fixed-container mimetype-icon-lock">Cargo.lock</a></td>
+          <td class="description"><a href="/tests/source/Cargo.lock" title=""></td>
+          <td><a href="/tests/source/Cargo.lock">254</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/Cargo.toml" class="mimetype-fixed-container mimetype-icon-toml">Cargo.toml</a></td>
+          <td class="description"><a href="/tests/source/Cargo.toml" title=""></td>
+          <td><a href="/tests/source/Cargo.toml">267</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/chrome.ini" class="mimetype-fixed-container mimetype-icon-ini">chrome.ini</a></td>
+          <td class="description"><a href="/tests/source/chrome.ini" title=""></td>
+          <td><a href="/tests/source/chrome.ini">40</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/circle.svg" class="mimetype-fixed-container mimetype-icon-svg">circle.svg</a></td>
+          <td class="description"><a href="/tests/source/circle.svg" title=""></td>
+          <td><a href="/tests/source/circle.svg">140</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/cpp" class="mimetype-fixed-container mimetype-icon-folder">cpp</a></td>
+          <td class="description"><a href="/tests/source/cpp" title=""></td>
+          <td><a href="/tests/source/cpp"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/critters-postcard.jpg" class="mimetype-fixed-container mimetype-icon-jpg">critters-postcard.jpg</a></td>
+          <td class="description"><a href="/tests/source/critters-postcard.jpg" title=""></td>
+          <td><a href="/tests/source/critters-postcard.jpg">108154</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/css" class="mimetype-fixed-container mimetype-icon-folder">css</a></td>
+          <td class="description"><a href="/tests/source/css" title=""></td>
+          <td><a href="/tests/source/css"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/docs" class="mimetype-fixed-container mimetype-icon-folder">docs</a></td>
+          <td class="description"><a href="/tests/source/docs" title=""></td>
+          <td><a href="/tests/source/docs"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/enummacro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">enummacro.cpp</a></td>
+          <td class="description"><a href="/tests/source/enummacro.cpp" title=""></td>
+          <td><a href="/tests/source/enummacro.cpp">353</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/enummacro.h" class="mimetype-fixed-container mimetype-icon-h">enummacro.h</a></td>
+          <td class="description"><a href="/tests/source/enummacro.h" title=""></td>
+          <td><a href="/tests/source/enummacro.h">94</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/field-layout" class="mimetype-fixed-container mimetype-icon-folder">field-layout</a></td>
+          <td class="description"><a href="/tests/source/field-layout" title=""></td>
+          <td><a href="/tests/source/field-layout"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/ForwardingTemplates.cpp" class="mimetype-fixed-container mimetype-icon-cpp">ForwardingTemplates.cpp</a></td>
+          <td class="description"><a href="/tests/source/ForwardingTemplates.cpp" title=""></td>
+          <td><a href="/tests/source/ForwardingTemplates.cpp">3089</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/GeckoApp.java" class="mimetype-fixed-container mimetype-icon-java">GeckoApp.java</a></td>
+          <td class="description"><a href="/tests/source/GeckoApp.java" title=""></td>
+          <td><a href="/tests/source/GeckoApp.java">104036</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gradle" class="mimetype-fixed-container mimetype-icon-folder">gradle</a></td>
+          <td class="description"><a href="/tests/source/gradle" title=""></td>
+          <td><a href="/tests/source/gradle"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gradlew" class="mimetype-fixed-container mimetype-icon-">gradlew</a></td>
+          <td class="description"><a href="/tests/source/gradlew" title=""></td>
+          <td><a href="/tests/source/gradlew">8762</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gradlew.bat" class="mimetype-fixed-container mimetype-icon-bat">gradlew.bat</a></td>
+          <td class="description"><a href="/tests/source/gradlew.bat" title=""></td>
+          <td><a href="/tests/source/gradlew.bat">2966</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gzip-colliding-file" class="mimetype-fixed-container mimetype-icon-">gzip-colliding-file</a></td>
+          <td class="description"><a href="/tests/source/gzip-colliding-file" title=""></td>
+          <td><a href="/tests/source/gzip-colliding-file">125</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/gzip-colliding-file.gz" class="mimetype-fixed-container mimetype-icon-gz">gzip-colliding-file.gz</a></td>
+          <td class="description"><a href="/tests/source/gzip-colliding-file.gz" title=""></td>
+          <td><a href="/tests/source/gzip-colliding-file.gz">132</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/html" class="mimetype-fixed-container mimetype-icon-folder">html</a></td>
+          <td class="description"><a href="/tests/source/html" title=""></td>
+          <td><a href="/tests/source/html"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/IGeckoEditableParent.aidl" class="mimetype-fixed-container mimetype-icon-aidl">IGeckoEditableParent.aidl</a></td>
+          <td class="description"><a href="/tests/source/IGeckoEditableParent.aidl" title=""></td>
+          <td><a href="/tests/source/IGeckoEditableParent.aidl">1425</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/ignored-js" class="mimetype-fixed-container mimetype-icon-folder">ignored-js</a></td>
+          <td class="description"><a href="/tests/source/ignored-js" title=""></td>
+          <td><a href="/tests/source/ignored-js"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/implicit.cpp" class="mimetype-fixed-container mimetype-icon-cpp">implicit.cpp</a></td>
+          <td class="description"><a href="/tests/source/implicit.cpp" title=""></td>
+          <td><a href="/tests/source/implicit.cpp">193</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/imported-module.mjs" class="mimetype-fixed-container mimetype-icon-mjs">imported-module.mjs</a></td>
+          <td class="description"><a href="/tests/source/imported-module.mjs" title=""></td>
+          <td><a href="/tests/source/imported-module.mjs">401</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/invalid-files" class="mimetype-fixed-container mimetype-icon-folder">invalid-files</a></td>
+          <td class="description"><a href="/tests/source/invalid-files" title=""></td>
+          <td><a href="/tests/source/invalid-files"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/ipdl" class="mimetype-fixed-container mimetype-icon-folder">ipdl</a></td>
+          <td class="description"><a href="/tests/source/ipdl" title=""></td>
+          <td><a href="/tests/source/ipdl"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/jni.cpp" class="mimetype-fixed-container mimetype-icon-cpp">jni.cpp</a></td>
+          <td class="description"><a href="/tests/source/jni.cpp" title=""></td>
+          <td><a href="/tests/source/jni.cpp">1742</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/js" class="mimetype-fixed-container mimetype-icon-folder">js</a></td>
+          <td class="description"><a href="/tests/source/js" title=""></td>
+          <td><a href="/tests/source/js"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/lambdas.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lambdas.cpp</a></td>
+          <td class="description"><a href="/tests/source/lambdas.cpp" title=""></td>
+          <td><a href="/tests/source/lambdas.cpp">608</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/LightweightThemeManager.jsm" class="mimetype-fixed-container mimetype-icon-jsm">LightweightThemeManager.jsm</a></td>
+          <td class="description"><a href="/tests/source/LightweightThemeManager.jsm" title="globals AddonManagerPrivate">globals AddonManagerPrivate</td>
+          <td><a href="/tests/source/LightweightThemeManager.jsm">25383</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/lots_of_calls.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lots_of_calls.cpp</a></td>
+          <td class="description"><a href="/tests/source/lots_of_calls.cpp" title=""></td>
+          <td><a href="/tests/source/lots_of_calls.cpp">1663</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/macro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">macro.cpp</a></td>
+          <td class="description"><a href="/tests/source/macro.cpp" title=""></td>
+          <td><a href="/tests/source/macro.cpp">1757</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mobile" class="mimetype-fixed-container mimetype-icon-folder">mobile</a></td>
+          <td class="description"><a href="/tests/source/mobile" title=""></td>
+          <td><a href="/tests/source/mobile"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mochitest-alt-pref.ini" class="mimetype-fixed-container mimetype-icon-ini">mochitest-alt-pref.ini</a></td>
+          <td class="description"><a href="/tests/source/mochitest-alt-pref.ini" title=""></td>
+          <td><a href="/tests/source/mochitest-alt-pref.ini">69</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mochitest-common.ini" class="mimetype-fixed-container mimetype-icon-ini">mochitest-common.ini</a></td>
+          <td class="description"><a href="/tests/source/mochitest-common.ini" title=""></td>
+          <td><a href="/tests/source/mochitest-common.ini">37</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mochitest.ini" class="mimetype-fixed-container mimetype-icon-ini">mochitest.ini</a></td>
+          <td class="description"><a href="/tests/source/mochitest.ini" title=""></td>
+          <td><a href="/tests/source/mochitest.ini">140</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/mozilla" class="mimetype-fixed-container mimetype-icon-folder">mozilla</a></td>
+          <td class="description"><a href="/tests/source/mozilla" title=""></td>
+          <td><a href="/tests/source/mozilla"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/multiline.cpp" class="mimetype-fixed-container mimetype-icon-cpp">multiline.cpp</a></td>
+          <td class="description"><a href="/tests/source/multiline.cpp" title="Some documentation.
+ ">Some documentation.
+ </td>
+          <td><a href="/tests/source/multiline.cpp">319</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/nsISupports.h" class="mimetype-fixed-container mimetype-icon-h">nsISupports.h</a></td>
+          <td class="description"><a href="/tests/source/nsISupports.h" title=""></td>
+          <td><a href="/tests/source/nsISupports.h">730</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/nsTArray.h" class="mimetype-fixed-container mimetype-icon-h">nsTArray.h</a></td>
+          <td class="description"><a href="/tests/source/nsTArray.h" title=""></td>
+          <td><a href="/tests/source/nsTArray.h">673</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/overs.cpp" class="mimetype-fixed-container mimetype-icon-cpp">overs.cpp</a></td>
+          <td class="description"><a href="/tests/source/overs.cpp" title="This file is intended to create interesting test cases for searches against
+ a base class with a limited number of overrides.
+">This file is intended to create interesting test cases for searches against
+ a base class with a limited number of overrides.
+</td>
+          <td><a href="/tests/source/overs.cpp">1521</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/python" class="mimetype-fixed-container mimetype-icon-folder">python</a></td>
+          <td class="description"><a href="/tests/source/python" title=""></td>
+          <td><a href="/tests/source/python"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/README.md" class="mimetype-fixed-container mimetype-icon-md">README.md</a></td>
+          <td class="description"><a href="/tests/source/README.md" title="This is a README">This is a README</td>
+          <td><a href="/tests/source/README.md">342</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/root-module.mjs" class="mimetype-fixed-container mimetype-icon-mjs">root-module.mjs</a></td>
+          <td class="description"><a href="/tests/source/root-module.mjs" title=""></td>
+          <td><a href="/tests/source/root-module.mjs">371</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/runnables.cpp" class="mimetype-fixed-container mimetype-icon-cpp">runnables.cpp</a></td>
+          <td class="description"><a href="/tests/source/runnables.cpp" title=""></td>
+          <td><a href="/tests/source/runnables.cpp">1146</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/rust" class="mimetype-fixed-container mimetype-icon-folder">rust</a></td>
+          <td class="description"><a href="/tests/source/rust" title=""></td>
+          <td><a href="/tests/source/rust"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/secret-madjewel.js" class="mimetype-fixed-container mimetype-icon-js">secret-madjewel.js</a></td>
+          <td class="description"><a href="/tests/source/secret-madjewel.js" title=""></td>
+          <td><a href="/tests/source/secret-madjewel.js">361</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/simple.cpp" class="mimetype-fixed-container mimetype-icon-cpp">simple.cpp</a></td>
+          <td class="description"><a href="/tests/source/simple.cpp" title=""></td>
+          <td><a href="/tests/source/simple.cpp">1839</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/simple.rs" class="mimetype-fixed-container mimetype-icon-rs">simple.rs</a></td>
+          <td class="description"><a href="/tests/source/simple.rs" title="A grab-bug of rust code to exercise the searchfox indexer.
+   Note how this comment ends up in the file description, too!
+">A grab-bug of rust code to exercise the searchfox indexer.
+   Note how this comment ends up in the file description, too!
+</td>
+          <td><a href="/tests/source/simple.rs">1969</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/some_ini.ini" class="mimetype-fixed-container mimetype-icon-ini">some_ini.ini</a></td>
+          <td class="description"><a href="/tests/source/some_ini.ini" title=""></td>
+          <td><a href="/tests/source/some_ini.ini">34</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/some_javascript.js" class="mimetype-fixed-container mimetype-icon-js">some_javascript.js</a></td>
+          <td class="description"><a href="/tests/source/some_javascript.js" title=""></td>
+          <td><a href="/tests/source/some_javascript.js">2555</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/some_python.py" class="mimetype-fixed-container mimetype-icon-py">some_python.py</a></td>
+          <td class="description"><a href="/tests/source/some_python.py" title="Some absurdly long doc-comment.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+">Some absurdly long doc-comment.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+Spread over multiple lines.
+</td>
+          <td><a href="/tests/source/some_python.py">672</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/spaces  are bad.txt" class="mimetype-fixed-container mimetype-icon-txt">spaces  are bad.txt</a></td>
+          <td class="description"><a href="/tests/source/spaces  are bad.txt" title=""></td>
+          <td><a href="/tests/source/spaces  are bad.txt">84</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/src" class="mimetype-fixed-container mimetype-icon-folder">src</a></td>
+          <td class="description"><a href="/tests/source/src" title=""></td>
+          <td><a href="/tests/source/src"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/staticprefs" class="mimetype-fixed-container mimetype-icon-folder">staticprefs</a></td>
+          <td class="description"><a href="/tests/source/staticprefs" title=""></td>
+          <td><a href="/tests/source/staticprefs"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/subdir" class="mimetype-fixed-container mimetype-icon-folder">subdir</a></td>
+          <td class="description"><a href="/tests/source/subdir" title=""></td>
+          <td><a href="/tests/source/subdir"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/template_shapes.cpp" class="mimetype-fixed-container mimetype-icon-cpp">template_shapes.cpp</a></td>
+          <td class="description"><a href="/tests/source/template_shapes.cpp" title=""></td>
+          <td><a href="/tests/source/template_shapes.cpp">1126</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/template_specialization.cpp" class="mimetype-fixed-container mimetype-icon-cpp">template_specialization.cpp</a></td>
+          <td class="description"><a href="/tests/source/template_specialization.cpp" title=""></td>
+          <td><a href="/tests/source/template_specialization.cpp">288</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates_nsTArray.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates_nsTArray.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates_nsTArray.cpp" title=""></td>
+          <td><a href="/tests/source/templates_nsTArray.cpp">123</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates1.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates1.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates1.cpp" title=""></td>
+          <td><a href="/tests/source/templates1.cpp">247</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates2.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates2.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates2.cpp" title=""></td>
+          <td><a href="/tests/source/templates2.cpp">408</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates3.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates3.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates3.cpp" title=""></td>
+          <td><a href="/tests/source/templates3.cpp">414</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates4.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates4.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates4.cpp" title=""></td>
+          <td><a href="/tests/source/templates4.cpp">109</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates5.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates5.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates5.cpp" title=""></td>
+          <td><a href="/tests/source/templates5.cpp">170</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates5.h" class="mimetype-fixed-container mimetype-icon-h">templates5.h</a></td>
+          <td class="description"><a href="/tests/source/templates5.h" title=""></td>
+          <td><a href="/tests/source/templates5.h">212</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates6.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates6.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates6.cpp" title=""></td>
+          <td><a href="/tests/source/templates6.cpp">144</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates6.h" class="mimetype-fixed-container mimetype-icon-h">templates6.h</a></td>
+          <td class="description"><a href="/tests/source/templates6.h" title=""></td>
+          <td><a href="/tests/source/templates6.h">67</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/templates7.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates7.cpp</a></td>
+          <td class="description"><a href="/tests/source/templates7.cpp" title=""></td>
+          <td><a href="/tests/source/templates7.cpp">709</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_custom_element_base.xul" class="mimetype-fixed-container mimetype-icon-xul">test_custom_element_base.xul</a></td>
+          <td class="description"><a href="/tests/source/test_custom_element_base.xul" title=""></td>
+          <td><a href="/tests/source/test_custom_element_base.xul">14636</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" class="mimetype-fixed-container mimetype-icon-html">test_DOMWindowCreated_chromeonly.html</a></td>
+          <td class="description"><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" title="DOMWindowCreated not visible in content">DOMWindowCreated not visible in content</td>
+          <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html">728</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_many_manifest_permutations.js" class="mimetype-fixed-container mimetype-icon-js">test_many_manifest_permutations.js</a></td>
+          <td class="description"><a href="/tests/source/test_many_manifest_permutations.js" title=""></td>
+          <td><a href="/tests/source/test_many_manifest_permutations.js">130</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_rust_dependency" class="mimetype-fixed-container mimetype-icon-folder">test_rust_dependency</a></td>
+          <td class="description"><a href="/tests/source/test_rust_dependency" title=""></td>
+          <td><a href="/tests/source/test_rust_dependency"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/test_talosconfig_browser_config.json" class="mimetype-fixed-container mimetype-icon-json">test_talosconfig_browser_config.json</a></td>
+          <td class="description"><a href="/tests/source/test_talosconfig_browser_config.json" title=""></td>
+          <td><a href="/tests/source/test_talosconfig_browser_config.json">3356</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/testing" class="mimetype-fixed-container mimetype-icon-folder">testing</a></td>
+          <td class="description"><a href="/tests/source/testing" title=""></td>
+          <td><a href="/tests/source/testing"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/third_party" class="mimetype-fixed-container mimetype-icon-folder">third_party</a></td>
+          <td class="description"><a href="/tests/source/third_party" title=""></td>
+          <td><a href="/tests/source/third_party"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/tiger.svg" class="mimetype-fixed-container mimetype-icon-svg">tiger.svg</a></td>
+          <td class="description"><a href="/tests/source/tiger.svg" title=""></td>
+          <td><a href="/tests/source/tiger.svg">68630</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/tricky_symbol_names.cpp" class="mimetype-fixed-container mimetype-icon-cpp">tricky_symbol_names.cpp</a></td>
+          <td class="description"><a href="/tests/source/tricky_symbol_names.cpp" title=""></td>
+          <td><a href="/tests/source/tricky_symbol_names.cpp">313</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/urlmap" class="mimetype-fixed-container mimetype-icon-folder">urlmap</a></td>
+          <td class="description"><a href="/tests/source/urlmap" title=""></td>
+          <td><a href="/tests/source/urlmap"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/using.cpp" class="mimetype-fixed-container mimetype-icon-cpp">using.cpp</a></td>
+          <td class="description"><a href="/tests/source/using.cpp" title=""></td>
+          <td><a href="/tests/source/using.cpp">233</a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/webidl" class="mimetype-fixed-container mimetype-icon-folder">webidl</a></td>
+          <td class="description"><a href="/tests/source/webidl" title=""></td>
+          <td><a href="/tests/source/webidl"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/webtest" class="mimetype-fixed-container mimetype-icon-folder">webtest</a></td>
+          <td class="description"><a href="/tests/source/webtest" title=""></td>
+          <td><a href="/tests/source/webtest"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/xpidl" class="mimetype-fixed-container mimetype-icon-folder">xpidl</a></td>
+          <td class="description"><a href="/tests/source/xpidl" title=""></td>
+          <td><a href="/tests/source/xpidl"></a></td>
+        </tr>
+
+        <tr>
+          <td><a href="/tests/source/xpidl_cpp_consumer.cpp" class="mimetype-fixed-container mimetype-icon-cpp">xpidl_cpp_consumer.cpp</a></td>
+          <td class="description"><a href="/tests/source/xpidl_cpp_consumer.cpp" title=""></td>
+          <td><a href="/tests/source/xpidl_cpp_consumer.cpp">417</a></td>
+        </tr>
+
+    </tbody>
+</table>
+
+  </div>
+  
+<script src="/tree-list.js"></script>
+<script src="/tests/static/js/settings.js"></script>
+<script src="/tests/static/js/search.js"></script>
+<script src="/tests/static/js/context-menu.js"></script>
+<script src="/tests/static/js/panel.js"></script>
+<script src="/tests/static/js/code-highlighter.js"></script>
+
+<footer class="footer">
+    This page was generated by Searchfox:
+    <a href="https://github.com/mozsearch/mozsearch">source code repository</a> |
+    <a href="https://github.com/mozsearch/mozsearch-mozilla">configuration repository</a> |
+    <a href="https://bugzilla.mozilla.org/buglist.cgi?product=Webtools&component=Searchfox&resolution=---">see open bugs</a> |
+    <a href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Webtools&component=Searchfox">file a new bug</a>
+</footer>
+
+</div>
+</body>
+</html>

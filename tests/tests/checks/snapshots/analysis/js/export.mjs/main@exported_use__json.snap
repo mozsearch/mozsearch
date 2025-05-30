@@ -1,0 +1,81 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "7:9-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property dummy",
+    "sym": "#dummy"
+  },
+  {
+    "loc": "7:9-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "dummy",
+    "sym": "#dummy",
+    "context": ""
+  },
+  {
+    "loc": "8:9-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property dummy",
+    "sym": "#dummy"
+  },
+  {
+    "loc": "8:9-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "dummy",
+    "sym": "#dummy",
+    "context": ""
+  },
+  {
+    "loc": "9:9-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property dummy",
+    "sym": "#dummy"
+  },
+  {
+    "loc": "9:9-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "dummy",
+    "sym": "#dummy",
+    "context": ""
+  },
+  {
+    "loc": "14:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property exportedName3",
+    "sym": "#exportedName3"
+  },
+  {
+    "loc": "14:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "exportedName3",
+    "sym": "#exportedName3",
+    "context": ""
+  },
+  {
+    "loc": "15:9-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property default",
+    "sym": "#default"
+  },
+  {
+    "loc": "15:9-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "default",
+    "sym": "#default",
+    "context": ""
+  }
+]

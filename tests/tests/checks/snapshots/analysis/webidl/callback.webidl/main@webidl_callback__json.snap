@@ -1,0 +1,62 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+---
+[
+  {
+    "loc": "1:9-21",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL callback TestCallback",
+    "sym": "WEBIDL_TestCallback"
+  },
+  {
+    "loc": "1:9-21",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "TestCallback",
+    "sym": "WEBIDL_TestCallback"
+  },
+  {
+    "loc": "1:24-31",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type RetType",
+    "sym": "WEBIDL_RetType"
+  },
+  {
+    "loc": "1:24-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "RetType",
+    "sym": "WEBIDL_RetType"
+  },
+  {
+    "loc": "1:33-41",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType1",
+    "sym": "WEBIDL_ArgType1"
+  },
+  {
+    "loc": "1:33-41",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType1",
+    "sym": "WEBIDL_ArgType1"
+  },
+  {
+    "loc": "1:48-56",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type ArgType2",
+    "sym": "WEBIDL_ArgType2"
+  },
+  {
+    "loc": "1:48-56",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ArgType2",
+    "sym": "WEBIDL_ArgType2"
+  }
+]

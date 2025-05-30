@@ -82,7 +82,7 @@ livegrep_config['fs_paths'].append({
 
 json.dump(livegrep_config, open('/tmp/livegrep.json', 'w'))
 # for debugging assistance, dump what we wrote to disk to stdout
-run_showing_output(['/usr/bin/jq', '.', '/tmp/livegrep.json'])
+run_showing_output(['jq', '.', '/tmp/livegrep.json'])
 
 
 def convert_size_warn_to_info(line):

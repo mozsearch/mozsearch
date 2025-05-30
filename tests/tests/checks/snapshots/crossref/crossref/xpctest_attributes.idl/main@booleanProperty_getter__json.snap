@@ -1,0 +1,92 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "_ZN25nsIXPCTestObjectReadWrite18GetBooleanPropertyEPb",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "xpidl_cpp_consumer.cpp",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  7,
+                  25
+                ],
+                "line": "attrs->GetBooleanProperty(&string_was_too_hard);",
+                "context": "consume_attr",
+                "contextsym": "_Z12consume_attrP25nsIXPCTestObjectReadWrite"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "__GENERATED__/dist/include/xpctest_attributes.h",
+            "path_kind": "Generated code",
+            "lines": [
+              {
+                "lno": 122,
+                "bounds": [
+                  33,
+                  51
+                ],
+                "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetBooleanProperty(bool *aBooleanProperty) = 0;",
+                "context": "nsIXPCTestObjectReadWrite",
+                "contextsym": "T_nsIXPCTestObjectReadWrite"
+              }
+            ]
+          }
+        ],
+        "callees": [],
+        "meta": {
+          "structured": 1,
+          "pretty": "nsIXPCTestObjectReadWrite::GetBooleanProperty",
+          "sym": "_ZN25nsIXPCTestObjectReadWrite18GetBooleanPropertyEPb",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": null,
+          "parentsym": "T_nsIXPCTestObjectReadWrite",
+          "slotOwner": {
+            "slotKind": "getter",
+            "slotLang": "cpp",
+            "implKind": null,
+            "ownerLang": "idl",
+            "sym": "XPIDL_nsIXPCTestObjectReadWrite_booleanProperty"
+          },
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [
+            "instance",
+            "virtual",
+            "user"
+          ],
+          "variants": [],
+          "args": [
+            {
+              "name": "aBooleanProperty",
+              "type": "_Bool *"
+            }
+          ]
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}
