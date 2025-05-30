@@ -6,14 +6,6 @@ set -x
 
 FILTER=${1:-}
 
-cargo install geckodriver
-
-if ! [ -d mozsearch-firefox ]; then
-    curl -L -o mozsearch-firefox.tar.bz2 "https://download.mozilla.org/?product=firefox-latest&os=linux64"
-    tar xf mozsearch-firefox.tar.bz2
-    mv firefox mozsearch-firefox
-fi
-
 stop_geckodriver() {
     PID=$(pgrep geckodriver || true)
     if [ "x${PID}" != "x" ]; then
@@ -31,7 +23,7 @@ exec {FD}<>$PIPE
 rm $PIPE
 
 echo "Starting geckodriver (waiting for it to be ready)"
-geckodriver -b "$(pwd)/mozsearch-firefox/firefox" >&$FD &
+geckodriver >&$FD &
 grep -q 'Listening on' <&$FD
 
 echo "Running tests"

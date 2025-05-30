@@ -24,6 +24,10 @@ ENV PATH=$PATH:/home/vagrant/.local/share/coursier/bin
 RUN /infrastructure/web-server-provision.sh
 RUN /infrastructure/common-provision-post.sh
 
+# installs extra tooling only required for docker
+RUN /infrastructure/docker-provision-post.sh
+ENV PATH=/home/vagrant/mozsearch-firefox:$PATH
+
 EXPOSE 16995/tcp
 
 CMD ["/usr/bin/bash"]
