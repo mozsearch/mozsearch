@@ -5,7 +5,7 @@ ARG LOCAL_GID
 
 COPY *.sh /infrastructure/
 # this will create our user "vagrant"
-RUN /infrastructure/docker-provision.sh $LOCAL_UID $LOCAL_GID
+RUN /infrastructure/docker-provision-pre.sh $LOCAL_UID $LOCAL_GID
 USER vagrant
 WORKDIR /home/vagrant
 
