@@ -3,7 +3,7 @@
 # Arguments: <log path>
 
 # This script uses https://github.com/rcoh/angle-grinder in order to process our
-# searchfox logs from /var/log/nginx/searchfox.log
+# searchfox load-balancer logs, which can be retrieved using weblog-elb-fetch.sh.
 #
 # Install/update angle-grinder via `cargo install ag`
 
