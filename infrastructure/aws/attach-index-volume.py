@@ -21,8 +21,16 @@ client = boto3.client('ec2')
 instances = ec2.instances.filter(InstanceIds=[instanceId])
 instance = list(instances)[0]
 
+# We've been using 300G for quite some time but with the addition of esr140 to
+# config2, we hit the 300G limit; the math indicates we probably need at least
+# 305G before the nginx cache which we cap at 20G.  To provide headroom, I'm
+# going to use 400 for release2 but we can revisit as we rebalance things.
+volumeSize = 300
+if channel == 'release2':
+    volumeSize = 400
+
 r = client.create_volume(
-    Size=300,
+    Size=volumeSize,
     VolumeType='gp2',
     AvailabilityZone=instance.placement['AvailabilityZone'],
 )
