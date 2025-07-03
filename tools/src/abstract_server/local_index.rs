@@ -26,6 +26,11 @@ use crate::format::format_code;
 use crate::languages::select_formatting;
 
 pub mod livegrep {
+    // Compilation gets upset about IndexSpec, CloneOptions, PathSpec, and
+    // RepoSpec never being constructed in `_.rs` without this.  (It's named
+    // `_.rs` because no package name is specified and this is also why we're
+    // saying to include "_".)
+    #![allow(dead_code)]
     tonic::include_proto!("_");
 }
 
