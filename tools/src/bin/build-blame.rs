@@ -15,7 +15,6 @@ extern crate tools;
 
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
-use std::env;
 use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::panic;
@@ -24,9 +23,48 @@ use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
+extern crate clap;
+use clap::Parser;
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::blame::LineData;
 use tools::file_format::config::index_blame;
+
+#[derive(Parser)]
+struct BuildBlameCli {
+    /// Path to the source git tree to build the blame for.
+    #[clap(value_parser)]
+    git_repo_path: String,
+
+    /// Path to the blame git tree we are populating.
+    #[clap(value_parser)]
+    blame_repo_path: String,
+
+    /// The name of the branch/git ref to use in both the source tree and the
+    /// blame tree we are populating.  The default of HEAD will use the current
+    /// branch in both trees (and only works for non-bare trees).
+    #[clap(long, value_parser, env="BLAME_REF", default_value = "HEAD")]
+    blame_ref: String,
+
+    /// Path to use for the git-fast-import marks file.  If we find this file
+    /// when we start-up, we will use it to augment our understanding of what
+    /// commmits have already been transformed.  This file will always be left
+    /// in place if this program aborts since it's necessary to resume
+    /// processing without losing work due to the existence of merges.
+    /// Otherwise, this file will be deleted on successful exit if no
+    /// commit-limit was used, but will be retained if a limit was used.
+    #[clap(long, value_parser, env="MARKS_FILE", default_value = "/tmp/mozsearch-fast-import.marks")]
+    marks_file: String,
+
+    /// Use git-cinnabar to extract and associate hg commit information about
+    /// the git commit being ingested.
+    #[clap(long, value_parser, env="CINNABAR")]
+    use_cinnabar: bool,
+
+    /// Number of commits to transform before stopping; default of 0 means no
+    /// limit.
+    #[clap(long, value_parser, env="COMMIT_LIMIT", default_value = "0")]
+    commit_limit: usize,
+}
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     writeln!(helper.stdin.as_mut().unwrap(), "{}", git_oid).unwrap();
@@ -782,27 +820,18 @@ fn main() {
     // force backtraces on in this file in general
     std::env::set_var("RUST_BACKTRACE", "full");
 
-    let args: Vec<_> = env::args().collect();
-    let git_repo_path = args[1].to_string();
-    let git_repo = Repository::open(&git_repo_path).unwrap();
-    let blame_repo = Repository::open(&args[2]).unwrap();
-    let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
-    let mut hg_helper = if use_cinnabar {
+    let cli = BuildBlameCli::parse();
+
+    let git_repo = Repository::open(&cli.git_repo_path).unwrap();
+    let blame_repo = Repository::open(&cli.blame_repo_path).unwrap();
+    let mut hg_helper = if cli.use_cinnabar {
         Some(start_cinnabar_helper(&git_repo))
     } else {
         None
     };
-    let marks_file = env::var("MARKS_FILE")
-        .ok()
-        .unwrap_or("/tmp/mozsearch-fast-import.marks".to_string());
-    let blame_ref = env::var("BLAME_REF").ok().unwrap_or("HEAD".to_string());
-    let commit_limit = env::var("COMMIT_LIMIT")
-        .ok()
-        .and_then(|x| x.parse::<usize>().ok())
-        .unwrap_or(0);
 
-    info!("Reading existing blame map of ref {}...", blame_ref);
-    let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&blame_ref) {
+    info!("Reading existing blame map of ref {}...", cli.blame_ref);
+    let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&cli.blame_ref) {
         let (blame_map, _) = index_blame(&blame_repo, Some(oid));
         blame_map
             .into_iter()
@@ -813,18 +842,18 @@ fn main() {
     };
 
     let mut prev_revs_done: usize = 0;
-    if let Ok(contents) = std::fs::read_to_string(marks_file.clone()) {
+    if let Ok(contents) = std::fs::read_to_string(cli.marks_file.clone()) {
         let (revs_found, revs_needed) =
             ingest_git_fast_import_marks_file(&blame_repo, &mut blame_map, &contents);
         prev_revs_done = revs_found as usize;
         info!("Marks file at {} (MARKS_FILE env overrides) had {} revs, {} were needed to augment branch data.",
-              marks_file, revs_found, revs_needed);
+              cli.marks_file, revs_found, revs_needed);
     } else {
         info!(
             "No pre-existing marks file at {} (MARKS_FILE env overrides).",
-            marks_file
+            cli.marks_file
         );
-        if commit_limit > 0 {
+        if cli.commit_limit > 0 {
             info!("The marks file will be retained because you specified a LIMIT.");
         } else {
             info!("The marks file will be deleted on success but left around on error.");
@@ -833,20 +862,20 @@ fn main() {
 
     let mut walk = git_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
-    walk.push(git_repo.refname_to_id(&blame_ref).unwrap())
+    walk.push(git_repo.refname_to_id(&cli.blame_ref).unwrap())
         .unwrap();
     info!("Existing blame map has {} commits.", blame_map.len());
     let mut revs_to_process = walk
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
         .filter(|git_oid| !blame_map.contains_key(git_oid))
         .collect::<Vec<_>>();
-    if commit_limit > 0 && commit_limit < revs_to_process.len() {
+    if cli.commit_limit > 0 && cli.commit_limit < revs_to_process.len() {
         info!(
             "Truncating list of commits from {} to specified limit {}",
             revs_to_process.len(),
-            commit_limit
+            cli.commit_limit
         );
-        revs_to_process.truncate(commit_limit);
+        revs_to_process.truncate(cli.commit_limit);
     }
     let rev_count = revs_to_process.len();
 
@@ -856,7 +885,7 @@ fn main() {
     info!("Starting {} compute threads...", num_threads);
     let mut compute_threads = Vec::with_capacity(num_threads);
     for _ in 0..num_threads {
-        compute_threads.push(ComputeThread::new(&git_repo_path));
+        compute_threads.push(ComputeThread::new(&cli.git_repo_path));
     }
 
     // This tracks the index of the next revision in revs_to_process for which
@@ -876,7 +905,7 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&blame_repo, &marks_file);
+    let mut import_helper = start_fast_import(&blame_repo, &cli.marks_file);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -926,7 +955,7 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_commit
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
-            writeln!(import_stream, "commit {}", blame_ref).unwrap();
+            writeln!(import_stream, "commit {}", cli.blame_ref).unwrap();
             // Because we maintain the markers through multiple consecutive runs,
             // we need to add the count of imported marks so we don't clobber any
             // existing ones.
@@ -1025,11 +1054,11 @@ fn main() {
     // it's useful for investigation and then being able to restart without
     // data-loss.  Also, if we leave it around when it's not expected, it will
     // cause problems for other trees being indexed on the same machine.
-    if commit_limit == 0 {
+    if cli.commit_limit == 0 {
         info!(
             "Removing marks file {} after successful run because no limit was specified.",
-            marks_file
+            cli.marks_file
         );
-        std::fs::remove_file(marks_file).unwrap();
+        std::fs::remove_file(cli.marks_file).unwrap();
     }
 }
