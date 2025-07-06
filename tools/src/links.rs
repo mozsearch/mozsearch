@@ -60,7 +60,7 @@ pub fn linkify_comment(cfg: Option<&Config>, s: String) -> String {
     result
 }
 
-fn linkify_bug_numbers(s: &str) -> Cow<str> {
+fn linkify_bug_numbers(s: &str) -> Cow<'_, str> {
     lazy_static! {
         static ref BUG_NUMBER_REGEX: Regex =
             Regex::new(r"\b(?i)bug\s*(?P<bugno>[1-9][0-9]{2,6})\b").unwrap();

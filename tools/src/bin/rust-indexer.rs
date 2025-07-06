@@ -95,7 +95,7 @@ fn sanitize_symbol(sym: &str) -> String {
         .into()
 }
 
-fn pretty_symbol(sym: &str) -> Cow<str> {
+fn pretty_symbol(sym: &str) -> Cow<'_, str> {
     use scip::symbol::SymbolFormatOptions;
     if let Ok(sym) = scip::symbol::parse_symbol(sym) {
         return Cow::Owned(scip::symbol::format_symbol_with(

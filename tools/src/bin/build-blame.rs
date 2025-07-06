@@ -236,7 +236,7 @@ fn read_path_blob(
 }
 
 /// Sanitizes a path into a format that git-fast-import wants.
-fn sanitize(path: &Path) -> std::borrow::Cow<str> {
+fn sanitize(path: &Path) -> std::borrow::Cow<'_, str> {
     // Technically, I'm not sure what git-fast-import expects to happen with
     // non-unicode sequences in the path; the documentation is a bit unclear.
     // But in practice that hasn't come up yet.
