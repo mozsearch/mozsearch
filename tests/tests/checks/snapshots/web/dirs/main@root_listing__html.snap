@@ -1,6 +1,6 @@
 ---
 source: src/bin/test-index.rs
-assertion_line: 116
+assertion_line: 119
 expression: "&fb.contents"
 ---
 <!DOCTYPE html>
@@ -231,7 +231,7 @@ expression: "&fb.contents"
         <tr>
           <td><a href="/tests/source/build.gradle.kts" class="mimetype-fixed-container mimetype-icon-kts">build.gradle.kts</a></td>
           <td class="description"><a href="/tests/source/build.gradle.kts" title=""></td>
-          <td><a href="/tests/source/build.gradle.kts">2436</a></td>
+          <td><a href="/tests/source/build.gradle.kts">2435</a></td>
         </tr>
 
         <tr>
