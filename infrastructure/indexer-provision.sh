@@ -53,12 +53,12 @@ rm -rf ~/.cache/coursier
 PYMODULES=$HOME/pymodules
 mkdir "${PYMODULES}"
 pushd "${PYMODULES}"
-wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/xpcom/idl-parser/xpidl/xpidl.py"
-wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/dom/bindings/parser/WebIDL.py"
+wget "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/xpcom/idl-parser/xpidl/xpidl.py"
+wget "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/dom/bindings/parser/WebIDL.py"
 mkdir ply
 pushd ply
 for PLYFILE in __init__.py lex.py yacc.py; do
-    wget "https://hg.mozilla.org/mozilla-central/raw-file/tip/third_party/python/ply/ply/${PLYFILE}"
+    wget "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/third_party/python/ply/ply/${PLYFILE}"
 done
 popd
 popd
