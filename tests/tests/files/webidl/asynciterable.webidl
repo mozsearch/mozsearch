@@ -1,3 +1,3 @@
 interface TestInterfaceForAsyncIterable {
-  async iterable<KeyType, ValueType>(optional ArgType1 arg1);
+  async_iterable<KeyType, ValueType>(optional ArgType1 arg1);
 };
