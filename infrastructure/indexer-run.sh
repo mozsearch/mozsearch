@@ -29,3 +29,29 @@ do
       ln -s ${INDEX_ROOT/$WORKING/$PERMANENT} $INDEX_ROOT
     fi
 done
+
+# If we were given a permanent path, move any "*-shared" directories, specifically
+# to cover "firefox-shared".
+if [ -n "$PERMANENT" ]
+then
+    # Copy the config file we used but to a different filename since we haven't
+    # been doing this and the web-server would clobber "config.json".
+    cp -f "$CONFIG_FILE" "$PERMANENT/indexed-config.json"
+    # Handle there being no *-shared directories by changing glob expansion to
+    # expand to nothing if they don't match (temporarily).
+    shopt -s nullglob
+    SHARED_SUBDIRS=("$WORKING"/*-shared)
+    if (( ${#SHARED_SUBDIRS[@]} )); then
+        mv -f "${SHARED_SUBDIRS[@]}" "$PERMANENT"
+    fi
+    shopt -u nullglob
+fi
+
+# Note that we are not moving, but we do expect to still be here:
+# - `config.json` - Note that our check-script mechanism actually currently depends
+#   on us leaving this here.  And before when we'd mount the index at `~/index`
+#   we definitely needed to regenerate this because the paths were all wrong, but
+#   now we can potentially leave it as-is.  For now I'm copying it across to a new
+#   name above.
+# - `tmp/` - We create this and try and point any general TMP use at it, so there
+#   could be interesting stuff in here.

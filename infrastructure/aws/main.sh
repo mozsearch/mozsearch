@@ -20,14 +20,14 @@ handle_error() {
     # store.  We create an "interrupted" parent directory for these contents in
     # order to avoid any ambiguities about what the state of the scratch drive
     # was. We only do this if we got far enough to actually start indexing.
-    if [ -d "/index" ]; then
-        mkdir -p /index/interrupted
-        if [ -d "/mnt/index-scratch" ]; then
-            mv -f /mnt/index-scratch/* /index/interrupted
+    if [ -d "/index-ebs" ]; then
+        mkdir -p /index-ebs/interrupted
+        if [ -d "/index" ]; then
+            mv -f /index/* /index-ebs/interrupted
         fi
         # try and get a list of open files that might have caused problems
-        # unmounting /index or moving things from /mnt/index-scratch to /index.
-        lsof | grep /index
+        # unmounting /index-ebs or moving things from /index to /index-ebs.
+        lsof | grep /index-ebs
     fi
 
     # Send failure email and shut down. Release channel failures get sent to the
@@ -94,14 +94,14 @@ ${AWS_ROOT}/make-crontab.py "${EMAIL_PREFIX}/timeout" "${DEST_EMAIL}" ${MAXHOURS
 echo "Disabling daily and weekly cron jobs for this indexing run"
 sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
 
-echo "Creating index-scratch on local instance SSD"
+echo "Creating /index on local instance SSD and setting up swap"
 ${AWS_ROOT}/mkscratch.sh
 
-# Put our tmp directory on index scratch instead of /tmp which is on our EBS
+# Put our tmp directory on the SSD at /index instead of /tmp which is on our EBS
 # root image and which would be both slower and has had problems with filling
 # up (bug 1712578).
-mkdir -p /mnt/index-scratch/tmp
-export TMPDIR=/mnt/index-scratch/tmp
+mkdir -p /index/tmp
+export TMPDIR=/index/tmp
 
 # Run target script with arguments supplied to this script.
 ${AWS_ROOT}/${TARGETSCRIPT} $*

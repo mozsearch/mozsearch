@@ -4,7 +4,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Create the "index-scratch" directory where each specific tree's indexing
+#
+#
+# Create the "/index" directory where each specific tree's indexing
 # byproducts live while the indexing is ongoing.  To do this, we need to figure
 # out what the device's partition is.
 #
@@ -97,9 +99,9 @@ set -o pipefail # Check all commands in a pipeline
 # there are multiple SSDs.
 INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output 'first(.Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath)')
 sudo mkfs -t ext4 $INSTANCE_STORAGE_DEV
-sudo mount $INSTANCE_STORAGE_DEV /mnt
-sudo mkdir /mnt/index-scratch
-sudo chown ubuntu.ubuntu /mnt/index-scratch
+sudo mkdir /index
+sudo mount $INSTANCE_STORAGE_DEV /index
+sudo chown ubuntu:ubuntu /index
 
 # For swap purposes, let's see if there was a 2nd instance storage; we use nth(1; ...)
 # for this.  If there is no 2nd entry, we will get an empty string.
@@ -116,7 +118,7 @@ if [[ $SWAP_STORAGE_DEV && $SWAP_STORAGE_DEV != $INSTANCE_STORAGE_DEV ]]; then
   sudo mkswap $SWAP_STORAGE_DEV
   sudo swapon $SWAP_STORAGE_DEV
 else
-  SWAP_FILE=/mnt/swapfile
+  SWAP_FILE=/index/swapfile
   # 8 GiB swap
   sudo dd if=/dev/zero of=$SWAP_FILE bs=128M count=64
   sudo chmod 600 $SWAP_FILE

@@ -111,10 +111,22 @@ fn main() {
     let pre_blame_prep = Instant::now();
     let (blame_commit, head_oid) = match tree_config.git {
         Some(ref git) => {
+            // Because our git tree (possibly a worktree) must explicitly be checked out to the
+            // specific revision of interest, HEAD is the right choice here.  (And note that this
+            // can potentially be a detached HEAD for the firefox-* trees where we inevitably are
+            // using an older revision in order to get coverage data.)
             let head_oid = git.repo.refname_to_id("HEAD").unwrap();
+            // However, we support using a bare repo for blame for firefox-shared and so we must
+            // not directly rely on our blame tree's HEAD.  `config::load` already handles using the
+            // config "git_branch" if it's present or falling back to HEAD if it's not.  So it'
+            // sufficient for us to just use the blame-map here to find the right blame commit
+            // for the head_oid above.
             let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
-                let blame_oid = blame_repo.refname_to_id("HEAD").unwrap();
-                Some(blame_repo.find_commit(blame_oid).unwrap())
+                if let Some(blame_oid) = git.blame_map.get(&head_oid) {
+                    Some(blame_repo.find_commit(*blame_oid).unwrap())
+                } else {
+                    None
+                }
             } else {
                 None
             };

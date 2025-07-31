@@ -16,6 +16,7 @@ extern crate tools;
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 use std::fmt;
+use std::fs::read_to_string;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::panic;
 use std::path::{Path, PathBuf};
@@ -55,10 +56,44 @@ struct BuildBlameCli {
     #[clap(long, value_parser, env="MARKS_FILE", default_value = "/tmp/mozsearch-fast-import.marks")]
     marks_file: String,
 
-    /// Use git-cinnabar to extract and associate hg commit information about
-    /// the git commit being ingested.
-    #[clap(long, value_parser, env="CINNABAR")]
-    use_cinnabar: bool,
+    /// An option to disable asking git-cinnabar to try and map revisions.
+    /// It's always been the case that we default to using cinnabar, because
+    /// only setting "CINNABAR" to 0 in the environment would turn it off, and
+    /// we never did.  This works because cinnabar just tells us an all zeroes
+    /// revision if we ask it for the corresponding hg revision for a git repo
+    /// that doesn't use cinnabar at all.
+    ///
+    /// You currently would only use this if you don't have cinnabar installed
+    /// or your repo has cinnabar metadata but you want to ignore it.
+    ///
+    /// In the future we can potentially add a "use-cinnabar" flag back if we
+    /// want to change the default.
+    #[clap(long, value_parser)]
+    no_cinnabar: bool,
+
+    /// For the very specific case of letting the new git firefox-* trees be
+    /// able to support permalinks for mozilla-* trees, specify a path to
+    /// the old mozilla-* cinnabar-enabled repo in order to allow mapping what
+    /// cinnabar tells us is the current hg revision to the old git revision.
+    #[clap(long, value_parser)]
+    old_cinnabar_repo_path: Option<String>,
+
+    /// Path to a mapping file to be consulted before old-cinnabar-repo-path to
+    /// look up what old revisions should be associated with a given new
+    /// revision.  This is intended to support the change from gecko-dev to
+    /// firefox-main where gecko-dev contained many CVS revisions that have been
+    /// filtered out of existence when creating firefox-main.  We used a script
+    /// to find the closest (not all zeroes) ancestor of each CVS revision that
+    /// no longer exists in firefox.  Each line in the mapping file looks like
+    /// `<new firefox tree rev> <old gecko-dev-rev1>,<old-gecko-dev-rev2>,...`
+    /// where a single rev will have no commas.
+    ///
+    /// Note that the list of old revisions isn't something we process in
+    /// build-blame; it only matters that we propagate it through to the derived
+    /// git commit message so that it's available to web-server.rs and its
+    /// new oldrev endpoint.
+    #[clap(long, value_parser)]
+    old_revision_map: Option<String>,
 
     /// Number of commits to transform before stopping; default of 0 means no
     /// limit.
@@ -78,10 +113,34 @@ fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     Some(hgrev.to_string())
 }
 
+fn get_git_rev(helper: &mut Child, hg_rev: &str) -> Option<String> {
+    writeln!(helper.stdin.as_mut().unwrap(), "{}", hg_rev).unwrap();
+    let mut reader = BufReader::new(helper.stdout.as_mut().unwrap());
+    let mut result = String::new();
+    reader.read_line(&mut result).unwrap();
+    let gitrev = result.trim();
+    if gitrev.chars().all(|c| c == '0') {
+        return None;
+    }
+    Some(gitrev.to_string())
+}
+
 fn start_cinnabar_helper(git_repo: &Repository) -> Child {
     Command::new("git")
         .arg("cinnabar")
         .arg("git2hg")
+        .arg("--batch")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .current_dir(git_repo.path())
+        .spawn()
+        .unwrap()
+}
+
+fn start_old_cinnabar_hg2git_helper(git_repo: &Repository) -> Child {
+    Command::new("git")
+        .arg("cinnabar")
+        .arg("hg2git")
         .arg("--batch")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -824,15 +883,42 @@ fn main() {
 
     let git_repo = Repository::open(&cli.git_repo_path).unwrap();
     let blame_repo = Repository::open(&cli.blame_repo_path).unwrap();
-    let mut hg_helper = if cli.use_cinnabar {
+    let mut hg_helper = if !cli.no_cinnabar {
         Some(start_cinnabar_helper(&git_repo))
+    } else {
+        None
+    };
+
+    let old_git_repo = if let Some(old_cinnabar_repo_path) = cli.old_cinnabar_repo_path {
+        Some(Repository::open(old_cinnabar_repo_path).unwrap())
+    } else {
+        None
+    };
+
+    let mut old_hg_helper = if let Some(repo) = &old_git_repo {
+        Some(start_old_cinnabar_hg2git_helper(&repo))
+    } else {
+        None
+    };
+
+    let oldrevs_from_newrev_map = if let Some(old_rev_map_path)  = cli.old_revision_map {
+        let contents = read_to_string(old_rev_map_path).unwrap();
+        let mut rev_map = HashMap::new();
+
+        for line in contents.lines() {
+            if let Some((newrev, oldrevs)) = line.split_once(' ') {
+                rev_map.insert(Oid::from_str(newrev).unwrap(), oldrevs.to_owned());
+            }
+        }
+
+        Some(rev_map)
     } else {
         None
     };
 
     info!("Reading existing blame map of ref {}...", cli.blame_ref);
     let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&cli.blame_ref) {
-        let (blame_map, _) = index_blame(&blame_repo, Some(oid));
+        let (blame_map, _, _) = index_blame(&blame_repo, Some(oid));
         blame_map
             .into_iter()
             .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
@@ -934,6 +1020,19 @@ fn main() {
             None => None, // we don't support mapfiles any more.
         };
 
+        let oldrev_via_hg = match (&hg_rev, &mut old_hg_helper) {
+            // Note that we're actually giving it an hg rev to get a git rev;
+            // a hash is a hash, the difference is the old helper was spawned
+            // using hg2git
+            (Some(hgrev), Some(ref mut helper)) => get_git_rev(helper, hgrev),
+            _ => None
+        };
+
+        let oldrev_via_map = match &oldrevs_from_newrev_map {
+            Some(rev_map) => rev_map.get(git_oid),
+            _ => None
+        };
+
         info!(
             "Transforming {} (hg {:?}) progress {}/{}",
             git_oid, hg_rev, rev_done, rev_count
@@ -986,11 +1085,15 @@ fn main() {
             write_role("author", &commit.author());
             write_role("committer", &commit.committer());
 
-            let commit_msg = if let Some(hg_rev) = hg_rev {
-                format!("git {}\nhg {}\n", git_oid, hg_rev)
-            } else {
-                format!("git {}\n", git_oid)
-            };
+            let mut commit_msg = format!("git {}\n", git_oid);
+            if let Some(hg_rev) = hg_rev {
+                commit_msg.push_str(&format!("hg {}\n", hg_rev));
+            }
+            if let Some(oldrevs) = oldrev_via_map {
+                commit_msg.push_str(&format!("oldrevs {}\n", oldrevs));
+            } else if let Some(oldrev) = oldrev_via_hg {
+                commit_msg.push_str(&format!("oldrevs {}\n", oldrev));
+            }
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
             if let Some(first_parent) = blame_parents.first() {

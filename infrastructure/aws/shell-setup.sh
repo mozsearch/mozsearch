@@ -26,10 +26,10 @@ echo "Branch is $BRANCH"
 echo "Channel is $CHANNEL"
 echo ""
 echo "For this shell we are NOT creating an EC2 volume, instead you get to use"
-echo "/mnt/index-scratch which is the local (fast) SSD.  This got setup in main.sh."
+echo "/index which is the local (fast) SSD.  This got setup in main.sh."
 echo
 echo "Running indexer setup, but stopping before we upload anything."
 
-$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_INPUT /mnt/index-scratch
+$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_INPUT /index
 
 echo "Setup complete, go crazy."

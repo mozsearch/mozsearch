@@ -8,8 +8,8 @@
 #
 # We have a docroot at /home/ubuntu/docroot that provides a place to decide what
 # gets exposed in the root of the origin.  It also is used for the "source"
-# mapping with symlinks helping map into /home/ubuntu/index/TREE/file (for
-# rendered source files) and /home/ubuntu/index/TREE/dir (for rendered directory
+# mapping with symlinks helping map into /index/TREE/file (for
+# rendered source files) and /index/TREE/dir (for rendered directory
 # listings), but that could just as easily be accomplished with slightly fancier
 # location directives.
 
@@ -282,12 +282,18 @@ for repo in config['trees']:
     tree_config = config['trees'][repo]
     index_path = tree_config['index_path']
     head_rev = None
-    if 'git_path' in config['trees'][repo]:
+    if 'git_path' in tree_config:
         try:
-            head_rev = subprocess.check_output(['git', '--git-dir', config['trees'][repo]['git_path'] + '/.git', 'rev-parse', 'HEAD'], text=True).strip()
+            head_rev = subprocess.check_output(['git', '--git-dir', tree_config['git_path'] + '/.git', 'rev-parse', 'HEAD'], text=True).strip()
         except subprocess.CalledProcessError:
             # If this fails just leave head_rev as None and skip the optimization
             pass
+
+    if 'oldtree_name' in tree_config:
+        oldtree_name = tree_config['oldtree_name']
+        print(f'  rewrite ^/{oldtree_name}/rev/(.*)$ /{repo}/oldrev/$1 permanent;')
+        print(f'  rewrite ^/{oldtree_name}/(.*)$ /{repo}/$1 permanent;')
+        print('')
 
     # we use alias because the we don't want the "/{repo}" portion.
     location(f'/{repo}/static/', [f'alias {mozsearch_path}/static/;'])
@@ -350,6 +356,7 @@ for repo in config['trees']:
     location(f'/{repo}/commit', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/hgrev', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/oldrev', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/complete', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/commit-info', ['proxy_pass http://localhost:8001;'])
 
@@ -387,6 +394,8 @@ if config.get("allow_webtest"):
         'add_header Cache-Control "no-cache";',
     ])
 
+# close "server"
 print('}')
 
+# close "http"
 print('}')

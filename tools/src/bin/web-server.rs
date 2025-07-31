@@ -11,6 +11,7 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::Mutex;
 
+use git2::Oid;
 use hyper::header::{ContentType, Location};
 use hyper::method::Method;
 use hyper::mime::Mime;
@@ -188,6 +189,25 @@ fn handle(
                 )),
                 Ok(_) => WebResponse::not_found(),
                 Err(err) => WebResponse::internal_error(format!("{:?}", err)),
+            }
+        }
+
+        "oldrev" => {
+            let tree_config = &cfg.trees[*tree_name];
+            let old_rev = path[2];
+            match (&tree_config.git, Oid::from_str(old_rev)) {
+                (Some(gitdata), Ok(old_oid)) => {
+                    match gitdata.old_map.get(&old_oid) {
+                        Some(new_oid) => WebResponse::redirect(format!(
+                            "/{}/rev/{}/{}",
+                            tree_name,
+                            new_oid,
+                            path[3..].join("/")
+                        )),
+                        _ => WebResponse::not_found(),
+                    }
+                }
+                _ => WebResponse::not_found(),
             }
         }
 

@@ -91,6 +91,25 @@ serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
 	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
 
+# Notes:
+# - If you want to use a modified version of mozsearch-mozilla, such as one
+#   checked out under "config" in the check-out repo, you can create a symlink
+#   in the VM's home directory via `pushd ~; ln -s /vagrant/config firefox-config`.
+# - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
+#   that have the relevant jobs scheduled on them.  In particular:
+#   `./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"`
+build-firefox-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	[ -e ~/firefox-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/firefox-config
+	mkdir -p ~/firefox-index
+	/vagrant/infrastructure/indexer-setup.sh ~/firefox-config just-fm.json ~/firefox-index
+	/vagrant/infrastructure/indexer-run.sh ~/firefox-config ~/firefox-index
+	/vagrant/infrastructure/web-server-setup.sh ~/firefox-config just-fm.json ~/firefox-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/firefox-config ~/firefox-index ~
+
+serve-firefox-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	/vagrant/infrastructure/web-server-setup.sh ~/firefox-config just-fm.json ~/firefox-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/firefox-config ~/firefox-index ~
+
 # This builds both mozsearch and mozsearch-mozilla using the trees as they exist
 # on github rather than your local copies.  This differs from the
 # "build-searchfox-repo" make target which uses your current tree, which can be
