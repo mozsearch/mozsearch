@@ -74,14 +74,15 @@ set -o pipefail
 
 echo "Index volume detected"
 
-mkdir ~ubuntu/index
-sudo mount $EBS_NVME_DEV ~ubuntu/index
+sudo mkdir /index
+sudo mount $EBS_NVME_DEV /index
+sudo chown ubuntu:ubuntu /index
 
 # Create a writable directory for nginx caching purposes on the indexer's EBS
 # store.  We choose this spot because:
 # - It has more free space than our instance's root FS (~3.2G of 7.7G avail.)
 # - It's bigger and hence also gets more EBS IO ops.
-NGINX_CACHE_DIR=/home/ubuntu/index/nginx-cache
+NGINX_CACHE_DIR=/index/nginx-cache
 mkdir $NGINX_CACHE_DIR
 
 # Redirect port 80 to port 16995, where our root-less nginx listens
@@ -89,5 +90,5 @@ mkdir $NGINX_CACHE_DIR
 sudo iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 16995
 sudo iptables -t nat -I OUTPUT -p tcp -o lo --dport 80 -j REDIRECT --to-ports 16995
 
-$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT index ~ hsts $NGINX_CACHE_DIR
-$MOZSEARCH_PATH/web-server-run.sh $CONFIG_REPO index ~
+$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT /index ~ hsts $NGINX_CACHE_DIR
+$MOZSEARCH_PATH/web-server-run.sh $CONFIG_REPO /index ~

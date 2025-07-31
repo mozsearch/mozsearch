@@ -174,10 +174,11 @@ In this case if you login, you can run the following to be able to reproduce the
 failures experienced by the indexer run:
 
 ```shell
-# mount the index to ~/index as documented in aws.md
-sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index
-# make index-scratch paths valid again
-sudo ln -s /index/interrupted /mnt/index-scratch
+# mount the index to /index-ebs as documented in aws.md
+# Use 400G for release2
+sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index-ebs
+# make /index paths valid again
+sudo ln -s /index-ebs/interrupted /index
 
 export MOZSEARCH_PATH=~/mozsearch
 export CONFIG_REPO=~/config
@@ -188,7 +189,7 @@ If we want to update the checks in the config, we can re-run with
 `INSTA_FORCE_PASS=1` like so:
 
 ```shell
-INSTA_FORCE_PASS=1 $MOZSEARCH_PATH/scripts/check-index.sh /index/interrupted/config.json mozilla-central "filesystem" ""
+INSTA_FORCE_PASS=1 $MOZSEARCH_PATH/scripts/check-index.sh /index-ebs/interrupted/config.json mozilla-central "filesystem" ""
 ```
 
 If we want to review these changes on the machine, we can do:

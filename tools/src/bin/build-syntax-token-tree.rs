@@ -717,7 +717,7 @@ fn main() {
 
     info!("Reading existing blame map of ref {}...", blame_ref);
     let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&blame_ref) {
-        let (blame_map, _) = index_blame(&blame_repo, Some(oid));
+        let (blame_map, _, _) = index_blame(&blame_repo, Some(oid));
         blame_map
             .into_iter()
             .map(|(k, v)| (k, SyntaxRepoCommit::Commit(v)))

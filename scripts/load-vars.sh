@@ -12,6 +12,7 @@ fi
 export CONFIG_FILE=$1
 export TREE_NAME=$2
 
+export SHARED_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].shared_path" ${CONFIG_FILE})
 export INDEX_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].index_path" ${CONFIG_FILE})
 export FILES_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].files_path" ${CONFIG_FILE})
 export OBJDIR=$(jq -r ".trees[\"${TREE_NAME}\"].objdir_path" ${CONFIG_FILE})
@@ -20,6 +21,7 @@ export OBJDIR=$(jq -r ".trees[\"${TREE_NAME}\"].objdir_path" ${CONFIG_FILE})
 # where we don't have revision-control data.  Accordingly, it usually makes more
 # sense to use $FILES_ROOT.
 export GIT_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_path" ${CONFIG_FILE})
+export OLDGIT_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].oldgit_path" ${CONFIG_FILE})
 export BLAME_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_blame_path" ${CONFIG_FILE})
 export HISTORY_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].history_path" ${CONFIG_FILE})
 export TREE_ON_ERROR=$(jq -r ".trees[\"${TREE_NAME}\"].on_error" ${CONFIG_FILE})

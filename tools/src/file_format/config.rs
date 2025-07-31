@@ -4,6 +4,7 @@ use std::io::BufReader;
 use std::io::Read;
 use std::str;
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use git2::{Oid, Repository};
@@ -56,10 +57,29 @@ pub struct TreeConfigPaths {
     /// Absolute path to the root of the checked out source tree which should be
     /// a sub-directory of the `index_path`.
     pub files_path: String,
+    /// Absolute path to the root of the shared directory for firefox trees like
+    /// "firefox-main" and "firefox-beta" which share downloaded resources in
+    /// "firefox-shared".  Exposed as SHARED_ROOT for scripting and to minimize
+    /// path hard-coding.
+    pub shared_path: Option<String>,
     /// Absolute path to where the `.git` sub-directory can be located; this
     /// should certainly be the same as `files_path`, and this will be a thing
     /// even if the canonical revision control system is mercurial.
     pub git_path: Option<String>,
+    /// The git branch this tree is associated with, defaults to "HEAD" if not
+    /// specified.  For trees like "firefox-main" that rely on a shared bare
+    /// checkout for blame, an actual branch must be specified.
+    pub git_branch: Option<String>,
+    /// If this tree is replacing a previous tree, the name of that previous
+    /// tree so that we can set up the redirects automatically in the web server
+    /// config.  For example, for the "firefox-main" tree, the value would be
+    /// "mozilla-central" which it replaces.
+    pub oldtree_name: Option<String>,
+    /// Absolute path to the "old" git checkout; currently this exists to
+    /// support the mozilla hg conversion and this should be the old "gecko"
+    /// git-cinnabar repo using the original gecko-dev hashes and where the
+    /// mapping is via the shared hg revision associated with the revisions.
+    pub oldgit_path: Option<String>,
     /// Absolute path to where the blame repo is which should be a sub-directory
     /// of the `index_path`.
     pub git_blame_path: Option<String>,
@@ -84,6 +104,11 @@ pub struct TreeConfigPaths {
     /// If this is actually a git repo hosted on github, its URL.  If the repo
     /// isn't github, we'll need to learn other URL mapping support.
     pub github_repo: Option<String>,
+    /// For the oldgit repo, it it's a git repo hosted on github, its URL.  Note
+    /// that for firefox-* because gecko-dev has stopped updating, some of the
+    /// revisions will simply not exist there but we will know what they would
+    /// be if they exist.
+    pub oldgithub_repo: Option<String>,
     /// Absolute path to where we store the livegrep index.
     pub codesearch_path: String,
     /// Manually allocated port number to host the livegrep server on, starting
@@ -116,7 +141,10 @@ pub struct GitData {
     pub blame_repo: Option<Repository>,
 
     pub blame_map: HashMap<Oid, Oid>, // Maps repo OID to blame_repo OID.
-    pub hg_map: HashMap<Oid, String>, // Maps repo OID to Hg rev.
+    // Maps repo OID to Hg rev.  This comes from our blame commits, but cinnabar
+    // can also tell us this bidirectionally via `git2hg` and `hg2git`.
+    pub hg_map: HashMap<Oid, String>,
+    pub old_map: HashMap<Oid, Oid>, // Maps oldgit OID to repo OID.
 
     pub mailmap: Mailmap,
     /// Revs that we want to skip over during blame computation
@@ -224,19 +252,37 @@ impl Config {
     }
 }
 
+/// Ingest the provided blame_repo's provided ref (or HEAD if None), and
+/// returning 3 maps:
+/// 1. Map from source git rev to blame repo git rev
+/// 2. Map from source git rev to hg repo git rev
+/// 3. Map from old git rev to source git rev
+///
+/// If changing what we encode in the blame commit, you also need to change
+/// the `extract_info_from_blame_commit` helper below.
 pub fn index_blame(
     blame_repo: &Repository,
     head_ref: Option<Oid>,
-) -> (HashMap<Oid, Oid>, HashMap<Oid, String>) {
+) -> (HashMap<Oid, Oid>, HashMap<Oid, String>, HashMap<Oid, Oid>) {
     let mut walk = blame_repo.revwalk().unwrap();
+
+    let mut blame_map = HashMap::new();
+    let mut hg_map = HashMap::new();
+    let mut oldrev_map = HashMap::new();
+
     if let Some(oid) = head_ref {
-        walk.push(oid).unwrap();
+        // XXX This is speculative based on an attempt to generate the initial
+        // firefox-main blame in an empty blame repo using the default branch
+        // name ("main") when there were no commits yet.  I lost the log, but
+        // I believe we had ended up inside this method, but letting us just
+        // use HEAD had worked out okay, so I'm presuming this was the case.
+        if let Err(_) = walk.push(oid) {
+            return (blame_map, hg_map, oldrev_map);
+        }
     } else {
         walk.push_head().unwrap();
     }
 
-    let mut blame_map = HashMap::new();
-    let mut hg_map = HashMap::new();
     for r in walk {
         let oid = r.unwrap();
         let commit = blame_repo.find_commit(oid).unwrap();
@@ -244,16 +290,71 @@ pub fn index_blame(
         let msg = commit.message().unwrap();
         let pieces = msg.split_whitespace().collect::<Vec<_>>();
 
+        // "git <OID>" is always a given
         let orig_oid = Oid::from_str(pieces[1]).unwrap();
         blame_map.insert(orig_oid, commit.id());
 
-        if pieces.len() > 2 {
-            let hg_id = pieces[3].to_owned();
-            hg_map.insert(orig_oid, hg_id);
+        // "hg <REV>" may or may not be present.
+        // "oldrevs <OID,OID,OID,...>" may or may not be present; this should
+        // only be present if "hg" was already present but we can handle it not
+        // being there.
+        for (key, val) in pieces.iter().skip(2).tuples() {
+            match *key {
+                "hg" => {
+                    let hg_id = val.to_string();
+                    hg_map.insert(orig_oid, hg_id);
+                }
+                "oldrevs" => {
+                    for oldrev in val.split(',') {
+                        let oldrev_oid = Oid::from_str(oldrev).unwrap();
+                        oldrev_map.insert(oldrev_oid, orig_oid);
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
-    (blame_map, hg_map)
+    (blame_map, hg_map, oldrev_map)
+}
+
+pub struct BlameCommitInfo {
+    pub sourcerev: Oid,
+    // we're horribly inconsistent about whether this is a string or an oid
+    pub hgrev: Option<String>,
+    pub oldrevs: Option<String>,
+}
+
+pub fn extract_info_from_blame_commit(commit: &git2::Commit) -> BlameCommitInfo {
+    let msg = commit.message().unwrap();
+    let pieces = msg.split_whitespace().collect::<Vec<_>>();
+
+    // "git <OID>" is always a given
+    let orig_oid = Oid::from_str(pieces[1]).unwrap();
+    let mut hgrev = None;
+    let mut oldrevs = None;
+
+    // "hg <REV>" may or may not be present.
+    // "oldrevs <OID,OID,OID,...>" may or may not be present; this should
+    // only be present if "hg" was already present but we can handle it not
+    // being there.
+    for (key, val) in pieces.iter().skip(2).tuples() {
+        match *key {
+            "hg" => {
+                hgrev = Some(val.to_string());
+            }
+            "oldrevs" => {
+                oldrevs = Some(val.to_string());
+            }
+            _ => {}
+        }
+    }
+
+    BlameCommitInfo {
+        sourcerev: orig_oid,
+        hgrev,
+        oldrevs,
+    }
 }
 
 pub fn load(
@@ -284,10 +385,17 @@ pub fn load(
                 let blame_ignore = BlameIgnoreList::load(&repo);
 
                 let blame_repo = Repository::open(git_blame_path).unwrap();
-                let (blame_map, hg_map) = if need_indexes {
-                    index_blame(&blame_repo, None)
+                // The call to index_blame below explicitly knows to just use the head
+                // if we pass None, which is why we aren't doing anything to default
+                // git_branch to the literal string "HEAD".
+                let blame_ref = match &paths.git_branch {
+                    Some(branch_name) => Some(blame_repo.refname_to_id(&format!("refs/heads/{}", branch_name)).unwrap()),
+                    None => None,
+                };
+                let (blame_map, hg_map, old_map) = if need_indexes {
+                    index_blame(&blame_repo, blame_ref)
                 } else {
-                    (HashMap::new(), HashMap::new())
+                    (HashMap::new(), HashMap::new(), HashMap::new())
                 };
 
                 Some(GitData {
@@ -295,6 +403,7 @@ pub fn load(
                     blame_repo: Some(blame_repo),
                     blame_map,
                     hg_map,
+                    old_map,
                     mailmap,
                     blame_ignore,
                 })
@@ -309,6 +418,7 @@ pub fn load(
                     blame_repo: None,
                     blame_map: HashMap::new(),
                     hg_map: HashMap::new(),
+                    old_map: HashMap::new(),
                     mailmap,
                     blame_ignore,
                 })

@@ -19,7 +19,7 @@ use crate::links;
 use crate::tokenize;
 
 use crate::file_format::analysis::{AnalysisSource, ExpansionInfo, WithLocation};
-use crate::file_format::config::{Config, GitData, TreeConfig};
+use crate::file_format::config::{extract_info_from_blame_commit, Config, GitData, TreeConfig};
 use crate::output::{self, Options, PanelItem, PanelSection, F};
 use crate::url_encode_path::url_encode_path;
 
@@ -1410,6 +1410,7 @@ fn generate_commit_info(
     tree_config: &TreeConfig,
     writer: &mut dyn Write,
     commit: &git2::Commit,
+    blame_commit: Option<&git2::Commit>,
 ) -> Result<(), &'static str> {
     let (header, remainder) = blame::commit_header(commit)?;
 
@@ -1435,6 +1436,18 @@ fn generate_commit_info(
         .collect::<Vec<_>>();
 
     let git = tree_config.get_git()?;
+    let oldgit = if let Some(blame_commit) = blame_commit {
+        let blame_info = extract_info_from_blame_commit(blame_commit);
+        if let Some(oldrevs) = blame_info.oldrevs {
+            vec![F::T(format!("<tr><td>old {} git revs:</td><td>{}</td></tr>",
+                              tree_config.paths.oldtree_name.clone().unwrap_or_default(), oldrevs))]
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
     let hg = match git.hg_map.get(&commit.id()) {
         Some(hg_id) => {
             let hg_link = format!(
@@ -1463,30 +1476,35 @@ fn generate_commit_info(
     let t = t.to_rfc2822();
 
     let f = F::Seq(vec![
-        F::T(format!("<h3>{}</h3>", header)),
-        F::T(format!("<pre><code>{}</code></pre>", remainder)),
-        F::S("<table>"),
+        F::S("<div class=\"commit-content\">"),
         F::Indent(vec![
-            F::T(format!(
-                "<tr><td>commit</td><td>{}</td></tr>",
-                format_rev(tree_name, commit.id())
-            )),
-            F::Seq(parents),
-            F::Seq(hg),
-            F::T(gitstr.map_or(String::new(), |g| {
-                format!("<tr><td>git</td><td>{}</td></tr>", g)
-            })),
-            F::T(format!(
-                "<tr><td>author</td><td>{}</td></tr>",
-                format_sig(commit.author(), git)
-            )),
-            F::T(format!(
-                "<tr><td>committer</td><td>{}</td></tr>",
-                format_sig(commit.committer(), git)
-            )),
-            F::T(format!("<tr><td>commit time</td><td>{}</td></tr>", t)),
+            F::T(format!("<h3>{}</h3>", header)),
+            F::T(format!("<pre><code>{}</code></pre>", remainder)),
+            F::S("<table>"),
+            F::Indent(vec![
+                F::T(format!(
+                    "<tr><td>commit</td><td>{}</td></tr>",
+                    format_rev(tree_name, commit.id())
+                )),
+                F::Seq(parents),
+                F::Seq(hg),
+                F::T(gitstr.map_or(String::new(), |g| {
+                    format!("<tr><td>git</td><td>{}</td></tr>", g)
+                })),
+                F::Seq(oldgit),
+                F::T(format!(
+                    "<tr><td>author</td><td>{}</td></tr>",
+                    format_sig(commit.author(), git)
+                )),
+                F::T(format!(
+                    "<tr><td>committer</td><td>{}</td></tr>",
+                    format_sig(commit.committer(), git)
+                )),
+                F::T(format!("<tr><td>commit time</td><td>{}</td></tr>", t)),
+            ]),
+            F::S("</table>"),
         ]),
-        F::S("</table>"),
+        F::S("</div>"),
     ]);
 
     output::generate_formatted(writer, &f, 0)?;
@@ -1549,6 +1567,15 @@ pub fn format_commit(
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
 
+    let blame_commit = match (&git.blame_repo, git.blame_map.get(&commit.id())) {
+        (Some(blame_repo), Some(blame_oid)) => {
+            blame_repo.find_commit(*blame_oid).ok()
+        }
+        _ => {
+            None
+        }
+    };
+
     let title = format!("{} - mozsearch", rev);
     let opt = Options {
         title: &title,
@@ -1564,7 +1591,7 @@ pub fn format_commit(
 
     output::generate_panel(&opt, writer, &[], true)?;
 
-    generate_commit_info(tree_name, tree_config, writer, commit)?;
+    generate_commit_info(tree_name, tree_config, writer, commit, blame_commit.as_ref())?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 

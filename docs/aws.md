@@ -590,25 +590,26 @@ sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index
 ```
 to re-mount the data volume. This will allow you to inspect the state
 on the data volume as well as run additional commands for debugging
-purposes, or to test a fix.
+purposes, or to test a fix.  Note that for release2 "400G" should be used
+instead of "300G".
 
 Because the AWS indexing jobs now use a scratch-disk and that's relevant
 for the indexing process, when the indexer aborts, it moves the contents
-of `/mnt/index-scratch` under an `interrupted` directory on the above
+of `/index` under an `interrupted` directory on the above
 mount point.  So the in-progress indexing data can be found at
-`/index/interrupted` after the above mount.  In order to make paths sane
+`/index-ebs/interrupted` after the above mount.  In order to make paths sane
 again, you can run the command:
 ```
-sudo ln -s /index/interrupted /mnt/index-scratch
+sudo ln -s /index-ebs/interrupted /index
 ```
 to provide the same effective path mapping.  Note that you wouldn't want
-to restart indexing under this regime as `/mnt/index-scratch` would
+to restart indexing under this regime as `/index-ebs` would
 be backed by IO-bound S3. If you *do* want to do I/O intensive work
 in this state, you can move the interrupted state back to a local
 disk by running:
 ```
 $HOME/mozsearch/infrastructure/aws/mkscratch.sh
-mv /index/interrupted/* /mnt/index-scratch/ # may take a long time
+mv /index-ebs/interrupted/* /index/ # may take a long time
 ```
 
 The shell scripts that run during indexing

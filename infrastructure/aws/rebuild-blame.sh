@@ -18,7 +18,7 @@ CHANNEL=$2
 CONFIG_REPO_PATH=$(readlink -f $3)
 CONFIG_INPUT="$4"
 
-$MOZSEARCH_PATH/infrastructure/reblame-run.sh $CONFIG_REPO_PATH $CONFIG_INPUT /mnt/index-scratch "--upload"
+$MOZSEARCH_PATH/infrastructure/reblame-run.sh $CONFIG_REPO_PATH $CONFIG_INPUT /index "--upload"
 
 date
 echo "Rebuilding blame complete"

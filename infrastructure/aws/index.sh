@@ -58,36 +58,37 @@ set -o pipefail
 
 echo "Index volume detected"
 
-# Create the "index" directory where the byproducts of indexing will permanently
-# live.
+# Create the "index-ebs" directory where the byproducts of indexing will
+# permanently live.
 sudo mkfs -t ext4 $EBS_NVME_DEV
-sudo mkdir /index
-sudo mount $EBS_NVME_DEV /index
-sudo chown ubuntu.ubuntu /index
+sudo mkdir /index-ebs
+sudo mount $EBS_NVME_DEV /index-ebs
+sudo chown ubuntu.ubuntu /index-ebs
 
 # Do indexer setup locally on disk.
-$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_FILE_NAME /mnt/index-scratch
+$MOZSEARCH_PATH/infrastructure/indexer-setup.sh $CONFIG_REPO_PATH $CONFIG_FILE_NAME /index
 case "$CHANNEL" in
 release* )
     # Only upload files on release channels.
-    $MOZSEARCH_PATH/infrastructure/indexer-upload.sh $CONFIG_REPO_PATH /mnt/index-scratch
+    $MOZSEARCH_PATH/infrastructure/indexer-upload.sh $CONFIG_REPO_PATH /index
     ;;
 * )
     ;;
 esac
 # Now actually run the indexing, telling the scripts to move the data to the
-# permanent index directory.
-$MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /mnt/index-scratch /index
+# EBS as we complete.  However, on the web-server we will be mounting /index-ebs
+# at /index to provide consistency of absolute paths because we use git-worktree.
+$MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index /index-ebs
 
 date
 echo "Indexing complete"
 
 # Copy indexing log to index mount so it's easy to get to from the
 # web server instance
-cp ~ubuntu/index-log /index/index-log
+cp ~ubuntu/index-log /index-ebs/index-log
 
-# Because it's possible for shells to be in the "/index" dir and for this to
-# cause problems unmounting /index (:asuth has done this a lot...), terminate
+# Because it's possible for shells to be in the "/index-ebs" dir and for this to
+# cause problems unmounting /index-ebs (:asuth has done this a lot...), terminate
 # all extant ssh sessions for our normal user as a one-off.  This does not
 # preclude logging back in.
 #
@@ -97,9 +98,12 @@ cp ~ubuntu/index-log /index/index-log
 pkill -u ubuntu sshd || true
 # And then sleep a little just in case there's some cleanup time required.
 sleep 1
-sudo umount /index
+sudo umount /index-ebs
 
 $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
+# Path notes:
+# - "/index" is passed below to be the 2nd arg to web-server-check.sh which
+#   is used exclusively for its config.json file which stuck around.
 $AWS_ROOT/trigger-web-server.py \
     $CHANNEL \
     $MOZSEARCH_REPO_URL \
@@ -110,7 +114,7 @@ $AWS_ROOT/trigger-web-server.py \
     $VOLUME_ID \
     "$MOZSEARCH_PATH/infrastructure/web-server-check.sh" \
     $CONFIG_REPO_PATH \
-    "/mnt/index-scratch"
+    "/index"
 
 case "$CHANNEL" in
 release* )
