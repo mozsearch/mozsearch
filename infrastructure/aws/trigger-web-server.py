@@ -58,8 +58,10 @@ availability_zone = volumes['Volumes'][0]['AvailabilityZone']
 
 print('Starting web server instance...')
 
-images = ec2.describe_images(Filters=[{'Name': 'tag-key', 'Values': ['web-server']}])
-# TODO: sort/pick the highest datestamp-y "web-server" tag Value.
+images = ec2.describe_images(
+    Owners=['self'],
+    Filters=[{'Name': 'tag-key', 'Values': ['web-server']}]
+)
 image_id = images['Images'][0]['ImageId']
 
 # Config files shouldn't be able to do whatever they want.  Instance types must
