@@ -1,5 +1,6 @@
 ---
 source: src/bin/test-index.rs
+assertion_line: 127
 expression: "&json_results"
 ---
 [
@@ -18,21 +19,21 @@ expression: "&json_results"
     "sym": "WEBIDL_TestInterfaceForAsyncIterable"
   },
   {
-    "loc": "2:8-16",
+    "loc": "2:2-16",
     "source": 1,
     "syntax": "idl",
     "pretty": "IDL method TestInterfaceForAsyncIterable::asynciterable",
     "sym": "WEBIDL_TestInterfaceForAsyncIterable_asynciterable"
   },
   {
-    "loc": "2:8-16",
+    "loc": "2:2-16",
     "target": 1,
     "kind": "idl",
     "pretty": "TestInterfaceForAsyncIterable::asynciterable",
     "sym": "WEBIDL_TestInterfaceForAsyncIterable_asynciterable"
   },
   {
-    "loc": "2:8-16",
+    "loc": "2:2-16",
     "structured": 1,
     "pretty": "TestInterfaceForAsyncIterable::asynciterable",
     "sym": "WEBIDL_TestInterfaceForAsyncIterable_asynciterable",
