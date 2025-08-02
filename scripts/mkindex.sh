@@ -33,6 +33,10 @@ export PYTHONPATH="$MOZSEARCH_PATH/scripts${PYTHONPATH:+:${PYTHONPATH}}"
 LIVEGREP_VENV="$HOME/livegrep-venv"
 PATH="$LIVEGREP_VENV/bin:$PATH"
 
+# TODO: remove after next provisioning
+export MOZSEARCH_WASM_DIR=${MOZSEARCH_WASM_DIR:-"$MOZSEARCH_PATH/scripts/web-analyze/wasm-css-analyzer/out"}
+export MOZSEARCH_CLANG_PLUGIN_DIR=${MOZSEARCH_CLANG_PLUGIN_DIR:-"$MOZSEARCH_PATH/clang-plugin"}
+
 # This was previously "full" but "1" is much more readable.  Obviously change
 # this back if we end up missing things.
 #
