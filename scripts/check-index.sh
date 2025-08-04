@@ -37,23 +37,20 @@ CHECK_SERVER_URL=$4
 # export CARGO_TEST_LOG=tools=trace
 # ```
 
-if [[ -d $CONFIG_REPO/$TREE_NAME/checks ]]
+export INSTA_WORKSPACE_ROOT="$CONFIG_REPO/$TREE_NAME/checks"
+if [[ -d "$INSTA_WORKSPACE_ROOT" ]]
 then
-  # change into the test dir in order to ensure there's no confusion about
-  # whether our config.toml should be used.
-  pushd ${MOZSEARCH_PATH}/tools
   if [[ $CHECK_DISK ]]; then
     RUST_LOG=${CARGO_TEST_LOG:-} RUST_BACKTRACE=1 \
       SEARCHFOX_SERVER=${CONFIG_FILE} \
       SEARCHFOX_TREE=${TREE_NAME} \
-      cargo run --release --bin test-index -- "${CONFIG_REPO}/${TREE_NAME}/checks"
+      test-index "$INSTA_WORKSPACE_ROOT"
   fi
   if [[ $CHECK_SERVER_URL ]]; then
     RUST_LOG=${CARGO_TEST_LOG:-} RUST_BACKTRACE=1 \
       SEARCHFOX_SERVER="$CHECK_SERVER_URL" \
       SEARCHFOX_TREE=${TREE_NAME} \
-      cargo run --release --bin test-index -- "${CONFIG_REPO}/${TREE_NAME}/checks"
+      test-index "$INSTA_WORKSPACE_ROOT"
   fi
-  popd
   #$CONFIG_REPO/$TREE_NAME/check "$MOZSEARCH_PATH/scripts/check-helper.sh" "$CHECK_DISK" "$CHECK_SERVER_URL"
 fi
