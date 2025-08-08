@@ -478,7 +478,7 @@ body {
   /* even with our "stuck" and "last-stuck" classes, it's important to have an
    opaque background color for these because those classes don't take effect
    immediately. */
-  background-color: var(--page-background-color);
+  background-color: var(--page-background);
   top: calc(var(--nesting-level) * var(--base-font-size) * var(--source-line-height));
   z-index: calc(100 - var(--nesting-level));
 }
