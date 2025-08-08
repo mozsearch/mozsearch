@@ -88,7 +88,8 @@ enum class FileType {
 // Takes an absolute path to a file, and returns the type of file it is. If
 // it's a Source or Generated file, the provided inout path argument is modified
 // in-place so that it is relative to the source dir or objdir, respectively.
-FileType relativizePath(std::string &path) {
+// Otherwise we strip the first include path that matches, if any.
+FileType relativizePath(std::string &path, const HeaderSearchOptions &HeaderSearchOpts) {
   if (path.compare(0, Objdir.length(), Objdir) == 0) {
     path.replace(0, Objdir.length(), GENERATED);
     return FileType::Generated;
@@ -102,6 +103,14 @@ FileType relativizePath(std::string &path) {
     path.erase(0, Srcdir.length() + 1);
     return FileType::Source;
   }
+
+  for (const auto &Entry : HeaderSearchOpts.UserEntries) {
+    if (path.compare(0, Entry.Path.length(), Entry.Path) == 0) {
+      path.erase(0, Entry.Path.size() + 1);
+      break;
+    }
+  }
+
   return FileType::Unknown;
 }
 
@@ -194,8 +203,8 @@ bool isPure(FunctionDecl *D) {
 // it's in the source dir or the objdir). We also store the analysis output
 // here.
 struct FileInfo {
-  FileInfo(std::string &Rname) : Realname(Rname) {
-    switch (relativizePath(Realname)) {
+  FileInfo(std::string &Rname, const HeaderSearchOptions &HeaderSearchOptions) : Realname(Rname) {
+    switch (relativizePath(Realname, HeaderSearchOptions)) {
     case FileType::Generated:
       Interesting = true;
       Generated = true;
@@ -341,7 +350,7 @@ private:
           Absolute = Filename;
         }
       }
-      std::unique_ptr<FileInfo> Info = make_unique<FileInfo>(Absolute);
+      std::unique_ptr<FileInfo> Info = make_unique<FileInfo>(Absolute, CI.getHeaderSearchOpts());
       It = FileMap.insert(std::make_pair(Id, std::move(Info))).first;
     }
     return It->second.get();
@@ -2783,7 +2792,7 @@ public:
 
   void inclusionDirective(SourceRange FileNameRange, const FileEntry *File) {
     std::string includedFile(File->tryGetRealPathName());
-    FileType type = relativizePath(includedFile);
+    FileType type = relativizePath(includedFile, CI.getHeaderSearchOpts());
     if (type == FileType::Unknown) {
       return;
     }
