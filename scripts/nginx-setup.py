@@ -289,6 +289,12 @@ for repo in config['trees']:
             # If this fails just leave head_rev as None and skip the optimization
             pass
 
+    alias = tree_config['alias']
+    if alias:
+        location(f'~ /{alias}(.*)$', [
+            f'return 301 $scheme://$http_host/{repo}$1;'
+        ])
+
     # we use alias because the we don't want the "/{repo}" portion.
     location(f'/{repo}/static/', [f'alias {mozsearch_path}/static/;'])
 
