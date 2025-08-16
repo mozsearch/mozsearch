@@ -20,6 +20,7 @@ use hyper::status::StatusCode;
 use hyper::uri;
 
 use tools::blame;
+use tools::diagnostics::diagnostics_from_config;
 use tools::file_format::config;
 use tools::file_format::identifiers::IdentMap;
 use tools::format;
@@ -150,6 +151,13 @@ fn handle(
     println!("DBG {:?} {} {}", path, tree_name, kind);
 
     match &kind[..] {
+        "diagnostics" => {
+            match serde_json::to_string(&diagnostics_from_config(cfg, tree_name)) {
+                Ok(s) => WebResponse::json(s),
+                Err(err) => WebResponse::internal_error(err.to_string())
+            }
+        }
+
         "rev" => {
             if path.len() < 3 {
                 return WebResponse::not_found();
