@@ -439,13 +439,13 @@ pub fn load(
 }
 
 #[derive(Hash, Eq, PartialEq, Debug)]
-struct MailmapKey(Option<String>, Option<String>);
+pub struct MailmapKey(Option<String>, Option<String>);
 
 /// Mapping from names and emails to replace to the real names and emails for
 /// these authors.
 pub struct Mailmap {
     /// Map from old name and email to real name and email
-    entries: HashMap<MailmapKey, MailmapKey>,
+    pub entries: HashMap<MailmapKey, MailmapKey>,
 }
 
 impl Mailmap {
@@ -562,7 +562,7 @@ impl Mailmap {
 
 #[derive(Default)]
 pub struct BlameIgnoreList {
-    entries: HashSet<String>,
+    pub entries: HashSet<String>,
 }
 
 impl BlameIgnoreList {

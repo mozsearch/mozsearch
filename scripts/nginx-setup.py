@@ -352,6 +352,7 @@ for repo in config['trees']:
     location(f'/{repo}/define', ['proxy_pass http://localhost:8000;'])
 
     # Handled by Rust `web-server.rs`.
+    location(f'/{repo}/diagnostics', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/diff', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/commit', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://localhost:8001;'])
