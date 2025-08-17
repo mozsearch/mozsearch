@@ -32,7 +32,7 @@ if [ -f "${FILES_ROOT}/xpcom/idl-parser/xpidl/xpidl.py" -a \
   pushd "${TREE_PYMODULES}"
   cp "${FILES_ROOT}/xpcom/idl-parser/xpidl/xpidl.py" ./
   cp "${FILES_ROOT}/dom/bindings/parser/WebIDL.py" ./
-  mkdir ply
+  mkdir -p ply
   pushd ply
   for PLYFILE in __init__.py lex.py yacc.py; do
     cp "${FILES_ROOT}/other-licenses/ply/ply/${PLYFILE}" ./ || cp "${FILES_ROOT}/third_party/python/ply/ply/${PLYFILE}" ./
