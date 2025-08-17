@@ -68,6 +68,7 @@ nohup pipeline-server $CONFIG_FILE > $SERVER_ROOT/pipeline-server.log 2> $SERVER
 
 # If WAIT was passed, wait until the servers report they loaded.
 if [[ ${4:-} = "WAIT" ]]; then
+  echo "Waiting for router.py and web-server to report they have started in ${STATUS_FILE}"
   until [[ $(grep -c loaded ${STATUS_FILE}) -eq 2 ]]; do
     sleep 0.1s
   done
