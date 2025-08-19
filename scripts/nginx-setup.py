@@ -252,6 +252,7 @@ map $status $expires {
 
 server {
   listen 16995 default_server;
+  absolute_redirect off;
 
   access_log /tmp/searchfox.log custom_cache_log ;
 
