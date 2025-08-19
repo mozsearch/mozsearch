@@ -34,3 +34,8 @@ aws lambda update-function-code \
   --function-name start-release5-indexer \
   --zip-file fileb://lambda-release5.zip
 rm lambda-release5.zip
+
+aws lambda update-function-code \
+  --function-name start-release6-indexer \
+  --zip-file fileb://lambda-release6.zip
+rm lambda-release6.zip
