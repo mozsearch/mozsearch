@@ -48,3 +48,11 @@ $AWSDIR/build-lambda-indexer-start.sh \
   config5.json \
   master \
   release5
+
+# create lambda-release6.zip
+$AWSDIR/build-lambda-indexer-start.sh \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
+  config6.json \
+  master \
+  release6

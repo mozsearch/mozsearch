@@ -267,7 +267,7 @@ you can:
 - Inside the vagrant VM:
   - `cd /vagrant`
   - `./infrastructure/aws/build-lambda-zips-from-inside-vm.sh`
-    - This will produce 5 zips files in `/vagrant` matching `lambda-release*.zip`
+    - This will produce 6 zips files in `/vagrant` matching `lambda-release*.zip`
 - Outside the vagrant VM where you have active credentials so that `ssh.py`
   works.  This will upload the zips and delete them after each successful upload
   so there should be no zip files left over.
@@ -307,7 +307,7 @@ you need.
 If you're setting up a new Lambda task for a new channel:
 - Select "Create Function" from the AWS Lambda console.
   - Give it a name similar to the others (`start-<channel>-indexer`),
-  - Select Python 3.9 for the Runtime
+  - Select Python 3.12 for the Runtime
   - Expand "Change default execution role" and the "Use an existing role" radio
     button, then select the existing `lambda_indexer_start_role` for the
     execution role. This gives the task permissions to create indexer instances.
