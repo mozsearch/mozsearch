@@ -9,6 +9,7 @@ Disallow: /
 # Also we don't allow crawls on mozilla-beta and other release repos
 # because it's better if people get directed to mozilla-central instead.
 Allow: /mozilla-central/source/
+Allow: /firefox-main/source/
 Allow: /comm-central/source/
 Allow: /mozilla-mobile/source/
 # There's a copy of mozilla-central inside comm-central, let's skip that
