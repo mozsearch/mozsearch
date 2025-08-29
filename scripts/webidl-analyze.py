@@ -871,6 +871,14 @@ def parse_files(index_root, files_root, analysis_root, cache_dir, bindings_local
         else:
             fname = os.path.join(files_root, local_path)
 
+        if not os.path.exists(fname):
+            # New filename from 144 (See bug 1919582).
+            if 'CSSStyleProperties.webidl' in fname:
+                continue
+            # Old filename.
+            if 'CSS2Properties.webidl' in fname:
+                continue
+
         lines = preprocess(open(fname).readlines())
         text = ''.join(lines)
         cpp_analysis_map[local_path] = read_cpp_analysis(analysis_root, local_path, bindings_local_path)
