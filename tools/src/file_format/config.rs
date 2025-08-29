@@ -184,6 +184,15 @@ impl TreeConfig {
                 return true;
             }
         }
+        // New filename from 144 (See bug 1919582).
+        // TODO: Move them to config files in future.
+        if path.contains("CSSStyleProperties.webidl") {
+            return true;
+        }
+        // Old filename.
+        if path.contains("CSS2Properties.webidl") {
+            return true;
+        }
         false
     }
 }
