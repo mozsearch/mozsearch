@@ -313,9 +313,21 @@ def to_loc(location, name):
     return to_loc_with(location._lineno, location._colno, len(name))
 
 
+def get_location_filename(location):
+    '''Absorb the difference of the Location class across versions.
+    See bug 1884321.'''
+
+    filename = location.filename
+    if type(filename) == str:
+        # 125+ has plain string field.
+        return filename
+
+    return location.filename()
+
+
 def get_records(target):
     '''Get the record list for given IDLObject's file.'''
-    local_path = target.location.filename
+    local_path = get_location_filename(target.location)
     if local_path in analysis_map:
         return analysis_map[local_path]
 
@@ -620,7 +632,7 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
     js_sym = f'#{name}'
 
     if not is_mixin:
-        local_path = target.location.filename
+        local_path = get_location_filename(target.location)
         cpp_analysis = cpp_analysis_map.get(local_path, None)
         if cpp_analysis is None:
             print('warning: WebIDL: No C++ analysis data found for', local_path, file=sys.stderr)
@@ -631,7 +643,7 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
         cpp_symbols = {}
         for iface in mixin_consumers_map.get(name, []):
             iface_name = iface.identifier.name
-            local_path = iface.location.filename
+            local_path = get_location_filename(iface.location)
             cpp_analysis = cpp_analysis_map.get(local_path, None)
             if cpp_analysis is None:
                 print('warning: WebIDL: No C++ analysis data found for', local_path, file=sys.stderr)
