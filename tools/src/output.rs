@@ -285,6 +285,7 @@ pub fn generate_footer(
         ]);
     }
 
+    // NOTE: Keep this in sync with tools/templates/scroll_footer.liquid
     let scripts = [
         "settings.js",
         "search.js",
