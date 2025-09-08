@@ -292,6 +292,19 @@ const FILENAME_INTERVENTIONS = [
     severity: "INFO",
     prepend: "It may contain experimental syntax: ",
   },
+  {
+    // CSS modules aren't yet supported.
+    //
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1720570
+    includes_list: [
+      "testing/web-platform/tests/html/semantics/scripting-1/the-script-element/css-module/resources/integrity-matches.js",
+      "testing/web-platform/tests/html/semantics/scripting-1/the-script-element/css-module/resources/integrity-mismatches.js",
+      "testing/web-platform/tests/html/semantics/scripting-1/the-script-element/css-module-assertions/resources/integrity-matches.js",
+      "testing/web-platform/tests/html/semantics/scripting-1/the-script-element/css-module-assertions/resources/integrity-mismatches.js",
+    ],
+    severity: "INFO",
+    prepend: "CSS module: ",
+  },
 ];
 
 function logError(msg)
