@@ -7,7 +7,7 @@
 
 plugins {
     // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
-    id("org.jetbrains.kotlin.jvm") version "2.2.0"
+    id("org.jetbrains.kotlin.jvm") version "2.2.20"
 
     // Apply the java-library plugin for API and implementation separation.
     `java-library`
@@ -40,7 +40,7 @@ dependencies {
     //
     compileOnly("com.sourcegraph:semanticdb-javac:0.10.3")
     testCompileOnly("com.sourcegraph:semanticdb-javac:0.10.3")
-    kotlinCompilerPluginClasspath("com.github.mozsearch:semanticdb-kotlinc:0.6.0")
+    kotlinCompilerPluginClasspath("com.github.mozsearch:semanticdb-kotlinc:0.7.0")
 }
 
 var sourceroot = rootProject.projectDir.getCanonicalPath()

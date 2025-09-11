@@ -1,1 +1,1 @@
-filter-analysis src/main/kotlin/sample/InlineObject.kt -r structured -s "S_jvm_sample/<anonymous_object_at_137>#someFunction()."
+filter-analysis src/main/kotlin/sample/InlineObject.kt -r structured -s "S_jvm_src/main/kotlin/sample/InlineObject.kt/#2"
