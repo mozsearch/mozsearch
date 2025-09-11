@@ -471,6 +471,7 @@ fn symbol_name(lang_name: &str, subtree_name: Option<&str>, scip_symbol: &str) -
 
 fn analyse_symbol(
     symbol: &scip::types::Symbol,
+    enclosing: Option<Ustr>,
     lang: &ScipLang,
     lang_name: &str,
     subtree_name: Option<&str>,
@@ -660,15 +661,17 @@ fn analyse_symbol(
     let norm_sym = symbol_name(lang_name, subtree_name, &sym_pieces.join(""));
 
     // Infer a parent sym if it seems to be a slice
-    let parent_sym = if prev_kind == Some("class") && sym_pieces.len() >= 2 {
-        Some(symbol_name(
-            lang_name,
-            subtree_name,
-            &sym_pieces[..sym_pieces.len() - 1].join(""),
-        ))
-    } else {
-        None
-    };
+    let parent_sym = enclosing.or_else(|| {
+        if prev_kind == Some("class") && sym_pieces.len() >= 2 {
+            Some(symbol_name(
+                lang_name,
+                subtree_name,
+                &sym_pieces[..sym_pieces.len() - 1].join(""),
+            ))
+        } else {
+            None
+        }
+    });
 
     SymbolAnalysis {
         kind: last_kind,
@@ -856,8 +859,32 @@ fn analyze_using_scip(
                     doc_name.as_deref()
                 };
 
+                let enclosing_symbol = if !scip_sym_info.enclosing_symbol.is_empty() {
+                    if let Ok(enclosing_symbol) =
+                        scip::symbol::parse_symbol(&scip_sym_info.enclosing_symbol)
+                    {
+                        let enclosing_symbol_info = analyse_symbol(
+                            &enclosing_symbol,
+                            None,
+                            &lang,
+                            lang_name,
+                            subtree_name,
+                            &doc.relative_path,
+                            None,
+                            None,
+                        );
+                        Some(enclosing_symbol_info.norm_sym)
+                    } else {
+                        info!("bad enclosing symbol: {}", scip_sym_info.enclosing_symbol);
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 let mut symbol_info = analyse_symbol(
                     &scip_sym,
+                    enclosing_symbol,
                     &lang,
                     lang_name,
                     subtree_name,
@@ -879,6 +906,7 @@ fn analyze_using_scip(
                     };
                     let parent_symbol_info = analyse_symbol(
                         &rel_scip_sym,
+                        None,
                         &lang,
                         lang_name,
                         subtree_name,
@@ -1183,6 +1211,7 @@ fn analyze_using_scip(
 
                     let symbol_info = analyse_symbol(
                         &symbol,
+                        None,
                         &lang,
                         lang_name,
                         subtree_name,
