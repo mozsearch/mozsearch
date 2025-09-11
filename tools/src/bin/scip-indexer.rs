@@ -850,13 +850,19 @@ fn analyze_using_scip(
                     }
                 }
 
+                let display_name = if !scip_sym_info.display_name.is_empty() {
+                    Some(scip_sym_info.display_name.as_str())
+                } else {
+                    doc_name.as_deref()
+                };
+
                 let mut symbol_info = analyse_symbol(
                     &scip_sym,
                     &lang,
                     lang_name,
                     subtree_name,
                     &doc.relative_path,
-                    doc_name.as_deref(),
+                    display_name,
                     doc_namespace.as_deref(),
                 );
 
