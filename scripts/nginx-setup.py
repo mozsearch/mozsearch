@@ -294,6 +294,7 @@ for repo in config['trees']:
         oldtree_name = tree_config['oldtree_name']
         print(f'  rewrite ^/{oldtree_name}/rev/(.*)$ /{repo}/oldrev/$1 permanent;')
         print(f'  rewrite ^/{oldtree_name}/commit/(.*)$ /{repo}/oldcommit/$1 permanent;')
+        print(f'  rewrite ^/{oldtree_name}/diff/(.*)$ /{repo}/olddiff/$1 permanent;')
         print(f'  rewrite ^/{oldtree_name}/(.*)$ /{repo}/$1 permanent;')
         print('')
 
@@ -356,6 +357,7 @@ for repo in config['trees']:
     # Handled by Rust `web-server.rs`.
     location(f'/{repo}/diagnostics', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/diff', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/olddiff', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/commit', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/oldcommit', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://localhost:8001;'])

@@ -253,6 +253,29 @@ fn handle(
             }
         }
 
+        "olddiff" => {
+            if path.len() < 3 {
+                return WebResponse::not_found();
+            }
+
+            let tree_config = &cfg.trees[*tree_name];
+            let old_rev = path[2];
+            match (&tree_config.git, Oid::from_str(old_rev)) {
+                (Some(gitdata), Ok(old_oid)) => {
+                    match gitdata.old_map.get(&old_oid) {
+                        Some(new_oid) => WebResponse::redirect(format!(
+                            "/{}/diff/{}/{}",
+                            tree_name,
+                            new_oid,
+                            path[3..].join("/")
+                        )),
+                        _ => WebResponse::not_found(),
+                    }
+                }
+                _ => WebResponse::not_found(),
+            }
+        }
+
         "commit" => {
             if path.len() < 3 {
                 return WebResponse::not_found();
