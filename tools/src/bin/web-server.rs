@@ -175,6 +175,10 @@ fn handle(
         }
 
         "hgrev" => {
+            if path.len() < 3 {
+                return WebResponse::not_found();
+            }
+
             let tree_config = &cfg.trees[*tree_name];
             let git_path = match tree_config.get_git_path() {
                 Ok(git_path) => git_path,
@@ -201,6 +205,10 @@ fn handle(
         }
 
         "oldrev" => {
+            if path.len() < 3 {
+                return WebResponse::not_found();
+            }
+
             let tree_config = &cfg.trees[*tree_name];
             let old_rev = path[2];
             match (&tree_config.git, Oid::from_str(old_rev)) {
@@ -259,6 +267,32 @@ fn handle(
             }
         }
 
+        "oldcommit" => {
+            if path.len() < 3 {
+                return WebResponse::not_found();
+            }
+
+            let tree_config = &cfg.trees[*tree_name];
+            let old_rev = path[2];
+            match (&tree_config.git, Oid::from_str(old_rev)) {
+                (Some(gitdata), Ok(old_oid)) => {
+                    match gitdata.old_map.get(&old_oid) {
+                        Some(new_oid) => WebResponse::redirect(format!(
+                            "/{}/commit/{}",
+                            tree_name,
+                            new_oid,
+                        )),
+                        _ => WebResponse::not_found(),
+                    }
+                }
+                _ => WebResponse::not_found(),
+            }
+        }
+
+        // We don't have an "oldcommit-info" because this endpoint is only for
+        // AJAX-y use by the current blame strip UI that fetches commit-info on
+        // demand, and these links are considered mozsearch-internal and will
+        // never be generated for anything but a current revision.
         "commit-info" => {
             if path.len() < 3 {
                 return WebResponse::not_found();

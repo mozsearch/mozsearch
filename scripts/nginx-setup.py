@@ -293,6 +293,7 @@ for repo in config['trees']:
     if 'oldtree_name' in tree_config:
         oldtree_name = tree_config['oldtree_name']
         print(f'  rewrite ^/{oldtree_name}/rev/(.*)$ /{repo}/oldrev/$1 permanent;')
+        print(f'  rewrite ^/{oldtree_name}/commit/(.*)$ /{repo}/oldcommit/$1 permanent;')
         print(f'  rewrite ^/{oldtree_name}/(.*)$ /{repo}/$1 permanent;')
         print('')
 
@@ -356,6 +357,7 @@ for repo in config['trees']:
     location(f'/{repo}/diagnostics', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/diff', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/commit', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/oldcommit', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/hgrev', ['proxy_pass http://localhost:8001;'])
     location(f'/{repo}/oldrev', ['proxy_pass http://localhost:8001;'])
