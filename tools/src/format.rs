@@ -683,7 +683,7 @@ pub fn format_file_data(
     if let Some(ext) = path_wrapper.extension() {
         if ext.to_str().unwrap() == "svg" {
             if let Some(ref hg_root) = tree_config.paths.hg_root {
-                let url = format!("{}/raw-file/tip/{}", hg_root, path);
+                let url = format!("{}/raw-file/default/{}", hg_root, path);
                 output::generate_svg_preview(writer, &url)?
             }
         }
@@ -966,7 +966,7 @@ pub fn format_path(
         .as_ref()
         .and_then(|git| git.hg_map.get(&commit.id()))
         .map(|rev| rev.as_ref()) // &String to &str conversion
-        .unwrap_or("tip");
+        .unwrap_or("default");
 
     let encoded_path = url_encode_path(path);
 
@@ -1281,7 +1281,7 @@ pub fn format_diff(
         .paths
         .hg_root
         .as_ref()
-        .map(|hg_root| format!("{}/log/tip/{}", hg_root, encoded_path));
+        .map(|hg_root| format!("{}/log/default/{}", hg_root, encoded_path));
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
             title: "Git log".to_owned(),
