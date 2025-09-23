@@ -359,7 +359,7 @@ fn main() {
                     .paths
                     .hg_root
                     .as_ref()
-                    .map(|hg_root| format!("{}/log/tip/{}", hg_root, encoded_path));
+                    .map(|hg_root| format!("{}/log/default/{}", hg_root, encoded_path));
                 if let Some(link) = gh_log_link {
                     vcs_panel_items.push(PanelItem {
                         title: "Git log".to_owned(),
@@ -388,7 +388,7 @@ fn main() {
                     .paths
                     .hg_root
                     .as_ref()
-                    .map(|hg_root| format!("{}/raw-file/tip/{}", hg_root, encoded_path));
+                    .map(|hg_root| format!("{}/raw-file/default/{}", hg_root, encoded_path));
                 if let Some(link) = gh_raw_link.or(hg_raw_link) {
                     vcs_panel_items.push(PanelItem {
                         title: "Raw".to_owned(),
@@ -422,7 +422,7 @@ fn main() {
         if let Some(ref hg_root) = tree_config.paths.hg_root {
             tools_items.push(PanelItem {
                 title: "HG Web".to_owned(),
-                link: format!("{}/file/tip/{}", hg_root, encoded_path),
+                link: format!("{}/file/default/{}", hg_root, encoded_path),
                 update_link_lineno: "#l{}",
                 accel_key: None,
                 copyable: false,
