@@ -682,8 +682,7 @@ pub fn format_file_data(
 
     if let Some(ext) = path_wrapper.extension() {
         if ext.to_str().unwrap() == "svg" {
-            if let Some(ref hg_root) = tree_config.paths.hg_root {
-                let url = format!("{}/raw-file/default/{}", hg_root, path);
+            if let Some(url) = tree_config.paths.make_raw_resource_branch_url(path) {
                 output::generate_svg_preview(writer, &url)?
             }
         }
@@ -1008,17 +1007,11 @@ pub fn format_path(
         });
     }
 
-    let gh_raw_link = tree_config
-        .paths
-        .github_repo
-        .as_ref()
-        .map(|gh_root| format!("{}/raw/{}/{}", gh_root, commit.id(), encoded_path));
-    let hg_raw_link = tree_config
-        .paths
-        .hg_root
-        .as_ref()
-        .map(|hg_root| format!("{}/raw-file/{}/{}", hg_root, hg_rev, encoded_path));
-    if let Some(link) = gh_raw_link.or(hg_raw_link) {
+    if let Some(link) =
+        tree_config
+            .paths
+            .make_raw_resource_rev_url(&commit.id().to_string(), hg_rev, path)
+    {
         vcs_panel_items.push(PanelItem {
             title: "Raw".to_owned(),
             link,
