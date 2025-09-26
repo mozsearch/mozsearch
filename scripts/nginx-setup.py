@@ -350,24 +350,24 @@ for repo in config['trees']:
         ])
 
     # Handled by router/router.py
-    location(f'/{repo}/search', ['proxy_pass http://localhost:8000;'])
-    location(f'/{repo}/sorch', ['proxy_pass http://localhost:8000;'])
-    location(f'/{repo}/define', ['proxy_pass http://localhost:8000;'])
+    location(f'/{repo}/search', ['proxy_pass http://127.0.0.1:8000;'])
+    location(f'/{repo}/sorch', ['proxy_pass http://127.0.0.1:8000;'])
+    location(f'/{repo}/define', ['proxy_pass http://127.0.0.1:8000;'])
 
     # Handled by Rust `web-server.rs`.
-    location(f'/{repo}/diagnostics', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/diff', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/olddiff', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/commit', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/oldcommit', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/rev', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/hgrev', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/oldrev', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/complete', ['proxy_pass http://localhost:8001;'])
-    location(f'/{repo}/commit-info', ['proxy_pass http://localhost:8001;'])
+    location(f'/{repo}/diagnostics', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/diff', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/olddiff', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/commit', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/oldcommit', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/rev', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/oldrev', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/complete', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/commit-info', ['proxy_pass http://127.0.0.1:8001;'])
 
     # Handled by Rust `pipeline-server.rs`
-    location(f'/{repo}/query', ['proxy_pass http://localhost:8002;'])
+    location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])
 
 
 location('= /', [
