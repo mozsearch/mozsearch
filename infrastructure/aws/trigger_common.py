@@ -37,6 +37,20 @@ class TriggerCommandBase:
 
         parser.add_argument('--setenv', dest='env_vars', action='append', default=[])
 
+        # Allow specifying a specific revision for the configuration repo; by
+        # default we use the "branch" specified above, but if that branch
+        # doesn't exist in the config repo, currently we'll break because we do
+        # a shallow clone.  Previously we'd failover to the "master" branch, but
+        # that was lost.  And for backwards-compat reasons I don't want to make
+        # this a mandatory arg right now.  But arguably we should either:
+        # - If this arg isn't provided, check if the "branch" exists on the
+        #   server in this script so we can fail over to the 'master' branch if
+        #   not.
+        # - Teach `infrastructure/indexer.provision.sh` to handle us giving it a
+        #   bad CONFIG_REV by falling back to the 'master' branch, but that
+        #   requires a re-provision so I'm punting.
+        parser.add_argument('--config-rev', dest='config_rev')
+
         return parser
 
     def parse_args(self, args=None):
@@ -118,7 +132,7 @@ class TriggerCommandBase:
 
     cd ~ubuntu
     {extra_commands}
-    sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{branch}"
+    sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{config_rev}"
     sudo -i -u ubuntu {cmd_env_vars} mozsearch/infrastructure/aws/main.sh {core_script} {max_runtime_hours} "{branch}" "{channel}" {extra_args}
     '''.format(
         core_script=self.core_script,
@@ -127,6 +141,7 @@ class TriggerCommandBase:
         channel=args.channel,
         mozsearch_repo=args.mozsearch_repo,
         config_repo=args.config_repo,
+        config_rev=args.config_rev or args.branch,
         cmd_env_vars=" ".join(args.env_vars),
         extra_commands=extra_commands,
         extra_args=extra_args

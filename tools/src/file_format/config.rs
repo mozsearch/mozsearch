@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use git2::{Oid, Repository};
 
+use crate::url_encode_path::{self, url_encode_path};
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TreeCaching {
@@ -118,6 +120,78 @@ pub struct TreeConfigPaths {
     /// that the build script will handle downloading or generating the indexes.
     #[serde(default)]
     pub scip_subtrees: BTreeMap<String, ScipSubtreeConfig>,
+}
+
+impl TreeConfigPaths {
+    pub fn get_github_user_and_repo(&self) -> Option<String> {
+        if let Some(github_url) = &self.github_repo {
+            if let Some(stripped) = github_url.strip_prefix("https://github.com/") {
+                return Some(stripped.to_owned());
+            }
+        }
+        None
+    }
+
+    /// Tries to create a usable raw resource URL for the indexed branch using
+    /// `git_branch` if available (or HEAD for git or default for hg),
+    /// preferring git over hg.  This method handles URL-encoding the path.
+    pub fn make_raw_resource_branch_url(&self, path: &str) -> Option<String> {
+        if let Some(github_user_and_repo) = self.get_github_user_and_repo() {
+            return Some(format!(
+                "https://raw.githubusercontent.com/{}/{}/{}",
+                github_user_and_repo,
+                self.git_branch.as_deref().unwrap_or("HEAD"),
+                url_encode_path(path)
+            ));
+        }
+        if let Some(hg_root) = &self.hg_root {
+            // We always link to the specific canonical hg repo, not
+            // mozilla-unified, so we don't ever have branch names associated
+            // with the configs.
+            //
+            // Note that we use "default" rather than "tip" because "tip" can
+            // end up being a different branch
+            return Some(format!(
+                "{}/raw-file/default/{}",
+                hg_root,
+                url_encode_path(path)
+            ));
+        }
+        None
+    }
+
+    /// Tries to create a usable raw resource URL for the provided revisions,
+    /// preferring git over hg.  This method handles URL-encoding the path.
+    pub fn make_raw_resource_rev_url(
+        &self,
+        git_rev: &str,
+        hg_rev: &str,
+        path: &str,
+    ) -> Option<String> {
+        if let Some(github_user_and_repo) = self.get_github_user_and_repo() {
+            return Some(format!(
+                "https://raw.githubusercontent.com/{}/{}/{}",
+                github_user_and_repo,
+                git_rev,
+                url_encode_path(path)
+            ));
+        }
+        if let Some(hg_root) = &self.hg_root {
+            // We always link to the specific canonical hg repo, not
+            // mozilla-unified, so we don't ever have branch names associated
+            // with the configs.
+            //
+            // Note that we use "default" rather than "tip" because "tip" can
+            // end up being a different branch
+            return Some(format!(
+                "{}/raw-file/{}/{}",
+                hg_rev,
+                hg_root,
+                url_encode_path(path)
+            ));
+        }
+        None
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

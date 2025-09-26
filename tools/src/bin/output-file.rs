@@ -350,11 +350,14 @@ fn main() {
                     copyable: false,
                 });
 
-                let gh_log_link = tree_config
-                    .paths
-                    .github_repo
-                    .as_ref()
-                    .map(|gh_root| format!("{}/commits/HEAD/{}", gh_root, encoded_path));
+                let gh_log_link = tree_config.paths.github_repo.as_ref().map(|gh_root| {
+                    format!(
+                        "{}/commits/{}/{}",
+                        gh_root,
+                        tree_config.paths.git_branch.as_deref().unwrap_or("HEAD"),
+                        encoded_path
+                    )
+                });
                 let hg_log_link = tree_config
                     .paths
                     .hg_root
@@ -379,17 +382,7 @@ fn main() {
                     });
                 }
 
-                let gh_raw_link = tree_config
-                    .paths
-                    .github_repo
-                    .as_ref()
-                    .map(|gh_root| format!("{}/raw/HEAD/{}", gh_root, encoded_path));
-                let hg_raw_link = tree_config
-                    .paths
-                    .hg_root
-                    .as_ref()
-                    .map(|hg_root| format!("{}/raw-file/default/{}", hg_root, encoded_path));
-                if let Some(link) = gh_raw_link.or(hg_raw_link) {
+                if let Some(link) = tree_config.paths.make_raw_resource_branch_url(&path) {
                     vcs_panel_items.push(PanelItem {
                         title: "Raw".to_owned(),
                         link,
