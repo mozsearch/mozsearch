@@ -1265,11 +1265,14 @@ pub fn format_diff(
         },
     ];
 
-    let gh_log_link = tree_config
-        .paths
-        .github_repo
-        .as_ref()
-        .map(|gh_root| format!("{}/commits/HEAD/{}", gh_root, encoded_path));
+    let gh_log_link = tree_config.paths.github_repo.as_ref().map(|gh_root| {
+        format!(
+            "{}/commits/{}/{}",
+            gh_root,
+            tree_config.paths.git_branch.as_deref().unwrap_or("HEAD"),
+            encoded_path
+        )
+    });
     let hg_log_link = tree_config
         .paths
         .hg_root
