@@ -734,7 +734,19 @@ impl ClassMap {
         nom_sym_info: SymbolCrossrefInfo,
         server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<()> {
-        let root_sym_id = self.populate_platform_map(nom_sym_info, server).await?;
+        self.no_layout_populate(nom_sym_info, server).await?;
+
+        Ok(())
+    }
+
+    async fn no_layout_populate(
+        &mut self,
+        nom_sym_info: SymbolCrossrefInfo,
+        server: &(dyn AbstractServer + Send + Sync),
+    ) -> Result<()> {
+        let root_sym_id = self
+            .no_layout_populate_platform_map(nom_sym_info, server)
+            .await?;
 
         self.root_class_id = Some(root_sym_id.clone());
 
@@ -1012,7 +1024,7 @@ impl ClassMap {
         Some(structured)
     }
 
-    async fn populate_platform_map(
+    async fn no_layout_populate_platform_map(
         &mut self,
         nom_sym_info: SymbolCrossrefInfo,
         server: &(dyn AbstractServer + Send + Sync),
