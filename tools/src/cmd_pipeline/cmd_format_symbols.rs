@@ -706,6 +706,8 @@ struct ClassMap {
     has_multiple_inheritance: bool,
     has_non_zero_super_offset: bool,
 
+    has_layout_field: bool,
+
     root_class_id: Option<ClassId>,
     stt: SymbolTreeTable,
 }
@@ -720,6 +722,7 @@ impl ClassMap {
             file_lines: HashMap::new(),
             has_multiple_inheritance: false,
             has_non_zero_super_offset: false,
+            has_layout_field: false,
             root_class_id: None,
             stt: SymbolTreeTable::new(),
         }
@@ -734,18 +737,48 @@ impl ClassMap {
         nom_sym_info: SymbolCrossrefInfo,
         server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<()> {
-        self.no_layout_populate(nom_sym_info, server).await?;
+        let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
+            nom_sym_info.symbol.clone(),
+            nom_sym_info.crossref_info.clone(),
+            0,
+        ));
+
+        self.check_layout_field(root_sym_id.clone());
+
+        if self.has_layout_field {
+            self.no_layout_populate(root_sym_id, server).await?;
+        } else {
+            // FIXME
+            self.no_layout_populate(root_sym_id, server).await?;
+        }
 
         Ok(())
     }
 
+    fn check_layout_field(&mut self, root_sym_id: ClassId) {
+        let root_sym_info = self.stt.node_set.get(&root_sym_id);
+        let Some(root_structured) = Self::get_struct_structured(root_sym_info) else {
+            return;
+        };
+
+        for (_, s) in root_structured.per_platform() {
+            for super_info in &s.supers {
+                if super_info.layout.is_none() {
+                    self.has_layout_field = false;
+                    return;
+                }
+            }
+        }
+
+        self.has_layout_field = true;
+    }
+
     async fn no_layout_populate(
         &mut self,
-        nom_sym_info: SymbolCrossrefInfo,
+        root_sym_id: ClassId,
         server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<()> {
-        let root_sym_id = self
-            .no_layout_populate_platform_map(nom_sym_info, server)
+        self.no_layout_populate_platform_map(root_sym_id.clone(), server)
             .await?;
 
         self.root_class_id = Some(root_sym_id.clone());
@@ -1026,15 +1059,9 @@ impl ClassMap {
 
     async fn no_layout_populate_platform_map(
         &mut self,
-        nom_sym_info: SymbolCrossrefInfo,
+        root_sym_id: ClassId,
         server: &(dyn AbstractServer + Send + Sync),
-    ) -> Result<SymbolGraphNodeId> {
-        let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
-            nom_sym_info.symbol,
-            nom_sym_info.crossref_info,
-            0,
-        ));
-
+    ) -> Result<()> {
         let mut pending_ids = VecDeque::new();
         pending_ids.push_back(root_sym_id.clone());
 
@@ -1063,7 +1090,7 @@ impl ClassMap {
 
         self.platform_map.finish_populating();
 
-        Ok(root_sym_id)
+        Ok(())
     }
 
     fn generate_tables(mut self, tables: &mut Vec<SymbolTreeTable>) {
