@@ -703,7 +703,8 @@ struct ClassMap {
     // Formatted lines of each file referred from fields.
     file_lines: HashMap<String, Vec<String>>,
 
-    has_unsupported_multiple_inheritance: bool,
+    has_multiple_inheritance: bool,
+    has_non_zero_super_offset: bool,
 
     root_class_id: Option<ClassId>,
     stt: SymbolTreeTable,
@@ -717,10 +718,15 @@ impl ClassMap {
             platform_map: PlatformMap::new(),
             groups: vec![],
             file_lines: HashMap::new(),
-            has_unsupported_multiple_inheritance: false,
+            has_multiple_inheritance: false,
+            has_non_zero_super_offset: false,
             root_class_id: None,
             stt: SymbolTreeTable::new(),
         }
+    }
+
+    fn has_unsupported_multiple_inheritance(&self) -> bool {
+        self.has_multiple_inheritance && !self.has_non_zero_super_offset
     }
 
     async fn populate(
@@ -743,9 +749,6 @@ impl ClassMap {
         pending_items.push_back(root_item);
 
         let mut traversal_index = 0;
-
-        let mut has_multiple_inheritance = false;
-        let mut has_non_zero_super_offset = false;
 
         while let Some(item) = pending_items.pop_front() {
             let class_id = item.class_id.clone();
@@ -821,7 +824,7 @@ impl ClassMap {
                 }
 
                 if s.supers.len() > 1 {
-                    has_multiple_inheritance = true;
+                    self.has_multiple_inheritance = true;
                 }
 
                 for super_info in &s.supers {
@@ -832,7 +835,7 @@ impl ClassMap {
                         .await?;
 
                     if super_info.offset_bytes.unwrap_or(0) > 0 {
-                        has_non_zero_super_offset = true;
+                        self.has_non_zero_super_offset = true;
                     }
 
                     if let Some(platform_id) = &maybe_platform_id {
@@ -940,10 +943,7 @@ impl ClassMap {
             }
         }
 
-        self.has_unsupported_multiple_inheritance =
-            has_multiple_inheritance && !has_non_zero_super_offset;
-
-        fields_per_platform.finish_populating(self.has_unsupported_multiple_inheritance);
+        fields_per_platform.finish_populating(self.has_unsupported_multiple_inheritance());
 
         self.groups = fields_per_platform.group_platforms(&self.platform_map);
 
@@ -1099,7 +1099,7 @@ impl ClassMap {
                 node_alignment_and_size,
             );
 
-            if self.has_unsupported_multiple_inheritance && is_root {
+            if self.has_unsupported_multiple_inheritance() && is_root {
                 class_node.items.push(
                     SymbolTreeTableItem::Warning(
                         "(This class has multiple inheritance but the offset is not found in the analysis file. The field offsets in base classes can be wrong, and holes/paddings are not calculated)".to_string()
