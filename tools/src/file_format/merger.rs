@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -207,9 +208,16 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String]
                     .map(|x| platforms[*x].clone())
                     .collect::<Vec<String>>()),
             );
+            let mut values: Vec<HashedStructured> = hmap.into_values().collect();
+            values.sort_by(|a, b| {
+                let pa = a.platforms.iter().map(|x| platforms[*x].clone()).join(",");
+                let pb = b.platforms.iter().map(|x| platforms[*x].clone()).join(",");
+                pa.cmp(&pb)
+            });
             hs.data.extra.insert(
                 "variants".to_string(),
-                hmap.into_values()
+                values
+                    .into_iter()
                     .map(|mut variant| {
                         variant.data.extra.insert(
                             "platforms".to_string(),
