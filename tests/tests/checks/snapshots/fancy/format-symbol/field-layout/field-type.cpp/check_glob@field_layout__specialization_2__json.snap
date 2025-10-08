@@ -1,0 +1,176 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::template_base::Sub2>_c": {
+          "sym": "F_<T_field_layout::template_base::Sub2>_c",
+          "pretty": "F_<T_field_layout::template_base::Sub2>_c",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#22"
+          }
+        },
+        "F_<T_field_layout::template_base::Sub2>_d": {
+          "sym": "F_<T_field_layout::template_base::Sub2>_d",
+          "pretty": "F_<T_field_layout::template_base::Sub2>_d",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#23"
+          }
+        },
+        "F_<T_field_layout::template_base::Sub2>_e": {
+          "sym": "F_<T_field_layout::template_base::Sub2>_e",
+          "pretty": "F_<T_field_layout::template_base::Sub2>_e",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#24"
+          }
+        },
+        "T_field_layout::template_base::Sub2": {
+          "sym": "T_field_layout::template_base::Sub2",
+          "pretty": "field_layout::template_base::Sub2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::template_base::Sub2",
+            "sym": "T_field_layout::template_base::Sub2",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#22",
+                "pretty": "field_layout::template_base::Sub2::c",
+                "sym": "F_<T_field_layout::template_base::Sub2>_c",
+                "type": "unsigned int",
+                "typesym": "",
+                "offsetBytes": null,
+                "bitPositions": null,
+                "sizeBytes": null
+              },
+              {
+                "lineRange": "#23",
+                "pretty": "field_layout::template_base::Sub2::d",
+                "sym": "F_<T_field_layout::template_base::Sub2>_d",
+                "type": "type-parameter-0-1",
+                "typesym": "",
+                "offsetBytes": null,
+                "bitPositions": null,
+                "sizeBytes": null
+              },
+              {
+                "lineRange": "#24",
+                "pretty": "field_layout::template_base::Sub2::e",
+                "sym": "F_<T_field_layout::template_base::Sub2>_e",
+                "type": "unsigned int",
+                "typesym": "",
+                "offsetBytes": null,
+                "bitPositions": null,
+                "sizeBytes": null
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::template_base::Sub3"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/template-base.cpp#21"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": [
+        {
+          "name": "field_layout::template_base::Sub2",
+          "symbols": "T_field_layout::template_base::Sub2",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "",
+              "size": "?"
+            }
+          ],
+          "items": [
+            {
+              "Field": {
+                "name": "c",
+                "symbols": "F_<T_field_layout::template_base::Sub2>_c",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Sub2>_c\" data-confidences=\"[&quot;concrete&quot;]\">c</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ ?",
+                    "size": "?"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "d",
+                "symbols": "F_<T_field_layout::template_base::Sub2>_d",
+                "types": [
+                  {
+                    "name": "type-parameter-0-1",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  V <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Sub2>_d\" data-confidences=\"[&quot;concrete&quot;]\">d</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ ?",
+                    "size": "?"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "e",
+                "symbols": "F_<T_field_layout::template_base::Sub2>_e",
+                "types": [
+                  {
+                    "name": "unsigned int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint32_t\" data-confidences=\"[&quot;concrete&quot;]\">uint32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Sub2>_e\" data-confidences=\"[&quot;concrete&quot;]\">e</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ ?",
+                    "size": "?"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "className": null
+}

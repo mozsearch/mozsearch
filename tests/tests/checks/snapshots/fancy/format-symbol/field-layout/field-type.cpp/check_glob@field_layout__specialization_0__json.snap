@@ -1,0 +1,138 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::template_base::Base>_a": {
+          "sym": "F_<T_field_layout::template_base::Base>_a",
+          "pretty": "F_<T_field_layout::template_base::Base>_a",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#10"
+          }
+        },
+        "F_<T_field_layout::template_base::Base>_b": {
+          "sym": "F_<T_field_layout::template_base::Base>_b",
+          "pretty": "F_<T_field_layout::template_base::Base>_b",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#11"
+          }
+        },
+        "T_field_layout::template_base::Base": {
+          "sym": "T_field_layout::template_base::Base",
+          "pretty": "field_layout::template_base::Base",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::template_base::Base",
+            "sym": "T_field_layout::template_base::Base",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#10",
+                "pretty": "field_layout::template_base::Base::a",
+                "sym": "F_<T_field_layout::template_base::Base>_a",
+                "type": "type-parameter-0-0",
+                "typesym": "",
+                "offsetBytes": null,
+                "bitPositions": null,
+                "sizeBytes": null
+              },
+              {
+                "lineRange": "#11",
+                "pretty": "field_layout::template_base::Base::b",
+                "sym": "F_<T_field_layout::template_base::Base>_b",
+                "type": "type-parameter-0-1",
+                "typesym": "",
+                "offsetBytes": null,
+                "bitPositions": null,
+                "sizeBytes": null
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::template_base::Sub1"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/template-base.cpp#9"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": [
+        {
+          "name": "field_layout::template_base::Base",
+          "symbols": "T_field_layout::template_base::Base",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "",
+              "size": "?"
+            }
+          ],
+          "items": [
+            {
+              "Field": {
+                "name": "a",
+                "symbols": "F_<T_field_layout::template_base::Base>_a",
+                "types": [
+                  {
+                    "name": "type-parameter-0-0",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  T <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Base>_a\" data-confidences=\"[&quot;concrete&quot;]\">a</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ ?",
+                    "size": "?"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "b",
+                "symbols": "F_<T_field_layout::template_base::Base>_b",
+                "types": [
+                  {
+                    "name": "type-parameter-0-1",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  U <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Base>_b\" data-confidences=\"[&quot;concrete&quot;]\">b</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ ?",
+                    "size": "?"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "className": null
+}

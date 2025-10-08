@@ -1,0 +1,25 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sttl).unwrap()"
+input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout__specialization_2__json
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "T_field_layout::template_base::Sub2": {
+          "sym": "T_field_layout::template_base::Sub2",
+          "pretty": "T_field_layout::template_base::Sub2",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#21"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": []
+    }
+  ],
+  "className": null
+}
