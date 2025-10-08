@@ -1253,6 +1253,40 @@ public:
     return true;
   }
 
+  // Returns true if the class has template in its entire class hierarchy.
+  bool hasTemplateInHierarchy(const CXXRecordDecl* cxxDecl) {
+    if (cxxDecl->isDependentType()) {
+      // This class is templatized.
+      return true;
+    }
+
+
+    if (dyn_cast<const ClassTemplateSpecializationDecl>(cxxDecl)) {
+      // This class is template specialization.
+      return true;
+    }
+
+    for (const CXXBaseSpecifier &Base : cxxDecl->bases()) {
+      const CXXRecordDecl *BaseDecl = Base.getType()->getAsCXXRecordDecl();
+      if (!BaseDecl) {
+        // The base class is not-yet-substituted.
+        return true;
+      }
+
+      const Type* ty = Base.getType().getTypePtr();
+      if (dyn_cast<const SubstTemplateTypeParmType>(ty)) {
+        // The base class is a substituted template parameter.
+        return true;
+      }
+
+      if (hasTemplateInHierarchy(BaseDecl)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   enum {
     // Flag to omit the identifier from being cross-referenced across files.
     // This is usually desired for local variables.
@@ -1271,10 +1305,23 @@ public:
     Heuristic = 1 << 3,
   };
 
+  enum class LayoutHandling {
+    // Emit the layout information (size, offset, etc) and the other fields.
+    // This should be used when the struct is not templatized.
+    UseLayout,
+
+    // Only emit the layout information.
+    // This should be used for emitting the data for base classes.
+    LayoutOnly,
+  };
+
   void emitStructuredRecordInfo(llvm::json::OStream &J, SourceLocation Loc,
-                                const RecordDecl *decl) {
-    J.attribute("kind",
-                TypeWithKeyword::getTagTypeKindName(decl->getTagKind()));
+                                const RecordDecl *decl,
+                                LayoutHandling layoutHandling = LayoutHandling::UseLayout) {
+    if (layoutHandling != LayoutHandling::LayoutOnly) {
+      J.attribute("kind",
+                  TypeWithKeyword::getTagTypeKindName(decl->getTagKind()));
+    }
 
     const ASTContext &C = *AstContext;
     const ASTRecordLayout &Layout = C.getASTRecordLayout(decl);
@@ -1298,10 +1345,20 @@ public:
                     C.getTypeSizeInChars(ptrType).getQuantity());
       }
 
+      bool hasTemplate = hasTemplateInHierarchy(cxxDecl);
+
       J.attributeBegin("supers");
       J.arrayBegin();
       for (const CXXBaseSpecifier &Base : cxxDecl->bases()) {
         const CXXRecordDecl *BaseDecl = Base.getType()->getAsCXXRecordDecl();
+
+        if (!BaseDecl) {
+          // If the base class is dependent of template parameters and
+          // not yet fixed, skip it.
+          // Those information will be emitted in the subclass that has
+          // fixed template parameters.
+          continue;
+        }
 
         J.objectBegin();
 
@@ -1323,54 +1380,80 @@ public:
         J.arrayEnd();
         J.attributeEnd();
 
+        if (hasTemplate) {
+          // In order to reduce the file size, emit the entire super class
+          // layout only if there's any template class in the hierarchy
+          // Otherwise the field layout can be constructed with each
+          // superclass's data.
+
+          J.attributeBegin("layout");
+          J.objectBegin();
+
+          // The structured info for template leaf classes is not emitted,
+          // which means we don't have "pretty" format of the class.
+          // Thus we emit it here.
+          //
+          // Once that part is solved, the pretty field here can be removed.
+          //
+          // See the emitStructuredInfo callsite in VisitNamedDecl.
+          J.attribute("pretty", getQualifiedName(BaseDecl));
+
+          emitStructuredRecordInfo(J, Loc, BaseDecl,
+                                   LayoutHandling::LayoutOnly);
+          J.objectEnd();
+          J.attributeEnd();
+        }
+
         J.objectEnd();
       }
       J.arrayEnd();
       J.attributeEnd();
 
-      J.attributeBegin("methods");
-      J.arrayBegin();
-      for (const CXXMethodDecl *MethodDecl : cxxDecl->methods()) {
-        J.objectBegin();
-
-        J.attribute("pretty", getQualifiedName(MethodDecl));
-        J.attribute("sym", getMangledName(CurMangleContext, MethodDecl));
-
-        // TODO: Better figure out what to do for non-isUserProvided methods
-        // which means there's potentially semantic data that doesn't correspond
-        // to a source location in the source.  Should we be emitting
-        // structured info for those when we're processing the class here?
-
-        J.attributeBegin("props");
+      if (layoutHandling != LayoutHandling::LayoutOnly) {
+        J.attributeBegin("methods");
         J.arrayBegin();
-        if (MethodDecl->isStatic()) {
-          J.value("static");
-        }
-        if (MethodDecl->isInstance()) {
-          J.value("instance");
-        }
-        if (MethodDecl->isVirtual()) {
-          J.value("virtual");
-        }
-        if (MethodDecl->isUserProvided()) {
-          J.value("user");
-        }
-        if (MethodDecl->isDefaulted()) {
-          J.value("defaulted");
-        }
-        if (MethodDecl->isDeleted()) {
-          J.value("deleted");
-        }
-        if (MethodDecl->isConstexpr()) {
-          J.value("constexpr");
+        for (const CXXMethodDecl *MethodDecl : cxxDecl->methods()) {
+          J.objectBegin();
+
+          J.attribute("pretty", getQualifiedName(MethodDecl));
+          J.attribute("sym", getMangledName(CurMangleContext, MethodDecl));
+
+          // TODO: Better figure out what to do for non-isUserProvided methods
+          // which means there's potentially semantic data that doesn't correspond
+          // to a source location in the source.  Should we be emitting
+          // structured info for those when we're processing the class here?
+
+          J.attributeBegin("props");
+          J.arrayBegin();
+          if (MethodDecl->isStatic()) {
+            J.value("static");
+          }
+          if (MethodDecl->isInstance()) {
+            J.value("instance");
+          }
+          if (MethodDecl->isVirtual()) {
+            J.value("virtual");
+          }
+          if (MethodDecl->isUserProvided()) {
+            J.value("user");
+          }
+          if (MethodDecl->isDefaulted()) {
+            J.value("defaulted");
+          }
+          if (MethodDecl->isDeleted()) {
+            J.value("deleted");
+          }
+          if (MethodDecl->isConstexpr()) {
+            J.value("constexpr");
+          }
+          J.arrayEnd();
+          J.attributeEnd();
+
+          J.objectEnd();
         }
         J.arrayEnd();
         J.attributeEnd();
-
-        J.objectEnd();
       }
-      J.arrayEnd();
-      J.attributeEnd();
     }
 
     FileID structFileID = SM.getFileID(Loc);
@@ -1413,6 +1496,7 @@ public:
       if (tagDecl) {
         J.attribute("typesym", getMangledName(CurMangleContext, tagDecl));
       }
+
       J.attribute("offsetBytes", localOffsetBytes.getQuantity());
       if (Field.isBitField()) {
         J.attributeBegin("bitPositions");
@@ -1607,7 +1691,8 @@ public:
     emitBindingAttributes(J, *decl);
   }
 
-  void emitStructuredInfo(SourceLocation Loc, const NamedDecl *decl) {
+  void emitStructuredInfo(SourceLocation Loc, const NamedDecl *decl,
+                          LayoutHandling layoutHandling = LayoutHandling::UseLayout) {
     std::string json_str;
     llvm::raw_string_ostream ros(json_str);
     llvm::json::OStream J(ros);
@@ -1623,7 +1708,7 @@ public:
     J.attribute("sym", getMangledName(CurMangleContext, decl));
 
     if (const RecordDecl *RD = dyn_cast<RecordDecl>(decl)) {
-      emitStructuredRecordInfo(J, Loc, RD);
+      emitStructuredRecordInfo(J, Loc, RD, layoutHandling);
     } else if (const EnumDecl *ED = dyn_cast<EnumDecl>(decl)) {
       emitStructuredEnumInfo(J, ED);
     } else if (const EnumConstantDecl *ECD = dyn_cast<EnumConstantDecl>(decl)) {
@@ -2159,17 +2244,22 @@ public:
     // In-progress structured info emission.
     if (RecordDecl *D2 = dyn_cast<RecordDecl>(D)) {
       if (D2->isThisDeclarationADefinition() &&
-          // XXX getASTRecordLayout doesn't work for dependent types, so we
-          // avoid calling into emitStructuredInfo for now if there's a
-          // dependent type or if we're in any kind of template context.  This
-          // should be re-evaluated once this is working for normal classes and
-          // we can better evaluate what is useful.
+          // We don't emit structured info for template leaf classes
+          // in order to reduce the memory consumption comes from
+          // too many instantiation gathered to container classes in
+          // crossref-extra and jumpref-extra.
+          //
+          // Once that part is solved, those template leaf classes
+          // can be emitted by skipping getASTRecordLayout call and
+          // the Layout handling in emitStructuredRecordInfo.
+          //
+          // See https://github.com/mozsearch/mozsearch/pull/906
           !D2->isDependentType() && !TemplateStack) {
         if (auto *D3 = dyn_cast<CXXRecordDecl>(D2)) {
           findBindingToJavaClass(*AstContext, *D3);
           findBoundAsJavaClasses(*AstContext, *D3);
         }
-        emitStructuredInfo(ExpansionLoc, D2);
+        emitStructuredInfo(ExpansionLoc, D2, LayoutHandling::UseLayout);
       }
     }
     if (EnumDecl *D2 = dyn_cast<EnumDecl>(D)) {
