@@ -7,6 +7,8 @@ use clap::{Args, ValueEnum};
 use itertools::Itertools;
 use serde_json::{from_str, Value};
 
+use ustr::Ustr;
+
 use super::{
     interface::{
         PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolTreeTable,
@@ -17,7 +19,7 @@ use super::{
 };
 
 use crate::file_format::analysis::{
-    AnalysisStructured, StructuredBitPositionInfo, StructuredFieldInfo,
+    AnalysisStructured, StructuredBitPositionInfo, StructuredFieldInfo, StructuredSuperInfo,
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
@@ -687,6 +689,187 @@ impl SupersMap {
     }
 }
 
+// An intersection of AnalysisStructured and
+// StructuredSuperInfo+StructuredLayoutOnlyInfo, to represent
+// the leaf class and base classes.
+#[derive(Clone)]
+struct SimplifiedStructuredClassInfo {
+    pretty: Ustr,
+    sym: Ustr,
+    offset_bytes: u32,
+    size_bytes: Option<u32>,
+    alignment_bytes: Option<u32>,
+    own_vf_ptr_bytes: Option<u32>,
+    fields: Vec<StructuredFieldInfo<Ustr>>,
+    depth: u32,
+}
+
+impl SimplifiedStructuredClassInfo {
+    fn new(s: &AnalysisStructured, depth: u32) -> Self {
+        Self {
+            pretty: s.pretty.clone(),
+            sym: s.sym.clone(),
+            offset_bytes: 0,
+            size_bytes: s.size_bytes.clone(),
+            alignment_bytes: s.alignment_bytes.clone(),
+            own_vf_ptr_bytes: s.own_vf_ptr_bytes.clone(),
+            fields: s.fields.clone(),
+            depth: depth,
+        }
+    }
+
+    fn new_super(s: &StructuredSuperInfo, offset: u32, depth: u32) -> Self {
+        if let Some(layout) = &s.layout {
+            Self {
+                pretty: layout.pretty.clone(),
+                sym: s.sym.clone(),
+                offset_bytes: s.offset_bytes.unwrap_or(0) + offset,
+                size_bytes: layout.size_bytes.clone(),
+                alignment_bytes: layout.alignment_bytes.clone(),
+                own_vf_ptr_bytes: layout.own_vf_ptr_bytes.clone(),
+                fields: layout.fields.clone(),
+                depth: depth,
+            }
+        } else {
+            // In general this path shouldn't be taken.
+            // ClassMap::check_layout_field should exclude them.
+            Self {
+                pretty: s.sym.clone(),
+                sym: s.sym.clone(),
+                offset_bytes: s.offset_bytes.unwrap_or(0) + offset,
+                size_bytes: None,
+                alignment_bytes: None,
+                own_vf_ptr_bytes: None,
+                fields: vec![],
+                depth: depth,
+            }
+        }
+    }
+}
+
+// Collect the class data per platform.
+//
+// This first collects "a list of classes" per platform.
+// And then this converts it into a list of "class per platform".
+struct SimplifiedStructuredClassInfoMap {
+    classes_map: HashMap<PlatformId, Vec<SimplifiedStructuredClassInfo>>,
+
+    classes_list: Vec<Vec<(PlatformId, SimplifiedStructuredClassInfo)>>,
+}
+
+impl SimplifiedStructuredClassInfoMap {
+    fn new() -> Self {
+        Self {
+            classes_map: HashMap::new(),
+            classes_list: vec![],
+        }
+    }
+
+    fn add(&mut self, platform_id: PlatformId, cls: SimplifiedStructuredClassInfo) {
+        if let Some(classes) = self.classes_map.get_mut(&platform_id) {
+            classes.push(cls);
+            return;
+        }
+
+        let mut classes = vec![];
+        classes.push(cls);
+        self.classes_map.insert(platform_id, classes);
+    }
+
+    fn create_list(&mut self) {
+        if self.classes_map.is_empty() {
+            return;
+        }
+
+        let mut indices = vec![];
+        for platform_id in self.classes_map.keys() {
+            indices.push((platform_id, 0));
+        }
+        let platform_count = indices.len();
+
+        // This basically assumes the list of classes match across platforms,
+        // which is held as long as the class hierarchy is not platform-dependent.
+        //
+        // If there's any mismatching class, they're added to mismatch_class_list,
+        // per each platform, and added to the end.
+        // We don't guarantee the quality for such case.
+
+        let mut class_per_platform_list = vec![];
+        let mut mismatch_class_list = vec![];
+        loop {
+            let first_platform_id = indices[0].0;
+            let first_classes = self.classes_map.get(first_platform_id).unwrap();
+
+            let mut first_index = indices[0].1;
+            let first_cls = first_classes.get(first_index).unwrap();
+
+            let mut class_per_platform = vec![];
+            class_per_platform.push((first_platform_id.clone(), first_cls.clone()));
+
+            for i in 1..platform_count {
+                let platform_id = indices[i].0;
+                let classes = self.classes_map.get(platform_id).unwrap();
+
+                let index = indices[i].1;
+                if index >= classes.len() {
+                    continue;
+                }
+                let cls = classes.get(index).unwrap();
+
+                if cls.sym == first_cls.sym {
+                    class_per_platform.push((platform_id.clone(), cls.clone()));
+                } else {
+                    // The class has different base class depending on the platform.
+                    mismatch_class_list.push((platform_id.clone(), cls.clone()));
+                }
+
+                indices[i].1 = index + 1;
+            }
+
+            class_per_platform_list.push(class_per_platform);
+
+            first_index += 1;
+            if first_index >= first_classes.len() {
+                break;
+            }
+            indices[0].1 = first_index;
+        }
+
+        // If the first platform has less classes than others, collect others as
+        // mismatching.
+
+        loop {
+            let mut added = false;
+
+            for i in 1..platform_count {
+                let platform_id = indices[i].0;
+                let classes = self.classes_map.get(platform_id).unwrap();
+
+                let index = indices[i].1;
+                if index >= classes.len() {
+                    continue;
+                }
+                let cls = classes.get(index).unwrap();
+
+                mismatch_class_list.push((platform_id.clone(), cls.clone()));
+
+                indices[i].1 = index + 1;
+                added = true;
+            }
+
+            if !added {
+                break;
+            }
+        }
+
+        for item in mismatch_class_list {
+            class_per_platform_list.push(vec![item]);
+        }
+
+        self.classes_list = class_per_platform_list;
+    }
+}
+
 struct ClassMap {
     // All processed classes.
     class_map: HashMap<TraversalId, Class>,
@@ -746,9 +929,8 @@ impl ClassMap {
         self.check_layout_field(root_sym_id.clone());
 
         if self.has_layout_field {
-            self.no_layout_populate(root_sym_id, server).await?;
+            self.layout_populate(root_sym_id, server).await?;
         } else {
-            // FIXME
             self.no_layout_populate(root_sym_id, server).await?;
         }
 
@@ -771,6 +953,236 @@ impl ClassMap {
         }
 
         self.has_layout_field = true;
+    }
+
+    async fn layout_populate_supers(
+        &mut self,
+        platform_id: PlatformId,
+        super_info: &StructuredSuperInfo,
+        classinfo_map: &mut SimplifiedStructuredClassInfoMap,
+        offset: u32,
+        depth: u32,
+    ) -> Result<()> {
+        classinfo_map.add(
+            platform_id.clone(),
+            SimplifiedStructuredClassInfo::new_super(super_info, offset, depth),
+        );
+
+        if let Some(layout) = &super_info.layout {
+            for super_super_info in &layout.supers {
+                Box::pin(self.layout_populate_supers(
+                    platform_id.clone(),
+                    super_super_info,
+                    classinfo_map,
+                    super_info.offset_bytes.unwrap_or(0) + offset,
+                    depth + 1,
+                ))
+                .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn layout_populate(
+        &mut self,
+        root_sym_id: ClassId,
+        server: &(dyn AbstractServer + Send + Sync),
+    ) -> Result<()> {
+        self.layout_populate_platform_map(root_sym_id.clone());
+
+        self.root_class_id = Some(root_sym_id.clone());
+
+        let root_sym_info = self.stt.node_set.get(&root_sym_id);
+        let root_depth = root_sym_info.depth;
+        let Some(root_structured) = Self::get_struct_structured(root_sym_info) else {
+            return Ok(());
+        };
+
+        // First create a list of classes, in the tree traversal order.
+        // Each item is the class information per platform.
+        let mut classinfo_map = SimplifiedStructuredClassInfoMap::new();
+
+        for (maybe_platform, s) in root_structured.per_platform() {
+            if s.supers.len() > 1 {
+                self.has_multiple_inheritance = true;
+            }
+
+            if let Some(platform) = maybe_platform {
+                let platform_id = self.platform_map.get(platform.clone());
+
+                classinfo_map.add(
+                    platform_id.clone(),
+                    SimplifiedStructuredClassInfo::new(s, root_depth),
+                );
+
+                for super_info in &s.supers {
+                    self.layout_populate_supers(
+                        platform_id.clone(),
+                        super_info,
+                        &mut classinfo_map,
+                        0,
+                        root_depth + 1,
+                    )
+                    .await?;
+                }
+            } else {
+                for platform_id in self.platform_map.platform_ids() {
+                    classinfo_map.add(
+                        platform_id.clone(),
+                        SimplifiedStructuredClassInfo::new(s, root_depth),
+                    );
+
+                    for super_info in &s.supers {
+                        self.layout_populate_supers(
+                            platform_id.clone(),
+                            super_info,
+                            &mut classinfo_map,
+                            0,
+                            root_depth + 1,
+                        )
+                        .await?;
+                    }
+                }
+            }
+        }
+
+        classinfo_map.create_list();
+
+        // Then iterate over the list of classes, and process fields.
+
+        let mut traversal_index = 0;
+
+        let mut fields_per_platform = FieldsPerPlatform::new();
+
+        for class_per_platform_list in classinfo_map.classes_list {
+            let first_cls = &class_per_platform_list.get(0).unwrap().1;
+            let sym = first_cls.sym;
+            let pretty = first_cls.pretty;
+
+            let (class_id, _) = self
+                .stt
+                .node_set
+                .ensure_symbol(&sym, server, first_cls.depth)
+                .await?;
+
+            let sym_info = self.stt.node_set.get(&class_id);
+            let depth = sym_info.depth;
+            let struct_def_path = sym_info.get_def_path().cloned();
+
+            let mut cls = Class::new(class_id.clone(), pretty.to_string());
+
+            let traversal_id = TraversalId(traversal_index);
+
+            traversal_index += 1;
+
+            self.class_list.push(traversal_id);
+
+            for (platform_id, s) in class_per_platform_list {
+                let class_alignment = s.alignment_bytes;
+
+                if let Some(class_size) = s.size_bytes {
+                    cls.alignment_and_size.insert(
+                        platform_id,
+                        AlignmentAndSize::new(class_alignment, class_size),
+                    );
+
+                    if let Some(vtable_size_bytes) = &s.own_vf_ptr_bytes {
+                        let field = Field::new_vtable(
+                            class_id.clone(),
+                            traversal_id,
+                            s.offset_bytes,
+                            class_size,
+                            *vtable_size_bytes,
+                        );
+                        fields_per_platform.add_field(&platform_id, field.clone());
+                    }
+                }
+
+                if s.offset_bytes > 0 {
+                    self.has_non_zero_super_offset = true;
+                }
+
+                for field in s.fields.clone() {
+                    let (field_id, field_lineno) = {
+                        let (field_id, field_info) = self
+                            .stt
+                            .node_set
+                            .ensure_symbol(&field.sym, server, depth + 1)
+                            .await?;
+
+                        (field_id, field_info.get_def_lno())
+                    };
+
+                    let mut field_type_syms_vec = vec![];
+                    let mut field_type_syms_set = HashSet::new();
+
+                    // Add field type to the jumprefs, but we don't use the
+                    // returned info.
+                    if !field.type_sym.is_empty() {
+                        let _ = self
+                            .stt
+                            .node_set
+                            .ensure_symbol(&field.type_sym, server, depth + 1)
+                            .await?;
+
+                        field_type_syms_vec.push(field.type_sym.to_string());
+                        field_type_syms_set.insert(field.type_sym);
+                    }
+                    for info in &field.pointer_info {
+                        if field_type_syms_set.contains(&info.sym) {
+                            continue;
+                        }
+
+                        let _ = self
+                            .stt
+                            .node_set
+                            .ensure_symbol(&info.sym, server, depth + 1)
+                            .await?;
+
+                        field_type_syms_vec.push(info.sym.to_string());
+                        field_type_syms_set.insert(info.sym);
+                    }
+
+                    let field_type_syms = field_type_syms_vec.iter().join(",");
+
+                    let field = Field::new(
+                        class_id.clone(),
+                        traversal_id,
+                        s.offset_bytes,
+                        s.size_bytes,
+                        field_id.clone(),
+                        field_type_syms,
+                        &struct_def_path,
+                        field_lineno,
+                        &field,
+                    );
+                    self.populate_file_lines(&field.def_path, server).await?;
+                    fields_per_platform.add_field(&platform_id, field.clone());
+                }
+            }
+
+            self.class_map.insert(traversal_id, cls);
+        }
+
+        fields_per_platform.finish_populating(self.has_unsupported_multiple_inheritance());
+
+        self.groups = fields_per_platform.group_platforms(&self.platform_map);
+
+        for (group_id, platforms) in &self.groups {
+            if let Some(fields) = fields_per_platform.get_fields_for_platforms(platforms) {
+                for field in fields {
+                    let cls = self.class_map.get_mut(&field.class_traversal_id).unwrap();
+                    cls.add_field(*group_id, field.clone());
+                }
+            }
+        }
+
+        for cls in self.class_map.values_mut() {
+            cls.finish_populating(&self.groups);
+        }
+
+        Ok(())
     }
 
     async fn no_layout_populate(
@@ -1055,6 +1467,19 @@ impl ClassMap {
         }
 
         Some(structured)
+    }
+
+    fn layout_populate_platform_map(&mut self, root_sym_id: ClassId) {
+        let sym_info = self.stt.node_set.get(&root_sym_id);
+        if let Some(structured) = Self::get_struct_structured(sym_info) {
+            for (maybe_platform, _) in structured.per_platform() {
+                if let Some(platform) = maybe_platform {
+                    self.platform_map.add(platform.clone());
+                }
+            }
+        }
+
+        self.platform_map.finish_populating();
     }
 
     async fn no_layout_populate_platform_map(
