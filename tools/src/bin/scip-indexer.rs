@@ -889,8 +889,9 @@ fn analyze_using_scip(
                         Some("class") => {
                             supers.push(StructuredSuperInfo {
                                 sym: ustr(&parent_symbol_info.norm_sym),
-                                offset_bytes: 0,
+                                offset_bytes: Some(0),
                                 props: vec![],
+                                layout: None,
                             });
                         }
                         Some("method") => {
@@ -981,7 +982,7 @@ fn analyze_using_scip(
                                             sym: symbol_info.norm_sym,
                                             type_pretty: type_pretty.unwrap_or_else(|| ustr("")),
                                             type_sym: ustr(""),
-                                            offset_bytes,
+                                            offset_bytes: Some(offset_bytes),
                                             bit_positions: None,
                                             size_bytes: if size_bytes > 0 {
                                                 Some(size_bytes)
