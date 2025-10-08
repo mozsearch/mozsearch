@@ -219,7 +219,27 @@ pub enum StructuredTag {
     Structured = 1,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+// Field-layout-only variant of AnalysisStructured for base classes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StructuredLayoutOnlyInfo<StrT = Ustr>
+where
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
+{
+    #[serde(default)]
+    pub pretty: StrT,
+    #[serde(rename = "sizeBytes")]
+    pub size_bytes: Option<u32>,
+    #[serde(rename = "alignmentBytes")]
+    pub alignment_bytes: Option<u32>,
+    #[serde(rename = "ownVFPtrBytes")]
+    pub own_vf_ptr_bytes: Option<u32>,
+    #[serde(default)]
+    pub supers: Vec<StructuredSuperInfo<StrT>>,
+    #[serde(default)]
+    pub fields: Vec<StructuredFieldInfo<StrT>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredSuperInfo<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
@@ -227,9 +247,11 @@ where
     #[serde(default)]
     pub sym: StrT,
     #[serde(rename = "offsetBytes", default)]
-    pub offset_bytes: u32,
+    pub offset_bytes: Option<u32>,
     #[serde(default)]
     pub props: Vec<StrT>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<StructuredLayoutOnlyInfo<StrT>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -298,9 +320,8 @@ where
     pub type_pretty: StrT,
     #[serde(rename = "typesym", default)]
     pub type_sym: StrT,
-    // XXX this should be made Optional like size_bytes.
     #[serde(rename = "offsetBytes", default)]
-    pub offset_bytes: u32,
+    pub offset_bytes: Option<u32>,
     #[serde(rename = "bitPositions")]
     pub bit_positions: Option<StructuredBitPositionInfo>,
     #[serde(rename = "sizeBytes")]

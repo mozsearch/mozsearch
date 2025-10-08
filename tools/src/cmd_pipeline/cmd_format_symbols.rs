@@ -135,7 +135,7 @@ impl Field {
             hole_bytes: None,
             hole_after_base: false,
             end_padding_bytes: None,
-            offset_bytes: class_offset + info.offset_bytes,
+            offset_bytes: class_offset + info.offset_bytes.unwrap_or(0),
             bit_positions: info.bit_positions.clone(),
             size_bytes: info.size_bytes,
         }
@@ -831,7 +831,7 @@ impl ClassMap {
                         .ensure_symbol(&super_info.sym, server, depth + 1)
                         .await?;
 
-                    if super_info.offset_bytes > 0 {
+                    if super_info.offset_bytes.unwrap_or(0) > 0 {
                         has_non_zero_super_offset = true;
                     }
 
@@ -840,7 +840,7 @@ impl ClassMap {
                         supers.add(
                             super_id.clone(),
                             *platform_id,
-                            offset + super_info.offset_bytes,
+                            offset + super_info.offset_bytes.unwrap_or(0),
                         );
                     } else {
                         for platform_id in item.platforms() {
@@ -848,7 +848,7 @@ impl ClassMap {
                             supers.add(
                                 super_id.clone(),
                                 platform_id,
-                                offset + super_info.offset_bytes,
+                                offset + super_info.offset_bytes.unwrap_or(0),
                             );
                         }
                     }
