@@ -1,0 +1,301 @@
+---
+source: tests/test_check_insta.rs
+expression: "&to_value(sttl).unwrap()"
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::template_base::Base>_a": {
+          "sym": "F_<T_field_layout::template_base::Base>_a",
+          "pretty": "F_<T_field_layout::template_base::Base>_a",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#10"
+          }
+        },
+        "F_<T_field_layout::template_base::Base>_b": {
+          "sym": "F_<T_field_layout::template_base::Base>_b",
+          "pretty": "F_<T_field_layout::template_base::Base>_b",
+          "jumps": {
+            "def": "field-layout/template-base.cpp#11"
+          }
+        },
+        "F_<T_field_layout::template_base::Sub1>_c": {
+          "sym": "F_<T_field_layout::template_base::Sub1>_c",
+          "pretty": "field_layout::template_base::Sub1::c",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::template_base::Sub1::c",
+            "sym": "F_<T_field_layout::template_base::Sub1>_c",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::template_base::Sub1",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/template-base.cpp#16"
+          }
+        },
+        "T_field_layout::template_base::Base": {
+          "sym": "T_field_layout::template_base::Base",
+          "pretty": "field_layout::template_base::Base",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::template_base::Base",
+            "sym": "T_field_layout::template_base::Base",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#10",
+                "pretty": "field_layout::template_base::Base::a",
+                "sym": "F_<T_field_layout::template_base::Base>_a",
+                "type": "type-parameter-0-0",
+                "typesym": "",
+                "offsetBytes": null,
+                "bitPositions": null,
+                "sizeBytes": null
+              },
+              {
+                "lineRange": "#11",
+                "pretty": "field_layout::template_base::Base::b",
+                "sym": "F_<T_field_layout::template_base::Base>_b",
+                "type": "type-parameter-0-1",
+                "typesym": "",
+                "offsetBytes": null,
+                "bitPositions": null,
+                "sizeBytes": null
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::template_base::Sub1"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/template-base.cpp#9"
+          }
+        },
+        "T_field_layout::template_base::Sub1": {
+          "sym": "T_field_layout::template_base::Sub1",
+          "pretty": "field_layout::template_base::Sub1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::template_base::Sub1",
+            "sym": "T_field_layout::template_base::Sub1",
+            "type_pretty": null,
+            "kind": "struct",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 6,
+            "alignmentBytes": 2,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::template_base::Base",
+                "offsetBytes": 0,
+                "props": [],
+                "specialization": {
+                  "sizeBytes": 4,
+                  "alignmentBytes": 2,
+                  "ownVFPtrBytes": null,
+                  "supers": [],
+                  "fields": [
+                    {
+                      "type": "unsigned char",
+                      "typesym": "",
+                      "offsetBytes": 0,
+                      "bitPositions": null,
+                      "sizeBytes": 1
+                    },
+                    {
+                      "type": "unsigned short",
+                      "typesym": "",
+                      "offsetBytes": 2,
+                      "bitPositions": null,
+                      "sizeBytes": 2
+                    }
+                  ]
+                }
+              }
+            ],
+            "methods": [
+              {
+                "pretty": "field_layout::template_base::Sub1::Sub1",
+                "sym": "_ZN12field_layout13template_base4Sub1C1Ev",
+                "props": [
+                  "instance",
+                  "defaulted"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::template_base::Sub1::Sub1",
+                "sym": "_ZN12field_layout13template_base4Sub1C1ERKS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              },
+              {
+                "pretty": "field_layout::template_base::Sub1::Sub1",
+                "sym": "_ZN12field_layout13template_base4Sub1C1EOS1_",
+                "props": [
+                  "instance",
+                  "defaulted",
+                  "constexpr"
+                ],
+                "args": []
+              }
+            ],
+            "fields": [
+              {
+                "lineRange": "#16",
+                "pretty": "field_layout::template_base::Sub1::c",
+                "sym": "F_<T_field_layout::template_base::Sub1>_c",
+                "type": "unsigned char",
+                "typesym": "",
+                "offsetBytes": 4,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/template-base.cpp#15"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": [
+        {
+          "name": "field_layout::template_base::Sub1",
+          "symbols": "T_field_layout::template_base::Sub1",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(2)",
+              "size": "6"
+            }
+          ],
+          "items": [
+            {
+              "Field": {
+                "name": "c",
+                "symbols": "F_<T_field_layout::template_base::Sub1>_c",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Sub1>_c\" data-confidences=\"[&quot;concrete&quot;]\">c</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x4",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "1 byte padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::template_base::Base",
+          "symbols": "T_field_layout::template_base::Base",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "a",
+                "symbols": "F_<T_field_layout::template_base::Base>_a",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  T <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Base>_a\" data-confidences=\"[&quot;concrete&quot;]\">a</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Hole": [
+                "1 byte hole"
+              ]
+            },
+            {
+              "Field": {
+                "name": "b",
+                "symbols": "F_<T_field_layout::template_base::Base>_b",
+                "types": [
+                  {
+                    "name": "unsigned short",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  U <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_base::Base>_b\" data-confidences=\"[&quot;concrete&quot;]\">b</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x2",
+                    "size": "2"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "className": null
+}
