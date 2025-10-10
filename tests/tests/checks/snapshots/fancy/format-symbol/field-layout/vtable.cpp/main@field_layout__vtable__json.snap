@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(sttl).unwrap()"
+input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vtable__json
 ---
 {
   "tables": [
@@ -864,108 +865,6 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Sub1a",
-          "symbols": "T_field_layout::vtable::Sub1a",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "x",
-                "symbols": "F_<T_field_layout::vtable::Sub1a>_x",
-                "types": [
-                  {
-                    "name": "unsigned char",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1a>_x\" data-confidences=\"[&quot;concrete&quot;]\">x</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x8",
-                    "size": "1"
-                  }
-                ]
-              }
-            },
-            {
-              "EndPadding": [
-                "7 bytes padding"
-              ]
-            }
-          ]
-        },
-        {
-          "name": "field_layout::vtable::Sub1b",
-          "symbols": "T_field_layout::vtable::Sub1b",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "y",
-                "symbols": "F_<T_field_layout::vtable::Sub1b>_y",
-                "types": [
-                  {
-                    "name": "unsigned char",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1b>_y\" data-confidences=\"[&quot;concrete&quot;]\">y</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x18",
-                    "size": "1"
-                  }
-                ]
-              }
-            },
-            {
-              "EndPadding": [
-                "7 bytes padding"
-              ]
-            }
-          ]
-        },
-        {
-          "name": "field_layout::vtable::Sub2",
-          "symbols": "T_field_layout::vtable::Sub2",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "w",
-                "symbols": "F_<T_field_layout::vtable::Sub2>_w",
-                "types": [
-                  {
-                    "name": "unsigned char",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub2>_w\" data-confidences=\"[&quot;concrete&quot;]\">w</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x28",
-                    "size": "1"
-                  }
-                ]
-              }
-            },
-            {
-              "EndPadding": [
-                "7 bytes padding"
-              ]
-            }
-          ]
-        },
-        {
           "name": "field_layout::vtable::Sub3",
           "symbols": "T_field_layout::vtable::Sub3",
           "isBaseClass": true,
@@ -1014,56 +913,43 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Base1",
-          "symbols": "T_field_layout::vtable::Base1",
+          "name": "field_layout::vtable::Base3",
+          "symbols": "T_field_layout::vtable::Base3",
           "isBaseClass": true,
           "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "(vtable)",
-                "symbols": "",
-                "types": [
-                  {
-                    "name": "",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x0",
-                    "size": "8"
-                  }
-                ]
-              }
-            }
-          ]
+          "items": []
         },
         {
-          "name": "field_layout::vtable::Base1",
-          "symbols": "T_field_layout::vtable::Base1",
+          "name": "field_layout::vtable::Sub2",
+          "symbols": "T_field_layout::vtable::Sub2",
           "isBaseClass": true,
           "alignmentAndSize": [],
           "items": [
             {
               "Field": {
-                "name": "(vtable)",
-                "symbols": "",
+                "name": "w",
+                "symbols": "F_<T_field_layout::vtable::Sub2>_w",
                 "types": [
                   {
-                    "name": "",
+                    "name": "unsigned char",
                     "symbols": ""
                   }
                 ],
-                "lines": [],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub2>_w\" data-confidences=\"[&quot;concrete&quot;]\">w</span>;"
+                ],
                 "offsetAndSize": [
                   {
-                    "offset": "@ 0x10",
-                    "size": "8"
+                    "offset": "@ 0x28",
+                    "size": "1"
                   }
                 ]
               }
+            },
+            {
+              "EndPadding": [
+                "7 bytes padding"
+              ]
             }
           ]
         },
@@ -1095,11 +981,126 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::vtable::Base3",
-          "symbols": "T_field_layout::vtable::Base3",
+          "name": "field_layout::vtable::Sub1b",
+          "symbols": "T_field_layout::vtable::Sub1b",
           "isBaseClass": true,
           "alignmentAndSize": [],
-          "items": []
+          "items": [
+            {
+              "Field": {
+                "name": "y",
+                "symbols": "F_<T_field_layout::vtable::Sub1b>_y",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1b>_y\" data-confidences=\"[&quot;concrete&quot;]\">y</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x18",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "7 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Base1",
+          "symbols": "T_field_layout::vtable::Base1",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "(vtable)",
+                "symbols": "",
+                "types": [
+                  {
+                    "name": "",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x10",
+                    "size": "8"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Sub1a",
+          "symbols": "T_field_layout::vtable::Sub1a",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "x",
+                "symbols": "F_<T_field_layout::vtable::Sub1a>_x",
+                "types": [
+                  {
+                    "name": "unsigned char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_uint8_t\" data-confidences=\"[&quot;concrete&quot;]\">uint8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::vtable::Sub1a>_x\" data-confidences=\"[&quot;concrete&quot;]\">x</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "7 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::vtable::Base1",
+          "symbols": "T_field_layout::vtable::Base1",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "(vtable)",
+                "symbols": "",
+                "types": [
+                  {
+                    "name": "",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "8"
+                  }
+                ]
+              }
+            }
+          ]
         }
       ]
     }
