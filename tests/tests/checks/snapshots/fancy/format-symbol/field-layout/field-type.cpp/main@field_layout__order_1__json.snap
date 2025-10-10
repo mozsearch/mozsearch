@@ -1,0 +1,1180 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sttl).unwrap()"
+input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout__order_1__json
+---
+{
+  "tables": [
+    {
+      "jumprefs": {
+        "F_<T_field_layout::order_no_template::C10>_f10": {
+          "sym": "F_<T_field_layout::order_no_template::C10>_f10",
+          "pretty": "field_layout::order_no_template::C10::f10",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C10::f10",
+            "sym": "F_<T_field_layout::order_no_template::C10>_f10",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C10",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#44"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C11>_f11": {
+          "sym": "F_<T_field_layout::order_no_template::C11>_f11",
+          "pretty": "field_layout::order_no_template::C11::f11",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C11::f11",
+            "sym": "F_<T_field_layout::order_no_template::C11>_f11",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C11",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#48"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C1>_f1": {
+          "sym": "F_<T_field_layout::order_no_template::C1>_f1",
+          "pretty": "field_layout::order_no_template::C1::f1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C1::f1",
+            "sym": "F_<T_field_layout::order_no_template::C1>_f1",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C1",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#8"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C2>_f2": {
+          "sym": "F_<T_field_layout::order_no_template::C2>_f2",
+          "pretty": "field_layout::order_no_template::C2::f2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C2::f2",
+            "sym": "F_<T_field_layout::order_no_template::C2>_f2",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C2",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#12"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C3>_f3": {
+          "sym": "F_<T_field_layout::order_no_template::C3>_f3",
+          "pretty": "field_layout::order_no_template::C3::f3",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C3::f3",
+            "sym": "F_<T_field_layout::order_no_template::C3>_f3",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C3",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#16"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C4>_f4": {
+          "sym": "F_<T_field_layout::order_no_template::C4>_f4",
+          "pretty": "field_layout::order_no_template::C4::f4",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C4::f4",
+            "sym": "F_<T_field_layout::order_no_template::C4>_f4",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C4",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#20"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C5>_f5": {
+          "sym": "F_<T_field_layout::order_no_template::C5>_f5",
+          "pretty": "field_layout::order_no_template::C5::f5",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C5::f5",
+            "sym": "F_<T_field_layout::order_no_template::C5>_f5",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C5",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#24"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C6>_f6": {
+          "sym": "F_<T_field_layout::order_no_template::C6>_f6",
+          "pretty": "field_layout::order_no_template::C6::f6",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C6::f6",
+            "sym": "F_<T_field_layout::order_no_template::C6>_f6",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C6",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#28"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C7>_f7": {
+          "sym": "F_<T_field_layout::order_no_template::C7>_f7",
+          "pretty": "field_layout::order_no_template::C7::f7",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C7::f7",
+            "sym": "F_<T_field_layout::order_no_template::C7>_f7",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C7",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#32"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C8>_f8": {
+          "sym": "F_<T_field_layout::order_no_template::C8>_f8",
+          "pretty": "field_layout::order_no_template::C8::f8",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C8::f8",
+            "sym": "F_<T_field_layout::order_no_template::C8>_f8",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C8",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#36"
+          }
+        },
+        "F_<T_field_layout::order_no_template::C9>_f9": {
+          "sym": "F_<T_field_layout::order_no_template::C9>_f9",
+          "pretty": "field_layout::order_no_template::C9::f9",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C9::f9",
+            "sym": "F_<T_field_layout::order_no_template::C9>_f9",
+            "type_pretty": null,
+            "kind": "field",
+            "subsystem": null,
+            "parentsym": "T_field_layout::order_no_template::C9",
+            "implKind": "",
+            "sizeBytes": null,
+            "alignmentBytes": null,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#40"
+          }
+        },
+        "T_field_layout::order_no_template::C1": {
+          "sym": "T_field_layout::order_no_template::C1",
+          "pretty": "field_layout::order_no_template::C1",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C1",
+            "sym": "T_field_layout::order_no_template::C1",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 4,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#8",
+                "pretty": "field_layout::order_no_template::C1::f1",
+                "sym": "F_<T_field_layout::order_no_template::C1>_f1",
+                "type": "int",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 4
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C4"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#7"
+          }
+        },
+        "T_field_layout::order_no_template::C10": {
+          "sym": "T_field_layout::order_no_template::C10",
+          "pretty": "field_layout::order_no_template::C10",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C10",
+            "sym": "T_field_layout::order_no_template::C10",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 8,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::order_no_template::C9",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#44",
+                "pretty": "field_layout::order_no_template::C10::f10",
+                "sym": "F_<T_field_layout::order_no_template::C10>_f10",
+                "type": "signed char",
+                "typesym": "",
+                "offsetBytes": 4,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C11"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#43"
+          }
+        },
+        "T_field_layout::order_no_template::C11": {
+          "sym": "T_field_layout::order_no_template::C11",
+          "pretty": "field_layout::order_no_template::C11",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C11",
+            "sym": "T_field_layout::order_no_template::C11",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 44,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::order_no_template::C4",
+                "offsetBytes": 0,
+                "props": []
+              },
+              {
+                "sym": "T_field_layout::order_no_template::C8",
+                "offsetBytes": 16,
+                "props": []
+              },
+              {
+                "sym": "T_field_layout::order_no_template::C10",
+                "offsetBytes": 32,
+                "props": []
+              }
+            ],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#48",
+                "pretty": "field_layout::order_no_template::C11::f11",
+                "sym": "F_<T_field_layout::order_no_template::C11>_f11",
+                "type": "int",
+                "typesym": "",
+                "offsetBytes": 40,
+                "bitPositions": null,
+                "sizeBytes": 4
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#47"
+          }
+        },
+        "T_field_layout::order_no_template::C2": {
+          "sym": "T_field_layout::order_no_template::C2",
+          "pretty": "field_layout::order_no_template::C2",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C2",
+            "sym": "T_field_layout::order_no_template::C2",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "alignmentBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#12",
+                "pretty": "field_layout::order_no_template::C2::f2",
+                "sym": "F_<T_field_layout::order_no_template::C2>_f2",
+                "type": "signed char",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C3"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#11"
+          }
+        },
+        "T_field_layout::order_no_template::C3": {
+          "sym": "T_field_layout::order_no_template::C3",
+          "pretty": "field_layout::order_no_template::C3",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C3",
+            "sym": "T_field_layout::order_no_template::C3",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 8,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::order_no_template::C2",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#16",
+                "pretty": "field_layout::order_no_template::C3::f3",
+                "sym": "F_<T_field_layout::order_no_template::C3>_f3",
+                "type": "int",
+                "typesym": "",
+                "offsetBytes": 4,
+                "bitPositions": null,
+                "sizeBytes": 4
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C4"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#15"
+          }
+        },
+        "T_field_layout::order_no_template::C4": {
+          "sym": "T_field_layout::order_no_template::C4",
+          "pretty": "field_layout::order_no_template::C4",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C4",
+            "sym": "T_field_layout::order_no_template::C4",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 16,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::order_no_template::C1",
+                "offsetBytes": 0,
+                "props": []
+              },
+              {
+                "sym": "T_field_layout::order_no_template::C3",
+                "offsetBytes": 4,
+                "props": []
+              }
+            ],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#20",
+                "pretty": "field_layout::order_no_template::C4::f4",
+                "sym": "F_<T_field_layout::order_no_template::C4>_f4",
+                "type": "signed char",
+                "typesym": "",
+                "offsetBytes": 12,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C11"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#19"
+          }
+        },
+        "T_field_layout::order_no_template::C5": {
+          "sym": "T_field_layout::order_no_template::C5",
+          "pretty": "field_layout::order_no_template::C5",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C5",
+            "sym": "T_field_layout::order_no_template::C5",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 4,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#24",
+                "pretty": "field_layout::order_no_template::C5::f5",
+                "sym": "F_<T_field_layout::order_no_template::C5>_f5",
+                "type": "int",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 4
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C8"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#23"
+          }
+        },
+        "T_field_layout::order_no_template::C6": {
+          "sym": "T_field_layout::order_no_template::C6",
+          "pretty": "field_layout::order_no_template::C6",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C6",
+            "sym": "T_field_layout::order_no_template::C6",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 1,
+            "alignmentBytes": 1,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#28",
+                "pretty": "field_layout::order_no_template::C6::f6",
+                "sym": "F_<T_field_layout::order_no_template::C6>_f6",
+                "type": "signed char",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C7"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#27"
+          }
+        },
+        "T_field_layout::order_no_template::C7": {
+          "sym": "T_field_layout::order_no_template::C7",
+          "pretty": "field_layout::order_no_template::C7",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C7",
+            "sym": "T_field_layout::order_no_template::C7",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 8,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::order_no_template::C6",
+                "offsetBytes": 0,
+                "props": []
+              }
+            ],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#32",
+                "pretty": "field_layout::order_no_template::C7::f7",
+                "sym": "F_<T_field_layout::order_no_template::C7>_f7",
+                "type": "int",
+                "typesym": "",
+                "offsetBytes": 4,
+                "bitPositions": null,
+                "sizeBytes": 4
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C8"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#31"
+          }
+        },
+        "T_field_layout::order_no_template::C8": {
+          "sym": "T_field_layout::order_no_template::C8",
+          "pretty": "field_layout::order_no_template::C8",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C8",
+            "sym": "T_field_layout::order_no_template::C8",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 16,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [
+              {
+                "sym": "T_field_layout::order_no_template::C5",
+                "offsetBytes": 0,
+                "props": []
+              },
+              {
+                "sym": "T_field_layout::order_no_template::C7",
+                "offsetBytes": 4,
+                "props": []
+              }
+            ],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#36",
+                "pretty": "field_layout::order_no_template::C8::f8",
+                "sym": "F_<T_field_layout::order_no_template::C8>_f8",
+                "type": "signed char",
+                "typesym": "",
+                "offsetBytes": 12,
+                "bitPositions": null,
+                "sizeBytes": 1
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C11"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#35"
+          }
+        },
+        "T_field_layout::order_no_template::C9": {
+          "sym": "T_field_layout::order_no_template::C9",
+          "pretty": "field_layout::order_no_template::C9",
+          "meta": {
+            "structured": 1,
+            "pretty": "field_layout::order_no_template::C9",
+            "sym": "T_field_layout::order_no_template::C9",
+            "type_pretty": null,
+            "kind": "class",
+            "subsystem": null,
+            "implKind": "",
+            "sizeBytes": 4,
+            "alignmentBytes": 4,
+            "ownVFPtrBytes": null,
+            "bindingSlots": [],
+            "ontologySlots": [],
+            "supers": [],
+            "methods": [],
+            "fields": [
+              {
+                "lineRange": "#40",
+                "pretty": "field_layout::order_no_template::C9::f9",
+                "sym": "F_<T_field_layout::order_no_template::C9>_f9",
+                "type": "int",
+                "typesym": "",
+                "offsetBytes": 0,
+                "bitPositions": null,
+                "sizeBytes": 4
+              }
+            ],
+            "overrides": [],
+            "props": [],
+            "subclasses": [
+              "T_field_layout::order_no_template::C10"
+            ],
+            "variants": []
+          },
+          "jumps": {
+            "def": "field-layout/order.cpp#39"
+          }
+        }
+      },
+      "platforms": [
+        "All platforms"
+      ],
+      "rows": [
+        {
+          "name": "field_layout::order_no_template::C11",
+          "symbols": "T_field_layout::order_no_template::C11",
+          "isBaseClass": false,
+          "alignmentAndSize": [
+            {
+              "alignment": "align(4)",
+              "size": "44"
+            }
+          ],
+          "items": [
+            {
+              "Field": {
+                "name": "f11",
+                "symbols": "F_<T_field_layout::order_no_template::C11>_f11",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C11>_f11\" data-confidences=\"[&quot;concrete&quot;]\">f11</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x28",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C10",
+          "symbols": "T_field_layout::order_no_template::C10",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f10",
+                "symbols": "F_<T_field_layout::order_no_template::C10>_f10",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C10>_f10\" data-confidences=\"[&quot;concrete&quot;]\">f10</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x24",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "3 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C9",
+          "symbols": "T_field_layout::order_no_template::C9",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f9",
+                "symbols": "F_<T_field_layout::order_no_template::C9>_f9",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C9>_f9\" data-confidences=\"[&quot;concrete&quot;]\">f9</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x20",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C8",
+          "symbols": "T_field_layout::order_no_template::C8",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f8",
+                "symbols": "F_<T_field_layout::order_no_template::C8>_f8",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C8>_f8\" data-confidences=\"[&quot;concrete&quot;]\">f8</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x1c",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "3 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C7",
+          "symbols": "T_field_layout::order_no_template::C7",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Hole": [
+                "3 bytes hole after base class"
+              ]
+            },
+            {
+              "Field": {
+                "name": "f7",
+                "symbols": "F_<T_field_layout::order_no_template::C7>_f7",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C7>_f7\" data-confidences=\"[&quot;concrete&quot;]\">f7</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x18",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C6",
+          "symbols": "T_field_layout::order_no_template::C6",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f6",
+                "symbols": "F_<T_field_layout::order_no_template::C6>_f6",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C6>_f6\" data-confidences=\"[&quot;concrete&quot;]\">f6</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x14",
+                    "size": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C5",
+          "symbols": "T_field_layout::order_no_template::C5",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f5",
+                "symbols": "F_<T_field_layout::order_no_template::C5>_f5",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C5>_f5\" data-confidences=\"[&quot;concrete&quot;]\">f5</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x10",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C4",
+          "symbols": "T_field_layout::order_no_template::C4",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f4",
+                "symbols": "F_<T_field_layout::order_no_template::C4>_f4",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C4>_f4\" data-confidences=\"[&quot;concrete&quot;]\">f4</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0xc",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "3 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C3",
+          "symbols": "T_field_layout::order_no_template::C3",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Hole": [
+                "3 bytes hole after base class"
+              ]
+            },
+            {
+              "Field": {
+                "name": "f3",
+                "symbols": "F_<T_field_layout::order_no_template::C3>_f3",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C3>_f3\" data-confidences=\"[&quot;concrete&quot;]\">f3</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C2",
+          "symbols": "T_field_layout::order_no_template::C2",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f2",
+                "symbols": "F_<T_field_layout::order_no_template::C2>_f2",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C2>_f2\" data-confidences=\"[&quot;concrete&quot;]\">f2</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x4",
+                    "size": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::order_no_template::C1",
+          "symbols": "T_field_layout::order_no_template::C1",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f1",
+                "symbols": "F_<T_field_layout::order_no_template::C1>_f1",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::order_no_template::C1>_f1\" data-confidences=\"[&quot;concrete&quot;]\">f1</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x0",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "className": null
+}
