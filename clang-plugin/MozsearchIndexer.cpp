@@ -1345,7 +1345,12 @@ public:
                     C.getTypeSizeInChars(ptrType).getQuantity());
       }
 
-      bool hasTemplate = hasTemplateInHierarchy(cxxDecl);
+      bool emitLayout = false;
+      if (layoutHandling == LayoutHandling::LayoutOnly) {
+        emitLayout = true;
+      } else {
+        emitLayout = hasTemplateInHierarchy(cxxDecl);
+      }
 
       J.attributeBegin("supers");
       J.arrayBegin();
@@ -1380,7 +1385,7 @@ public:
         J.arrayEnd();
         J.attributeEnd();
 
-        if (hasTemplate) {
+        if (emitLayout) {
           // In order to reduce the file size, emit the entire super class
           // layout only if there's any template class in the hierarchy
           // Otherwise the field layout can be constructed with each
