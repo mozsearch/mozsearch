@@ -752,7 +752,7 @@ impl SimplifiedStructuredClassInfo {
 // This first collects "a list of classes" per platform.
 // And then this converts it into a list of "class per platform".
 struct SimplifiedStructuredClassInfoMap {
-    classes_map: HashMap<PlatformId, Vec<SimplifiedStructuredClassInfo>>,
+    classes_map: HashMap<PlatformId, VecDeque<SimplifiedStructuredClassInfo>>,
 
     classes_list: Vec<Vec<(PlatformId, SimplifiedStructuredClassInfo)>>,
 }
@@ -767,12 +767,12 @@ impl SimplifiedStructuredClassInfoMap {
 
     fn add(&mut self, platform_id: PlatformId, cls: SimplifiedStructuredClassInfo) {
         if let Some(classes) = self.classes_map.get_mut(&platform_id) {
-            classes.push(cls);
+            classes.push_front(cls);
             return;
         }
 
-        let mut classes = vec![];
-        classes.push(cls);
+        let mut classes = VecDeque::new();
+        classes.push_front(cls);
         self.classes_map.insert(platform_id, classes);
     }
 
@@ -963,13 +963,8 @@ impl ClassMap {
         offset: u32,
         depth: u32,
     ) -> Result<()> {
-        classinfo_map.add(
-            platform_id.clone(),
-            SimplifiedStructuredClassInfo::new_super(super_info, offset, depth),
-        );
-
         if let Some(layout) = &super_info.layout {
-            for super_super_info in &layout.supers {
+            for super_super_info in layout.supers.iter() {
                 Box::pin(self.layout_populate_supers(
                     platform_id.clone(),
                     super_super_info,
@@ -980,6 +975,11 @@ impl ClassMap {
                 .await?;
             }
         }
+
+        classinfo_map.add(
+            platform_id.clone(),
+            SimplifiedStructuredClassInfo::new_super(super_info, offset, depth),
+        );
 
         Ok(())
     }
@@ -1011,11 +1011,6 @@ impl ClassMap {
             if let Some(platform) = maybe_platform {
                 let platform_id = self.platform_map.get(platform.clone());
 
-                classinfo_map.add(
-                    platform_id.clone(),
-                    SimplifiedStructuredClassInfo::new(s, root_depth),
-                );
-
                 for super_info in &s.supers {
                     self.layout_populate_supers(
                         platform_id.clone(),
@@ -1026,13 +1021,13 @@ impl ClassMap {
                     )
                     .await?;
                 }
+
+                classinfo_map.add(
+                    platform_id.clone(),
+                    SimplifiedStructuredClassInfo::new(s, root_depth),
+                );
             } else {
                 for platform_id in self.platform_map.platform_ids() {
-                    classinfo_map.add(
-                        platform_id.clone(),
-                        SimplifiedStructuredClassInfo::new(s, root_depth),
-                    );
-
                     for super_info in &s.supers {
                         self.layout_populate_supers(
                             platform_id.clone(),
@@ -1043,6 +1038,11 @@ impl ClassMap {
                         )
                         .await?;
                     }
+
+                    classinfo_map.add(
+                        platform_id.clone(),
+                        SimplifiedStructuredClassInfo::new(s, root_depth),
+                    );
                 }
             }
         }
@@ -1396,7 +1396,7 @@ impl ClassMap {
             self.class_map.insert(traversal_id, cls);
 
             for super_item in supers.into_traversal_items() {
-                pending_items.push_back(super_item);
+                pending_items.push_front(super_item);
             }
         }
 
