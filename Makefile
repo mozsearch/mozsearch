@@ -237,9 +237,9 @@ comparison: check-in-vagrant build-clang-plugin build-rust-tools
 
 build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests webtest-config.json ~/index
+	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/indexer-setup.sh /vagrant/tests webtest-config.json ~/index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
+	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 
 webtest: build-webtest-repo
