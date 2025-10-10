@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(sttl).unwrap()"
+input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/field_layout__multiple_inheritance__json
 ---
 {
   "tables": [
@@ -1545,6 +1546,110 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
+          "name": "field_layout::multiple_inheritance::SubSubB",
+          "symbols": "T_field_layout::multiple_inheritance::SubSubB",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "sub_sub_b_1",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_sub_b_1</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x3c",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x34",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::multiple_inheritance::SubE",
+          "symbols": "T_field_layout::multiple_inheritance::SubE",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Hole": [
+                null,
+                "4 bytes hole after base class"
+              ]
+            },
+            {
+              "Field": {
+                "name": "sub_e_1",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1",
+                "types": [
+                  {
+                    "name": "long",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\" data-confidences=\"[&quot;concrete&quot;]\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_e_1</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x30",
+                    "size": "8"
+                  },
+                  {
+                    "offset": "@ 0x28",
+                    "size": "8"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "sub_e_2",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_e_2</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x38",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x30",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::multiple_inheritance::BaseEmpty",
+          "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": []
+        },
+        {
           "name": "field_layout::multiple_inheritance::SubSubA",
           "symbols": "T_field_layout::multiple_inheritance::SubSubA",
           "isBaseClass": true,
@@ -1584,15 +1689,15 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubSubB",
-          "symbols": "T_field_layout::multiple_inheritance::SubSubB",
+          "name": "field_layout::multiple_inheritance::SubD",
+          "symbols": "T_field_layout::multiple_inheritance::SubD",
           "isBaseClass": true,
           "alignmentAndSize": [],
           "items": [
             {
               "Field": {
-                "name": "sub_sub_b_1",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1",
+                "name": "sub_d_1",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1",
                 "types": [
                   {
                     "name": "int",
@@ -1600,15 +1705,110 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubSubB>_sub_sub_b_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_sub_b_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_d_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
-                    "offset": "@ 0x3c",
+                    "offset": "@ 0x20",
                     "size": "4"
                   },
                   {
-                    "offset": "@ 0x34",
+                    "offset": "@ 0x18",
+                    "size": "4"
+                  }
+                ]
+              }
+            },
+            {
+              "Field": {
+                "name": "sub_d_2",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_d_2</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x24",
+                    "size": "1"
+                  },
+                  {
+                    "offset": "@ 0x1c",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "EndPadding": [
+                "3 bytes padding",
+                "3 bytes padding"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "field_layout::multiple_inheritance::SubC",
+          "symbols": "T_field_layout::multiple_inheritance::SubC",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "sub_c_1",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_c_1</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x18",
+                    "size": "1"
+                  },
+                  {
+                    "offset": "@ 0x10",
+                    "size": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "Hole": [
+                "3 bytes hole",
+                "3 bytes hole"
+              ]
+            },
+            {
+              "Field": {
+                "name": "sub_c_2",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_c_2</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x1c",
+                    "size": "4"
+                  },
+                  {
+                    "offset": "@ 0x14",
                     "size": "4"
                   }
                 ]
@@ -1617,68 +1817,11 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubA",
-          "symbols": "T_field_layout::multiple_inheritance::SubA",
+          "name": "field_layout::multiple_inheritance::BaseEmpty",
+          "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
           "isBaseClass": true,
           "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "sub_a_1",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1",
-                "types": [
-                  {
-                    "name": "int",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_a_1</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x0",
-                    "size": "4"
-                  },
-                  {
-                    "offset": "@ 0x0",
-                    "size": "4"
-                  }
-                ]
-              }
-            },
-            {
-              "Field": {
-                "name": "sub_a_2",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2",
-                "types": [
-                  {
-                    "name": "short",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int16_t\" data-confidences=\"[&quot;concrete&quot;]\">int16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_a_2</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x4",
-                    "size": "2"
-                  },
-                  {
-                    "offset": "@ 0x4",
-                    "size": "2"
-                  }
-                ]
-              }
-            },
-            {
-              "EndPadding": [
-                "2 bytes padding",
-                "2 bytes padding"
-              ]
-            }
-          ]
+          "items": []
         },
         {
           "name": "field_layout::multiple_inheritance::SubB",
@@ -1773,15 +1916,22 @@ expression: "&to_value(sttl).unwrap()"
           ]
         },
         {
-          "name": "field_layout::multiple_inheritance::SubD",
-          "symbols": "T_field_layout::multiple_inheritance::SubD",
+          "name": "field_layout::multiple_inheritance::BaseEmpty",
+          "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": []
+        },
+        {
+          "name": "field_layout::multiple_inheritance::SubA",
+          "symbols": "T_field_layout::multiple_inheritance::SubA",
           "isBaseClass": true,
           "alignmentAndSize": [],
           "items": [
             {
               "Field": {
-                "name": "sub_d_1",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1",
+                "name": "sub_a_1",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1",
                 "types": [
                   {
                     "name": "int",
@@ -1789,15 +1939,15 @@ expression: "&to_value(sttl).unwrap()"
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_d_1</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_a_1</span>;"
                 ],
                 "offsetAndSize": [
                   {
-                    "offset": "@ 0x20",
+                    "offset": "@ 0x0",
                     "size": "4"
                   },
                   {
-                    "offset": "@ 0x18",
+                    "offset": "@ 0x0",
                     "size": "4"
                   }
                 ]
@@ -1805,185 +1955,36 @@ expression: "&to_value(sttl).unwrap()"
             },
             {
               "Field": {
-                "name": "sub_d_2",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2",
+                "name": "sub_a_2",
+                "symbols": "F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2",
                 "types": [
                   {
-                    "name": "signed char",
+                    "name": "short",
                     "symbols": ""
                   }
                 ],
                 "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubD>_sub_d_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_d_2</span>;"
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int16_t\" data-confidences=\"[&quot;concrete&quot;]\">int16_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubA>_sub_a_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_a_2</span>;"
                 ],
                 "offsetAndSize": [
                   {
-                    "offset": "@ 0x24",
-                    "size": "1"
+                    "offset": "@ 0x4",
+                    "size": "2"
                   },
                   {
-                    "offset": "@ 0x1c",
-                    "size": "1"
+                    "offset": "@ 0x4",
+                    "size": "2"
                   }
                 ]
               }
             },
             {
               "EndPadding": [
-                "3 bytes padding",
-                "3 bytes padding"
+                "2 bytes padding",
+                "2 bytes padding"
               ]
             }
           ]
-        },
-        {
-          "name": "field_layout::multiple_inheritance::SubE",
-          "symbols": "T_field_layout::multiple_inheritance::SubE",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": [
-            {
-              "Hole": [
-                null,
-                "4 bytes hole after base class"
-              ]
-            },
-            {
-              "Field": {
-                "name": "sub_e_1",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1",
-                "types": [
-                  {
-                    "name": "long",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int64_t\" data-confidences=\"[&quot;concrete&quot;]\">int64_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_e_1</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x30",
-                    "size": "8"
-                  },
-                  {
-                    "offset": "@ 0x28",
-                    "size": "8"
-                  }
-                ]
-              }
-            },
-            {
-              "Field": {
-                "name": "sub_e_2",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2",
-                "types": [
-                  {
-                    "name": "int",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubE>_sub_e_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_e_2</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x38",
-                    "size": "4"
-                  },
-                  {
-                    "offset": "@ 0x30",
-                    "size": "4"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "field_layout::multiple_inheritance::BaseEmpty",
-          "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": []
-        },
-        {
-          "name": "field_layout::multiple_inheritance::BaseEmpty",
-          "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": []
-        },
-        {
-          "name": "field_layout::multiple_inheritance::SubC",
-          "symbols": "T_field_layout::multiple_inheritance::SubC",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "sub_c_1",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1",
-                "types": [
-                  {
-                    "name": "signed char",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int8_t\" data-confidences=\"[&quot;concrete&quot;]\">int8_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_1\" data-confidences=\"[&quot;concrete&quot;]\">sub_c_1</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x18",
-                    "size": "1"
-                  },
-                  {
-                    "offset": "@ 0x10",
-                    "size": "1"
-                  }
-                ]
-              }
-            },
-            {
-              "Hole": [
-                "3 bytes hole",
-                "3 bytes hole"
-              ]
-            },
-            {
-              "Field": {
-                "name": "sub_c_2",
-                "symbols": "F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2",
-                "types": [
-                  {
-                    "name": "int",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::multiple_inheritance::SubC>_sub_c_2\" data-confidences=\"[&quot;concrete&quot;]\">sub_c_2</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x1c",
-                    "size": "4"
-                  },
-                  {
-                    "offset": "@ 0x14",
-                    "size": "4"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "field_layout::multiple_inheritance::BaseEmpty",
-          "symbols": "T_field_layout::multiple_inheritance::BaseEmpty",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": []
         },
         {
           "name": "field_layout::multiple_inheritance::BaseEmpty",

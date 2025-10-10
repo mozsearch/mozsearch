@@ -653,6 +653,64 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
           ]
         },
         {
+          "name": "field_layout::template_multi::C4",
+          "symbols": "T_field_layout::template_multi::C4",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f4",
+                "symbols": "F_<T_field_layout::template_multi::C4>_f4",
+                "types": [
+                  {
+                    "name": "signed char",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  T <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_multi::C4>_f4\" data-confidences=\"[&quot;concrete&quot;]\">f4</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0xc",
+                    "size": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "field_layout::template_multi::C3",
+          "symbols": "T_field_layout::template_multi::C3",
+          "isBaseClass": true,
+          "alignmentAndSize": [],
+          "items": [
+            {
+              "Field": {
+                "name": "f3",
+                "symbols": "F_<T_field_layout::template_multi::C3>_f3",
+                "types": [
+                  {
+                    "name": "int",
+                    "symbols": ""
+                  }
+                ],
+                "lines": [
+                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_multi::C3>_f3\" data-confidences=\"[&quot;concrete&quot;]\">f3</span>;"
+                ],
+                "offsetAndSize": [
+                  {
+                    "offset": "@ 0x8",
+                    "size": "4"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "field_layout::template_multi::C2",
           "symbols": "T_field_layout::template_multi::C2",
           "isBaseClass": true,
@@ -708,64 +766,6 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "offsetAndSize": [
                   {
                     "offset": "@ 0x0",
-                    "size": "4"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "field_layout::template_multi::C4",
-          "symbols": "T_field_layout::template_multi::C4",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "f4",
-                "symbols": "F_<T_field_layout::template_multi::C4>_f4",
-                "types": [
-                  {
-                    "name": "signed char",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  T <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_multi::C4>_f4\" data-confidences=\"[&quot;concrete&quot;]\">f4</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0xc",
-                    "size": "1"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "field_layout::template_multi::C3",
-          "symbols": "T_field_layout::template_multi::C3",
-          "isBaseClass": true,
-          "alignmentAndSize": [],
-          "items": [
-            {
-              "Field": {
-                "name": "f3",
-                "symbols": "F_<T_field_layout::template_multi::C3>_f3",
-                "types": [
-                  {
-                    "name": "int",
-                    "symbols": ""
-                  }
-                ],
-                "lines": [
-                  "  <span class=\"syn_type\" data-symbols=\"TA_int32_t\" data-confidences=\"[&quot;concrete&quot;]\">int32_t</span> <span class=\"syn_def\" data-symbols=\"F_<T_field_layout::template_multi::C3>_f3\" data-confidences=\"[&quot;concrete&quot;]\">f3</span>;"
-                ],
-                "offsetAndSize": [
-                  {
-                    "offset": "@ 0x8",
                     "size": "4"
                   }
                 ]
