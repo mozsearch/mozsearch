@@ -34,6 +34,8 @@ var Dxr = new (class Dxr {
 
     this.setupColSelector();
 
+    this.setupClassSorter();
+
     this.startSearchTimer = null;
     // The timer to move to the next url.
     this.historyTimer = null;
@@ -244,6 +246,69 @@ var Dxr = new (class Dxr {
     for (let kind in this.bubbles) {
       this.hideBubble(kind);
     }
+  }
+
+  setupClassSorter() {
+    if (!this.colSelector) {
+      return;
+    }
+
+    const button = document.querySelector("#reorder-classes");
+    if (!button) {
+      return;
+    }
+
+    // NOTE: There can be multiple tables.
+
+    const rowsListList = [];
+    for (const tbody of document.querySelectorAll("#symbol-tree-table-list tbody")) {
+      const rowsList = [];
+      let currentRows = null;
+      for (const row of tbody.querySelectorAll("tr")) {
+        const firstCell = row.querySelector("td");
+        if (!firstCell) {
+          continue;
+        }
+        if (firstCell.classList.contains("base-class-false") ||
+            firstCell.classList.contains("base-class-true")) {
+          currentRows = [row];
+          rowsList.push(currentRows);
+          continue;
+        }
+        if (!currentRows) {
+          continue;
+        }
+        currentRows.push(row);
+      }
+      rowsListList.push({ tbody, rowsList });
+    }
+
+    let useAscending = true;
+
+    button.addEventListener("click", () => {
+      useAscending = !useAscending;
+
+      if (useAscending) {
+        button.textContent = "Use Ascending Order";
+      } else {
+        button.textContent = "Use Descending Order";
+      }
+
+      for (const { tbody, rowsList } of rowsListList) {
+        let list;
+        if (useAscending) {
+          list = rowsList;
+        } else {
+          list = rowsList.toReversed();
+        }
+
+        for (const rows of list) {
+          for (const row of rows) {
+            tbody.append(row);
+          }
+        }
+      }
+    });
   }
 
   setupColSelector() {
