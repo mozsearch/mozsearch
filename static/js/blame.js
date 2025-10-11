@@ -82,10 +82,35 @@ var BlamePopup = new (class BlamePopup {
     let top;
     let left;
 
+    let isGC = false;
+    if (elt.dataset.symbols in SYM_INFO) {
+      const info = SYM_INFO[elt.dataset.symbols];
+      if (info.meta && "canGC" in info.meta) {
+        isGC = true;
+      }
+    }
+
     const isExpansion = typeof elt.dataset.expansions !== 'undefined' && elt.dataset.expansions !== null;
     const isAnnotate = !!elt.dataset.blame;
     if (isExpansion) {
       content = await this.generateExpansionContent(elt);
+      let rect = elt.getBoundingClientRect();
+      top = rect.bottom + window.scrollY;
+      left = rect.left + window.scrollX;
+    } else if (isGC) {
+      const info = SYM_INFO[elt.dataset.symbols];
+      if (info.meta.canGC) {
+        content = "This function can GC in the following path.<code>";
+        content += info.meta.gcPath.split("\n").map(x => "> " + x).join("\n")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        content += "</code>";
+      } else {
+        content = "This function cannot GC.";
+      }
       let rect = elt.getBoundingClientRect();
       top = rect.bottom + window.scrollY;
       left = rect.left + window.scrollX;
@@ -137,7 +162,7 @@ var BlamePopup = new (class BlamePopup {
       this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     }
 
-    if (!isExpansion) {
+    if (!isExpansion && !isGC) {
       if (isAnnotate) {
         this.hideCoverageStripDetails();
       } else {
