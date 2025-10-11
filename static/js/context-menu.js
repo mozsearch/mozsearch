@@ -848,6 +848,20 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             }
           }
         }
+
+        if (Settings.semanticInfo.enabled) {
+          if (symInfo.meta && "canGC" in symInfo.meta) {
+            extraMenuItems.push({
+              html: symInfo.meta.canGC ? "Can GC" : "Cannot GC",
+              icon: "recycle",
+              action: () => {
+                this.hide();
+                BlamePopup.blameElement = symbolToken;
+                BlameStripHoverHandler.keepVisible = true;
+              },
+            });
+          }
+        }
       }
 
       const tokenText = symbolToken.textContent;

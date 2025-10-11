@@ -82,10 +82,42 @@ var BlamePopup = new (class BlamePopup {
     let top;
     let left;
 
+    let isGC = false;
+    let gcInfo = null;
+    if (Settings.semanticInfo.enabled) {
+      if (elt?.dataset?.symbols) {
+        for (const sym of elt.dataset.symbols.split(",")) {
+          if (sym in SYM_INFO) {
+            const info = SYM_INFO[sym];
+            if (info.meta && "canGC" in info.meta) {
+              gcInfo = info;
+              isGC = true;
+            }
+          }
+        }
+      }
+    }
+
     const isExpansion = typeof elt.dataset.expansions !== 'undefined' && elt.dataset.expansions !== null;
     const isAnnotate = !!elt.dataset.blame;
     if (isExpansion) {
       content = await this.generateExpansionContent(elt);
+      let rect = elt.getBoundingClientRect();
+      top = rect.bottom + window.scrollY;
+      left = rect.left + window.scrollX;
+    } else if (isGC) {
+      if (gcInfo.meta.canGC) {
+        content = "This function can GC in the following path.<code>";
+        content += gcInfo.meta.gcPath.split("\n").map(x => "> " + x).join("\n")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        content += "</code>";
+      } else {
+        content = "This function cannot GC.";
+      }
       let rect = elt.getBoundingClientRect();
       top = rect.bottom + window.scrollY;
       left = rect.left + window.scrollX;
@@ -137,7 +169,7 @@ var BlamePopup = new (class BlamePopup {
       this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     }
 
-    if (!isExpansion) {
+    if (!isExpansion && !isGC) {
       if (isAnnotate) {
         this.hideCoverageStripDetails();
       } else {
