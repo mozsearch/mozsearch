@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
-snapshot_kind: text
+input_file: inputs/web/files/contextual-keyword/contextual-keyword_js__html
 ---
 <span data-symbols="FILE_js/contextual@2Dkeyword@2Ejs">(file symbol)</span>
 <span class="syn_def" data-symbols="#await" data-confidences="[&quot;concrete&quot;]">await</span>
@@ -23,11 +23,11 @@ snapshot_kind: text
 <span class="syn_def" data-symbols="#set" data-confidences="[&quot;concrete&quot;]">set</span>
 <span class="syn_def" data-symbols="#target" data-confidences="[&quot;concrete&quot;]">target</span>
 <span class="syn_def" data-symbols="#f" data-confidences="[&quot;concrete&quot;]">f</span>
-<span data-symbols="10-0" data-confidences="[&quot;concrete&quot;]">x</span>
-<span data-symbols="10-1" data-confidences="[&quot;concrete&quot;]">x</span>
+<span data-symbols="11-0" data-confidences="[&quot;concrete&quot;]">x</span>
+<span data-symbols="11-1" data-confidences="[&quot;concrete&quot;]">x</span>
 <span class="syn_def" data-symbols="#C" data-confidences="[&quot;concrete&quot;]">C</span>
 <span class="syn_def syn_def" data-symbols="#constructor,C#constructor" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">constructor</span>
 <span class="syn_def syn_def" data-symbols="#foo,C#foo" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">foo</span>
 <span class="syn_def syn_def" data-symbols="#prop,C#prop" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">prop</span>
 <span class="syn_def syn_def" data-symbols="#prop,C#prop" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">prop</span>
-<span data-symbols="10-2" data-confidences="[&quot;concrete&quot;]">v</span>
+<span data-symbols="11-2" data-confidences="[&quot;concrete&quot;]">v</span>

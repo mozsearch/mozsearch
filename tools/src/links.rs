@@ -47,7 +47,7 @@ pub fn linkify_comment(cfg: Option<&Config>, s: String) -> String {
 
         result.push_str(&format!(
             "<a href=\"{}\">{}</a>",
-            link.as_str(),
+            link.as_str().replace("\"", "&quot;"),
             linkify_bug_numbers(link.as_str())
         ));
     }
