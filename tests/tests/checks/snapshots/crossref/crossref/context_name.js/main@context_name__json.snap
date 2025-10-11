@@ -1,0 +1,54 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/context_name.js/context_name__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "#ContextName",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "js/context_name.js",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  15,
+                  26
+                ],
+                "line": "let name = new ContextName();",
+                "context": "ContextProto.method.Obj.method2.method3",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "js/context_name.js",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  6,
+                  17
+                ],
+                "line": "class ContextName {",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

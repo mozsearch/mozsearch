@@ -1151,15 +1151,17 @@ let Analyzer = {
   variableDeclarator(decl) {
     this.pattern(decl.id);
 
+    let name = null;
     let oldNameForThis = this.nameForThis;
     if (decl.id.type == "Identifier" && decl.init) {
       if (decl.init.type == "ObjectExpression") {
         this.nameForThis = decl.id.name;
+        name = this.nameForThis;
       } else {
         // Handle Object.freeze({...})
       }
     }
-    this.contextStack.push(this.nameForThis);
+    this.contextStack.push(name);
     this.maybeExpression(decl.init);
     this.contextStack.pop();
     this.nameForThis = oldNameForThis;
@@ -1272,7 +1274,7 @@ let Analyzer = {
       break;
 
     case "FunctionExpression":
-    case "ArrowFunctionExpression":
+    case "ArrowFunctionExpression": {
       // In theory this could declare a variable that can be used in
       // the function. But most of the time, it appears on class
       // methods that don't actually define such a variable. This is
@@ -1294,7 +1296,7 @@ let Analyzer = {
         this.functionDecl(expr);
       });
       break;
-
+    }
     case "SequenceExpression":
       for (let elt of expr.expressions) {
         this.expression(elt);
@@ -1306,7 +1308,7 @@ let Analyzer = {
       this.expression(expr.argument);
       break;
 
-    case "AssignmentExpression":
+    case "AssignmentExpression": {
       if (expr.left.type == "Identifier") {
         this.assignVar(expr.left.name, expr.left.loc);
       } else if (expr.left.type == "MemberExpression" && !expr.left.computed) {
@@ -1327,6 +1329,7 @@ let Analyzer = {
         this.expression(expr.left);
       }
 
+      let name = null;
       let oldNameForThis = this.nameForThis;
       if (expr.left.type == "MemberExpression" &&
           !expr.left.computed)
@@ -1335,17 +1338,19 @@ let Analyzer = {
             expr.left.object.type == "Identifier")
         {
           this.nameForThis = expr.left.object.name;
+          name = this.nameForThis;
         }
         if (expr.left.object.type == "ThisExpression") {
           this.nameForThis = expr.left.property.name;
+          name = this.nameForThis;
         }
       }
-      this.contextStack.push(this.nameForThis);
+      this.contextStack.push(name);
       this.expression(expr.right);
       this.contextStack.pop();
       this.nameForThis = oldNameForThis;
       break;
-
+    }
     case "BinaryExpression":
     case "LogicalExpression":
       this.expression(expr.left);
