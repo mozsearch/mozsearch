@@ -77,6 +77,12 @@
       "css": "export-alt",
       "code": 61773,
       "src": "fontawesome"
+    },
+    {
+      "uid": "288f930b765216bc04e475740331bdf5",
+      "css": "recycle",
+      "code": 61880,
+      "src": "fontawesome"
     }
   ]
 }
