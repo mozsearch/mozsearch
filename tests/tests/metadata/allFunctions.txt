@@ -1,0 +1,4 @@
+_ZN2GC4DoGCEv$void DoGC()
+_ZN2GC5CanGCEi$bool CanGC(int foo)
+_ZN2GC6CanGC2Ev$void CanGC2()
+_ZN2GC8CannotGCEv$bool CannotGC()
