@@ -23,3 +23,5 @@ ln -s -f $CONFIG_REPO/tests/metadata/code-coverage-report.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/test.chrome-map.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/test2.chrome-map.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/doc-trees.json $INDEX_ROOT
+ln -s -f $CONFIG_REPO/tests/metadata/gcFunctions.txt $INDEX_ROOT
+ln -s -f $CONFIG_REPO/tests/metadata/allFunctions.txt $INDEX_ROOT
