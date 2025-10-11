@@ -244,6 +244,9 @@ fn make_subsystem(
             overridden_by_syms: vec![],
             variants: vec![],
             extra: Map::default(),
+
+            can_gc: None,
+            gc_path: None,
         };
         meta_table.insert(file_structured.sym, file_structured);
         pretty_table.insert(*file_sym, *path);
