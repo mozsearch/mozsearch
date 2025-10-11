@@ -1,0 +1,7 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/linkify/complex-url__html
+---
+<a href="sc://\u001F!\&quot;$&amp;'()*+,-.;&lt;=">sc://\u001F!\"$&amp;'()*+,-.;&lt;=</a>
+<a href="sc://%1F!\&quot;$&amp;'()*+,-.;&lt;=">sc://%1F!\"$&amp;'()*+,-.;&lt;=</a>
