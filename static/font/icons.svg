@@ -1,7 +1,7 @@
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns="http://www.w3.org/2000/svg">
-<metadata>Copyright (C) 2023 by original authors @ fontello.com</metadata>
+<metadata>Copyright (C) 2025 by original authors @ fontello.com</metadata>
 <defs>
 <font id="icons" horiz-adv-x="1000" >
 <font-face font-family="icons" font-weight="400" font-stretch="normal" units-per-em="1000" ascent="850" descent="-150" />
@@ -29,6 +29,8 @@
 <glyph glyph-name="docs" unicode="&#xf0c5;" d="M946 636q23 0 38-16t16-38v-678q0-23-16-38t-38-16h-535q-23 0-38 16t-16 38v160h-303q-23 0-38 16t-16 38v375q0 22 11 49t27 42l228 228q15 16 42 27t49 11h232q23 0 38-16t16-38v-183q38 23 71 23h232z m-303-119l-167-167h167v167z m-357 214l-167-167h167v167z m109-361l176 176v233h-214v-233q0-22-15-37t-38-16h-233v-357h286v143q0 22 11 49t27 42z m534-449v643h-215v-232q0-22-15-38t-38-15h-232v-358h500z" horiz-adv-x="1000" />
 
 <glyph glyph-name="export-alt" unicode="&#xf14d;" d="M561 236l196 196q11 11 11 25t-11 25l-196 197q-17 17-39 8-22-10-22-33v-90q-66 0-120-11t-91-28-64-44-42-53-25-61-12-62-3-62q0-101 93-226 6-6 14-6 4 0 7 1 13 5 11 19-25 197 35 264 25 29 72 42t125 13v-89q0-24 22-33 7-3 14-3 14 0 25 11z m296 382v-536q0-66-47-113t-114-48h-535q-67 0-114 48t-47 113v536q0 66 47 113t114 48h535q67 0 114-48t47-113z" horiz-adv-x="857.1" />
+
+<glyph glyph-name="recycle" unicode="&#xf1b8;" d="M467 198l-9-206-1-12-234 16q-20 2-38 18t-26 36q-6 15-8 31t2 36 7 31 12 36 11 29q43-6 284-15z m-216 327l100-212-82 52q-35-41-62-81t-41-70-22-53-10-35l-2-11-106 199q-10 14-10 31t3 26l4 10q20 35 64 105l-78 48z m687-289l-105-200q-7-16-21-26t-24-12l-10-2q-40-4-122-7l4-91-128 205 118 202 4-97q94-9 157-2t95 18z m-439 516q-26-35-147-243l-177 104-11 7 126 199q11 17 33 25t45 5q13-1 27-6t23-12 23-18 21-20 20-22 17-19z m366-171l118-203q10-21 7-42t-15-42q-7-11-18-20t-22-16-27-12-26-9-29-8-25-7q-19 40-148 244l174 108z m-80 126l79 46-122-208-234 11 84 48q-19 50-42 93t-42 69-36 44-26 26l-10 7 226 0q18 1 33-6t22-16l6-8q21-34 62-106z" horiz-adv-x="1000" />
 </font>
 </defs>
 </svg>
