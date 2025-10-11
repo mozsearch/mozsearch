@@ -610,6 +610,11 @@ where
 
     #[serde(flatten)]
     pub extra: Map<String, Value>,
+
+    #[serde(rename = "canGC", skip_serializing_if = "Option::is_none")]
+    pub can_gc: Option<bool>,
+    #[serde(rename = "gcPath", skip_serializing_if = "Option::is_none")]
+    pub gc_path: Option<StrT>,
 }
 
 impl<StrT> AnalysisStructured<StrT>

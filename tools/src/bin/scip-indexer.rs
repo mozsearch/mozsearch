@@ -945,6 +945,9 @@ fn analyze_using_scip(
                     overridden_by_syms: vec![],
                     variants: vec![],
                     extra: Map::default(),
+
+                    can_gc: None,
+                    gc_path: None,
                 };
                 // for local symbols we use our own symbol because the SCIP symbol is not
                 // actually unique; we also need to update our helper mapping.
@@ -1188,6 +1191,9 @@ fn analyze_using_scip(
                         overridden_by_syms: vec![],
                         variants: vec![],
                         extra: Map::default(),
+
+                        can_gc: None,
+                        gc_path: None,
                     };
                     scip_symbol_to_structured.insert(norm_scip_sym, fake);
                     possible_unknown_scip_symbols.remove(&norm_scip_sym);
@@ -1392,6 +1398,9 @@ fn analyze_using_scip(
             overridden_by_syms: vec![],
             variants: vec![],
             extra: Map::default(),
+
+            can_gc: None,
+            gc_path: None,
         };
         scip_symbol_to_structured.insert(symbol_info.norm_sym, fake);
     }

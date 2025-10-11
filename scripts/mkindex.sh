@@ -123,6 +123,10 @@ $MOZSEARCH_PATH/scripts/replace-aliases.sh $ANALYSIS_FILES_PATH || handle_tree_e
 
 date
 
+$MOZSEARCH_PATH/scripts/annotate-gc.sh $ANALYSIS_FILES_PATH || handle_tree_error "annotate_gc.sh"
+
+date
+
 # crossref failures always need to be fatal because their outputs are required.
 $MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH $OTHER_RESOURCES_PATH
 
