@@ -132,6 +132,9 @@ index of the field starting from 0.
       merge-analyses ends up merging things.  Right now it creates diverging
       symbols that potentially don't need to diverge.
 
+ * Firefox's privileged URLs (chrome://, resource://) temporarily use special
+   symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced
+   with the corresponding file's symbol by `scripts/replace-aliases.py` script.
 
 Note that in some cases, the symbol for a C++ identifier might vary from one
 platform to another. For example, a function signature that includes `uint64_t`
