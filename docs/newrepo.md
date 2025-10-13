@@ -110,7 +110,7 @@ Finally, update the top-level `help.html` file to include a link to your new rep
 ## 5. Test and debug
 
 Assuming you did step 4 inside the vagrant VM, you can use the `build-mozilla-repo` target in the Makefile to test out
-and debug the indexing of your new repository. However this will do a lot of work, including all the mozilla-central
+and debug the indexing of your new repository. However this will do a lot of work, including all the firefox-main
 indexing, which you probably don't want as it takes a lot of time. So first edit the `/home/vagrant/mozilla-config/config.json`
 file to just have the entry for your new repo (i.e. delete all the other entries). Also ensure the `default_tree` field
 at the top of the file points to your repo. Then:

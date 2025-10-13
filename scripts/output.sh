@@ -31,7 +31,7 @@ TMPDIR_PATH=${DIAGS_DIR}
 # --jobs 8: Limits us to 8 jobs to avoid creating an OOM nightmare; this is
 #   consistent with our vagrant-on-linux setting.  The immediate motivation is
 #   that under docker all of the system's cores will be exposed, which is
-#   good for non-memory-intensive things.  But for mozilla-central, each
+#   good for non-memory-intensive things.  But for firefox-main, each
 #   output-file instance ends up using ~2GiB of RAM individually and so a memory
 #   budget of ~16GiB is reasonable.  Otherwise on my 28-core machines the 64GiB
 #   of RAM gets eaten up and every other process terminated.

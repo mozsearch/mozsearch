@@ -15,7 +15,7 @@
 # as runnable.
 #
 # TODO: Need to deal with situations like
-# https://searchfox.org/mozilla-central/rev/6220909421e5cdb2e706a87f77ba7c6f4f21e4d0/dom/quota/ActorsParent.cpp#7064
+# https://searchfox.org/firefox-main/rev/e3ef7409f314978488f39de15d8296d124b1f9f1/dom/quota/ActorsParent.cpp#7064
 # where we have an explicit call to Run made from inside the class.  Although we
 # want to avoid including the calls to the base class signature of the method,
 # we absolutely want to process in-class concrete references to the Run method,

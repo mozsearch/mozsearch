@@ -242,27 +242,27 @@ configuration.
 make build-webtest-repo
 ```
 
-## Testing changes against mozilla-central
+## Testing changes against firefox-main
 
 If you are making more extensive changes to searchfox, it's usually advisable to
-test them against mozilla-central before landing them.  While it's possible to
+test them against firefox-main before landing them.  While it's possible to
 do this locally, the normal way to do this is:
 - If you have made any changes to the in-tree indexing process, such as the
-  clang plugin, run the relevant try jobs using the mozilla-central try
+  clang plugin, run the relevant try jobs using the firefox-main try
   infrastructure.  If you haven't made any changes, you can skip this step and
-  the AWS indexing job will just reuse mozilla-central's most recently nightly
+  the AWS indexing job will just reuse firefox-main's most recently nightly
   searchfox data.
 - Run an AWS indexing job using `trigger_indexer.py`.
 
 Details below.
 
-### Running mozilla-central try builds for changes to in-tree indexing
+### Running firefox-main try builds for changes to in-tree indexing
 
 For testing changes to the clang-plugin, run these steps, followed by the
 steps in the next section.
 
 * Make your changes to the build/clang-plugin/mozsearch-plugin/ folder
-  in mozilla-central, and push them to try. Ensure that your try push has
+  in firefox-main, and push them to try. Ensure that your try push has
   all the searchfox jobs as well as the bugzilla-components job. The following
   try syntax will accomplish this:
 ```
@@ -298,7 +298,7 @@ https://chat.mozilla.org/
   already has a server up on the "dev" channel by running the
   `infrastructure/aws/ssh.py` script.
 - Pick what config file you are going to use.  Normally this is "config1.json"
-  which includes the mozilla-central repo and a few other repositories that
+  which includes the firefox-main repo and a few other repositories that
   don't have all the bells and whistles turned on.  You can use a different
   config file or edit config1.json to not contain repositories you aren't
   interested in to make things go faster.
@@ -394,7 +394,7 @@ generating static HTML pages. More detail is available on
 After all the steps above, Mozsearch generates one static HTML file
 for every source file. These static HTML pages are served in response
 to URLs like
-`https://searchfox.org/mozilla-central/source/dir/foobar.cpp`. Most
+`https://searchfox.org/firefox-main/source/dir/foobar.cpp`. Most
 requests are for URLs of this type. Generating the HTML statically
 makes it very quick for the web server frontend (nginx) to serve these
 requests.

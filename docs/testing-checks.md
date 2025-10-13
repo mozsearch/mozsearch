@@ -18,10 +18,10 @@ found at:
 - https://github.com/mozsearch/mozsearch/tree/master/tests/tests/checks/inputs
 - https://github.com/mozsearch/mozsearch/tree/master/tests/tests/checks/snapshots
 
-For the mozilla-central production configuration, the inputs and expected
+For the firefox-main production configuration, the inputs and expected
 outputs can be found at:
-- https://github.com/mozsearch/mozsearch-mozilla/tree/master/mozilla-central/checks/inputs
-- https://github.com/mozsearch/mozsearch-mozilla/tree/master/mozilla-central/checks/snapshots
+- https://github.com/mozsearch/mozsearch-mozilla/tree/master/firefox-main/checks/inputs
+- https://github.com/mozsearch/mozsearch-mozilla/tree/master/firefox-main/checks/snapshots
 
 This mechanism was introduced in
 [bug 1707282](https://bugzilla.mozilla.org/show_bug.cgi?id=1707282) and much of
@@ -58,10 +58,10 @@ be appropriate to add functionality to searchfox-tool commands so that the
 output can be filtered and/or automated invariant-checks can be performed
 internally.
 
-### production mozilla-central checks
+### production firefox-main checks
 
-The mozilla-central checks are intended to detect when changes in
-mozilla-central break specific aspects of searchfox support.  For example,
+The firefox-main checks are intended to detect when changes in
+firefox-main break specific aspects of searchfox support.  For example,
 changes in the auto-generated naming scheme for the C++ IPC bindings or C++
 XIPDL or rust XPIDL support could break that specific class of support.  So we
 pick specific real types and check for their expected definitions and related
@@ -113,7 +113,7 @@ This will trigger the [cargo insta](https://insta.rs/docs/cli/) review
 mechanism which will make the appropriate changes to the repository for you to
 commit.
 
-### production mozilla-central checks
+### production firefox-main checks
 
 #### Setup
 
@@ -157,7 +157,7 @@ Inside the VM:
 cd /vagrant/config
 # run the checks from this repo against the current state of
 # https://
-./review-build-check-results.sh config1.json mozilla-central release
+./review-build-check-results.sh config1.json firefox-main release
 ```
 
 Then, outside the VM, commit the changes to the branch and create a pull
@@ -182,14 +182,14 @@ sudo ln -s /index-ebs/interrupted /index
 
 export MOZSEARCH_PATH=~/mozsearch
 export CONFIG_REPO=~/config
-$MOZSEARCH_PATH/scripts/check-index.sh /index/interrupted/config.json mozilla-central "filesystem" ""
+$MOZSEARCH_PATH/scripts/check-index.sh /index/interrupted/config.json firefox-main "filesystem" ""
 ```
 
 If we want to update the checks in the config, we can re-run with
 `INSTA_FORCE_PASS=1` like so:
 
 ```shell
-INSTA_FORCE_PASS=1 $MOZSEARCH_PATH/scripts/check-index.sh /index-ebs/interrupted/config.json mozilla-central "filesystem" ""
+INSTA_FORCE_PASS=1 $MOZSEARCH_PATH/scripts/check-index.sh /index-ebs/interrupted/config.json firefox-main "filesystem" ""
 ```
 
 If we want to review these changes on the machine, we can do:
@@ -206,8 +206,8 @@ contents to your local machine (after doing `cargo insta review` above):
 
 ```shell
 export INSTANCE=<you gotta get this from ssh.py or channel-tool.py>
-# note this assumes mozilla-central; change as appropriate
-infrastructure/aws/scp-while-sshed.py $INSTANCE 'config/mozilla-central/checks/snapshots/*' config/mozilla-central/checks/snapshots
+# note this assumes firefox-main; change as appropriate
+infrastructure/aws/scp-while-sshed.py $INSTANCE 'config/firefox-main/checks/snapshots/*' config/firefox-main/checks/snapshots
 # if you changed any of the inputs, you'll want to run this too:
-infrastructure/aws/scp-while-sshed.py $INSTANCE 'config/mozilla-central/checks/inputs/*' config/mozilla-central/checks/inputs
+infrastructure/aws/scp-while-sshed.py $INSTANCE 'config/firefox-main/checks/inputs/*' config/firefox-main/checks/inputs
 ```

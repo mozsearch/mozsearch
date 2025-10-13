@@ -78,7 +78,7 @@ running on port 80 inside the VM and port 16995 outside the VM. Visit
 DOCUMENTATION DISCLAIMER: This content was extracted from
 [the primary README](../README.md) because it's not something you're likely to
 want to do and the searchfox developers haven't done the below in a while.
-Please see the section "Testing changes against mozilla-central" there instead.
+Please see the section "Testing changes against firefox-main" there instead.
 If you really want to run things locally, be aware that the current default VM
 configuration is probably far too limiting and you will want to change it
 locally so that the VM can use more of your processor cores, more RAM, more
@@ -99,7 +99,7 @@ idempotently do the following for you.
 ```
 # Clone the Mozilla configuration into ~/mozilla-config, if you haven't
 # already done so. (If you are testing clang-plugin changes, you will
-# already have done this and made modifications to mozilla-central/setup,
+# already have done this and made modifications to firefox-main/setup,
 # so no need to clone again).
 git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
 
@@ -135,18 +135,18 @@ completed, make note of the hg revision and then continue with the following:
 TRYPUSH_REV=<40-char-rev-hash> make trypush
 ```
 This will clone the Mozilla configuration into ~/mozilla-config, and
-generate a reduced config that has just the mozilla-central tree, but
+generate a reduced config that has just the firefox-main tree, but
 use the code and artifacts from your try push when building the index.
 It will build the index into a `~/trypush-index` folder to keep it separate
 from any `~/mozilla-index` folders you might have lying around.
 It's very similar to the operations described in the next section
-which will build an index using the latest mozilla-central version with
+which will build an index using the latest firefox-main version with
 searchfox artifacts.
 
 ### Locally indexing a try push
 
 If you are not hacking on Searchfox itself, but just want to build a local
-index of changes to mozilla-central (e.g. you are reviewing a complex
+index of changes to firefox-main (e.g. you are reviewing a complex
 patchset, and want to have a Searchfox instance with those patches applied)
 follow the same steps as described in the "Testing clang-plugin changes"
 section above, except obviously you don't need to make any changes to

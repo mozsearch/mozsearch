@@ -3,7 +3,7 @@ help:
 	@echo "  build-test-repo - Builds the index and starts the web server for the test repo"
 	@echo "  build-mozilla-repo - Builds the index and starts the web server for the repos in mozsearch-mozilla/config1.json"
 	@echo ""
-	@echo "To build a local index from a try push of mozilla-central:"
+	@echo "To build a local index from a try push of firefox-main:"
 	@echo "  TRYPUSH_REV=7b25952b97afc2a34cc31701ffb185222727be72 make trypush # set TRYPUSH_REV to the full hg rev of your try push"
 
 .DEFAULT_GOAL := help
@@ -194,7 +194,7 @@ serve-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
 
-# This is similar to build-mozilla-repo, except it strips out the non-mozilla-central trees
+# This is similar to build-mozilla-repo, except it strips out the non-firefox-main trees
 # from config.json and puts the stripped version into trypush.json.
 trypush: check-in-vagrant build-clang-plugin build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config

@@ -4,7 +4,7 @@ var Dxr = new (class Dxr {
 
     // This will usually be "/"
     this.wwwRoot = constants.getAttribute("data-root");
-    // This will look like "mozilla-central"
+    // This will look like "firefox-main"
     this.tree = constants.getAttribute("data-tree");
     this.baseUrl = location.protocol + "//" + location.host;
     // This will end up "/TREE/static/icons/"

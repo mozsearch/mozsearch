@@ -7,7 +7,7 @@ certificate being used. ELB takes care of that. The load balancer
 directs each incoming request to a "target group", which consists
 of a single EC2 machine that handles web serving. The target group
 is chosen based on the code repository that the request is directed
-to. As of this writing, for example, the mozilla-central repository
+to. As of this writing, for example, the firefox-main repository
 is handled by the "release1-target" target group, while the mozilla-beta
 repository is handled by the "release2-target" target group.
 The mapping from repository to target group is set manually by path
@@ -619,7 +619,7 @@ up the main ones by sourcing the load-vars.sh script like so:
 export MOZSEARCH_PATH=$HOME/mozsearch
 # Replace the last two arguments with the appropriate config file
 # and repo that errored out
-source $MOZSEARCH_PATH/scripts/load-vars.sh $HOME/config/config.json mozilla-central
+source $MOZSEARCH_PATH/scripts/load-vars.sh $HOME/config/config.json firefox-main
 ```
 
 After the debugging is complete, or even if no SSHing is required,

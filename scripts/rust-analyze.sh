@@ -20,7 +20,7 @@ fi
 
 CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
-# This is where we find the save-analysis files.  For mozilla-central builds where
+# This is where we find the save-analysis files.  For firefox-main builds where
 # we have multiple platform-specific objdirs that are processed in parallel,
 # we expect this to be objdir-$PLATFORM.  For self-built single-platform cases,
 # this will be the objdir.

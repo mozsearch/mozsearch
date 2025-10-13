@@ -21,7 +21,7 @@ set -o pipefail # Check all commands in a pipeline
 # If you were thinking "What if the tree actually contains both FOO and FOO.gz?"
 # then you win a prize.
 #
-# It turns out mozilla-central has exactly this case in the guise of
+# It turns out firefox-main has exactly this case in the guise of
 # `devtools/client/styleeditor/test/simple.css` and its gzipped twin
 # `devtools/client/styleeditor/test/simple.css.gz`.  Right now (pre this patch)
 # if you view the ".gz" file you'll see a useless single gibberish line of text.

@@ -268,7 +268,7 @@ test_ids.map.each.null_fallback.liquid = "{{ context.path | strip_prefix_or_empt
 # Paths are flat with only a single level of directory clustering.
 #
 # Consult
-# https://searchfox.org/mozilla-central/source/testing/web-platform/tests/tools/wptrunner/wptrunner/manifestexpected.py
+# https://searchfox.org/firefox-main/source/testing/web-platform/tests/tools/wptrunner/wptrunner/manifestexpected.py
 # for detailed info about the schema.
 #
 # - [directory]: A WPT-root (testing/web-platform/tests) string identifying a

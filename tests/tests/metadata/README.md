@@ -1,5 +1,5 @@
 This directory contains one-off manually generated versions of metadata
-that we download from taskcluster for mozilla-central and other gecko
+that we download from taskcluster for firefox-main and other gecko
 repositories.
 
 Right now it's somewhat of a feature that the files only cover a small

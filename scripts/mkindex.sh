@@ -62,7 +62,7 @@ date
 # Transform any .scip files the config `scip_subtrees` setting tells us about.
 # This does not generate any .scip files; instead it is assumed that they would
 # have been generated in the config's `build` script.  It's also assumed that
-# for complicated situations like mozilla-central where merge-analyses may be
+# for complicated situations like firefox-main where merge-analyses may be
 # required, that the scripts will handle calling `scip-analyze.sh` or
 # `scip-indexer` directly and will not list them in `scip_subtrees`.
 $MOZSEARCH_PATH/scripts/scip-analyze.sh \

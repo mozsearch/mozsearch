@@ -102,7 +102,7 @@ const ERROR_INTERVENTIONS = [
 const FILENAME_INTERVENTIONS = [
   {
     // "dromaeo" is from:
-    // https://searchfox.org/mozilla-central/source/testing/talos/talos/tests/dromaeo/test-tail.js
+    // https://searchfox.org/firefox-main/source/testing/talos/talos/tests/dromaeo/test-tail.js
     //
     // dom/media/test/test_imagecapture.html had syntax error which is fixed in trunk.
     //
@@ -131,7 +131,7 @@ const FILENAME_INTERVENTIONS = [
     // fixing that and we can remove this once it's fixed.
     //
     // Argh, there's actually the following too:
-    // https://searchfox.org/mozilla-central/source/testing/talos/talos/startup_test/sessionrestore/profile-manywindows/sessionstore.js
+    // https://searchfox.org/firefox-main/source/testing/talos/talos/startup_test/sessionrestore/profile-manywindows/sessionstore.js
     //
     // Okay, also adding "json" for
     // `dom/tests/mochitest/ajax/jquery/test/data/json_obj.js` which reports a
@@ -146,7 +146,7 @@ const FILENAME_INTERVENTIONS = [
     prepend: "Could be a JSON file based on the name: ",
   },
   // mozbuild has some weird JS looking files that are not JS:
-  // https://searchfox.org/mozilla-central/search?q=python%2Fmozbuild%2Fmozbuild%2Ftest%2Fbackend%2Fdata%2Fbuild%2Fbar.js&path=
+  // https://searchfox.org/firefox-main/search?q=python%2Fmozbuild%2Fmozbuild%2Ftest%2Fbackend%2Fdata%2Fbuild%2Fbar.js&path=
   {
     includes_list: ["mozbuild"],
     severity: "INFO",
@@ -163,7 +163,7 @@ const FILENAME_INTERVENTIONS = [
   },
   {
     // pref files can be weird / annoying, ex:
-    // https://searchfox.org/mozilla-central/source/testing/condprofile/condprof/tests/profile/user.js
+    // https://searchfox.org/firefox-main/source/testing/condprofile/condprof/tests/profile/user.js
     // there's also things like `channel-prefs.js`, so I've decided not to
     // include a slash before either of these.
     //
@@ -262,7 +262,7 @@ const FILENAME_INTERVENTIONS = [
     prepend: "Crashtest may intentionally contain syntax errors: "
   },
   {
-    // mozilla-central proper provides the coverage we need, whereas we have an
+    // firefox-main proper provides the coverage we need, whereas we have an
     // ever-growing list of ESR JS code that never gets updated.  These are
     // being added for config3 which is home to our oldest ESR code.
     includes_list: ["/mozilla-esr", "/comm-esr"],
@@ -342,7 +342,7 @@ function logError(msg)
     msg = "Downgrading warning to info because attributes can sometimes contain syntax error in tests";
   }
 
-  // https://searchfox.org/mozilla-central/source/browser/components/enterprisepolicies/schemas/schema.jsm
+  // https://searchfox.org/firefox-main/source/browser/components/enterprisepolicies/schemas/schema.jsm
   // is an example of a file that does `const schema =` and then the next line
   // is an include and since we don't actually include things, things can break.
   // An enhancement would be accepted to try and do better, but this can't be a
@@ -1598,7 +1598,7 @@ function preprocess(filename, comment)
     // There are a few `.js` files in the tree that use `#` as a comment for a
     // preprocessed file for the MPL and this is not helpful.  One is also a
     // mozconfig.  Just no-op the file.
-    // https://searchfox.org/mozilla-central/search?q=path%3A.js%20%23%20This%20Source%20Code%20Form%20is%20subject%20to%20the%20terms%20of%20the%20Mozilla%20Public&path=
+    // https://searchfox.org/firefox-main/search?q=path%3A.js%20%23%20This%20Source%20Code%20Form%20is%20subject%20to%20the%20terms%20of%20the%20Mozilla%20Public&path=
     // okay, also l10n (which is also getting a file constraint"):
     // https://searchfox.org/l10n/source/tn/mail/all-l10n.js
     if (text.startsWith("# This Source Code Form is subject to the terms of the Mozilla Public") ||
