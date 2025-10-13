@@ -235,8 +235,12 @@ Note that you will need to do a couple things for this to work right:
 Also note that this will terminate any previously running `tests` web servers
 even though the indexes live at different directories (`~/index` versus
 `~/searchfox-index`). If you find that you want both the `tests` and `searchfox`
-configurations to be served at the same time, you can add a new configuration
-file and update these docs and submit a pull requests.  Thanks in advance!
+configurations to be served at the same time, you can use the `webtest`
+configuration.
+
+```
+make build-webtest-repo
+```
 
 ## Testing changes against mozilla-central
 
