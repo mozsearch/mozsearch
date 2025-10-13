@@ -307,6 +307,8 @@ Raw record info.  These are attributes that will be found in the analysis files.
   - `impl`: By default, most things will be "impl".  But when WebIDL/etc. are
     involved this will be the actual implementation.
 - `sizeBytes`: Size in bytes.  Not present for method/function.
+- `alignmentBytes`: Alignment in bytes.  Not present for method/function.
+- `ownVFPtrBytes`: The size of virtual function pointer in bytes.  Not present for method/function.
 - `bindingSlots`: For binding definitions, an array of `StructuredBindingSlotInfo`:
   - `slotKind`: See `BindingSlotKind`
   - `slotLang`: See `BindingSlotLang`
@@ -321,6 +323,16 @@ Raw record info.  These are attributes that will be found in the analysis files.
   - `sym`: The searchfox symbol for this super.
   - `props`: An array of strings whose presence indicates a semantic attribute:
     - `virtual`: It's a virtual base class if present.
+  - `layout`: An optional field to list the super classes' fields for classes
+    which has template specialization in their class hierarchy.
+    This information is used by the class field layout table.
+    - `pretty`: The pretty name/identifier for this super class.  This information is
+      provided here in order to avoid another lookup.
+    - `sizeBytes`: Same as the top-level `sizeBytes`.
+    - `alignmentBytes`: Same as the top-level `alignmentBytes`.
+    - `ownVFPtrBytes`: Same as the top-level `ownVFPtrBytes`.
+    - `supers`: Same as the top-level `supers`.
+    - `fields`: Same as the top-level `fields`.
 - `methods`: For class-like symbols, an array of:
   - `pretty`: The pretty name/identifier for this method.
   - `sym`: The searchfox symbol for this method.
