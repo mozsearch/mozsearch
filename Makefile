@@ -242,5 +242,9 @@ build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 
+serve-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
+	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+
 webtest: build-webtest-repo
 	MOZSEARCH_SOURCE_PATH=/vagrant ./scripts/webtest.sh
