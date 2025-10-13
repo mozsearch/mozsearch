@@ -321,7 +321,7 @@ fn main() {
             // static_cast to that class.  This broke finding the "recv" methods for any
             // implementations not grandfathered into the legacy virtual call mechanism.  The
             // legacy methods can be found in
-            // https://searchfox.org/mozilla-central/source/ipc/ipdl/ipdl/direct_call.py in the
+            // https://searchfox.org/firefox-main/source/ipc/ipdl/ipdl/direct_call.py in the
             // `VIRTUAL_CALL_CLASSES` set.  There's also a `DIRECT_CALL_OVERRIDES` section that
             // explains to the binding generator how to find the subclass's header file for
             // inclusion for build purposes.  Those entries only exist when the header file isn't

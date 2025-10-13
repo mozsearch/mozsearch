@@ -16,8 +16,8 @@ Analysis records are currently generated from:
 * `tools/src/bin/rust-indexer.rs` for Rust files.
 
 Analysis records may also be downloaded from Taskcluster for
-mozilla-central builds (this can be viewed as an optimization to
-avoid rebuilding mozilla-central as part of indexing). In fact,
+firefox-main builds (this can be viewed as an optimization to
+avoid rebuilding firefox-main as part of indexing). In fact,
 records may be downloaded for multiple platforms, in which case
 the `scripts/merge-analyses.py` script is used to combine the
 different analyses from different platforms for a given source

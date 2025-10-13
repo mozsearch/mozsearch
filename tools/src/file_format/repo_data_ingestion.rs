@@ -115,7 +115,7 @@ pub struct SourceDescriptor {
 /// support `.eslintignore` and `.gitignore` style lists as well as very simple
 /// "mark all these files as needing data review" in-tree mechanisms that would
 /// otherwise potentially require building new `mach` infrastructure (for
-/// mozilla-central)
+/// firefox-main)
 ///
 #[derive(Deserialize)]
 pub struct TextFileConfig {
@@ -436,7 +436,7 @@ impl ConcisePerFileInfo<Ustr> {
 #[derive(Deserialize, Serialize)]
 pub struct DetailedPerFileInfo {
     pub is_dir: bool,
-    /// Coverage data; mozilla-central absolutely exceeds i32 regularly.
+    /// Coverage data; firefox-main absolutely exceeds i32 regularly.
     pub coverage_lines: Option<Vec<i64>>,
     pub info: Value,
 }

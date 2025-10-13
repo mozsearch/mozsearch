@@ -1,19 +1,19 @@
 # Index Directory Contents
 
-If you look inside an index directory (ex: `~/index/mozilla-central` on an AWS
+If you look inside an index directory (ex: `~/index/firefox-main` on an AWS
 server), these are the files and sub-trees you may find, and who put them there.
 Simpler configurations with fewer platforms will be simpler.
 
 Note that many of the files referenced here are from the
 https://github.com/mozsearch/mozsearch-mozilla configuration repository, most
-specifically referencing the "mozilla-central" tree in its config1.json.
+specifically referencing the "firefox-main" tree in its config1.json.
 
 Directories:
 - `analysis`: Directory hierarchy that directly corresponds to the paths exposed
   by the searchfox UI as a single unified namespace where objdir files are
   folded into `__GENERATED__`.  Each file has the name of its corresponding
   source/generated file and contains JSON analysis data.  It is populated by
-  the indexing process.  For mozilla-central and similar builds, some of the
+  the indexing process.  For firefox-main and similar builds, some of the
   indexing (ex: C++) occurs on the taskcluster build machine and is inherently
   per-platform, with `process-gecko-analysis.sh` using the per-platform
   `process-tc-artifacts.sh` to process the per-platform data and then

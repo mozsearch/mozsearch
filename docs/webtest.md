@@ -71,7 +71,7 @@ holds the reference to it.
 ## Global variables
 
 Test harness and utility functions are made similar to mochitest-browser style,
-in order to make it easier for people who's familiar with the mozilla-central code.
+in order to make it easier for people who's familiar with the firefox-main code.
 
 Functions provided by the test harness:
 
