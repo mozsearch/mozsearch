@@ -369,6 +369,12 @@ Raw record info.  These are attributes that will be found in the analysis files.
   - `deleted`: It's deleted per C++0x, AKA someone did `= delete`.
   - `constexpr`: It's marked (C++11) constexpr!
 
+Attributes added by `annotate-gc.sh` step:
+- `canGC`: True if the function can GC.  False if the function cannot GC.
+  Not defined if the function is unknown to the hazard analysis, or the
+  structured record is not function.
+- `gcPath`: A newline-delimited call path to GC. Present only if `canGC` is true.
+
 Attributes added/updated by cross-referencing:
 - `subclasses`: Derived from `supers`.
   - `pretty`
