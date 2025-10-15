@@ -123,7 +123,7 @@ $MOZSEARCH_PATH/scripts/replace-aliases.sh $ANALYSIS_FILES_PATH || handle_tree_e
 
 date
 
-$MOZSEARCH_PATH/scripts/annotate-gc.sh $ANALYSIS_FILES_PATH || handle_tree_error "annotate_gc.sh"
+$MOZSEARCH_PATH/scripts/annotate-gc.sh $ANALYSIS_FILES_PATH || handle_tree_error "annotate-gc.sh"
 
 date
 
