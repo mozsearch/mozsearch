@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/macro.cpp/NESTED_MACRO_WITH_ARG
 ---
 [
   {
@@ -48,8 +48,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_097901c9a44abeec,M_c86801c9a44abeec": {
         "linux64": "18",
-        "macosx64": "18",
-        "win64": "18"
+        "linux64-opt": "18",
+        "macosx64-aarch64": "18",
+        "macosx64-aarch64-opt": "18",
+        "win64": "18",
+        "win64-opt": "18"
       }
     }
   },
@@ -62,8 +65,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_097901c9a44abeec,M_b42801c9a44abeec,M_c86801c9a44abeec": {
         "linux64": "15",
-        "macosx64": "15",
-        "win64": "15"
+        "linux64-opt": "15",
+        "macosx64-aarch64": "15",
+        "macosx64-aarch64-opt": "15",
+        "win64": "15",
+        "win64-opt": "15"
       }
     }
   },
@@ -76,8 +82,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_097901c9a44abeec,M_33c101c9a44abeec,M_c86801c9a44abeec": {
         "linux64": "19",
-        "macosx64": "19",
-        "win64": "19"
+        "linux64-opt": "19",
+        "macosx64-aarch64": "19",
+        "macosx64-aarch64-opt": "19",
+        "win64": "19",
+        "win64-opt": "19"
       }
     }
   }

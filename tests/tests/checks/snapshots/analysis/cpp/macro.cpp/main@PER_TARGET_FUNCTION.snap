@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/macro.cpp/PER_TARGET_FUNCTION
 ---
 [
   {
@@ -75,13 +75,16 @@ snapshot_kind: text
     "sym": "M_e377c6e1e9d206ca,M_f777b5e1e9d206ca,M_774175e1e9d206ca",
     "expandsTo": {
       "M_774175e1e9d206ca": {
-        "linux64": "bool\nper_target_function()\n{\n  int a;\n  int b;\n  d = 5;\n}\nint f = per_target_function();"
+        "linux64": "bool\nper_target_function()\n{\n  int a;\n  int b;\n  d = 5;\n}\nint f = per_target_function();",
+        "linux64-opt": "bool\nper_target_function()\n{\n  int a;\n  int b;\n  d = 5;\n}\nint f = per_target_function();"
       },
       "M_e377c6e1e9d206ca": {
-        "win64": "bool\nper_target_function()\n{\n  int c;\n  d = 3;\n}\nint f = per_target_function();"
+        "win64": "bool\nper_target_function()\n{\n  int c;\n  d = 3;\n}\nint f = per_target_function();",
+        "win64-opt": "bool\nper_target_function()\n{\n  int c;\n  d = 3;\n}\nint f = per_target_function();"
       },
       "M_f777b5e1e9d206ca": {
-        "macosx64": "bool\nper_target_function()\n{\n  int b;\n  int a;\n  b = 2;\n}\nint f = per_target_function();"
+        "macosx64-aarch64": "bool\nper_target_function()\n{\n  int b;\n  int a;\n  b = 2;\n}\nint f = per_target_function();",
+        "macosx64-aarch64-opt": "bool\nper_target_function()\n{\n  int b;\n  int a;\n  b = 2;\n}\nint f = per_target_function();"
       }
     }
   }
