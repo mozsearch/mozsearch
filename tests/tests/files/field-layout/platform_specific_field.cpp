@@ -14,6 +14,10 @@ struct S1 {
 #ifdef TARGET_win64
   uint8_t f3;
 #endif
+
+#ifdef DEBUG
+  uint32_t debug;
+#endif
 };
 
 struct S2 : public S1 {

@@ -442,6 +442,13 @@ struct PlatformMap {
 
     // The temporary data structure to calculate platform ID.
     platform_name_to_id: HashMap<String, PlatformId>,
+
+    // Set to true if we have *-opt platform.
+    // In this case, platforms without *-opt should be renamed to
+    // *-debug.
+    has_opt: bool,
+
+    is_all_platform_same: bool,
 }
 
 impl PlatformMap {
@@ -449,12 +456,18 @@ impl PlatformMap {
         Self {
             platform_id_to_name: vec![],
             platform_name_to_id: HashMap::new(),
+            has_opt: false,
+            is_all_platform_same: false,
         }
     }
 
     fn add(&mut self, platform: String) -> PlatformId {
         if let Some(platform_id) = self.platform_name_to_id.get(&platform) {
             return *platform_id;
+        }
+
+        if platform.ends_with("-opt") {
+            self.has_opt = true;
         }
 
         let platform_id = PlatformId(self.platform_name_to_id.len() as u32);
@@ -466,6 +479,7 @@ impl PlatformMap {
 
     fn finish_populating(&mut self) {
         if self.is_empty() {
+            self.is_all_platform_same = true;
             let id = self.add("All platforms".to_string());
             assert!(id == PlatformId::all());
         }
@@ -488,27 +502,67 @@ impl PlatformMap {
     }
 
     fn get_name(&self, platform_id: &PlatformId) -> String {
-        self.platform_id_to_name[platform_id.0 as usize].clone()
+        let name = self.platform_id_to_name[platform_id.0 as usize].clone();
+        if self.has_opt && !self.is_all_platform_same && !name.ends_with("-opt") {
+            name + "-debug"
+        } else {
+            name
+        }
     }
 }
 
 fn platform_name_to_order(name: &str) -> u32 {
-    if name.starts_with("win") {
-        return 0;
+    // Use deterministic order for platforms, debug builds first and opt builds
+    // later.
+
+    let (platform, offset) = if name.ends_with("-opt") {
+        (&name[0..name.len() - 4], 20)
+    } else {
+        (name, 0)
+    };
+
+    if platform == "win64" {
+        return offset + 0;
     }
-    if name.starts_with("macosx") {
-        return 1;
+    if platform.starts_with("win") {
+        return offset + 1;
     }
-    if name.starts_with("linux") {
-        return 2;
+
+    if platform == "macosx64" {
+        return offset + 2;
     }
-    if name.starts_with("android") {
-        return 3;
+    if platform == "macosx64-aarch64" {
+        return offset + 3;
     }
-    if name.starts_with("ios") {
-        return 4;
+    if platform.starts_with("macosx") {
+        return offset + 4;
     }
-    5
+
+    if platform == "linux64" {
+        return offset + 5;
+    }
+    if platform.starts_with("linux") {
+        return offset + 6;
+    }
+
+    if platform == "android-armv7" {
+        return offset + 7;
+    }
+    if platform == "android-aarch64" {
+        return offset + 8;
+    }
+    if platform.starts_with("android") {
+        return offset + 9;
+    }
+
+    if platform == "ios" {
+        return offset + 10;
+    }
+    if platform.starts_with("ios") {
+        return offset + 11;
+    }
+
+    offset + 12
 }
 
 // Struct to hold the list of fields for the entire class hierarchy

@@ -92,7 +92,9 @@ MULTI_CPP_FILES=$(
   echo "templates6.cpp"
 )
 
-for PLATFORM in linux64 macosx64 win64
+PLATFORMS="linux64 linux64-opt macosx64-aarch64 macosx64-aarch64-opt win64 win64-opt"
+
+for PLATFORM in ${PLATFORMS}
 do
   mkdir -p $INDEX_ROOT/analysis-$PLATFORM/
 done
@@ -102,9 +104,15 @@ do
   OBJ_FILE=$OBJDIR/__${PLATFORM}__/${f%%.cpp}.o
   mkdir -p $(dirname $OBJ_FILE)
 
-  for PLATFORM in linux64 macosx64 win64
+  for PLATFORM in ${PLATFORMS}
   do
-    $CXX -DTEST_MACRO1 -DTEST_MACRO2 -DTARGET_$PLATFORM -DTEST_MACRO_INCLUDE='"nsISupports.h"' $f -std=c++17 -I . -I $OBJDIR -c -o $OBJ_FILE -Wall
+    MACRO_PLATFORM=$(echo ${PLATFORM} | cut -d - -f 1)
+    if echo ${PLATFORM} | grep '.-opt$'; then
+        EXTRA_OPTS=""
+    else
+        EXTRA_OPTS="-DDEBUG"
+    fi
+    $CXX -DTEST_MACRO1 -DTEST_MACRO2 -DTARGET_$MACRO_PLATFORM ${EXTRA_OPTS} -DTEST_MACRO_INCLUDE='"nsISupports.h"' $f -std=c++17 -I . -I $OBJDIR -c -o $OBJ_FILE -Wall
     mkdir -p  $(dirname $INDEX_ROOT/analysis-$PLATFORM/$f)
     mv $INDEX_ROOT/analysis/$f $INDEX_ROOT/analysis-$PLATFORM/$f
   done
