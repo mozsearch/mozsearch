@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/macro.cpp/EMPTY_MACRO__json
 ---
 [
   {
@@ -146,8 +146,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -160,8 +163,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -174,8 +180,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -188,8 +197,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -202,8 +214,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -216,8 +231,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -230,8 +248,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -244,8 +265,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -258,8 +282,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -272,8 +299,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -286,8 +316,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -300,8 +333,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -314,8 +350,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -328,8 +367,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   },
@@ -356,8 +398,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_33c101c9a44abeec": {
         "linux64": "",
-        "macosx64": "",
-        "win64": ""
+        "linux64-opt": "",
+        "macosx64-aarch64": "",
+        "macosx64-aarch64-opt": "",
+        "win64": "",
+        "win64-opt": ""
       }
     }
   }

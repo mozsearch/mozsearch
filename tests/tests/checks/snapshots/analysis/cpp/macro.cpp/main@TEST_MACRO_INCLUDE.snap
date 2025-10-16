@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/macro.cpp/TEST_MACRO_INCLUDE
 ---
 [
   {
@@ -20,8 +20,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_TEST_MACRO_INCLUDE": {
         "linux64": "\"nsISupports.h\"",
-        "macosx64": "\"nsISupports.h\"",
-        "win64": "\"nsISupports.h\""
+        "linux64-opt": "\"nsISupports.h\"",
+        "macosx64-aarch64": "\"nsISupports.h\"",
+        "macosx64-aarch64-opt": "\"nsISupports.h\"",
+        "win64": "\"nsISupports.h\"",
+        "win64-opt": "\"nsISupports.h\""
       }
     }
   }

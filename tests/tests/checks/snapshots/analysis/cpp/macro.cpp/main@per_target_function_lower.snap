@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/cpp/macro.cpp/per_target_function_lower
 ---
 [
   {
@@ -77,7 +78,7 @@ expression: "&json_results"
   {
     "loc": "00046:12-31",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function per_target_function",
     "sym": "_Z19per_target_functionv",
     "type": "_Bool (void)"
@@ -93,7 +94,7 @@ expression: "&json_results"
   {
     "loc": "00054:12-31",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function per_target_function",
     "sym": "_Z19per_target_functionv",
     "type": "_Bool (void)"
@@ -109,7 +110,7 @@ expression: "&json_results"
   {
     "loc": "00061:12-31",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "function,use",
     "pretty": "function per_target_function",
     "sym": "_Z19per_target_functionv",
     "type": "_Bool (void)"
@@ -126,16 +127,28 @@ expression: "&json_results"
         "linux64": [
           5,
           66
+        ],
+        "linux64-opt": [
+          5,
+          66
         ]
       },
       "M_e377c6e1e9d206ca": {
         "win64": [
           5,
           57
+        ],
+        "win64-opt": [
+          5,
+          57
         ]
       },
       "M_f777b5e1e9d206ca": {
-        "macosx64": [
+        "macosx64-aarch64": [
+          5,
+          66
+        ],
+        "macosx64-aarch64-opt": [
           5,
           66
         ]

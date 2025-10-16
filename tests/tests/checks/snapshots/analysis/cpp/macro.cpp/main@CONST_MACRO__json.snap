@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/macro.cpp/CONST_MACRO__json
 ---
 [
   {
@@ -62,8 +62,11 @@ snapshot_kind: text
     "expandsTo": {
       "M_b42801c9a44abeec": {
         "linux64": "15",
-        "macosx64": "15",
-        "win64": "15"
+        "linux64-opt": "15",
+        "macosx64-aarch64": "15",
+        "macosx64-aarch64-opt": "15",
+        "win64": "15",
+        "win64-opt": "15"
       }
     }
   },

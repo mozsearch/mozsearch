@@ -755,12 +755,15 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "props": [],
                 "variants": [],
                 "platforms": [
+                  "linux64-opt",
                   "linux64",
-                  "macosx64"
+                  "macosx64-aarch64-opt",
+                  "macosx64-aarch64"
                 ]
               }
             ],
             "platforms": [
+              "win64-opt",
               "win64"
             ]
           },
@@ -1233,12 +1236,15 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "props": [],
                 "variants": [],
                 "platforms": [
+                  "linux64-opt",
                   "linux64",
-                  "macosx64"
+                  "macosx64-aarch64-opt",
+                  "macosx64-aarch64"
                 ]
               }
             ],
             "platforms": [
+              "win64-opt",
               "win64"
             ]
           },
@@ -1478,12 +1484,15 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "props": [],
                 "variants": [],
                 "platforms": [
+                  "linux64-opt",
                   "linux64",
-                  "macosx64"
+                  "macosx64-aarch64-opt",
+                  "macosx64-aarch64"
                 ]
               }
             ],
             "platforms": [
+              "win64-opt",
               "win64"
             ]
           },
@@ -1493,8 +1502,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
         }
       },
       "platforms": [
-        "win64",
-        "macosx64 linux64"
+        "win64-debug win64-opt",
+        "macosx64-aarch64-debug linux64-debug macosx64-aarch64-opt linux64-opt"
       ],
       "rows": [
         {
