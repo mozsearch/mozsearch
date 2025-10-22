@@ -8,7 +8,7 @@ help:
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison
+.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison favicon
 
 check-in-vagrant:
 	@[ -d /vagrant ] || (echo "This command must be run inside the vagrant instance" > /dev/stderr; exit 1)
@@ -248,3 +248,23 @@ serve-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
 
 webtest: build-webtest-repo
 	MOZSEARCH_SOURCE_PATH=/vagrant ./scripts/webtest.sh
+
+# Create favicon for the following 3 cases, from search.png:
+#   * production.png for searchfox.org
+#     the original search.png (red)
+#   * testing.png for *.searchfox.org
+#     vertically-mirrored, blue
+#   * localhost.png for localhost
+#     horizontally-mirrored, green
+#
+# The request to search.png is rewritten to one of them, depending on the
+# hostname.  See scripts/nginx-setup.py for the rule.
+#
+# This operation needs to be done only when the search.png is updated.
+#
+# This uses `convert` command from ImageMagick.
+# On the docker image, this can be installed by `sudo apt-get install imagemagick`.
+favicon:
+	cp ./static/icons/search.png ./static/icons/production.png
+	convert -modulate 100,100,240 -flip ./static/icons/search.png ./static/icons/testing.png
+	convert -modulate 50,100,180 -flop ./static/icons/search.png ./static/icons/localhost.png

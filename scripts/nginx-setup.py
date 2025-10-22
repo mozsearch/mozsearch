@@ -245,6 +245,12 @@ if nginx_cache_dir:
 print('''# we are in the "http" context here.
 log_format custom_cache_log '[$time_local] [Cache:$upstream_cache_status] [$request_time] [$host] [Remote_Addr: $remote_addr] - $remote_user - $server_name to: $upstream_addr: "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" ' ;
 
+map $host $favicon {
+  default            testing.png;
+  searchfox.org      production.png;
+  localhost          localhost.png;
+}
+
 map $status $expires {
   default 2m;
   "301" 1m;
@@ -368,6 +374,9 @@ for repo in config['trees']:
 
     # Handled by Rust `pipeline-server.rs`
     location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])
+
+    # Show different icons for the testing servers.
+    print(f'  rewrite ^/{repo}/static/icons/search.png$ /{repo}/static/icons/$favicon permanent;')
 
 
 location('= /', [
