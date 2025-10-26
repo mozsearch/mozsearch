@@ -372,8 +372,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     let textSearchMenuItems = [];
     // then sticky highlight option
     let stickyMenuItems = [];
-    // then these extra menu items which are for new/experimental features where
+
+    // then items for new/experimental features where
     // we don't want to mess with muscle memory at the top of the list.
+
+    // diagram item
+    let diagramMenuItems = [];
+    // then anything else
     let extraMenuItems = [];
 
     let expansions = {};
@@ -799,7 +804,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             // differences in signatures for overloads (although we have some
             // tentative plans to).
             //queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
-            extraMenuItems.push({
+            diagramMenuItems.push({
               html: this.fmt("Uses diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "brush",
@@ -809,7 +814,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
             // Always offer to diagram uses of things
             queryString = `calls-from:'${jumpref.pretty}' depth:4`;
-            extraMenuItems.push({
+            diagramMenuItems.push({
               html: this.fmt("Calls diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "brush",
@@ -821,7 +826,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 jumpref?.meta?.fields?.length) {
               // Offer class diagrams for classes/structs that have fields.
               queryString = `class-diagram:'${jumpref.pretty}' depth:4`;
-              extraMenuItems.push({
+              diagramMenuItems.push({
                 html: this.fmt("Class diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 icon: "brush",
@@ -845,7 +850,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             // cleanup.)
             if (showInheritance) {
               queryString = `inheritance-diagram:'${jumpref.pretty}' depth:4`;
-              extraMenuItems.push({
+              diagramMenuItems.push({
                 html: this.fmt("Inheritance diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 icon: "brush",
@@ -921,6 +926,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       ...fieldLayoutMenuItems,
       ...textSearchMenuItems,
       ...stickyMenuItems,
+      ...diagramMenuItems,
       ...extraMenuItems,
     ];
 
