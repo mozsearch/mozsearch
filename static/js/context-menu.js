@@ -361,6 +361,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
     // jumps come first
     let jumpMenuItems = [];
+    // then macro expansions
+    let expansionMenuItems = [];
+    let remainingExpansionMenuItems = [];
     // then searches
     let searchMenuItems = [];
     // then class field layout
@@ -561,7 +564,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 } else {
                   html = `Expansion on ${platform}: <code>${expansion}</code>`;
                 }
-                jumpMenuItems.push({
+                expansionMenuItems.push({
                   html: html,
                   classNames: ["contextmenu-expansion-preview"],
                   action: () => {
@@ -875,10 +878,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       });
     }
 
-    let remainingExpansionMenuItems = []
     for (const key in expansions) {
       for (const platform in expansions[key]) {
-        const expansion = expansions[key][platform]
+        const expansion = expansions[key][platform];
         let html;
         if (onlyOneExpansion) {
           html = `Expansion: <code>${expansion}</code>`;
@@ -899,8 +901,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     }
 
     let menuItems = [];
-    menuItems.push(...remainingExpansionMenuItems);
     menuItems.push(...jumpMenuItems);
+    menuItems.push(...expansionMenuItems);
+    menuItems.push(...remainingExpansionMenuItems);
     menuItems.push(...searchMenuItems);
     menuItems.push(...fieldLayoutMenuItems);
 
