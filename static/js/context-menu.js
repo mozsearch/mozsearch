@@ -245,6 +245,50 @@ class MenuItem {
   }
 }
 
+class SearchMenuItem extends MenuItem {
+  constructor(options) {
+    super({
+      html: ContextMenu.fmt("Search for <strong>_</strong>", options.label),
+      href: "",
+      section: "symbol-searches",
+      icon: "search",
+      confidence: options.confidence,
+    });
+
+    this.label = options.label;
+    this.tree = options.tree;
+    this.syms = options.syms;
+    this.def = options.def;
+
+    this.updateHref();
+  }
+
+  updateHref() {
+    const syms = encodeURIComponent(this.syms.join(","));
+    this.href = `/${this.tree}/search?q=symbol:${syms}&redirect=false`;
+  }
+
+  toKey() {
+    if (this.def) {
+      // This is mergeable.
+      // Do not put syms in the key, and merge them later.
+      return JSON.stringify({
+        label: this.label,
+        icon: this.icon,
+        def: this.def,
+        confidence: this.confidence,
+      });
+    }
+    // Not mergeable.
+    return super.toKey();
+  }
+
+  merge(other) {
+    this.syms = [...new Set(this.syms.concat(other.syms))];
+    this.updateHref();
+  }
+}
+
 var ContextMenu = new (class ContextMenu extends ContextMenuBase {
   constructor() {
     super();
@@ -675,7 +719,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
             const canonLabel = `${implKind}${maybeLang} ${slotOwner.slotKind} ${symInfo.pretty}`;
             jumpify(symInfo, canonLabel);
-            searches.push([ canonLabel, sym ])
+            searches.push({
+              label: canonLabel,
+              syms: [sym],
+              def: symInfo?.jumps?.def,
+            });
             jumpify(ownerJumpref, ownerJumpref.pretty);
 
             // If our current symbol is an IPC Send method, offer a direct jump to the Recv def
@@ -697,11 +745,19 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             }
           } else {
             jumpify(symInfo, symInfo.pretty);
-            searches.push([ symInfo.pretty, sym ]);
+            searches.push({
+              label: symInfo.pretty,
+              syms: [sym],
+              def: symInfo?.jumps?.def,
+            });
           }
         } else {
           jumpify(symInfo, symInfo.pretty);
-          searches.push([ symInfo.pretty, sym ]);
+          searches.push({
+            label: symInfo.pretty,
+            syms: [sym],
+            def: symInfo?.jumps?.def,
+          });
         }
 
         // Binding slots
@@ -743,7 +799,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             }
             let slotPretty =
               `${implKind}${maybeLang} ${slot.slotKind}${maybeSlotImplKind} ${effectivePretty}`;
-            searches.push([slotPretty, slot.sym]);
+            searches.push({
+              label: slotPretty,
+              syms: [slot.sym],
+              def: symInfo?.jumps?.def,
+            });
             allSearchSyms.push(slot.sym);
 
             if (slotJumpref) {
@@ -771,20 +831,22 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               // list, however.
               allSearchSyms.unshift(sym);
             }
-            searches.push([`${implKind} ${symInfo.meta.kind} ${symInfo.pretty}`, allSearchSyms.join(",")]);
+            searches.push({
+              label: `${implKind} ${symInfo.meta.kind} ${symInfo.pretty}`,
+              syms: allSearchSyms,
+              def: symInfo?.jumps?.def,
+            });
           }
         }
 
         overrideJumpifyHelper(symInfo);
 
-        for (const search of searches) {
-          searchMenuItems.push(new MenuItem({
-            html: this.fmt("Search for <strong>_</strong>", search[0]),
-            href: `/${tree}/search?q=symbol:${encodeURIComponent(
-              search[1]
-            )}&redirect=false`,
-            icon: "search",
-            section: "symbol-searches",
+        for (const { label, syms, def } of searches) {
+          searchMenuItems.push(new SearchMenuItem({
+            label,
+            tree,
+            syms,
+            def,
             confidence,
           }));
         }
