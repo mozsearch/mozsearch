@@ -74,20 +74,19 @@ class ContextMenuBase {
   populateMenu(menu, menuItems) {
     const column = [];
 
-    let suppression = new Set();
-    menu.innerHTML = "";
-    let lastSection = null;
+    let mergedItems = new Map();
     for (const item of menuItems) {
-      // Avoid adding anything we've definitely added before.  This currently
-      // can happen for hierarchical diagrams where we unify based on the
-      // "pretty" and in particular for IDL interfaces/methods where the iface
-      // pretties will be the same as the C++ impl pretty.
-      let itemAsJson = JSON.stringify(item);
-      if (suppression.has(itemAsJson)) {
+      let key = item.toKey();
+      if (mergedItems.has(key)) {
+        mergedItems.get(key).merge(item);
         continue;
       }
-      suppression.add(itemAsJson);
+      mergedItems.set(key, item);
+    }
 
+    menu.innerHTML = "";
+    let lastSection = null;
+    for (const item of mergedItems.values()) {
       const li = this.createMenuItem(item);
       if (lastSection === null) {
         lastSection = item.section;
@@ -226,6 +225,23 @@ class ContextMenuBase {
     }
 
     this.focusItemAt(pos);
+  }
+}
+
+class MenuItem {
+  constructor(options) {
+    Object.assign(this, options);
+  }
+
+  toKey() {
+    // By default, use all properties as key.
+    return JSON.stringify(this);
+  }
+
+  merge(other) {
+    // Given that key represents everything,
+    // merge happens only when the item is fully equivalent.
+    // Nothing to do here.
   }
 }
 
@@ -438,12 +454,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         // Generate a "go to use"
         const edgeExtra = GRAPH_EXTRA[0].edges[symbolToken.id];
         if (edgeExtra.jump && targSymInfo) {
-          jumpMenuItems.push({
+          jumpMenuItems.push(new MenuItem({
             html: this.fmt("Go to use of <strong>_</strong>", targSymInfo.pretty),
             href: `/${tree}/source/${edgeExtra.jump}`,
             icon: "export-alt",
             section: "jumps",
-          });
+          }));
         }
       }
 
@@ -532,33 +548,33 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             return;
           }
           if (jumpref.jumps.idl && jumpref.jumps.idl !== sourceLineClicked) {
-            jumpMenuItems.push({
+            jumpMenuItems.push(new MenuItem({
               html: this.fmt("Go to IDL definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.idl}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
-            });
+            }));
           }
 
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
-            jumpMenuItems.push({
+            jumpMenuItems.push(new MenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
-            });
+            }));
           }
 
           if (jumpref.jumps.decl && jumpref.jumps.decl !== sourceLineClicked) {
-            jumpMenuItems.push({
+            jumpMenuItems.push(new MenuItem({
               html: this.fmt("Go to declaration of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.decl}`,
               icon: "export",
               section: "jumps",
               confidence,
-            });
+            }));
           }
 
           for (const key in expansions) {
@@ -571,7 +587,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 } else {
                   html = `Expansion on ${platform}: <code>${expansion}</code>`;
                 }
-                expansionMenuItems.push({
+                expansionMenuItems.push(new MenuItem({
                   html: html,
                   classNames: ["contextmenu-expansion-preview"],
                   action: () => {
@@ -581,7 +597,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                     BlameStripHoverHandler.keepVisible = true;
                   },
                   confidence,
-                });
+                }));
               }
               delete expansions[key]
             }
@@ -597,13 +613,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           }
 
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
-            jumpMenuItems.push({
+            jumpMenuItems.push(new MenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
-            });
+            }));
           }
         }
 
@@ -762,7 +778,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         overrideJumpifyHelper(symInfo);
 
         for (const search of searches) {
-          searchMenuItems.push({
+          searchMenuItems.push(new MenuItem({
             html: this.fmt("Search for <strong>_</strong>", search[0]),
             href: `/${tree}/search?q=symbol:${encodeURIComponent(
               search[1]
@@ -770,14 +786,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             icon: "search",
             section: "symbol-searches",
             confidence,
-          });
+          }));
         }
 
         if (Settings.semanticInfo.enabled) {
           for (const jumpref of diagrammableSyms) {
             if (jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") {
               let queryString = `field-layout:'${jumpref.pretty}'`;
-              fieldLayoutMenuItems.push({
+              fieldLayoutMenuItems.push(new MenuItem({
                 html: this.fmt("Class layout of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 // TODO: pick out a custom icon for this; "tasks" was great but
@@ -786,7 +802,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 icon: "docs",
                 section: "layout",
                 confidence,
-              });
+              }));
             }
           }
         }
@@ -804,35 +820,35 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             // differences in signatures for overloads (although we have some
             // tentative plans to).
             //queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
-            diagramMenuItems.push({
+            diagramMenuItems.push(new MenuItem({
               html: this.fmt("Uses diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "brush",
               section: "diagrams",
               confidence,
-            });
+            }));
 
             // Always offer to diagram uses of things
             queryString = `calls-from:'${jumpref.pretty}' depth:4`;
-            diagramMenuItems.push({
+            diagramMenuItems.push(new MenuItem({
               html: this.fmt("Calls diagram of <strong>_</strong>", jumpref.pretty),
               href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
               icon: "brush",
               section: "diagrams",
               confidence,
-            });
+            }));
 
             if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
                 jumpref?.meta?.fields?.length) {
               // Offer class diagrams for classes/structs that have fields.
               queryString = `class-diagram:'${jumpref.pretty}' depth:4`;
-              diagramMenuItems.push({
+              diagramMenuItems.push(new MenuItem({
                 html: this.fmt("Class diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 icon: "brush",
                 section: "diagrams",
                 confidence,
-              });
+              }));
             }
 
             let showInheritance = false;
@@ -850,20 +866,20 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             // cleanup.)
             if (showInheritance) {
               queryString = `inheritance-diagram:'${jumpref.pretty}' depth:4`;
-              diagramMenuItems.push({
+              diagramMenuItems.push(new MenuItem({
                 html: this.fmt("Inheritance diagram of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 icon: "brush",
                 section: "diagrams",
                 confidence,
-              });
+              }));
             }
           }
         }
 
         if (Settings.semanticInfo.enabled) {
           if (symInfo.meta && "canGC" in symInfo.meta) {
-            gcMenuItems.push({
+            gcMenuItems.push(new MenuItem({
               html: symInfo.meta.canGC ? "Can GC" : "Cannot GC",
               icon: "recycle",
               action: () => {
@@ -871,18 +887,18 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
                 BlamePopup.blameElement = symbolToken;
                 BlameStripHoverHandler.keepVisible = true;
               },
-            });
+            }));
           }
         }
       }
 
       const tokenText = symbolToken.textContent;
-      stickyMenuItems.push({
+      stickyMenuItems.push(new MenuItem({
         html: "Sticky highlight",
         action: () => { Hover.stickyHighlight(symbols, tokenText); },
         icon: "tasks",
         section: "highlights",
-      });
+      }));
     }
 
     for (const key in expansions) {
@@ -894,7 +910,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         } else {
           html = `Expansion on ${platform}: <code>${expansion}</code>`;
         }
-        remainingExpansionMenuItems.push({
+        remainingExpansionMenuItems.push(new MenuItem({
           html: html,
           classNames: ["contextmenu-expansion-preview"],
           action: () => {
@@ -903,19 +919,19 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             BlamePopup.blameElement = expansionToken;
             BlameStripHoverHandler.keepVisible = true;
           },
-        });
+        }));
       }
     }
 
     let word = getTargetWord();
     if (word) {
       // A word was clicked on.
-      textSearchMenuItems.push({
+      textSearchMenuItems.push(new MenuItem({
         html: this.fmt("Search for the substring <strong>_</strong>", word),
         href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
         icon: "font",
         section: "text-searches",
-      });
+      }));
     }
 
     let menuItems = [
@@ -1350,7 +1366,7 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
           const label = item.label ? item.label : item.value;
           const tree = item.value;
 
-          const li = this.createMenuItem({
+          const li = this.createMenuItem(new MenuItem({
             html: label,
             classNames: ["indent"],
             href: document.location.pathname.replace(/^\/[^\/]+\//, `/${tree}/`)
@@ -1359,7 +1375,7 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
             attrs: {
               "data-tree": tree,
             },
-          });
+          }));
 
           li.setAttribute("aria-labelledby", groupId);
 
