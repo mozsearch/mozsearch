@@ -363,6 +363,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     let jumpMenuItems = [];
     // then searches
     let searchMenuItems = [];
+    // then class field layout
+    let fieldLayoutMenuItems = [];
     // the the text search and sticky highlight option
     let stickyItems = [];
     // then these extra menu items which are for new/experimental features where
@@ -765,7 +767,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           for (const jumpref of diagrammableSyms) {
             if (jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") {
               let queryString = `field-layout:'${jumpref.pretty}'`;
-              searchMenuItems.push({
+              fieldLayoutMenuItems.push({
                 html: this.fmt("Class layout of <strong>_</strong>", jumpref.pretty),
                 href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
                 // TODO: pick out a custom icon for this; "tasks" was great but
@@ -897,9 +899,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     }
 
     let menuItems = [];
-    menuItems.push(...remainingExpansionMenuItems)
-    menuItems.push(...jumpMenuItems)
+    menuItems.push(...remainingExpansionMenuItems);
+    menuItems.push(...jumpMenuItems);
     menuItems.push(...searchMenuItems);
+    menuItems.push(...fieldLayoutMenuItems);
 
     let word = getTargetWord();
     if (word) {
