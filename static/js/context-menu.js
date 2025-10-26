@@ -368,8 +368,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     let searchMenuItems = [];
     // then class field layout
     let fieldLayoutMenuItems = [];
-    // the the text search and sticky highlight option
-    let stickyItems = [];
+    // then the text search
+    let textSearchMenuItems = [];
+    // then sticky highlight option
+    let stickyMenuItems = [];
     // then these extra menu items which are for new/experimental features where
     // we don't want to mess with muscle memory at the top of the list.
     let extraMenuItems = [];
@@ -870,7 +872,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       }
 
       const tokenText = symbolToken.textContent;
-      stickyItems.push({
+      stickyMenuItems.push({
         html: "Sticky highlight",
         action: () => { Hover.stickyHighlight(symbols, tokenText); },
         icon: "tasks",
@@ -900,17 +902,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       }
     }
 
-    let menuItems = [];
-    menuItems.push(...jumpMenuItems);
-    menuItems.push(...expansionMenuItems);
-    menuItems.push(...remainingExpansionMenuItems);
-    menuItems.push(...searchMenuItems);
-    menuItems.push(...fieldLayoutMenuItems);
-
     let word = getTargetWord();
     if (word) {
       // A word was clicked on.
-      menuItems.push({
+      textSearchMenuItems.push({
         html: this.fmt("Search for the substring <strong>_</strong>", word),
         href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
         icon: "font",
@@ -918,9 +913,16 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       });
     }
 
-    menuItems.push(...stickyItems);
-
-    menuItems.push(...extraMenuItems);
+    let menuItems = [
+      ...jumpMenuItems,
+      ...expansionMenuItems,
+      ...remainingExpansionMenuItems,
+      ...searchMenuItems,
+      ...fieldLayoutMenuItems,
+      ...textSearchMenuItems,
+      ...stickyMenuItems,
+      ...extraMenuItems,
+    ];
 
     if (!menuItems.length) {
       return;
