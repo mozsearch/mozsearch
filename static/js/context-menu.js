@@ -378,8 +378,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
     // diagram item
     let diagramMenuItems = [];
-    // then anything else
-    let extraMenuItems = [];
+    // then gc item
+    let gcMenuItems = [];
 
     let expansions = {};
     let onlyOneExpansion = true;
@@ -863,7 +863,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
         if (Settings.semanticInfo.enabled) {
           if (symInfo.meta && "canGC" in symInfo.meta) {
-            extraMenuItems.push({
+            gcMenuItems.push({
               html: symInfo.meta.canGC ? "Can GC" : "Cannot GC",
               icon: "recycle",
               action: () => {
@@ -927,7 +927,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       ...textSearchMenuItems,
       ...stickyMenuItems,
       ...diagramMenuItems,
-      ...extraMenuItems,
+      ...gcMenuItems,
     ];
 
     if (!menuItems.length) {
