@@ -73,6 +73,7 @@ CPP_FILES=$(
 find . -name '*.cpp' | \
   grep -v /ipdl/ | \
   grep -v /field-layout/ | \
+  grep -v /cpp/context-menu-search-merge.cpp | \
   grep -v /macro.cpp | \
   grep -v /templates6.cpp
 )
@@ -88,6 +89,7 @@ done
 ## Pseudo per-platform build
 MULTI_CPP_FILES=$(
   find ./field-layout/ -name '*.cpp'
+  echo "cpp/context-menu-search-merge.cpp"
   echo "macro.cpp"
   echo "templates6.cpp"
 )
