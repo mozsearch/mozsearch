@@ -48,6 +48,12 @@ class ContextMenuBase {
       link.href = "#";
     } else if (item.href) {
       link.href = item.href;
+
+      if (item.preaction) {
+        link.addEventListener("click", (evt) => {
+          item.preaction(evt);
+        }, true);
+      }
     }
 
     link.classList.add("contextmenu-link");
@@ -242,6 +248,29 @@ class MenuItem {
     // Given that key represents everything,
     // merge happens only when the item is fully equivalent.
     // Nothing to do here.
+  }
+}
+
+class GotoMenuItem extends MenuItem {
+  constructor(options) {
+    // Special handle a link to #lineno.
+    if (options.href.startsWith(document.location.pathname + "#")) {
+      const lineno = options.href.slice((document.location.pathname + "#").length);
+      options.preaction = event => {
+        if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
+          return;
+        }
+        // See the popstate event handler in search.js
+        Dxr.suppressNextPopState = Date.now();
+
+        // The #lineno anchor doesn't exist by default.
+        // Ensure the anchor exists at the point of navigation,
+        // to avoid possible glitch.
+        Highlighter.createSyntheticAnchor(lineno);
+      };
+    }
+
+    super(options);
   }
 }
 
@@ -498,7 +527,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         // Generate a "go to use"
         const edgeExtra = GRAPH_EXTRA[0].edges[symbolToken.id];
         if (edgeExtra.jump && targSymInfo) {
-          jumpMenuItems.push(new MenuItem({
+          jumpMenuItems.push(new GotoMenuItem({
             html: this.fmt("Go to use of <strong>_</strong>", targSymInfo.pretty),
             href: `/${tree}/source/${edgeExtra.jump}`,
             icon: "export-alt",
@@ -592,7 +621,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
             return;
           }
           if (jumpref.jumps.idl && jumpref.jumps.idl !== sourceLineClicked) {
-            jumpMenuItems.push(new MenuItem({
+            jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to IDL definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.idl}`,
               icon: "export-alt",
@@ -602,7 +631,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           }
 
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
-            jumpMenuItems.push(new MenuItem({
+            jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
@@ -612,7 +641,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           }
 
           if (jumpref.jumps.decl && jumpref.jumps.decl !== sourceLineClicked) {
-            jumpMenuItems.push(new MenuItem({
+            jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to declaration of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.decl}`,
               icon: "export",
@@ -657,7 +686,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           }
 
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
-            jumpMenuItems.push(new MenuItem({
+            jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
               href: `/${tree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
