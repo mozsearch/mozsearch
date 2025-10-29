@@ -91,6 +91,10 @@ table {
   --base-line-height: 1.5;
   --source-line-height: 1.3;
 
+  /* In order to position the navigationpanel and the sticky lines,
+   * we need to specify the exact size of each elements inside the
+   * header. */
+
   --search-box-padding: 0.8rem;
   --search-box-old-rev-padding-bottom: 0.4rem;
 
@@ -99,12 +103,35 @@ table {
   --checkbox-margin: 3px;
   --checkbox-height: 14px;
 
-  --search-box-fieldset-min-height: calc(
-    2 * (
+  --search-box-border-width: 1px;
+
+  --checkbox-label-height: calc(
       var(--checkbox-margin)
       + var(--checkbox-height)
       + var(--checkbox-margin)
-    )
+  );
+
+  --search-box-fieldset-min-height: calc(
+    2 * var(--checkbox-label-height)
+  );
+
+  --header-height: calc(
+      var(--search-box-padding)
+      + var(--search-box-fieldset-min-height)
+      + var(--search-box-padding)
+      + var(--search-box-border-width)
+  );
+}
+
+:root.old-rev {
+  /* Adjust the navigation panel location for the presence of the indexed revision.
+   * See above for more. */
+  --header-height: calc(
+      var(--search-box-padding)
+      + var(--search-box-fieldset-min-height)
+      + var(--revision-padding-top)
+      + var(--base-font-size) * var(--base-line-height)
+      + var(--search-box-old-rev-padding-bottom)
   );
 }
 
@@ -407,37 +434,39 @@ mark {
 }
 
 /**
- * New fixed header mechanism!
+ * See bug 1996714 for details on the fixed header mechanism history.
  *
- * Previously, the search box stayed stuck at the top of the screen via
- * use of "position: fixed".  This was problematic with browser default
- * anchor positioning, but became untenable when we wanted to start using
- * "position: sticky" to show nesting scopes because we needed to specify "top"
- * positions for each nested sticky level, and it was hard to know for sure how
- * big the search box would actually be without involving JS.
+ * A placeholder for the header.
+ * This element takes the vertical space above the page content.
  *
- * So our solution is to use flexbox to create a non-scrolling fixed-header,
- * allotting the remaining space to a scrolling region.
+ * While this element sticks to the vertical scroll, horizontal scrolling
+ * can move this element.
+ *
+ * We use another element #search-box with fixed position, in order
+ * to keep the position also for horizontal scroll.
  */
-
-html {
-  height: 100%;
-}
-body {
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
 #fixed-header {
-  flex-shrink: 0;
-  display: inline-flex;
+  position: sticky;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+  height: var(--header-height);
+  z-index: 200;
+}
+#search-box {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  width: 100vw;
+  overflow: hidden;
+  height: var(--header-height);
 }
 
+/**
+ * This is named as "scrolling" For historical reason, but is no longer
+ * scrolling. The html element is scrolling.
+ */
 #scrolling {
-  flex-grow: 1;
-  overflow-y: auto;
 }
 
 /**
@@ -482,7 +511,10 @@ body {
    opaque background color for these because those classes don't take effect
    immediately. */
   background-color: var(--page-background);
-  top: calc(var(--nesting-level) * var(--base-font-size) * var(--source-line-height));
+  top: calc(
+      var(--header-height) +
+      var(--nesting-level) * var(--base-font-size) * var(--source-line-height)
+  );
   z-index: calc(100 - var(--nesting-level));
 }
 /* Search results */
@@ -711,11 +743,7 @@ tr.after-context-line + tr.before-context-line {
    * Note that on pages where we display the indexed revision as part of the
    * search box, this offset needs to be adjusted, and we do that below using
    * the ".old-rev" selector. */
-  top: calc(
-      var(--search-box-padding)
-      + var(--search-box-fieldset-min-height)
-      + var(--search-box-padding)
-  );
+  top: var(--header-height);
   right: 22px;
   background-color: var(--page-background);
   border: 1px solid var(--page-border-color);
@@ -724,17 +752,6 @@ tr.after-context-line + tr.before-context-line {
   overflow-x: hidden;
   max-height: calc(100% - 150px);
   z-index: 102;
-}
-:root.old-rev .panel {
-  /* Adjust the navigation panel location for the presence of the indexed revision.
-   * See above for more. */
-  top: calc(
-      var(--search-box-padding)
-      + var(--search-box-fieldset-min-height)
-      + var(--revision-padding-top)
-      + var(--base-font-size) * var(--base-line-height)
-      + var(--search-box-old-rev-padding-bottom)
-  );
 }
 #panel-toggle {
   display: inline-block;
@@ -927,7 +944,10 @@ span[data-symbols].selected {
      Also, we add an extra line of padding to compensate for the box-shadow.
      Note: The default must be -1 * the offset for the non-stuck case.
    */
-  scroll-margin-top: calc((var(--nesting-level, -2) + 2) * var(--base-font-size) * var(--source-line-height));
+  scroll-margin-top: calc(
+      var(--header-height) +
+      (var(--nesting-level, -2) + 2) * var(--base-font-size) * var(--source-line-height)
+  );
 }
 
 .nesting-container > .goto {
@@ -937,7 +957,10 @@ span[data-symbols].selected {
      levels >= 1 and results in an extra line of padding for == 0, but the
      complexity to fix it doesn't seem worth it.
    */
-  scroll-margin-top: calc((var(--nesting-level) + 1) * var(--base-font-size) * var(--source-line-height));
+  scroll-margin-top: calc(
+      var(--header-height) +
+      (var(--nesting-level) + 1) * var(--base-font-size) * var(--source-line-height)
+  );
 }
 
 /* ## Blame ## */
@@ -1050,7 +1073,7 @@ input::placeholder {
 }
 #search-box {
   background-image: var(--search-box-background-image);
-  border-bottom: 1px solid var(--page-border-color);
+  border-bottom: var(--search-box-border-width) solid var(--page-border-color);
   padding: var(--search-box-padding);
   width: 100%;
 }
@@ -1095,6 +1118,9 @@ input::placeholder {
   padding: 0 2rem 0 0;
   /*min-width: 9rem;*/
   /*align-self: center;*/
+}
+#option-section label {
+  height: var(--checkbox-label-height);
 }
 #option-section input[type="checkbox"] {
   margin: var(--checkbox-margin);

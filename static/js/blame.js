@@ -362,9 +362,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
     // (e.g. a code fragment that displays a context menu) may actually
     // consume the event.
     window.addEventListener("click", this, { capture: true });
-    document
-      .getElementById("scrolling")
-      .addEventListener("scroll", this, { passive: true });
+    window.addEventListener("scroll", this, { passive: true });
   }
 
   isStripElement(elem) {
