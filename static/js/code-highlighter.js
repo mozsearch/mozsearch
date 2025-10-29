@@ -350,7 +350,7 @@ var Sticky = new (class Sticky {
   constructor() {
     // List of already stuck elements.
     this.stuck = [];
-    this.scroller = document.getElementById("scrolling");
+    this.scroller = window;
 
     // Our logic can't work on our diff output because there will be line
     // number discontinuities and line numbers that are simply missing.

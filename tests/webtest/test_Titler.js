@@ -37,8 +37,8 @@ add_task(async function test_Titler() {
        "Titler.cpp - mozsearch",
        "Symbol disappears after unselecting the line.");
 
-    const scrolling = frame.contentDocument.querySelector("#scrolling");
-    scrolling.scrollTop = scrolling.scrollHeight;
+    frame.contentDocument.documentElement.scrollTop =
+      frame.contentDocument.documentElement.scrollHeight;
 
     if (stickySymbol) {
       await waitForCondition(
