@@ -132,6 +132,7 @@ table {
       + var(--revision-padding-top)
       + var(--base-font-size) * var(--base-line-height)
       + var(--search-box-old-rev-padding-bottom)
+      + var(--search-box-border-width)
   );
 }
 
