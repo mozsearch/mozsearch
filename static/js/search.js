@@ -54,7 +54,7 @@ var Dxr = new (class Dxr {
     //
     //  1. the user navigates to foo.cpp file,
     //  2. the user types a text into the search field
-    //  3. updateHistory pushses the state
+    //  3. updateHistory pushes the state
     //  4. the user hits the back button
     //
     // At the step 3, the location becomes search?q=...,

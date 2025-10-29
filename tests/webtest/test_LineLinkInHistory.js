@@ -1,7 +1,7 @@
 "use strict";
 
 add_task(async function test_LineLinkInHistory() {
-  const firstPath ="/tests/source/big_cpp.cpp#136";
+  const firstPath = "/tests/source/big_cpp.cpp#136";
   await TestUtils.loadPath(firstPath);
 
   const ThingDef = frame.contentDocument.querySelector("#line-136 .syn_def");
