@@ -45,9 +45,42 @@ var Dxr = new (class Dxr {
     window.addEventListener("pageshow", () =>
       this.initFormFromLocalStorageOrUrl()
     );
-    // FIXME: This reloads the page when you navigate to #lineno.
-    window.addEventListener("popstate", () => window.location.reload(), {
-      once: true,
+
+    // We use pushState in Dxr.updateHistory etc.
+    // If an user initiates the browser's back/forward button,
+    // they triggers popstate events without the actual navigation.
+    //
+    // Let's take the following scenario:
+    //
+    //  1. the user navigates to foo.cpp file,
+    //  2. the user types a text into the search field
+    //  3. updateHistory pushses the state
+    //  4. the user hits the back button
+    //
+    // At the step 3, the location becomes search?q=...,
+    // and at the step 4, the location becomes the foo.cpp file,
+    // but the page content remains with the search result.
+    //
+    // In order to mitigate the issue with simple approach,
+    // we perform reload.
+    window.addEventListener("popstate", event => {
+      // One exception where we don't want to perform reload is the
+      // "Go to ..." menu item, which can navigate to #lineno in the
+      // same document.
+      // Navigation to a document fragment also triggers a popstate event.
+      //
+      // We detect it by the suppressNextPopState property, which is set
+      // by the "Go to ..." menu item's event handler.
+      //
+      // The timestamp is used to avoid getting confused by
+      // unrelated click events on the menu item.
+      const suppressNextPopState = this.suppressNextPopState;
+      this.suppressNextPopState = 0;
+      if (suppressNextPopState && suppressNextPopState > Date.now() - 1000) {
+        ContextMenu.hide();
+        return;
+      }
+      window.location.reload();
     });
 
     // XXX hacky mechanism so that we only run this on pages with a "search"
@@ -66,6 +99,11 @@ var Dxr = new (class Dxr {
       });
       this.initFormFromLocalStorageOrUrl();
     }
+
+    // Set to the current timestamp when we want to suppress the next
+    // popstate event handler.
+    // See the popstate event handler for more details.
+    this.suppressNextPopState = 0;
   }
 
   cancel(cancelFetch = true) {
