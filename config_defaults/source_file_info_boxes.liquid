@@ -7,6 +7,12 @@
   {%- elsif concise.info.test contains "skip_if" and concise.info.test.skip_if != empty -%}
     {%- assign test_heading = "Test Info: Warnings" -%}
     {%- assign test_severity = "warning" -%}
+  {%- elsif concise.info.test contains "run_if" and concise.info.test.run_if != empty -%}
+    {%- assign test_heading = "Test Info: Warnings" -%}
+    {%- assign test_severity = "warning" -%}
+  {%- elsif concise.info.test contains "fail_if" and concise.info.test.fail_if != empty -%}
+    {%- assign test_heading = "Test Info: Warnings" -%}
+    {%- assign test_severity = "warning" -%}
   {%- elsif concise.info contains "wpt" -%}
     {%- if concise.info.wpt contains "disabling_conditions" or concise.info.wpt contains "disabled_subtests_count" -%}
       {%- assign test_heading = "Test Info: Warnings" -%}
@@ -29,6 +35,12 @@
       <ul>
 {% if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
         <li>This test gets skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
+{%- endif -%}
+{% if concise.info.test contains "run_if" and concise.info.test.run_if != empty %}
+        <li>This test runs only with pattern: <span class="test-skip-info">{{ concise.info.test.run_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
+{%- endif -%}
+{% if concise.info.test contains "fail_if" and concise.info.test.fail_if != empty %}
+        <li>This test is know to fail with pattern: <span class="test-skip-info">{{ concise.info.test.fail_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
 {%- endif -%}
 {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 %}
         <li>This test failed {{ concise.info.test.failure_count }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path }}">quicksearch this test</a></li>

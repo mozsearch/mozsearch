@@ -114,6 +114,8 @@ pub struct WPTExpectationInfo {
 pub struct TestInfo {
     pub failed_runs: i64,
     pub skip_if: Option<String>,
+    pub run_if: Option<String>,
+    pub fail_if: Option<String>,
     pub skipped_runs: i64,
     pub total_run_time_secs: f64,
     /// "total runs" less "skipped runs"

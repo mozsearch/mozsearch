@@ -198,6 +198,8 @@ nesting_key = "test"
 
 [jsonfile."test-info-all-tests.json".concise.info.test.object]
 skip_if.pointer = "/skip-if"
+run_if.pointer = "/run-if"
+fail_if.pointer = "/fail-if"
 failure_count.pointer = "/failure_count"
 manifest.pointer = "/manifest"
 
