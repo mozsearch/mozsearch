@@ -43,6 +43,7 @@ idl = []
 webidl = []
 ipdl = []
 staticprefs = []
+toml = []
 
 dirs = collections.OrderedDict()
 ipdl_dirs = collections.OrderedDict()
@@ -124,6 +125,13 @@ for line in lines:
     if name == 'StaticPrefList.yaml':
         staticprefs.append(path + '\n')
 
+    if ext == '.toml':
+        if 'filter_toml' in repo_files:
+            if not repo_files['filter_toml'](path):
+                continue
+
+        toml.append(path + '\n')
+
 index_path = tree_config['index_path']
 open(os.path.join(index_path, 'repo-files'), 'w').writelines(files)
 open(os.path.join(index_path, 'repo-dirs'), 'w').writelines([d + '\n' for d in dirs])
@@ -135,3 +143,4 @@ open(os.path.join(index_path, 'webidl-files'), 'w').writelines(webidl)
 open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
 open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join(['-I ' + d for d in ipdl_dirs]))
 open(os.path.join(index_path, 'staticprefs-files'), 'w').writelines(staticprefs)
+open(os.path.join(index_path, 'toml-files'), 'w').writelines(toml)
