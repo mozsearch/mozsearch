@@ -451,6 +451,12 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td><a href="/tests/source/mozbuild" class="mimetype-fixed-container mimetype-icon-folder">mozbuild</a></td>
+          <td class="description"><a href="/tests/source/mozbuild" title=""></td>
+          <td><a href="/tests/source/mozbuild"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/mozilla" class="mimetype-fixed-container mimetype-icon-folder">mozilla</a></td>
           <td class="description"><a href="/tests/source/mozilla" title=""></td>
           <td><a href="/tests/source/mozilla"></a></td>
