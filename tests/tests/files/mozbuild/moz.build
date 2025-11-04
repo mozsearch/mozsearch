@@ -1,0 +1,47 @@
+include("other.mozbuild")
+
+DIRS += [
+    "sub"
+]
+
+LegacyTest(
+    f"%{CONFIG['PYTHON3']}",
+    "/some_python.py",
+    depends=["/mozbuild/other.py"],
+)
+
+SOURCES += [
+    "test.cpp",
+]
+SOURCES["test.cpp"].flags += ["-Wall"]
+
+UNIFIED_SOURCES += [
+    "unified.cpp",
+]
+
+CONFIGURE_DEFINE_FILES += [
+    "config.h",
+]
+
+EXPORTS += [
+    "!generated-header.h",
+    "header.h",
+]
+
+EXPORTS.sub.dir += [
+    "!generated-header2.h",
+    "../atom_list.h",
+]
+
+OS_LIBS += ["-framework CoreFoundation"]
+
+input_files = [
+    "sub/test.js",
+] + ["test.css"] if CONFIG["COND"] else []
+
+GeneratedFile(
+    "generated-header2.h",
+    script="generator.py",
+    entry_point="generate_some",
+    inputs=input_files,
+)
