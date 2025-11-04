@@ -44,6 +44,7 @@ webidl = []
 ipdl = []
 staticprefs = []
 toml = []
+mozbuild = []
 
 dirs = collections.OrderedDict()
 ipdl_dirs = collections.OrderedDict()
@@ -132,6 +133,13 @@ for line in lines:
 
         toml.append(path + '\n')
 
+    if ext == ".mozbuild" or ext == '.build':
+        if 'filter_mozbuild' in repo_files:
+            if not repo_files['filter_mozbuild'](path):
+                continue
+
+        mozbuild.append(path + '\n')
+
 index_path = tree_config['index_path']
 open(os.path.join(index_path, 'repo-files'), 'w').writelines(files)
 open(os.path.join(index_path, 'repo-dirs'), 'w').writelines([d + '\n' for d in dirs])
@@ -144,3 +152,4 @@ open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
 open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join(['-I ' + d for d in ipdl_dirs]))
 open(os.path.join(index_path, 'staticprefs-files'), 'w').writelines(staticprefs)
 open(os.path.join(index_path, 'toml-files'), 'w').writelines(toml)
+open(os.path.join(index_path, 'mozbuild-files'), 'w').writelines(mozbuild)
