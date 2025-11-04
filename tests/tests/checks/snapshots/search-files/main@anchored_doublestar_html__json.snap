@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(fm).unwrap()"
+input_file: inputs/search-files/anchored_doublestar_html__json
 ---
 {
   "file_matches": [
@@ -87,6 +88,58 @@ expression: "&to_value(fm).unwrap()"
             ]
           }
         }
+      }
+    },
+    {
+      "path": "tests/file_something.html",
+      "concise": {
+        "path_kind": "Test files",
+        "is_dir": false,
+        "file_size": 85,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
+      "path": "tests/support.html",
+      "concise": {
+        "path_kind": "Test files",
+        "is_dir": false,
+        "file_size": 80,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
+      "path": "tests/test_otherthing.html",
+      "concise": {
+        "path_kind": "Test files",
+        "is_dir": false,
+        "file_size": 86,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
+      }
+    },
+    {
+      "path": "tests/test_something.html",
+      "concise": {
+        "path_kind": "Test files",
+        "is_dir": false,
+        "file_size": 85,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {}
       }
     },
     {

@@ -1,0 +1,25 @@
+[DEFAULT]
+support-files = [
+  "support.html",
+  # Non-resouce files which doesn't have file symbols.
+  "support.txt",
+  # Files in other directory.
+  "../js/export.mjs",
+]
+
+["test_something.html"]
+skip-if = ["os = 'mac'"]
+support-files = "file_something.html"
+extra1 = """\
+
+"
+""
+hello world"""
+extra2 = '''\
+
+'
+''
+hello world'''
+
+
+["include:mochitest-common.toml"]

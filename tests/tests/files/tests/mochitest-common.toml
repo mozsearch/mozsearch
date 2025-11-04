@@ -1,0 +1,5 @@
+[DEFAULT]
+
+["test_otherthing.html"]
+run-if = ["os = 'mac'"]
+fail-if = ["debug"]
