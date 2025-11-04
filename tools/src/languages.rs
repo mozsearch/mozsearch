@@ -645,6 +645,12 @@ lazy_static! {
         c_style_comments: true,
         .. LanguageSpec::default()
     };
+
+    static ref TOML_SPEC : LanguageSpec = LanguageSpec {
+        hash_comment: true,
+        triple_quote_literals: true,
+        .. LanguageSpec::default()
+    };
 }
 
 #[derive(Debug)]
@@ -675,6 +681,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "rs" => FormatAs::FormatCLike(&RUST_SPEC),
         "java" => FormatAs::FormatCLike(&JAVA_SPEC),
         "kt" => FormatAs::FormatCLike(&KOTLIN_SPEC),
+        "toml" => FormatAs::FormatCLike(&TOML_SPEC),
 
         "html" | "htm" | "xhtml" | "xht" | "xml" | "xul" => FormatAs::FormatTagLike(&HTML_SPEC),
 
