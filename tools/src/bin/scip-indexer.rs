@@ -21,6 +21,7 @@ use tools::file_format::analysis::{
     SourceRange, SourceTag, StructuredFieldInfo, StructuredMethodInfo, StructuredOverrideInfo,
     StructuredSuperInfo, StructuredTag, TargetTag, WithLocation,
 };
+use tools::file_format::analysis_manglings::mangle_file;
 use tools::file_format::config;
 use ustr::{ustr, Ustr, UstrMap, UstrSet};
 
@@ -1055,6 +1056,30 @@ fn analyze_using_scip(
                 continue;
             }
         };
+
+        let file_pretty = doc.relative_path.clone();
+        let file_sym = format!("FILE_{}", mangle_file(&file_pretty));
+        let file_target_data = WithLocation {
+            data: AnalysisTarget {
+                target: TargetTag::Target,
+                kind: AnalysisKind::Def,
+                pretty: ustr(&file_pretty),
+                sym: ustr(&file_sym),
+                context: ustr(""),
+                contextsym: ustr(""),
+                peek_range: LineRange {
+                    start_lineno: 0,
+                    end_lineno: 0,
+                },
+                arg_ranges: vec![],
+            },
+            loc: Location {
+                lineno: 1,
+                col_start: 0,
+                col_end: 0,
+            },
+        };
+        write_line(&mut file, &file_target_data);
 
         // XXX Because typescript has different languages for typescript and tsx,
         // we currently need to create the parser and the queries on a per-file
