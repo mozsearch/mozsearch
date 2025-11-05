@@ -1,4 +1,5 @@
 [DEFAULT]
+head = "head.js"
 support-files = [
   "support.html",
   # Non-resouce files which doesn't have file symbols.

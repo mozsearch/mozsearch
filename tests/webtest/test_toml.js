@@ -15,24 +15,28 @@ add_task(async function test_toml() {
 
   const tests = [
     {
-      line: 3,
+      line: 2,
+      path: "tests/head.js",
+    },
+    {
+      line: 4,
       path: "tests/support.html",
     },
     {
-      line: 5,
+      line: 6,
       path: "tests/support.txt",
       missing: true,
     },
     {
-      line: 7,
+      line: 8,
       path: "js/export.mjs",
     },
     {
-      line: 12,
+      line: 13,
       path: "tests/file_something.html",
     },
     {
-      line: 25,
+      line: 26,
       path: "tests/mochitest-common.toml",
     },
   ];
