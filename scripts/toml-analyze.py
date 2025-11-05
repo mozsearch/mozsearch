@@ -615,12 +615,18 @@ class AnalysisWriter:
                 print(json.dumps(item), file=f)
 
     def on_keyval(self, ks, v):
-        if len(ks) == 1 and ks[0][1] == "support-files":
-            if v[0] == "array":
-                for k in v[1]:
-                    self.add_use(k[1], k[2][0], k[2][1], k[3][1])
-            elif v[0] == "string":
-                self.add_use(v[1], v[2][0], v[2][1], v[3][1])
+        if len(ks) != 1:
+            return
+
+        name = ks[0][1]
+        if name != "support-files" and name != "head":
+            return
+
+        if v[0] == "array":
+            for k in v[1]:
+                self.add_use(k[1], k[2][0], k[2][1], k[3][1])
+        elif v[0] == "string":
+            self.add_use(v[1], v[2][0], v[2][1], v[3][1])
 
     def on_std_table(self, ks):
         if len(ks) != 1:
