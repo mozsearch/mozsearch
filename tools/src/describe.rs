@@ -33,7 +33,7 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
             }
         }
         FormatAs::Binary => None,
-        FormatAs::StaticPrefs => None,
+        FormatAs::YAML => None,
         FormatAs::Plain => {
             let stem = path.file_stem()?.to_str()?;
             if stem.eq_ignore_ascii_case("README") {
