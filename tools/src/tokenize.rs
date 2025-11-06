@@ -168,7 +168,9 @@ pub fn tokenize_plain(string: &str) -> Vec<Token> {
     tokens
 }
 
-pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
+// A subset of YAML specialized for StaticPrefs.yaml, but this would work
+// for the most of in-tree yaml files.
+pub fn tokenize_yaml(string: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
 
     let chars: Vec<(usize, char)> = string.char_indices().collect();

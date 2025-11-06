@@ -659,7 +659,7 @@ pub enum FormatAs {
     FormatTagLike(&'static LanguageSpec),
     CSS,
     Plain,
-    StaticPrefs,
+    YAML,
     Binary,
 }
 
@@ -699,7 +699,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
             };
 
             match name {
-                "StaticPrefList.yaml" => FormatAs::StaticPrefs,
+                "StaticPrefList.yaml" => FormatAs::YAML,
                 _ => FormatAs::Plain,
             }
         }
