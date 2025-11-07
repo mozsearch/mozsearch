@@ -111,6 +111,10 @@ $MOZSEARCH_PATH/scripts/toml-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_e
 
 date
 
+$MOZSEARCH_PATH/scripts/yaml-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "yaml-analyze.sh"
+
+date
+
 $MOZSEARCH_PATH/scripts/mozbuild-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "mozbuild-analyze.sh"
 
 date
