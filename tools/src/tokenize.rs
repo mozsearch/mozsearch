@@ -260,6 +260,37 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                     kind: TokenKind::StringLiteral,
                 });
             }
+            '\'' => {
+                loop {
+                    ch = peek_char();
+                    match ch {
+                        '\'' | '\0' => {
+                            consume_char();
+                            break;
+                        }
+                        '\r' | '\n' => {
+                            break;
+                        }
+                        '\\' => {
+                            consume_char();
+                            match peek_char() {
+                                '\r' | '\n' => {
+                                }
+                                _ => consume_char()
+                            }
+                        }
+                        _ => {
+                            consume_char();
+                        }
+                    }
+                }
+
+                tokens.push(Token {
+                    start,
+                    end: end_pos(),
+                    kind: TokenKind::StringLiteral,
+                });
+            }
             '#' if was_after_space() => {
                 loop {
                     ch = peek_char();
@@ -302,7 +333,7 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                 loop {
                     ch = peek_char();
                     match ch {
-                        '\n' | '"' | '#' | '\0' => {
+                        '\n' | '"' | '\'' | '#' | '\0' => {
                             break;
                         }
                         'A'..='Z' | 'a'..='z' | '0'..='9' | '_' | '.' | '$' | '*' | '/' => {
