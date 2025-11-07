@@ -268,12 +268,11 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                     kind: TokenKind::Comment,
                 });
             }
-            'A'..='Z' | 'a'..='z' => {
-                // Treat the entire preference name as single identifier.
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '_' | '.' | '$' | '*' | '/' => {
                 loop {
                     ch = peek_char();
                     match ch {
-                        'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' => {
+                        'A'..='Z' | 'a'..='z' | '0'..='9' | '_' | '.' | '$' | '*' | '/' | '-' => {
                             consume_char();
                         }
                         _ => {
@@ -292,7 +291,10 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                 loop {
                     ch = peek_char();
                     match ch {
-                        '\n' | '"' | '#' | 'A'..='Z' | 'a'..='z' | '\0' => {
+                        '\n' | '"' | '#' | '\0' => {
+                            break;
+                        }
+                        'A'..='Z' | 'a'..='z' | '0'..='9' | '_' | '.' | '$' | '*' | '/' => {
                             break;
                         }
                         _ => {
