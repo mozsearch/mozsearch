@@ -353,6 +353,7 @@ pub fn format_code(
                         a.syntax.iter().flat_map(|s| match s.as_ref() {
                             "type" => vec!["syn_type"],
                             "def" | "decl" | "idl" => vec!["syn_def"],
+                            "key" => vec!["syn_key"],
                             _ => vec![],
                         })
                     });
