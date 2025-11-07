@@ -184,6 +184,20 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
         chars[p]
     };
 
+    let consume_char = || {
+        if cur_pos.get() != chars.len() {
+            cur_pos.set(cur_pos.get() + 1);
+        }
+    };
+
+    let end_pos = || {
+        if cur_pos.get() == chars.len() {
+            return string.len();
+        }
+
+        chars[cur_pos.get()].0
+    };
+
     let peek_char = || {
         if cur_pos.get() == chars.len() {
             return '\0';
@@ -200,33 +214,31 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
             '\n' => {
                 tokens.push(Token {
                     start,
-                    end: start + 1,
+                    end: end_pos(),
                     kind: TokenKind::Newline,
                 });
             }
             '"' => {
-                let end;
                 loop {
                     ch = peek_char();
                     match ch {
                         '"' | '\0' => {
-                            end = get_char().0;
+                            consume_char();
                             break;
                         }
                         _ => {
-                            get_char();
+                            consume_char();
                         }
                     }
                 }
 
                 tokens.push(Token {
                     start,
-                    end: end + 1,
+                    end: end_pos(),
                     kind: TokenKind::StringLiteral,
                 });
             }
             '#' => {
-                let mut end = start;
                 loop {
                     ch = peek_char();
                     match ch {
@@ -234,25 +246,24 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                             break;
                         }
                         _ => {
-                            end = get_char().0;
+                            consume_char();
                         }
                     }
                 }
 
                 tokens.push(Token {
                     start,
-                    end: end + 1,
+                    end: end_pos(),
                     kind: TokenKind::Comment,
                 });
             }
             'A'..='Z' | 'a'..='z' => {
                 // Treat the entire preference name as single identifier.
-                let mut end = start;
                 loop {
                     ch = peek_char();
                     match ch {
                         'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' => {
-                            end = get_char().0;
+                            consume_char();
                         }
                         _ => {
                             break;
@@ -262,12 +273,11 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
 
                 tokens.push(Token {
                     start,
-                    end: end + 1,
+                    end: end_pos(),
                     kind: TokenKind::Identifier(None),
                 });
             }
             _ => {
-                let mut end = start;
                 loop {
                     ch = peek_char();
                     match ch {
@@ -275,14 +285,14 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                             break;
                         }
                         _ => {
-                            end = get_char().0;
+                            consume_char();
                         }
                     }
                 }
 
                 tokens.push(Token {
                     start,
-                    end: end + 1,
+                    end: end_pos(),
                     kind: TokenKind::PlainText,
                 });
             }
