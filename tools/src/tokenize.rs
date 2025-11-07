@@ -207,6 +207,17 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
         ch
     };
 
+    let was_after_space = || {
+        if cur_pos.get() <= 1 {
+            return true;
+        }
+
+        match chars[cur_pos.get() - 2].1 {
+            ' ' | '\t' | '\r' | '\n' => true,
+            _ => false
+        }
+    };
+
     while cur_pos.get() < chars.len() {
         let (start, mut ch) = get_char();
 
@@ -249,7 +260,7 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                     kind: TokenKind::StringLiteral,
                 });
             }
-            '#' => {
+            '#' if was_after_space() => {
                 loop {
                     ch = peek_char();
                     match ch {
