@@ -226,6 +226,9 @@ pub fn tokenize_static_prefs(string: &str) -> Vec<Token> {
                             consume_char();
                             break;
                         }
+                        '\r' | '\n' => {
+                            break;
+                        }
                         _ => {
                             consume_char();
                         }
