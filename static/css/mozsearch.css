@@ -1284,6 +1284,7 @@ input::placeholder {
 }
 
 .syn_tag,
+.syn_key,
 .syn_reserved {
   color: var(--syntax-reserved-color);
 }
