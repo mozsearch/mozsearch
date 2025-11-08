@@ -124,6 +124,15 @@ do
   popd
 done
 
+## moz.build generated files
+
+for PLATFORM in ${PLATFORMS}; do
+    mkdir -p ${OBJDIR}/__${PLATFORM}__
+    mkdir -p ${OBJDIR}/__${PLATFORM}__/mozbuild
+    cp ${INDEX_ROOT}/files/mozbuild/__generated-header.h ${OBJDIR}/__${PLATFORM}__/mozbuild/generated-header.h
+    cp ${INDEX_ROOT}/files/mozbuild/__generated-header2.h ${OBJDIR}/__${PLATFORM}__/mozbuild/generated-header2.h
+done
+
 ## Python Stuff
 
 scip-python index --show-progress-rate-limit 0 --project-name python --project-version 0.0.0 --environment ../python-scip-env.json --output python.scip
