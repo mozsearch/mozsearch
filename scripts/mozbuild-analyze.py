@@ -11,8 +11,8 @@ def at_escape(text):
   return re.sub("[^A-Za-z0-9_/]", lambda m: "@" + "{:02X}".format(ord(m.group(0))), text)
 
 
-def to_file_sym(filename):
-    return "FILE_" + at_escape(filename)
+def to_sym(prefix, name):
+    return prefix + "_" + at_escape(name)
 
 
 def to_loc(line, c1, c2):
@@ -30,23 +30,23 @@ class AnalysisWriter:
             "target": 1,
             "kind": "def",
             "pretty": local_path,
-            "sym": to_file_sym(local_path),
+            "sym": to_sym("FILE", local_path),
         })
 
-    def add_use(self, path, line, c1, c2):
+    def add_use(self, prefix, path, line, c1, c2):
         self.items.append({
             "loc": to_loc(line, c1, c2),
             "target": 1,
             "kind": "use",
             "pretty": path,
-            "sym": to_file_sym(path),
+            "sym": to_sym(prefix, path),
         })
         self.items.append({
             "loc": to_loc(line, c1, c2),
             "source": 1,
             "syntax": "use,file",
             "pretty": path,
-            "sym": to_file_sym(path),
+            "sym": to_sym(prefix, path),
         })
 
     def write(self):
@@ -84,9 +84,9 @@ def analyze(local_path, files_root, analysis_root):
 
             target = os.path.normpath(target)
             if os.path.isfile(os.path.join(files_root, target)):
-                # NOTE: Currently there's no simple way to have a
-                #       reference to directory.
-                w.add_use(target, n.lineno, n.col_offset, n.end_col_offset)
+                w.add_use("FILE", target, n.lineno, n.col_offset, n.end_col_offset)
+            elif os.path.isdir(os.path.join(files_root, target)):
+                w.add_use("DIR", target, n.lineno, n.col_offset, n.end_col_offset)
 
     w.write()
 
