@@ -125,12 +125,6 @@ $MOZSEARCH_PATH/scripts/generate-analsysis-files-list.sh $ANALYSIS_FILES_PATH ||
 
 date
 
-OTHER_RESOURCES_PATH=$INDEX_ROOT/other-resource-files
-
-$MOZSEARCH_PATH/scripts/generate-other-resources-list.py $ANALYSIS_FILES_PATH $URL_MAP_PATH $OTHER_RESOURCES_PATH || handle_tree_error "generate-other-resources-list.py"
-
-date
-
 $MOZSEARCH_PATH/scripts/replace-aliases.sh $ANALYSIS_FILES_PATH || handle_tree_error "replace-aliases.sh"
 
 date
@@ -140,7 +134,7 @@ $MOZSEARCH_PATH/scripts/annotate-gc.sh $ANALYSIS_FILES_PATH || handle_tree_error
 date
 
 # crossref failures always need to be fatal because their outputs are required.
-$MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH $OTHER_RESOURCES_PATH
+$MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH
 
 date
 
