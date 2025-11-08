@@ -1,0 +1,55 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/markup/toml_key__html
+---
+<code role="cell" class="source-line"><span class="syn_comment" ># comment</span>
+</code>
+<code role="cell" class="source-line">key:
+</code>
+<code role="cell" class="source-line">    num: 10
+</code>
+<code role="cell" class="source-line">    string1: <span class="syn_string" >"ABC\n\"ABC\"ABC"</span>
+</code>
+<code role="cell" class="source-line">    string2: <span class="syn_string" >'ABC\n\'ABC\'ABC'</span>
+</code>
+<code role="cell" class="source-line">    comment: before <span class="syn_comment" ># after</span>
+</code>
+<code role="cell" class="source-line">    <span class="syn_comment" >#comment</span>
+</code>
+<code role="cell" class="source-line">    not-comment: before#after
+</code>
+<code role="cell" class="source-line">    url:
+</code>
+<code role="cell" class="source-line">        http://localhost/#foo
+</code>
+<code role="cell" class="source-line">    $Aa_./-0: 0
+</code>
+<code role="cell" class="source-line">    code: |
+</code>
+<code role="cell" class="source-line">        // It<span class="syn_string" >'s a comment with single quote.</span>
+</code>
+<code role="cell" class="source-line">        a = <span class="syn_string" >'b'</span>
+</code>
+<code role="cell" class="source-line">        <span class="syn_string" >""</span><span class="syn_string" >"</span>
+</code>
+<code role="cell" class="source-line">        hello
+</code>
+<code role="cell" class="source-line">        <span class="syn_string" >""</span><span class="syn_string" >"</span>
+</code>
+<code role="cell" class="source-line">    list:
+</code>
+<code role="cell" class="source-line">        - item1
+</code>
+<code role="cell" class="source-line">        - item2
+</code>
+<code role="cell" class="source-line">        - item3
+</code>
+<code role="cell" class="source-line">    obj:
+</code>
+<code role="cell" class="source-line">        - key: value
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" ># key:</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" >#     num: 10</span>
+</code>
