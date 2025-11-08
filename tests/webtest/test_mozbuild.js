@@ -19,6 +19,10 @@ add_task(async function test_toml() {
       path: "mozbuild/other.mozbuild",
     },
     {
+      line: 4,
+      path: "mozbuild/sub",
+    },
+    {
       line: 9,
       path: "some_python.py",
     },
