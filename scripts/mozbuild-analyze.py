@@ -19,6 +19,15 @@ def to_loc(line, c1, c2):
     return f"{line:05d}:{c1}-{c2}"
 
 
+def get_platforms(obj_root):
+    platforms = [obj_root]
+    for name in os.listdir(obj_root):
+        objdir = os.path.join(obj_root, name)
+        if os.path.isdir(objdir) and name.startswith("__") and name.endswith("__"):
+            platforms.append(name)
+    return platforms
+
+
 class AnalysisWriter:
     def __init__(self, local_path, analysis_path):
         self.test_dir = os.path.dirname(local_path)
@@ -55,7 +64,7 @@ class AnalysisWriter:
                 print(json.dumps(item), file=f)
 
 
-def analyze(local_path, files_root, analysis_root):
+def analyze(local_path, files_root, analysis_root, obj_root, platforms):
     mozbuild_path = os.path.join(files_root, local_path)
     analysis_path = os.path.join(analysis_root, local_path)
 
@@ -72,28 +81,47 @@ def analyze(local_path, files_root, analysis_root):
 
     for n in ast.walk(root):
         if isinstance(n, ast.Constant) and isinstance(n.value, str):
-            target = n.value
-            if target.startswith("!"):
-                # Generated files.
-                continue
+            # Generated files in EXPORTS has "!" prefix,
+            # But generated files in GeneratedFile arguments doesn't.
+            if n.value.startswith("!"):
+                target = n.value[1:]
+            else:
+                target = n.value
 
             if target.startswith("/"):
-                target = target[1:]
+                local_target = target[1:]
             else:
-                target = os.path.join(local_dir, target)
+                local_target = os.path.join(local_dir, target)
 
-            target = os.path.normpath(target)
-            if os.path.isfile(os.path.join(files_root, target)):
-                w.add_use("FILE", target, n.lineno, n.col_offset, n.end_col_offset)
-            elif os.path.isdir(os.path.join(files_root, target)):
-                w.add_use("DIR", target, n.lineno, n.col_offset, n.end_col_offset)
+            local_target = os.path.normpath(local_target)
+            if os.path.isfile(os.path.join(files_root, local_target)):
+                w.add_use("FILE", local_target, n.lineno, n.col_offset, n.end_col_offset)
+                continue
+            elif os.path.isdir(os.path.join(files_root, local_target)):
+                w.add_use("DIR", local_target, n.lineno, n.col_offset, n.end_col_offset)
+                continue
+
+            for platform in platforms:
+                if target.startswith("/"):
+                    local_target = target[1:]
+                else:
+                    local_target = os.path.join(local_dir, target)
+
+                local_target = os.path.normpath(local_target)
+                if os.path.isfile(os.path.join(obj_root, platform, local_target)):
+                    webpath = os.path.join("__GENERATED__", platform, local_target)
+                    w.add_use("FILE", webpath, n.lineno, n.col_offset, n.end_col_offset)
 
     w.write()
 
+
 index_root = sys.argv[1]
 files_root = sys.argv[2]
-analysis_root = sys.argv[3]
+obj_root = sys.argv[3]
+analysis_root = sys.argv[4]
+
+platforms = get_platforms(obj_root)
 
 for local_path in sys.stdin:
     local_path = local_path.strip()
-    analyze(local_path, files_root, analysis_root)
+    analyze(local_path, files_root, analysis_root, obj_root, platforms)

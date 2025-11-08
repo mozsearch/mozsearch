@@ -16,7 +16,7 @@ TREE_NAME=$2
 cat $INDEX_ROOT/mozbuild-files | \
     parallel --jobs 8 --pipe --halt 2 \
     $MOZSEARCH_PATH/scripts/mozbuild-analyze.py \
-    $INDEX_ROOT $FILES_ROOT $INDEX_ROOT/analysis
+    $INDEX_ROOT $FILES_ROOT $OBJDIR $INDEX_ROOT/analysis
 
 echo $?
 

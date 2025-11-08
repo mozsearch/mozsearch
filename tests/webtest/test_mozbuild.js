@@ -44,8 +44,11 @@ add_task(async function test_toml() {
     },
     {
       line: 27,
-      path: "mozbuild/generated-header.h",
-      missing: true,
+      path: "__GENERATED__/__win64__/mozbuild/generated-header.h",
+    },
+    {
+      line: 27,
+      path: "__GENERATED__/__linux64__/mozbuild/generated-header.h",
     },
     {
       line: 32,
@@ -63,6 +66,14 @@ add_task(async function test_toml() {
     {
       line: 40,
       path: "mozbuild/test.css",
+    },
+    {
+      line: 43,
+      path: "__GENERATED__/__win64__/mozbuild/generated-header2.h",
+    },
+    {
+      line: 43,
+      path: "__GENERATED__/__linux64__/mozbuild/generated-header2.h",
     },
   ];
 
