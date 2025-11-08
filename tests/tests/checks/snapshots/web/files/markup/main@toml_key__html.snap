@@ -5,27 +5,27 @@ input_file: inputs/web/files/markup/toml_key__html
 ---
 <code role="cell" class="source-line"><span class="syn_comment" ># comment</span>
 </code>
-<code role="cell" class="source-line">key:
+<code role="cell" class="source-line"><span class="syn_key" data-symbols="YAMLKEY_key" data-confidences="[&quot;concrete&quot;]">key</span>:
 </code>
-<code role="cell" class="source-line">    num: 10
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_num" data-confidences="[&quot;concrete&quot;]">num</span>: 10
 </code>
-<code role="cell" class="source-line">    string1: <span class="syn_string" >"ABC\n\"ABC\"ABC"</span>
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_string1" data-confidences="[&quot;concrete&quot;]">string1</span>: <span class="syn_string" >"ABC\n\"ABC\"ABC"</span>
 </code>
-<code role="cell" class="source-line">    string2: <span class="syn_string" >'ABC\n\'ABC\'ABC'</span>
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_string2" data-confidences="[&quot;concrete&quot;]">string2</span>: <span class="syn_string" >'ABC\n\'ABC\'ABC'</span>
 </code>
-<code role="cell" class="source-line">    comment: before <span class="syn_comment" ># after</span>
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_comment" data-confidences="[&quot;concrete&quot;]">comment</span>: before <span class="syn_comment" ># after</span>
 </code>
 <code role="cell" class="source-line">    <span class="syn_comment" >#comment</span>
 </code>
-<code role="cell" class="source-line">    not-comment: before#after
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_not@2Dcomment" data-confidences="[&quot;concrete&quot;]">not-comment</span>: before#after
 </code>
-<code role="cell" class="source-line">    url:
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_url" data-confidences="[&quot;concrete&quot;]">url</span>:
 </code>
 <code role="cell" class="source-line">        http://localhost/#foo
 </code>
-<code role="cell" class="source-line">    $Aa_./-0: 0
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_@24Aa_@2E/@2D0" data-confidences="[&quot;concrete&quot;]">$Aa_./-0</span>: 0
 </code>
-<code role="cell" class="source-line">    code: |
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_code" data-confidences="[&quot;concrete&quot;]">code</span>: |
 </code>
 <code role="cell" class="source-line">        // It<span class="syn_string" >'s a comment with single quote.</span>
 </code>
@@ -37,7 +37,7 @@ input_file: inputs/web/files/markup/toml_key__html
 </code>
 <code role="cell" class="source-line">        <span class="syn_string" >""</span><span class="syn_string" >"</span>
 </code>
-<code role="cell" class="source-line">    list:
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_list" data-confidences="[&quot;concrete&quot;]">list</span>:
 </code>
 <code role="cell" class="source-line">        - item1
 </code>
@@ -45,9 +45,9 @@ input_file: inputs/web/files/markup/toml_key__html
 </code>
 <code role="cell" class="source-line">        - item3
 </code>
-<code role="cell" class="source-line">    obj:
+<code role="cell" class="source-line">    <span class="syn_key" data-symbols="YAMLKEY_obj" data-confidences="[&quot;concrete&quot;]">obj</span>:
 </code>
-<code role="cell" class="source-line">        - key: value
+<code role="cell" class="source-line">        - <span class="syn_key" data-symbols="YAMLKEY_key" data-confidences="[&quot;concrete&quot;]">key</span>: value
 </code>
 <code role="cell" class="source-line"><span class="syn_comment" ># key:</span>
 </code>
