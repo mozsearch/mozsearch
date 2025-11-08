@@ -1,0 +1,25 @@
+# comment
+key:
+    num: 10
+    string1: "ABC\n\"ABC\"ABC"
+    string2: 'ABC\n\'ABC\'ABC'
+    comment: before # after
+    #comment
+    not-comment: before#after
+    url:
+        http://localhost/#foo
+    $Aa_./-0: 0
+    code: |
+        // It's a comment with single quote.
+        a = 'b'
+        """
+        hello
+        """
+    list:
+        - item1
+        - item2
+        - item3
+    obj:
+        - key: value
+# key:
+#     num: 10

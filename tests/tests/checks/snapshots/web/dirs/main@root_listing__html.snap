@@ -788,6 +788,12 @@ Spread over multiple lines.
           <td><a href="/tests/source/xpidl_cpp_consumer.cpp">417</a></td>
         </tr>
 
+        <tr>
+          <td><a href="/tests/source/yaml" class="mimetype-fixed-container mimetype-icon-folder">yaml</a></td>
+          <td class="description"><a href="/tests/source/yaml" title=""></td>
+          <td><a href="/tests/source/yaml"></a></td>
+        </tr>
+
     </tbody>
 </table>
 
