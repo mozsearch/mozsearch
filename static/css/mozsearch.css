@@ -633,7 +633,7 @@ tr.after-context-line + tr.before-context-line {
   border: 1px solid var(--page-border-color);
   border-radius: 6px;
   list-style: none;
-  z-index: 102;
+  z-index: 202;
   overflow: auto;
   transition: opacity .2s ease;
 }
@@ -750,7 +750,7 @@ tr.after-context-line + tr.before-context-line {
   overflow-y: auto;
   overflow-x: hidden;
   max-height: calc(100% - 150px);
-  z-index: 102;
+  z-index: 202;
 }
 #panel-toggle {
   display: inline-block;
@@ -1002,7 +1002,7 @@ span[data-symbols].selected {
   box-shadow: 3px 3px 3px rgba(0, 0, 0, .5);
   border-radius: 3px;
   text-align: left;
-  z-index: 101;
+  z-index: 201;
   cursor: auto;
   @media (prefers-contrast) {
     border: 1px solid CanvasText;
