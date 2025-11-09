@@ -25,7 +25,6 @@ add_task(async function test_toml() {
     {
       line: 6,
       path: "tests/support.txt",
-      missing: true,
     },
     {
       line: 8,
