@@ -359,12 +359,20 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
   }
 
   generatePseudoFileSymInfo(sym) {
-    let file = atUnescape(sym.replace(/^FILE_/, ""));
+    let path = atUnescape(sym.replace(/^(FILE|DIR)_/, ""));
+    let pretty, def;
+    if (sym.match(/^DIR_/)) {
+      pretty = "directory " + path;
+      def = path;
+    } else {
+      pretty = "file " + path;
+      def = path + "#1";
+    }
     return {
       sym: sym,
-      pretty: file,
+      pretty,
       jumps: {
-        def: file + "#1",
+        def,
       },
     };
   }
@@ -565,9 +573,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
         let symInfo = SYM_INFO[sym];
 
-        if (!symInfo) {
-          if (sym.startsWith("FILE_")) {
+        if (sym.match(/^(FILE|DIR)_/)) {
+          if (!symInfo) {
             symInfo = this.generatePseudoFileSymInfo(sym);
+          } else if (!symInfo.jumps) {
+            symInfo = {
+              ...this.generatePseudoFileSymInfo(sym),
+              ...symInfo,
+            };
           }
         }
 
