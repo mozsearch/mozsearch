@@ -23,6 +23,13 @@ const ERROR_INTERVENTIONS = [
     severity: "INFO",
     prepend: "Not yet supported: "
   },
+  // Source Phase Imports
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=1781203
+  {
+    includes: "expected meta, got identifier",
+    severity: "INFO",
+    prepend: "Not yet supported: "
+  },
   {
     includes: "illegal character",
     severity: "INFO",
