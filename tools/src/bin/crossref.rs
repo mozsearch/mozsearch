@@ -484,6 +484,12 @@ async fn main() {
             &mut id_table,
         );
 
+        // For now, infer whether a structured record is for a no_crossref
+        // symbol from its kind.
+        let is_nocrossref = |structured: &AnalysisStructured| {
+          return structured.kind == "localVar" || structured.kind == "parameter";
+        };
+
         // We process the structured records before checking for the source file
         // to allow us to ingest the structured records from SCIP indexing that
         // do not actually correspond to a source file.  This is the case for
@@ -507,6 +513,8 @@ async fn main() {
                     // the table, even if it's empty, so that when we're
                     // building the crossref, the structured record gets emitted.
                     table.entry(piece.sym).or_default();
+                } else if is_nocrossref(&piece) {
+                  table.entry(piece.sym).or_default();
                 }
                 process_analysis_structured(
                     piece,
