@@ -1,0 +1,24 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/rust/simple.rs/non_ascii__json
+---
+[
+  {
+    "loc": "00098:4-6",
+    "source": 1,
+    "syntax": "def,class",
+    "pretty": "class NonASCII::Α",
+    "sym": "S_rs_NonASCII#Α#",
+    "type": "Α"
+  },
+  {
+    "loc": "00098:4-6",
+    "target": 1,
+    "kind": "def",
+    "pretty": "NonASCII::Α",
+    "sym": "S_rs_NonASCII#Α#",
+    "context": "NonASCII",
+    "contextsym": "S_rs_NonASCII#"
+  }
+]
