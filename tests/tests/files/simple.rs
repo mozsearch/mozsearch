@@ -93,4 +93,9 @@ impl<'a, T> MultiParams<'a, T> {
     fn fn_with_params_in_signature(&self) {}
 }
 
+#[allow(dead_code)]
+enum NonASCII {
+    Α =1
+}
+
 mod rust;
