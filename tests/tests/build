@@ -17,7 +17,7 @@ cd $INDEX_ROOT/files
 # the other build outputs!
 export CARGO_TARGET_DIR=$OBJDIR
 cargo clean
-cargo build
+RUSTFLAGS="-A mixed_script_confusables" cargo build
 
 # TODO: Uncomment once https://github.com/rust-lang/rust-analyzer/pull/15633 is
 # merged.
