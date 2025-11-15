@@ -1484,6 +1484,9 @@ fn main() {
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
     for file in cli.inputs {
+        if file.to_str() == Some("null") {
+            continue
+        }
         analyze_using_scip(
             tree_config,
             cli.subtree_name.as_deref(),
