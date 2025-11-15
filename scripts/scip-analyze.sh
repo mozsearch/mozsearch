@@ -42,12 +42,14 @@ if [[ $SCIP_SUBTREE_INFOS ]]; then
   while read -r subtree_obj; do
     scip_tree_name=$(jq -Mr '.key' <<< "$subtree_obj")
     scip_index_path=$(jq -Mr '.value.scip_index_path' <<< "$subtree_obj")
+    scip_index_path2=$(jq -Mr '.value.scip_index_path2' <<< "$subtree_obj")
     subtree_root=$(jq -Mr '.value.subtree_root' <<< "$subtree_obj")
     scip-indexer \
       "$CONFIG_FILE" \
       "$TREE_NAME" \
       --subtree-name "${scip_tree_name}" \
       --subtree-root "${subtree_root}" \
-      "${scip_index_path}"
+      "${scip_index_path}" \
+      "${scip_index_path2}"
   done <<< "$SCIP_SUBTREE_INFOS"
 fi
