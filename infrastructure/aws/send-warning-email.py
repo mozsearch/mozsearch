@@ -29,15 +29,24 @@ if matches_proc.returncode:
     # grep found no matches, so no need to send this email
     sys.exit(0)
 
-if dest_email == "test":
-    print("warnings:\n", warnings.decode())
-    sys.exit(0)
+warnings = warnings.decode('utf-8', 'replace')
+body = 'Searchfox produced warnings during indexing! The first ' + warning_limit + ' warnings:\n\n' + warnings
+
+if dest_email == "test" or dest_email == "test-error":
+    print("")
+    print("================================")
+    print(body)
+    print("================================")
+    if dest_email == "test":
+        sys.exit(0)
+    else:
+        print("")
+        print("Those warnings will be notified via emails once deployed.")
+        print("Please fix them.")
+        sys.exit(1)
 
 import boto3
 client = boto3.client('ses')
-
-warnings = warnings.decode('utf-8', 'replace')
-
 response = client.send_email(
     Source='daemon@searchfox.org',
     Destination={
@@ -51,7 +60,7 @@ response = client.send_email(
         },
         'Body': {
             'Text': {
-                'Data': 'Searchfox produced warnings during indexing! The first ' + warning_limit + ' warnings:\n\n' + warnings,
+                'Data': body,
             },
         }
     }
