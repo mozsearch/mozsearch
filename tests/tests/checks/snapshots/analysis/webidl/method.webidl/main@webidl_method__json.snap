@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/method.webidl/webidl_method__json
 ---
 [
   {
@@ -18,6 +19,13 @@ expression: "&json_results"
     "sym": "WEBIDL_TestInterfaceForMethod"
   },
   {
+    "loc": "1:10-32",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForMethod",
+    "sym": "#TestInterfaceForMethod"
+  },
+  {
     "loc": "2:10-20",
     "source": 1,
     "syntax": "idl",
@@ -30,6 +38,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForMethod::MethodName",
     "sym": "WEBIDL_TestInterfaceForMethod_MethodName"
+  },
+  {
+    "loc": "2:10-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForMethod.MethodName",
+    "sym": "TestInterfaceForMethod#MethodName"
+  },
+  {
+    "loc": "2:10-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "MethodName",
+    "sym": "#MethodName"
   },
   {
     "loc": "2:10-20",

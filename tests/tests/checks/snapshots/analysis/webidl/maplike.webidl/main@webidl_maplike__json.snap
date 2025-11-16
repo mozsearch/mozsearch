@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/maplike.webidl/webidl_maplike__json
 ---
 [
   {
@@ -16,6 +17,13 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForMaplike",
     "sym": "WEBIDL_TestInterfaceForMaplike"
+  },
+  {
+    "loc": "1:10-33",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForMaplike",
+    "sym": "#TestInterfaceForMaplike"
   },
   {
     "loc": "2:2-9",

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/partial-dictionary.webidl/webidl_partial_dictionary__json
 ---
 [
   {
@@ -30,6 +31,13 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestDictionary.Member2",
     "sym": "WEBIDL_TestDictionary_Member2"
+  },
+  {
+    "loc": "2:16-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Member2",
+    "sym": "#Member2"
   },
   {
     "loc": "2:16-23",

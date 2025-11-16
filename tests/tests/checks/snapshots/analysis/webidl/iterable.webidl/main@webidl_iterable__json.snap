@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/iterable.webidl/webidl_iterable__json
 ---
 [
   {
@@ -16,6 +17,13 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForIterable",
     "sym": "WEBIDL_TestInterfaceForIterable"
+  },
+  {
+    "loc": "1:10-34",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForIterable",
+    "sym": "#TestInterfaceForIterable"
   },
   {
     "loc": "2:2-10",

@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
-snapshot_kind: text
+input_file: inputs/web/files/contextual-keyword/contextual-keyword_webidl__html
 ---
 <span data-symbols="FILE_webidl/contextual@2Dkeyword@2Ewebidl">(file symbol)</span>
 <span class="syn_def" data-symbols="WEBIDL_Test" data-confidences="[&quot;concrete&quot;]">Test</span>

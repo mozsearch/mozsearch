@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/type.webidl/webidl_type__json
 ---
 [
   {
@@ -18,6 +19,13 @@ expression: "&json_results"
     "sym": "WEBIDL_TestInterfaceForType"
   },
   {
+    "loc": "1:10-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForType",
+    "sym": "#TestInterfaceForType"
+  },
+  {
     "loc": "2:7-12",
     "source": 1,
     "syntax": "idl",
@@ -30,6 +38,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForType::Func1",
     "sym": "WEBIDL_TestInterfaceForType_Func1"
+  },
+  {
+    "loc": "2:7-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForType.Func1",
+    "sym": "TestInterfaceForType#Func1"
+  },
+  {
+    "loc": "2:7-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "Func1",
+    "sym": "#Func1"
   },
   {
     "loc": "2:7-12",

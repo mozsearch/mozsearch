@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/setlike.webidl/webidl_setlike__json
 ---
 [
   {
@@ -16,6 +17,13 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForSetlike",
     "sym": "WEBIDL_TestInterfaceForSetlike"
+  },
+  {
+    "loc": "1:10-33",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForSetlike",
+    "sym": "#TestInterfaceForSetlike"
   },
   {
     "loc": "2:2-9",
