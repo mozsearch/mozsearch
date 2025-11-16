@@ -4,6 +4,10 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+if [ -n "${CHECK_WARNINGS:-}" ]; then
+    exec > >(tee /tmp/indexer-run-log) 2>&1
+fi
+
 if [ $# -lt 2 ]
 then
     echo "usage: $0 <config-repo-path> <index-path> [permanent-path]"
@@ -55,3 +59,11 @@ fi
 #   name above.
 # - `tmp/` - We create this and try and point any general TMP use at it, so there
 #   could be interesting stuff in here.
+
+if [ -n "${CHECK_WARNINGS:-}" ]; then
+    $MOZSEARCH_PATH/infrastructure/aws/send-warning-email.py \
+        $MOZSEARCH_PATH/infrastructure/aws/warning-suppression.patterns \
+        check-warnings \
+        test-error \
+        /tmp/indexer-run-log
+fi
