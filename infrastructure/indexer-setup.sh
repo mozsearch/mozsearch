@@ -4,6 +4,10 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+if [ -n "${CHECK_WARNINGS:-}" ]; then
+    exec > >(tee /tmp/indexer-setup-log) 2>&1
+fi
+
 if [ $# != 3 ]
 then
     echo "usage: $0 <config-repo-path> <config-file-name> <index-path>"
@@ -35,3 +39,11 @@ do
     # state that doesn't lend itself to graceful fallback. See bug 1842632.
     $CONFIG_REPO/$TREE_NAME/setup
 done
+
+if [ -n "${CHECK_WARNINGS:-}" ]; then
+    $MOZSEARCH_PATH/infrastructure/aws/send-warning-email.py \
+        $MOZSEARCH_PATH/infrastructure/aws/warning-suppression.patterns \
+        check-warnings \
+        test-error \
+        /tmp/indexer-setup-log
+fi

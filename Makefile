@@ -26,6 +26,7 @@ build-rust-tools:
 test-rust-tools:
 	cd tools && cargo test --release --verbose
 
+build-test-repo: export CHECK_WARNINGS=1
 build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/index
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
@@ -58,18 +59,22 @@ check-test-repo:
 # - You know you already have changed stuff and need to review those changes.
 #
 # Depends on `cargo install cargo-insta`.
+review-test-repo: export CHECK_WARNINGS=1
+review-test-repo: export INSTA_FORCE_PASS=1
 review-test-repo:
-	INSTA_FORCE_PASS=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
+	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
-	INSTA_FORCE_PASS=1 /vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
+	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
 	cargo insta review --workspace-root=/vagrant/tests/tests/checks
 
+build-searchfox-repo: export CHECK_WARNINGS=1
+build-searchfox-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
 build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/searchfox-index
-	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/searchfox-index
-	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~
+	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/searchfox-index ~
 
 # Notes:
@@ -235,19 +240,23 @@ comparison: check-in-vagrant build-clang-plugin build-rust-tools
 	@echo "------------------- Above is the diff between baseline and modified. ---------------------"
 	@echo "--- Run 'diff -u -r -x objdir ~/{baseline,modified}/tests | less' to see it in a pager ---"
 
+build-webtest-repo: export CHECK_WARNINGS=1
+build-webtest-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
 build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/index
-	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/indexer-setup.sh /vagrant/tests webtest-config.json ~/index
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests webtest-config.json ~/index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
+	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 
+serve-webtest-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
 serve-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	MOZSEARCH_SOURCE_PATH=/vagrant /vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
+	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
 
+webtest: export MOZSEARCH_SOURCE_PATH=/vagrant
 webtest: build-webtest-repo
-	MOZSEARCH_SOURCE_PATH=/vagrant ./scripts/webtest.sh
+	./scripts/webtest.sh
 
 # Create favicon for the following 3 cases, from search.png:
 #   * production.png for searchfox.org
