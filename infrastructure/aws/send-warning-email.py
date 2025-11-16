@@ -2,11 +2,9 @@
 
 from __future__ import absolute_import
 import sys
-import boto3
 import os
 import subprocess
 
-client = boto3.client('ses')
 suppression_file = sys.argv[1]
 subj_prefix = sys.argv[2]
 dest_email = sys.argv[3]
@@ -34,6 +32,9 @@ if matches_proc.returncode:
 if dest_email == "test":
     print("warnings:\n", warnings.decode())
     sys.exit(0)
+
+import boto3
+client = boto3.client('ses')
 
 warnings = warnings.decode('utf-8', 'replace')
 
