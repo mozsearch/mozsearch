@@ -17,6 +17,7 @@ use itertools::Itertools;
 use serde_json::{json, Map};
 extern crate tools;
 use tools::file_format::analysis::AnalysisStructured;
+use tools::file_format::analysis::BindingSlotLang;
 use tools::file_format::analysis::OntologySlotInfo;
 use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::analysis::StructuredPointerInfo;
@@ -76,6 +77,7 @@ type FieldMemberUseTable = BTreeMap<Ustr, BTreeMap<Ustr, Vec<(Ustr, OntologyPoin
 type XrefLinkSubclass = Vec<(Ustr, Ustr)>;
 type XrefLinkOverride = Vec<(Ustr, Ustr)>;
 type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
+type JSIDLTable = HashMap<Ustr, Vec<Ustr>>;
 
 #[allow(clippy::too_many_arguments)]
 fn process_analysis_target(
@@ -473,6 +475,9 @@ async fn main() {
     // (owner symbol, slotted symbol) -> slot props
     // This is a BTreeMap and not a HashMap to force a stable ordering and avoid flaky tests.
     let mut xref_link_slots = XrefLinkSlots::new();
+
+    // Maps JS symbol to possible IDL symbols.
+    let mut js_idl_table = JSIDLTable::new();
 
     for path in &analysis_relative_paths {
         println!("File {}", path);
@@ -952,6 +957,23 @@ async fn main() {
         std::fs::write(ingestion_diag_path, output).unwrap();
     }
 
+    const MAX_JS_IDL_SYMS: usize = 4;
+    for meta in meta_table.values() {
+        for slot in &meta.binding_slots {
+            if slot.props.slot_lang == BindingSlotLang::JS {
+                let idl_sym = meta.sym;
+                let js_sym = slot.sym;
+                if let Some(idl_syms) = js_idl_table.get_mut(&js_sym) {
+                    if idl_syms.len() < MAX_JS_IDL_SYMS {
+                        idl_syms.push(idl_sym.clone());
+                    }
+                } else {
+                    js_idl_table.insert(js_sym, vec![idl_sym.clone()]);
+                }
+            }
+        }
+    }
+
     // ## Write out the crossref and jumpref databases.
     let mut xref_out = File::create(xref_file).unwrap();
     let mut xref_ext_out = File::create(xref_ext_file).unwrap();
@@ -1052,6 +1074,13 @@ async fn main() {
             kindmap.insert("meta".to_string(), json!(meta));
         } else {
             fallback_pretty = pretty_table.get(&id);
+        }
+
+        if let Some(idl_syms) = js_idl_table.get(&id) {
+            // Put the symbols only if there's a few candidates.
+            if idl_syms.len() < MAX_JS_IDL_SYMS {
+                kindmap.insert("idl_syms".to_string(), json!(idl_syms));
+            }
         }
 
         let kindmap = json!(kindmap);
