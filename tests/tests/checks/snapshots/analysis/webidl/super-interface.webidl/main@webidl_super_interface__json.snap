@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/super-interface.webidl/webidl_super_interface__json
 ---
 [
   {
@@ -16,6 +17,13 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestSubInterface",
     "sym": "WEBIDL_TestSubInterface"
+  },
+  {
+    "loc": "1:10-26",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestSubInterface",
+    "sym": "#TestSubInterface"
   },
   {
     "loc": "1:29-47",
