@@ -47,7 +47,7 @@ input_file: inputs/analysis/webidl/dictionary.webidl/webidl_dictionary__json
         "sym": "F_<T_mozilla::dom::TestDictionary>_mMember1"
       },
       {
-        "slotKind": "attribute",
+        "slotKind": "member",
         "slotLang": "js",
         "ownerLang": "idl",
         "sym": "#member1"

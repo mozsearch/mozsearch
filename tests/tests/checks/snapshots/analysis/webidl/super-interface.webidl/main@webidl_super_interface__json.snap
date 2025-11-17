@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/super-interface.webidl/webidl_super_interface__json
 ---
 [
   {
@@ -46,7 +47,7 @@ expression: "&json_results"
         "sym": "NS_mozilla::dom::TestSubInterface_Binding"
       },
       {
-        "slotKind": "interface_name",
+        "slotKind": "interface",
         "slotLang": "js",
         "ownerLang": "idl",
         "sym": "#TestSubInterface"
