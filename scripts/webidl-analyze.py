@@ -776,7 +776,6 @@ def handle_enum(records, target):
 
     slots = []
     append_slot(slots, 'const', 'cpp', None, cpp_sym)
-    append_slot(slots, 'const', 'js', None, js_sym)
 
     emit_structured(records, loc, 'const', pretty, idl_sym,
                     slots=slots)
