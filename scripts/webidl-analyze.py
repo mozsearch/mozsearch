@@ -661,7 +661,11 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
     slots = []
     if not is_mixin:
         append_slot(slots, 'class', 'cpp', None, cpp_sym)
-        append_slot(slots, 'interface_name', 'js', None, js_sym)
+
+    if isinstance(target, WebIDL.IDLInterface):
+        append_slot(slots, 'interface', 'js', None, js_sym)
+    if isinstance(target, WebIDL.IDLNamespace):
+        append_slot(slots, 'namespace', 'js', None, js_sym)
 
     if not is_mixin:
         supers = []
@@ -713,7 +717,7 @@ def handle_dictionary_field(records, dictionary_name, dictionary_cpp_sym,
 
     slots = []
     append_slot(slots, 'attribute', 'cpp', None, cpp_sym)
-    append_slot(slots, 'attribute', 'js', None, js_sym)
+    append_slot(slots, 'member', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
