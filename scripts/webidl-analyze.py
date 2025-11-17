@@ -661,7 +661,7 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
     slots = []
     if not is_mixin:
         append_slot(slots, 'class', 'cpp', None, cpp_sym)
-    append_slot(slots, 'interface_name', 'js', None, js_sym)
+        append_slot(slots, 'interface_name', 'js', None, js_sym)
 
     if not is_mixin:
         supers = []
