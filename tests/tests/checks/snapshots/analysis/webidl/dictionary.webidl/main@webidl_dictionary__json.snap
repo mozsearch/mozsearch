@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/dictionary.webidl/webidl_dictionary__json
 ---
 [
   {
@@ -80,12 +81,6 @@ expression: "&json_results"
         "slotLang": "cpp",
         "ownerLang": "idl",
         "sym": "T_mozilla::dom::TestDictionary"
-      },
-      {
-        "slotKind": "class",
-        "slotLang": "js",
-        "ownerLang": "idl",
-        "sym": "#TestDictionary"
       }
     ],
     "fields": [
