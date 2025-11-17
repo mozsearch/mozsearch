@@ -742,7 +742,6 @@ def handle_dictionary(records, target):
 
     slots = []
     append_slot(slots, 'class', 'cpp', None, cpp_sym)
-    append_slot(slots, 'class', 'js', None, js_sym)
 
     supers = []
     if hasattr(target, 'parent') and target.parent:
