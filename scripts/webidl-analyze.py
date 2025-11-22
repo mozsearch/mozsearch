@@ -655,8 +655,12 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
 
                     cpp_symbols[prop].merge(item)
 
+    kind = 'idl'
+    if isinstance(target, WebIDL.IDLPartialInterfaceOrNamespace):
+        kind = 'idlp'
+
     emit_source(records, loc, 'idl', 'class', pretty, idl_sym)
-    emit_target(records, loc, 'idl', pretty, idl_sym)
+    emit_target(records, loc, kind, pretty, idl_sym)
 
     slots = []
     if not is_mixin:
