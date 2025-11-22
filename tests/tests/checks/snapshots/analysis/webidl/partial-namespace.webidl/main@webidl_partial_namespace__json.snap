@@ -14,7 +14,7 @@ input_file: inputs/analysis/webidl/partial-namespace.webidl/webidl_partial_names
   {
     "loc": "1:18-31",
     "target": 1,
-    "kind": "idl",
+    "kind": "idlp",
     "pretty": "TestNamespace",
     "sym": "WEBIDL_TestNamespace"
   },

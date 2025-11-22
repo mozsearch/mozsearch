@@ -1,5 +1,30 @@
 "use strict";
 
+function getSearchResult() {
+  const result = {};
+  let current = null;
+  for (const row of frame.contentDocument.querySelectorAll(`table.results tr`)) {
+    const kindNode = row.querySelector(".result-kind");
+    if (kindNode) {
+      const kind = kindNode.textContent.replace(/ \(.+\)/, "");
+      current = [];
+      result[kind] = current;
+      continue;
+    }
+
+    if (row.classList.contains("result-head")) {
+      continue;
+    }
+
+    const link = row.querySelector("a");
+    if (link && current) {
+      current.push(link.getAttribute("href"));
+    }
+  }
+
+  return result;
+}
+
 function findMenuLink(menu, text) {
   for (const row of menu.querySelectorAll(".contextmenu-link")) {
     if (row.textContent.includes(text)) {
@@ -140,14 +165,14 @@ add_task(async function test_JSDefinitionInWebIDL() {
       sym: "#JSWebIDLPartialInterface",
       pretty: "JSWebIDLPartialInterface",
       kind: "interface",
-      noGoto: true
+      defLine: 33,
     },
     {
       line: 38,
       sym: "#JSWebIDLPartialNamespace",
       pretty: "JSWebIDLPartialNamespace",
       kind: "namespace",
-      noGoto: true
+      defLine: 41
     },
     {
       line: 43,
@@ -264,10 +289,14 @@ add_task(async function test_JSDefinitionInWebIDL_partial_interface() {
   TestUtils.click(link);
   await loadPromise;
 
-  ok(!!frame.contentDocument.querySelector(`[href="/tests/source/webidl/js.webidl#33"]`),
-     "The interface should be linked");
-  ok(!!frame.contentDocument.querySelector(`[href="/tests/source/webidl/js.webidl#37"]`),
-     "The partial interface should be linked");
+  const result = getSearchResult();
+
+  ok("IDL" in result, "The result should have IDL");
+  is(result["IDL"].length, 1, "The result should have one IDL match");
+  is(result["IDL"][0], "/tests/source/webidl/js.webidl#33", "The interface should be linked");
+  ok("IDL Partial" in result, "The result should have IDL Partial");
+  is(result["IDL Partial"].length, 1, "The result should have one IDL Partial match");
+  is(result["IDL Partial"][0], "/tests/source/webidl/js.webidl#37", "The partial interface should be linked");
 });
 
 add_task(async function test_JSDefinitionInWebIDL_partial_namespace() {
@@ -293,8 +322,12 @@ add_task(async function test_JSDefinitionInWebIDL_partial_namespace() {
   TestUtils.click(link);
   await loadPromise;
 
-  ok(!!frame.contentDocument.querySelector(`[href="/tests/source/webidl/js.webidl#41"]`),
-     "The namespace should be linked");
-  ok(!!frame.contentDocument.querySelector(`[href="/tests/source/webidl/js.webidl#45"]`),
-     "The partial namespace should be linked");
+  const result = getSearchResult();
+
+  ok("IDL" in result, "The result should have IDL");
+  is(result["IDL"].length, 1, "The result should have one IDL match");
+  is(result["IDL"][0], "/tests/source/webidl/js.webidl#41", "The namespace should be linked");
+  ok("IDL Partial" in result, "The result should have IDL Partial");
+  is(result["IDL Partial"].length, 1, "The result should have one IDL Partial match");
+  is(result["IDL Partial"][0], "/tests/source/webidl/js.webidl#45", "The partial namespace should be linked");
 });
