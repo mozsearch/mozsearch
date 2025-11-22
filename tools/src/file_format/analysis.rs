@@ -135,6 +135,8 @@ pub enum AnalysisKind {
     Decl,
     Forward,
     Idl,
+    // Partial interface/namespace in IDL.
+    Idlp,
     Alias,
 }
 
@@ -149,6 +151,7 @@ impl AnalysisKind {
             AnalysisKind::Decl => ustr("decl"),
             AnalysisKind::Forward => ustr("forward"),
             AnalysisKind::Idl => ustr("idl"),
+            AnalysisKind::Idlp => ustr("idlp"),
             AnalysisKind::Alias => ustr("alias"),
         }
     }
