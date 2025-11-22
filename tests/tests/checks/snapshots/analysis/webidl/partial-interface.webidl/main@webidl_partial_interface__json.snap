@@ -14,7 +14,7 @@ input_file: inputs/analysis/webidl/partial-interface.webidl/webidl_partial_inter
   {
     "loc": "1:18-31",
     "target": 1,
-    "kind": "idl",
+    "kind": "idlp",
     "pretty": "TestInterface",
     "sym": "WEBIDL_TestInterface"
   },
