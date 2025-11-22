@@ -883,6 +883,38 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
         overrideJumpifyHelper(symInfo);
 
+        // Possible IDL definitions.
+        if (symInfo.idl_syms) {
+          for (const idlSym of symInfo.idl_syms) {
+            const idlInfo = SYM_INFO[idlSym];
+            if (idlInfo) {
+              let prefix = "";
+              if (idlInfo?.meta?.bindingSlots) {
+                for (const slot of idlInfo.meta.bindingSlots) {
+                  if (slot.sym === sym) {
+                    prefix = `${slot.slotKind} `;
+                  }
+                }
+              }
+              const def = idlInfo?.jumps?.idl;
+              if (def) {
+                jumpMenuItems.push(new GotoMenuItem({
+                  html: this.fmt("Go to IDL definition of <strong>_</strong>", idlInfo.pretty),
+                  href: `/${tree}/source/${def}`,
+                  icon: "export-alt",
+                  section: "jumps",
+                  confidence,
+                }));
+              }
+              searches.push({
+                label: `IDL ${prefix}${idlInfo.pretty}`,
+                syms: [idlInfo.sym],
+                def,
+              });
+            }
+          }
+        }
+
         for (const { label, syms, def } of searches) {
           searchMenuItems.push(new SearchMenuItem({
             label,

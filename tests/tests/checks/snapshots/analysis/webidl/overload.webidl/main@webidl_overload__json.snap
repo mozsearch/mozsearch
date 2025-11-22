@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/overload.webidl/webidl_overload__json
 ---
 [
   {
@@ -248,7 +249,7 @@ expression: "&json_results"
         "sym": "NS_mozilla::dom::TestInterfaceForOverload_Binding"
       },
       {
-        "slotKind": "interface_name",
+        "slotKind": "interface",
         "slotLang": "js",
         "ownerLang": "idl",
         "sym": "#TestInterfaceForOverload"

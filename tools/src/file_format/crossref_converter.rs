@@ -72,6 +72,10 @@ pub fn convert_crossref_value_to_sym_info_rep(
             jumpify(xref.remove("defs"), "def", &mut jumps);
             jumpify(xref.remove("decls"), "decl", &mut jumps);
 
+            if let Some((key, idl_syms)) = xref.remove_entry("idl_syms") {
+                rep.insert(key, idl_syms);
+            }
+
             // TODO: Need to handle the IDL search permutations issue that currently allows
             // the language indexer to define multiple symbol groupings.
 
@@ -114,6 +118,13 @@ pub fn determine_desired_extra_syms_from_jumpref(
     jumpref: &Value,
 ) -> Vec<(String, JumprefTraversals)> {
     let mut extra_syms = vec![];
+    if let Some(Value::Array(idl_syms)) = jumpref.pointer("/idl_syms") {
+        for sym in idl_syms {
+            if let Value::String(s) = sym {
+                extra_syms.push((s.clone(), JumprefTraversals::NormalExtra));
+            }
+        }
+    }
     if let Some(owner) = jumpref.pointer("/meta/slotOwner") {
         let next_step = match owner["slotKind"].as_str() {
             Some("send") => JumprefTraversals::Receive,

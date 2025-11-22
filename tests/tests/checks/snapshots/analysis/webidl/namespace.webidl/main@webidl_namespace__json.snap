@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/namespace.webidl/webidl_namespace__json
 ---
 [
   {
@@ -76,7 +77,7 @@ expression: "&json_results"
         "sym": "NS_mozilla::dom::TestNamespace_Binding"
       },
       {
-        "slotKind": "interface_name",
+        "slotKind": "namespace",
         "slotLang": "js",
         "ownerLang": "idl",
         "sym": "#TestNamespace"
