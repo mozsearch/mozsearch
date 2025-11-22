@@ -309,6 +309,7 @@ static RESERVED_WORDS_IDL: &[&str] = &[
 static RESERVED_WORDS_WEBIDL: &[&str] = &[
     "module",
     "interface",
+    "namespace",
     "partial",
     "dictionary",
     "exception",
