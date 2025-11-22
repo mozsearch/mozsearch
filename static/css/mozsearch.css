@@ -763,17 +763,26 @@ tr.after-context-line + tr.before-context-line {
   text-align: left;
   cursor: pointer;
 }
-#show-settings {
+.navpanel-other-icons {
   float: right;
+}
+#show-settings {
+  margin-right: 0.5rem;
+  color: var(--panel-header-color);
+}
+#open-help {
+  margin-left: 0.5rem;
   color: var(--panel-header-color);
 }
 .navpanel-icon {
   display: inline-block;
+}
+.navpanel-toggle-icon {
   margin-right: 0.5rem;
   transform: rotate(-90deg);
   transition: all 0.1s;
 }
-.navpanel-icon.expanded {
+.navpanel-toggle-icon.expanded {
   transform: rotate(0deg);
   transition: all 0.1s;
 }
