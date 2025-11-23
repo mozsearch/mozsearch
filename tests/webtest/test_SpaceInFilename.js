@@ -33,7 +33,7 @@ add_task(async function test_SpaceInFilenameInNavigationPanel() {
   await TestUtils.loadPath("/searchfox/source/tests/tests/files/js/with%20space.js");
 
   const panel = frame.contentDocument.getElementById("panel");
-  const permalink = panel.querySelector(`.item[title="Permalink"]`);
+  const permalink = panel.querySelector("#panel-permalink");
 
   ok(permalink.getAttribute("href").includes("/js/with%20space.js"),
      "The space in the href should be escaped");
@@ -91,7 +91,7 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
   // Test navigation panel.
   {
     const panel = frame.contentDocument.getElementById("panel");
-    const goToLatestLink = panel.querySelector(`.item[title="Go to latest version"]`);
+    const goToLatestLink = panel.querySelector("#panel-vcs-latest");
 
     ok(goToLatestLink.getAttribute("href").includes("/js/with%20space.js"),
        "The space in the href should be escaped");
@@ -135,7 +135,7 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
   // Test navigation panel.
   {
     const panel = frame.contentDocument.getElementById("panel");
-    const goToLatestLink = panel.querySelector(`.item[title="Go to latest version"]`);
+    const goToLatestLink = panel.querySelector("#panel-vcs-latest");
 
     ok(goToLatestLink.getAttribute("href").includes("/js/with%20space.js"),
        "The space in the href should be escaped");
@@ -143,7 +143,7 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
     // In order to avoid hard-coding the old version's hash, continue testing
     // the UI part of the changeset view.
 
-    const changesetLink = panel.querySelector(`.item[title="Show changeset"]`);
+    const changesetLink = panel.querySelector("#panel-vcs-changeset");
 
     TestUtils.click(changesetLink);
   }
