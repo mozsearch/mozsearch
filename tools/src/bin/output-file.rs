@@ -300,7 +300,7 @@ fn main() {
             source_panel_items.push(PanelItem {
                 label: format!("Go to {} file", other_desc),
                 tooltip: format!("Go to {} file", other_desc),
-                id: "",
+                id: "panel-goto-other-file",
                 link: url_encode_path(other_path.as_str()),
                 update_link_lineno: "",
                 accel_key: None,
@@ -313,7 +313,7 @@ fn main() {
                 source_panel_items.push(PanelItem {
                     label: format!("File a bug in {} :: {}", product, component),
                     tooltip: format!("File a bug in {} :: {}", product, component),
-                    id: "",
+                    id: "panel-file-bug",
                     link: format!(
                         "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
                         product.replace("&", "%26"),
@@ -342,7 +342,7 @@ fn main() {
                 vcs_panel_items.push(PanelItem {
                     label: "Permalink".to_owned(),
                     tooltip: "Permalink".to_owned(),
-                    id: "",
+                    id: "panel-permalink",
                     link: format!("/{}/rev/{}/{}", tree_name, oid, encoded_path),
                     update_link_lineno: "#{}",
                     accel_key: Some('Y'),
@@ -351,7 +351,7 @@ fn main() {
                 vcs_panel_items.push(PanelItem {
                     label: "Remove the Permalink".to_owned(),
                     tooltip: "Remove the Permalink".to_owned(),
-                    id: "",
+                    id: "panel-remove-permalink",
                     link: format!("/{}/source/{}", tree_name, encoded_path),
                     update_link_lineno: "#{}",
                     accel_key: None,
@@ -375,7 +375,7 @@ fn main() {
                     vcs_panel_items.push(PanelItem {
                         label: "Git log".to_owned(),
                         tooltip: "Git log".to_owned(),
-                        id: "",
+                        id: "panel-log-git",
                         link,
                         update_link_lineno: "",
                         accel_key: hg_log_link.is_none().then_some('L'),
@@ -386,7 +386,7 @@ fn main() {
                     vcs_panel_items.push(PanelItem {
                         label: "Mercurial log".to_owned(),
                         tooltip: "Mercurial log".to_owned(),
-                        id: "",
+                        id: "panel-log-hg",
                         link,
                         update_link_lineno: "",
                         accel_key: Some('L'),
@@ -398,7 +398,7 @@ fn main() {
                     vcs_panel_items.push(PanelItem {
                         label: "Raw".to_owned(),
                         tooltip: "Raw".to_owned(),
-                        id: "",
+                        id: "panel-raw",
                         link,
                         update_link_lineno: "",
                         accel_key: Some('R'),
@@ -410,7 +410,7 @@ fn main() {
                     vcs_panel_items.push(PanelItem {
                         label: "Blame".to_owned(),
                         tooltip: "Blame".to_owned(),
-                        id: "",
+                        id: "panel-blame",
                         link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
                         update_link_lineno: "",
                         accel_key: None,
@@ -432,7 +432,7 @@ fn main() {
             tools_items.push(PanelItem {
                 label: "HG Web".to_owned(),
                 tooltip: "HG Web".to_owned(),
-                id: "",
+                id: "panel-hgweb",
                 link: format!("{}/file/default/{}", hg_root, encoded_path),
                 update_link_lineno: "#l{}",
                 accel_key: None,
@@ -443,7 +443,7 @@ fn main() {
             tools_items.push(PanelItem {
                 label: "Code Coverage".to_owned(),
                 tooltip: "Code Coverage".to_owned(),
-                id: "",
+                id: "panel-coverage",
                 link: format!(
                     "{}#revision=latest&path={}&view=file",
                     ccov_root, encoded_path
@@ -461,7 +461,7 @@ fn main() {
                         tools_items.push(PanelItem {
                             label: "Source Docs".to_owned(),
                             tooltip: "Source Docs".to_owned(),
-                            id: "",
+                            id: "panel-source-docs",
                             link: url,
                             update_link_lineno: "",
                             accel_key: None,
@@ -475,7 +475,7 @@ fn main() {
                     tools_items.push(PanelItem {
                         label: "GitHub Rendered view".to_owned(),
                         tooltip: "GitHub Rendered view".to_owned(),
-                        id: "",
+                        id: "panel-github-rendered-view",
                         link: format!(
                             "{}/blob/{}/{}",
                             github,

@@ -11,14 +11,14 @@ var Panel = new (class Panel {
     this.content = document.getElementById("panel-content");
     this.accelEnabledCheckbox = document.getElementById("panel-accel-enable");
 
-    this.permalinkNode = this.findItem("Permalink");
-    this.unpermalinkNode = this.findItem("Remove the Permalink");
+    this.permalinkNode = document.querySelector("#panel-permalink");
+    this.unpermalinkNode = document.querySelector("#panel-remove-permalink");
 
     this.selectedSymbol = null;
 
     this.markdown = {
       filename: {
-        node: this.findItem("Filename Link"),
+        node: document.querySelector("#panel-copy-filename-link"),
         isEnabled: () => {
           return true;
         },
@@ -28,7 +28,7 @@ var Panel = new (class Panel {
         },
       },
       symbol: {
-        node: this.findItem("Symbol Link"),
+        node: document.querySelector("#panel-copy-symbol-link"),
         isEnabled: () => {
           return this.selectedSymbol;
         },
@@ -37,7 +37,7 @@ var Panel = new (class Panel {
         },
       },
       block: {
-        node: this.findItem("Code Block"),
+        node: document.querySelector("#panel-copy-code-block"),
         isEnabled: () => {
           return Highlighter?.selectedLines.size > 0;
         },
@@ -190,10 +190,6 @@ var Panel = new (class Panel {
     for (let accel of this.panel.querySelectorAll("span.accel")) {
       accel.style.display = enabled ? "" : "none";
     }
-  }
-
-  findItem(title) {
-    return this.panel.querySelector(`.item[title="${title}"]`);
   }
 
   findAccel(key) {
