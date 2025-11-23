@@ -695,6 +695,6 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         | "icns" | "ico" | "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" | "class"
         | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" => FormatAs::Binary,
 
-        _ => FormatAs::Plain
+        _ => FormatAs::Plain,
     }
 }
