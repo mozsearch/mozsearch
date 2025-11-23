@@ -1,5 +1,6 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
+input_file: inputs/web/docs/docs_md__html
 ---
-<a href="https://firefox-source-docs.mozilla.org/md_test/index.html" title="Source Docs" class="icon item">Source Docs</a>
+<a id="panel-source-docs" href="https://firefox-source-docs.mozilla.org/md_test/index.html" title="Source Docs" class="icon item">Source Docs</a>
