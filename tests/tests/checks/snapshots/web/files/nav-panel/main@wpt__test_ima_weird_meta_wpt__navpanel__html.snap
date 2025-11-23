@@ -14,19 +14,19 @@ input_file: inputs/web/files/nav-panel/wpt__test_ima_weird_meta_wpt__navpanel__h
   <h4>Source code</h4>
   <ul>
   <li>
-  <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&component=DOM: Service Workers" title="File a bug in Core :: DOM: Service Workers" class="icon item">File a bug in Core :: DOM: Service Workers<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
+  <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&component=DOM: Service Workers" title="Open the new bug form for the Core :: DOM: Service Workers component in bugzilla" class="icon item">File a bug in Core :: DOM: Service Workers<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
   </li>
   </ul>
   <h4>Copy as Markdown</h4>
   <ul>
   <li>
-  <button id="panel-copy-filename-link" data-accel="F" title="Filename Link" class="icon item">Filename Link <span class="accel">F</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  <button id="panel-copy-filename-link" data-accel="F" title="Copy a Markdown link to clipboard, with the filename" class="icon item">Filename Link <span class="accel">F</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
   </li>
   <li>
-  <button id="panel-copy-symbol-link" data-accel="S" title="Symbol Link" class="icon item">Symbol Link <span class="accel">S</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  <button id="panel-copy-symbol-link" data-accel="S" title="Copy a Markdown link to clipboard, with the selected symbol" class="icon item">Symbol Link <span class="accel">S</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
   </li>
   <li>
-  <button id="panel-copy-code-block" data-accel="C" title="Code Block" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  <button id="panel-copy-code-block" data-accel="C" title="Copy a Markdown code block of the selected code to clipboard" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
   </li>
   </ul>
   </section>
