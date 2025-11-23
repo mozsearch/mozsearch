@@ -326,7 +326,9 @@ pub fn generate_footer(
 }
 
 pub struct PanelItem {
-    pub title: String,
+    pub label: String,
+    pub tooltip: String,
+    pub id: &'static str,
     pub link: String,
     /// This is a pattern which will be appended to the URL, where `{}` is
     /// replaced by the line number.
@@ -396,16 +398,22 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
+                    let id_attr = if item.id.len() != 0 {
+                        format!(r#" id="{}""#, item.id)
+                    } else {
+                        String::new()
+                    };
                     F::Seq(vec![
                         F::S("<li>"),
                         F::T(format!(
-                            r#"<{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
+                            r#"<{}{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
                             tag,
+                            id_attr,
                             href,
                             data_accel,
-                            item.title,
+                            item.tooltip,
                             update_attr,
-                            item.title,
+                            item.label,
                             accel,
                             copy,
                             tag

@@ -972,7 +972,9 @@ pub fn format_path(
 
     let mut vcs_panel_items = vec![];
     vcs_panel_items.push(PanelItem {
-        title: "Go to latest version".to_owned(),
+        label: "Go to latest version".to_owned(),
+        tooltip: "Go to latest version".to_owned(),
+        id: "",
         link: format!("/{}/source/{}", tree_name, encoded_path),
         update_link_lineno: "#{}",
         accel_key: None,
@@ -991,7 +993,9 @@ pub fn format_path(
         .map(|hg_root| format!("{}/log/{}/{}", hg_root, hg_rev, encoded_path));
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
-            title: "Git log".to_owned(),
+            label: "Git log".to_owned(),
+            tooltip: "Git log".to_owned(),
+            id: "",
             link,
             update_link_lineno: "",
             accel_key: hg_log_link.is_none().then_some('L'),
@@ -1000,7 +1004,9 @@ pub fn format_path(
     }
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
-            title: "Mercurial log".to_owned(),
+            label: "Mercurial log".to_owned(),
+            tooltip: "Mercurial log".to_owned(),
+            id: "",
             link,
             update_link_lineno: "",
             accel_key: Some('L'),
@@ -1014,7 +1020,9 @@ pub fn format_path(
             .make_raw_resource_rev_url(&commit.id().to_string(), hg_rev, path)
     {
         vcs_panel_items.push(PanelItem {
-            title: "Raw".to_owned(),
+            label: "Raw".to_owned(),
+            tooltip: "Raw".to_owned(),
+            id: "",
             link,
             update_link_lineno: "",
             accel_key: Some('R'),
@@ -1024,7 +1032,9 @@ pub fn format_path(
 
     if tree_config.paths.git_blame_path.is_some() {
         vcs_panel_items.push(PanelItem {
-            title: "Blame".to_owned(),
+            label: "Blame".to_owned(),
+            tooltip: "Blame".to_owned(),
+            id: "",
             link:
                 "javascript:alert('Hover over the gray bar on the left to see blame information.')"
                     .to_owned(),
@@ -1062,7 +1072,9 @@ pub fn format_path(
 pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     let mut markdown_panel_items = vec![];
     markdown_panel_items.push(PanelItem {
-        title: "Filename Link".to_owned(),
+        label: "Filename Link".to_owned(),
+        tooltip: "Filename Link".to_owned(),
+        id: "",
         link: String::new(),
         update_link_lineno: "",
         accel_key: Some('F'),
@@ -1070,7 +1082,9 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     });
     if add_symbol_link {
         markdown_panel_items.push(PanelItem {
-            title: "Symbol Link".to_owned(),
+            label: "Symbol Link".to_owned(),
+            tooltip: "Symbol Link".to_owned(),
+            id: "",
             link: String::new(),
             update_link_lineno: "",
             accel_key: Some('S'),
@@ -1078,7 +1092,9 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
         });
     }
     markdown_panel_items.push(PanelItem {
-        title: "Code Block".to_owned(),
+        label: "Code Block".to_owned(),
+        tooltip: "Code Block".to_owned(),
+        id: "",
         link: String::new(),
         update_link_lineno: "",
         accel_key: Some('C'),
@@ -1244,21 +1260,27 @@ pub fn format_diff(
 
     let mut vcs_panel_items = vec![
         PanelItem {
-            title: "Show changeset".to_owned(),
+            label: "Show changeset".to_owned(),
+            tooltip: "Show changeset".to_owned(),
+            id: "",
             link: format!("/{}/commit/{}", tree_name, rev),
             update_link_lineno: "",
             accel_key: None,
             copyable: true,
         },
         PanelItem {
-            title: "Show file without diff".to_owned(),
+            label: "Show file without diff".to_owned(),
+            tooltip: "Show file without diff".to_owned(),
+            id: "",
             link: format!("/{}/rev/{}/{}", tree_name, rev, encoded_path),
             update_link_lineno: "#{}",
             accel_key: None,
             copyable: true,
         },
         PanelItem {
-            title: "Go to latest version".to_owned(),
+            label: "Go to latest version".to_owned(),
+            tooltip: "Go to latest version".to_owned(),
+            id: "",
             link: format!("/{}/source/{}", tree_name, encoded_path),
             update_link_lineno: "#{}",
             accel_key: None,
@@ -1281,7 +1303,9 @@ pub fn format_diff(
         .map(|hg_root| format!("{}/log/default/{}", hg_root, encoded_path));
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
-            title: "Git log".to_owned(),
+            label: "Git log".to_owned(),
+            tooltip: "Git log".to_owned(),
+            id: "",
             link,
             update_link_lineno: "",
             accel_key: hg_log_link.is_none().then_some('L'),
@@ -1290,7 +1314,9 @@ pub fn format_diff(
     }
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
-            title: "Mercurial log".to_owned(),
+            label: "Mercurial log".to_owned(),
+            tooltip: "Mercurial log".to_owned(),
+            id: "",
             link,
             update_link_lineno: "",
             accel_key: Some('L'),
