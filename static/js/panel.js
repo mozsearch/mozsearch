@@ -6,7 +6,7 @@ var Panel = new (class Panel {
       return;
     }
     this.toggleButton = document.getElementById("panel-toggle");
-    this.icon = this.panel.querySelector(".navpanel-icon");
+    this.icon = this.panel.querySelector(".navpanel-toggle-icon");
     this.settingsButton = document.getElementById("show-settings");
     this.content = document.getElementById("panel-content");
     this.accelEnabledCheckbox = document.getElementById("panel-accel-enable");
