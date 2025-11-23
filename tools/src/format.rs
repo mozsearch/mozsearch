@@ -973,7 +973,7 @@ pub fn format_path(
     let mut vcs_panel_items = vec![];
     vcs_panel_items.push(PanelItem {
         label: "Go to latest version".to_owned(),
-        tooltip: "Go to latest version".to_owned(),
+        tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
         id: "panel-vcs-latest",
         link: format!("/{}/source/{}", tree_name, encoded_path),
         update_link_lineno: "#{}",
@@ -994,7 +994,7 @@ pub fn format_path(
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
             label: "Git log".to_owned(),
-            tooltip: "Git log".to_owned(),
+            tooltip: "Open git log of the current file".to_owned(),
             id: "panel-log-git",
             link,
             update_link_lineno: "",
@@ -1005,7 +1005,7 @@ pub fn format_path(
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
             label: "Mercurial log".to_owned(),
-            tooltip: "Mercurial log".to_owned(),
+            tooltip: "Open mercurial log of the current file".to_owned(),
             id: "panel-log-hg",
             link,
             update_link_lineno: "",
@@ -1021,7 +1021,7 @@ pub fn format_path(
     {
         vcs_panel_items.push(PanelItem {
             label: "Raw".to_owned(),
-            tooltip: "Raw".to_owned(),
+            tooltip: "Open a raw file of the current file".to_owned(),
             id: "panel-raw",
             link,
             update_link_lineno: "",
@@ -1033,7 +1033,7 @@ pub fn format_path(
     if tree_config.paths.git_blame_path.is_some() {
         vcs_panel_items.push(PanelItem {
             label: "Blame".to_owned(),
-            tooltip: "Blame".to_owned(),
+            tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
             id: "panel-blame",
             link:
                 "javascript:alert('Hover over the gray bar on the left to see blame information.')"
@@ -1073,7 +1073,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     let mut markdown_panel_items = vec![];
     markdown_panel_items.push(PanelItem {
         label: "Filename Link".to_owned(),
-        tooltip: "Filename Link".to_owned(),
+        tooltip: "Copy a Markdown link to clipboard, with the filename".to_owned(),
         id: "panel-copy-filename-link",
         link: String::new(),
         update_link_lineno: "",
@@ -1083,7 +1083,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     if add_symbol_link {
         markdown_panel_items.push(PanelItem {
             label: "Symbol Link".to_owned(),
-            tooltip: "Symbol Link".to_owned(),
+            tooltip: "Copy a Markdown link to clipboard, with the selected symbol".to_owned(),
             id: "panel-copy-symbol-link",
             link: String::new(),
             update_link_lineno: "",
@@ -1093,7 +1093,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     }
     markdown_panel_items.push(PanelItem {
         label: "Code Block".to_owned(),
-        tooltip: "Code Block".to_owned(),
+        tooltip: "Copy a Markdown code block of the selected code to clipboard".to_owned(),
         id: "panel-copy-code-block",
         link: String::new(),
         update_link_lineno: "",
@@ -1261,7 +1261,7 @@ pub fn format_diff(
     let mut vcs_panel_items = vec![
         PanelItem {
             label: "Show changeset".to_owned(),
-            tooltip: "Show changeset".to_owned(),
+            tooltip: "Open the changeset information hosted on searchfox".to_owned(),
             id: "panel-vcs-changeset",
             link: format!("/{}/commit/{}", tree_name, rev),
             update_link_lineno: "",
@@ -1270,7 +1270,7 @@ pub fn format_diff(
         },
         PanelItem {
             label: "Show file without diff".to_owned(),
-            tooltip: "Show file without diff".to_owned(),
+            tooltip: "Open the last revision without the current diff".to_owned(),
             id: "panel-vcs-without-diff",
             link: format!("/{}/rev/{}/{}", tree_name, rev, encoded_path),
             update_link_lineno: "#{}",
@@ -1279,7 +1279,7 @@ pub fn format_diff(
         },
         PanelItem {
             label: "Go to latest version".to_owned(),
-            tooltip: "Go to latest version".to_owned(),
+            tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
             id: "panel-vcs-latest",
             link: format!("/{}/source/{}", tree_name, encoded_path),
             update_link_lineno: "#{}",
@@ -1304,7 +1304,7 @@ pub fn format_diff(
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
             label: "Git log".to_owned(),
-            tooltip: "Git log".to_owned(),
+            tooltip: "Open git log of the current file".to_owned(),
             id: "panel-log-git",
             link,
             update_link_lineno: "",
@@ -1315,7 +1315,7 @@ pub fn format_diff(
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
             label: "Mercurial log".to_owned(),
-            tooltip: "Mercurial log".to_owned(),
+            tooltip: "Open mercurial log of the current file".to_owned(),
             id: "panel-log-hg",
             link,
             update_link_lineno: "",

@@ -299,7 +299,10 @@ fn main() {
         if let Some((other_desc, other_path)) = show_header {
             source_panel_items.push(PanelItem {
                 label: format!("Go to {} file", other_desc),
-                tooltip: format!("Go to {} file", other_desc),
+                tooltip: format!(
+                    "Open the corresponding {} file of the current file",
+                    other_desc
+                ),
                 id: "panel-goto-other-file",
                 link: url_encode_path(other_path.as_str()),
                 update_link_lineno: "",
@@ -312,7 +315,10 @@ fn main() {
             if let Some((product, component)) = concise_info.bugzilla_component {
                 source_panel_items.push(PanelItem {
                     label: format!("File a bug in {} :: {}", product, component),
-                    tooltip: format!("File a bug in {} :: {}", product, component),
+                    tooltip: format!(
+                        "Open the new bug form for the {} :: {} component in bugzilla",
+                        product, component
+                    ),
                     id: "panel-file-bug",
                     link: format!(
                         "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
@@ -341,7 +347,7 @@ fn main() {
                 let mut vcs_panel_items = vec![];
                 vcs_panel_items.push(PanelItem {
                     label: "Permalink".to_owned(),
-                    tooltip: "Permalink".to_owned(),
+                    tooltip: "Create a revision-specific link of the current file".to_owned(),
                     id: "panel-permalink",
                     link: format!("/{}/rev/{}/{}", tree_name, oid, encoded_path),
                     update_link_lineno: "#{}",
@@ -350,7 +356,7 @@ fn main() {
                 });
                 vcs_panel_items.push(PanelItem {
                     label: "Remove the Permalink".to_owned(),
-                    tooltip: "Remove the Permalink".to_owned(),
+                    tooltip: "Create a revision-agnostic link of the current file".to_owned(),
                     id: "panel-remove-permalink",
                     link: format!("/{}/source/{}", tree_name, encoded_path),
                     update_link_lineno: "#{}",
@@ -374,7 +380,7 @@ fn main() {
                 if let Some(link) = gh_log_link {
                     vcs_panel_items.push(PanelItem {
                         label: "Git log".to_owned(),
-                        tooltip: "Git log".to_owned(),
+                        tooltip: "Open git log of the current file".to_owned(),
                         id: "panel-log-git",
                         link,
                         update_link_lineno: "",
@@ -385,7 +391,7 @@ fn main() {
                 if let Some(link) = hg_log_link {
                     vcs_panel_items.push(PanelItem {
                         label: "Mercurial log".to_owned(),
-                        tooltip: "Mercurial log".to_owned(),
+                        tooltip: "Open mercurial log of the current file".to_owned(),
                         id: "panel-log-hg",
                         link,
                         update_link_lineno: "",
@@ -397,7 +403,7 @@ fn main() {
                 if let Some(link) = tree_config.paths.make_raw_resource_branch_url(&path) {
                     vcs_panel_items.push(PanelItem {
                         label: "Raw".to_owned(),
-                        tooltip: "Raw".to_owned(),
+                        tooltip: "Open a raw file of the current file".to_owned(),
                         id: "panel-raw",
                         link,
                         update_link_lineno: "",
@@ -409,7 +415,7 @@ fn main() {
                 if tree_config.paths.git_blame_path.is_some() {
                     vcs_panel_items.push(PanelItem {
                         label: "Blame".to_owned(),
-                        tooltip: "Blame".to_owned(),
+                        tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
                         id: "panel-blame",
                         link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
                         update_link_lineno: "",
@@ -431,7 +437,7 @@ fn main() {
         if let Some(ref hg_root) = tree_config.paths.hg_root {
             tools_items.push(PanelItem {
                 label: "HG Web".to_owned(),
-                tooltip: "HG Web".to_owned(),
+                tooltip: "Open the current file in HG Web".to_owned(),
                 id: "panel-hgweb",
                 link: format!("{}/file/default/{}", hg_root, encoded_path),
                 update_link_lineno: "#l{}",
@@ -442,7 +448,7 @@ fn main() {
         if let Some(ref ccov_root) = tree_config.paths.ccov_root {
             tools_items.push(PanelItem {
                 label: "Code Coverage".to_owned(),
-                tooltip: "Code Coverage".to_owned(),
+                tooltip: "Open the Code Coverage result of the current file".to_owned(),
                 id: "panel-coverage",
                 link: format!(
                     "{}#revision=latest&path={}&view=file",
@@ -460,7 +466,7 @@ fn main() {
                     Some(url) => {
                         tools_items.push(PanelItem {
                             label: "Source Docs".to_owned(),
-                            tooltip: "Source Docs".to_owned(),
+                            tooltip: "Open the rendered documentation on Source Docs".to_owned(),
                             id: "panel-source-docs",
                             link: url,
                             update_link_lineno: "",
@@ -474,7 +480,7 @@ fn main() {
                 if let Some(ref github) = tree_config.paths.github_repo {
                     tools_items.push(PanelItem {
                         label: "GitHub Rendered view".to_owned(),
-                        tooltip: "GitHub Rendered view".to_owned(),
+                        tooltip: "Open the rendered documentation on GitHub".to_owned(),
                         id: "panel-github-rendered-view",
                         link: format!(
                             "{}/blob/{}/{}",
