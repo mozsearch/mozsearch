@@ -326,7 +326,9 @@ pub fn generate_footer(
 }
 
 pub struct PanelItem {
-    pub title: String,
+    pub label: String,
+    pub tooltip: String,
+    pub id: &'static str,
     pub link: String,
     /// This is a pattern which will be appended to the URL, where `{}` is
     /// replaced by the line number.
@@ -396,16 +398,22 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
+                    let id_attr = if item.id.len() != 0 {
+                        format!(r#" id="{}""#, item.id)
+                    } else {
+                        String::new()
+                    };
                     F::Seq(vec![
                         F::S("<li>"),
                         F::T(format!(
-                            r#"<{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
+                            r#"<{}{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
                             tag,
+                            id_attr,
                             href,
                             data_accel,
-                            item.title,
+                            item.tooltip,
                             update_attr,
-                            item.title,
+                            item.label,
                             accel,
                             copy,
                             tag
@@ -476,13 +484,21 @@ pub fn generate_svg_preview(writer: &mut dyn Write, url: &str) -> Result<(), &'s
         F::S(r#"<div class="svg-preview">"#),
         F::Indent(vec![
             F::S("<h4>SVG Preview (Scaled)</h4>"),
-            F::S(r#"<input id="svg-preview-background-default" type="radio" name="svg-preview-background" value="default" checked>"#),
+            F::S(
+                r#"<input id="svg-preview-background-default" type="radio" name="svg-preview-background" value="default" checked>"#,
+            ),
             F::S(r#"<label for="svg-preview-background-default">Default</label>"#),
-            F::S(r#"<input id="svg-preview-background-checkerboard" type="radio" name="svg-preview-background" value="checkerboard">"#),
+            F::S(
+                r#"<input id="svg-preview-background-checkerboard" type="radio" name="svg-preview-background" value="checkerboard">"#,
+            ),
             F::S(r#"<label for="svg-preview-background-checkerboard">Checkerboard</label>"#),
-            F::S(r#"<input id="svg-preview-background-light" type="radio" name="svg-preview-background" value="light">"#),
+            F::S(
+                r#"<input id="svg-preview-background-light" type="radio" name="svg-preview-background" value="light">"#,
+            ),
             F::S(r#"<label for="svg-preview-background-light">Light</label>"#),
-            F::S(r#"<input id="svg-preview-background-dark" type="radio" name="svg-preview-background" value="dark">"#),
+            F::S(
+                r#"<input id="svg-preview-background-dark" type="radio" name="svg-preview-background" value="dark">"#,
+            ),
             F::S(r#"<label for="svg-preview-background-dark">Dark</label>"#),
             F::T(format!(r#"<a href="{}">"#, url)),
             F::Indent(vec![F::T(format!(

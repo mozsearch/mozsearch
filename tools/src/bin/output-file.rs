@@ -298,7 +298,12 @@ fn main() {
         let mut source_panel_items = vec![];
         if let Some((other_desc, other_path)) = show_header {
             source_panel_items.push(PanelItem {
-                title: format!("Go to {} file", other_desc),
+                label: format!("Go to {} file", other_desc),
+                tooltip: format!(
+                    "Open the corresponding {} file of the current file",
+                    other_desc
+                ),
+                id: "panel-goto-other-file",
                 link: url_encode_path(other_path.as_str()),
                 update_link_lineno: "",
                 accel_key: None,
@@ -309,7 +314,12 @@ fn main() {
         if !path.contains("__GENERATED__") {
             if let Some((product, component)) = concise_info.bugzilla_component {
                 source_panel_items.push(PanelItem {
-                    title: format!("File a bug in {} :: {}", product, component),
+                    label: format!("File a bug in {} :: {}", product, component),
+                    tooltip: format!(
+                        "Open the new bug form for the {} :: {} component in bugzilla",
+                        product, component
+                    ),
+                    id: "panel-file-bug",
                     link: format!(
                         "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
                         product.replace("&", "%26"),
@@ -336,14 +346,18 @@ fn main() {
             if !path.contains("__GENERATED__") {
                 let mut vcs_panel_items = vec![];
                 vcs_panel_items.push(PanelItem {
-                    title: "Permalink".to_owned(),
+                    label: "Permalink".to_owned(),
+                    tooltip: "Create a revision-specific link of the current file".to_owned(),
+                    id: "panel-permalink",
                     link: format!("/{}/rev/{}/{}", tree_name, oid, encoded_path),
                     update_link_lineno: "#{}",
                     accel_key: Some('Y'),
                     copyable: true,
                 });
                 vcs_panel_items.push(PanelItem {
-                    title: "Remove the Permalink".to_owned(),
+                    label: "Remove the Permalink".to_owned(),
+                    tooltip: "Create a revision-agnostic link of the current file".to_owned(),
+                    id: "panel-remove-permalink",
                     link: format!("/{}/source/{}", tree_name, encoded_path),
                     update_link_lineno: "#{}",
                     accel_key: None,
@@ -365,7 +379,9 @@ fn main() {
                     .map(|hg_root| format!("{}/log/default/{}", hg_root, encoded_path));
                 if let Some(link) = gh_log_link {
                     vcs_panel_items.push(PanelItem {
-                        title: "Git log".to_owned(),
+                        label: "Git log".to_owned(),
+                        tooltip: "Open git log of the current file".to_owned(),
+                        id: "panel-log-git",
                         link,
                         update_link_lineno: "",
                         accel_key: hg_log_link.is_none().then_some('L'),
@@ -374,7 +390,9 @@ fn main() {
                 }
                 if let Some(link) = hg_log_link {
                     vcs_panel_items.push(PanelItem {
-                        title: "Mercurial log".to_owned(),
+                        label: "Mercurial log".to_owned(),
+                        tooltip: "Open mercurial log of the current file".to_owned(),
+                        id: "panel-log-hg",
                         link,
                         update_link_lineno: "",
                         accel_key: Some('L'),
@@ -384,7 +402,9 @@ fn main() {
 
                 if let Some(link) = tree_config.paths.make_raw_resource_branch_url(&path) {
                     vcs_panel_items.push(PanelItem {
-                        title: "Raw".to_owned(),
+                        label: "Raw".to_owned(),
+                        tooltip: "Open a raw file of the current file".to_owned(),
+                        id: "panel-raw",
                         link,
                         update_link_lineno: "",
                         accel_key: Some('R'),
@@ -394,7 +414,9 @@ fn main() {
 
                 if tree_config.paths.git_blame_path.is_some() {
                     vcs_panel_items.push(PanelItem {
-                        title: "Blame".to_owned(),
+                        label: "Blame".to_owned(),
+                        tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
+                        id: "panel-blame",
                         link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
                         update_link_lineno: "",
                         accel_key: None,
@@ -414,7 +436,9 @@ fn main() {
         let mut tools_items = vec![];
         if let Some(ref hg_root) = tree_config.paths.hg_root {
             tools_items.push(PanelItem {
-                title: "HG Web".to_owned(),
+                label: "HG Web".to_owned(),
+                tooltip: "Open the current file in HG Web".to_owned(),
+                id: "panel-hgweb",
                 link: format!("{}/file/default/{}", hg_root, encoded_path),
                 update_link_lineno: "#l{}",
                 accel_key: None,
@@ -423,7 +447,9 @@ fn main() {
         }
         if let Some(ref ccov_root) = tree_config.paths.ccov_root {
             tools_items.push(PanelItem {
-                title: "Code Coverage".to_owned(),
+                label: "Code Coverage".to_owned(),
+                tooltip: "Open the Code Coverage result of the current file".to_owned(),
+                id: "panel-coverage",
                 link: format!(
                     "{}#revision=latest&path={}&view=file",
                     ccov_root, encoded_path
@@ -439,7 +465,9 @@ fn main() {
                 match find_doc_url(&cfg, path.as_str()) {
                     Some(url) => {
                         tools_items.push(PanelItem {
-                            title: "Source Docs".to_owned(),
+                            label: "Source Docs".to_owned(),
+                            tooltip: "Open the rendered documentation on Source Docs".to_owned(),
+                            id: "panel-source-docs",
                             link: url,
                             update_link_lineno: "",
                             accel_key: None,
@@ -451,7 +479,9 @@ fn main() {
 
                 if let Some(ref github) = tree_config.paths.github_repo {
                     tools_items.push(PanelItem {
-                        title: "GitHub Rendered view".to_owned(),
+                        label: "GitHub Rendered view".to_owned(),
+                        tooltip: "Open the rendered documentation on GitHub".to_owned(),
+                        id: "panel-github-rendered-view",
                         link: format!(
                             "{}/blob/{}/{}",
                             github,

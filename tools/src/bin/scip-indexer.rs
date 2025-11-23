@@ -1485,7 +1485,7 @@ fn main() {
 
     for file in cli.inputs {
         if file.to_str() == Some("null") {
-            continue
+            continue;
         }
         analyze_using_scip(
             tree_config,

@@ -15,9 +15,9 @@ add_task(async function test_CopyAsMarkdown() {
     copiedText = text;
   };
 
-  const filenameButton = frame.contentDocument.querySelector(`button[title="Filename Link"]`);
-  const symbolButton = frame.contentDocument.querySelector(`button[title="Symbol Link"]`);
-  const codeButton = frame.contentDocument.querySelector(`button[title="Code Block"]`);
+  const filenameButton = frame.contentDocument.querySelector("#panel-copy-filename-link");
+  const symbolButton = frame.contentDocument.querySelector("#panel-copy-symbol-link");
+  const codeButton = frame.contentDocument.querySelector("#panel-copy-code-block");
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
   ok(symbolButton.disabled, "Symbol Link should be disabled if nothing is selected");
@@ -205,7 +205,7 @@ add_task(async function test_CopyAsMarkdown_clicked() {
     await TestUtils.setFeatureGate("fancyBar", value);
     await TestUtils.loadPath("/tests/source/webtest/CopyAsMarkdown.cpp");
 
-    const symbolButton = frame.contentDocument.querySelector(`button[title="Symbol Link"]`);
+    const symbolButton = frame.contentDocument.querySelector("#panel-copy-symbol-link");
 
     let copiedText = null;
     frame.contentWindow.navigator.clipboard.writeText = async function(text) {

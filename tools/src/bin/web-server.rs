@@ -151,12 +151,10 @@ fn handle(
     println!("DBG {:?} {} {}", path, tree_name, kind);
 
     match &kind[..] {
-        "diagnostics" => {
-            match serde_json::to_string(&diagnostics_from_config(cfg, tree_name)) {
-                Ok(s) => WebResponse::json(s),
-                Err(err) => WebResponse::internal_error(err.to_string())
-            }
-        }
+        "diagnostics" => match serde_json::to_string(&diagnostics_from_config(cfg, tree_name)) {
+            Ok(s) => WebResponse::json(s),
+            Err(err) => WebResponse::internal_error(err.to_string()),
+        },
 
         "rev" => {
             if path.len() < 3 {
@@ -212,17 +210,15 @@ fn handle(
             let tree_config = &cfg.trees[*tree_name];
             let old_rev = path[2];
             match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => {
-                    match gitdata.old_map.get(&old_oid) {
-                        Some(new_oid) => WebResponse::redirect(format!(
-                            "/{}/rev/{}/{}",
-                            tree_name,
-                            new_oid,
-                            path[3..].join("/")
-                        )),
-                        _ => WebResponse::not_found(),
-                    }
-                }
+                (Some(gitdata), Ok(old_oid)) => match gitdata.old_map.get(&old_oid) {
+                    Some(new_oid) => WebResponse::redirect(format!(
+                        "/{}/rev/{}/{}",
+                        tree_name,
+                        new_oid,
+                        path[3..].join("/")
+                    )),
+                    _ => WebResponse::not_found(),
+                },
                 _ => WebResponse::not_found(),
             }
         }
@@ -261,17 +257,15 @@ fn handle(
             let tree_config = &cfg.trees[*tree_name];
             let old_rev = path[2];
             match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => {
-                    match gitdata.old_map.get(&old_oid) {
-                        Some(new_oid) => WebResponse::redirect(format!(
-                            "/{}/diff/{}/{}",
-                            tree_name,
-                            new_oid,
-                            path[3..].join("/")
-                        )),
-                        _ => WebResponse::not_found(),
-                    }
-                }
+                (Some(gitdata), Ok(old_oid)) => match gitdata.old_map.get(&old_oid) {
+                    Some(new_oid) => WebResponse::redirect(format!(
+                        "/{}/diff/{}/{}",
+                        tree_name,
+                        new_oid,
+                        path[3..].join("/")
+                    )),
+                    _ => WebResponse::not_found(),
+                },
                 _ => WebResponse::not_found(),
             }
         }
@@ -298,16 +292,12 @@ fn handle(
             let tree_config = &cfg.trees[*tree_name];
             let old_rev = path[2];
             match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => {
-                    match gitdata.old_map.get(&old_oid) {
-                        Some(new_oid) => WebResponse::redirect(format!(
-                            "/{}/commit/{}",
-                            tree_name,
-                            new_oid,
-                        )),
-                        _ => WebResponse::not_found(),
+                (Some(gitdata), Ok(old_oid)) => match gitdata.old_map.get(&old_oid) {
+                    Some(new_oid) => {
+                        WebResponse::redirect(format!("/{}/commit/{}", tree_name, new_oid,))
                     }
-                }
+                    _ => WebResponse::not_found(),
+                },
                 _ => WebResponse::not_found(),
             }
         }

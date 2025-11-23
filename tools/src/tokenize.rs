@@ -216,7 +216,7 @@ pub fn tokenize_yaml(string: &str) -> Vec<Token> {
 
         match chars[cur_pos.get() - 2].1 {
             ' ' | '\t' | '\r' | '\n' => true,
-            _ => false
+            _ => false,
         }
     };
 
@@ -245,9 +245,8 @@ pub fn tokenize_yaml(string: &str) -> Vec<Token> {
                         '\\' => {
                             consume_char();
                             match peek_char() {
-                                '\r' | '\n' => {
-                                }
-                                _ => consume_char()
+                                '\r' | '\n' => {}
+                                _ => consume_char(),
                             }
                         }
                         _ => {
@@ -276,9 +275,8 @@ pub fn tokenize_yaml(string: &str) -> Vec<Token> {
                         '\\' => {
                             consume_char();
                             match peek_char() {
-                                '\r' | '\n' => {
-                                }
-                                _ => consume_char()
+                                '\r' | '\n' => {}
+                                _ => consume_char(),
                             }
                         }
                         _ => {

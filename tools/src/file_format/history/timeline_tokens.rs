@@ -13,16 +13,11 @@
 //! - General interest graphs of net changes in use of the token over time,
 //!   aggregated by week.
 
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TokenDetailRecord {
-
-}
+pub struct TokenDetailRecord {}
 
 /// Aggregated statistics
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TokenSummaryRecord {
-
-}
+pub struct TokenSummaryRecord {}

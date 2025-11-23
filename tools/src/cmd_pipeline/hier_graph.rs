@@ -76,24 +76,24 @@ the graphviz cluster hierarchy.
 */
 
 pub struct PrettySymbolSegment {
-  pretty_segment: String,
-  pretty_full: String,
-  symbols: Vec<String>,
+    pretty_segment: String,
+    pretty_full: String,
+    symbols: Vec<String>,
 }
 
 pub struct ConceptSegment {
-  namespace: String,
-  term: String,
-  name: String,
+    namespace: String,
+    term: String,
+    name: String,
 }
 
 pub enum HierPathSegment {
-  PrettySymbol(PrettySymbolSegment),
-  Concept(ConceptSegment),
+    PrettySymbol(PrettySymbolSegment),
+    Concept(ConceptSegment),
 }
 
 pub struct HierNode {
-  id: String,
-  segment: HierPathSegment,
-  children: Vec<HierNode>,
+    id: String,
+    segment: HierPathSegment,
+    children: Vec<HierNode>,
 }
