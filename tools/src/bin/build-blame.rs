@@ -43,7 +43,7 @@ struct BuildBlameCli {
     /// The name of the branch/git ref to use in both the source tree and the
     /// blame tree we are populating.  The default of HEAD will use the current
     /// branch in both trees (and only works for non-bare trees).
-    #[clap(long, value_parser, env="BLAME_REF", default_value = "HEAD")]
+    #[clap(long, value_parser, env = "BLAME_REF", default_value = "HEAD")]
     blame_ref: String,
 
     /// Path to use for the git-fast-import marks file.  If we find this file
@@ -53,7 +53,12 @@ struct BuildBlameCli {
     /// processing without losing work due to the existence of merges.
     /// Otherwise, this file will be deleted on successful exit if no
     /// commit-limit was used, but will be retained if a limit was used.
-    #[clap(long, value_parser, env="MARKS_FILE", default_value = "/tmp/mozsearch-fast-import.marks")]
+    #[clap(
+        long,
+        value_parser,
+        env = "MARKS_FILE",
+        default_value = "/tmp/mozsearch-fast-import.marks"
+    )]
     marks_file: String,
 
     /// An option to disable asking git-cinnabar to try and map revisions.
@@ -97,7 +102,7 @@ struct BuildBlameCli {
 
     /// Number of commits to transform before stopping; default of 0 means no
     /// limit.
-    #[clap(long, value_parser, env="COMMIT_LIMIT", default_value = "0")]
+    #[clap(long, value_parser, env = "COMMIT_LIMIT", default_value = "0")]
     commit_limit: usize,
 }
 
@@ -901,7 +906,7 @@ fn main() {
         None
     };
 
-    let oldrevs_from_newrev_map = if let Some(old_rev_map_path)  = cli.old_revision_map {
+    let oldrevs_from_newrev_map = if let Some(old_rev_map_path) = cli.old_revision_map {
         let contents = read_to_string(old_rev_map_path).unwrap();
         let mut rev_map = HashMap::new();
 
@@ -1025,12 +1030,12 @@ fn main() {
             // a hash is a hash, the difference is the old helper was spawned
             // using hg2git
             (Some(hgrev), Some(ref mut helper)) => get_git_rev(helper, hgrev),
-            _ => None
+            _ => None,
         };
 
         let oldrev_via_map = match &oldrevs_from_newrev_map {
             Some(rev_map) => rev_map.get(git_oid),
-            _ => None
+            _ => None,
         };
 
         info!(

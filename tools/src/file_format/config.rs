@@ -472,7 +472,11 @@ pub fn load(
                 // if we pass None, which is why we aren't doing anything to default
                 // git_branch to the literal string "HEAD".
                 let blame_ref = match &paths.git_branch {
-                    Some(branch_name) => Some(blame_repo.refname_to_id(&format!("refs/heads/{}", branch_name)).unwrap()),
+                    Some(branch_name) => Some(
+                        blame_repo
+                            .refname_to_id(&format!("refs/heads/{}", branch_name))
+                            .unwrap(),
+                    ),
                     None => None,
                 };
                 let (blame_map, hg_map, old_map) = if need_indexes {

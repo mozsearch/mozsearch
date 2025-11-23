@@ -1462,8 +1462,11 @@ fn generate_commit_info(
     let oldgit = if let Some(blame_commit) = blame_commit {
         let blame_info = extract_info_from_blame_commit(blame_commit);
         if let Some(oldrevs) = blame_info.oldrevs {
-            vec![F::T(format!("<tr><td>old {} git revs:</td><td>{}</td></tr>",
-                              tree_config.paths.oldtree_name.clone().unwrap_or_default(), oldrevs))]
+            vec![F::T(format!(
+                "<tr><td>old {} git revs:</td><td>{}</td></tr>",
+                tree_config.paths.oldtree_name.clone().unwrap_or_default(),
+                oldrevs
+            ))]
         } else {
             vec![]
         }
@@ -1591,12 +1594,8 @@ pub fn format_commit(
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
 
     let blame_commit = match (&git.blame_repo, git.blame_map.get(&commit.id())) {
-        (Some(blame_repo), Some(blame_oid)) => {
-            blame_repo.find_commit(*blame_oid).ok()
-        }
-        _ => {
-            None
-        }
+        (Some(blame_repo), Some(blame_oid)) => blame_repo.find_commit(*blame_oid).ok(),
+        _ => None,
     };
 
     let title = format!("{} - mozsearch", rev);
@@ -1614,7 +1613,13 @@ pub fn format_commit(
 
     output::generate_panel(&opt, writer, &[], true)?;
 
-    generate_commit_info(tree_name, tree_config, writer, commit, blame_commit.as_ref())?;
+    generate_commit_info(
+        tree_name,
+        tree_config,
+        writer,
+        commit,
+        blame_commit.as_ref(),
+    )?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 
