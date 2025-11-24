@@ -383,14 +383,13 @@ SymbolTable.prototype = {
   },
 };
 
-SymbolTable.Symbol = function(name, loc)
-{
+SymbolTable.Symbol = function(name, loc) {
   this.name = name;
   this.loc = loc;
   this.id = fileIndex + "-" + nextSymId++;
   this.uses = [];
   this.skip = false;
-}
+};
 
 SymbolTable.Symbol.prototype = {
   use(loc) {
@@ -446,7 +445,7 @@ function locstrFull(startPos, endPos)
  */
 function isNestingNode(node) {
   if (!node || !node.type) {
-    return false
+    return false;
   }
 
   switch (node.type) {
@@ -1884,7 +1883,7 @@ class BaseParser {
 
 class XMLParser extends BaseParser {
   constructor(filename, parser) {
-    super(filename, parser)
+    super(filename, parser);
     this.curText = "";
     for (let prop of ["ontext", "oncdata"]) {
       parser[prop] = this[prop].bind(this);
