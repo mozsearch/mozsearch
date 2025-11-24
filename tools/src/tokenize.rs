@@ -1416,7 +1416,9 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
     let mut script = String::new();
     let mut style = String::new();
     let mut tag_stack = Vec::new();
+    let mut has_src_attr = false;
     let mut in_script = false;
+    let mut script_has_src = false;
     let mut script_start = 0;
     let mut in_style = false;
     let mut style_start = 0;
@@ -1426,6 +1428,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
     for token in tokens {
         match token.kind {
             TokenKind::TagName | TokenKind::EndTagName => {
+                has_src_attr = false;
                 let tag_name = &string[token.start..token.end];
                 if token.kind == TokenKind::TagName {
                     tag_stack.push(tag_name);
@@ -1450,6 +1453,10 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
                 }
                 if attr_name == "style" {
                     literal_is_css = true;
+                }
+
+                if attr_name == "src" {
+                    has_src_attr = true;
                 }
 
                 result.push(token);
@@ -1521,18 +1528,24 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
 
                 if starting_script && punc == ">" {
                     in_script = true;
+                    script_has_src = has_src_attr;
                     script_start = token.end;
                     result.push(token);
                 } else if in_script && punc == "</" {
-                    let script_toks = tokenize_c_like(&script, script_spec);
-                    let script_toks = script_toks.into_iter().map(|t| Token {
-                        start: t.start + script_start,
-                        end: t.end + script_start,
-                        kind: t.kind,
-                    });
-                    result.extend(script_toks);
+                    if script_has_src {
+                        script_has_src = false;
+                        script = String::new();
+                    } else {
+                        let script_toks = tokenize_c_like(&script, script_spec);
+                        let script_toks = script_toks.into_iter().map(|t| Token {
+                            start: t.start + script_start,
+                            end: t.end + script_start,
+                            kind: t.kind,
+                        });
+                        result.extend(script_toks);
 
-                    script = String::new();
+                        script = String::new();
+                    }
 
                     in_script = false;
                     result.push(token);
@@ -1569,7 +1582,7 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
         }
     }
 
-    if in_script {
+    if in_script && script_has_src {
         let script_toks = tokenize_c_like(&script, script_spec);
         let script_toks = script_toks.into_iter().map(|t| Token {
             start: t.start + script_start,
