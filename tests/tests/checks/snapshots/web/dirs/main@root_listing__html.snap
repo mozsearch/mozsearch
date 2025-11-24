@@ -177,6 +177,12 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td><a href="/tests/source/blame" class="mimetype-fixed-container mimetype-icon-folder">blame</a></td>
+          <td class="description"><a href="/tests/source/blame" title=""></td>
+          <td><a href="/tests/source/blame"></a></td>
+        </tr>
+
+        <tr>
           <td><a href="/tests/source/browser.ini" class="mimetype-fixed-container mimetype-icon-ini">browser.ini</a></td>
           <td class="description"><a href="/tests/source/browser.ini" title=""></td>
           <td><a href="/tests/source/browser.ini">202</a></td>
