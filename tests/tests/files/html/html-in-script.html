@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>script</title>
+  </head>
+  <body>
+    <script src="a.js">var varDeclInScriptWithSrcWithSyntaxError = 10;<b>hello</b></script>
+    <script src="a.js">var varDeclInScriptWithSrcWithoutSyntaxError = 10;//<b>hello</b></script>
+    <script>var varDeclInScriptWithoutSrcWithSyntaxError = 10;<b>hello</b></script>
+    <script>var varDeclInScriptWithoutSrcNoSyntaxError = 10;//<b>hello</b></script>
+  </body>
+</html>

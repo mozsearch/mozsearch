@@ -1,0 +1,31 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/markup/html-in-script__html
+---
+<code role="cell" class="source-line">&lt;!DOCTYPE html>
+</code>
+<code role="cell" class="source-line">&lt;<span class="syn_tag" >html</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >head</span>>
+</code>
+<code role="cell" class="source-line">    &lt;<span class="syn_tag" >meta</span> <span class="syn_tag" >charset</span>="<span class="syn_string" >utf-8</span>">
+</code>
+<code role="cell" class="source-line">    &lt;<span class="syn_tag" >title</span>>script&lt;/<span class="syn_tag" >title</span>>
+</code>
+<code role="cell" class="source-line">  &lt;/<span class="syn_tag" >head</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >body</span>>
+</code>
+<code role="cell" class="source-line">    &lt;<span class="syn_tag" >script</span> <span class="syn_tag" >src</span>="<span class="syn_string" >a.js</span>">var varDeclInScriptWithSrcWithSyntaxError = 10;&lt;b>hello&lt;/b>&lt;/<span class="syn_tag" >script</span>>
+</code>
+<code role="cell" class="source-line">    &lt;<span class="syn_tag" >script</span> <span class="syn_tag" >src</span>="<span class="syn_string" >a.js</span>">var varDeclInScriptWithSrcWithoutSyntaxError = 10;//&lt;b>hello&lt;/b>&lt;/<span class="syn_tag" >script</span>>
+</code>
+<code role="cell" class="source-line">    &lt;<span class="syn_tag" >script</span>>var varDeclInScriptWithoutSrcWithSyntaxError = 10;&lt;b>hello&lt;/b>&lt;/<span class="syn_tag" >script</span>>
+</code>
+<code role="cell" class="source-line">    &lt;<span class="syn_tag" >script</span>><span class="syn_reserved" >var</span> <span class="syn_def" data-symbols="#varDeclInScriptWithoutSrcNoSyntaxError" data-confidences="[&quot;concrete&quot;]">varDeclInScriptWithoutSrcNoSyntaxError</span> = 10;<span class="syn_comment" >//&lt;b>hello&lt;/b></span>&lt;/<span class="syn_tag" >script</span>>
+</code>
+<code role="cell" class="source-line">  &lt;/<span class="syn_tag" >body</span>>
+</code>
+<code role="cell" class="source-line">&lt;/<span class="syn_tag" >html</span>>
+</code>
