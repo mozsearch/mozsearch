@@ -1,0 +1,29 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/html/html-in-script.html/what-to-analyze__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file html/html-in-script.html",
+    "sym": "FILE_html/html@2Din@2Dscript@2Ehtml"
+  },
+  {
+    "loc": "11:16-54",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property varDeclInScriptWithoutSrcNoSyntaxError",
+    "sym": "#varDeclInScriptWithoutSrcNoSyntaxError"
+  },
+  {
+    "loc": "11:16-54",
+    "target": 1,
+    "kind": "def",
+    "pretty": "varDeclInScriptWithoutSrcNoSyntaxError",
+    "sym": "#varDeclInScriptWithoutSrcNoSyntaxError",
+    "context": ""
+  }
+]

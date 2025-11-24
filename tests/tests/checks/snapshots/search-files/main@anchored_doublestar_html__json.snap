@@ -32,6 +32,19 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       }
     },
     {
+      "path": "html/html-in-script.html",
+      "concise": {
+        "path_kind": "Normal",
+        "is_dir": false,
+        "file_size": 479,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "script",
+        "info": {}
+      }
+    },
+    {
       "path": "html/invalid-entity-ref.html",
       "concise": {
         "path_kind": "Normal",
