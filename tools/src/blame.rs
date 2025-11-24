@@ -3,12 +3,25 @@ use crate::links;
 
 use serde_json::{json, to_string, Map};
 use std::borrow::Cow;
+use std::str::Split;
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 
-pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static str> {
+fn find_phab_rev(iter: Split<char>) -> Option<String> {
+    const PREFIX: &'static str = "Differential Revision: ";
+
+    for line in iter {
+        if line.starts_with(PREFIX) {
+            return Some(line[PREFIX.len()..].to_string());
+        }
+    }
+
+    None
+}
+
+pub fn commit_header(commit: &git2::Commit) -> Result<(String, String, Option<String>), &'static str> {
     fn entity_replace(s: &str) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
@@ -16,9 +29,10 @@ pub fn commit_header(commit: &git2::Commit) -> Result<(String, String), &'static
     let msg = commit.message().ok_or("Invalid message")?;
     let mut iter = msg.split('\n');
     let header = iter.next().unwrap();
+    let phab_rev = find_phab_rev(iter.clone());
     let remainder = iter.collect::<Vec<_>>().join("\n");
     let header = links::linkify_commit_header(&entity_replace(header));
-    Ok((header, entity_replace(&remainder)))
+    Ok((header, entity_replace(&remainder), phab_rev))
 }
 
 pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<String, &'static str> {
@@ -28,7 +42,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
     for rev in revs.split(',') {
         let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
         let commit = commit_obj.as_commit().ok_or("Bad revision")?;
-        let (msg, _) = commit_header(commit)?;
+        let (msg, _, phab_rev) = commit_header(commit)?;
 
         let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
         let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
@@ -61,6 +75,10 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
                 json!(format!("{}/rev/{}", hg_path, hg_id)),
             );
         };
+
+        if let Some(rev) = phab_rev {
+            obj.insert("phab".to_owned(), json!(rev));
+        }
 
         infos.push(json!(obj));
     }

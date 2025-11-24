@@ -278,6 +278,15 @@ var BlamePopup = new (class BlamePopup {
         rendered += ` or <a href="${encodeURI(json[i].fulldiff)}">full diff</a>`;
       }
 
+      if (json[i].phab) {
+        let name = "Phabricator revision";
+        const m = json[i].phab.match(/\/(D[0-9]+)/);
+        if (m) {
+          name += " " + m[1];
+        }
+        rendered += ` or <a href="${encodeURI(json[i].phab)}">${name}</a>`;
+      }
+
       if (json[i].parent) {
         let parentLink = `/${tree}/rev/${json[i].parent}/${revPath}#${linenoList[i]}`;
         rendered += `<br><a href="${encodeURI(parentLink)}" class="deemphasize">Show latest version without this line</a>`;
