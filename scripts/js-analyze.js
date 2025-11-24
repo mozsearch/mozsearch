@@ -2148,6 +2148,9 @@ class XULParser extends XMLParser {
   ontag(tagName, tag) {
     switch (tagName) {
     case "SCRIPT":
+      if ("SRC" in tag.attrs) {
+        break;
+      }
       this.handleScript(this.curText, tag);
       break;
     }
@@ -2185,6 +2188,9 @@ class HTMLParser extends BaseParser {
   ontag(tagName, tag) {
     switch (tagName) {
     case "SCRIPT":
+      if ("SRC" in tag.attrs) {
+        break;
+      }
       this.handleScript(this.currentScript, tag);
       break;
     case "STYLE":
