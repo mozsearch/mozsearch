@@ -63,9 +63,11 @@ input_file: inputs/web/dirs/root_listing__html
 
     <div class="panel" id="panel">
   <button id="panel-toggle">
-    <span class="navpanel-icon icon-down-dir" aria-hidden="false"></span>
+    <span class="navpanel-toggle-icon icon-down-dir" aria-hidden="false"></span>
     Navigation
-    <a id="show-settings" title="Go to settings page" href="/tests/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
+    <span class="navpanel-other-icons">
+      <a id="open-help" title="Open help page" href="https://firefox-source-docs.mozilla.org/contributing/searchfox.html" target="_blank"><span class="navpanel-icon icon-help-circled" aria-hidden="false"></span></a><a id="show-settings" title="Go to settings page" href="/tests/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
+    </span>
   </button>
   <section id="panel-content" aria-expanded="false" aria-hidden="true" style="display: none;">
     <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
