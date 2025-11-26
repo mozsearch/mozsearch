@@ -445,14 +445,16 @@ pub fn generate_panel(
             F::S(r#"<button id="panel-toggle">"#),
             F::Indent(vec![
                 F::T(format!(
-                    r#"<span class="navpanel-icon icon-down-dir{}" aria-hidden="false"></span>"#,
+                    r#"<span class="navpanel-toggle-icon icon-down-dir{}" aria-hidden="false"></span>"#,
                     if collapsed { "" } else { " expanded" }
                 )),
                 F::S("Navigation"),
+                F::S(r#"<span class="navpanel-other-icons">"#),
                 F::T(format!(
-                    r#"<a id="show-settings" title="Go to settings page" href="/{}/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>"#,
+                    r#"<a id="open-help" title="Open help page" href="https://firefox-source-docs.mozilla.org/contributing/searchfox.html" target="_blank"><span class="navpanel-icon icon-help-circled" aria-hidden="false"></span></a><a id="show-settings" title="Go to settings page" href="/{}/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>"#,
                     opt.tree_name
                 )),
+                F::S(r#"</span>"#),
             ]),
             F::S("</button>"),
             F::T(format!(
