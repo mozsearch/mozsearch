@@ -24,3 +24,28 @@ add_task(async function test_StickyLines() {
      sticky3.getBoundingClientRect().top,
      "the second sticky line should touch the bottom of the first sticky line");
 });
+
+add_task(async function test_StickyLinesVarDecl() {
+  await TestUtils.loadPath("/tests/source/cpp/nesting-initializer.cpp");
+
+  const containers = frame.contentDocument.querySelectorAll(".nesting-container");
+  is(containers.length, 5);
+
+  is(containers[0].querySelector(".source-line-with-number").id, "line-1",
+     "the namespace should have container");
+  is(containers[1].querySelector(".source-line-with-number").id, "line-12",
+     "long variable decl with a list should have container");
+  is(containers[2].querySelector(".source-line-with-number").id, "line-26",
+     "callLambda function should have container");
+  is(containers[3].querySelector(".source-line-with-number").id, "line-30",
+     "foo function should have container");
+  is(containers[4].querySelector(".source-line-with-number").id, "line-40",
+     "long variable decl with a function call should have container");
+
+  frame.contentDocument.querySelector("#line-44").scrollIntoView();
+
+  await waitForCondition(() => containers[0].firstChild.classList.contains("stuck"),
+                         "namespace should stuck");
+  ok(containers[3].firstChild.classList.contains("stuck"), "function should stuck");
+  ok(containers[4].firstChild.classList.contains("stuck"), "varriable decl should stuck");
+});
