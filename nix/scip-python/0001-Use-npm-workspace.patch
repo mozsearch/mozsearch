@@ -1,0 +1,38 @@
+From ad80dc34a7a94ba6560537a6bf35940072fbdc04 Mon Sep 17 00:00:00 2001
+From: Nicolas Guichard <nicolas.guichard@kdab.com>
+Date: Sun, 7 Jul 2024 16:19:43 +0200
+Subject: [PATCH 1/2] Use npm workspace
+
+---
+ lerna.json   | 1 +
+ package.json | 3 +++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/lerna.json b/lerna.json
+index 2692e2ddb..14b5b65e1 100644
+--- a/lerna.json
++++ b/lerna.json
+@@ -3,6 +3,7 @@
+         "packages/*"
+     ],
+     "version": "1.1.301",
++    "useWorkspaces": true,
+     "command": {
+         "version": {
+             "push": false,
+diff --git a/package.json b/package.json
+index e4b4890ce..70871902a 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,9 @@
+ {
+     "name": "pyright-root",
+     "private": true,
++    "workspaces": [
++      "packages/*"
++    ],
+     "scripts": {
+         "postinstall": "npm run bootstrap",
+         "bootstrap": "node ./build/skipBootstrap.js || lerna bootstrap",
+-- 
+2.45.1
