@@ -820,7 +820,8 @@ Spread over multiple lines.
     <a href="https://github.com/mozsearch/mozsearch">source code repository</a> |
     <a href="https://github.com/mozsearch/mozsearch-mozilla">configuration repository</a> |
     <a href="https://bugzilla.mozilla.org/buglist.cgi?product=Webtools&component=Searchfox&resolution=---">see open bugs</a> |
-    <a href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Webtools&component=Searchfox">file a new bug</a>
+    <a href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Webtools&component=Searchfox">file a new bug</a> |
+    <a href="https://firefox-source-docs.mozilla.org/contributing/searchfox.html">documents</a>
 </footer>
 
 </div>
