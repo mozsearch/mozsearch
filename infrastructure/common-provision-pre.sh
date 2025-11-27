@@ -161,7 +161,7 @@ if [ ! -d livegrep ]; then
   pushd livegrep
   # For some reason bazelisk seems to ignore the .bazelversion file in the livegrep repo, so force that version here
   export USE_BAZEL_VERSION=7.6.0
-  $BAZEL build //src/tools:codesearch
+  $BAZEL build -c opt //src/tools:codesearch
   sudo install bazel-bin/src/tools/codesearch /usr/local/bin
   popd
   # Remove ~2G of build artifacts that we don't need anymore
