@@ -88,4 +88,4 @@ def lookup(tree_name, needle, complete, fold_case):
 
 if __name__ == '__main__':
     load(json.load(open(sys.argv[1])))
-    print(lookup(sys.argv[2], sys.argv[3]))
+    print(lookup(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[4]))
