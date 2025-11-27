@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
 ---
 {
   "symbol_crossref_infos": [
@@ -104,7 +105,8 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestOctet(uint8_t a, uint8_t *b, uint8_t *_retval) = 0;",
                 "context": "nsIXPCTestParams",
-                "contextsym": "T_nsIXPCTestParams"
+                "contextsym": "T_nsIXPCTestParams",
+                "peekRange": "50-51"
               }
             ]
           }
