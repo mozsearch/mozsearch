@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/xpctest_attributes.idl/booleanProperty_setter__json
 ---
 {
   "symbol_crossref_infos": [
@@ -38,7 +39,8 @@ expression: "&to_value(scil).unwrap()"
                 ],
                 "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD SetBooleanProperty(bool aBooleanProperty) = 0;",
                 "context": "nsIXPCTestObjectReadWrite",
-                "contextsym": "T_nsIXPCTestObjectReadWrite"
+                "contextsym": "T_nsIXPCTestObjectReadWrite",
+                "peekRange": "123-123"
               }
             ]
           }
