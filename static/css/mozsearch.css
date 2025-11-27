@@ -522,6 +522,11 @@ mark {
   padding: 0 2rem;
 }
 
+.nsresult-desc {
+  padding: 2rem 2rem 0 2rem;
+  font-size: 1.2rem;
+}
+
 table.results {
   margin: 0.5rem 2rem;
   width: calc(100% - 4rem);

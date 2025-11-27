@@ -20,6 +20,7 @@ import shutil
 import crossrefs
 import identifiers
 import codesearch
+import nsresults
 from logger import log
 from raw_search import RawSearchResults
 
@@ -206,6 +207,10 @@ def parse_search(searchString):
             break
         elif pieces[i].startswith('id:'):
             result['id'] = pieces[i][len('id:'):]
+        elif re.match('^nsresult:[0-9A-Fa-f]', pieces[i]):
+            # NOTE: Check the character after the colon in order to avoid
+            # breaking other valid search.
+            result['nsresult'] = pieces[i][len('nsresult:'):]
         else:
             result['default'] = escape_regex(' '.join(pieces[i:]))
             break
@@ -214,6 +219,9 @@ def parse_search(searchString):
 
 def is_trivial_search(parsed):
     if 'symbol' in parsed:
+        return False
+
+    if 'nsresult' in parsed:
         return False
 
     for k in parsed:
@@ -543,11 +551,46 @@ def get_json_search_results(tree_name, query):
     hit_timeout = False
     hit_limits = []
 
+    nsresult_data = None
+
     if 'symbol' in parsed:
         search.set_path_filter(parsed.get('pathre'))
         symbols = parsed['symbol']
         title = 'Symbol ' + symbols
         search.add_results(expand_keys(tree_name, crossrefs.lookup_merging(tree_name, symbols)))
+    elif 'nsresult' in parsed:
+        query = parsed['nsresult']
+        title = 'nsresult ' + query
+
+        (raw_code, codes, sev, mod, raw_mod, raw_subcode) = nsresults.lookup(tree_name, query)
+
+        nsresult_data = {
+            'query': query,
+            'raw_code': raw_code,
+            'codes': codes,
+            'sev': sev,
+            'mod': mod,
+            'raw_mod': raw_mod,
+            'raw_subcode': raw_subcode,
+        }
+
+        syms = []
+        if codes is not None:
+            for code in codes:
+                syms.append('E_<T_nsresult>_' + code)
+                syms.append(f'_ZL{len(code)}{code}')
+        if sev is not None:
+            for item in identifiers.lookup(tree_name, sev, True, False):
+                syms.append(item[1])
+            for item in identifiers.lookup(tree_name, 'NS_ERROR_GENERATE', True, False):
+                syms.append(item[1])
+        if mod is not None:
+            for item in identifiers.lookup(tree_name, mod, True, False):
+                syms.append(item[1])
+
+        if syms:
+            symbols = ','.join(syms)
+            search.add_results(expand_keys(tree_name, crossrefs.lookup_merging(tree_name, symbols)))
     elif 're' in parsed:
         path = parsed.get('pathre', '.*')
         (substr_results, timed_out, codesearch_limit_hit) = codesearch.search(parsed['re'], fold_case, path, tree_name, context_lines)
@@ -595,6 +638,8 @@ def get_json_search_results(tree_name, query):
     results['*title*'] = title
     results['*timedout*'] = hit_timeout
     results['*limits*'] = hit_limits
+    if nsresult_data is not None:
+        results['*nsresult*'] = nsresult_data
     return json.dumps(results)
 
 def identifier_sorch(search, tree_name, needle, complete, fold_case):
@@ -865,6 +910,7 @@ os.chdir(config['mozsearch_path'])
 crossrefs.load(config)
 codesearch.load(config)
 identifiers.load(config)
+nsresults.load(config)
 
 # We *append* to the status file because other server components
 # also write to this file when they are done starting up, and we

@@ -513,6 +513,8 @@ function populateResults(data, full, jumpToSingle) {
 
   let limits_hit = data["*limits*"] || [];
 
+  let nsresult = data["*nsresult*"];
+
   window.scrollTo(0, 0);
 
   function makeURL(path) {
@@ -797,6 +799,64 @@ function populateResults(data, full, jumpToSingle) {
     b.textContent = "Warning";
     div.append(b);
     div.append(": Results may be incomplete due to server-side search timeout!");
+    header.append(div);
+  }
+
+  if (nsresult) {
+    function toHex(n) {
+      return "0x" + n.toString(16);
+    }
+    function createCode(code) {
+      const c = document.createElement("code");
+      c.textContent = `${escape(code)}`;
+      return c;
+    }
+    function createCodeLink(code) {
+      const link = document.createElement("a");
+      link.href = makeSearchUrl(code);
+      const c = document.createElement("code");
+      c.textContent = `${escape(code)}`;
+      link.append(c);
+      return link;
+    }
+
+    const div = document.createElement("div");
+    div.classList.add("nsresult-desc");
+    const c = document.createElement("code");
+    if (typeof nsresult.raw_code === "number") {
+      div.append(createCode(`nsresult(${toHex(nsresult.raw_code)})`));
+    } else {
+      div.append(createCode(`nsresult(${nsresult.query || ""})`));
+    }
+    div.append(" is ");
+    if (Array.isArray(nsresult.codes)) {
+      let first = true;
+      for (const code of nsresult.codes) {
+        if (!first) {
+          div.append(" / ");
+        }
+        first = false;
+        div.append(createCodeLink(code));
+      }
+    } else if (typeof nsresult.sev == "string" && typeof nsresult.raw_subcode == "number") {
+      if (typeof nsresult.mod == "string") {
+        div.append(createCodeLink("NS_ERROR_GENERATE"));
+        div.append(createCode("("));
+        div.append(createCodeLink(nsresult.sev));
+        div.append(createCode(", "));
+        div.append(createCodeLink(nsresult.mod));
+        div.append(createCode(`, ${toHex(nsresult.raw_subcode)})`));
+      } else if (typeof nsresult.raw_mod == "number") {
+        div.append(createCodeLink("NS_ERROR_GENERATE"));
+        div.append(createCode("("));
+        div.append(createCodeLink(nsresult.sev));
+        div.append(createCode(`, ${toHex(nsresult.raw_mod)}, ${toHex(nsresult.raw_subcode)})`));
+      } else {
+        div.append("unknown");
+      }
+    } else {
+      div.append("unknown");
+    }
     header.append(div);
   }
 
