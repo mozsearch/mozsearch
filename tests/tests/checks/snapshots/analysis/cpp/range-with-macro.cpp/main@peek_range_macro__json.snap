@@ -1,0 +1,15 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/cpp/range-with-macro.cpp/peek_range_macro__json
+---
+[
+  {
+    "loc": "00005:33-42",
+    "target": 1,
+    "kind": "def",
+    "pretty": "range_with_macro::withMacro",
+    "sym": "_ZN16range_with_macroL9withMacroE",
+    "peekRange": "5-7"
+  }
+]
