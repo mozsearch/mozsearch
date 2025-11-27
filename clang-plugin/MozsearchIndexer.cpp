@@ -443,6 +443,25 @@ private:
     return result;
   }
 
+  bool needsNestingRangeForVarDecl(SourceRange& Range) {
+    std::pair<FileID, unsigned> Begin = SM.getDecomposedExpansionLoc(Range.getBegin());
+    std::pair<FileID, unsigned> End = SM.getDecomposedExpansionLoc(Range.getEnd());
+
+    bool IsInvalid;
+    unsigned Line1 = SM.getLineNumber(Begin.first, Begin.second, &IsInvalid);
+    if (IsInvalid) {
+      return false;
+    }
+    unsigned Line2 = SM.getLineNumber(End.first, End.second, &IsInvalid);
+    if (IsInvalid) {
+      return false;
+    }
+
+    static constexpr unsigned MinVarDeclNestingRangeLines = 10;
+
+    return Line2 > Line1 + MinVarDeclNestingRangeLines;
+  }
+
   // Convert SourceRange to "line:column-line:column".
   // In the resulting string rep, line is 1-based, column is 0-based.
   std::string fullRangeToString(SourceRange Range) {
@@ -2185,6 +2204,10 @@ public:
                  ? "decl"
                  : "def";
       PrettyKind = "variable";
+
+      if (needsNestingRangeForVarDecl(PeekRange)) {
+        NestingRange = PeekRange;
+      }
     } else if (isa<NamespaceDecl>(D) || isa<NamespaceAliasDecl>(D)) {
       Kind = "def";
       PrettyKind = "namespace";
