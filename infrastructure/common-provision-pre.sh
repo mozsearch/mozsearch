@@ -171,7 +171,7 @@ if [ ! -d livegrep ]; then
   # We need to create a venv for this because Ubuntu 24.04 gets very angry if we
   # use pip to install things outside of a venv.
   LIVEGREP_VENV=$HOME/livegrep-venv
-  python3 -m venv $LIVEGREP_VENV
+  python3 -m venv $LIVEGREP_VENV --system-site-packages
   echo "PATH=$LIVEGREP_VENV/bin:$PATH" >> ~/.profile
   PATH=$LIVEGREP_VENV/bin:$PATH
 
