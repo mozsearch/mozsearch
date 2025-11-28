@@ -56,6 +56,10 @@ popd
 
 pushd mozsearch/clang-plugin
 make
+mkdir -p "$MOZSEARCH_CLANG_PLUGIN_DIR"
+if ! [ . -ef "$MOZSEARCH_CLANG_PLUGIN_DIR" ]; then
+    mv "./libclang-index-plugin.so" "$MOZSEARCH_CLANG_PLUGIN_DIR"
+fi
 popd
 
 pushd mozsearch/tools
@@ -65,6 +69,10 @@ popd
 
 pushd mozsearch/scripts/web-analyze/wasm-css-analyzer
 ./build.sh
+mkdir -p "$MOZSEARCH_WASM_DIR"
+if ! [ out -ef "$MOZSEARCH_WASM_DIR" ]; then
+    mv out/* "$MOZSEARCH_WASM_DIR"
+fi
 popd
 
 PYMODULES=$HOME/pymodules

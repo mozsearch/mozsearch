@@ -65,10 +65,14 @@ popd
 echo 'export PYTHONPATH="$HOME/pymodules"' >> ~/.profile
 
 # This is where the wasm-css-analyzer will be built
+# Set it in ~/.profile for indexer-update call on indexer start and also now for indexer-update call at the end of this file.
 echo 'export MOZSEARCH_WASM_DIR="$HOME/mozsearch-wasm"' >> ~/.profile
+export MOZSEARCH_WASM_DIR="$HOME/mozsearch-wasm"
 
 # This is where the clang plugin will be built
+# Set it in ~/.profile for indexer-update call on indexer start and also now for indexer-update call at the end of this file.
 echo 'export MOZSEARCH_CLANG_PLUGIN_DIR="$HOME/mozsearch-clang-plugin"' >> ~/.profile
+export MOZSEARCH_CLANG_PLUGIN_DIR="$HOME/mozsearch-clang-plugin"
 
 # Create update script.
 cat > update.sh <<"THEEND"
