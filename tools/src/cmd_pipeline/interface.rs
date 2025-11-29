@@ -461,6 +461,7 @@ pub struct OverloadInfo {
     /// human comprehension to know the results have been truncated; we don't
     /// have to have a perfectly efficient data structure.
     pub sym: Option<String>,
+    pub pretty: Option<String>,
     /// How many results do we think exist?
     pub exist: u32,
     /// How many results did we include before giving up?  This can be zero or
