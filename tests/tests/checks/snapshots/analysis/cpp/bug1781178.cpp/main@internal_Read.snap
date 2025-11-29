@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/bug1781178.cpp/internal_Read
 ---
 [
-  {
-    "loc": "00048:5-9",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (void)",
-    "pretty": "function internal::Read",
-    "sym": "_ZN8internal4ReadEv"
-  },
   {
     "loc": "00048:5-9",
     "target": 1,
@@ -22,22 +14,30 @@ snapshot_kind: text
   },
   {
     "loc": "00058:2-6",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (void)",
-    "pretty": "function internal::Read",
-    "sym": "_ZN8internal4ReadEv",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00058:2-6",
     "target": 1,
     "kind": "use",
     "pretty": "internal::Read",
     "sym": "_ZN8internal4ReadEv",
     "context": "TemplateFunc",
     "contextsym": "_Z12TemplateFuncN3FooIT_E7TypedefE"
+  },
+  {
+    "loc": "00048:5-9",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function internal::Read",
+    "sym": "_ZN8internal4ReadEv",
+    "type": "void (void)"
+  },
+  {
+    "loc": "00058:2-6",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function internal::Read",
+    "sym": "_ZN8internal4ReadEv",
+    "type": "void (void)",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   }
 ]

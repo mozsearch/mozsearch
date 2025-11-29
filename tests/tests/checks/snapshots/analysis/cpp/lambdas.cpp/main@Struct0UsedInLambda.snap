@@ -1,32 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/lambdas.cpp/Struct0UsedInLambda
 ---
 [
-  {
-    "loc": "00002:7-13",
-    "source": 1,
-    "nestingRange": "2:16-2:17",
-    "syntax": "def,function",
-    "type": "void (void)",
-    "pretty": "function Struct0::method",
-    "sym": "_ZN7Struct06methodEv"
-  },
-  {
-    "loc": "00002:7-13",
-    "structured": 1,
-    "pretty": "Struct0::method",
-    "sym": "_ZN7Struct06methodEv",
-    "args": [],
-    "kind": "method",
-    "parentsym": "T_Struct0",
-    "overrides": [],
-    "props": [
-      "instance",
-      "user"
-    ]
-  },
   {
     "loc": "00002:7-13",
     "target": 1,
@@ -39,21 +16,54 @@ snapshot_kind: text
   },
   {
     "loc": "00010:39-45",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void",
-    "pretty": "function Struct0::method",
-    "sym": "_ZN7Struct06methodEv",
-    "argRanges": []
-  },
-  {
-    "loc": "00010:39-45",
     "target": 1,
     "kind": "use",
     "pretty": "Struct0::method",
     "sym": "_ZN7Struct06methodEv",
     "context": "test()::(anonymous class)::operator()",
-    "contextsym": "_ZZ4testvENK3$_0clEOT_",
-    "argRanges": []
+    "contextsym": "_ZZ4testvENK3$_0clEOT_"
+  },
+  {
+    "loc": "00002:7-13",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function Struct0::method",
+    "sym": "_ZN7Struct06methodEv",
+    "nestingRange": "2:16-2:17",
+    "type": "void (void)"
+  },
+  {
+    "loc": "00010:39-45",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function Struct0::method",
+    "sym": "_ZN7Struct06methodEv",
+    "type": "void"
+  },
+  {
+    "loc": "00002:7-13",
+    "structured": 1,
+    "pretty": "Struct0::method",
+    "sym": "_ZN7Struct06methodEv",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "parentsym": "T_Struct0",
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ],
+    "variants": [],
+    "args": []
   }
 ]

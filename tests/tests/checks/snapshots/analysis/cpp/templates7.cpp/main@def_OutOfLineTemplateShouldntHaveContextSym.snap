@@ -1,18 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/templates7.cpp/def_OutOfLineTemplateShouldntHaveContextSym
 ---
 [
-  {
-    "loc": "00024:12-51",
-    "source": 1,
-    "nestingRange": "24:55-24:56",
-    "syntax": "def,function",
-    "type": "void (T)",
-    "pretty": "function Theme::OutOfLineTemplateShouldntHaveContextSym",
-    "sym": "_ZN5Theme39OutOfLineTemplateShouldntHaveContextSymET_"
-  },
   {
     "loc": "00024:12-51",
     "target": 1,
@@ -20,5 +11,14 @@ snapshot_kind: text
     "pretty": "Theme::OutOfLineTemplateShouldntHaveContextSym",
     "sym": "_ZN5Theme39OutOfLineTemplateShouldntHaveContextSymET_",
     "peekRange": "24-24"
+  },
+  {
+    "loc": "00024:12-51",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function Theme::OutOfLineTemplateShouldntHaveContextSym",
+    "sym": "_ZN5Theme39OutOfLineTemplateShouldntHaveContextSymET_",
+    "nestingRange": "24:55-24:56",
+    "type": "void (T)"
   }
 ]

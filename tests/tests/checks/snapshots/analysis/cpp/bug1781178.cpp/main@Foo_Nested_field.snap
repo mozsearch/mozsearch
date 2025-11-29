@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_Nested_field
 ---
 [
-  {
-    "loc": "00009:8-13",
-    "source": 1,
-    "syntax": "def,field",
-    "type": "int",
-    "pretty": "field Foo::Nested::field",
-    "sym": "F_<T_Foo::Nested>_field"
-  },
   {
     "loc": "00009:8-13",
     "target": 1,
@@ -24,22 +16,30 @@ snapshot_kind: text
   },
   {
     "loc": "00033:17-22",
-    "source": 1,
-    "syntax": "use,field",
-    "type": "int",
-    "pretty": "field Foo::Nested::field",
-    "sym": "F_<T_Foo::Nested>_field",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00033:17-22",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Nested::field",
     "sym": "F_<T_Foo::Nested>_field",
     "context": "Foo::Bar",
     "contextsym": "_ZN3Foo3BarEv"
+  },
+  {
+    "loc": "00009:8-13",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field Foo::Nested::field",
+    "sym": "F_<T_Foo::Nested>_field",
+    "type": "int"
+  },
+  {
+    "loc": "00033:17-22",
+    "source": 1,
+    "syntax": "field,use",
+    "pretty": "field Foo::Nested::field",
+    "sym": "F_<T_Foo::Nested>_field",
+    "type": "int",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   }
 ]

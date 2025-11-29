@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/big_cpp.cpp/structured_superhero_takedamage__json
 ---
 [
   {
@@ -9,14 +9,19 @@ snapshot_kind: text
     "structured": 1,
     "pretty": "outerNS::Superhero::takeDamage",
     "sym": "_ZN7outerNS9Superhero10takeDamageEi",
-    "args": [
-      {
-        "name": "damage",
-        "type": "int"
-      }
-    ],
+    "type_pretty": null,
     "kind": "method",
+    "subsystem": null,
     "parentsym": "T_outerNS::Superhero",
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
     "overrides": [
       {
         "sym": "_ZN7outerNS5Thing10takeDamageEi"
@@ -26,6 +31,13 @@ snapshot_kind: text
       "instance",
       "virtual",
       "user"
+    ],
+    "variants": [],
+    "args": [
+      {
+        "name": "damage",
+        "type": "int"
+      }
     ]
   }
 ]

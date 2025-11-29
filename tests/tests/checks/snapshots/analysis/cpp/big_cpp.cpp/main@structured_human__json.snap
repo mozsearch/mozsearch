@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/cpp/big_cpp.cpp/structured_human__json
 ---
 [
   {
@@ -8,9 +9,15 @@ expression: "&json_results"
     "structured": 1,
     "pretty": "outerNS::Human",
     "sym": "T_outerNS::Human",
+    "type_pretty": null,
     "kind": "class",
+    "subsystem": null,
+    "implKind": "",
     "sizeBytes": 16,
     "alignmentBytes": 8,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
     "supers": [
       {
         "sym": "T_outerNS::Thing",
@@ -25,7 +32,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Human::operator=",
@@ -33,7 +41,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Human::operator=",
@@ -41,7 +50,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Human::~Human",
@@ -49,7 +59,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Human::Human",
@@ -58,7 +69,8 @@ expression: "&json_results"
           "instance",
           "defaulted",
           "constexpr"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Human::Human",
@@ -67,9 +79,13 @@ expression: "&json_results"
           "instance",
           "defaulted",
           "constexpr"
-        ]
+        ],
+        "args": []
       }
     ],
-    "fields": []
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
   }
 ]

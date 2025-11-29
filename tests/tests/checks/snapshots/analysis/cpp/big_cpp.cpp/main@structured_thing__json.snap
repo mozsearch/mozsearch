@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/cpp/big_cpp.cpp/structured_thing__json
 ---
 [
   {
@@ -8,10 +9,15 @@ expression: "&json_results"
     "structured": 1,
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
+    "type_pretty": null,
     "kind": "class",
+    "subsystem": null,
+    "implKind": "",
     "sizeBytes": 16,
     "alignmentBytes": 8,
     "ownVFPtrBytes": 8,
+    "bindingSlots": [],
+    "ontologySlots": [],
     "supers": [],
     "methods": [
       {
@@ -20,7 +26,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Thing::ignore",
@@ -28,7 +35,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Thing::takeDamage",
@@ -37,7 +45,8 @@ expression: "&json_results"
           "instance",
           "virtual",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Thing::operator=",
@@ -45,7 +54,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Thing::operator=",
@@ -53,7 +63,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Thing::~Thing",
@@ -61,7 +72,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Thing::Thing",
@@ -70,7 +82,8 @@ expression: "&json_results"
           "instance",
           "defaulted",
           "constexpr"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::Thing::Thing",
@@ -79,7 +92,8 @@ expression: "&json_results"
           "instance",
           "defaulted",
           "constexpr"
-        ]
+        ],
+        "args": []
       }
     ],
     "fields": [
@@ -88,7 +102,9 @@ expression: "&json_results"
         "pretty": "outerNS::Thing::mHP",
         "sym": "F_<T_outerNS::Thing>_mHP",
         "type": "int",
+        "typesym": "",
         "offsetBytes": 8,
+        "bitPositions": null,
         "sizeBytes": 4
       },
       {
@@ -96,9 +112,14 @@ expression: "&json_results"
         "pretty": "outerNS::Thing::mDefunct",
         "sym": "F_<T_outerNS::Thing>_mDefunct",
         "type": "_Bool",
+        "typesym": "",
         "offsetBytes": 12,
+        "bitPositions": null,
         "sizeBytes": 1
       }
-    ]
+    ],
+    "overrides": [],
+    "props": [],
+    "variants": []
   }
 ]

@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_E
 ---
 [
-  {
-    "loc": "00013:7-8",
-    "source": 1,
-    "nestingRange": "13:9-13:17",
-    "syntax": "def,type",
-    "pretty": "type Foo::E",
-    "sym": "T_Foo::E"
-  },
   {
     "loc": "00013:7-8",
     "target": 1,
@@ -24,15 +16,6 @@ snapshot_kind: text
   },
   {
     "loc": "00035:10-11",
-    "source": 1,
-    "syntax": "use,type",
-    "type": "enum Foo::E",
-    "typesym": "T_Foo::E",
-    "pretty": "type Foo::E",
-    "sym": "T_Foo::E"
-  },
-  {
-    "loc": "00035:10-11",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::E",
@@ -42,20 +25,37 @@ snapshot_kind: text
   },
   {
     "loc": "00071:20-21",
-    "source": 1,
-    "syntax": "use,type",
-    "type": "enum Foo<int>::E",
-    "typesym": "T_Foo::E",
-    "pretty": "type Foo::E",
-    "sym": "T_Foo::E"
-  },
-  {
-    "loc": "00071:20-21",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::E",
     "sym": "T_Foo::E",
     "context": "func",
     "contextsym": "_Z4funcv"
+  },
+  {
+    "loc": "00013:7-8",
+    "source": 1,
+    "syntax": "def,type",
+    "pretty": "type Foo::E",
+    "sym": "T_Foo::E",
+    "nestingRange": "13:9-13:17"
+  },
+  {
+    "loc": "00035:10-11",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type Foo::E",
+    "sym": "T_Foo::E",
+    "type": "enum Foo::E",
+    "typesym": "T_Foo::E"
+  },
+  {
+    "loc": "00071:20-21",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type Foo::E",
+    "sym": "T_Foo::E",
+    "type": "enum Foo<int>::E",
+    "typesym": "T_Foo::E"
   }
 ]

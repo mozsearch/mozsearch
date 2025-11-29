@@ -1338,6 +1338,21 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "463-463"
   },
   {
+    "loc": "00447:7-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DEBUG",
+    "sym": "M_DEBUG"
+  },
+  {
+    "loc": "00449:6-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::innerNS::DebugAnonCat",
+    "sym": "T_outerNS::innerNS::DebugAnonCat",
+    "peekRange": "449-449"
+  },
+  {
     "loc": "00001:0",
     "source": 1,
     "syntax": "def,file",
@@ -1416,8 +1431,12 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "M_e89e6d7fbc4c5277",
     "expandsTo": {
       "M_e89e6d7fbc4c5277": {
-        "bar-plat": "2147483647",
-        "foo-plat": "2147483647"
+        "linux64": "2147483647",
+        "linux64-opt": "2147483647",
+        "macosx64-aarch64": "2147483647",
+        "macosx64-aarch64-opt": "2147483647",
+        "win64": "2147483647",
+        "win64-opt": "2147483647"
       }
     }
   },
@@ -1786,8 +1805,12 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "M_0b35282064ef3d77",
     "expandsTo": {
       "M_0b35282064ef3d77": {
-        "bar-plat": "100",
-        "foo-plat": "100"
+        "linux64": "100",
+        "linux64-opt": "100",
+        "macosx64-aarch64": "100",
+        "macosx64-aarch64-opt": "100",
+        "win64": "100",
+        "win64-opt": "100"
       }
     }
   },
@@ -2227,8 +2250,12 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "M_0b35282064ef3d77",
     "expandsTo": {
       "M_0b35282064ef3d77": {
-        "bar-plat": "100",
-        "foo-plat": "100"
+        "linux64": "100",
+        "linux64-opt": "100",
+        "macosx64-aarch64": "100",
+        "macosx64-aarch64-opt": "100",
+        "win64": "100",
+        "win64-opt": "100"
       }
     }
   },
@@ -2856,8 +2883,12 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "M_17487b2064ef3d77",
     "expandsTo": {
       "M_17487b2064ef3d77": {
-        "bar-plat": "100",
-        "foo-plat": "100"
+        "linux64": "100",
+        "linux64-opt": "100",
+        "macosx64-aarch64": "100",
+        "macosx64-aarch64-opt": "100",
+        "win64": "100",
+        "win64-opt": "100"
       }
     }
   },
@@ -3024,6 +3055,21 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "type outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
     "nestingRange": "445:14-445:15"
+  },
+  {
+    "loc": "00447:7-12",
+    "source": 1,
+    "syntax": "macro,use",
+    "pretty": "macro DEBUG",
+    "sym": "M_DEBUG"
+  },
+  {
+    "loc": "00449:6-18",
+    "source": 1,
+    "syntax": "def,type",
+    "pretty": "type outerNS::innerNS::DebugAnonCat",
+    "sym": "T_outerNS::innerNS::DebugAnonCat",
+    "nestingRange": "449:19-449:20"
   },
   {
     "loc": "00453:6-21",
@@ -4183,6 +4229,27 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "structured": 1,
     "pretty": "outerNS::innerNS::AnonCat",
     "sym": "T_outerNS::innerNS::AnonCat",
+    "type_pretty": null,
+    "kind": "class",
+    "subsystem": null,
+    "implKind": "",
+    "sizeBytes": 1,
+    "alignmentBytes": 1,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00449:6-18",
+    "structured": 1,
+    "pretty": "outerNS::innerNS::DebugAnonCat",
+    "sym": "T_outerNS::innerNS::DebugAnonCat",
     "type_pretty": null,
     "kind": "class",
     "subsystem": null,
