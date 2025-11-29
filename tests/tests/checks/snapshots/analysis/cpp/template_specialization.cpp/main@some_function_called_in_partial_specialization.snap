@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/template_specialization.cpp/some_function_called_in_partial_specialization
 ---
 [
-  {
-    "loc": "00002:14-27",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (void)",
-    "pretty": "function SomeStruct::some_function",
-    "sym": "_ZN10SomeStruct13some_functionEv"
-  },
   {
     "loc": "00002:14-27",
     "target": 1,
@@ -24,19 +16,27 @@ snapshot_kind: text
   },
   {
     "loc": "00010:35-48",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (void)",
-    "pretty": "function SomeStruct::some_function",
-    "sym": "_ZN10SomeStruct13some_functionEv"
-  },
-  {
-    "loc": "00010:35-48",
     "target": 1,
     "kind": "use",
     "pretty": "SomeStruct::some_function",
     "sym": "_ZN10SomeStruct13some_functionEv",
     "context": "SomeTemplate<int, type-parameter-0-0>::call_function",
     "contextsym": "_ZN12SomeTemplateIiT_E13call_functionEv"
+  },
+  {
+    "loc": "00002:14-27",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function SomeStruct::some_function",
+    "sym": "_ZN10SomeStruct13some_functionEv",
+    "type": "void (void)"
+  },
+  {
+    "loc": "00010:35-48",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function SomeStruct::some_function",
+    "sym": "_ZN10SomeStruct13some_functionEv",
+    "type": "void (void)"
   }
 ]

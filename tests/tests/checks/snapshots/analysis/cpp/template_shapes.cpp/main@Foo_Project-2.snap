@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/template_shapes.cpp/Foo_Project
 ---
 [
-  {
-    "loc": "00023:7-11",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (Rectangle)",
-    "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE9Rectangle"
-  },
   {
     "loc": "00023:7-11",
     "target": 1,
@@ -21,14 +13,6 @@ snapshot_kind: text
     "context": "DrawingContext",
     "contextsym": "T_DrawingContext",
     "peekRange": "23-23"
-  },
-  {
-    "loc": "00024:7-11",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (Triangle)",
-    "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE8Triangle"
   },
   {
     "loc": "00024:7-11",
@@ -42,14 +26,6 @@ snapshot_kind: text
   },
   {
     "loc": "00025:7-11",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (Circle)",
-    "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE6Circle"
-  },
-  {
-    "loc": "00025:7-11",
     "target": 1,
     "kind": "decl",
     "pretty": "DrawingContext::draw",
@@ -57,50 +33,6 @@ snapshot_kind: text
     "context": "DrawingContext",
     "contextsym": "T_DrawingContext",
     "peekRange": "25-25"
-  },
-  {
-    "loc": "00030:4-8",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (Circle)",
-    "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE6Circle",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00030:4-8",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (Rectangle)",
-    "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE9Rectangle",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00030:4-8",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (Triangle)",
-    "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE8Triangle",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00030:4-8",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void",
-    "pretty": "function DrawingContext::draw",
-    "sym": "_ZN14DrawingContext4drawE6Circle",
-    "argRanges": [
-      "30:9-30:9"
-    ]
   },
   {
     "loc": "00030:4-8",
@@ -140,5 +72,42 @@ snapshot_kind: text
     "sym": "_ZN14DrawingContext4drawE9Rectangle",
     "context": "foo",
     "contextsym": "_Z3fooR14DrawingContextIT_ERT0_"
+  },
+  {
+    "loc": "00023:7-11",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE9Rectangle",
+    "type": "void (Rectangle)"
+  },
+  {
+    "loc": "00024:7-11",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE8Triangle",
+    "type": "void (Triangle)"
+  },
+  {
+    "loc": "00025:7-11",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle",
+    "type": "void (Circle)"
+  },
+  {
+    "loc": "00030:4-8",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function DrawingContext::draw",
+    "sym": "_ZN14DrawingContext4drawE6Circle,_ZN14DrawingContext4drawE8Triangle,_ZN14DrawingContext4drawE9Rectangle",
+    "type": "void (Circle)",
+    "confidence": [
+      "concrete",
+      "cppTemplateHeuristic",
+      "cppTemplateHeuristic"
+    ]
   }
 ]

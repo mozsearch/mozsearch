@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/cpp/big_cpp.cpp/structured_outercat__json
 ---
 [
   {
@@ -8,9 +9,15 @@ expression: "&json_results"
     "structured": 1,
     "pretty": "outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
+    "type_pretty": null,
     "kind": "class",
+    "subsystem": null,
+    "implKind": "",
     "sizeBytes": 40,
     "alignmentBytes": 8,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
     "supers": [
       {
         "sym": "T_outerNS::Thing",
@@ -25,7 +32,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::isFriendlyCat",
@@ -33,7 +41,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::isSecretlyUnfriendly",
@@ -41,7 +50,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::isFriendlyIfNotCurrentlyVisible",
@@ -49,7 +59,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::meet",
@@ -57,7 +68,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::meet",
@@ -65,7 +77,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::shred",
@@ -73,7 +86,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::destroy",
@@ -81,7 +95,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::OuterCat",
@@ -89,7 +104,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::OuterCat",
@@ -97,7 +113,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::operator=",
@@ -105,7 +122,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::operator=",
@@ -113,7 +131,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "outerNS::OuterCat::~OuterCat",
@@ -121,7 +140,8 @@ expression: "&json_results"
         "props": [
           "instance",
           "defaulted"
-        ]
+        ],
+        "args": []
       }
     ],
     "fields": [
@@ -130,7 +150,9 @@ expression: "&json_results"
         "pretty": "outerNS::OuterCat::mIsFriendly",
         "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
         "type": "_Bool",
+        "typesym": "",
         "offsetBytes": 13,
+        "bitPositions": null,
         "sizeBytes": 1
       },
       {
@@ -138,7 +160,9 @@ expression: "&json_results"
         "pretty": "outerNS::OuterCat::mIsSecretlyUnfriendly",
         "sym": "F_<T_outerNS::OuterCat>_mIsSecretlyUnfriendly",
         "type": "_Bool",
+        "typesym": "",
         "offsetBytes": 14,
+        "bitPositions": null,
         "sizeBytes": 1
       },
       {
@@ -148,6 +172,7 @@ expression: "&json_results"
         "type": "class std::shared_ptr<class outerNS::Human>",
         "typesym": "T_std::shared_ptr",
         "offsetBytes": 16,
+        "bitPositions": null,
         "sizeBytes": 16
       },
       {
@@ -157,8 +182,12 @@ expression: "&json_results"
         "type": "class outerNS::Couch *",
         "typesym": "T_outerNS::Couch",
         "offsetBytes": 32,
+        "bitPositions": null,
         "sizeBytes": 8
       }
-    ]
+    ],
+    "overrides": [],
+    "props": [],
+    "variants": []
   }
 ]

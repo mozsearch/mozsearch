@@ -6,18 +6,18 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/include_big_header__json
 [
   {
     "loc": "00021:9-23",
-    "source": 1,
-    "syntax": "use,file",
-    "pretty": "file big_header.h",
-    "sym": "FILE_big_header@2Eh"
-  },
-  {
-    "loc": "00021:9-23",
     "target": 1,
     "kind": "use",
     "pretty": "big_header.h",
     "sym": "FILE_big_header@2Eh",
     "context": "big_cpp.cpp",
     "contextsym": "FILE_big_cpp@2Ecpp"
+  },
+  {
+    "loc": "00021:9-23",
+    "source": 1,
+    "syntax": "file,use",
+    "pretty": "file big_header.h",
+    "sym": "FILE_big_header@2Eh"
   }
 ]

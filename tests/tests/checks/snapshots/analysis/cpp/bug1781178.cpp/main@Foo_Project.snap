@@ -1,18 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_Project
 ---
 [
-  {
-    "loc": "00019:7-14",
-    "source": 1,
-    "nestingRange": "19:25-19:26",
-    "syntax": "def,function",
-    "type": "void (Point<F>)",
-    "pretty": "function Foo::Project",
-    "sym": "_ZN3Foo7ProjectE5PointITL0__E"
-  },
   {
     "loc": "00019:7-14",
     "target": 1,
@@ -22,15 +13,6 @@ snapshot_kind: text
     "context": "Foo",
     "contextsym": "T_Foo",
     "peekRange": "19-19"
-  },
-  {
-    "loc": "00022:7-14",
-    "source": 1,
-    "nestingRange": "22:35-22:36",
-    "syntax": "def,function",
-    "type": "void (Point<F>, Point<F>)",
-    "pretty": "function Foo::Project",
-    "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_"
   },
   {
     "loc": "00022:7-14",
@@ -44,42 +26,60 @@ snapshot_kind: text
   },
   {
     "loc": "00026:4-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "context": "Foo::Bar",
+    "contextsym": "_ZN3Foo3BarEv"
+  },
+  {
+    "loc": "00029:10-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "context": "Foo::Bar",
+    "contextsym": "_ZN3Foo3BarEv"
+  },
+  {
+    "loc": "00019:7-14",
     "source": 1,
-    "syntax": "use,function",
-    "type": "void (Point<F>)",
+    "syntax": "def,function",
     "pretty": "function Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__E",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
+    "nestingRange": "19:25-19:26",
+    "type": "void (Point<F>)"
+  },
+  {
+    "loc": "00022:7-14",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_",
+    "nestingRange": "22:35-22:36",
+    "type": "void (Point<F>, Point<F>)"
   },
   {
     "loc": "00026:4-11",
-    "target": 1,
-    "kind": "use",
-    "pretty": "Foo::Project",
-    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
-    "context": "Foo::Bar",
-    "contextsym": "_ZN3Foo3BarEv"
-  },
-  {
-    "loc": "00029:10-17",
     "source": 1,
-    "syntax": "use,function",
-    "type": "void (Point<F>)",
+    "syntax": "function,use",
     "pretty": "function Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "type": "void (Point<F>)",
     "confidence": [
       "cppTemplateHeuristic"
     ]
   },
   {
     "loc": "00029:10-17",
-    "target": 1,
-    "kind": "use",
-    "pretty": "Foo::Project",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function Foo::Project",
     "sym": "_ZN3Foo7ProjectE5PointITL0__E",
-    "context": "Foo::Bar",
-    "contextsym": "_ZN3Foo3BarEv"
+    "type": "void (Point<F>)",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   }
 ]

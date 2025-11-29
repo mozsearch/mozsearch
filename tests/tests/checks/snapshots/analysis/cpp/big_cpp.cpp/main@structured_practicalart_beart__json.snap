@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/big_cpp.cpp/structured_practicalart_beart__json
 ---
 [
   {
@@ -9,9 +9,19 @@ snapshot_kind: text
     "structured": 1,
     "pretty": "outerNS::PracticalArt::beArt",
     "sym": "_ZN7outerNS12PracticalArt5beArtEv",
-    "args": [],
+    "type_pretty": null,
     "kind": "method",
+    "subsystem": null,
     "parentsym": "T_outerNS::PracticalArt",
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
     "overrides": [
       {
         "sym": "_ZN7outerNS11AbstractArt5beArtEv"
@@ -21,6 +31,8 @@ snapshot_kind: text
       "instance",
       "virtual",
       "user"
-    ]
+    ],
+    "variants": [],
+    "args": []
   }
 ]
