@@ -2908,7 +2908,7 @@ public:
                     NotIdentifierToken | LocRangeEndValid);
   }
 
-  void inclusionDirective(SourceRange FileNameRange, const FileEntry *File) {
+  void inclusionDirective(SourceLocation HashLoc, SourceRange FileNameRange, const FileEntry *File) {
     std::string includedFile(File->tryGetRealPathName());
     FileType type = relativizePath(includedFile, CI.getHeaderSearchOpts());
     if (type == FileType::Unknown) {
@@ -2933,8 +2933,15 @@ public:
       endMacroExpansion();
     }
 
+    normalizeLocation(&HashLoc);
+    FileInfo *thisFile = getFileInfo(HashLoc);
+    FileType thisType = thisFile->Generated ? FileType::Generated : FileType::Source;
+    std::string thisFilePretty = thisFile->Realname;
+    std::string thisFileSym =
+        std::string("FILE_") + mangleFile(thisFile->Realname, thisType);
+
     visitIdentifier("use", "file", includedFile, FileNameRange, symbol,
-                    QualType(), Context(),
+                    QualType(), Context(thisFilePretty, thisFileSym),
                     NotIdentifierToken | LocRangeEndValid);
   }
 
@@ -3178,10 +3185,10 @@ void PreprocessorHook::InclusionDirective(
   if (!File) {
     return;
   }
-  Indexer->inclusionDirective(FileNameRange.getAsRange(),
+  Indexer->inclusionDirective(HashLoc, FileNameRange.getAsRange(),
                               &File->getFileEntry());
 #else
-  Indexer->inclusionDirective(FileNameRange.getAsRange(), File);
+  Indexer->inclusionDirective(HashLoc, FileNameRange.getAsRange(), File);
 #endif
 }
 
