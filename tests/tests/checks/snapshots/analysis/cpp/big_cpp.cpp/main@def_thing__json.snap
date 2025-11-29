@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/big_cpp.cpp/def_thing__json
 ---
 [
-  {
-    "loc": "00136:6-11",
-    "source": 1,
-    "nestingRange": "136:12-163:0",
-    "syntax": "def,type",
-    "pretty": "type outerNS::Thing",
-    "sym": "T_outerNS::Thing"
-  },
   {
     "loc": "00136:6-11",
     "target": 1,
@@ -19,5 +11,13 @@ snapshot_kind: text
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
     "peekRange": "136-136"
+  },
+  {
+    "loc": "00136:6-11",
+    "source": 1,
+    "syntax": "def,type",
+    "pretty": "type outerNS::Thing",
+    "sym": "T_outerNS::Thing",
+    "nestingRange": "136:12-163:0"
   }
 ]

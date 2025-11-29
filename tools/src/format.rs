@@ -18,7 +18,9 @@ use crate::languages::FormatAs;
 use crate::links;
 use crate::tokenize;
 
-use crate::file_format::analysis::{AnalysisSource, ExpansionInfo, WithLocation};
+use crate::file_format::analysis::{
+    collect_file_syms_from_source, AnalysisSource, ExpansionInfo, WithLocation,
+};
 use crate::file_format::config::{extract_info_from_blame_commit, Config, GitData, TreeConfig};
 use crate::output::{self, Options, PanelItem, PanelSection, F};
 use crate::url_encode_path::url_encode_path;
@@ -670,7 +672,9 @@ pub fn format_file_data(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, path, !analysis.is_empty())?;
+    let file_syms = collect_file_syms_from_source(path, &analysis);
+
+    output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
     output::generate_panel(&opt, writer, panel, false)?;
 
@@ -1254,7 +1258,11 @@ pub fn format_diff(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, path, false)?;
+    // Given this is a diff, the path shouldn't be a generated file and
+    // the file symbol should never contain the platform.
+    let file_syms = vec![make_file_sym_from_path(path)];
+
+    output::generate_breadcrumbs(&opt, writer, path, &file_syms, false)?;
 
     let encoded_path = url_encode_path(path);
 
@@ -1609,7 +1617,7 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, "", false)?;
+    output::generate_breadcrumbs(&opt, writer, "", &vec![], false)?;
 
     output::generate_panel(&opt, writer, &[], true)?;
 

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/cpp/big_cpp.cpp/structured_globalcontext__json
 ---
 [
   {
@@ -8,9 +9,15 @@ expression: "&json_results"
     "structured": 1,
     "pretty": "GlobalContext",
     "sym": "T_GlobalContext",
+    "type_pretty": null,
     "kind": "class",
+    "subsystem": null,
+    "implKind": "",
     "sizeBytes": 1,
     "alignmentBytes": 1,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
     "supers": [],
     "methods": [
       {
@@ -19,7 +26,8 @@ expression: "&json_results"
         "props": [
           "static",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "GlobalContext::decideEnigmaticAnimalBooleanTrait",
@@ -27,7 +35,8 @@ expression: "&json_results"
         "props": [
           "static",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "GlobalContext::decideCatBooleanTrait",
@@ -35,7 +44,8 @@ expression: "&json_results"
         "props": [
           "static",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "GlobalContext::decideBestFriendBooleanTrait",
@@ -43,7 +53,8 @@ expression: "&json_results"
         "props": [
           "static",
           "user"
-        ]
+        ],
+        "args": []
       },
       {
         "pretty": "GlobalContext::decideDogBooleanTrait",
@@ -51,9 +62,13 @@ expression: "&json_results"
         "props": [
           "static",
           "user"
-        ]
+        ],
+        "args": []
       }
     ],
-    "fields": []
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
   }
 ]

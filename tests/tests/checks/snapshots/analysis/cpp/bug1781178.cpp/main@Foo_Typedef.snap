@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_Typedef
 ---
 [
-  {
-    "loc": "00043:8-15",
-    "source": 1,
-    "syntax": "alias,type",
-    "type": "int",
-    "pretty": "type Foo::Typedef",
-    "sym": "TA_Foo::Typedef"
-  },
   {
     "loc": "00043:8-15",
     "target": 1,
@@ -23,22 +15,30 @@ snapshot_kind: text
   },
   {
     "loc": "00052:35-42",
-    "source": 1,
-    "syntax": "use,type",
-    "type": "int",
-    "pretty": "type Foo::Typedef",
-    "sym": "TA_Foo::Typedef",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00052:35-42",
     "target": 1,
     "kind": "use",
     "pretty": "Foo::Typedef",
     "sym": "TA_Foo::Typedef",
     "context": "TemplateFunc",
     "contextsym": "_Z12TemplateFuncN3FooIT_E7TypedefE"
+  },
+  {
+    "loc": "00043:8-15",
+    "source": 1,
+    "syntax": "alias,type",
+    "pretty": "type Foo::Typedef",
+    "sym": "TA_Foo::Typedef",
+    "type": "int"
+  },
+  {
+    "loc": "00052:35-42",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type Foo::Typedef",
+    "sym": "TA_Foo::Typedef",
+    "type": "int",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   }
 ]

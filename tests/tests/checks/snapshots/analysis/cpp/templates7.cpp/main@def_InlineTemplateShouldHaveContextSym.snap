@@ -1,18 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/templates7.cpp/def_InlineTemplateShouldHaveContextSym
 ---
 [
-  {
-    "loc": "00018:14-48",
-    "source": 1,
-    "nestingRange": "18:52-18:53",
-    "syntax": "def,function",
-    "type": "void (T)",
-    "pretty": "function Theme::InlineTemplateShouldHaveContextSym",
-    "sym": "_ZN5Theme34InlineTemplateShouldHaveContextSymET_"
-  },
   {
     "loc": "00018:14-48",
     "target": 1,
@@ -22,5 +13,14 @@ snapshot_kind: text
     "context": "Theme",
     "contextsym": "T_Theme",
     "peekRange": "18-18"
+  },
+  {
+    "loc": "00018:14-48",
+    "source": 1,
+    "syntax": "def,function",
+    "pretty": "function Theme::InlineTemplateShouldHaveContextSym",
+    "sym": "_ZN5Theme34InlineTemplateShouldHaveContextSymET_",
+    "nestingRange": "18:52-18:53",
+    "type": "void (T)"
   }
 ]

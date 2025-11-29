@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/bug1781178.cpp/Point_IsThereOne
 ---
 [
-  {
-    "loc": "00003:7-17",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "_Bool (void)",
-    "pretty": "function Point::IsThereOne",
-    "sym": "_ZN5Point10IsThereOneEv"
-  },
   {
     "loc": "00003:7-17",
     "target": 1,
@@ -24,17 +16,6 @@ snapshot_kind: text
   },
   {
     "loc": "00054:4-14",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "_Bool (void)",
-    "pretty": "function Point::IsThereOne",
-    "sym": "_ZN5Point10IsThereOneEv",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00054:4-14",
     "target": 1,
     "kind": "use",
     "pretty": "Point::IsThereOne",
@@ -44,22 +25,41 @@ snapshot_kind: text
   },
   {
     "loc": "00066:21-31",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "_Bool (void)",
-    "pretty": "function Point::IsThereOne",
-    "sym": "_ZN5Point10IsThereOneEv",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00066:21-31",
     "target": 1,
     "kind": "use",
     "pretty": "Point::IsThereOne",
     "sym": "_ZN5Point10IsThereOneEv",
     "context": "DerivedPoint::Foo",
     "contextsym": "_ZN12DerivedPoint3FooEv"
+  },
+  {
+    "loc": "00003:7-17",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv",
+    "type": "_Bool (void)"
+  },
+  {
+    "loc": "00054:4-14",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv",
+    "type": "_Bool (void)",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
+  },
+  {
+    "loc": "00066:21-31",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function Point::IsThereOne",
+    "sym": "_ZN5Point10IsThereOneEv",
+    "type": "_Bool (void)",
+    "confidence": [
+      "cppTemplateHeuristic"
+    ]
   }
 ]

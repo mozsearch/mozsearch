@@ -1,17 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
-snapshot_kind: text
+input_file: inputs/analysis/cpp/bug1781178.cpp/WithOverloads_Overloaded
 ---
 [
-  {
-    "loc": "00077:14-24",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (int)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEi"
-  },
   {
     "loc": "00077:14-24",
     "target": 1,
@@ -21,14 +13,6 @@ snapshot_kind: text
     "context": "WithOverloads",
     "contextsym": "T_WithOverloads",
     "peekRange": "77-77"
-  },
-  {
-    "loc": "00078:14-24",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (float)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEf"
   },
   {
     "loc": "00078:14-24",
@@ -42,14 +26,6 @@ snapshot_kind: text
   },
   {
     "loc": "00079:14-24",
-    "source": 1,
-    "syntax": "decl,function",
-    "type": "void (_Bool)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEb"
-  },
-  {
-    "loc": "00079:14-24",
     "target": 1,
     "kind": "decl",
     "pretty": "WithOverloads::Overloaded",
@@ -60,70 +36,66 @@ snapshot_kind: text
   },
   {
     "loc": "00083:4-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb",
+    "context": "WithOverloads::Caller",
+    "contextsym": "_ZN13WithOverloads6CallerEv"
+  },
+  {
+    "loc": "00083:4-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEf",
+    "context": "WithOverloads::Caller",
+    "contextsym": "_ZN13WithOverloads6CallerEv"
+  },
+  {
+    "loc": "00083:4-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi",
+    "context": "WithOverloads::Caller",
+    "contextsym": "_ZN13WithOverloads6CallerEv"
+  },
+  {
+    "loc": "00077:14-24",
     "source": 1,
-    "syntax": "use,function",
+    "syntax": "decl,function",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi",
+    "type": "void (int)"
+  },
+  {
+    "loc": "00078:14-24",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEf",
+    "type": "void (float)"
+  },
+  {
+    "loc": "00079:14-24",
+    "source": 1,
+    "syntax": "decl,function",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEb",
+    "type": "void (_Bool)"
+  },
+  {
+    "loc": "00083:4-14",
+    "source": 1,
+    "syntax": "function,use",
+    "pretty": "function WithOverloads::Overloaded",
+    "sym": "_ZN13WithOverloads10OverloadedEi,_ZN13WithOverloads10OverloadedEf,_ZN13WithOverloads10OverloadedEb",
     "type": "void (_Bool)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEb",
     "confidence": [
+      "concrete",
+      "cppTemplateHeuristic",
       "cppTemplateHeuristic"
     ]
-  },
-  {
-    "loc": "00083:4-14",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (float)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEf",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00083:4-14",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (int)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEi",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
-  },
-  {
-    "loc": "00083:4-14",
-    "source": 1,
-    "syntax": "use,function",
-    "type": "void (int)",
-    "pretty": "function WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEi"
-  },
-  {
-    "loc": "00083:4-14",
-    "target": 1,
-    "kind": "use",
-    "pretty": "WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEb",
-    "context": "WithOverloads::Caller",
-    "contextsym": "_ZN13WithOverloads6CallerEv"
-  },
-  {
-    "loc": "00083:4-14",
-    "target": 1,
-    "kind": "use",
-    "pretty": "WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEf",
-    "context": "WithOverloads::Caller",
-    "contextsym": "_ZN13WithOverloads6CallerEv"
-  },
-  {
-    "loc": "00083:4-14",
-    "target": 1,
-    "kind": "use",
-    "pretty": "WithOverloads::Overloaded",
-    "sym": "_ZN13WithOverloads10OverloadedEi",
-    "context": "WithOverloads::Caller",
-    "contextsym": "_ZN13WithOverloads6CallerEv"
   }
 ]

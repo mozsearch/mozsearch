@@ -1,24 +1,9 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/cpp/URL_sym.cpp/URL_sym__json
 ---
 [
-  {
-    "loc": "00006:10-20",
-    "source": 1,
-    "syntax": "def,field",
-    "type": "int32_t",
-    "pretty": "field url_sym::S::scriptURL_",
-    "sym": "F_<T_url_sym::S>_scriptURL_"
-  },
-  {
-    "loc": "00006:10-20",
-    "structured": 1,
-    "pretty": "url_sym::S::scriptURL_",
-    "sym": "F_<T_url_sym::S>_scriptURL_",
-    "kind": "field",
-    "parentsym": "T_url_sym::S"
-  },
   {
     "loc": "00006:10-20",
     "target": 1,
@@ -28,5 +13,35 @@ expression: "&json_results"
     "context": "url_sym::S",
     "contextsym": "T_url_sym::S",
     "peekRange": "6-6"
+  },
+  {
+    "loc": "00006:10-20",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field url_sym::S::scriptURL_",
+    "sym": "F_<T_url_sym::S>_scriptURL_",
+    "type": "int32_t"
+  },
+  {
+    "loc": "00006:10-20",
+    "structured": 1,
+    "pretty": "url_sym::S::scriptURL_",
+    "sym": "F_<T_url_sym::S>_scriptURL_",
+    "type_pretty": null,
+    "kind": "field",
+    "subsystem": null,
+    "parentsym": "T_url_sym::S",
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
   }
 ]
