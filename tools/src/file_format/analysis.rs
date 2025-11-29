@@ -32,6 +32,9 @@ type Ustr = String;
 
 use super::ontology_pointer_kind::OntologyPointerKind;
 
+#[cfg(not(target_arch = "wasm32"))]
+use super::analysis_manglings::make_file_sym_from_path;
+
 #[derive(Copy, Clone, Default, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct Location {
     /// 1-base lined-number.
@@ -1269,4 +1272,67 @@ pub struct PathSearchResult {
     pub path: Ustr,
     pub path_kind: Ustr,
     pub lines: Vec<SearchResult>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn collect_file_syms_from_target(
+    path: &str,
+    analysis: &[WithLocation<Vec<AnalysisTarget>>],
+) -> Vec<String> {
+    let mut file_syms = vec![];
+    for datum in analysis {
+        if datum.loc.lineno != 1 {
+            continue;
+        }
+
+        for piece in &datum.data {
+            if piece.kind != AnalysisKind::Def {
+                continue;
+            }
+            if !piece.sym.starts_with("FILE_") {
+                continue;
+            }
+            file_syms.push(piece.sym.to_string());
+        }
+    }
+    if file_syms.is_empty() {
+        file_syms.push(make_file_sym_from_path(path));
+    }
+    file_syms
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn collect_file_syms_from_source(
+    path: &str,
+    analysis: &[WithLocation<Vec<AnalysisSource>>],
+) -> Vec<String> {
+    let mut file_syms = vec![];
+    for datum in analysis {
+        if datum.loc.lineno != 1 {
+            continue;
+        }
+
+        for piece in &datum.data {
+            if piece.syntax.len() != 2 {
+                continue;
+            }
+            if piece.syntax[0] != "def" {
+                continue;
+            }
+            if piece.syntax[1] != "file" {
+                continue;
+            }
+
+            for sym in &piece.sym {
+                if !sym.starts_with("FILE_") {
+                    continue;
+                }
+                file_syms.push(sym.to_string());
+            }
+        }
+    }
+    if file_syms.is_empty() {
+        file_syms.push(make_file_sym_from_path(path));
+    }
+    file_syms
 }
