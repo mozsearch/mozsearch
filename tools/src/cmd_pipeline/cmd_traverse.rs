@@ -301,7 +301,7 @@ impl PipelineCommand for TraverseCommand {
                 overloads_hit.push(OverloadInfo {
                     kind: OverloadKind::NodeLimit,
                     sym: Some(sym.to_string()),
-                    exist: to_traverse.len() as u32,
+                    exist: 0,
                     included: node_limit,
                     local_limit: 0,
                     global_limit: node_limit,
