@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/interface-mixin.webidl/webidl_interface_mixin__json
 ---
 [
   {
@@ -30,6 +31,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceMixin::MixinMethod",
     "sym": "WEBIDL_TestInterfaceMixin_MixinMethod"
+  },
+  {
+    "loc": "2:7-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceMixin.MixinMethod",
+    "sym": "TestInterfaceMixin#MixinMethod"
+  },
+  {
+    "loc": "2:7-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "MixinMethod",
+    "sym": "#MixinMethod"
   },
   {
     "loc": "2:7-18",

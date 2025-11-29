@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/partial-interface.webidl/webidl_partial_interface__json
 ---
 [
   {
@@ -30,6 +31,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterface::PartialMethod",
     "sym": "WEBIDL_TestInterface_PartialMethod"
+  },
+  {
+    "loc": "2:7-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterface.PartialMethod",
+    "sym": "TestInterface#PartialMethod"
+  },
+  {
+    "loc": "2:7-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PartialMethod",
+    "sym": "#PartialMethod"
   },
   {
     "loc": "2:7-20",

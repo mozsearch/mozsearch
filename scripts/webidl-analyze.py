@@ -449,6 +449,16 @@ def append_slot(slots, kind, lang, impl_kind, sym):
     slots.append(record)
 
 
+def emit_js_property(records, loc, iface_name, name):
+    nested_pretty = f'{iface_name}.{name}'
+    nested_sym = f'{iface_name}#{name}'
+    emit_target(records, loc, 'def', nested_pretty, nested_sym)
+
+    pretty = name
+    sym = f'#{name}'
+    emit_target(records, loc, 'def', pretty, sym)
+
+
 def handle_method(records, iface_name, methods, cpp_symbols, target):
     '''Emit analysis record for IDLMethod in interface or namespace.'''
 
@@ -462,6 +472,8 @@ def handle_method(records, iface_name, methods, cpp_symbols, target):
 
     emit_source(records, loc, 'idl', 'method', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
+
+    emit_js_property(records, loc, iface_name, name)
 
     slots = []
     if cpp_item:
@@ -503,6 +515,8 @@ def handle_attribute(records, iface_name, fields, cpp_symbols, target):
     emit_source(records, loc, 'idl', 'attribute', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
+    emit_js_property(records, loc, iface_name, name)
+
     slots = []
     if getter_cpp_item:
         for sym in getter_cpp_item.binding_syms:
@@ -542,6 +556,8 @@ def handle_const(records, iface_name, fields, cpp_symbols, target):
 
     emit_source(records, loc, 'idl', 'const', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
+
+    emit_js_property(records, loc, iface_name, name)
 
     slots = []
     if cpp_item:
@@ -658,6 +674,9 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
     emit_source(records, loc, 'idl', 'class', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
+    if isinstance(target, WebIDL.IDLInterfaceOrNamespace):
+        emit_target(records, loc, 'def', name, js_sym)
+
     slots = []
     if not is_mixin:
         append_slot(slots, 'class', 'cpp', None, cpp_sym)
@@ -710,6 +729,8 @@ def handle_dictionary_field(records, dictionary_name, dictionary_cpp_sym,
 
     emit_source(records, loc, 'idl', 'field', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
+
+    emit_target(records, loc, 'def', name, js_sym)
 
     slots = []
     append_slot(slots, 'attribute', 'cpp', None, cpp_sym)

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/overload.webidl/webidl_overload__json
 ---
 [
   {
@@ -18,6 +19,13 @@ expression: "&json_results"
     "sym": "WEBIDL_TestInterfaceForOverload"
   },
   {
+    "loc": "1:10-34",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForOverload",
+    "sym": "#TestInterfaceForOverload"
+  },
+  {
     "loc": "2:11-23",
     "source": 1,
     "syntax": "idl",
@@ -30,6 +38,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForOverload::OverloadFunc",
     "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "2:11-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForOverload.OverloadFunc",
+    "sym": "TestInterfaceForOverload#OverloadFunc"
+  },
+  {
+    "loc": "2:11-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "OverloadFunc",
+    "sym": "#OverloadFunc"
   },
   {
     "loc": "2:11-23",
@@ -88,6 +110,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForOverload::OverloadFunc",
     "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "3:11-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForOverload.OverloadFunc",
+    "sym": "TestInterfaceForOverload#OverloadFunc"
+  },
+  {
+    "loc": "3:11-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "OverloadFunc",
+    "sym": "#OverloadFunc"
   },
   {
     "loc": "3:11-23",
@@ -160,6 +196,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestInterfaceForOverload::OverloadFunc",
     "sym": "WEBIDL_TestInterfaceForOverload_OverloadFunc"
+  },
+  {
+    "loc": "4:11-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestInterfaceForOverload.OverloadFunc",
+    "sym": "TestInterfaceForOverload#OverloadFunc"
+  },
+  {
+    "loc": "4:11-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "OverloadFunc",
+    "sym": "#OverloadFunc"
   },
   {
     "loc": "4:11-23",

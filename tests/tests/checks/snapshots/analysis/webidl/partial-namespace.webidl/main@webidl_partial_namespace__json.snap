@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/partial-namespace.webidl/webidl_partial_namespace__json
 ---
 [
   {
@@ -30,6 +31,20 @@ expression: "&json_results"
     "kind": "idl",
     "pretty": "TestNamespace::PartialFunc",
     "sym": "WEBIDL_TestNamespace_PartialFunc"
+  },
+  {
+    "loc": "2:7-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "TestNamespace.PartialFunc",
+    "sym": "TestNamespace#PartialFunc"
+  },
+  {
+    "loc": "2:7-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PartialFunc",
+    "sym": "#PartialFunc"
   },
   {
     "loc": "2:7-18",
