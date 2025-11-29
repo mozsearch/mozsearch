@@ -195,7 +195,7 @@ impl PipelineCommand for TraverseCommand {
             let is_target = info.flags.is_empty() || info.flags.contains(SymbolMetaFlags::Target);
 
             if is_target {
-                to_traverse.push_back((info.symbol, 0, all_traversals_valid));
+                to_traverse.push_back((info.symbol, info.get_pretty(), 0, all_traversals_valid));
             }
             considered.insert(info.symbol);
 
@@ -295,12 +295,13 @@ impl PipelineCommand for TraverseCommand {
         //   set of symbols we're traversing from which we already have cached
         //   values for and the new edges we discover, but it's not a concern.
         // - We traverse the list of edges.
-        while let Some((sym, depth, cur_traversals)) = to_traverse.pop_front() {
+        while let Some((sym, pretty, depth, cur_traversals)) = to_traverse.pop_front() {
             if sym_node_set.symbol_crossref_infos.len() as u32 >= node_limit {
                 trace!(sym = %sym, depth, "stopping because of node limit");
                 overloads_hit.push(OverloadInfo {
                     kind: OverloadKind::NodeLimit,
                     sym: Some(sym.to_string()),
+                    pretty: Some(pretty.to_string()),
                     exist: 0,
                     included: node_limit,
                     local_limit: 0,
@@ -369,6 +370,10 @@ impl PipelineCommand for TraverseCommand {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
                                 to_traverse.push_back((
                                     ptr_info.sym,
+                                    match target_info.crossref_info.pointer("/meta/pretty") {
+                                        Some(Value::String(pretty)) => ustr(pretty),
+                                        _ => ustr(""),
+                                    },
                                     next_depth,
                                     all_traversals_valid,
                                 ));
@@ -458,6 +463,7 @@ impl PipelineCommand for TraverseCommand {
                     overloads_hit.push(OverloadInfo {
                         kind: OverloadKind::FieldMemberUses,
                         sym: Some(sym.to_string()),
+                        pretty: Some(pretty.to_string()),
                         exist: member_uses.len() as u32,
                         included: 0,
                         local_limit: self.args.skip_field_member_uses_at_count,
@@ -479,6 +485,10 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = target_sym_str, "scheduling field-member-use");
                             to_traverse.push_back((
                                 target_info.symbol,
+                                match target_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                },
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -600,6 +610,10 @@ impl PipelineCommand for TraverseCommand {
                                 );
                                 to_traverse.push_back((
                                     other_info.symbol,
+                                    match other_info.crossref_info.pointer("/meta/pretty") {
+                                        Some(Value::String(pretty)) => ustr(pretty),
+                                        _ => ustr(""),
+                                    },
                                     next_depth,
                                     all_traversals_valid,
                                 ));
@@ -631,6 +645,10 @@ impl PipelineCommand for TraverseCommand {
                             );
                             to_traverse.push_back((
                                 owner_info.symbol,
+                                match owner_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                },
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -681,7 +699,7 @@ impl PipelineCommand for TraverseCommand {
                         if skip_other_edges {
                             skip_after_slots = true;
                         }
-                        let (rel_id, _) = sym_node_set
+                        let (rel_id, rel_info) = sym_node_set
                             .ensure_symbol(&slot.sym, server, next_depth)
                             .await?;
                         if outbound_edge {
@@ -703,7 +721,15 @@ impl PipelineCommand for TraverseCommand {
                         }
                         if next_depth < max_depth && considered.insert(slot.sym) {
                             trace!(sym = slot.sym.as_str(), "scheduling bind slot sym");
-                            to_traverse.push_back((slot.sym, next_depth, all_traversals_valid));
+                            to_traverse.push_back((
+                                slot.sym,
+                                match rel_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                },
+                                next_depth,
+                                all_traversals_valid,
+                            ));
                         }
                     }
                 }
@@ -729,7 +755,7 @@ impl PipelineCommand for TraverseCommand {
                     };
                     if should_traverse {
                         for rel_sym in slot.syms {
-                            let (rel_id, _) = sym_node_set
+                            let (rel_id, rel_info) = sym_node_set
                                 .ensure_symbol(&rel_sym, server, next_depth)
                                 .await?;
                             if upwards {
@@ -751,7 +777,15 @@ impl PipelineCommand for TraverseCommand {
                             }
                             if next_depth < max_depth && considered.insert(rel_sym) {
                                 trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
-                                to_traverse.push_back((rel_sym, next_depth, all_traversals_valid));
+                                to_traverse.push_back((
+                                    rel_sym,
+                                    match rel_info.crossref_info.pointer("/meta/pretty") {
+                                        Some(Value::String(pretty)) => ustr(pretty),
+                                        _ => ustr(""),
+                                    },
+                                    next_depth,
+                                    all_traversals_valid,
+                                ));
                             }
                         }
                         // For the case of runnables the override hierarchy is arguably a
@@ -806,6 +840,10 @@ impl PipelineCommand for TraverseCommand {
                         // XXX we should potentially be tying this into "considered" somehow.
                         to_traverse.push_back((
                             target_info.symbol,
+                            match target_info.crossref_info.pointer("/meta/pretty") {
+                                Some(Value::String(pretty)) => ustr(pretty),
+                                _ => ustr(""),
+                            },
                             next_depth,
                             Traversals::Subclass,
                         ));
@@ -870,7 +908,15 @@ impl PipelineCommand for TraverseCommand {
                         // If we're going in the superclass direction, continue only going in the
                         // superclass direction; don't allow going back down subclasses!
                         // XXX we should potentially be tying this into "considered" somehow
-                        to_traverse.push_back((target_info.symbol, next_depth, Traversals::Super));
+                        to_traverse.push_back((
+                            target_info.symbol,
+                            match target_info.crossref_info.pointer("/meta/pretty") {
+                                Some(Value::String(pretty)) => ustr(pretty),
+                                _ => ustr(""),
+                            },
+                            next_depth,
+                            Traversals::Super,
+                        ));
                     }
                 }
             }
@@ -921,6 +967,10 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = target_sym_str, "scheduling overrides");
                             to_traverse.push_back((
                                 target_info.symbol,
+                                match target_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                },
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -966,6 +1016,10 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = target_sym_str, "scheduling overridenBy");
                             to_traverse.push_back((
                                 target_info.symbol,
+                                match target_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                },
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -1029,6 +1083,10 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = target_sym_str, "scheduling callees");
                             to_traverse.push_back((
                                 target_info.symbol,
+                                match target_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                },
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -1070,6 +1128,7 @@ impl PipelineCommand for TraverseCommand {
                     overloads_hit.push(OverloadInfo {
                         kind: OverloadKind::UsesPaths,
                         sym: Some(sym.to_string()),
+                        pretty: Some(pretty.to_string()),
                         exist: uses.len() as u32,
                         included: 0,
                         local_limit: skip_uses_at_path_count,
@@ -1106,6 +1165,7 @@ impl PipelineCommand for TraverseCommand {
                         overloads_hit.push(OverloadInfo {
                             kind: OverloadKind::UsesLines,
                             sym: Some(sym.to_string()),
+                            pretty: Some(pretty.to_string()),
                             exist: hits.len() as u32,
                             included: 0,
                             local_limit: skip_uses_at_path_count,
@@ -1118,6 +1178,7 @@ impl PipelineCommand for TraverseCommand {
                         overloads_hit.push(OverloadInfo {
                             kind: OverloadKind::UsesLines,
                             sym: Some(sym.to_string()),
+                            pretty: Some(pretty.to_string()),
                             exist: line_hits,
                             included: line_hits - (hits.len() as u32),
                             local_limit: 0,
@@ -1160,6 +1221,10 @@ impl PipelineCommand for TraverseCommand {
                                 trace!(sym = source_sym_str, "scheduling uses");
                                 to_traverse.push_back((
                                     source_info.symbol,
+                                    match source_info.crossref_info.pointer("/meta/pretty") {
+                                        Some(Value::String(pretty)) => ustr(pretty),
+                                        _ => ustr(""),
+                                    },
                                     next_depth,
                                     all_traversals_valid,
                                 ));
@@ -1203,6 +1268,7 @@ impl PipelineCommand for TraverseCommand {
                 overloads_hit.push(OverloadInfo {
                     kind: OverloadKind::NodeLimit,
                     sym: None,
+                    pretty: None,
                     // We don't know how many there might have been as we did a soft limit
                     // stop while propagating, so say 0 for exist but how many
                     // we included.
