@@ -458,6 +458,42 @@ var Dxr = new (class Dxr {
     let url = this.constructURL();
     this.updateHistory(url);
   }
+
+  liftDiagramLimit(kind, exists) {
+    let query = this.fields.query.value;
+
+    switch (kind) {
+      case "UsesPaths":
+      case "UsesLines": {
+        const limit = Math.max(256, exists + 100);
+        query = query.replace(/ +path-limit:(\d+)/g, "");
+
+        query += " path-limit:" + limit;
+        break;
+      }
+      case "NodeLimit": {
+        if (query.includes("calls-between:")) {
+          const limit = 16384;
+          query = query.replace(/ +paths-between-node-limit:(\d+)/g, "");
+          query += " paths-between-node-limit:" + limit;
+        } else {
+          const limit = 1024;
+          query = query.replace(/ +node-limit:(\d+)/g, "");
+          query += " node-limit:" + limit;
+        }
+        break;
+      }
+      case "Overrides":
+      case "Subclasses":
+      case "FieldMemberUses":
+        // Unsupported.
+        break;
+    }
+
+    this.fields.query.value = query;
+    let url = this.constructURL();
+    window.location = url;
+  }
 })();
 
 function hashString(string) {
