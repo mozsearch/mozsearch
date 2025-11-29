@@ -1,0 +1,10 @@
+void caller0() { target(); }
+void caller1() { target(); }
+void caller2() { target(); }
+void caller3() { target(); }
+void caller4() { target(); }
+void caller5() { target(); }
+void caller6() { target(); }
+void caller7() { target(); }
+void caller8() { target(); }
+void caller9() { target(); }
