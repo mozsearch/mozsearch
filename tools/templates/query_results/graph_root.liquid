@@ -1,13 +1,34 @@
 {%- if results.GraphResultsBundle.overloads_hit != empty -%}
+<div class="diagram-limit-warning">
 <h3>Limits Hit:</h3>
+<p>The following items hit the limit, and the result is incomplete.</p>
 <ul>
   {%- for overload in results.GraphResultsBundle.overloads_hit -%}
-  <li>{{overload.sym}}: {{ overload.kind }}: {{ overload.exist }} exist, {{ overload.included }} included.
-  {%- if overload.local_limit > 0 %} Local limit: {{ overload.local_limit }}{% endif -%}
-  {%- if overload.global_limit > 0 %} Global limit: {{ overload.global_limit }}{% endif -%}
+  <li>
+    <code>{{overload.pretty}}</code>
+    {% if overload.local_limit > 0 %} hit the local limit{% endif -%}
+    {%- if overload.global_limit > 0 %} hit the global limit{% endif -%}<br>
+    <span class="diagram-limit-kind">
+    {% if overload.kind == "Overrides" -%}too many overrides
+    {%- elsif overload.kind == "Subclasses" -%}too many subclasses
+    {%- elsif overload.kind == "UsesPaths" -%}too many uses
+    {%- elsif overload.kind == "UsesLines" -%}too many lines
+    {%- elsif overload.kind == "FieldMemberUses" -%}too many field member uses
+    {%- elsif overload.kind == "NodeLimit" -%}too many nodes
+    {%- else %}{{ overload.kind }}:{%- endif %}
+    </span>: <span class="diagram-limit-eq">
+    {%- if overload.exist == 0 -%}
+      (unknown)
+    {%- else -%}
+      {{ overload.exist }}
+    {%- endif -%}
+    {%- if overload.local_limit > 0 %} >= {{ overload.local_limit }}{% endif -%}
+    {%- if overload.global_limit > 0 %} >= {{ overload.global_limit }}{% endif -%}
+    </span>: only {{ overload.included }} included.
   </li>
   {%- endfor -%}
 </ul>
+</div>
 {%- endif -%}
 <script>var GRAPH_EXTRA = [];</script>
 {% for graph in results.GraphResultsBundle.graphs %}
