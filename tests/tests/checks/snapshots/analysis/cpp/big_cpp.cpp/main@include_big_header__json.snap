@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/cpp/big_cpp.cpp/include_big_header__json
 ---
 [
   {
@@ -15,6 +16,8 @@ expression: "&json_results"
     "target": 1,
     "kind": "use",
     "pretty": "big_header.h",
-    "sym": "FILE_big_header@2Eh"
+    "sym": "FILE_big_header@2Eh",
+    "context": "big_cpp.cpp",
+    "contextsym": "FILE_big_cpp@2Ecpp"
   }
 ]

@@ -16,21 +16,27 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "target": 1,
     "kind": "use",
     "pretty": "big_header.h",
-    "sym": "FILE_big_header@2Eh"
+    "sym": "FILE_big_header@2Eh",
+    "context": "big_cpp.cpp",
+    "contextsym": "FILE_big_cpp@2Ecpp"
   },
   {
     "loc": "00022:9-50",
     "target": 1,
     "kind": "use",
     "pretty": "subdir/header@with,many^strange~chars.h",
-    "sym": "FILE_subdir/header@40with@2Cmany@5Estrange@7Echars@2Eh"
+    "sym": "FILE_subdir/header@40with@2Cmany@5Estrange@7Echars@2Eh",
+    "context": "big_cpp.cpp",
+    "contextsym": "FILE_big_cpp@2Ecpp"
   },
   {
     "loc": "00023:9-23",
     "target": 1,
     "kind": "use",
     "pretty": "atom_magic.h",
-    "sym": "FILE_atom_magic@2Eh"
+    "sym": "FILE_atom_magic@2Eh",
+    "context": "big_cpp.cpp",
+    "contextsym": "FILE_big_cpp@2Ecpp"
   },
   {
     "loc": "00025:6-19",
