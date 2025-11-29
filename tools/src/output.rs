@@ -5,7 +5,6 @@ use std::io::Write;
 use std::path::Path;
 
 extern crate chrono;
-use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::url_encode_path::url_encode_path;
 
 use self::chrono::{DateTime, Local};
@@ -46,6 +45,7 @@ pub fn generate_breadcrumbs(
     opt: &Options,
     writer: &mut dyn Write,
     path: &str,
+    file_syms: &Vec<String>,
     generate_symbol: bool,
 ) -> Result<(), &'static str> {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
@@ -71,7 +71,7 @@ pub fn generate_breadcrumbs(
     if generate_symbol {
         breadcrumbs.push_str(&format!(
             "  <span data-symbols=\"{}\">(file symbol)</span>",
-            make_file_sym_from_path(path)
+            file_syms.join(","),
         ));
     }
 

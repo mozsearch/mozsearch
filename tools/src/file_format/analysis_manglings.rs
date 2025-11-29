@@ -12,6 +12,9 @@ pub fn mangle_file(filename: &str) -> String {
     .to_string()
 }
 
+// NOTE: The generated files can have different symbol than this.
+//       Please consider using analysis::collect_file_syms_from_target or
+//       analysis::collect_file_syms_from_source whenever possible.
 pub fn make_file_sym_from_path(path: &str) -> String {
     format!("FILE_{}", mangle_file(path))
 }

@@ -22,8 +22,9 @@ use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis::{
-    read_analysis, read_structured, read_target, AnalysisKind, AnalysisTarget, BindingSlotProps,
-    LineRange, Location, SearchResult, StructuredBindingSlotInfo, TargetTag,
+    collect_file_syms_from_target, read_analysis, read_structured, read_target, AnalysisKind,
+    AnalysisTarget, BindingSlotProps, LineRange, Location, SearchResult, StructuredBindingSlotInfo,
+    TargetTag,
 };
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
@@ -80,7 +81,7 @@ type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
 fn process_analysis_target(
     mut piece: AnalysisTarget,
     path: &Ustr,
-    file_sym: &Ustr,
+    fallback_file_sym: &Ustr,
     lineno: usize,
     loc: &Location,
     table: &mut SearchResultTable,
@@ -98,7 +99,7 @@ fn process_analysis_target(
     // see how it works out.
     if piece.sym.starts_with("FILE_") && piece.contextsym.is_empty() {
         piece.context = *path;
-        piece.contextsym = *file_sym;
+        piece.contextsym = *fallback_file_sym;
     }
 
     let t1 = table.entry(piece.sym).or_default();
@@ -199,7 +200,7 @@ fn process_analysis_structured(
 
 fn make_subsystem(
     path: &Ustr,
-    file_sym: &Ustr,
+    file_syms: &Vec<String>,
     ingestion: &mut RepoIngestion,
     meta_table: &mut MetaTable,
     pretty_table: &mut PrettyTable,
@@ -208,45 +209,48 @@ fn make_subsystem(
     let concise_info = ingestion.state.concise_per_file.get(path);
 
     if let Some(concise) = concise_info {
-        let file_structured = AnalysisStructured {
-            structured: StructuredTag::Structured,
-            pretty: *path,
-            sym: *file_sym,
-            type_pretty: None,
-            kind: ustr("file"),
-            subsystem: concise.subsystem,
-            // For most analytical purposes, we want to think of files as atomic,
-            // so I don't think there is any upside to modeling the containing
-            // directory as a parent.  Especially since we don't yet have a
-            // `DIR_blah` symbol type yet or a clear reason to want one.
-            parent_sym: None,
-            slot_owner: None,
-            impl_kind: ustr("impl"),
-            size_bytes: None,
-            alignment_bytes: None,
-            own_vf_ptr_bytes: None,
-            binding_slots: vec![],
-            ontology_slots: vec![],
-            supers: vec![],
-            methods: vec![],
-            fields: vec![],
-            overrides: vec![],
-            props: vec![],
-            labels: BTreeSet::default(),
+        for file_sym_str in file_syms {
+            let file_sym = ustr(file_sym_str);
+            let file_structured = AnalysisStructured {
+                structured: StructuredTag::Structured,
+                pretty: *path,
+                sym: file_sym,
+                type_pretty: None,
+                kind: ustr("file"),
+                subsystem: concise.subsystem,
+                // For most analytical purposes, we want to think of files as atomic,
+                // so I don't think there is any upside to modeling the containing
+                // directory as a parent.  Especially since we don't yet have a
+                // `DIR_blah` symbol type yet or a clear reason to want one.
+                parent_sym: None,
+                slot_owner: None,
+                impl_kind: ustr("impl"),
+                size_bytes: None,
+                alignment_bytes: None,
+                own_vf_ptr_bytes: None,
+                binding_slots: vec![],
+                ontology_slots: vec![],
+                supers: vec![],
+                methods: vec![],
+                fields: vec![],
+                overrides: vec![],
+                props: vec![],
+                labels: BTreeSet::default(),
 
-            idl_sym: None,
-            subclass_syms: vec![],
-            overridden_by_syms: vec![],
-            variants: vec![],
-            extra: Map::default(),
+                idl_sym: None,
+                subclass_syms: vec![],
+                overridden_by_syms: vec![],
+                variants: vec![],
+                extra: Map::default(),
 
-            can_gc: None,
-            gc_path: None,
-        };
-        meta_table.insert(file_structured.sym, file_structured);
-        pretty_table.insert(*file_sym, *path);
-        let t1 = id_table.entry(*path).or_default();
-        t1.insert(*file_sym);
+                can_gc: None,
+                gc_path: None,
+            };
+            meta_table.insert(file_structured.sym, file_structured);
+            pretty_table.insert(file_sym, *path);
+            let t1 = id_table.entry(*path).or_default();
+            t1.insert(file_sym);
+        }
         concise.subsystem
     } else {
         None
@@ -473,11 +477,15 @@ async fn main() {
         println!("File {}", path);
 
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
-        let file_sym: Ustr = ustr(&make_file_sym_from_path(path));
+        let fallback_file_sym: Ustr = ustr(&make_file_sym_from_path(path));
+
+        let analysis = read_analysis(&analysis_fname, &mut read_target);
+
+        let file_syms = collect_file_syms_from_target(path, &analysis);
 
         let subsystem = make_subsystem(
             path,
-            &file_sym,
+            &file_syms,
             &mut ingestion,
             &mut meta_table,
             &mut pretty_table,
@@ -545,8 +553,6 @@ async fn main() {
             })
             .collect();
 
-        let analysis = read_analysis(&analysis_fname, &mut read_target);
-
         for datum in analysis {
             // If we're going to experience a bad line, skip out before
             // creating any structure.
@@ -560,7 +566,7 @@ async fn main() {
                 process_analysis_target(
                     piece,
                     path,
-                    &file_sym,
+                    &fallback_file_sym,
                     lineno,
                     &datum.loc,
                     &mut table,
