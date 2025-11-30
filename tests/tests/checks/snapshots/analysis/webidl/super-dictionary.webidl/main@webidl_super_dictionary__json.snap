@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/super-dictionary.webidl/webidl_super_dictionary__json
 ---
 [
   {
@@ -44,12 +45,6 @@ expression: "&json_results"
         "slotLang": "cpp",
         "ownerLang": "idl",
         "sym": "T_mozilla::dom::TestSubDictionary"
-      },
-      {
-        "slotKind": "class",
-        "slotLang": "js",
-        "ownerLang": "idl",
-        "sym": "#TestSubDictionary"
       }
     ],
     "supers": [

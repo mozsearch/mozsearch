@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/attribute.webidl/webidl_attribute__json
 ---
 [
   {
@@ -120,7 +121,7 @@ expression: "&json_results"
         "sym": "NS_mozilla::dom::TestInterfaceForAttribute_Binding"
       },
       {
-        "slotKind": "interface_name",
+        "slotKind": "interface",
         "slotLang": "js",
         "ownerLang": "idl",
         "sym": "#TestInterfaceForAttribute"

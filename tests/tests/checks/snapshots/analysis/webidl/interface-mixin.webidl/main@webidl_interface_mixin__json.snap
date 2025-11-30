@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/interface-mixin.webidl/webidl_interface_mixin__json
 ---
 [
   {
@@ -68,14 +69,6 @@ expression: "&json_results"
     "sym": "WEBIDL_TestInterfaceMixin",
     "kind": "class",
     "implKind": "idl",
-    "bindingSlots": [
-      {
-        "slotKind": "interface_name",
-        "slotLang": "js",
-        "ownerLang": "idl",
-        "sym": "#TestInterfaceMixin"
-      }
-    ],
     "methods": [
       {
         "pretty": "TestInterfaceMixin::MixinMethod",

@@ -57,7 +57,7 @@ def parse_path_filter(filter):
     return filter
 
 key_remapping = { 'uses': 'Uses', 'defs': 'Definitions', 'assignments': 'Assignments',
-                  'decls': 'Declarations', 'idl': 'IDL', 'aliases': 'Aliases',
+                  'decls': 'Declarations', 'idl': 'IDL', 'idlp': 'IDL Partial', 'aliases': 'Aliases',
                   'callees': None, 'field-member-uses': None }
 
 def merge_defs_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
@@ -262,7 +262,7 @@ class SearchResults(object):
     max_count = 1000 * EXTREME_FACTOR
     max_work = 1000 * EXTREME_FACTOR
     path_precedences = ['normal', 'thirdparty', 'test', 'generated']
-    key_precedences = ["Files", "IDL", "Definitions", "Declarations", "Bindings",
+    key_precedences = ["Files", "IDL", "IDL Partial", "Definitions", "Declarations", "Bindings",
         "Aliases", "Overrides", "Overridden By", "Superclasses", "Subclasses",
         "Assignments", "Uses", "Textual Occurrences"]
 

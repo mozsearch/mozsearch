@@ -655,13 +655,21 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
 
                     cpp_symbols[prop].merge(item)
 
+    kind = 'idl'
+    if isinstance(target, WebIDL.IDLPartialInterfaceOrNamespace):
+        kind = 'idlp'
+
     emit_source(records, loc, 'idl', 'class', pretty, idl_sym)
-    emit_target(records, loc, 'idl', pretty, idl_sym)
+    emit_target(records, loc, kind, pretty, idl_sym)
 
     slots = []
     if not is_mixin:
         append_slot(slots, 'class', 'cpp', None, cpp_sym)
-    append_slot(slots, 'interface_name', 'js', None, js_sym)
+
+    if isinstance(target, WebIDL.IDLInterface):
+        append_slot(slots, 'interface', 'js', None, js_sym)
+    if isinstance(target, WebIDL.IDLNamespace):
+        append_slot(slots, 'namespace', 'js', None, js_sym)
 
     if not is_mixin:
         supers = []
@@ -713,7 +721,7 @@ def handle_dictionary_field(records, dictionary_name, dictionary_cpp_sym,
 
     slots = []
     append_slot(slots, 'attribute', 'cpp', None, cpp_sym)
-    append_slot(slots, 'attribute', 'js', None, js_sym)
+    append_slot(slots, 'member', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
@@ -742,7 +750,6 @@ def handle_dictionary(records, target):
 
     slots = []
     append_slot(slots, 'class', 'cpp', None, cpp_sym)
-    append_slot(slots, 'class', 'js', None, js_sym)
 
     supers = []
     if hasattr(target, 'parent') and target.parent:
@@ -777,7 +784,6 @@ def handle_enum(records, target):
 
     slots = []
     append_slot(slots, 'const', 'cpp', None, cpp_sym)
-    append_slot(slots, 'const', 'js', None, js_sym)
 
     emit_structured(records, loc, 'const', pretty, idl_sym,
                     slots=slots)

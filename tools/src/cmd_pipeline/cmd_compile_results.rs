@@ -188,6 +188,7 @@ impl SearchResults {
             for (kind, val) in obj.into_iter() {
                 let pkind = match kind.as_str() {
                     "idl" => PresentationKind::IDL,
+                    "idlp" => PresentationKind::IDLPartial,
                     "defs" => PresentationKind::Definitions,
                     "decls" => PresentationKind::Declarations,
                     "assignments" => PresentationKind::Assignments,
