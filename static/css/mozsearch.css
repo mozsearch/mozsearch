@@ -782,12 +782,12 @@ tr.after-context-line + tr.before-context-line {
 .navpanel-icon {
   display: inline-block;
 }
-.navpanel-toggle-icon {
+.navpanel-toggle-icon::before {
   margin-right: 0.5rem;
   transform: rotate(-90deg);
   transition: all 0.1s;
 }
-.navpanel-toggle-icon.expanded {
+.navpanel-toggle-icon.expanded::before {
   transform: rotate(0deg);
   transition: all 0.1s;
 }
