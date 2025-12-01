@@ -25,6 +25,10 @@ table {
   --link-color: #0095dd;
   --link-hover-color: #00539f;
 
+  --tooltip-foreground: var(--page-foreground);
+  --tooltip-background: #ffffe0;
+    --tooltip-border: var(--page-border-color);
+
   --search-box-background-image: linear-gradient(to bottom, #f8f8f8, #eaeaea);
   --revision-text-color: #656565;
 
@@ -167,6 +171,10 @@ table {
 
     --link-color: #1897db;
     --link-hover-color: #016cbf;
+
+    --tooltip-foreground: var(--page-foreground);
+    --tooltip-background: #333333;
+    --tooltip-border: var(--page-border-color);
 
     --list-hover-background: var(--button-hover-background);
 
@@ -1586,6 +1594,7 @@ g.true-diag g.node polygon {
   width: fit-content;
   border: 1px solid var(--page-border-color);
   padding: 1rem;
+  display: flex;
 }
 
 #diagram-panel.hidden {
@@ -1594,6 +1603,10 @@ g.true-diag g.node polygon {
 
 #diagram-panel h3 {
   margin: 0;
+}
+
+#diagram-panel h4 {
+  margin: 0 0 0 1rem;
 }
 
 .diagram-panel-section {
@@ -1619,6 +1632,57 @@ g.true-diag g.node polygon {
   display: inline-block;
   text-align: start;
   margin-inline-start: 0.5rem;
+}
+
+#diagram-legend-pane {
+  margin-inline-start: 2rem;
+}
+
+.diagram-legend {
+  margin-inline-start: 2rem;
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  align-items: center;
+  gap: 2px;
+}
+
+.diagram-badge-tooltip {
+  position: absolute;
+}
+
+.diagram-badge-tooltip-main {
+  display: block;
+  width: fit-content;
+  white-space: nowrap;
+  height: fit-content;
+  background: var(--tooltip-background);
+  color: var(--tooltip-foreground);
+  border: 1px solid var(--tooltip-border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.diagram-badge-tooltip-arrow-box {
+  position: absolute;
+  left: 16px;
+  top: -8px;
+  display: block;
+  width: 16px;
+  height: 9px;
+  overflow: hidden;
+}
+
+.diagram-badge-tooltip-arrow {
+  position: absolute;
+  left: 0px;
+  top: 3px;
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: var(--tooltip-background);
+  border: 1px solid var(--tooltip-foreground);
+  box-sizing: border-box;
+  transform: rotate(45deg);
 }
 
 /* Field Layout */

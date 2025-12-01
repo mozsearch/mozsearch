@@ -1,3 +1,92 @@
+const DIAGRAM_LABELS = {
+  "Pointer strength": {
+    "\u{1f4aa}": {
+      // from kind = "strong"
+      desc: "Strong pointer",
+    },
+    "\u{2744}\u{fe0f}": {
+      // from kind = "unique"
+      desc: "Unique pointer",
+    },
+    "\u{1f4d3}\u{fe0f}": {
+      // from kind = "weak"
+      desc: "Weak pointer",
+    },
+    "\u{1f631}": {
+      // from kind = "raw"
+      desc: "Raw pointer",
+    },
+    "&": {
+      // from kind = "ref"
+      desc: "Reference",
+    },
+    "\u{1fada}": {
+      // from kind = "gcref"
+      desc: "GC reference",
+    },
+    "\u{1f4e6}": {
+      // from kind = "contains"
+      desc: "Contains",
+    },
+  },
+  "Classes and fields": {
+    "\u{269b}\u{fe0f}": {
+      // from label = "arc" or label = "atomic"
+      desc: "Atomic or Atomic reference counted class",
+    },
+    "\u{1f517}": {
+      // from label = "cc"
+      desc: "Cycle-collected class",
+    },
+    "\u{26d3}\u{fe0f}": {
+      // from label = "ccrc"
+      desc: "Cycle-collected reference counted class",
+    },
+    "\u{1f517}\u{270f}\u{fe0f}": {
+      // from label = "cc-trace"
+      desc: "Field referenced in ::cycleCollection::Trace",
+    },
+    "\u{1f517}\u{1f50d}": {
+      // from label = "cc-traverse"
+      desc: "Field referenced in ::cycleCollection::Traverse",
+    },
+    "\u{26d3}\u{fe0f}\u{200d}\u{1f4a5}": {
+      // from label = "cc-unlink"
+      desc: "Field referenced in ::cycleCollection::Unlink",
+    },
+    "\u{1f9ee}": {
+      // from label = "rc"
+      desc: "Reference counted class",
+    },
+  },
+  "Interfaces and super classes": {
+    "nsIIReq": {
+      // from elide-and-badge
+      desc: "nsIInterfaceRequestor",
+    },
+    "nsIObs": {
+      // from elide-and-badge
+      desc: "nsIObserver",
+    },
+    "nsIRun": {
+      // from elide-and-badge
+      desc: "nsIRunnable",
+    },
+    "nsI": {
+      // from elide-and-badge
+      desc: "nsISupports",
+    },
+    "nsSupWeak": {
+      // from elide-and-badge
+      desc: "nsSupportsWeakReference",
+    },
+    "WC": {
+      // from elide-and-badge
+      desc: "nsWrapperCache",
+    },
+  },
+};
+
 var Dxr = new (class Dxr {
   constructor() {
     let constants = document.getElementById("data");
@@ -106,6 +195,7 @@ var Dxr = new (class Dxr {
     this.suppressNextPopState = 0;
 
     this.addDiagramControl();
+    this.addDiagramBadgeTooltips();
   }
 
   cancel(cancelFetch = true) {
@@ -504,10 +594,13 @@ var Dxr = new (class Dxr {
 
     this.diagramPanel = document.querySelector("#diagram-panel");
 
+    const optionsPane = document.createElement("div");
+    optionsPane.id = "diagram-options-pane";
+
     for (const { section, items } of GRAPH_OPTIONS) {
       const sectionLabel = document.createElement("h3");
       sectionLabel.append(section);
-      this.diagramPanel.append(sectionLabel);
+      optionsPane.append(sectionLabel);
       const sectionBox = document.createElement("div");
       sectionBox.classList.add("diagram-panel-section");
 
@@ -595,7 +688,7 @@ var Dxr = new (class Dxr {
           sectionBox.append(unknown);
         }
       }
-      this.diagramPanel.append(sectionBox);
+      optionsPane.append(sectionBox);
     }
 
     const apply = document.createElement("button");
@@ -619,7 +712,39 @@ var Dxr = new (class Dxr {
       document.location = url;
     });
 
-    this.diagramPanel.append(apply);
+    optionsPane.append(apply);
+    this.diagramPanel.append(optionsPane);
+
+    const legendPane = document.createElement("div");
+    legendPane.id = "diagram-legend-pane";
+
+    const legendTitle = document.createElement("h3");
+    legendTitle.append("Legend");
+    legendPane.append(legendTitle);
+
+    for (const [sectionLabel, section] of Object.entries(DIAGRAM_LABELS)) {
+      const legendTitle = document.createElement("h4");
+      legendTitle.append(sectionLabel);
+      legendPane.append(legendTitle);
+
+      const legend = document.createElement("div");
+      legend.classList.add("diagram-legend");
+      for (const [label, item] of Object.entries(section)) {
+        const labelBox = document.createElement("span");
+        labelBox.append(label);
+        if (label.codePointAt(0) > 0x7f) {
+          labelBox.style.fontSize = "1.2em";
+        }
+        legend.append(labelBox);
+
+        const descBox = document.createElement("span");
+        descBox.append(item.desc);
+        legend.append(descBox);
+      }
+      legendPane.append(legend);
+    }
+
+    this.diagramPanel.append(legendPane);
   }
 
   toggleDiagramPanel() {
@@ -627,6 +752,56 @@ var Dxr = new (class Dxr {
       return;
     }
     this.diagramPanel.classList.toggle("hidden");
+  }
+
+  addDiagramBadgeTooltips() {
+    for (const text of document.querySelectorAll(`svg text[text-decoration="underline"]`)) {
+      const label = text.textContent;
+      for (const section of Object.values(DIAGRAM_LABELS)) {
+        if (label in section) {
+          const desc = section[label].desc;
+
+          let tooltip = null;
+
+          text.addEventListener("mouseenter", () => {
+            if (tooltip) {
+              tooltip.remove();
+              tooltip = null;
+            }
+
+            const rect = text.getBoundingClientRect();
+            const x = rect.left + window.scrollX;
+            const y = rect.bottom + window.scrollY;
+
+            tooltip = document.createElement("div");
+            tooltip.classList.add("diagram-badge-tooltip");
+            tooltip.style.left = (x - 16) + "px";
+            tooltip.style.top = (y + 8) + "px";
+
+            const main = document.createElement("div");
+            main.classList.add("diagram-badge-tooltip-main");
+            main.append(desc);
+            tooltip.append(main);
+
+            const arrowBox = document.createElement("div");
+            arrowBox.classList.add("diagram-badge-tooltip-arrow-box");
+
+            const arrow = document.createElement("div");
+            arrow.classList.add("diagram-badge-tooltip-arrow");
+            arrowBox.append(arrow);
+            tooltip.append(arrowBox);
+
+            document.body.append(tooltip);
+          });
+          text.addEventListener("mouseleave", () => {
+            if (tooltip) {
+              tooltip.remove();
+              tooltip = null;
+            }
+          });
+        }
+      }
+    }
   }
 })();
 
