@@ -262,6 +262,7 @@ pub struct SymbolGraphCollection {
     pub edge_set: SymbolGraphEdgeSet,
     pub graphs: Vec<NamedSymbolGraph>,
     pub overloads_hit: Vec<OverloadInfo>,
+    pub options: Value,
     pub hierarchical_graphs: Vec<HierarchicalSymbolGraph>,
 }
 
