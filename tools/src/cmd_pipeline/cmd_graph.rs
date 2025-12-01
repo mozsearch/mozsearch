@@ -44,6 +44,8 @@ pub enum GraphFormat {
 pub enum GraphHierarchy {
     /// No hierarchy, everything is a node, there are no clusters.
     Flat,
+    // Flat with badges.
+    Flatbadges,
     /// Derive hierarchy from the pretty identifier hierarchy exclusively.
     Pretty,
     /// Derive hierarchy from the subsystem and class structure, skipping
@@ -312,7 +314,8 @@ impl PipelineCommand for GraphCommand {
                 "value": self.args.hier,
                 "default": "pretty",
                 "choices": [
-                    { "value": "flat", "label": "No hierarchy", },
+                    { "value": "flat", "label": "Simple no hierarchy", },
+                    { "value": "flatbadges", "label": "No hierarchy", },
                     { "value": "pretty", "label": "Pretty identifier hierarchy", },
                     { "value": "subsystem", "label": "subsystem and class structures", },
                     { "value": "file", "label": "Full file paths", },

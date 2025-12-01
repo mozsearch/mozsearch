@@ -500,7 +500,12 @@ impl SymbolGraphCollection {
             };
             let mut pretty_so_far = "".to_string();
             trace!(sym = %sym_pretty, "processing symbol");
-            let (pieces, delim) = split_pretty(sym_pretty, sym);
+            let (pieces, delim) = match &policies.grouping {
+                GraphHierarchy::Flat | GraphHierarchy::Flatbadges => {
+                    (vec![sym_pretty.to_string()], "")
+                }
+                _ => split_pretty(sym_pretty, sym),
+            };
             let mut pieces_and_syms = vec![];
             for mut piece in pieces {
                 trace!(piece = %piece, "processing piece");
@@ -604,10 +609,14 @@ impl SymbolGraphCollection {
                 .unwrap_or_else(|| pieces_and_syms.len() - 1);
             let segments_and_syms =
                 match &policies.grouping {
-                    GraphHierarchy::Flat | GraphHierarchy::Pretty => pieces_and_syms
-                        .into_iter()
-                        .map(|(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym))
-                        .collect_vec(),
+                    GraphHierarchy::Flat | GraphHierarchy::Flatbadges | GraphHierarchy::Pretty => {
+                        pieces_and_syms
+                            .into_iter()
+                            .map(|(piece, sym)| {
+                                (HierarchySegment::PrettySegment(piece, delim), sym)
+                            })
+                            .collect_vec()
+                    }
                     GraphHierarchy::Subsystem => {
                         // For subsystem we always use the subsystem of the first
                         // symbol we find now in order to avoid weird cases where
