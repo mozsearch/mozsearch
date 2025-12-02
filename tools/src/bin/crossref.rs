@@ -95,8 +95,9 @@ fn process_analysis_target(
         return;
     }
 
-    // XXX temporary include hack; we should fix this in the C++ indexer, but I want to
-    // see how it works out.
+    // The C++ indexer now should properly emit context for all FILE symbols
+    // of the file that they are found in, but we're retaining this for older
+    // C++ code and because it might be useful for other indexers that emit FILE symbols.
     if piece.sym.starts_with("FILE_") && piece.contextsym.is_empty() {
         piece.context = *path;
         piece.contextsym = *fallback_file_sym;
