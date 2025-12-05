@@ -1011,6 +1011,17 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               }));
             }
           }
+
+          if (Dxr.canIgnoreDiagramNode()) {
+            diagramMenuItems.push(new MenuItem({
+              html: "Ignore this node in the diagram",
+              icon: "brush",
+              section: "diagrams-ignore",
+              action: () => {
+                Dxr.ignoreDiagramNode(symInfo.pretty);
+              },
+            }));
+          }
         }
 
         if (Settings.semanticInfo.enabled) {

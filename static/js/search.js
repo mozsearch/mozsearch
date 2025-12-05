@@ -588,6 +588,9 @@ var Dxr = new (class Dxr {
   }
 
   addDiagramControl() {
+    this.diagramPanel = null;
+    this.ignoreNodesItem = null;
+
     if (typeof GRAPH_OPTIONS == "undefined") {
       return;
     }
@@ -679,6 +682,10 @@ var Dxr = new (class Dxr {
           });
 
           sectionBox.append(input);
+
+          if (item.name == "ignore-nodes") {
+            this.ignoreNodesItem = item;
+          }
         } else if ("type" in item && item.type == "bool") {
           const input = document.createElement("input");
           input.id = "diagram-option-" + item.name;
@@ -706,21 +713,7 @@ var Dxr = new (class Dxr {
     apply.append("Apply");
 
     apply.addEventListener("click", () => {
-      let query = this.fields.query.value;
-
-      for (const { section, items } of GRAPH_OPTIONS) {
-        for (const item of items) {
-          const re = new RegExp(" +" + item.name + ":[^ ]+");
-          query = query.replace(re, "");
-          if (item.value != item.default) {
-            query += " " + item.name + ":" + item.value;
-          }
-        }
-      }
-
-      this.fields.query.value = query;
-      let url = this.constructURL();
-      document.location = url;
+      this.applyDiagramOptions();
     });
 
     optionsPane.append(apply);
@@ -756,6 +749,24 @@ var Dxr = new (class Dxr {
     }
 
     this.diagramPanel.append(legendPane);
+  }
+
+  applyDiagramOptions() {
+    let query = this.fields.query.value;
+
+    for (const { section, items } of GRAPH_OPTIONS) {
+      for (const item of items) {
+        const re = new RegExp(" +" + item.name + ":[^ ]+");
+        query = query.replace(re, "");
+        if (item.value != item.default) {
+          query += " " + item.name + ":" + item.value;
+        }
+      }
+    }
+
+    this.fields.query.value = query;
+    let url = this.constructURL();
+    document.location = url;
   }
 
   toggleDiagramPanel() {
@@ -813,6 +824,19 @@ var Dxr = new (class Dxr {
         }
       }
     }
+  }
+
+  canIgnoreDiagramNode() {
+    return this.diagramPanel && this.ignoreNodesItem;
+  }
+
+  ignoreDiagramNode(pretty) {
+    if (this.ignoreNodesItem.value != "") {
+      this.ignoreNodesItem.value += "," + pretty;
+    } else {
+      this.ignoreNodesItem.value = pretty;
+    }
+    this.applyDiagramOptions();
   }
 })();
 
