@@ -668,6 +668,17 @@ var Dxr = new (class Dxr {
           });
 
           sectionBox.append(box);
+        } else if ("type" in item && item.type == "string") {
+          const input = document.createElement("input");
+          input.id = "diagram-option-" + item.name;
+          input.value = item.value;
+          input.placeholder = item.placeholder;
+
+          input.addEventListener("input", () => {
+            item.value = input.value;
+          });
+
+          sectionBox.append(input);
         } else if ("type" in item && item.type == "bool") {
           const input = document.createElement("input");
           input.id = "diagram-option-" + item.name;
