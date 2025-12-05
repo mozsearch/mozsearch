@@ -1350,6 +1350,17 @@ impl PipelineCommand for TraverseCommand {
                 "range": [-1, 16],
             }));
         }
+        traverse_options.push(json!({
+            "name": "ignore-nodes",
+            "label": "Ignore nodes",
+            "value": match &self.args.ignore_nodes {
+                Some(s) => s.clone(),
+                _ => "".to_string(),
+            },
+            "default": "",
+            "type": "string",
+            "placeholder": "Comma-separated pretty names",
+        }));
         let options = json!([
             {
                 "section": "Traverse",
