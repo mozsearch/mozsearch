@@ -169,6 +169,7 @@ impl PipelineCommand for CrossrefExpandCommand {
                                     // We're explicitly hanging off a symbol, so we don't need to
                                     // encode any other symbol here.
                                     sym: None,
+                                    pretty: None,
                                     exist: arr.len() as u32,
                                     included: 0,
                                     local_limit: limits.local_limit,
@@ -184,6 +185,7 @@ impl PipelineCommand for CrossrefExpandCommand {
                                     // We're explicitly hanging off a symbol, so we don't need to
                                     // encode any other symbol here.
                                     sym: None,
+                                    pretty: None,
                                     exist: arr.len() as u32,
                                     included: 0,
                                     local_limit: 0,
