@@ -251,6 +251,46 @@ class TestUtils {
   }
 
   /**
+   * A wrapper for loadPath for query endpoint.
+   *
+   * @param {String} repo
+   *        The repository name ("tests" or "searchfox")
+   * @param {String} query
+   *        Non-encoded query string
+   * @param {Object?} params
+   *        Optional params
+   * @returns {Promise<undefined>}
+   *          Resolves when the page is loaded.
+   */
+  static async loadQuery(repo, query, params) {
+    return this.loadPath(this.getQueryPath(repo, query, params));
+  }
+
+  /**
+   * Generate a query endpoint path
+   *
+   * @param {String} repo
+   *        The repository name ("tests" or "searchfox")
+   * @param {String} query
+   *        Non-encoded query string
+   * @param {Object?} params
+   *        Optional params
+   * @returns {String}
+   *          The query endpoint path
+   */
+  static getQueryPath(repo, query, params) {
+    const paramsStr = params
+          ? Object.entries(params).map(([k, v]) =>
+            `&${this.encodeQueryParam(k)}=${this.encodeQueryParam(v)}`).join("")
+          : "";
+    return `/${repo}/query/default?q=${this.encodeQueryParam(query)}` + paramsStr;
+  }
+
+  static encodeQueryParam(s) {
+    return encodeURIComponent(s).replace(/'/g, '%27');
+  }
+
+  /**
    * Wait for the subsequent page load.
    * This also waits for pageshow event, given the context menu
    * relies on the pageshow to be dispatched before starting interacting.

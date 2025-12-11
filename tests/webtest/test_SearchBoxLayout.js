@@ -96,7 +96,7 @@ add_task(async function test_SearchBoxLayout_Query() {
   const bottom = frame.contentDocument.querySelector("#search-box").getBoundingClientRect().bottom;
 
   const sym = "field_layout::field_type::S";
-  await TestUtils.loadPath(`/tests/query/default?q=field-layout:'${sym}'`);
+  await TestUtils.loadQuery("tests", `field-layout:'${sym}'`);
 
   const searchbox = frame.contentDocument.querySelector("#search-box");
   const panel = frame.contentDocument.querySelector("#panel");

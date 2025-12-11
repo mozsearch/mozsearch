@@ -16,14 +16,14 @@ add_task(async function test_FileSymInBreadcrumb() {
 });
 
 add_task(async function test_DiagramToGenerated() {
-  await TestUtils.loadPath("/tests/query/default?q=calls-to%3A%27__GENERATED__%2Fgenerated.h%27%20depth%3A4");
+  await TestUtils.loadQuery("tests", "calls-to:'__GENERATED__/generated.h' depth:4");
 
   const generatedElem = frame.contentDocument.querySelector(`[data-symbols*="FILE_linux64-opt@__GENERATED__/generated@2Ecpp"]`);
   ok(generatedElem, "generated.cpp should be shown");
 });
 
 add_task(async function test_DiagramFromGenerated() {
-  await TestUtils.loadPath("/tests/query/default?q=calls-to%3A%27nsISupports.h%27+depth%3A4++path-limit%3A100");
+  await TestUtils.loadQuery("tests", "calls-to:'nsISupports.h' depth:4 path-limit:100");
 
   const generatedElem = frame.contentDocument.querySelector(`[data-symbols*="FILE_linux64-opt@__GENERATED__/generated@2Ecpp"]`);
   ok(generatedElem, "generated.cpp should be shown");

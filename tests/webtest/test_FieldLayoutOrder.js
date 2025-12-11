@@ -15,7 +15,7 @@ add_task(async function test_FieldLayoutOrder() {
                      "field_layout::order_template"]) {
     const sym = ns + "::C11";
 
-    await TestUtils.loadPath(`/tests/query/default?q=field-layout:'${sym}'`);
+    await TestUtils.loadQuery("tests", `field-layout:'${sym}'`);
 
     is(getLabels(ns),
        "C11,,f11,C10,f10,,C9,f9,C8,f8,,C7,,f7,C6,f6,C5,f5,C4,f4,,C3,,f3,C2,f2,C1,f1",

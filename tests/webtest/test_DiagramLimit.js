@@ -1,7 +1,7 @@
 "use strict";
 
 add_task(async function test_UsesLinesLocal() {
-  await TestUtils.loadPath("/tests/query/default?q=calls-to%3A%27diagram%3A%3Auses_lines_local%3A%3Atarget%27%20depth%3A4");
+  await TestUtils.loadQuery("tests", "calls-to:'diagram::uses_lines_local::target' depth:4");
 
   {
     const warningBox = frame.contentDocument.querySelector(".diagram-limit-warning");
@@ -30,7 +30,7 @@ add_task(async function test_UsesLinesLocal() {
 });
 
 add_task(async function test_UsesLinesGlobal() {
-  await TestUtils.loadPath("/tests/query/default?q=calls-to%3A%27diagram%3A%3Auses_lines_global%3A%3Atarget%27%20depth%3A4");
+  await TestUtils.loadQuery("tests", "calls-to:'diagram::uses_lines_global::target' depth:4");
 
   {
     const warningBox = frame.contentDocument.querySelector(".diagram-limit-warning");
@@ -59,7 +59,7 @@ add_task(async function test_UsesLinesGlobal() {
 });
 
 add_task(async function test_UsesPaths() {
-  await TestUtils.loadPath("/tests/query/default?q=calls-to%3A%27diagram%3A%3Auses_paths%3A%3Atarget%27%20depth%3A4");
+  await TestUtils.loadQuery("tests", "calls-to:'diagram::uses_paths::target' depth:4");
 
   {
     const warningBox = frame.contentDocument.querySelector(".diagram-limit-warning");
@@ -88,7 +88,7 @@ add_task(async function test_UsesPaths() {
 });
 
 add_task(async function test_NodeLimit() {
-  await TestUtils.loadPath("/tests/query/default?q=calls-to%3A'diagram%3A%3Auses_paths%3A%3Atarget'+depth%3A4+path-limit%3A256+node-limit%3A16");
+  await TestUtils.loadQuery("tests", "calls-to:'diagram::uses_paths::target' depth:4 path-limit:256 node-limit:16");
 
   {
     const warningBox = frame.contentDocument.querySelector(".diagram-limit-warning");
