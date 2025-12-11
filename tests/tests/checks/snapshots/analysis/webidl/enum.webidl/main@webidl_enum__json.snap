@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/enum.webidl/webidl_enum__json
 ---
 [
   {
@@ -30,12 +31,6 @@ expression: "&json_results"
         "slotLang": "cpp",
         "ownerLang": "idl",
         "sym": "T_mozilla::dom::TestEnum"
-      },
-      {
-        "slotKind": "const",
-        "slotLang": "js",
-        "ownerLang": "idl",
-        "sym": "#TestEnum"
       }
     ]
   }

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/partial-dictionary.webidl/webidl_partial_dictionary__json
 ---
 [
   {
@@ -46,7 +47,7 @@ expression: "&json_results"
         "sym": "F_<T_mozilla::dom::TestDictionary>_mMember2"
       },
       {
-        "slotKind": "attribute",
+        "slotKind": "member",
         "slotLang": "js",
         "ownerLang": "idl",
         "sym": "#Member2"
@@ -66,12 +67,6 @@ expression: "&json_results"
         "slotLang": "cpp",
         "ownerLang": "idl",
         "sym": "T_mozilla::dom::TestDictionary"
-      },
-      {
-        "slotKind": "class",
-        "slotLang": "js",
-        "ownerLang": "idl",
-        "sym": "#TestDictionary"
       }
     ],
     "fields": [

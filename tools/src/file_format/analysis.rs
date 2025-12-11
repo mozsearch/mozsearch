@@ -135,6 +135,8 @@ pub enum AnalysisKind {
     Decl,
     Forward,
     Idl,
+    // Partial interface/namespace in IDL.
+    Idlp,
     Alias,
 }
 
@@ -149,6 +151,7 @@ impl AnalysisKind {
             AnalysisKind::Decl => ustr("decl"),
             AnalysisKind::Forward => ustr("forward"),
             AnalysisKind::Idl => ustr("idl"),
+            AnalysisKind::Idlp => ustr("idlp"),
             AnalysisKind::Alias => ustr("alias"),
         }
     }
@@ -360,7 +363,7 @@ pub enum BindingSlotKind {
     InterfaceName,
     /// Callable.
     Method,
-    /// A field/attribute/property that has JS XPIDL or WebIDL semantics where we only
+    /// A attribute/property that has JS XPIDL or WebIDL semantics where we only
     /// have a single symbol name but it could correspond to a property or any
     /// combination of a getter/setter.
     Attribute,
@@ -375,6 +378,12 @@ pub enum BindingSlotKind {
     /// An RPC/IPC receive method which will have a corresponding Send
     /// counterpart.
     Recv,
+    /// A WebIDL interface.
+    Interface,
+    /// A WebIDL namespace.
+    Namespace,
+    /// A WebIDL dictionary member.
+    Member,
     /// Future: Pref symbol specified in a WebIDL `Pref="foo"` annotation.
     ///
     EnablingPref,

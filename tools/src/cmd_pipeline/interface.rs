@@ -650,6 +650,7 @@ pub struct ResultFacetGroup {
 pub enum PresentationKind {
     // We don't give "Files" a kind because they don't look like path hit-lists.
     IDL,
+    IDLPartial,
     Definitions,
     Declarations,
     Assignments,

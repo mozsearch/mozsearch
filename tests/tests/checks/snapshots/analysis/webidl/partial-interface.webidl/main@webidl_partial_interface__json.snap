@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/webidl/partial-interface.webidl/webidl_partial_interface__json
 ---
 [
   {
@@ -13,7 +14,7 @@ expression: "&json_results"
   {
     "loc": "1:18-31",
     "target": 1,
-    "kind": "idl",
+    "kind": "idlp",
     "pretty": "TestInterface",
     "sym": "WEBIDL_TestInterface"
   },
@@ -74,12 +75,6 @@ expression: "&json_results"
         "slotLang": "cpp",
         "ownerLang": "idl",
         "sym": "NS_mozilla::dom::TestInterface_Binding"
-      },
-      {
-        "slotKind": "interface_name",
-        "slotLang": "js",
-        "ownerLang": "idl",
-        "sym": "#TestInterface"
       }
     ],
     "methods": [
