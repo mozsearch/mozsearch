@@ -3,7 +3,7 @@
 add_task(async function test_FieldLayoutColumns() {
   const sym = "field_layout::field_type::S";
 
-  await TestUtils.loadPath(`/tests/query/default?q=field-layout:'${sym}'`);
+  await TestUtils.loadQuery("tests", `field-layout:'${sym}'`);
   TestUtils.shortenSearchTimeouts();
 
   const query = frame.contentDocument.querySelector("#query");

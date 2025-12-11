@@ -23,7 +23,7 @@ add_task(async function test_RawAnalysisLink() {
 });
 
 add_task(async function test_QueryDebugLog() {
-  await TestUtils.loadPath("/tests/query/default?q=field-layout%3A%27field_layout%3A%3Aholes%3A%3ASub%27");
+  await TestUtils.loadQuery("tests", "field-layout:'field_layout::holes::Sub'");
 
   {
     const logs = frame.contentDocument.querySelector("#query-debug-logs");
@@ -52,7 +52,7 @@ add_task(async function test_QueryDebugLog() {
   }
 
   is(frame.contentDocument.location.pathname + frame.contentDocument.location.search,
-     "/tests/query/default?q=field-layout%3A%27field_layout%3A%3Aholes%3A%3ASub%27&debug=true",
+     TestUtils.getQueryPath("tests", "field-layout:'field_layout::holes::Sub'", { debug: "true" }),
      "Query with debug log is opened");
 
   {
@@ -84,12 +84,12 @@ add_task(async function test_QueryDebugLog() {
   }
 
   is(frame.contentDocument.location.pathname + frame.contentDocument.location.search,
-     "/tests/query/default?q=field-layout%3A%27field_layout%3A%3Aholes%3A%3ASub%27",
+     TestUtils.getQueryPath("tests", "field-layout:'field_layout::holes::Sub'"),
      "Query without debug log is opened");
 });
 
 add_task(async function test_QueryResultsJSON() {
-  await TestUtils.loadPath("/tests/query/default?q=field-layout%3A%27field_layout%3A%3Aholes%3A%3ASub%27");
+  await TestUtils.loadQuery("tests", "field-layout:'field_layout::holes::Sub'");
 
   const box = frame.contentDocument.querySelector("#query-debug-results-json");
   ok(!!box, "results JSON node exists");
