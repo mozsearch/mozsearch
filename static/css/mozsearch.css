@@ -121,6 +121,20 @@ table {
       + var(--search-box-padding)
       + var(--search-box-border-width)
   );
+
+  --diagram-ptr-strong: #7fbc41;
+  --diagram-ptr-unique: #b8e186;
+  --diagram-ptr-weak: #fde0ef;
+  --diagram-ptr-raw: #f1b6da;
+  --diagram-ptr-ref: #e6f5d0;
+  --diagram-hovered-cur-node: #fbf;
+  --diagram-hovered-out-node: #bbf;
+  --diagram-hovered-in-node: #bfb;
+  --diagram-hovered-cur-edge: #eae;
+  --diagram-edge-clicktarget: rgba(0,0,0,0);
+  --diagram-hovered-out-edge: blue;
+  --diagram-hovered-in-edge: green;
+  --diagram-true-diag: white;
 }
 
 :root.old-rev {
@@ -200,6 +214,20 @@ table {
     --select-arrow-svg: url("../images/select-arrow-dark.svg");
 
     color-scheme: dark;
+
+    --diagram-ptr-strong: #1e310f;
+    --diagram-ptr-unique: #7fbc41;
+    --diagram-ptr-weak: #63565d;
+    --diagram-ptr-raw: #5d4453;
+    --diagram-ptr-ref: #595f50;
+    --diagram-hovered-cur-node: #634663;
+    --diagram-hovered-out-node: #464662;
+    --diagram-hovered-in-node: #476448;
+    --diagram-hovered-cur-edge: #eae;
+    --diagram-edge-clicktarget: rgba(0,0,0,0);
+    --diagram-hovered-out-edge: #4c50fc;
+    --diagram-hovered-in-edge: #53cb59;
+    --diagram-true-diag: #646464;
   }
 }
 }
@@ -1383,53 +1411,74 @@ input::placeholder {
  * Our diagram pointer background colors come from the ColorBrewer2 diverging
  * PiYG scheme with 11 steps: https://colorbrewer2.org/#type=diverging&scheme=PiYG&n=11
  */
+
+@supports (color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+
+svg [fill="white"] {
+  fill: var(--page-background);
+}
+svg [stroke="black"] {
+  stroke: var(--page-foreground);
+}
+svg text {
+  fill: var(--page-foreground);
+}
+
+polygon[fill="#eeeeee"] {
+  fill: var(--panel-header-background);
+}
+
+}
+}
+
 g.ptr-strong > polygon {
-  fill: #7fbc41;
+  fill: var(--diagram-ptr-strong);
 }
 g.ptr-unique > polygon {
-  fill: #b8e186;
+  fill: var(--diagram-ptr-unique);
 }
 g.ptr-weak > polygon {
-  fill: #fde0ef;
+  fill: var(--diagram-ptr-weak);
 }
 g.ptr-raw > polygon {
-  fill: #f1b6da;
+  fill: var(--diagram-ptr-raw);
 }
 g.ptr-ref > polygon, g.ptr-contains > polygon {
-  fill: #e6f5d0;
+  fill: var(--diagram-ptr-ref);
 }
 
 g.hovered-cur-node > polygon {
-  fill: #fbf;
+  fill: var(--diagram-hovered-cur-node);
 }
 g.hovered-out-node > polygon {
-  fill: #bbf;
+  fill: var(--diagram-hovered-out-node);
 }
 g.hovered-in-node > polygon {
-  fill: #bfb;
+  fill: var(--diagram-hovered-in-node);
 }
 
 g.hovered-cur-edge > path:not(.clicktarget),
 g.hovered-cur-edge > polygon {
-  stroke: #eae;
+  stroke: var(--diagram-hovered-cur-edge);
   stroke-opacity: 1;
   stroke-width: 2px;
 }
 
 g.edge > path.clicktarget {
-  stroke:rgba(0,0,0,0);
+  stroke: var(--diagram-edge-clicktarget);
   stroke-width: 10px;
 }
 
 g.edge.hovered-out-edge > path,
 g.edge.hovered-out-edge > polygon {
-  stroke: blue;
+  stroke: var(diagram-hovered-out-edge--);
   stroke-width: 2px;
   stroke-opacity: 1;
 }
 g.edge.hovered-in-edge > path,
 g.edge.hovered-in-edge > polygon {
-  stroke: green;
+  stroke: var(--diagram-hovered-in-edge);
   stroke-width: 2px;
   stroke-opacity: 1;
 }
@@ -1509,7 +1558,7 @@ g.blurry.depth-mode g.node polygon {
 }
 
 g.true-diag g.node polygon {
-  fill: white;
+  fill: var(--diagram-true-diag);
 }
 
 .diagram-limit-warning {
