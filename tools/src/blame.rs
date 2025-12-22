@@ -10,18 +10,20 @@ use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 
 fn find_phab_rev(iter: Split<char>) -> Option<String> {
-    const PREFIX: &'static str = "Differential Revision: ";
+    const PREFIX: &str = "Differential Revision: ";
 
     for line in iter {
-        if line.starts_with(PREFIX) {
-            return Some(line[PREFIX.len()..].to_string());
+        if let Some(stripped) = line.strip_prefix(PREFIX) {
+            return Some(stripped.to_string());
         }
     }
 
     None
 }
 
-pub fn commit_header(commit: &git2::Commit) -> Result<(String, String, Option<String>), &'static str> {
+pub fn commit_header(
+    commit: &git2::Commit,
+) -> Result<(String, String, Option<String>), &'static str> {
     fn entity_replace(s: &str) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
     }

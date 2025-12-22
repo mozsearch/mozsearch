@@ -122,15 +122,11 @@ fn main() {
             // config "git_branch" if it's present or falling back to HEAD if it's not.  So it'
             // sufficient for us to just use the blame-map here to find the right blame commit
             // for the head_oid above.
-            let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
-                if let Some(blame_oid) = git.blame_map.get(&head_oid) {
-                    Some(blame_repo.find_commit(*blame_oid).unwrap())
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+            let blame_commit = git.blame_repo.as_ref().and_then(|blame_repo| {
+                git.blame_map
+                    .get(&head_oid)
+                    .map(|blame_oid| blame_repo.find_commit(*blame_oid).unwrap())
+            });
             (blame_commit, Some(head_oid))
         }
         None => (None, None),
@@ -463,19 +459,16 @@ fn main() {
 
         match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
             Some("md") | Some("rst") => {
-                match find_doc_url(&cfg, path.as_str()) {
-                    Some(url) => {
-                        tools_items.push(PanelItem {
-                            label: "Source Docs".to_owned(),
-                            tooltip: "Open the rendered documentation on Source Docs".to_owned(),
-                            id: "panel-source-docs",
-                            link: url,
-                            update_link_lineno: "",
-                            accel_key: None,
-                            copyable: false,
-                        });
-                    }
-                    None => {}
+                if let Some(url) = find_doc_url(&cfg, path.as_str()) {
+                    tools_items.push(PanelItem {
+                        label: "Source Docs".to_owned(),
+                        tooltip: "Open the rendered documentation on Source Docs".to_owned(),
+                        id: "panel-source-docs",
+                        link: url,
+                        update_link_lineno: "",
+                        accel_key: None,
+                        copyable: false,
+                    });
                 }
 
                 if let Some(ref github) = tree_config.paths.github_repo {

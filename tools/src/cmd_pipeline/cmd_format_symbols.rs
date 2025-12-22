@@ -267,7 +267,7 @@ impl FieldsWithHash {
             last_index = index;
 
             if let Some(pos) = &self.fields[index].bit_positions {
-                let end = self.fields[index].offset_bytes + (pos.begin + pos.width + 7) / 8;
+                let end = self.fields[index].offset_bytes + (pos.begin + pos.width).div_ceil(8);
                 if end > last_end_offset {
                     last_end_offset = end;
                 }
@@ -522,7 +522,7 @@ fn platform_name_to_order(name: &str) -> u32 {
     };
 
     if platform == "win64" {
-        return offset + 0;
+        return offset;
     }
     if platform.starts_with("win") {
         return offset + 1;
@@ -761,41 +761,41 @@ struct SimplifiedStructuredClassInfo {
 impl SimplifiedStructuredClassInfo {
     fn new(s: &AnalysisStructured, depth: u32) -> Self {
         Self {
-            pretty: s.pretty.clone(),
-            sym: s.sym.clone(),
+            pretty: s.pretty,
+            sym: s.sym,
             offset_bytes: 0,
-            size_bytes: s.size_bytes.clone(),
-            alignment_bytes: s.alignment_bytes.clone(),
-            own_vf_ptr_bytes: s.own_vf_ptr_bytes.clone(),
+            size_bytes: s.size_bytes,
+            alignment_bytes: s.alignment_bytes,
+            own_vf_ptr_bytes: s.own_vf_ptr_bytes,
             fields: s.fields.clone(),
-            depth: depth,
+            depth,
         }
     }
 
     fn new_super(s: &StructuredSuperInfo, offset: u32, depth: u32) -> Self {
         if let Some(layout) = &s.layout {
             Self {
-                pretty: layout.pretty.clone(),
-                sym: s.sym.clone(),
+                pretty: layout.pretty,
+                sym: s.sym,
                 offset_bytes: s.offset_bytes.unwrap_or(0) + offset,
-                size_bytes: layout.size_bytes.clone(),
-                alignment_bytes: layout.alignment_bytes.clone(),
-                own_vf_ptr_bytes: layout.own_vf_ptr_bytes.clone(),
+                size_bytes: layout.size_bytes,
+                alignment_bytes: layout.alignment_bytes,
+                own_vf_ptr_bytes: layout.own_vf_ptr_bytes,
                 fields: layout.fields.clone(),
-                depth: depth,
+                depth,
             }
         } else {
             // In general this path shouldn't be taken.
             // ClassMap::check_layout_field should exclude them.
             Self {
-                pretty: s.sym.clone(),
-                sym: s.sym.clone(),
+                pretty: s.sym,
+                sym: s.sym,
                 offset_bytes: s.offset_bytes.unwrap_or(0) + offset,
                 size_bytes: None,
                 alignment_bytes: None,
                 own_vf_ptr_bytes: None,
                 fields: vec![],
-                depth: depth,
+                depth,
             }
         }
     }
@@ -858,7 +858,7 @@ impl SimplifiedStructuredClassInfoMap {
             let first_cls = first_classes.get(first_index).unwrap();
 
             let mut class_per_platform = vec![];
-            class_per_platform.push((first_platform_id.clone(), first_cls.clone()));
+            class_per_platform.push((*first_platform_id, first_cls.clone()));
 
             for i in 1..platform_count {
                 let platform_id = indices[i].0;
@@ -871,10 +871,10 @@ impl SimplifiedStructuredClassInfoMap {
                 let cls = classes.get(index).unwrap();
 
                 if cls.sym == first_cls.sym {
-                    class_per_platform.push((platform_id.clone(), cls.clone()));
+                    class_per_platform.push((*platform_id, cls.clone()));
                 } else {
                     // The class has different base class depending on the platform.
-                    mismatch_class_list.push((platform_id.clone(), cls.clone()));
+                    mismatch_class_list.push((*platform_id, cls.clone()));
                 }
 
                 indices[i].1 = index + 1;
@@ -905,7 +905,7 @@ impl SimplifiedStructuredClassInfoMap {
                 }
                 let cls = classes.get(index).unwrap();
 
-                mismatch_class_list.push((platform_id.clone(), cls.clone()));
+                mismatch_class_list.push((*platform_id, cls.clone()));
 
                 indices[i].1 = index + 1;
                 added = true;
@@ -975,7 +975,7 @@ impl ClassMap {
         server: &(dyn AbstractServer + Send + Sync),
     ) -> Result<()> {
         let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
-            nom_sym_info.symbol.clone(),
+            nom_sym_info.symbol,
             nom_sym_info.crossref_info.clone(),
             0,
         ));
@@ -1020,7 +1020,7 @@ impl ClassMap {
         if let Some(layout) = &super_info.layout {
             for super_super_info in layout.supers.iter() {
                 Box::pin(self.layout_populate_supers(
-                    platform_id.clone(),
+                    platform_id,
                     super_super_info,
                     classinfo_map,
                     super_info.offset_bytes.unwrap_or(0) + offset,
@@ -1031,7 +1031,7 @@ impl ClassMap {
         }
 
         classinfo_map.add(
-            platform_id.clone(),
+            platform_id,
             SimplifiedStructuredClassInfo::new_super(super_info, offset, depth),
         );
 
@@ -1067,7 +1067,7 @@ impl ClassMap {
 
                 for super_info in &s.supers {
                     self.layout_populate_supers(
-                        platform_id.clone(),
+                        platform_id,
                         super_info,
                         &mut classinfo_map,
                         0,
@@ -1077,14 +1077,14 @@ impl ClassMap {
                 }
 
                 classinfo_map.add(
-                    platform_id.clone(),
+                    platform_id,
                     SimplifiedStructuredClassInfo::new(s, root_depth),
                 );
             } else {
                 for platform_id in self.platform_map.platform_ids() {
                     for super_info in &s.supers {
                         self.layout_populate_supers(
-                            platform_id.clone(),
+                            platform_id,
                             super_info,
                             &mut classinfo_map,
                             0,
@@ -1094,7 +1094,7 @@ impl ClassMap {
                     }
 
                     classinfo_map.add(
-                        platform_id.clone(),
+                        platform_id,
                         SimplifiedStructuredClassInfo::new(s, root_depth),
                     );
                 }
@@ -1104,13 +1104,12 @@ impl ClassMap {
         classinfo_map.create_list();
 
         // Then iterate over the list of classes, and process fields.
-
-        let mut traversal_index = 0;
-
         let mut fields_per_platform = FieldsPerPlatform::new();
 
-        for class_per_platform_list in classinfo_map.classes_list {
-            let first_cls = &class_per_platform_list.get(0).unwrap().1;
+        for (traversal_index, class_per_platform_list) in
+            classinfo_map.classes_list.into_iter().enumerate()
+        {
+            let first_cls = &class_per_platform_list.first().unwrap().1;
             let sym = first_cls.sym;
             let pretty = first_cls.pretty;
 
@@ -1126,9 +1125,7 @@ impl ClassMap {
 
             let mut cls = Class::new(class_id.clone(), pretty.to_string());
 
-            let traversal_id = TraversalId(traversal_index);
-
-            traversal_index += 1;
+            let traversal_id = TraversalId(traversal_index as u32);
 
             self.class_list.push(traversal_id);
 
@@ -1297,7 +1294,7 @@ impl ClassMap {
                 if let Some(class_size) = s.size_bytes {
                     if let Some(platform_id) = &maybe_platform_id {
                         cls.alignment_and_size.insert(
-                            platform_id.clone(),
+                            *platform_id,
                             AlignmentAndSize::new(class_alignment, class_size),
                         );
 
