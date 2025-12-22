@@ -1,4 +1,4 @@
-use git2::{Commit, Repository, TreeEntry};
+use git2::{Commit, Object, Repository, TreeEntry};
 use std::path::Path;
 
 use crate::file_format::config::GitData;
@@ -16,12 +16,16 @@ pub fn decode_bytes(bytes: Vec<u8>) -> String {
     }
 }
 
-pub fn read_blob_entry(repo: &Repository, entry: &TreeEntry) -> String {
-    let blob_obj = entry.to_object(repo).unwrap();
-    let blob = blob_obj.as_blob().unwrap();
+pub fn read_blob_object(object: &Object) -> String {
+    let blob = object.as_blob().unwrap();
     let mut content = Vec::new();
     content.extend(blob.content());
     decode_bytes(content)
+}
+
+pub fn read_blob_entry(repo: &Repository, entry: &TreeEntry) -> String {
+    let blob_obj = entry.to_object(repo).unwrap();
+    read_blob_object(&blob_obj)
 }
 
 pub fn get_blame_lines(
