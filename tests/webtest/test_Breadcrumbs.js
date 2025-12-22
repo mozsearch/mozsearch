@@ -5,59 +5,70 @@ add_task(async function test_BreadcrumbsOnLoad() {
     {
       path: "/",
       hidden: true,
+      firstLink: null,
     },
     {
       path: "/tests/pages/settings.html",
       hidden: true,
+      firstLink: null,
     },
     {
       path: "/tests/source/",
       hidden: false,
       text: "tests",
+      firstLink: "/tests/source/",
     },
     {
       path: "/tests/source/webtest",
       hidden: false,
       text: "tests/webtest",
+      firstLink: "/tests/source/",
     },
     {
       path: "/tests/source/.gitignore",
       hidden: false,
       text: "tests/.gitignore",
+      firstLink: "/tests/source/",
     },
     {
       path: "/tests/source/webtest/Webtest.cpp",
       hidden: false,
       text: "tests/webtest/Webtest.cpp  (file symbol)",
+      firstLink: "/tests/source/",
     },
     {
       path: "/tests/search?q=webtest&path=&case=false&regexp=false",
       hidden: false,
       text: "tests",
+      firstLink: "/tests/source/",
     },
     {
       path: "/tests/query/default?q=webtest",
       hidden: false,
       text: "tests",
+      firstLink: "/tests/source/",
     },
     {
       path: "/searchfox/diff/4e266f75295afe5f94d14eb9b72445c830c095ef/.eslintrc.js",
       hidden: false,
       text: "searchfox/.eslintrc.js",
+      firstLink: "/searchfox/rev/4e266f75295afe5f94d14eb9b72445c830c095ef/",
     },
     {
       path: "/searchfox/commit/4e266f75295afe5f94d14eb9b72445c830c095ef",
       hidden: false,
       text: "searchfox",
+      firstLink: "/searchfox/rev/4e266f75295afe5f94d14eb9b72445c830c095ef/",
     },
     {
       path: "/searchfox/rev/e6ff7d3798a68e41c1166524be276fac4a8dfeb2/.gitignore",
       hidden: false,
       text: "searchfox/.gitignore",
+      firstLink: "/searchfox/rev/e6ff7d3798a68e41c1166524be276fac4a8dfeb2/",
     },
   ];
 
-  for (const { path, hidden, text } of tests) {
+  for (const { path, hidden, text, firstLink } of tests) {
     await TestUtils.loadPath(path);
 
     const breadcrumbs = frame.contentDocument.querySelector(".breadcrumbs");
@@ -68,6 +79,12 @@ add_task(async function test_BreadcrumbsOnLoad() {
       isnot(breadcrumbs.style.display, "none", `Breadcrumbs is shown on ${path}`);
       is(breadcrumbs.textContent.trim(), text,
          `Breadcrumbs shows the correct path on ${path}`);
+    }
+
+    if (firstLink) {
+      const links = frame.contentDocument.querySelectorAll(".breadcrumbs a");
+      is(links[0].getAttribute("href"), firstLink,
+         `Breadcrumbs links to expected revision on ${path}`);
     }
 
     const treeSwitcher = breadcrumbs.querySelector("#tree-switcher");

@@ -84,7 +84,8 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
     const links = frame.contentDocument.querySelectorAll(".breadcrumbs a");
 
     is(links.length, 6);
-    is(links[5].getAttribute("href"), "/searchfox/source/tests/tests/files/js/with%20space.js",
+    is(links[5].getAttribute("href"),
+       "/searchfox/rev/a3389fc178d304cb78be7960a9597001219cc210/tests/tests/files/js/with%20space.js",
        "The space in the href should be escaped");
   }
 
@@ -128,7 +129,8 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
     const links = frame.contentDocument.querySelectorAll(".breadcrumbs a");
 
     is(links.length, 6);
-    is(links[5].getAttribute("href"), "/searchfox/source/tests/tests/files/js/with%20space.js",
+    is(links[5].getAttribute("href"),
+       "/searchfox/rev/2d74c5c0819978ebdb7b201de5bff892c7091581/tests/tests/files/js/with%20space.js",
        "The space in the href should be escaped");
   }
 

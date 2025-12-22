@@ -18,6 +18,7 @@ use regex::Regex;
 use tools::file_format::config;
 use tools::file_format::per_file_info::read_detailed_file_info;
 use tools::file_format::per_file_info::FileLookupMap;
+use tools::output::BreadcrumbsLinksTo;
 use tools::templating::builder::build_and_parse;
 use ustr::ustr;
 
@@ -546,6 +547,7 @@ fn main() {
             &panel,
             source_file_info_boxes,
             &head_commit,
+            BreadcrumbsLinksTo::Latest,
             &blame_commit,
             &path,
             input,

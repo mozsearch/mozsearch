@@ -80,3 +80,5 @@ pub mod tokenize;
 pub mod url_encode_path;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod url_map_handler;
+
+mod utils;

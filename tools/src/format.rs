@@ -6,28 +6,33 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Instant;
 
+use crate::abstract_server::FileMatch;
 use crate::blame;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::file_format::crossref_converter::{
     determine_desired_extra_syms_from_jumpref, extra_syms_next_step_lookups, JumprefTraversals,
 };
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
+use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops;
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
+use crate::templating::builder::build_and_parse_dir_listing;
 use crate::tokenize;
+use crate::utils::OwnedOrBorrowed;
 
 use crate::file_format::analysis::{
     collect_file_syms_from_source, AnalysisSource, ExpansionInfo, WithLocation,
 };
 use crate::file_format::config::{extract_info_from_blame_commit, Config, GitData, TreeConfig};
-use crate::output::{self, Options, PanelItem, PanelSection, F};
+use crate::output::{self, BreadcrumbsLinksTo, Options, PanelItem, PanelSection, F};
 use crate::url_encode_path::url_encode_path;
 
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
+use git2::{Oid, Repository, Tree};
 use itertools::Itertools;
 use serde_json::{json, to_string, to_string_pretty, Map};
 use ustr::{ustr, Ustr, UstrMap};
@@ -607,6 +612,7 @@ pub fn format_file_data(
     panel: &[PanelSection],
     info_boxes: String,
     commit: &Option<git2::Commit>,
+    breadcrumbs_links_to: BreadcrumbsLinksTo,
     blame_commit: &Option<git2::Commit>,
     path: &str,
     data: String,
@@ -667,6 +673,7 @@ pub fn format_file_data(
         tree_name,
         include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
         revision,
+        breadcrumbs_links_to,
         extra_content_classes: "source-listing not-diff",
     };
 
@@ -877,17 +884,51 @@ fn format_to_slug_attribute(format: &FormatAs) -> String {
     format!(r#" data-markdown-slug="{}""#, slug)
 }
 
-fn entry_to_blob(repo: &git2::Repository, entry: &git2::TreeEntry) -> Result<String, &'static str> {
-    match entry.kind() {
-        Some(git2::ObjectType::Blob) => {}
-        _ => return Err("Invalid path; expected file"),
+fn get_object_at<'a>(
+    repo: OwnedOrBorrowed<'a, Repository>,
+    commit: Oid,
+    path: &Path,
+) -> Result<(OwnedOrBorrowed<'a, Repository>, Oid), &'static str> {
+    let commit = repo.find_commit(commit).or(Err("Bad revision"))?;
+    let tree = commit.tree().or(Err("Git commit with no tree"))?;
+
+    if path == "" {
+        let tree_id = tree.id();
+        drop(commit);
+        drop(tree);
+        return Ok((repo, tree_id));
     }
 
-    if entry.filemode() == 120000 {
-        return Err("Path is to a symlink");
-    }
+    let (ancestor, entry) = path
+        .ancestors()
+        .find_map(|ancestor| tree.get_path(ancestor).ok().map(|entry| (ancestor, entry)))
+        .ok_or("File, directory or parent git submodule not found")?;
 
-    Ok(git_ops::read_blob_entry(repo, entry))
+    let kind = entry.kind().ok_or("Unknown git object kind")?;
+
+    match kind {
+        git2::ObjectType::Commit => {
+            let submodule_path = ancestor.to_str().ok_or("UTF-8 error")?;
+            let submodule = repo
+                .find_submodule(submodule_path)
+                .or(Err("Can't find submodule"))?;
+            let subrepo = submodule.open().or(Err("Can't open submodule"))?;
+            let path_in_submodule = path
+                .strip_prefix(ancestor)
+                .expect("ancestor is a always an ancestor of path");
+            get_object_at(
+                OwnedOrBorrowed::Owned(subrepo),
+                entry.id(),
+                path_in_submodule,
+            )
+        }
+        git2::ObjectType::Tree | git2::ObjectType::Blob => {
+            drop(commit);
+            drop(tree);
+            Ok((repo, entry.id()))
+        }
+        _ => Err("Unsupported git object kind"),
+    }
 }
 
 /// Dynamically renders the contents of a specific file with blame annotations but without any
@@ -904,50 +945,108 @@ pub fn format_path(
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
-    let commit = commit_obj.into_commit().map_err(|_| "Bad revision")?;
-    let commit_tree = commit.tree().map_err(|_| "Bad revision")?;
-    let path_obj = Path::new(path);
-    let data = match commit_tree.get_path(path_obj) {
-        Ok(entry) => entry_to_blob(&git.repo, &entry)?,
-        Err(_) => {
-            // Check to see if this path is inside a submodule
-            let mut test_path = path_obj.parent();
-            loop {
-                let subrepo_path = match test_path {
-                    Some(path) => path,
-                    None => return Err("File not found"),
-                };
-                let entry = match commit_tree.get_path(subrepo_path) {
-                    Ok(e) => e,
-                    Err(_) => {
-                        test_path = subrepo_path.parent();
-                        continue;
-                    }
-                };
-                if entry.kind() != Some(git2::ObjectType::Commit) {
-                    return Err("File not found");
-                }
+    let path = Path::new(path.trim_end_matches('/'));
 
-                // If we get here, the path is inside a submodule
-                let subrepo_path = subrepo_path.to_str().ok_or("UTF-8 error")?;
-                let subrepo = git
-                    .repo
-                    .find_submodule(subrepo_path)
-                    .map_err(|_| "Can't find submodule")?;
-                let subrepo = subrepo.open().map_err(|_| "Can't open submodule")?;
-                let path_in_subrepo = path_obj
-                    .strip_prefix(subrepo_path)
-                    .map_err(|_| "Submodule path error")?;
-                let subentry = subrepo
-                    .find_commit(entry.id())
-                    .and_then(|commit| commit.tree())
-                    .and_then(|tree| tree.get_path(path_in_subrepo))
-                    .map_err(|_| "File not found in submodule")?;
-                break entry_to_blob(&subrepo, &subentry)?;
-            }
+    let (repo, oid) = get_object_at(OwnedOrBorrowed::Borrowed(&git.repo), commit_obj.id(), path)?;
+
+    let object = repo
+        .find_object(oid, None)
+        .map_err(|_| "Failed to retrieve git object from id")?;
+
+    match object.kind() {
+        Some(git2::ObjectType::Blob) => {
+            let blob = git_ops::read_blob_object(&object);
+            let commit = commit_obj.into_commit().or(Err("Bad revision"))?;
+            format_blob(
+                cfg,
+                tree_name,
+                path.to_str().expect("This Path was built from a str"),
+                writer,
+                tree_config,
+                git,
+                commit,
+                blob,
+            )
         }
-    };
+        Some(git2::ObjectType::Tree) => {
+            let tree = object
+                .into_tree()
+                .expect("Should really be a tree, we just checked the object kind.");
+            format_tree(tree_name, rev, path, writer, &repo, tree)
+        }
+        _ => Err("Invalid path"),
+    }
+}
 
+fn format_tree(
+    tree_name: &str,
+    rev: &str,
+    path: &Path,
+    writer: &mut dyn Write,
+    repo: &Repository,
+    tree: Tree<'_>,
+) -> Result<(), &'static str> {
+    let files = tree
+        .iter()
+        .map(|entry| {
+            let filename = entry.name().ok_or("Utf-8 error")?;
+
+            let is_dir = matches!(
+                entry.kind(),
+                Some(git2::ObjectType::Tree | git2::ObjectType::Commit)
+            );
+            let size = if is_dir {
+                0
+            } else {
+                let object = entry
+                    .to_object(&repo)
+                    .or(Err("Failed to map git TreeEntry to Object"))?;
+                object.into_blob().map_or(0, |blob| blob.size())
+            };
+
+            let concise = ConcisePerFileInfo {
+                path_kind: "".into(),
+                is_dir,
+                file_size: size as u64,
+                bugzilla_component: None,
+                subsystem: None,
+                tags: vec![],
+                description: None,
+                info: serde_json::Value::Null,
+            };
+
+            Ok(FileMatch {
+                path: path.join(filename).to_str().unwrap().into(),
+                concise,
+            })
+        })
+        .collect::<Result<Vec<_>, &str>>()?;
+
+    let liquid_globals = liquid::object!({
+        "tree": tree_name,
+        // the header always needs this
+        "query": "",
+        "path": path,
+        "files": files,
+        "rev": rev,
+    });
+
+    let template = build_and_parse_dir_listing();
+    template
+        .render_to(writer, &liquid_globals)
+        .or(Err("Template problems"))
+}
+
+fn format_blob(
+    cfg: &Config,
+    tree_name: &str,
+    path: &str,
+    writer: &mut dyn Write,
+    tree_config: &TreeConfig,
+    git: &GitData,
+    commit: git2::Commit<'_>,
+    data: String,
+) -> Result<(), &'static str> {
     // Get blame.
     let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
         let blame_oid = git
@@ -1062,6 +1161,7 @@ pub fn format_path(
         &panel,
         "".to_string(),
         &Some(commit),
+        BreadcrumbsLinksTo::Historical,
         &blame_commit,
         path,
         data,
@@ -1253,6 +1353,7 @@ pub fn format_diff(
         tree_name,
         include_date: true,
         revision: Some((rev, &header)),
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "source-listing diff",
     };
 
@@ -1611,7 +1712,8 @@ pub fn format_commit(
         title: &title,
         tree_name,
         include_date: true,
-        revision: None,
+        revision: Some((rev, "")),
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "commit",
     };
 

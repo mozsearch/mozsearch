@@ -8,7 +8,7 @@
     </thead>
     <tbody>
     {%- for file in files %}
-        {% capture file_url %}/{{ tree }}/source/{{ file.path }}{% endcapture -%}
+        {% capture file_url %}/{{ tree }}/{% if rev %}rev/{{ rev }}{% else %}source{% endif %}/{{ file.path }}{% endcapture -%}
         {%- if file.concise.is_dir -%}
             {%- assign icon_kind = "folder" -%}
             {%- assign file_size = "" %}

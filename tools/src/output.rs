@@ -9,10 +9,21 @@ use crate::url_encode_path::url_encode_path;
 
 use self::chrono::{DateTime, Local};
 
+/// Selects where breadcrumbs links should point to
+/// NOTE: This can't decided solely based on the value of Options::revision because main source code display also has a revision set in most cases.
+#[derive(Clone, Copy)]
+pub enum BreadcrumbsLinksTo {
+    /// Breadcrumbs links to the /source endpoint
+    Latest,
+    /// Breadcrumbs links to the /rev endpoint
+    Historical,
+}
+
 pub struct Options<'a> {
     pub title: &'a str,
     pub tree_name: &'a str,
     pub revision: Option<(&'a str, &'a str)>,
+    pub breadcrumbs_links_to: BreadcrumbsLinksTo,
     pub include_date: bool,
     /// Extra classes to include on the content element.  This allows less padding to be used on
     /// source listings where we have particular styling needs for "position: sticky" but want
@@ -38,7 +49,17 @@ pub fn choose_icon(path: &str) -> String {
 }
 
 pub fn file_url(opt: &Options, path: &str) -> String {
-    format!("/{}/source/{}", opt.tree_name, url_encode_path(path))
+    let rev_fragment = match (opt.breadcrumbs_links_to, opt.revision) {
+        (BreadcrumbsLinksTo::Historical, Some((rev, _header))) => Some(format!("rev/{rev}")),
+        (BreadcrumbsLinksTo::Latest, _) | (_, None) => None,
+    };
+    let rev_fragment = rev_fragment.as_deref().unwrap_or("source");
+    format!(
+        "/{}/{}/{}",
+        opt.tree_name,
+        rev_fragment,
+        url_encode_path(path)
+    )
 }
 
 pub fn generate_breadcrumbs(
