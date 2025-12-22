@@ -679,7 +679,7 @@ pub fn format_file_data(
 
     output::generate_header(&opt, writer)?;
 
-    let file_syms = collect_file_syms_from_source(path, &analysis);
+    let file_syms = collect_file_syms_from_source(path, analysis);
 
     output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
@@ -774,7 +774,7 @@ pub fn format_file_data(
                     id
                 });
 
-            let same_rev_as_last = last_revs.map_or(false, |last| last == revs);
+            let same_rev_as_last = last_revs.is_some_and(|last| last == revs);
             let color = if same_rev_as_last {
                 last_color
             } else {
@@ -999,7 +999,7 @@ fn format_tree(
                 0
             } else {
                 let object = entry
-                    .to_object(&repo)
+                    .to_object(repo)
                     .or(Err("Failed to map git TreeEntry to Object"))?;
                 object.into_blob().map_or(0, |blob| blob.size())
             };
@@ -1719,7 +1719,7 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, "", &vec![], false)?;
+    output::generate_breadcrumbs(&opt, writer, "", &[], false)?;
 
     output::generate_panel(&opt, writer, &[], true)?;
 

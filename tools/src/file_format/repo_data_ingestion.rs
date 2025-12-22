@@ -166,15 +166,9 @@ pub struct ProbeConfig {
 
 impl ProbeConfig {
     pub fn new_from_env() -> Self {
-        let path = if let Ok(probe_path) = std::env::var("PROBE_PATH") {
-            if let Ok(re_path) = Regex::new(&probe_path) {
-                Some(re_path)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let path = std::env::var("PROBE_PATH")
+            .ok()
+            .and_then(|probe_path| Regex::new(&probe_path).ok());
 
         Self { path }
     }
