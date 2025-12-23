@@ -1,10 +1,18 @@
 {
   "comment": "These comments aren't part of the schema, but I want to comment.",
   "name": "",
+  "coveragePercent": 96.15,
+  "linesCovered": 26,
+  "linesMissed": 1,
+  "linesTotal": 26,
   "children": {
     "simple.cpp": {
       "comment": "every line in the coverage arrays is 10 entries",
       "name": "simple.cpp",
+      "coveragePercent": 95.83,
+      "linesCovered": 24,
+      "linesMissed": 1,
+      "linesTotal": 24,
       "coverage": [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -28,10 +36,18 @@
     "subdir": {
       "comment": "This is necessary to test derived file info creation.",
       "name": "subdir",
+      "coveragePercent": 100.0,
+      "linesCovered": 2,
+      "linesMissed": 0,
+      "linesTotal": 2,
       "children": {
         "valid_cpp_file_with_coverage.cpp": {
           "comment": "yes, this has coverage",
           "name": "valid_cpp_file_with_coverage.cpp",
+          "coveragePercent": 100.0,
+          "linesCovered": 2,
+          "linesMissed": 0,
+          "linesTotal": 2,
           "coverage": [
             -1, -1, 10, 10, -1, -1
           ]
