@@ -615,14 +615,16 @@ pub fn format_file_data(
     commit: &Option<git2::Commit>,
     breadcrumbs_links_to: BreadcrumbsLinksTo,
     blame_commit: &Option<git2::Commit>,
+    coverage_commit: Option<&git2::Commit>,
     path: &str,
     data: String,
     crossref_lookup_map: &Option<CrossrefLookupMap>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-    coverage: &Option<Vec<InterpolatedCoverage>>,
     writer: &mut dyn Write,
 ) -> Result<FormatPerfInfo, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+
+    let coverage = git_ops::get_coverage(tree_config.git.as_ref(), coverage_commit, path);
 
     let mut format_perf = FormatPerfInfo::default();
 
@@ -1060,6 +1062,12 @@ fn format_blob(
         None
     };
 
+    let coverage_commit = git.coverage_repo.as_ref().and_then(|repo| {
+        repo.revparse_single(&format!("refs/tags/reverse/all/all/{}", commit.id()))
+            .ok()
+            .and_then(|object| object.peel_to_commit().ok())
+    });
+
     let analysis = Vec::new();
 
     let hg_rev: &str = tree_config
@@ -1161,11 +1169,11 @@ fn format_blob(
         &Some(commit),
         BreadcrumbsLinksTo::Historical,
         &blame_commit,
+        coverage_commit.as_ref(),
         path,
         data,
         &None,
         &analysis,
-        &None,
         writer,
     )
     .map(|_| ())
