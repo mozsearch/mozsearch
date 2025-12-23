@@ -23,6 +23,12 @@ mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
 build-blame $GIT_ROOT $BLAME_ROOT
 
+rm -rf "$COVERAGE_ROOT"
+mkdir -p "$COVERAGE_ROOT"
+HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
+HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
+codecov2git --report "$GIT_ROOT/tests/searchfox/metadata/code-coverage-report.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+
 # When actively developing it's nice to purge the existing contents, but the rest
 # of the time it's nice to not reprocess it all.
 rm -rf $HISTORY_ROOT
