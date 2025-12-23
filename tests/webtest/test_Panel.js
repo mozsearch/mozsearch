@@ -141,3 +141,80 @@ add_task(async function test_PanelAfterSearch() {
        `Navigation panel has only keyboard shortcut checkbox on the search result from ${path}`);
   }
 });
+
+
+add_task(async function test_PanelAutoCollapseOnNarrowWindow() {
+  const path = "/tests/source/webtest/Webtest.cpp";
+  await TestUtils.loadPath(path);
+
+  const panelContent =
+    frame.contentDocument.querySelector("#panel-content");
+
+  // Verify the panel starts expanded on file view.
+  is(
+    panelContent.getAttribute("aria-expanded"),
+    "true",
+    "Navigation panel is expanded before resize."
+  );
+
+  // Force narrow window width (below default 1024).
+  Object.defineProperty(frame.contentWindow, "innerWidth", {
+    configurable: true,
+    value: 1000,
+  });
+
+  frame.contentWindow.dispatchEvent(new Event("resize"));
+
+  is(
+    panelContent.getAttribute("aria-expanded"),
+    "false",
+    "Navigation panel collapses on narrow window file view."
+  );
+});
+
+add_task(async function test_PanelAutoCollapseSettingOverride() {
+  // Load settings page
+  await TestUtils.loadPath("/tests/pages/settings.html");
+
+  const doc = frame.contentDocument;
+
+  const input = doc.querySelector("#nav-panel--auto-collapse-width");
+  ok(input, "Auto-collapse width setting input exists");
+
+  TestUtils.setText(input, "900");
+
+  // Load a file view
+  await TestUtils.loadPath("/tests/source/webtest/Webtest.cpp");
+
+  const panelContent =
+    frame.contentDocument.querySelector("#panel-content");
+
+  // Simulate window width that is BELOW default (1024) but ABOVE overridden (900).
+  Object.defineProperty(frame.contentWindow, "innerWidth", {
+    configurable: true,
+    value: 950,
+  });
+
+  frame.contentWindow.dispatchEvent(new Event("resize"));
+
+  is(
+    panelContent.getAttribute("aria-expanded"),
+    "true",
+    "Navigation panel remains expanded when width is above overridden threshold"
+  );
+
+  // Now go below the custom threshold.
+  Object.defineProperty(frame.contentWindow, "innerWidth", {
+    configurable: true,
+    value: 850,
+  });
+
+  frame.contentWindow.dispatchEvent(new Event("resize"));
+
+  is(
+    panelContent.getAttribute("aria-expanded"),
+    "false",
+    "Navigation panel collapses when width is below overridden threshold"
+  );
+});
+
