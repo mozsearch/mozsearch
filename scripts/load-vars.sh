@@ -23,6 +23,7 @@ export OBJDIR=$(jq -r ".trees[\"${TREE_NAME}\"].objdir_path" ${CONFIG_FILE})
 export GIT_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_path" ${CONFIG_FILE})
 export OLDGIT_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].oldgit_path" ${CONFIG_FILE})
 export BLAME_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].git_blame_path" ${CONFIG_FILE})
+export COVERAGE_ROOT="$INDEX_ROOT/coverage"
 export HISTORY_ROOT=$(jq -r ".trees[\"${TREE_NAME}\"].history_path" ${CONFIG_FILE})
 export TREE_ON_ERROR=$(jq -r ".trees[\"${TREE_NAME}\"].on_error" ${CONFIG_FILE})
 export TREE_CACHING=$(jq -r ".trees[\"${TREE_NAME}\"].cache" ${CONFIG_FILE})
