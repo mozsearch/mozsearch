@@ -15,6 +15,7 @@ itertools = "0.10"
 serde = { version = "1.0.196", features = ["derive", "rc", "std"] }
 serde_json = { version = "1.0.113", features = ["preserve_order"] }
 serde_repr = "0.1.18"
+time = { version = "0.3.44", features = ["parsing", "formatting"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 async-stream = "0.3.2"

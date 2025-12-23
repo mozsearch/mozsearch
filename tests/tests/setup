@@ -34,6 +34,12 @@ mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
 build-blame $GIT_ROOT $BLAME_ROOT
 
+rm -rf "$COVERAGE_ROOT"
+mkdir -p "$COVERAGE_ROOT"
+HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
+HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
+codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+
 # Link over the fake metadata and test file information as well.
 ln -s -f $CONFIG_REPO/tests/metadata/bugzilla-components.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/test-info-all-tests.json $INDEX_ROOT
