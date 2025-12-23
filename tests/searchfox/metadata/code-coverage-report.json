@@ -1,19 +1,39 @@
 {
   "comment": "These comments aren't part of the schema, but I want to comment.",
   "name": "",
+  "coveragePercent": 95.83,
+  "linesCovered": 24,
+  "linesMissed": 1,
+  "linesTotal": 24,
   "children": {
     "tests": {
       "name": "tests",
+      "coveragePercent": 95.83,
+      "linesCovered": 24,
+      "linesMissed": 1,
+      "linesTotal": 24,
       "children": {
         "tests": {
           "name": "tests",
+          "coveragePercent": 95.83,
+          "linesCovered": 24,
+          "linesMissed": 1,
+          "linesTotal": 24,
           "children": {
             "files": {
               "name": "files",
+              "coveragePercent": 95.83,
+              "linesCovered": 24,
+              "linesMissed": 1,
+              "linesTotal": 24,
               "children": {
                 "simple.cpp": {
                   "comment": "every line in the coverage arrays is 10 entries",
                   "name": "simple.cpp",
+                  "coveragePercent": 95.83,
+                  "linesCovered": 24,
+                  "linesMissed": 1,
+                  "linesTotal": 24,
                   "coverage": [
                     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
                     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
