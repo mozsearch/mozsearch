@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::str;
 
 use itertools::Itertools;
@@ -192,6 +193,11 @@ impl TreeConfigPaths {
         }
         None
     }
+
+    fn coverage_repo(&self) -> Option<PathBuf> {
+        let repo = Path::new(&self.index_path).join("coverage");
+        repo.exists().then_some(repo)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -213,6 +219,7 @@ pub struct ScipSubtreeConfig {
 pub struct GitData {
     pub repo: Repository,
     pub blame_repo: Option<Repository>,
+    pub coverage_repo: Option<Repository>,
 
     pub blame_map: HashMap<Oid, Oid>, // Maps repo OID to blame_repo OID.
     // Maps repo OID to Hg rev.  This comes from our blame commits, but cinnabar
@@ -482,10 +489,15 @@ fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> {
     let blame_ignore = BlameIgnoreList::load(&repo);
 
     let (blame_repo, blame_map, hg_map, old_map) = blame_data(paths, need_indexes);
+    let coverage_repo = paths
+        .coverage_repo()
+        .as_deref()
+        .map(|path| Repository::open(path).unwrap());
 
     Some(GitData {
         repo,
         blame_repo,
+        coverage_repo,
         blame_map,
         hg_map,
         old_map,

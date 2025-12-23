@@ -1,6 +1,5 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
-use std::convert::TryInto;
 use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
@@ -13,12 +12,10 @@ use serde_json::{from_str, from_value, json, to_writer, Map, Value};
 use ustr::{ustr, Ustr};
 
 use crate::describe::describe_file;
-use crate::file_format::coverage::InterpolatedCoverage;
 use crate::languages::select_formatting;
 use crate::templating::builder::build_and_parse;
 
 use super::config::TreeConfig;
-use super::coverage::interpolate_coverage;
 use super::globbing_file_list::GlobbingFileList;
 
 #[derive(Deserialize)]
@@ -157,7 +154,6 @@ pub struct ConciseIngestion {
 
 #[derive(Default, Deserialize)]
 pub struct DetailedIngestion {
-    pub coverage_lines: Option<JsonEvalNodeIngestion>,
     #[serde(default)]
     pub info: JsonEvalDictIngestion,
 }
@@ -432,7 +428,6 @@ impl ConcisePerFileInfo<Ustr> {
 #[derive(Deserialize, Serialize)]
 pub struct DetailedPerFileInfo {
     pub is_dir: bool,
-    pub coverage_lines: Option<Vec<InterpolatedCoverage>>,
     pub info: Value,
 }
 
@@ -440,7 +435,6 @@ impl DetailedPerFileInfo {
     fn default_is_dir(is_dir: bool) -> Self {
         DetailedPerFileInfo {
             is_dir,
-            coverage_lines: None,
             info: json!({}),
         }
     }
@@ -833,24 +827,6 @@ impl RepoIngestion {
                     )
                 }
             }
-            // code coverage mapping
-            "hierarchical-dict-explicit-key" => {
-                if let Some(children_key) = &config.ingestion.nesting_key.clone() {
-                    let path_prefix = config.ingestion.path_prefix.clone();
-                    self.state.recurse_nested_explicit_children(
-                        config,
-                        probe_config,
-                        children_key,
-                        &path_prefix,
-                        root.take(),
-                    )
-                } else {
-                    Err(format!(
-                        "nesting_key required for {}",
-                        config.ingestion.nesting
-                    ))
-                }
-            }
             "boring-dict-of-arrays" => {
                 // for the path_prefix, normalize a trailing "/" onto it for
                 // consistency with the path_so_far-based mechanisms.
@@ -1005,24 +981,6 @@ impl IngestionState {
             .entry(*path)
             .or_insert_with(|| DetailedPerFileInfo::default_is_dir(is_dir));
 
-        if let Some(ingestion) = &mut config.detailed.coverage_lines {
-            let evaled = ingestion.eval(&ctx, probing, file_val, Value::Null);
-            if !evaled.is_null() {
-                match from_value::<Vec<i64>>(evaled) {
-                    Ok(signed) => {
-                        let optionals = signed.into_iter().map(|value| value.try_into().ok());
-                        detailed_storage.coverage_lines = Some(interpolate_coverage(optionals));
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Weirdness {} on evaluating: {}",
-                            e,
-                            serde_json::to_string(file_val).unwrap()
-                        );
-                    }
-                }
-            }
-        }
         detailed_storage.info =
             config
                 .detailed

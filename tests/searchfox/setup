@@ -41,6 +41,3 @@ git init $HISTORY_ROOT/timeline
 mkdir -p $HISTORY_ROOT/rev-summaries
 build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax
 
-
-# Link over the fake metadata and test file information as well.
-ln -s -f $CONFIG_REPO/searchfox/metadata/code-coverage-report.json $INDEX_ROOT

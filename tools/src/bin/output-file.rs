@@ -132,6 +132,17 @@ fn main() {
         None => (None, None),
     };
 
+    let coverage_commit = tree_config
+        .git
+        .as_ref()
+        .and_then(|git| git.coverage_repo.as_ref())
+        .zip(head_oid)
+        .and_then(|(repo, commit)| {
+            repo.revparse_single(&format!("refs/tags/reverse/all/all/{}", commit))
+                .ok()
+                .and_then(|object| object.peel_to_commit().ok())
+        });
+
     let head_commit =
         head_oid.and_then(|oid| tree_config.git.as_ref().unwrap().repo.find_commit(oid).ok());
 
@@ -542,11 +553,11 @@ fn main() {
             &head_commit,
             BreadcrumbsLinksTo::Latest,
             &blame_commit,
+            coverage_commit.as_ref(),
             &path,
             input,
             &jumpref_lookup_map,
             &analysis,
-            &detailed_info.coverage_lines,
             &mut writer,
         ) {
             Ok(perf_info) => {
