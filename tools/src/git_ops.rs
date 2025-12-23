@@ -1,7 +1,10 @@
 use git2::{Commit, Object, Repository, TreeEntry};
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
-use crate::file_format::config::GitData;
+use crate::file_format::{
+    config::GitData,
+    coverage::{interpolate_coverage, InterpolatedCoverage},
+};
 
 // Helpers to do things with git2
 
@@ -53,4 +56,25 @@ pub fn get_blame_lines(
         }
         _ => None,
     }
+}
+
+pub fn get_coverage(
+    git_data: Option<&GitData>,
+    coverage_commit: Option<&Commit>,
+    path: impl AsRef<Path>,
+) -> Option<Vec<InterpolatedCoverage>> {
+    git_data
+        .and_then(|git_data| git_data.coverage_repo.as_ref())
+        .zip(coverage_commit)
+        .and_then(|(coverage_repo, coverage_commit)| {
+            let coverage_tree = coverage_commit.tree().ok()?;
+            coverage_tree
+                .get_path(path.as_ref())
+                .ok()
+                .map(|coverage_entry| {
+                    let coverage_data = read_blob_entry(coverage_repo, &coverage_entry);
+                    let raw = coverage_data.lines().map(FromStr::from_str).map(Result::ok);
+                    interpolate_coverage(raw)
+                })
+        })
 }
