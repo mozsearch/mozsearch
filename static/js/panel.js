@@ -162,7 +162,11 @@ var Panel = new (class Panel {
     // checkbox and such.
     window.addEventListener("storage", () => this.initFromLocalStorage());
 
+    window.addEventListener("resize", () => this.maybeAutoCollapse());
+
     this.initFromLocalStorage();
+
+    this.maybeAutoCollapse();
 
     if (Settings.fancyBar.enabled) {
       this.addSymbolSection();
@@ -617,6 +621,21 @@ var Panel = new (class Panel {
       this.toggle();
     }
   }
+
+  maybeAutoCollapse() {
+    const isFileView = !!document.getElementById("file");
+    if (!isFileView) {
+      return;
+    }
+
+    const widthThreshold =
+      Settings.navPanel?.autoCollapseWidth ?? 1024;
+
+    if (window.innerWidth < widthThreshold && this.isExpanded()) {
+      this.toggle();
+    }
+  }
+
 })();
 
 // Blurring magic based on the quite useful article by Antony Garand from

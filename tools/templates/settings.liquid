@@ -199,6 +199,36 @@
       </section>
     </section>
     <section>
+      <h2>Navigation Panel</h2>
+
+      <section>
+        <h3>Auto-collapse Behavior</h3>
+
+        <p>
+          Automatically collapse the navigation panel on narrow windows to avoid
+          overlapping the source text.
+        </p>
+
+        <p>
+          The default value is chosen so that an 80-character-wide source view fits
+          without being obscured by the navigation panel.
+        </p>
+
+        <form>
+          <label for="nav-panel--auto-collapse-width">
+            Auto-collapse width (px):
+          </label>
+
+          <input
+            type="number"
+            id="nav-panel--auto-collapse-width"
+            min="0"
+            step="1"
+          />
+        </form>
+      </section>
+    </section>
+    <section>
       <h2>Semantic Info Queries</h2>
       <p>
         We're experimenting with exposing information like the field layout of

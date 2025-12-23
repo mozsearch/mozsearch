@@ -111,6 +111,12 @@ const SETTING_DEFS = {
       introducedIn: 4,
     },
   },
+  navPanel: {
+    autoCollapseWidth: {
+      default: 1024,
+      introducedIn: 6,
+    },
+  },
 };
 
 const QUALITY_ORDERING = [
@@ -180,7 +186,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 5;
+const SETTINGS_VERSION = 6;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".
@@ -574,6 +580,11 @@ const SettingsBinder = new (class SettingsBinder {
           elem.value = Settings[info.groupName][info.keyName];
           elem.addEventListener("change", () => {
             Settings.__setValueFromIdSpace(elem.id, elem.value);
+          });
+        } else if (elem.type === "number") {
+          elem.value = Settings[info.groupName][info.keyName];
+          elem.addEventListener("input", () => {
+            Settings.__setValueFromIdSpace(elem.id, elem.valueAsNumber);
           });
         } else {
           console.warn("Don't know how to bind to", elem, "with type", elem.type);
