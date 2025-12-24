@@ -349,14 +349,7 @@ where
 pub enum BindingSlotKind {
     /// A class that directly implements or will be subclassed.
     Class,
-    /// For situations like XPConnect interfaces reflected into JS and
-    /// WebIDL where we are describing the symbol that exposes the IDL
-    /// interface into the language, but where that symbol is not directly part
-    /// of a class hierarchy.  I'm really not sure about the WebIDL case here,
-    /// and it probably will want to depend on how we end up implementing the
-    /// rest of the UX around here.  For now we will treat this like `Class`
-    /// above for most purposes, but this may enable semantic linking to try
-    /// and do XPConnect magic.
+    /// An XPCOM interface name as reflected into language bindings.
     InterfaceName,
     /// Callable.
     Method,
