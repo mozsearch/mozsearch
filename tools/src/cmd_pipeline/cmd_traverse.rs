@@ -3,7 +3,7 @@ use std::collections::{HashSet, VecDeque};
 use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::Args;
-use serde_json::{from_value, Value};
+use serde_json::{from_value, json, Value};
 use tracing::trace;
 use ustr::{ustr, Ustr};
 
@@ -1238,6 +1238,54 @@ impl PipelineCommand for TraverseCommand {
             }
         }
 
+        let mut traverse_options = vec![];
+        traverse_options.push(json!({
+            "name": "depth",
+            "label": "Depth",
+            "value": self.args.max_depth,
+            "default": 0,
+            "range": [0, 16],
+        }));
+        if self.args.paths_between {
+            traverse_options.push(json!({
+                "name": "paths-between-node-limit",
+                "label": "Node limit",
+                "value": self.args.paths_between_node_limit,
+                "default": 8192,
+                "range": [16, 16384],
+            }));
+        } else {
+            traverse_options.push(json!({
+                "name": "node-limit",
+                "label": "Node limit",
+                "value": self.args.node_limit,
+                "default": 384,
+                "range": [16, 1024],
+            }));
+        }
+        traverse_options.push(json!({
+            "name": "path-limit",
+            "label": "Path limit",
+            "value": self.args.skip_uses_at_path_count,
+            "default": 0,
+            "range": [0, 16384],
+        }));
+        if self.args.edge.as_str() == "class" {
+            traverse_options.push(json!({
+                "name": "fmus-through-depth",
+                "label": "Field member uses",
+                "value": self.args.traverse_field_member_uses,
+                "default": -1,
+                "range": [-1, 16],
+            }));
+        }
+        let options = json!([
+            {
+                "section": "Traverse",
+                "items": traverse_options,
+            }
+        ]);
+
         // ## Paths Between
         let graph_coll = if self.args.paths_between {
             // In this case, we don't want our original node set because we
@@ -1284,6 +1332,7 @@ impl PipelineCommand for TraverseCommand {
                 edge_set: paths_edge_set,
                 graphs: vec![paths_graph],
                 overloads_hit,
+                options,
                 hierarchical_graphs: vec![],
             }
         } else {
@@ -1292,6 +1341,7 @@ impl PipelineCommand for TraverseCommand {
                 edge_set: sym_edge_set,
                 graphs: vec![graph],
                 overloads_hit,
+                options,
                 hierarchical_graphs: vec![],
             }
         };

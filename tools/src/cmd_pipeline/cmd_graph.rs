@@ -6,6 +6,7 @@ use clap::{Args, ValueEnum};
 use dot_generator::*;
 use dot_structures::*;
 use regex::{Captures, Regex};
+use serde::Serialize;
 use serde_json::{json, Value};
 
 use graphviz_rust::cmd::{CommandArg, Format, Layout};
@@ -21,7 +22,8 @@ use super::symbol_graph::{
 
 use crate::abstract_server::{AbstractServer, Result};
 
-#[derive(Clone, Debug, PartialEq, ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum GraphFormat {
     // JSON format, useful for when GraphMode is Hier.
     Json,
@@ -37,7 +39,8 @@ pub enum GraphFormat {
     Mozsearch,
 }
 
-#[derive(Clone, Debug, PartialEq, ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum GraphHierarchy {
     /// No hierarchy, everything is a node, there are no clusters.
     Flat,
@@ -59,7 +62,8 @@ pub enum GraphHierarchy {
     Dir,
 }
 
-#[derive(Clone, Debug, PartialEq, ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum GraphLayout {
     /// Default use of the dot engine.
     Dot,
@@ -299,6 +303,64 @@ impl PipelineCommand for GraphCommand {
                 )
             }
         };
+
+        if let Value::Array(options) = &mut graphs.options {
+            let mut graph_options = vec![];
+            graph_options.push(json!({
+                "name": "hier",
+                "label": "Hierarchy",
+                "value": self.args.hier,
+                "default": "pretty",
+                "choices": [
+                    { "value": "flat", "label": "No hierarchy", },
+                    { "value": "pretty", "label": "Pretty identifier hierarchy", },
+                    { "value": "subsystem", "label": "subsystem and class structures", },
+                    { "value": "file", "label": "Full file paths", },
+                    { "value": "dir", "label": "Directories", },
+                ],
+            }));
+            graph_options.push(json!({
+                "name": "graph-layout",
+                "label": "Layout",
+                "value": self.args.layout,
+                "default": "dot",
+                "choices": [
+                    { "value": "dot", "label": "dot", },
+                    { "value": "neato", "label": "neato", },
+                    { "value": "fdp", "label": "fdp", },
+                ],
+            }));
+            graph_options.push(json!({
+                "name": "graph-format",
+                "label": "Format",
+                "value": self.args.format,
+                // While the Graph::format's default is "svg",
+                // the consumer of this options is the web, where
+                // mozsearch is the default.
+                "default": "mozsearch",
+                // "png" is not supported for the web.
+                "choices": [
+                    { "value": "json", "label": "JSON", },
+                    { "value": "svg", "label": "SVG", },
+                    { "value": "dot", "label": "dot with layout", },
+                    { "value": "raw-dot", "label": "dot without layout", },
+                    { "value": "mozsearch", "label": "SVG and symbols", },
+                ],
+            }));
+            graph_options.push(json!({
+                "name": "graph-debug",
+                "label": "Debug",
+                "value": self.args.debug,
+                "default": false,
+                "type": "bool",
+            }));
+
+            options.push(json!({
+                "section": "Graph",
+                "items": graph_options,
+            }));
+        }
+
         if self.args.format == GraphFormat::RawDot {
             let raw_dot_str = dot_graph.print(&mut PrinterContext::default());
             return Ok(PipelineValues::TextFile(TextFile {
@@ -338,6 +400,7 @@ impl PipelineCommand for GraphCommand {
                 }],
                 symbols: graphs.node_set.symbols_meta_to_jumpref_json_destructive(),
                 overloads_hit: graphs.overloads_hit,
+                options: graphs.options,
             })),
             _ => Ok(PipelineValues::TextFile(TextFile {
                 mime_type,
