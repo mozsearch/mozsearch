@@ -96,3 +96,44 @@ add_task(async function test_DiagramIgnore_control() {
   ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore3F10Ev"]`),
      "F10 is shown");
 });
+
+add_task(async function test_DiagramIgnore_menu() {
+  await TestUtils.loadQuery("tests", "calls-to:'diagram_ignore::F1' depth:10");
+
+  const f5 = frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F5Ev"]`);
+  TestUtils.click(f5);
+
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for symbol click");
+
+  const brushRows = menu.querySelectorAll(".icon-brush");
+  is(brushRows.length, 3, "3 brush items are visible");
+
+  is(brushRows[2].textContent, "Ignore this node in the diagram",
+     "the ignore context menu item is shown");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(brushRows[2]);
+  await loadPromise;
+
+  ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F1Ev"]`),
+     "F1 is shown");
+  ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F2Ev"]`),
+     "F2 is shown");
+  ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F3Ev"]`),
+     "F3 is shown");
+  ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F4Ev"]`),
+     "F4 is shown");
+  ok(!frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F5Ev"]`),
+     "F5 is not shown");
+  ok(!frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F6Ev"]`),
+     "F6 is not shown");
+  ok(!frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F7Ev"]`),
+     "F7 is not shown");
+  ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F8Ev"]`),
+     "F8 is shown");
+  ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F9Ev"]`),
+     "F9 is shown");
+  ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore3F10Ev"]`),
+     "F10 is shown");
+});
