@@ -173,6 +173,11 @@ args.paths-between-node-limit = "$0"
 command = "traverse"
 args.skip-uses-at-path-count = "$0"
 
+[term.ignore-nodes]
+[[term.ignore-nodes.group.graph-traverse]]
+command = "traverse"
+args.ignore-nodes = "$0"
+
 [term.context]
 [[term.context.group.display]]
 command = "augment-results"

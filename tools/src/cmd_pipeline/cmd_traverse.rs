@@ -1,4 +1,5 @@
 use std::collections::{HashSet, VecDeque};
+use std::iter::FromIterator;
 
 use async_trait::async_trait;
 use bitflags::bitflags;
@@ -101,6 +102,9 @@ pub struct Traverse {
     /// of the uses.
     #[clap(long, value_parser, default_value = "24")]
     pub skip_field_member_uses_at_count: u32,
+
+    #[clap(long, value_parser)]
+    pub ignore_nodes: Option<String>,
 }
 
 #[derive(Debug)]
@@ -287,6 +291,12 @@ impl PipelineCommand for TraverseCommand {
             _ => false,
         };
 
+
+        let ignore_node_set = match &self.args.ignore_nodes {
+            Some(s) => HashSet::from_iter(s.split(",")),
+            _ => HashSet::new(),
+        };
+
         // General operation:
         // - We pull a node to be traversed off the queue.  This ends up breadth
         //   first.
@@ -366,14 +376,20 @@ impl PipelineCommand for TraverseCommand {
                             let (target_id, target_info) = sym_node_set
                                 .ensure_symbol(&ptr_info.sym, server, next_depth)
                                 .await?;
+
+                            let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                                Some(Value::String(pretty)) => ustr(pretty),
+                                _ => ustr(""),
+                            };
+                            if ignore_node_set.contains(&*target_pretty) {
+                                continue;
+                            }
+
                             if next_depth < max_depth && considered.insert(ptr_info.sym) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
                                 to_traverse.push_back((
                                     ptr_info.sym,
-                                    match target_info.crossref_info.pointer("/meta/pretty") {
-                                        Some(Value::String(pretty)) => ustr(pretty),
-                                        _ => ustr(""),
-                                    },
+                                    target_pretty,
                                     next_depth,
                                     all_traversals_valid,
                                 ));
@@ -480,15 +496,20 @@ impl PipelineCommand for TraverseCommand {
                             .ensure_symbol(&target_sym, server, next_depth)
                             .await?;
 
+                        let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                            Some(Value::String(pretty)) => ustr(pretty),
+                            _ => ustr(""),
+                        };
+                        if ignore_node_set.contains(&*target_pretty) {
+                            continue;
+                        }
+
                         // we already considered depth in the outer condition
                         if considered.insert(target_info.symbol) {
                             trace!(sym = target_sym_str, "scheduling field-member-use");
                             to_traverse.push_back((
                                 target_info.symbol,
-                                match target_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
-                                    _ => ustr(""),
-                                },
+                                target_pretty,
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -580,12 +601,26 @@ impl PipelineCommand for TraverseCommand {
                         .ensure_symbol(&slot_owner.sym, server, next_depth)
                         .await?;
 
+                    let owner_pretty = match owner_info.crossref_info.pointer("/meta/pretty") {
+                        Some(Value::String(pretty)) => ustr(pretty),
+                        _ => ustr(""),
+                    };
+
                     // Handle the case where we need to traverse a slot
                     if let Some(other_slot) = traverse_slot {
                         if let Some(other_sym) = owner_info.get_binding_slot_sym(other_slot) {
                             let (other_id, other_info) = sym_node_set
                                 .ensure_symbol(&other_sym, server, next_depth)
                                 .await?;
+
+                            let other_pretty = match other_info.crossref_info.pointer("/meta/pretty") {
+                                Some(Value::String(pretty)) => ustr(pretty),
+                                _ => ustr(""),
+                            };
+                            if ignore_node_set.contains(&*other_pretty) {
+                                continue;
+                            }
+
                             if outbound_edge {
                                 sym_edge_set.ensure_edge_in_graph(
                                     sym_id.clone(),
@@ -610,17 +645,14 @@ impl PipelineCommand for TraverseCommand {
                                 );
                                 to_traverse.push_back((
                                     other_info.symbol,
-                                    match other_info.crossref_info.pointer("/meta/pretty") {
-                                        Some(Value::String(pretty)) => ustr(pretty),
-                                        _ => ustr(""),
-                                    },
+                                    other_pretty,
                                     next_depth,
                                     all_traversals_valid,
                                 ));
                             }
                         }
                         continue;
-                    } else {
+                    } else if !ignore_node_set.contains(&*owner_pretty) {
                         if outbound_edge {
                             sym_edge_set.ensure_edge_in_graph(
                                 sym_id.clone(),
@@ -645,10 +677,7 @@ impl PipelineCommand for TraverseCommand {
                             );
                             to_traverse.push_back((
                                 owner_info.symbol,
-                                match owner_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
-                                    _ => ustr(""),
-                                },
+                                owner_pretty,
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -702,6 +731,15 @@ impl PipelineCommand for TraverseCommand {
                         let (rel_id, rel_info) = sym_node_set
                             .ensure_symbol(&slot.sym, server, next_depth)
                             .await?;
+
+                        let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
+                            Some(Value::String(pretty)) => ustr(pretty),
+                            _ => ustr(""),
+                        };
+                        if ignore_node_set.contains(&*rel_pretty) {
+                            continue;
+                        }
+
                         if outbound_edge {
                             sym_edge_set.ensure_edge_in_graph(
                                 sym_id.clone(),
@@ -723,10 +761,7 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = slot.sym.as_str(), "scheduling bind slot sym");
                             to_traverse.push_back((
                                 slot.sym,
-                                match rel_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
-                                    _ => ustr(""),
-                                },
+                                rel_pretty,
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -758,6 +793,15 @@ impl PipelineCommand for TraverseCommand {
                             let (rel_id, rel_info) = sym_node_set
                                 .ensure_symbol(&rel_sym, server, next_depth)
                                 .await?;
+
+                            let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
+                                Some(Value::String(pretty)) => ustr(pretty),
+                                _ => ustr(""),
+                            };
+                            if ignore_node_set.contains(&*rel_pretty) {
+                                continue;
+                            }
+
                             if upwards {
                                 sym_edge_set.ensure_edge_in_graph(
                                     rel_id,
@@ -779,10 +823,7 @@ impl PipelineCommand for TraverseCommand {
                                 trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
                                 to_traverse.push_back((
                                     rel_sym,
-                                    match rel_info.crossref_info.pointer("/meta/pretty") {
-                                        Some(Value::String(pretty)) => ustr(pretty),
-                                        _ => ustr(""),
-                                    },
+                                    rel_pretty,
                                     next_depth,
                                     all_traversals_valid,
                                 ));
@@ -825,6 +866,14 @@ impl PipelineCommand for TraverseCommand {
                         .ensure_symbol(&target_sym, server, next_depth)
                         .await?;
 
+                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                        Some(Value::String(pretty)) => ustr(pretty),
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*target_pretty) {
+                        continue;
+                    }
+
                     sym_edge_set.ensure_edge_in_graph(
                         sym_id.clone(),
                         target_id,
@@ -840,10 +889,7 @@ impl PipelineCommand for TraverseCommand {
                         // XXX we should potentially be tying this into "considered" somehow.
                         to_traverse.push_back((
                             target_info.symbol,
-                            match target_info.crossref_info.pointer("/meta/pretty") {
-                                Some(Value::String(pretty)) => ustr(pretty),
-                                _ => ustr(""),
-                            },
+                            target_pretty,
                             next_depth,
                             Traversals::Subclass,
                         ));
@@ -874,6 +920,14 @@ impl PipelineCommand for TraverseCommand {
                     let (target_id, target_info) = sym_node_set
                         .ensure_symbol(&target_sym, server, next_depth)
                         .await?;
+
+                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                        Some(Value::String(pretty)) => ustr(pretty),
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*target_pretty) {
+                        continue;
+                    }
 
                     if let Some(Value::Array(labels_json)) =
                         target_info.crossref_info.pointer("/meta/labels").cloned()
@@ -910,10 +964,7 @@ impl PipelineCommand for TraverseCommand {
                         // XXX we should potentially be tying this into "considered" somehow
                         to_traverse.push_back((
                             target_info.symbol,
-                            match target_info.crossref_info.pointer("/meta/pretty") {
-                                Some(Value::String(pretty)) => ustr(pretty),
-                                _ => ustr(""),
-                            },
+                            target_pretty,
                             next_depth,
                             Traversals::Super,
                         ));
@@ -945,6 +996,14 @@ impl PipelineCommand for TraverseCommand {
                         .ensure_symbol(&target_sym, server, next_depth)
                         .await?;
 
+                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                        Some(Value::String(pretty)) => ustr(pretty),
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*target_pretty) {
+                        continue;
+                    }
+
                     if considered.insert(target_info.symbol) {
                         // As a quasi-hack, only add this edge if we didn't
                         // already queue the class for consideration to avoid
@@ -967,10 +1026,7 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = target_sym_str, "scheduling overrides");
                             to_traverse.push_back((
                                 target_info.symbol,
-                                match target_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
-                                    _ => ustr(""),
-                                },
+                                target_pretty,
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -1003,6 +1059,14 @@ impl PipelineCommand for TraverseCommand {
                         .ensure_symbol(&target_sym, server, next_depth)
                         .await?;
 
+                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                        Some(Value::String(pretty)) => ustr(pretty),
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*target_pretty) {
+                        continue;
+                    }
+
                     if considered.insert(target_info.symbol) {
                         // Same rationale on avoiding a duplicate edge.
                         sym_edge_set.ensure_edge_in_graph(
@@ -1016,10 +1080,7 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = target_sym_str, "scheduling overridenBy");
                             to_traverse.push_back((
                                 target_info.symbol,
-                                match target_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
-                                    _ => ustr(""),
-                                },
+                                target_pretty,
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -1071,6 +1132,14 @@ impl PipelineCommand for TraverseCommand {
                         .ensure_symbol(&target_sym, server, next_depth)
                         .await?;
 
+                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                        Some(Value::String(pretty)) => ustr(pretty),
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*target_pretty) {
+                        continue;
+                    }
+
                     if target_info.is_callable() {
                         sym_edge_set.ensure_edge_in_graph(
                             sym_id.clone(),
@@ -1083,10 +1152,7 @@ impl PipelineCommand for TraverseCommand {
                             trace!(sym = target_sym_str, "scheduling callees");
                             to_traverse.push_back((
                                 target_info.symbol,
-                                match target_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
-                                    _ => ustr(""),
-                                },
+                                target_pretty,
                                 next_depth,
                                 all_traversals_valid,
                             ));
@@ -1201,6 +1267,14 @@ impl PipelineCommand for TraverseCommand {
                             .ensure_symbol(&source_sym, server, next_depth)
                             .await?;
 
+                        let source_pretty = match source_info.crossref_info.pointer("/meta/pretty") {
+                            Some(Value::String(pretty)) => ustr(pretty),
+                            _ => ustr(""),
+                        };
+                        if ignore_node_set.contains(&*source_pretty) {
+                            continue;
+                        }
+
                         if source_info.is_callable() {
                             // We call this even if our check below determines we've already created
                             // and traversed this edge because we want to merge in edge detail
@@ -1221,10 +1295,7 @@ impl PipelineCommand for TraverseCommand {
                                 trace!(sym = source_sym_str, "scheduling uses");
                                 to_traverse.push_back((
                                     source_info.symbol,
-                                    match source_info.crossref_info.pointer("/meta/pretty") {
-                                        Some(Value::String(pretty)) => ustr(pretty),
-                                        _ => ustr(""),
-                                    },
+                                    source_pretty,
                                     next_depth,
                                     all_traversals_valid,
                                 ));
