@@ -104,6 +104,8 @@ var Dxr = new (class Dxr {
     // popstate event handler.
     // See the popstate event handler for more details.
     this.suppressNextPopState = 0;
+
+    this.addDiagramControl();
   }
 
   cancel(cancelFetch = true) {
@@ -493,6 +495,138 @@ var Dxr = new (class Dxr {
     this.fields.query.value = query;
     let url = this.constructURL();
     window.location = url;
+  }
+
+  addDiagramControl() {
+    if (typeof GRAPH_OPTIONS == "undefined") {
+      return;
+    }
+
+    this.diagramPanel = document.querySelector("#diagram-panel");
+
+    for (const { section, items } of GRAPH_OPTIONS) {
+      const sectionLabel = document.createElement("h3");
+      sectionLabel.append(section);
+      this.diagramPanel.append(sectionLabel);
+      const sectionBox = document.createElement("div");
+      sectionBox.classList.add("diagram-panel-section");
+
+      for (const item of items) {
+        const label = document.createElement("label");
+        label.id = "diagram-option-label-" + item.name;
+        label.setAttribute("for", "diagram-option-" + item.name);
+        label.append(item.label);
+        sectionBox.append(label);
+
+        if ("choices" in item) {
+          const select = document.createElement("select");
+          select.id = "diagram-option-" + item.name;
+          select.setAttribute("aria-labelledby", "diagram-option-label-" + item.name);
+          for (const choice of item.choices) {
+            const option = document.createElement("option");
+            option.value = choice.value;
+            option.append(choice.label);
+            select.append(option);
+          }
+          select.value = item.value;
+
+          select.addEventListener("change", () => {
+            item.value = select.value;
+          });
+
+          sectionBox.append(select);
+        } else if ("range" in item) {
+          const box = document.createElement("span");
+
+          const min = document.createElement("span");
+          min.classList.add("diagram-panel-range-min");
+          min.append(item.range[0]);
+          box.append(min);
+
+          const range = document.createElement("input");
+          range.id = "diagram-option-range-" + item.name;
+          range.classList.add("diagram-panel-range");
+          range.type = "range";
+          range.min = item.range[0];
+          range.max = item.range[1];
+          range.value = item.value;
+          box.append(range);
+
+          const max = document.createElement("span");
+          max.classList.add("diagram-panel-range-max");
+          max.append(item.range[1]);
+          box.append(max);
+
+          const input = document.createElement("input");
+          input.id = "diagram-option-" + item.name;
+          input.setAttribute("aria-labelledby", "diagram-option-label-" + item.name);
+          input.size = 4;
+          input.type = "text";
+          input.value = item.value;
+          box.append(input);
+
+          input.addEventListener("input", () => {
+            item.value = input.value;
+            range.value = item.value;
+          });
+          range.addEventListener("input", () => {
+            item.value = range.value;
+            input.value = item.value;
+          });
+
+          sectionBox.append(box);
+        } else if ("type" in item && item.type == "bool") {
+          const input = document.createElement("input");
+          input.id = "diagram-option-" + item.name;
+          input.setAttribute("aria-labelledby", "diagram-option-label-" + item.name);
+          input.type = "checkbox";
+          if (item.value) {
+            input.checked = true;
+          }
+
+          input.addEventListener("change", () => {
+            item.value = input.checked;
+          });
+
+          sectionBox.append(input);
+        } else {
+          const unknown = document.createElement("div");
+          unknown.append("(unknown)");
+          sectionBox.append(unknown);
+        }
+      }
+      this.diagramPanel.append(sectionBox);
+    }
+
+    const apply = document.createElement("button");
+    apply.append("Apply");
+
+    apply.addEventListener("click", () => {
+      let query = this.fields.query.value;
+
+      for (const { section, items } of GRAPH_OPTIONS) {
+        for (const item of items) {
+          const re = new RegExp(" +" + item.name + ":[^ ]+");
+          query = query.replace(re, "");
+          if (item.value != item.default) {
+            query += " " + item.name + ":" + item.value;
+          }
+        }
+      }
+
+      this.fields.query.value = query;
+      let url = this.constructURL();
+      document.location = url;
+    });
+
+    this.diagramPanel.append(apply);
+  }
+
+  toggleDiagramPanel() {
+    if (!this.diagramPanel) {
+      return;
+    }
+    this.diagramPanel.classList.toggle("hidden");
   }
 })();
 

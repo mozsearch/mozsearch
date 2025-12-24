@@ -1575,6 +1575,52 @@ g.true-diag g.node polygon {
   font-weight: bold;
 }
 
+#diagram-panel-toggle {
+  margin-inline-start: 1rem;
+  width: fit-content;
+  border: 1px solid var(--page-border-color);
+}
+
+#diagram-panel {
+  margin-inline-start: 1rem;
+  width: fit-content;
+  border: 1px solid var(--page-border-color);
+  padding: 1rem;
+}
+
+#diagram-panel.hidden {
+  display: none;
+}
+
+#diagram-panel h3 {
+  margin: 0;
+}
+
+.diagram-panel-section {
+  margin-inline-start: 1rem;
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  align-items: center;
+  gap: 2px;
+}
+
+.diagram-panel-range {
+  vertical-align: middle;
+}
+
+.diagram-panel-range-min {
+  width: 4rem;
+  display: inline-block;
+  text-align: end;
+  margin-inline-end: 0.5rem;
+}
+.diagram-panel-range-max {
+  width: 4rem;
+  display: inline-block;
+  text-align: start;
+  margin-inline-start: 0.5rem;
+}
+
 /* Field Layout */
 
 #symbol-tree-table-col-selector,
