@@ -36,9 +36,8 @@ sudo npm install -g @sourcegraph/scip-typescript
 sudo npm install -g @asutherland/scip-python
 
 # Install a JDK and Coursier.
-# v21 is currently the most recent available version of Ubuntu 24.04 (and v19 was
-# removed).
-sudo apt install -y openjdk-21-jdk
+# v17 is the version used on Firefox CI.
+sudo apt install -y openjdk-17-jdk
 curl -fL "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz" | gzip -d > cs
 chmod +x cs
 ./cs setup --yes
