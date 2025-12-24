@@ -10,11 +10,12 @@ var TREE_LIST = [
     {
       name: "Firefox",
       items: [
-        { value: "mozilla-central" },
-        { value: "mozilla-beta" },
-        { value: "mozilla-release" },
-        { value: "mozilla-esr128" },
-        { value: "mozilla-esr115" },
+        { value: "firefox-main" },
+        { value: "firefox-beta" },
+        { value: "firefox-release" },
+        { value: "firefox-esr140" },
+        { value: "firefox-esr128" },
+        { value: "firefox-esr115" },
         { value: "mozilla-esr102" },
         { value: "mozilla-esr91" },
         { value: "mozilla-esr78" },
