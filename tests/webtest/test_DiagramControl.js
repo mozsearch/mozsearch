@@ -36,6 +36,9 @@ add_task(async function test_DiagramControl_basic() {
   const pathLimit = panel.querySelector("#diagram-option-path-limit");
   is(pathLimit.value, "0", "The default path limit is shown");
 
+  const ignoreNodes = panel.querySelector("#diagram-option-ignore-nodes");
+  is(ignoreNodes.value, "", "The default ignore nodes is shown");
+
   const hier = panel.querySelector("#diagram-option-hier");
   is(hier.value, "pretty", "The default hier is shown");
 
