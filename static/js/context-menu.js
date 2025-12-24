@@ -1148,7 +1148,14 @@ var Hover = new (class Hover {
       return;
     }
 
-    let elem = event.target?.closest("[data-symbols]");
+    let target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    let elem = target.closest("[data-symbols]");
+    
     // Don't recompute things if we're still hovering over the same element.
     if (elem === this.hoveredElem) {
       return;
