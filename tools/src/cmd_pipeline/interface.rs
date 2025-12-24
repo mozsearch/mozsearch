@@ -795,6 +795,7 @@ pub struct GraphResultsBundle {
     pub graphs: Vec<RenderedGraph>,
     pub overloads_hit: Vec<OverloadInfo>,
     pub symbols: Value,
+    pub options: Value,
 }
 
 #[derive(Serialize)]
