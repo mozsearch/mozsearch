@@ -1,9 +1,20 @@
 {%- capture title %}Q: {{ query | escape }}{% endcapture -%}
 {% include 'header_query.liquid' title: title, autofocus: true %}
+{%- assign is_graph = false -%}
+{%- for result_pair in results -%}
+  {%- if result_pair[0] == "GraphResultsBundle" -%}
+    {%- assign is_graph = true -%}
+  {%- endif %}
+{%- endfor -%}
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
     <div>
       {% include 'breadcrumbs.liquid' path: "", hidden: false %}
+      {% if is_graph %}
+        <button id="diagram-panel-toggle" onclick="Dxr.toggleDiagramPanel()">
+          Diagram Controls <span class="icon-cog"></span>
+        </button>
+      {% endif %}
       {% include 'navigation_panel.liquid' expanded: false %}
     </div>
     {% for result_pair in results %}
