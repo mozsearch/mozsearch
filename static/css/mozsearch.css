@@ -1480,7 +1480,7 @@ g.edge > path.clicktarget {
 
 g.edge.hovered-out-edge > path,
 g.edge.hovered-out-edge > polygon {
-  stroke: var(diagram-hovered-out-edge--);
+  stroke: var(--diagram-hovered-out-edge);
   stroke-width: 2px;
   stroke-opacity: 1;
 }
