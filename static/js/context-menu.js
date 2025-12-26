@@ -495,6 +495,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
     let symbolToken = event.target.closest("[data-symbols]");
     if (symbolToken) {
+      Hover.onSymbolClicked(symbolToken);
+      
       if (Settings.fancyBar.enabled) {
         this.selectedToken = symbolToken;
         this.selectedToken.classList.add("selected");
@@ -1198,14 +1200,19 @@ var Hover = new (class Hover {
     }
 
     let elem = target.closest("[data-symbols]");
-    
+
+    this._updateHoverState(elem);
+  }
+
+  _updateHoverState(elem) {
     // Don't recompute things if we're still hovering over the same element.
     if (elem === this.hoveredElem) {
       return;
     }
     if (!elem) {
       this.deactivateDiagram();
-      return this.deactivate();
+      this.deactivate();
+      return;
     }
 
     let symbolNames = this.symbolsFromString(elem.getAttribute("data-symbols"));
@@ -1218,6 +1225,11 @@ var Hover = new (class Hover {
 
     this.activate(symbolNames, elem.textContent);
     this.hoveredElem = elem;
+  }
+
+  // Manually update highlight because mousemove is suppressed when menu is open.
+  onSymbolClicked(elem) {
+    this._updateHoverState(elem);
   }
 
   symbolsFromString(symbolStr) {
