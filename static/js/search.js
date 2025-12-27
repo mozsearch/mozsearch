@@ -1280,8 +1280,52 @@ function populateResults(data, full, jumpToSingle) {
           "</div></td></tr>";
       }
 
+      const pathKeys = Object.keys(data[pathkind]);
+      const hasSymbolicIdentity = pathKeys.some(k =>
+        k.startsWith("Definitions") ||
+        k.startsWith("Declarations") ||
+        k.startsWith("IDL")
+      );
+
+      const hasRealUses = pathKeys.some(k => k.startsWith("Uses") && data[pathkind][k].length > 0);
+
+      let noUsesRendered = false;
+
+      const getNoUsesHtml = () => {
+        const uniqueToggleClass = "no-uses-toggle-" + pathkind;
+
+        let str = "";
+        str += "<tr><td>&nbsp;</td></tr>";
+
+        str += "<tr>";
+        str +=   "<td class='left-column'>";
+        str +=     "<div class='expando open' data-klass='" + uniqueToggleClass + "'>&#9660;</div>";
+        str +=   "</td>";
+        str +=   "<td>";
+        str +=     "<h2 class='result-kind'>Uses (0)</h2>";
+        str +=   "</td>";
+        str += "</tr>";
+        str += "<tr class='" + uniqueToggleClass + "'>";
+        str +=   "<td class='left-column'></td>";
+        str +=   "<td>";
+        str +=     "<div class='result-no-uses-note'>";
+        str +=       "No uses found.";
+        str +=       "<small>";
+        str +=         "Note: Some template-heavy or indirect usages may not be fully indexed.";
+        str +=       "</small>";
+        str +=     "</div>";
+        str +=   "</td>";
+        str += "</tr>";
+        return str;
+      };
+
       // Loop over definition/declaration/use/etc. "qkind"s
       for (var qkind in data[pathkind]) {
+        if (qkind === "Textual Occurrences" && hasSymbolicIdentity && !hasRealUses && !noUsesRendered) {
+          html += getNoUsesHtml();
+          noUsesRendered = true;
+        }
+
         if (data[pathkind][qkind].length) {
           html += "<tr><td>&nbsp;</td></tr>";
 
@@ -1353,6 +1397,10 @@ function populateResults(data, full, jumpToSingle) {
             }
           });
         }
+      }
+
+      if (hasSymbolicIdentity && !hasRealUses && !noUsesRendered) {
+        html += getNoUsesHtml();
       }
     }
 

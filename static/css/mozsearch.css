@@ -1819,3 +1819,18 @@ g.true-diag g.node polygon {
 #query-debug-results-json[aria-hidden] {
   display: none;
 }
+
+.result-no-uses-note {
+  color: var(--page-foreground);
+  font-style: italic;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.result-no-uses-note small {
+  display: block;
+  margin-top: 5px;
+  color: var(--page-subtle-foreground);
+  font-size: 1rem;
+  font-weight: normal;
+}
