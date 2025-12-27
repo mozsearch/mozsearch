@@ -894,17 +894,11 @@ fn main() {
         None
     };
 
-    let old_git_repo = if let Some(old_cinnabar_repo_path) = cli.old_cinnabar_repo_path {
-        Some(Repository::open(old_cinnabar_repo_path).unwrap())
-    } else {
-        None
-    };
+    let old_git_repo = cli
+        .old_cinnabar_repo_path
+        .map(|old_cinnabar_repo_path| Repository::open(old_cinnabar_repo_path).unwrap());
 
-    let mut old_hg_helper = if let Some(repo) = &old_git_repo {
-        Some(start_old_cinnabar_hg2git_helper(&repo))
-    } else {
-        None
-    };
+    let mut old_hg_helper = old_git_repo.as_ref().map(start_old_cinnabar_hg2git_helper);
 
     let oldrevs_from_newrev_map = if let Some(old_rev_map_path) = cli.old_revision_map {
         let contents = read_to_string(old_rev_map_path).unwrap();

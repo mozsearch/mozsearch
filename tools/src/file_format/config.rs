@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use git2::{Oid, Repository};
 
-use crate::url_encode_path::{self, url_encode_path};
+use crate::url_encode_path::url_encode_path;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -359,7 +359,7 @@ pub fn index_blame(
         // name ("main") when there were no commits yet.  I lost the log, but
         // I believe we had ended up inside this method, but letting us just
         // use HEAD had worked out okay, so I'm presuming this was the case.
-        if let Err(_) = walk.push(oid) {
+        if walk.push(oid).is_err() {
             return (blame_map, hg_map, oldrev_map);
         }
     } else {
@@ -471,14 +471,11 @@ pub fn load(
                 // The call to index_blame below explicitly knows to just use the head
                 // if we pass None, which is why we aren't doing anything to default
                 // git_branch to the literal string "HEAD".
-                let blame_ref = match &paths.git_branch {
-                    Some(branch_name) => Some(
-                        blame_repo
-                            .refname_to_id(&format!("refs/heads/{}", branch_name))
-                            .unwrap(),
-                    ),
-                    None => None,
-                };
+                let blame_ref = paths.git_branch.as_ref().map(|branch_name| {
+                    blame_repo
+                        .refname_to_id(&format!("refs/heads/{}", branch_name))
+                        .unwrap()
+                });
                 let (blame_map, hg_map, old_map) = if need_indexes {
                     index_blame(&blame_repo, blame_ref)
                 } else {

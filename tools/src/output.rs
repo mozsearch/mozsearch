@@ -39,10 +39,7 @@ pub fn choose_icon(path: &str) -> String {
     if ext == "jsm" {
         return "js".to_string();
     }
-    if ["cpp", "h", "c", "js", "py"]
-        .iter()
-        .any(|x: &&str| *x == ext)
-    {
+    if ["cpp", "h", "c", "js", "py"].contains(&ext) {
         return ext.to_string();
     }
     "".to_string()
@@ -66,7 +63,7 @@ pub fn generate_breadcrumbs(
     opt: &Options,
     writer: &mut dyn Write,
     path: &str,
-    file_syms: &Vec<String>,
+    file_syms: &[String],
     generate_symbol: bool,
 ) -> Result<(), &'static str> {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
@@ -419,7 +416,7 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
-                    let id_attr = if item.id.len() != 0 {
+                    let id_attr = if !item.id.is_empty() {
                         format!(r#" id="{}""#, item.id)
                     } else {
                         String::new()

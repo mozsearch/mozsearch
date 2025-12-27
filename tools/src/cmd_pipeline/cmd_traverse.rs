@@ -291,7 +291,6 @@ impl PipelineCommand for TraverseCommand {
             _ => false,
         };
 
-
         let ignore_node_set = match &self.args.ignore_nodes {
             Some(s) => HashSet::from_iter(s.split(",")),
             _ => HashSet::new(),
@@ -377,10 +376,11 @@ impl PipelineCommand for TraverseCommand {
                                 .ensure_symbol(&ptr_info.sym, server, next_depth)
                                 .await?;
 
-                            let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
-                                Some(Value::String(pretty)) => ustr(pretty),
-                                _ => ustr(""),
-                            };
+                            let target_pretty =
+                                match target_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                };
                             if ignore_node_set.contains(&*target_pretty) {
                                 continue;
                             }
@@ -496,7 +496,8 @@ impl PipelineCommand for TraverseCommand {
                             .ensure_symbol(&target_sym, server, next_depth)
                             .await?;
 
-                        let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
+                        let target_pretty = match target_info.crossref_info.pointer("/meta/pretty")
+                        {
                             Some(Value::String(pretty)) => ustr(pretty),
                             _ => ustr(""),
                         };
@@ -613,10 +614,11 @@ impl PipelineCommand for TraverseCommand {
                                 .ensure_symbol(&other_sym, server, next_depth)
                                 .await?;
 
-                            let other_pretty = match other_info.crossref_info.pointer("/meta/pretty") {
-                                Some(Value::String(pretty)) => ustr(pretty),
-                                _ => ustr(""),
-                            };
+                            let other_pretty =
+                                match other_info.crossref_info.pointer("/meta/pretty") {
+                                    Some(Value::String(pretty)) => ustr(pretty),
+                                    _ => ustr(""),
+                                };
                             if ignore_node_set.contains(&*other_pretty) {
                                 continue;
                             }
@@ -1267,7 +1269,8 @@ impl PipelineCommand for TraverseCommand {
                             .ensure_symbol(&source_sym, server, next_depth)
                             .await?;
 
-                        let source_pretty = match source_info.crossref_info.pointer("/meta/pretty") {
+                        let source_pretty = match source_info.crossref_info.pointer("/meta/pretty")
+                        {
                             Some(Value::String(pretty)) => ustr(pretty),
                             _ => ustr(""),
                         };

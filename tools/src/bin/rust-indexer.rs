@@ -508,17 +508,13 @@ fn extract_span_from_source_as_buffer(
 /// of lower level problems (ex: in vagrant), but not for utf-8 errors which are more expected
 /// from sketchy source-files.
 fn extract_span_from_source_as_string(reader: &mut File, span: &data::SpanData) -> Option<String> {
-    match extract_span_from_source_as_buffer(reader, span) {
-        Ok(buffer) => match String::from_utf8(buffer.into_vec()) {
-            Ok(s) => Some(s),
-            Err(_) => None,
-        },
-        // This used to error! but the error payload was always just
-        // `Unable to read file: Custom { kind: UnexpectedEof, error: "failed to fill whole buffer" }`
-        // which was not useful or informative and may be due to invalid spans
-        // being told to us by save-analysis.
-        Err(_) => None,
-    }
+    // This used to error! but the error payload was always just
+    // `Unable to read file: Custom { kind: UnexpectedEof, error: "failed to fill whole buffer" }`
+    // which was not useful or informative and may be due to invalid spans
+    // being told to us by save-analysis.
+    extract_span_from_source_as_buffer(reader, span)
+        .ok()
+        .and_then(|buffer| String::from_utf8(buffer.into_vec()).ok())
 }
 
 fn create_output_dir(output_file: &Path) -> io::Result<()> {
@@ -551,10 +547,7 @@ fn analyze_file(
     // Attempt to open the source file to extract information not currently available from the
     // analysis data.  Some analysis information may not be emitted if we are unable to access the
     // file.
-    let maybe_source_file = match File::open(&local_source_path) {
-        Ok(f) => Some(f),
-        Err(_) => None,
-    };
+    let maybe_source_file = File::open(&local_source_path).ok();
 
     let output_file = tree_info.out_analysis_dir.join(searchfox_path);
     let mut dataset = BTreeSet::new();

@@ -14,11 +14,7 @@ pub fn find_doc_url(cfg: &Config, src_path: &str) -> Option<String> {
             .unwrap();
     }
 
-    match DOC_TREES.get().unwrap().find(src_path) {
-        // TODO: Make the URL configurable.
-        Some(target_path) => {
-            Some("https://firefox-source-docs.mozilla.org/".to_string() + target_path.as_str())
-        }
-        None => None,
-    }
+    DOC_TREES.get().unwrap().find(src_path).map(|target_path| {
+        "https://firefox-source-docs.mozilla.org/".to_string() + target_path.as_str()
+    })
 }

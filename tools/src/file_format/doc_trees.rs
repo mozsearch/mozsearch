@@ -20,20 +20,11 @@ impl DocTrees {
 
     pub fn find(&self, src_path: &str) -> Option<String> {
         for (target_prefix, src_prefix) in &self.data {
-            match src_path.strip_prefix(src_prefix) {
-                Some(inner_path) => {
-                    let no_ext_inner_path = match inner_path.strip_suffix(".md") {
-                        Some(s) => s,
-                        None => match inner_path.strip_suffix(".rst") {
-                            Some(s) => s,
-                            None => {
-                                return None;
-                            }
-                        },
-                    };
-                    return Some(target_prefix.to_owned() + no_ext_inner_path + ".html");
-                }
-                None => {}
+            if let Some(inner_path) = src_path.strip_prefix(src_prefix) {
+                let no_ext_inner_path = inner_path
+                    .strip_suffix(".md")
+                    .or_else(|| inner_path.strip_suffix(".rst"))?;
+                return Some(target_prefix.to_owned() + no_ext_inner_path + ".html");
             }
         }
 

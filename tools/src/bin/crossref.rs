@@ -24,8 +24,7 @@ use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis::{
     collect_file_syms_from_target, read_analysis, read_structured, read_target, AnalysisKind,
-    AnalysisTarget, BindingSlotProps, LineRange, Location, SearchResult, StructuredBindingSlotInfo,
-    TargetTag,
+    AnalysisTarget, BindingSlotProps, Location, SearchResult, StructuredBindingSlotInfo,
 };
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
@@ -965,10 +964,10 @@ async fn main() {
                 let js_sym = slot.sym;
                 if let Some(idl_syms) = js_idl_table.get_mut(&js_sym) {
                     if idl_syms.len() < MAX_JS_IDL_SYMS {
-                        idl_syms.push(idl_sym.clone());
+                        idl_syms.push(idl_sym);
                     }
                 } else {
-                    js_idl_table.insert(js_sym, vec![idl_sym.clone()]);
+                    js_idl_table.insert(js_sym, vec![idl_sym]);
                 }
             }
         }

@@ -1,5 +1,6 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::convert::TryInto;
 use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
@@ -12,6 +13,7 @@ use serde_json::{from_str, from_value, json, to_writer, Map, Value};
 use ustr::{ustr, Ustr};
 
 use crate::describe::describe_file;
+use crate::file_format::coverage::InterpolatedCoverage;
 use crate::languages::select_formatting;
 use crate::templating::builder::build_and_parse;
 
@@ -166,15 +168,9 @@ pub struct ProbeConfig {
 
 impl ProbeConfig {
     pub fn new_from_env() -> Self {
-        let path = if let Ok(probe_path) = std::env::var("PROBE_PATH") {
-            if let Ok(re_path) = Regex::new(&probe_path) {
-                Some(re_path)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let path = std::env::var("PROBE_PATH")
+            .ok()
+            .and_then(|probe_path| Regex::new(&probe_path).ok());
 
         Self { path }
     }
@@ -436,8 +432,7 @@ impl ConcisePerFileInfo<Ustr> {
 #[derive(Deserialize, Serialize)]
 pub struct DetailedPerFileInfo {
     pub is_dir: bool,
-    /// Coverage data; firefox-main absolutely exceeds i32 regularly.
-    pub coverage_lines: Option<Vec<i64>>,
+    pub coverage_lines: Option<Vec<InterpolatedCoverage>>,
     pub info: Value,
 }
 
@@ -1013,9 +1008,10 @@ impl IngestionState {
         if let Some(ingestion) = &mut config.detailed.coverage_lines {
             let evaled = ingestion.eval(&ctx, probing, file_val, Value::Null);
             if !evaled.is_null() {
-                match from_value(evaled) {
-                    Ok(converted) => {
-                        detailed_storage.coverage_lines = Some(interpolate_coverage(converted));
+                match from_value::<Vec<i64>>(evaled) {
+                    Ok(signed) => {
+                        let optionals = signed.into_iter().map(|value| value.try_into().ok());
+                        detailed_storage.coverage_lines = Some(interpolate_coverage(optionals));
                     }
                     Err(e) => {
                         warn!(

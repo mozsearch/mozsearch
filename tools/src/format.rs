@@ -9,6 +9,7 @@ use std::time::Instant;
 use crate::abstract_server::FileMatch;
 use crate::blame;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
+use crate::file_format::coverage::InterpolatedCoverage;
 use crate::file_format::crossref_converter::{
     determine_desired_extra_syms_from_jumpref, extra_syms_next_step_lookups, JumprefTraversals,
 };
@@ -618,7 +619,7 @@ pub fn format_file_data(
     data: String,
     crossref_lookup_map: &Option<CrossrefLookupMap>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
-    coverage: &Option<Vec<i64>>,
+    coverage: &Option<Vec<InterpolatedCoverage>>,
     writer: &mut dyn Write,
 ) -> Result<FormatPerfInfo, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
@@ -679,7 +680,7 @@ pub fn format_file_data(
 
     output::generate_header(&opt, writer)?;
 
-    let file_syms = collect_file_syms_from_source(path, &analysis);
+    let file_syms = collect_file_syms_from_source(path, analysis);
 
     output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
@@ -730,19 +731,16 @@ pub fn format_file_data(
             // 2. We have coverage data (coverage is Some(x)), but the array
             //    has no data for this line.  This should only happen if the
             //    coverage data is for a different revision control revision
-            //    than the source code.  We map this to -4.
-            //
-            // We also have -3 and -2 from interpolate_coverage, and -1
-            // which is directly part of the coverage data we receive (that
-            // interpolation converts to -2 and -3.)
-            match coverage.get(i).unwrap_or(&-4) {
-                -4 => r#" class="cov-strip cov-uncovered cov-unknown" role="button" aria-label="missing data""#.to_owned(),
-                -3 => r#" class="cov-strip cov-miss cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
-                -2 => r#" class="cov-strip cov-hit cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
-                -1 => r#" class="cov-strip cov-uncovered cov-known" role="button" aria-label="uncovered""#.to_owned(),
-                 0 => r#" class="cov-strip cov-miss cov-known" role="button" aria-label="miss" data-coverage="0""#.to_owned(),
+            //    than the source code.
+            use InterpolatedCoverage::*;
+            match coverage.get(i) {
+                None => r#" class="cov-strip cov-uncovered cov-unknown" role="button" aria-label="missing data""#.to_owned(),
+                Some(InterpolatedMiss) => r#" class="cov-strip cov-miss cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
+                Some(InterpolatedHit) => r#" class="cov-strip cov-hit cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
+                Some(Uncovered) => r#" class="cov-strip cov-uncovered cov-known" role="button" aria-label="uncovered""#.to_owned(),
+                Some(Covered(0)) => r#" class="cov-strip cov-miss cov-known" role="button" aria-label="miss" data-coverage="0""#.to_owned(),
                 // Should this directly be a CSS variable?
-                 x => format!(
+                Some(Covered(x)) => format!(
                     r#" class="cov-strip cov-hit cov-known cov-log10-{}" role="button" aria-label="hit {}{}" data-coverage="{}""#,
                     (*x as f64).log10().floor() as u32,
                     if *x < 1000 { *x } else { *x / 1000 },
@@ -774,7 +772,7 @@ pub fn format_file_data(
                     id
                 });
 
-            let same_rev_as_last = last_revs.map_or(false, |last| last == revs);
+            let same_rev_as_last = last_revs.is_some_and(|last| last == revs);
             let color = if same_rev_as_last {
                 last_color
             } else {
@@ -999,7 +997,7 @@ fn format_tree(
                 0
             } else {
                 let object = entry
-                    .to_object(&repo)
+                    .to_object(repo)
                     .or(Err("Failed to map git TreeEntry to Object"))?;
                 object.into_blob().map_or(0, |blob| blob.size())
             };
@@ -1719,7 +1717,7 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, "", &vec![], false)?;
+    output::generate_breadcrumbs(&opt, writer, "", &[], false)?;
 
     output::generate_panel(&opt, writer, &[], true)?;
 

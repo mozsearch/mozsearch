@@ -11,7 +11,7 @@ impl<'a, T> Deref for OwnedOrBorrowed<'a, T> {
     fn deref(&self) -> &Self::Target {
         match &self {
             Self::Owned(t) => t,
-            Self::Borrowed(t) => *t,
+            Self::Borrowed(t) => t,
         }
     }
 }
