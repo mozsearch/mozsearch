@@ -211,9 +211,8 @@ add_task(async function test_PanelAutoCollapseSettingOverride() {
 
   frame.contentWindow.dispatchEvent(new Event("resize"));
 
-  is(
-    panelContent.getAttribute("aria-expanded"),
-    "false",
+  waitForCondition(() =>
+    panelContent.getAttribute("aria-expanded") == "false",
     "Navigation panel collapses when width is below overridden threshold"
   );
 });
