@@ -164,3 +164,27 @@ add_task(async function test_SearchPathFilter() {
       frame.contentDocument.location.href.includes("path=&"),
     "URL is updated");
 });
+
+add_task(async function test_SearchNoUsesSpecific() {
+  await TestUtils.loadPath("/tests/search?q=unlink&redirect=false");
+  TestUtils.shortenSearchTimeouts();
+
+  let content = frame.contentDocument.querySelector("#content");
+
+  await waitForCondition(
+    () =>
+      content.textContent.includes("Uses (0)") && content.textContent.includes("No uses found"),
+      "No uses message displayed for 'unlink'"
+  );
+
+  await TestUtils.loadPath("/tests/search?q=decidebooleantrait&redirect=false");
+
+  content = frame.contentDocument.querySelector("#content");
+
+
+  await waitForCondition(
+    () =>
+      content.textContent.includes("Core code") && !content.textContent.includes("No uses found"),
+      "No uses message is NOT displayed for 'decidebooleantrait'"
+  );
+});
