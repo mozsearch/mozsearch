@@ -946,6 +946,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         }
 
         if (Settings.diagramming.enabled) {
+          Panel.syncCallgraphSource(true);
           for (const jumpref of diagrammableSyms) {
             // Always offer to diagram uses of things
             let queryString = `calls-to:'${jumpref.pretty}' depth:4`;
@@ -975,6 +976,31 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               section: "diagrams",
               confidence,
             }));
+
+            diagramMenuItems.push(new MenuItem({
+              html: this.fmt("Save as calls diagram source: <strong>_</strong>", jumpref.pretty),
+              action: () => {
+                Panel.setCallGraphSource(jumpref.pretty);
+                this.hide();
+              },
+              icon: "brush",
+              section: "callgraph",
+              confidence,
+            }));
+
+            if (Panel.callgraphSource) {
+              const queryString = `calls-between-source:${Panel.callgraphSource} calls-between-target:${jumpref.pretty} depth:8`;
+              diagramMenuItems.push(new MenuItem({
+                html: this.fmt("Use as calls diagram target: <strong>_</strong>", jumpref.pretty),
+                preaction: () => {
+                  Panel.clearCallGraphSource();
+                },
+                href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+                icon: "brush",
+                section: "callgraph",
+                confidence,
+              }));
+            }
 
             if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
                 jumpref?.meta?.fields?.length) {

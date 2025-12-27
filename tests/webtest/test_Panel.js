@@ -75,11 +75,14 @@ add_task(async function test_PanelOnLoad() {
          `Navigation panel is collapsed on ${path}`);
     }
 
+    const children = [...content.children]
+    .filter(e => !e.classList.contains("callgraph-box"));
+
     if (empty) {
-      is(content.children.length, 1,
+      is(children.length, 1,
          `Navigation panel has only keyboard shortcut checkbox on ${path}`);
     } else {
-      is(content.children.length > 1, true,
+      is(children.length > 1, true,
          `Navigation panel has multiple items on ${path}`);
     }
   }

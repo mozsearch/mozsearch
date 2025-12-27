@@ -172,6 +172,10 @@ var Panel = new (class Panel {
       this.addSymbolSection();
     }
 
+    if (Settings.diagramming.enabled) {
+      this.addEmptyCallgraphBox();
+    }
+
     if (Settings.debug.ui) {
       this.addDebugSection();
     }
@@ -422,15 +426,8 @@ var Panel = new (class Panel {
     const box = document.createElement("div");
     box.classList.add("selected-symbol-section");
 
-    const symBox = document.createElement("div");
-    symBox.classList.add("selected-symbol-box");
-    this.selectedSymbolNS = document.createElement("div");
-    this.selectedSymbolNS.classList.add("selected-symbol-ns");
-    symBox.append(this.selectedSymbolNS);
-    this.selectedSymbolLocal = document.createElement("div");
-    this.selectedSymbolLocal.classList.add("selected-symbol-local");
-    symBox.append(this.selectedSymbolLocal);
-    box.append(symBox);
+    this.selectedSymbolBox = this.createSymBox("selected-symbol");
+    box.append(this.selectedSymbolBox.symBox);
 
     this.copySymbolBox = document.createElement("div");
     this.copySymbolBox.classList.add("copy-box");
@@ -460,6 +457,96 @@ var Panel = new (class Panel {
     });
 
     markdownHeader.before(box);
+  }
+
+  createSymBox(prefix) {
+    const symBox = document.createElement("div");
+    symBox.classList.add(prefix + "-box", "symbox");
+    const nsBox = document.createElement("div");
+    nsBox.classList.add(prefix + "-ns", "symbox-ns");
+    symBox.append(nsBox);
+    const localBox = document.createElement("div");
+    localBox.classList.add(prefix + "-local", "symbox-local");
+    symBox.append(localBox);
+
+    return { symBox, nsBox, localBox };
+  }
+
+  addEmptyCallgraphBox() {
+    const box = document.createElement("div");
+    box.classList.add("callgraph-box");
+    this.content.append(box);
+
+    this.callgraphBox = box;
+    this.callgraphSource = null;
+
+    this.syncCallgraphSource(true);
+  }
+
+  syncCallgraphSource(skipHighlight) {
+    const source = localStorage.getItem("callgraph-source");
+    if (source) {
+      this.setCallGraphSource(source, skipHighlight);
+    } else {
+      this.clearCallGraphSource();
+    }
+  }
+
+  ensureCallgraphSection() {
+    if (this.callgraphBox.childNodes.length > 0) {
+      return;
+    }
+
+    const h4 = document.createElement("h4");
+    h4.textContent = "Callgraph source";
+    this.callgraphBox.append(h4);
+
+    const box = document.createElement("div");
+    box.classList.add("callgraph-source-section");
+
+    this.callgraphSourceBox = this.createSymBox("callgraph-source");
+    box.append(this.callgraphSourceBox.symBox);
+
+    const trashBox = document.createElement("div");
+    const trashIcon = document.createElement("span");
+    trashIcon.classList.add("icon-trash", "trash");
+    box.append(trashIcon);
+
+    trashIcon.addEventListener("click", e => {
+      e.preventDefault();
+
+      this.clearCallGraphSource();
+    });
+
+    this.callgraphBox.append(box);
+  }
+
+  setCallGraphSource(pretty, skipHighlight=false) {
+    localStorage.setItem("callgraph-source", pretty);
+    const updated = this.callgraphSource != pretty;
+    this.callgraphSource = pretty;
+
+    this.ensureCallgraphSection();
+
+    if (!this.isExpanded()) {
+      this.toggle();
+    }
+
+    this.updateSymbox(this.callgraphSourceBox, pretty);
+
+    if (!skipHighlight && updated) {
+      this.callgraphBox.classList.add("highlight");
+      setTimeout(() => {
+        this.callgraphBox.classList.remove("highlight");
+      }, 500);
+    }
+  }
+
+  clearCallGraphSource() {
+    localStorage.removeItem("callgraph-source");
+    this.callgraphSource = null;
+
+    this.callgraphBox.replaceChildren();
   }
 
   addDebugSection() {
@@ -541,6 +628,15 @@ var Panel = new (class Panel {
   // Symbol section.
   updateSelectedSymbolView() {
     const sym = this.selectedSymbol || '(no symbol clicked)';
+
+    this.updateSymbox(this.selectedSymbolBox, sym);
+  }
+
+  updateSymbox(symBox, sym) {
+    if (!symBox) {
+      return;
+    }
+
     const index = sym.lastIndexOf("::");
     let ns = "";
     let local = sym;
@@ -548,12 +644,8 @@ var Panel = new (class Panel {
       ns = sym.slice(0, index + 2);
       local = sym.slice(index + 2);
     }
-    if (this.selectedSymbolNS) {
-      this.selectedSymbolNS.textContent = ns;
-    }
-    if (this.selectedSymbolLocal) {
-      this.selectedSymbolLocal.textContent = local;
-    }
+    symBox.nsBox.textContent = ns;
+    symBox.localBox.textContent = local;
   }
 
   // Reflect the line number of selected symbol, if any and if it's outside of
