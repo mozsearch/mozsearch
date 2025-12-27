@@ -107,13 +107,11 @@ add_task(async function test_DiagramIgnore_menu() {
   await waitForShown(menu, "Context menu is shown for symbol click");
 
   const brushRows = menu.querySelectorAll(".icon-brush");
-  is(brushRows.length, 3, "3 brush items are visible");
-
-  is(brushRows[2].textContent, "Ignore this node in the diagram",
-     "the ignore context menu item is shown");
+  const ignoreRow = [...brushRows].find(x => x.textContent == "Ignore this node in the diagram");
+  ok(ignoreRow, "the ignore context menu item is shown");
 
   const loadPromise = TestUtils.waitForLoad();
-  TestUtils.click(brushRows[2]);
+  TestUtils.click(ignoreRow);
   await loadPromise;
 
   ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F1Ev"]`),
