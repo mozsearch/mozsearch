@@ -125,15 +125,6 @@ pub struct TestInfo {
     pub wpt_expectation_info: Option<WPTExpectationInfo>,
 }
 
-/// Per-file info derived from the concise and detailed info for a given file.
-/// Everything in here is optional data, but this structure will be available
-/// for every file to simplify control-flow.
-pub struct PerFileInfo {
-    pub bugzilla_component: Option<(String, String)>,
-    pub test_info: Option<TestInfo>,
-    pub coverage: Option<Vec<i32>>,
-}
-
 pub fn get_concise_file_info<'a>(
     all_concise_info: &'a Value,
     path: &str,
