@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use lexical_sort::natural_lexical_cmp;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, Map, Value};
 use ustr::{existing_ustr, Ustr, UstrMap};
 
@@ -94,44 +93,6 @@ impl FileLookupMap {
             file_matches: matches,
         })
     }
-}
-
-/// Information about expected failures/problems for specific web platform
-/// tests.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-
-pub struct WPTExpectationInfo {
-    /// The condition strings and related bugs that disable this test in its
-    /// entirety.
-    pub disabling_conditions: Vec<(String, String)>,
-    /// The number of `_subtests` that were disabled or conditionally disabled
-    pub disabled_subtests_count: i64,
-}
-
-/// Information from `test-info-all-tests.json` which knows about files that the
-/// test manifests know about.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TestInfo {
-    pub failed_runs: i64,
-    pub skip_if: Option<String>,
-    pub run_if: Option<String>,
-    pub fail_if: Option<String>,
-    pub skipped_runs: i64,
-    pub total_run_time_secs: f64,
-    /// "total runs" less "skipped runs"
-    pub unskipped_runs: i64,
-    /// For web platform tests with expected failures/problems, the info about
-    /// that.  Tests that are expected to succeed will have None here.
-    pub wpt_expectation_info: Option<WPTExpectationInfo>,
-}
-
-/// Per-file info derived from the concise and detailed info for a given file.
-/// Everything in here is optional data, but this structure will be available
-/// for every file to simplify control-flow.
-pub struct PerFileInfo {
-    pub bugzilla_component: Option<(String, String)>,
-    pub test_info: Option<TestInfo>,
-    pub coverage: Option<Vec<i32>>,
 }
 
 pub fn get_concise_file_info<'a>(
