@@ -59,7 +59,8 @@
 }
 
 .panel .accel,
-.panel .copy {
+.panel .copy,
+.panel .trash {
   font-size: 10px;
   border-radius: 2px;
   padding: 1px 3px;
@@ -75,7 +76,8 @@
   box-shadow: 0 1px rgba(0, 0, 0, .8);
 }
 
-.panel .copy {
+.panel .copy,
+.panel .trash {
   height: 18px;
   width: 18px;
   padding: 1px;
@@ -89,11 +91,13 @@
   cursor: unset;
 }
 
-.panel .copy:hover {
+.panel .copy:hover,
+.panel .trash:hover {
   background-color: var(--button-hover-background);
 }
 
-.panel .copy:active {
+.panel .copy:active,
+.panel .trash:active {
   background-color: var(--button-active-background);
 }
 

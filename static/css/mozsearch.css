@@ -35,6 +35,9 @@ table {
   --panel-header-background: #333;
   --panel-header-color: #fff;
 
+  --panel-callgraph-background: #ffffd0;
+  --panel-callgraph-background-highlight: #ffff80;
+
   --list-hover-background: #e0e0e0;
   --list-subtle-background: var(--line-stuck-background);
   --list-hover-color: var(--page-foreground);
@@ -175,6 +178,9 @@ table {
     --tooltip-foreground: var(--page-foreground);
     --tooltip-background: #333333;
     --tooltip-border: var(--page-border-color);
+
+    --panel-callgraph-background: #404030;
+    --panel-callgraph-background-highlight: #808030;
 
     --list-hover-background: var(--button-hover-background);
 
@@ -862,18 +868,33 @@ tr.after-context-line + tr.before-context-line {
   cursor: not-allowed;
 }
 
-.panel .selected-symbol-section {
+.panel .callgraph-box {
+  background-color: var(--panel-callgraph-background);
+  transition: background-color 0.5s;
+}
+.panel .callgraph-box.highlight {
+  background-color: var(--panel-callgraph-background-highlight);
+  transition: none;
+}
+
+.panel .selected-symbol-section,
+.panel .callgraph-source-section {
   width: 240px;
   display: grid;
   grid-template-columns: 200px 30px;
   gap: 10px;
 }
 
-.panel .selected-symbol-section .selected-symbol-box {
+.callgraph-source-section-label {
+  padding-inline-start: 30px;
+  margin-bottom: 4px;
+}
+
+.panel .symbox {
   position: relative;
 }
 
-.panel .selected-symbol-section .selected-symbol-box .selected-symbol-ns {
+.panel .symbox-ns {
   position: absolute;
   top: -1em;
   padding-inline-start: 26px;
@@ -881,7 +902,7 @@ tr.after-context-line + tr.before-context-line {
   font-size: 0.8em;
   white-space: pre;
 }
-.panel .selected-symbol-section .selected-symbol-box .selected-symbol-local {
+.panel .symbox-local {
   padding-inline-start: 30px;
   overflow: hidden;
   text-overflow: ellipsis;
