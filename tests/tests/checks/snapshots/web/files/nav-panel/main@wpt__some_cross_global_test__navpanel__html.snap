@@ -1,7 +1,6 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
-input_file: inputs/web/files/nav-panel/wpt__some_cross_global_test__navpanel__html
 ---
 <div class="panel" id="panel">
   <button id="panel-toggle">
@@ -17,6 +16,18 @@ input_file: inputs/web/files/nav-panel/wpt__some_cross_global_test__navpanel__ht
   <ul>
   <li>
   <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&component=DOM: Service Workers" title="Open the new bug form for the Core :: DOM: Service Workers component in bugzilla" class="icon item">File a bug in Core :: DOM: Service Workers<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
+  </li>
+  </ul>
+  <h4>Revision control</h4>
+  <ul>
+  <li>
+  <a id="panel-permalink" href="/tests/rev/REV/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js" data-accel="Y" title="Create a revision-specific link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/rev/REV/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js">Permalink <span class="accel">Y</span><button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
+  </li>
+  <li>
+  <a id="panel-remove-permalink" href="/tests/source/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js" title="Create a revision-agnostic link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/source/testing/web-platform/tests/complex-tests/some_cross_global_test.any.js">Remove the Permalink</a>
+  </li>
+  <li>
+  <a id="panel-blame" href="javascript:alert('Hover over the gray bar on the left to see blame information.')" title="Hover over the gray bar on the left to see blame information" class="icon item">Blame</a>
   </li>
   </ul>
   <h4>Copy as Markdown</h4>

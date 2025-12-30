@@ -1,7 +1,7 @@
 "use strict";
 
 function sanitizeURL(text) {
-  return text.replace(/https?:\/\/[^\/]+\//, "BASE_URL/");
+  return text.replace(/https?:\/\/[^\/]+\//, "BASE_URL/").replace(/\/rev\/[^\/]+\//, "/rev/REV/");
 }
 
 add_task(async function test_CopyAsMarkdown() {
@@ -25,13 +25,13 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(filenameButton);
   is(sanitizeURL(copiedText),
-     "[CopyAsMarkdown.cpp](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp)",
+     "[CopyAsMarkdown.cpp](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp)",
      "Filename is copied");
 
   copiedText = "";
   TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "F" });
   is(sanitizeURL(copiedText),
-     "[CopyAsMarkdown.cpp](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp)",
+     "[CopyAsMarkdown.cpp](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp)",
      "Filename is copied");
 
   copiedText = "*unmodified*";
@@ -53,8 +53,8 @@ add_task(async function test_CopyAsMarkdown() {
   ok(!codeButton.disabled, "Code Block should be enabled when a line is selected");
 
   TestUtils.click(codeButton);
-  is(copiedText.replace(/https?:\/\/[^\/]+\//, "BASE_URL/"),
-     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#3\n" +
+  is(sanitizeURL(copiedText),
+     "BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#3\n" +
      "```cpp\n" +
      "// Comment at the top level.\n" +
      "```",
@@ -62,8 +62,8 @@ add_task(async function test_CopyAsMarkdown() {
 
   copiedText = "";
   TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "C" });
-  is(copiedText.replace(/https?:\/\/[^\/]+\//, "BASE_URL/"),
-     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#3\n" +
+  is(sanitizeURL(copiedText),
+     "BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#3\n" +
      "```cpp\n" +
      "// Comment at the top level.\n" +
      "```",
@@ -84,13 +84,13 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(symbolButton);
   is(sanitizeURL(copiedText),
-     "[globalVariable](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#5)",
+     "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
      "Global variable symbol is copied");
 
   copiedText = "";
   TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "S" });
   is(sanitizeURL(copiedText),
-     "[globalVariable](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#5)",
+     "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
      "Global variable symbol is copied");
 
   // Select the namespace.
@@ -103,7 +103,7 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(symbolButton);
   is(sanitizeURL(copiedText),
-     "[copy_as_markdown](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#7)",
+     "[copy_as_markdown](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#7)",
      "Namespace symbol is copied");
 
   // Select the comment inside namespace.
@@ -122,7 +122,7 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(symbolButton);
   is(sanitizeURL(copiedText),
-     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#14)",
+     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#14)",
      "Method symbol is copied");
 
   // Select the local variable
@@ -134,7 +134,7 @@ add_task(async function test_CopyAsMarkdown() {
 
   TestUtils.click(symbolButton);
   is(sanitizeURL(copiedText),
-     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#17)",
+     "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#17)",
      "Method symbol is copied instead of local variable symbol");
 
   // Shift-select from the start of the class to the currently selected local variable.
@@ -145,8 +145,8 @@ add_task(async function test_CopyAsMarkdown() {
   ok(!codeButton.disabled, "Code Block should be enabled when lines are selected");
 
   TestUtils.click(codeButton);
-  is(copiedText.replace(/https?:\/\/[^\/]+\//, "BASE_URL/"),
-     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#11-17\n" +
+  is(sanitizeURL(copiedText),
+     "BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#11-17\n" +
      "```cpp\n" +
      "class CopyAsMarkdown {\n" +
      "  // Comment inside class.\n" +
@@ -164,8 +164,8 @@ add_task(async function test_CopyAsMarkdown() {
   TestUtils.selectLine(17, { bubbles: true, metaKey: true });
 
   TestUtils.click(codeButton);
-  is(copiedText.replace(/https?:\/\/[^\/]+\//, "BASE_URL/"),
-     "BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#14-15,17\n" +
+  is(sanitizeURL(copiedText),
+     "BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#14-15,17\n" +
      "```cpp\n" +
      "void SomeMethod() {\n" +
      "  // Comment inside method.\n" +
@@ -216,7 +216,7 @@ add_task(async function test_CopyAsMarkdown_clicked() {
 
     TestUtils.click(symbolButton);
     is(sanitizeURL(copiedText),
-       "[globalVariable](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#5)",
+       "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
        "Global variable symbol is copied");
 
     const methodName = frame.contentDocument.querySelector(`span.syn_def[data-symbols="_ZN16copy_as_markdown14CopyAsMarkdown10SomeMethodEv"]`);
@@ -226,11 +226,11 @@ add_task(async function test_CopyAsMarkdown_clicked() {
     TestUtils.click(symbolButton);
     if (enabled) {
       is(sanitizeURL(copiedText),
-         "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#5,14)",
+         "[copy_as_markdown::CopyAsMarkdown::SomeMethod](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5,14)",
          "Method symbol is copied if clicked-symbol is enabled, with global variable line number in URL");
     } else {
       is(sanitizeURL(copiedText),
-         "[globalVariable](BASE_URL/tests/source/webtest/CopyAsMarkdown.cpp#5)",
+         "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
          "Global variable symbol is copied if clicked-symbol is disabled");
     }
   }
