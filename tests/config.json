@@ -11,6 +11,8 @@
       "cache": "everything",
       "index_path": "$WORKING/tests",
       "files_path": "$WORKING/tests/files",
+      "git_path": "$WORKING/tests/git",
+      "git_blame_path": "$WORKING/tests/blame",
       "webidl_binding_local_path": "webidl/bindings",
       "staticprefs_binding_local_path": "staticprefs/bindings",
       "objdir_path": "$WORKING/tests/objdir",
