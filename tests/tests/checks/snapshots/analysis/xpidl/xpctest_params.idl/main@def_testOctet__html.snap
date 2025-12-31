@@ -1,11 +1,10 @@
 ---
 source: src/bin/test-index.rs
 expression: "&aggr_str"
-snapshot_kind: text
 ---
 <div role="row" id="line-24" class="source-line-with-number">
   <div role="cell"><div class="cov-strip cov-no-data"></div></div>
-  <div role="cell"><div class="blame-strip"></div></div>
+  <div role="cell"><div class="blame-strip c1" data-blame="f8c28b97fb5d680c07766bb2b71c2a7d596d98af#%#24" role="button" aria-label="same hash 1" aria-expanded="false"></div></div>
   <div role="cell" class="line-number" data-line-number="24"></div>
   <code role="cell" class="source-line">  <span class="syn_reserved" >octet</span>                 <span class="syn_def" data-symbols="XPIDL_nsIXPCTestParams_testOctet" data-confidences="[&quot;concrete&quot;]">testOctet</span>(<span class="syn_reserved" >in</span> <span class="syn_reserved" >octet</span> a, <span class="syn_reserved" >inout</span> <span class="syn_reserved" >octet</span> b);
 </code>

@@ -119,50 +119,6 @@ value_lookup = "/components"
 bugzilla_component.pointer = ""
 subsystem.liquid = '{{ value[0] }}/{{ value[1] | replace: "&", "" | replace: ":", "/" | compact_pathlike }}'
 
-# ### code-coverage-report.json
-#
-# Hierarchical file where the root node corresponds to the root of the source
-# tree.  Paths are stored via recursive nesting.
-#
-# Each node can contain the following keys:
-# - "children": An object whose keys are file/directory names and whose values
-#   are nodes of the self-same type.
-# - "coverage": An array where each entry corresponds to a line of the source
-#   file with `-1` indicating an uninstrumented line, `0` indicating an
-#   instrumented line with no coverage hits, and any positive integers
-#   indicating a line with that number of hits.
-# - "coveragePercent": Coverage percent in the node and all its children as a
-#   floating point value in the range [0, 100] to 2 decimal places.  For a
-#   file this is for the file and for a directory this is the average over all
-#   of its children.
-# - "linesCovered": The number of coverage lines in the node and all its
-#   children which are `> 0`.  So for a file this is derived from its
-#   "coverage" and for a directory this is the sum of the value in all of its
-#   children.
-# - "linesMissed": The number of lines in the node and all its children which
-#   are `0`.
-# - "linesTotal": The number of lines in the node and all its children which
-#   aren't `-1` AKA are `>= 0`.  Should be the same as adding up
-#   `linesCovered` and `linesMissed`.  There is no summary value for the
-#   number of lines that report `-1` because they're presumed to be whitespace
-#   or comments or whatever.
-# - "name": The same name that is the key that matches this value in its
-#   parent's "children" dictionary.  In the case of the root node this is "".
-#
-# Currently only the "coverage" data is used, going in the detailed per-file
-# storage, but it would make a lot of sense to save off the aggregate info
-# in the summary file.
-[jsonfile."code-coverage-report.json"]
-source = [{ root = "index", file = "code-coverage-report.json" }]
-
-[jsonfile."code-coverage-report.json".ingestion]
-root = ""
-nesting = "hierarchical-dict-explicit-key"
-nesting_key = "children"
-
-[jsonfile."code-coverage-report.json".detailed]
-coverage_lines.pointer = "/coverage"
-
 # ### test-info-all-tests.json
 #
 # Paths are flat, with only a single level of clustering by bugzilla

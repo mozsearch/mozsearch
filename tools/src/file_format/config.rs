@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::str;
 
 use itertools::Itertools;
@@ -192,6 +193,11 @@ impl TreeConfigPaths {
         }
         None
     }
+
+    fn coverage_repo(&self) -> Option<PathBuf> {
+        let repo = Path::new(&self.index_path).join("coverage");
+        repo.exists().then_some(repo)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -213,6 +219,7 @@ pub struct ScipSubtreeConfig {
 pub struct GitData {
     pub repo: Repository,
     pub blame_repo: Option<Repository>,
+    pub coverage_repo: Option<Repository>,
 
     pub blame_map: HashMap<Oid, Oid>, // Maps repo OID to blame_repo OID.
     // Maps repo OID to Hg rev.  This comes from our blame commits, but cinnabar
@@ -461,55 +468,7 @@ pub fn load(
             }
         }
 
-        let git = match (&paths.git_path, &paths.git_blame_path) {
-            (Some(git_path), Some(git_blame_path)) => {
-                let repo = Repository::open(git_path).unwrap();
-                let mailmap = Mailmap::load(&repo);
-                let blame_ignore = BlameIgnoreList::load(&repo);
-
-                let blame_repo = Repository::open(git_blame_path).unwrap();
-                // The call to index_blame below explicitly knows to just use the head
-                // if we pass None, which is why we aren't doing anything to default
-                // git_branch to the literal string "HEAD".
-                let blame_ref = paths.git_branch.as_ref().map(|branch_name| {
-                    blame_repo
-                        .refname_to_id(&format!("refs/heads/{}", branch_name))
-                        .unwrap()
-                });
-                let (blame_map, hg_map, old_map) = if need_indexes {
-                    index_blame(&blame_repo, blame_ref)
-                } else {
-                    (HashMap::new(), HashMap::new(), HashMap::new())
-                };
-
-                Some(GitData {
-                    repo,
-                    blame_repo: Some(blame_repo),
-                    blame_map,
-                    hg_map,
-                    old_map,
-                    mailmap,
-                    blame_ignore,
-                })
-            }
-            (Some(git_path), &None) => {
-                let repo = Repository::open(git_path).unwrap();
-                let mailmap = Mailmap::load(&repo);
-                let blame_ignore = BlameIgnoreList::load(&repo);
-
-                Some(GitData {
-                    repo,
-                    blame_repo: None,
-                    blame_map: HashMap::new(),
-                    hg_map: HashMap::new(),
-                    old_map: HashMap::new(),
-                    mailmap,
-                    blame_ignore,
-                })
-            }
-            _ => None,
-        };
-
+        let git = git_data(&paths, need_indexes);
         trees.insert(tree_name, TreeConfig { paths, git });
     }
 
@@ -520,6 +479,62 @@ pub fn load(
         url_map_path,
         doc_trees_path,
     }
+}
+
+fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> {
+    let git_path = paths.git_path.as_deref()?;
+
+    let repo = Repository::open(git_path).unwrap();
+    let mailmap = Mailmap::load(&repo);
+    let blame_ignore = BlameIgnoreList::load(&repo);
+
+    let (blame_repo, blame_map, hg_map, old_map) = blame_data(paths, need_indexes);
+    let coverage_repo = paths
+        .coverage_repo()
+        .as_deref()
+        .map(|path| Repository::open(path).unwrap());
+
+    Some(GitData {
+        repo,
+        blame_repo,
+        coverage_repo,
+        blame_map,
+        hg_map,
+        old_map,
+        mailmap,
+        blame_ignore,
+    })
+}
+
+fn blame_data(
+    paths: &TreeConfigPaths,
+    need_indexes: bool,
+) -> (
+    Option<Repository>,
+    HashMap<Oid, Oid>,
+    HashMap<Oid, String>,
+    HashMap<Oid, Oid>,
+) {
+    let Some(git_blame_path) = paths.git_blame_path.as_deref() else {
+        return Default::default();
+    };
+
+    let blame_repo = Repository::open(git_blame_path).unwrap();
+    // The call to index_blame below explicitly knows to just use the head
+    // if we pass None, which is why we aren't doing anything to default
+    // git_branch to the literal string "HEAD".
+    let blame_ref = paths.git_branch.as_ref().map(|branch_name| {
+        blame_repo
+            .refname_to_id(&format!("refs/heads/{}", branch_name))
+            .unwrap()
+    });
+    let (blame_map, hg_map, old_map) = if need_indexes {
+        index_blame(&blame_repo, blame_ref)
+    } else {
+        (HashMap::new(), HashMap::new(), HashMap::new())
+    };
+
+    (Some(blame_repo), blame_map, hg_map, old_map)
 }
 
 #[derive(Hash, Eq, PartialEq, Debug)]
