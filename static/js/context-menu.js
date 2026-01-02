@@ -25,58 +25,6 @@ class ContextMenuBase {
     }
   }
 
-  createMenuItem(item) {
-    let li = document.createElement("li");
-    li.classList.add("contextmenu-row");
-    li.setAttribute("role", "none");
-
-    if (item.confidence) {
-      li.classList.add(`confidence-${item.confidence}`);
-    }
-
-    let link = li.appendChild(document.createElement("a"));
-    link.setAttribute("role", "menuitem");
-    if (item.action) {
-      link.addEventListener("click", (evt) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        item.action();
-      }, {
-        // Debounce by only letting us hear one click.
-        once: true
-      });
-      link.href = "#";
-    } else if (item.href) {
-      link.href = item.href;
-
-      if (item.preaction) {
-        link.addEventListener("click", (evt) => {
-          item.preaction(evt);
-        }, true);
-      }
-    }
-
-    link.classList.add("contextmenu-link");
-    if (item.icon) {
-      link.classList.add(`icon-${item.icon}`);
-    }
-    if (item.classNames) {
-      for (const name of item.classNames) {
-        link.classList.add(name);
-      }
-    }
-    if (item.attrs) {
-      for (const [name, value] of Object.entries(item.attrs)) {
-        link.setAttribute(name, value);
-      }
-    }
-    link.addEventListener("keydown", this.onKeyDown.bind(this));
-
-    link.innerHTML = item.html;
-
-    return li;
-  }
-
   populateMenu(menu, menuItems) {
     const column = [];
 
@@ -93,7 +41,10 @@ class ContextMenuBase {
     menu.innerHTML = "";
     let lastSection = null;
     for (const item of mergedItems.values()) {
-      const li = this.createMenuItem(item);
+      const li = item.createListItem(this, {
+        col: 0,
+        row: column.length,
+      });
       if (lastSection === null) {
         lastSection = item.section;
       } else if (lastSection === item.section) {
@@ -106,9 +57,7 @@ class ContextMenuBase {
 
       menu.appendChild(li);
 
-      column.push({
-        link: li.firstChild,
-      });
+      column.push(item);
     }
 
     // Default behavior for single column and no groups.
@@ -116,36 +65,30 @@ class ContextMenuBase {
     this.columns = [column];
   }
 
-  getItemPos(target) {
-    for (let col = 0; col < this.columns.length; col++) {
-      const column = this.columns[col];
-      for (let row = 0; row < column.length; row++) {
-        if (column[row].link == target) {
-          return { col, row };
-        }
-      }
-    }
-    return null;
-  }
-
   focusItemAt(pos) {
-    while (!this.columns[pos.col][pos.row].link) {
+    while (!this.columns[pos.col][pos.row].isFocusable()) {
       pos.row++;
     }
 
-    this.focusItem(this.columns[pos.col][pos.row].link);
+    this.focusItem(this.columns[pos.col][pos.row]);
   }
 
   focusItem(item) {
-    item.focus();
+    this.focusElement(item.getFocusableElement());
+  }
+
+  focusElement(elem) {
+    elem.focus();
 
     // Given focus needs user interaction, tell webtest separately.
     const event = new Event("focusmenuitem");
-    event.targetItem = item;
+    event.targetItem = elem;
     document.dispatchEvent(event);
   }
 
-  onKeyDown(event) {
+  onKeyDown(event, item, itemPos) {
+    const pos = { col: itemPos.col, row: itemPos.row };
+
     switch (event.key) {
       case "Esc":
       case "Escape":
@@ -154,16 +97,11 @@ class ContextMenuBase {
         return;
     }
 
-    const pos = this.getItemPos(event.target);
-    if (!pos) {
-      return;
-    }
-
     switch (event.key) {
       case "ArrowUp":
       case "Up":
         pos.row--;
-        if (pos.row >= 0 && !this.columns[pos.col][pos.row].link) {
+        if (pos.row >= 0 && !this.columns[pos.col][pos.row].isFocusable()) {
           // Skip label.
           pos.row--;
         }
@@ -242,6 +180,7 @@ class ContextMenuBase {
 class MenuItem {
   constructor(options) {
     Object.assign(this, options);
+    this.focusableElement = null;
   }
 
   toKey() {
@@ -253,6 +192,74 @@ class MenuItem {
     // Given that key represents everything,
     // merge happens only when the item is fully equivalent.
     // Nothing to do here.
+  }
+
+  isFocusable() {
+    return !!this.focusableElement;
+  }
+
+  getFocusableElement() {
+    return this.focusableElement;
+  }
+
+  createListItem(menu, pos) {
+    let li = document.createElement("li");
+    li.classList.add("contextmenu-row");
+    li.setAttribute("role", "none");
+
+    if (this.confidence) {
+      li.classList.add(`confidence-${this.confidence}`);
+    }
+
+    this.populateListItem(li, menu, pos);
+
+    return li;
+  }
+
+  populateListItem(li, menu, pos) {
+    let link = li.appendChild(document.createElement("a"));
+    link.setAttribute("role", "menuitem");
+    if (this.action) {
+      link.addEventListener("click", (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.action();
+      }, {
+        // Debounce by only letting us hear one click.
+        once: true
+      });
+      link.href = "#";
+    } else if (this.href) {
+      link.href = this.href;
+
+      if (this.preaction) {
+        link.addEventListener("click", (evt) => {
+          this.preaction(evt);
+        }, true);
+      }
+    }
+
+    link.classList.add("contextmenu-link");
+    if (this.icon) {
+      link.classList.add(`icon-${this.icon}`);
+    }
+    if (this.classNames) {
+      for (const name of this.classNames) {
+        link.classList.add(name);
+      }
+    }
+    if (this.attrs) {
+      for (const [name, value] of Object.entries(this.attrs)) {
+        link.setAttribute(name, value);
+      }
+    }
+    link.addEventListener("keydown", event => {
+      menu.onKeyDown(event, this, pos);
+    });
+
+    link.innerHTML = this.html;
+
+    this.focusableElement = link;
   }
 }
 
@@ -1155,13 +1162,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         case "ArrowUp":
         case "Up": {
           const column = this.columns[0];
-          this.focusItem(column[column.length - 1].link);
+          this.focusItem(column[column.length - 1]);
           break;
         }
         case "ArrowDown":
         case "Down":
           const column = this.columns[0];
-          this.focusItem(column[0].link);
+          this.focusItem(column[0]);
           break;
         default:
           return;
@@ -1530,18 +1537,18 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
         label.classList.add("context-menu-group-label");
         label.textContent = group.name;
         column.push({
-          label,
+          isFocusable: () => false,
         });
         columnBox.append(label);
 
         const list = document.createElement("ul");
         list.id = groupListId;
         list.setAttribute("role", "group");
-        for (const item of group.items) {
-          const label = item.label ? item.label : item.value;
-          const tree = item.value;
+        for (const rawItem of group.items) {
+          const label = rawItem.label ? rawItem.label : rawItem.value;
+          const tree = rawItem.value;
 
-          const li = this.createMenuItem(new MenuItem({
+          const item = new MenuItem({
             html: label,
             classNames: ["indent"],
             href: document.location.pathname.replace(/^\/[^\/]+\//, `/${tree}/`)
@@ -1550,14 +1557,17 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
             attrs: {
               "data-tree": tree,
             },
-          }));
+          });
+
+          const li = item.createListItem(this, {
+            col: columns.length,
+            row: column.length,
+          });
 
           li.setAttribute("aria-labelledby", groupId);
 
           list.append(li);
-          column.push({
-            link: li.firstChild,
-          });
+          column.push(item);
         }
         columnBox.append(list);
       }
@@ -1582,11 +1592,11 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
 
   focusCurrentTree() {
     const tree = this.getCurrentTree();
-    const item = this.menu.querySelector(`a[data-tree="${tree}"]`);
-    if (!item) {
+    const elem = this.menu.querySelector(`a[data-tree="${tree}"]`);
+    if (!elem) {
       this.menu.focus();
     }
 
-    this.focusItem(item);
+    this.focusElement(elem);
   }
 });
