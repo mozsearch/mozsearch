@@ -16,6 +16,8 @@ async function openPanel() {
 }
 
 add_task(async function test_DiagramControl_basic() {
+  await TestUtils.resetFeatureGate("diagramming");
+
   await TestUtils.loadQuery("tests", "calls-to:'diagram::uses_lines_local::target' depth:4");
 
   const query = frame.contentDocument.querySelector("#query");
