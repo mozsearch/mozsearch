@@ -65,16 +65,16 @@ class ContextMenuBase {
     this.columns = [column];
   }
 
-  focusItemAt(pos) {
+  focusItemAt(pos, side) {
     while (!this.columns[pos.col][pos.row].isFocusable()) {
       pos.row++;
     }
 
-    this.focusItem(this.columns[pos.col][pos.row]);
+    this.focusItem(this.columns[pos.col][pos.row], side);
   }
 
-  focusItem(item) {
-    this.focusElement(item.getFocusableElement());
+  focusItem(item, side) {
+    this.focusElement(item.getFocusableElement(side));
   }
 
   focusElement(elem) {
@@ -97,9 +97,11 @@ class ContextMenuBase {
         return;
     }
 
+    let side = "first";
     switch (event.key) {
       case "ArrowUp":
       case "Up":
+        side = "last";
         pos.row--;
         if (pos.row >= 0 && !this.columns[pos.col][pos.row].isFocusable()) {
           // Skip label.
@@ -134,6 +136,7 @@ class ContextMenuBase {
         break;
 
       case "End":
+        side = "last";
         pos.col = this.columns.length - 1;
         pos.row = this.columns[pos.col].length - 1;
         break;
@@ -143,11 +146,13 @@ class ContextMenuBase {
         break;
 
       case "PageDown":
+        side = "last";
         pos.row = this.columns[pos.col].length - 1;
         break;
 
       case "ArrowLeft":
       case "Left":
+        side = "last";
         pos.col--;
         if (pos.col < 0) {
           pos.col = 0;
@@ -167,13 +172,10 @@ class ContextMenuBase {
           pos.row = this.columns[pos.col].length - 1;
         }
         break;
-
-      default:
-        return;
     }
 
     event.preventDefault();
-    this.focusItemAt(pos);
+    this.focusItemAt(pos, side);
   }
 }
 
@@ -327,6 +329,281 @@ class SearchMenuItem extends MenuItem {
   merge(other) {
     this.syms = [...new Set(this.syms.concat(other.syms))];
     this.updateHref();
+  }
+}
+
+class DiagramMenuSection extends MenuItem {
+  constructor(options) {
+    super({
+      icon: "brush",
+      section: "callgraph",
+      confidence: options.confidence,
+    });
+
+    this.pretty = options.pretty;
+    this.sym = options.sym;
+    this.tree = options.tree;
+    this.isClass = options.isClass;
+    this.showInheritance = options.showInheritance;
+
+    this.links = [];
+
+    this.savedPretty = localStorage.getItem("diagram-saved");
+  }
+
+  isFocusable() {
+    return true;
+  }
+
+  getFocusableElement(side) {
+    if (side === "first") {
+      return this.links[0];
+    }
+    return this.links.at(-1);
+  }
+
+  populateListItem(li, menu, pos) {
+    const title = document.createElement("div");
+    title.classList.add("contextmenu-section-title");
+    title.classList.add(`icon-brush`);
+    title.append("Diagram of " + this.pretty);
+    li.append(title);
+
+    const buttons = document.createElement("div");
+    buttons.classList.add("contextmenu-buttons");
+    li.append(buttons);
+
+    {
+      const link = document.createElement("a");
+      link.classList.add("contextmenu-button");
+      link.setAttribute("role", "menuitem");
+      const queryString = `calls-to-sym:'${this.sym}' depth:4`;
+      link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+      link.addEventListener("keydown", event => {
+        this.onKeyDown(event, menu, link, pos);
+      });
+      link.append("Calls to");
+      link.title = `Calls diagram to ${this.pretty}`;
+      link.setAttribute("aria-label", `Calls diagram to ${this.pretty}`);
+      buttons.append(link);
+
+      this.links.push(link);
+    }
+    {
+      const link = document.createElement("a");
+      link.classList.add("contextmenu-button");
+      link.setAttribute("role", "menuitem");
+      const queryString = `calls-from:'${this.pretty}' depth:4`;
+      link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+      link.addEventListener("keydown", event => {
+        this.onKeyDown(event, menu, link, pos);
+      });
+      link.append("Calls from");
+      link.title = `Calls diagram from ${this.pretty}`;
+      link.setAttribute("aria-label", `Calls diagram from ${this.pretty}`);
+      buttons.append(link);
+
+      this.links.push(link);
+    }
+    {
+      const link = document.createElement("a");
+      link.classList.add("contextmenu-button");
+      link.setAttribute("role", "menuitem");
+      if (this.isClass) {
+        const queryString = `class-diagram:'${this.pretty}' depth:4`;
+        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.addEventListener("keydown", event => {
+          this.onKeyDown(event, menu, link, pos);
+        });
+        this.links.push(link);
+      } else {
+        link.setAttribute("aria-disabled", "true");
+        link.classList.add("disabled");
+      }
+      link.append("Class");
+      link.title = `Class diagram of ${this.pretty}`;
+      link.setAttribute("aria-label", `Class diagram of ${this.pretty}`);
+      buttons.append(link);
+    }
+    {
+      const link = document.createElement("a");
+      link.classList.add("contextmenu-button");
+      link.setAttribute("role", "menuitem");
+      if (this.showInheritance) {
+        const queryString = `inheritance-diagram:'${this.pretty}' depth:4`;
+        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.addEventListener("keydown", event => {
+          this.onKeyDown(event, menu, link, pos);
+        });
+        this.links.push(link);
+      } else {
+        link.setAttribute("aria-disabled", "true");
+        link.classList.add("disabled");
+      }
+      link.append("Inheritance");
+      link.title = `Inheritance diagram of ${this.pretty}`;
+      link.setAttribute("aria-label", `Inheritance diagram of ${this.pretty}`);
+      buttons.append(link);
+    }
+    {
+      const link = document.createElement("a");
+      link.classList.add("contextmenu-button");
+      link.setAttribute("role", "menuitem");
+      link.href = "#";
+      link.addEventListener("keydown", event => {
+        this.onKeyDown(event, menu, link, pos);
+      });
+      link.addEventListener("click", event => {
+        event.preventDefault();
+
+        this.saveItem();
+        ContextMenu.hide();
+      });
+      link.append("Save");
+      link.title = `Save ${this.pretty} for calls-between diagram`;
+      link.setAttribute("aria-label", `Save ${this.pretty} for calls-between diagram`);
+      buttons.append(link);
+
+      this.links.push(link);
+    }
+
+    if (this.savedPretty) {
+      const saved = document.createElement("div");
+      saved.classList.add("contextmenu-subsection-title");
+      saved.append("with " + this.savedPretty);
+      li.append(saved);
+
+      const buttons = document.createElement("div");
+      buttons.classList.add("contextmenu-buttons");
+      li.append(buttons);
+
+      {
+        const link = document.createElement("a");
+        link.classList.add("contextmenu-button");
+        link.setAttribute("role", "menuitem");
+        const queryString = `calls-between-source:'${this.savedPretty}' calls-between-target:'${this.pretty}' depth:8`;
+        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.addEventListener("keydown", event => {
+          this.onKeyDown(event, menu, link, pos);
+        });
+        link.append("Calls to");
+        link.title = `Calls diagram from ${this.savedPretty} to ${this.pretty}`;
+        link.setAttribute("aria-label", `Calls diagram from ${this.savedPretty} to ${this.pretty}`);
+        buttons.append(link);
+
+        this.links.push(link);
+      }
+
+      {
+        const link = document.createElement("a");
+        link.classList.add("contextmenu-button");
+        link.setAttribute("role", "menuitem");
+        const queryString = `calls-between-source:'${this.pretty}' calls-between-target:'${this.savedPretty}' depth:8`;
+        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.addEventListener("keydown", event => {
+          this.onKeyDown(event, menu, link, pos);
+        });
+        link.append("Calls from");
+        link.title = `Calls diagram from ${this.pretty} to ${this.savedPretty}`;
+        link.setAttribute("aria-label", `Calls diagram from ${this.pretty} to ${this.savedPretty}`);
+        buttons.append(link);
+
+        this.links.push(link);
+      }
+
+      {
+        const link = document.createElement("a");
+        link.classList.add("contextmenu-button");
+        link.setAttribute("role", "menuitem");
+        link.setAttribute("role", "menuitem");
+        const queryString = `calls-between:'${this.savedPretty}' calls-between:'${this.pretty}' depth:8`;
+        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.addEventListener("keydown", event => {
+          this.onKeyDown(event, menu, link, pos);
+        });
+        link.append("Calls between");
+        link.title = `Calls diagram between ${this.pretty} and ${this.savedPretty}`;
+        link.setAttribute("aria-label", `Calls diagram between ${this.pretty} and ${this.savedPretty}`);
+        buttons.append(link);
+
+        this.links.push(link);
+      }
+
+      {
+        const link = document.createElement("a");
+        link.classList.add("contextmenu-button");
+        link.setAttribute("role", "menuitem");
+        link.href = "#";
+        link.addEventListener("click", event => {
+          event.preventDefault();
+
+          this.removeSavedItem();
+          ContextMenu.hide();
+        });
+        link.addEventListener("keydown", event => {
+          this.onKeyDown(event, menu, link, pos);
+        });
+        link.append("Forget");
+        link.title = `Forget the saved ${this.pretty}`;
+        link.setAttribute("aria-label", `Forget the saved ${this.pretty}`);
+        buttons.append(link);
+
+        this.links.push(link);
+      }
+    }
+  }
+
+  onKeyDown(event, menu, link, pos) {
+    let index = this.links.indexOf(link);
+    if (index === -1) {
+      menu.onKeyDown(event, this, pos);
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowUp":
+      case "Up":
+      case "ArrowLeft":
+      case "Left":
+        index--;
+        break;
+
+      case "ArrowDown":
+      case "Down":
+      case "ArrowRight":
+      case "Right":
+        index++;
+        break;
+
+      case "Home":
+      case "PageUp":
+        index = 0;
+        break;
+
+      case "End":
+      case "PageDown":
+        index = this.links.length - 1;
+        break;
+
+      default:
+        menu.onKeyDown(event, this, pos);
+        return;
+    }
+
+    if (index < 0 || index > this.links.length - 1) {
+      menu.onKeyDown(event, this, pos);
+      return;
+    }
+
+    event.preventDefault();
+    menu.focusElement(this.links[index]);
+  }
+
+  saveItem() {
+    localStorage.setItem("diagram-saved", this.pretty);
+  }
+  removeSavedItem() {
+    localStorage.removeItem("diagram-saved");
   }
 }
 
@@ -959,46 +1236,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
 
         if (Settings.diagramming.enabled) {
           for (const jumpref of diagrammableSyms) {
-            // Always offer to diagram uses of things
-            let queryString = `calls-to:'${jumpref.pretty}' depth:4`;
-            // TODO: Try dog-fooding with using the symbol-specific variant of this
-            // whose query syntax is below.  The rationale for using pretty
-            // identifiers is that they are more stable and more readable than
-            // symbols.  It might be most practical to allow specializing a link
-            // to just a single symbol from the page itself or in a sidebar
-            // affordance, especially since it's hard to concisely express the
-            // differences in signatures for overloads (although we have some
-            // tentative plans to).
-            //queryString = `calls-to-sym:'${jumpref.sym}' depth:4`;
-            diagramMenuItems.push(new MenuItem({
-              html: this.fmt("Uses diagram of <strong>_</strong>", jumpref.pretty),
-              href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-              icon: "brush",
-              section: "diagrams",
-              confidence,
-            }));
-
-            // Always offer to diagram uses of things
-            queryString = `calls-from:'${jumpref.pretty}' depth:4`;
-            diagramMenuItems.push(new MenuItem({
-              html: this.fmt("Calls diagram of <strong>_</strong>", jumpref.pretty),
-              href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-              icon: "brush",
-              section: "diagrams",
-              confidence,
-            }));
+            let isClass = false;
 
             if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
                 jumpref?.meta?.fields?.length) {
-              // Offer class diagrams for classes/structs that have fields.
-              queryString = `class-diagram:'${jumpref.pretty}' depth:4`;
-              diagramMenuItems.push(new MenuItem({
-                html: this.fmt("Class diagram of <strong>_</strong>", jumpref.pretty),
-                href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-                icon: "brush",
-                section: "diagrams",
-                confidence,
-              }));
+              isClass = true;
             }
 
             let showInheritance = false;
@@ -1010,20 +1252,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
               showInheritance = true;
             }
 
-            // Offer inheritance diagrams for methods that are involved in an
-            // override hierarchy.  This does not currently work for classes
-            // despite the name demanding it.  (cmd_traverse would like a minor
-            // cleanup.)
-            if (showInheritance) {
-              queryString = `inheritance-diagram:'${jumpref.pretty}' depth:4`;
-              diagramMenuItems.push(new MenuItem({
-                html: this.fmt("Inheritance diagram of <strong>_</strong>", jumpref.pretty),
-                href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
-                icon: "brush",
-                section: "diagrams",
-                confidence,
-              }));
-            }
+            diagramMenuItems.push(new DiagramMenuSection({
+              pretty: jumpref.pretty,
+              sym: jumpref.sym,
+              tree,
+              isClass,
+              showInheritance,
+              confidence,
+            }));
           }
 
           if (Dxr.canIgnoreDiagramNode()) {
@@ -1162,13 +1398,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
         case "ArrowUp":
         case "Up": {
           const column = this.columns[0];
-          this.focusItem(column[column.length - 1]);
+          this.focusItem(column[column.length - 1], "last");
           break;
         }
         case "ArrowDown":
         case "Down":
           const column = this.columns[0];
-          this.focusItem(column[0]);
+          this.focusItem(column[0], "first");
           break;
         default:
           return;
