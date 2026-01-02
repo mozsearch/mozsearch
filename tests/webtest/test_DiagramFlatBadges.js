@@ -1,4 +1,6 @@
 add_task(async function test_DiagramFlat() {
+  await TestUtils.resetFeatureGate("diagramming");
+
   await TestUtils.loadQuery("tests", "class-diagram:'diagram_badges::C2' depth:4 hier:flat");
 
   const texts = [...frame.contentDocument.querySelectorAll(`svg g > text`)];

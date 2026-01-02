@@ -15,6 +15,8 @@ async function waitForNoTooltip() {
 }
 
 add_task(async function test_DiagramBadges_basic() {
+  await TestUtils.resetFeatureGate("diagramming");
+
   await TestUtils.loadQuery("tests", "class-diagram:'diagram_badges::C2' depth:4");
 
   const texts = [...frame.contentDocument.querySelectorAll(`svg text[text-decoration="underline"]`)];

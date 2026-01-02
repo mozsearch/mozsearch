@@ -14,6 +14,8 @@ async function openPanel() {
 }
 
 add_task(async function test_DiagramIgnore() {
+  await TestUtils.resetFeatureGate("diagramming");
+
   await TestUtils.loadQuery("tests", "calls-to:'diagram_ignore::F1' depth:10");
 
   ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore2F1Ev"]`),
