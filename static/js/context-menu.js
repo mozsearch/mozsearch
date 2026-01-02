@@ -150,6 +150,7 @@ class ContextMenuBase {
       case "Esc":
       case "Escape":
         this.hide();
+        event.preventDefault();
         return;
     }
 
@@ -228,8 +229,12 @@ class ContextMenuBase {
           pos.row = this.columns[pos.col].length - 1;
         }
         break;
+
+      default:
+        return;
     }
 
+    event.preventDefault();
     this.focusItemAt(pos);
   }
 }
@@ -1158,7 +1163,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           const column = this.columns[0];
           this.focusItem(column[0].link);
           break;
+        default:
+          return;
       }
+
+      event.preventDefault();
     });
   }
 
