@@ -1,6 +1,8 @@
 "use strict";
 
 add_task(async function test_TreeSwitcherKeyboardNavigation() {
+  await TestUtils.setFeatureGate("diagramming", "release");
+
   await TestUtils.loadPath("/tests/source/webtest/Webtest.cpp");
 
   // Given the focus event requires user interaction, use test-only events
@@ -48,7 +50,7 @@ add_task(async function test_TreeSwitcherKeyboardNavigation() {
     }
   };
 
-  const word = frame.contentDocument.querySelector(`span[data-symbols="T_webtest::SimpleSearch"]`);
+  const word = frame.contentDocument.querySelector(`#line-14 span[data-symbols*="T_webtest::ClassWithConsumer"]`);
 
   const menu = frame.contentDocument.querySelector("#context-menu");
 

@@ -1,6 +1,8 @@
 "use strict";
 
 add_task(async function test_UsesLinesLocal() {
+  await TestUtils.resetFeatureGate("diagramming");
+
   await TestUtils.loadQuery("tests", "calls-to:'diagram::uses_lines_local::target' depth:4");
 
   {
