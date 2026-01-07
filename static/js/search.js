@@ -1082,6 +1082,7 @@ function populateResults(data, full, jumpToSingle) {
     }
     let pathkindHits = 0;
     let pathkindFiles = 0;
+    let pathkindFilenameMatches = 0;
     for (var qkind in data[pathkind]) {
       let qkindHitcount = 0;
       for (var k = 0; k < data[pathkind][qkind].length; k++) {
@@ -1089,6 +1090,9 @@ function populateResults(data, full, jumpToSingle) {
         // 0 lines implies this is a file, in which case just the bare file still
         // counts for our result count purposes and how router.py determined the
         // limits.
+        if (!path.lines.length) {
+          pathkindFilenameMatches++;
+        }
         count += (path.lines.length || 1);
         qkindHitcount += path.lines.length;
       }
@@ -1097,7 +1101,7 @@ function populateResults(data, full, jumpToSingle) {
       pathkindFiles += data[pathkind][qkind].length;
     }
 
-    pathkindCounts.set(pathkind, { hits: pathkindHits, files: pathkindFiles });
+    pathkindCounts.set(pathkind, { hits: pathkindHits, files: pathkindFiles, filenameMatches: pathkindFilenameMatches });
   }
 
   // Accumulate the total number of files to support our "automatically go to a
@@ -1292,7 +1296,12 @@ function populateResults(data, full, jumpToSingle) {
         let pathkindCount = pathkindCounts.get(pathkind);
         if (pathkindCount) {
           if (pathkindCount.hits) {
-            maybeCounts = ` (${pathkindCount.hits} lines across ${pathkindCount.files} files)`;
+            if (pathkindCount.filenameMatches > 0) {
+              const plural = pathkindCount.filenameMatches === 1 ? "" : "s";
+              maybeCounts = ` (${pathkindCount.filenameMatches} filename${plural} and ${pathkindCount.hits} lines across ${pathkindCount.files} files)`;
+            } else {
+              maybeCounts = ` (${pathkindCount.hits} lines across ${pathkindCount.files} files)`;
+            }
           } else {
             maybeCounts = ` (${pathkindCount.files} files)`;
           }

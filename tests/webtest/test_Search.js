@@ -124,7 +124,7 @@ add_task(async function test_SearchPathFilter() {
   const content = frame.contentDocument.querySelector("#content");
 
   await waitForCondition(
-    () => content.textContent.includes("Core code (2 lines") &&
+    () => content.textContent.includes("Core code (1 filename and 2 lines") &&
       content.textContent.includes("class PathFilter") &&
       content.textContent.includes("Webtest.cpp") &&
       content.textContent.includes("WebtestPathFilter.cpp"),
@@ -153,7 +153,7 @@ add_task(async function test_SearchPathFilter() {
   TestUtils.setText(pathFilter, "");
 
   await waitForCondition(
-    () => content.textContent.includes("Core code (2 lines") &&
+    () => content.textContent.includes("Core code (1 filename and 2 lines") &&
       content.textContent.includes("class PathFilter") &&
       content.textContent.includes("Webtest.cpp") &&
       content.textContent.includes("WebtestPathFilter.cpp"),
