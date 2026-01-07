@@ -157,7 +157,7 @@ cargo install wasm-snip
 
 # Install codesearch.
 if [ ! -d livegrep ]; then
-  git clone -b mozsearch-version8 https://github.com/mozsearch/livegrep --depth=1
+  git clone https://github.com/livegrep/livegrep --revision=44b2fb62ac4685ab3070f030d7130a21c2f67e31 --depth=1
   pushd livegrep
   # For some reason bazelisk seems to ignore the .bazelversion file in the livegrep repo, so force that version here
   export USE_BAZEL_VERSION=7.6.0

@@ -3,5 +3,4 @@
 	url = https://github.com/mozsearch/ipdl_parser/
 [submodule "deps/livegrep"]
 	path = deps/livegrep
-	url = https://github.com/mozsearch/livegrep
-	branch = mozsearch-version5
+	url = https://github.com/livegrep/livegrep

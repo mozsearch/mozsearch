@@ -109,7 +109,7 @@ if [ -d "$HOME/livegrep-grpc3/src" ]; then
   LIVEGREP_VENV=$HOME/livegrep-venv
   PATH=$LIVEGREP_VENV/bin:$PATH
 
-  git clone -b mozsearch-version7 https://github.com/mozsearch/livegrep --depth=1
+  git clone https://github.com/livegrep/livegrep --revision=44b2fb62ac4685ab3070f030d7130a21c2f67e31 --depth=1
 
   rm -rf livegrep-grpc3
   mkdir livegrep-grpc3
