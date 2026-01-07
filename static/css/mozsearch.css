@@ -1834,3 +1834,14 @@ g.true-diag g.node polygon {
   font-size: 1rem;
   font-weight: normal;
 }
+
+.result-head .left-column {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.result-head .expando {
+  margin-right: 5px;
+  cursor: pointer;
+}

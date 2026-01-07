@@ -868,11 +868,29 @@ function onExpandoClick(event) {
   let elements = document.querySelectorAll(
     "." + target.getAttribute("data-klass")
   );
-  for (let element of elements) {
+  for (const element of elements) {
     element.style.display = wasOpen ? "none" : "";
   }
   target.classList.toggle("open");
   target.innerHTML = wasOpen ? "&#9654;" : "&#9660;";
+
+  if (wasOpen) {
+    return;
+  }
+
+  for (const element of elements) {
+    const nestedExpando = element.querySelector(".expando");
+
+    if (!nestedExpando || nestedExpando.classList.contains("open")) {
+      continue;
+    }
+
+    const nestedClass = nestedExpando.getAttribute("data-klass");
+    const nestedRows = document.querySelectorAll("." + nestedClass);
+    for (const row of nestedRows) {
+      row.style.display = "none";
+    }
+  }
 }
 
 var populateEpoch = 0;
@@ -940,13 +958,20 @@ function populateResults(data, full, jumpToSingle) {
     );
   }
 
-  function renderPath(pathkind, qkind, fileResult) {
+  function renderPath(pathkind, qkind, fileResult, fileSpecificClass) {
     var klass = classOfResult(pathkind, qkind);
 
     var html = "";
     html += "<tr class='result-head " + klass + "'>";
-    html +=
-      "<td class='left-column'><div class='mimetype-icon-" +
+    html += "<td class='left-column'>";
+
+    if (fileResult.lines && fileResult.lines.length > 0) {
+      html += "<div class='expando open' data-klass='" + fileSpecificClass + "'>&#9660;</div>";
+    } else {
+      html += "<div class='expando' style='visibility: hidden'>&#9660;</div>";
+    }
+
+    html += "<div class='mimetype-icon-" +
       chooseIcon(fileResult.path) +
       " mimetype-floating-container'></div></td>";
 
@@ -980,7 +1005,7 @@ function populateResults(data, full, jumpToSingle) {
     return s.replace(/&/gm, "&amp;").replace(/</gm, "&lt;");
   }
 
-  function renderSingleSearchResult(pathkind, qkind, file, line, isContext, hasContext) {
+  function renderSingleSearchResult(pathkind, qkind, file, line, isContext, hasContext, fileSpecificClass) {
     var [start, end] = line.bounds || [0, 0];
     var before = line.line.slice(0, start);
     // Do not truncate off the leading whitespace if we're trying to present in context.
@@ -990,7 +1015,7 @@ function populateResults(data, full, jumpToSingle) {
     var middle = line.line.slice(start, end);
     var after = line.line.slice(end).replace(/\s+$/, "");
 
-    var klass = classOfResult(pathkind, qkind, isContext);
+    var klass = classOfResult(pathkind, qkind, isContext) + " " + fileSpecificClass;
     var html = "";
     html += "<tr class='" + klass + "'>";
     html +=
@@ -1356,7 +1381,8 @@ function populateResults(data, full, jumpToSingle) {
             break;
           }
 
-          html += renderPath(pathkind, qkind, file);
+          var fileSpecificClass = "FILE_" + hashString(file.path + pathkind + qkind);
+          html += renderPath(pathkind, qkind, file, fileSpecificClass);
 
           file.lines.map(function (line) {
             counter++;
@@ -1375,12 +1401,13 @@ function populateResults(data, full, jumpToSingle) {
                   file,
                   { lno: line.lno + lineDelta, line: lineStr },
                   "before",
-                  true
+                  true,
+                  fileSpecificClass
                 );
                 lineDelta++;
               }
             }
-            html += renderSingleSearchResult(pathkind, qkind, file, line, false, has_context);
+            html += renderSingleSearchResult(pathkind, qkind, file, line, false, has_context, fileSpecificClass);
             if (line.context_after) {
               let lineDelta = 1;
               for (const lineStr of line.context_after) {
@@ -1390,7 +1417,8 @@ function populateResults(data, full, jumpToSingle) {
                   file,
                   { lno: line.lno + lineDelta, line: lineStr },
                   "after",
-                  true
+                  true,
+                  fileSpecificClass
                 );
                 lineDelta++;
               }
