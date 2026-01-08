@@ -1,1 +1,1 @@
-filter-analysis ipdl/PTestBasic.ipdl -k idl -i "mozilla__ipdltest::PTestBasic::Hello" | show-html
+filter-analysis ipdl/PTestBasic.ipdl -k idl -i "mozilla__ipdltest::PTestBasic::Hello" | show-html | normalize-unstable-data

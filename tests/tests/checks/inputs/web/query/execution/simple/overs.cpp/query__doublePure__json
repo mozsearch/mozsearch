@@ -1,1 +1,1 @@
-query "'DoubleBase::doublePure'"
+query "'DoubleBase::doublePure'" | normalize-unstable-data

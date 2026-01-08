@@ -1,1 +1,1 @@
-filter-analysis xpidl/xpctest_attributes.idl -k idl -i "nsIXPCTestObjectReadWrite::stringProperty" | show-html
+filter-analysis xpidl/xpctest_attributes.idl -k idl -i "nsIXPCTestObjectReadWrite::stringProperty" | show-html | normalize-unstable-data
