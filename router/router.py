@@ -455,12 +455,6 @@ def search_files(tree_name, path):
     limit_hit = len(results) > FILE_RESPONSE_LIMIT
     return (results[:FILE_PRE_FILTER_RESPONSE_LIMIT], limit_hit)
 
-def demangle(sym):
-    try:
-        return subprocess.check_output(['c++filt', '--no-params', sym], universal_newlines=True).strip()
-    except subprocess.CalledProcessError:
-        return sym
-
 def identifier_search(search, tree_name, needle, complete, fold_case):
     t = time.time()
     needle = re.sub(r'\\(.)', r'\1', needle)
@@ -681,10 +675,6 @@ def identifier_sorch(search, tree_name, needle, complete, fold_case):
     for (i, (qualified, sym)) in enumerate(ids):
         if i > 500:
             break
-
-        q = demangle(sym)
-        if q == sym:
-            q = qualified
 
         sym_data = crossrefs.lookup_single_symbol(tree_name, sym)
         if sym_data:
