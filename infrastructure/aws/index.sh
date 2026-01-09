@@ -87,6 +87,16 @@ echo "Indexing complete"
 # web server instance
 cp ~ubuntu/index-log /index-ebs/index-log
 
+AVAIL_IN_KB=$(df --output=avail /index-ebs | tail -1)
+NGINX_CACHE_IN_KB=$((20 * 1024 * 1024))
+if [[ $AVAIL_IN_KB -lt $NGINX_CACHE_IN_KB ]]; then
+    echo ""
+    echo "The /index-ebs volume does not have sufficient space for the nginx cache."
+    echo "  available: $AVAIL_IN_KB kB"
+    echo "   required: $NGINX_CACHE_IN_KB kB"
+    exit 1
+fi
+
 # Because it's possible for shells to be in the "/index-ebs" dir and for this to
 # cause problems unmounting /index-ebs (:asuth has done this a lot...), terminate
 # all extant ssh sessions for our normal user as a one-off.  This does not

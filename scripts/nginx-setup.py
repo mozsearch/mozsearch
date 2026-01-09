@@ -219,6 +219,8 @@ if nginx_cache_dir:
     # - max_size=20g - 20 gigs of cached data, max.  This is a somewhat
     #   arbitrary decision based on the mozilla-releases.json using 223G of 296G
     #   right now, leaving 59G free.
+    #   If you change this value, please update the NGINX_CACHE_IN_KB variable
+    #   in infrastructure/aws/index.sh script as well.
     # - use_temp_path=off - Disables the file being written to disk in one
     #   location and then moved/copied to its final destination.  Recommended.
     # - inactive=7d - Keep the data basically forever until LRU evicted because
