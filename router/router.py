@@ -484,11 +484,25 @@ def identifier_search(search, tree_name, needle, complete, fold_case):
             line['bounds'] = [start, end]
 
     ids = identifiers.lookup(tree_name, needle, complete, fold_case)
+
+    try:
+        demangle_process = subprocess.Popen(['c++filt', '--no-params'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, bufsize=1)
+    except:
+        demangle_process = None
+
     for (i, (qualified, sym)) in enumerate(ids):
         if i > 500:
             break
 
-        q = demangle(sym)
+        q = sym
+
+        if demangle_process is not None:
+            try:
+                demangle_process.stdin.write(sym + '\n')
+                q = demangle_process.stdout.readline().strip()
+            except:
+                pass
+
         if q == sym:
             q = qualified
 
