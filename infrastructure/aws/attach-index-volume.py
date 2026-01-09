@@ -25,8 +25,11 @@ instance = list(instances)[0]
 # config2, we hit the 300G limit; the math indicates we probably need at least
 # 305G before the nginx cache which we cap at 20G.  To provide headroom, I'm
 # going to use 400 for release2 but we can revisit as we rebalance things.
+#
+# release3 also takes ~300GB, where each mozilla-esr* take 25GB to 40GB,
+# and there are 8 repositories. comm-* don't take much space.
 volumeSize = 300
-if channel == 'release2':
+if channel == 'release2' or channel == 'release3':
     volumeSize = 400
 
 r = client.create_volume(
