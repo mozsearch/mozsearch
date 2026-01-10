@@ -60,7 +60,8 @@ fi
 FONTELLO_SID=$(cat .fontello-sid)
 
 # Open the browser!
-x-www-browser ${FONTELLO_ROOT}/${FONTELLO_SID}
+#x-www-browser ${FONTELLO_ROOT}/${FONTELLO_SID}
+echo ${FONTELLO_ROOT}/${FONTELLO_SID}
 
 read -p "Press enter when you're done updating the fontello config, or ctrl-c to bail."
 
