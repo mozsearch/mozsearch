@@ -955,17 +955,56 @@ span[data-symbols].selected {
   content: "\2713";
 }
 
-.contextmenu-link:before {
+.contextmenu-link:before,
+.contextmenu-section-title:before,
+.contextmenu-subsection-title:before {
   padding-right: 0.4em;
 }
-.context-menu .contextmenu-link {
+.context-menu .contextmenu-link,
+.context-menu .contextmenu-section-title,
+.context-menu .contextmenu-subsection-title {
   text-decoration: none;
   color: var(--page-subtle-foreground);
   padding: 0.5em;
 }
+.context-menu .contextmenu-subsection-title {
+  margin-inline-start: 1.4em;
+}
 .contextmenu-link > strong {
   color: var(--page-foreground);
   font-weight: normal;
+}
+
+.contextmenu-with-buttons {
+  display: flex;
+}
+
+.contextmenu-section-title,
+.contextmenu-subsection-title {
+  flex: 1;
+}
+
+.context-menu .contextmenu-buttons {
+  display: flex;
+  padding-inline-start: 26px;
+}
+
+.context-menu a.contextmenu-button {
+  color: var(--page-color);
+  display: inline-block;
+  border: 1px solid var(--context-menu-new-section);
+  padding: 0.5em;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.context-menu a.contextmenu-button + a.contextmenu-button {
+  border-inline-start: none;
+}
+
+.context-menu a.contextmenu-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .contextmenu-row ~ .contextmenu-row.contextmenu-same-section  {
@@ -1844,4 +1883,8 @@ g.true-diag g.node polygon {
 .result-head .expando {
   margin-right: 5px;
   cursor: pointer;
+}
+
+.alt-for-icon {
+  font-size: 0;
 }
