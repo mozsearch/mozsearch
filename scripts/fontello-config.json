@@ -89,6 +89,18 @@
       "css": "help-circled",
       "code": 59401,
       "src": "fontawesome"
+    },
+    {
+      "uid": "f48ae54adfb27d8ada53d0fd9e34ee10",
+      "css": "trash-empty",
+      "code": 59402,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "5b0772e9484a1a11646793a82edd622a",
+      "css": "pin",
+      "code": 59403,
+      "src": "fontawesome"
     }
   ]
 }
