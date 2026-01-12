@@ -93,7 +93,7 @@ pub fn make_safe_port_id(dubious_id: &str) -> String {
 }
 
 /// A symbol and its cross-reference information plus caching helpers.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DerivedSymbolInfo {
     pub symbol: Ustr,
     pub crossref_info: Value,
@@ -106,7 +106,7 @@ pub struct DerivedSymbolInfo {
     pub depth: u32,
 }
 
-#[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SymbolBadge {
     // Priority for us to mess with the ordering of badges.
     pub pri: i32,
@@ -257,6 +257,7 @@ impl DerivedSymbolInfo {
 
 /// A collection of one or more graphs that share a common underlying set of
 /// per-symbol information across the graphs.
+#[derive(Debug)]
 pub struct SymbolGraphCollection {
     pub node_set: SymbolGraphNodeSet,
     pub edge_set: SymbolGraphEdgeSet,
@@ -776,6 +777,7 @@ impl SymbolGraphCollection {
 }
 
 /// A graph whose nodes are symbols from a `SymbolGraphNodeSet`.
+#[derive(Debug)]
 pub struct NamedSymbolGraph {
     pub name: String,
     graph: PetGraph<u32, SymbolGraphEdgeId, Directed>,
@@ -964,17 +966,20 @@ impl NamedSymbolGraph {
 
 /// Helper hierarchy for building graphviz html table labels as used for our
 /// graph display.  This is not meant to be generic.
+#[derive(Debug)]
 pub struct LabelTable {
     pub rows: Vec<LabelRow>,
 
     pub columns_needed: u32,
 }
 
+#[derive(Debug)]
 pub struct LabelRow {
     // note that currently our "compile" step assumes there's only ever one cell
     pub cells: Vec<LabelCell>,
 }
 
+#[derive(Debug)]
 pub struct LabelCell {
     pub id: Option<String>,
     pub bg_color: Option<&'static str>,
@@ -1061,6 +1066,7 @@ pub enum HierarchyDefaultSummarizePolicy {
 }
 
 /// Policies to guide the hierarchy creation and rendering.
+#[derive(Debug)]
 pub struct HierarchyPolicies {
     pub grouping: GraphHierarchy,
     pub summarize: HierarchyDefaultSummarizePolicy,
@@ -1070,6 +1076,7 @@ pub struct HierarchyPolicies {
     pub use_port_dirs: bool,
 }
 
+#[derive(Debug)]
 pub enum HierarchicalLayoutAction {
     /// Used for the root node; its contents are rendered at the same level as
     /// the parent and the parent is not rendered.
@@ -1140,11 +1147,13 @@ impl HierarchySegment {
 }
 
 /// A hierarchial graph derived from a NamedSymbolGraph.
+#[derive(Debug)]
 pub struct HierarchicalSymbolGraph {
     pub name: String,
     pub root: HierarchicalNode,
 }
 
+#[derive(Debug)]
 pub struct HierarchicalNode {
     /// The segment this is named by in the parent node's `children`.
     pub segment: HierarchySegment,
@@ -1820,6 +1829,7 @@ impl HierarchicalNode {
 /// newly generated node/edge identifiers is workable.  (The dot SVG output
 /// layer right now is making identifiers we can't predict, but if we manually
 /// assign identifiers, it will use them, and so we use that.)
+#[derive(Debug)]
 pub struct HierarchicalRenderState {
     next_synthetic_id: u32,
     /// Maps the SymbolGraphNodeId to (in-edge id, out-edge-id)
@@ -1829,7 +1839,7 @@ pub struct HierarchicalRenderState {
     pub svg_edge_extra: BTreeMap<String, SvgEdgeExtra>,
 }
 
-#[derive(Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct SvgNodeExtra {
     /// List of edge identifiers for edges that should be highlighted with the
     /// in-edge color on hover.
@@ -1847,7 +1857,7 @@ pub struct SvgNodeExtra {
     pub out_nodes: Vec<(String, Vec<String>)>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct SvgEdgeExtra {
     pub jump: String,
 }
@@ -1982,26 +1992,28 @@ impl HierarchicalRenderState {
 /// Wrapped u32 identifier for DerivedSymbolInfo nodes in a SymbolGraphNodeSet
 /// for type safety.  The values correspond to the index of the node in the
 /// `symbol_crossref_infos` vec in `SymbolGraphNodeSet`.
-#[derive(Clone, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct SymbolGraphNodeId(u32);
 
 /// Wrapped u32 identifier for EdgeInfo objects in a SymbolGraphNodeSet for type
 /// safety.  The values correspond to the index of the edge in the
 /// `edge_infos` vec in `SymbolGraphNodeSet`.
-#[derive(Clone, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct SymbolGraphEdgeId(u32);
 
+#[derive(Debug)]
 pub struct SymbolGraphNodeSet {
     pub symbol_crossref_infos: Vec<DerivedSymbolInfo>,
     pub symbol_to_index_map: UstrMap<u32>,
 }
 
+#[derive(Debug)]
 pub struct SymbolGraphEdgeSet {
     pub edge_infos: Vec<EdgeInfo>,
     edge_lookup: HashMap<(u32, u32), u32>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum EdgeDetail {
     /// Provide a source code jump.
     Jump(String),
@@ -2012,6 +2024,7 @@ pub enum EdgeDetail {
 
 /// Information about the edge between two nodes that is something we either
 /// want for debugging, layout, or to explicitly present to the user.
+#[derive(Debug)]
 pub struct EdgeInfo {
     pub from_id: SymbolGraphNodeId,
     pub to_id: SymbolGraphNodeId,

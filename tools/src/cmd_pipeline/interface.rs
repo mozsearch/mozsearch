@@ -414,7 +414,7 @@ impl Ord for SymbolQuality {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub enum OverloadKind {
     /// There's just too many overrides!  This would happen for
     /// nsISupports::AddRef for example.
@@ -448,7 +448,7 @@ pub enum OverloadKind {
 ///
 /// This is not currently intended to be used for `compile-results`, but could
 /// perhaps be adapted for that.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct OverloadInfo {
     pub kind: OverloadKind,
     /// The symbol, if any, this overload is associated with beyond the owner
