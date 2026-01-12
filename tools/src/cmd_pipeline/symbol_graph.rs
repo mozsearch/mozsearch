@@ -746,7 +746,7 @@ impl SymbolGraphCollection {
 
         graph
             .root
-            .compile(policies, 0, false, &self.node_set, &mut state);
+            .compile(policies, 0, false, &self.node_set, &mut state, false);
 
         let mut dot_graph = Graph::DiGraph {
             id: id!("g"),
@@ -1321,6 +1321,7 @@ impl HierarchicalNode {
         has_class_ancestor: bool,
         node_set: &SymbolGraphNodeSet,
         state: &mut HierarchicalRenderState,
+        has_edge_from_or_to_self: bool,
     ) {
         let is_root = depth == 0;
 
@@ -1334,7 +1335,12 @@ impl HierarchicalNode {
 
         // If the node has only one child and no edges, we can collapse it UNLESS
         // the child is a class, in which case we really don't want to.
-        if !is_root && !be_class && self.children.len() == 1 && self.edges.is_empty() {
+        if !is_root
+            && !be_class
+            && self.children.len() == 1
+            && self.edges.is_empty()
+            && !has_edge_from_or_to_self
+        {
             let sole_kid = self.children.values_mut().next().unwrap();
             // (not all nodes will have associated symbols)
             let kid_is_class = if let Some(kid_id) = sole_kid.symbols.first() {
@@ -1361,7 +1367,10 @@ impl HierarchicalNode {
                         format!("{}{}{}", self.display_name, delim, sole_kid.display_name);
                     self.display_name = "".to_string();
                 }
-                sole_kid.compile(policies, depth + 1, be_class, node_set, state);
+                let kid_has_edge = self.edges.iter().any(|(from_id, to_id, _)| {
+                    sole_kid.symbols.contains(from_id) || sole_kid.symbols.contains(to_id)
+                });
+                sole_kid.compile(policies, depth + 1, be_class, node_set, state, kid_has_edge);
                 return;
             }
         }
@@ -1371,7 +1380,10 @@ impl HierarchicalNode {
         if is_root {
             self.action = Some(HierarchicalLayoutAction::Flatten);
             for kid in self.children.values_mut() {
-                kid.compile(policies, depth + 1, be_class, node_set, state);
+                let kid_has_edge = self.edges.iter().any(|(from_id, to_id, _)| {
+                    kid.symbols.contains(from_id) || kid.symbols.contains(to_id)
+                });
+                kid.compile(policies, depth + 1, be_class, node_set, state, kid_has_edge);
             }
         } else if !self.edges.is_empty() && !self.children.is_empty() {
             // If there are edges at this level, it does not make sense to be a
@@ -1460,7 +1472,10 @@ impl HierarchicalNode {
             );
 
             for kid in self.children.values_mut() {
-                kid.compile(policies, depth + 1, be_class, node_set, state);
+                let kid_has_edge = self.edges.iter().any(|(from_id, to_id, _)| {
+                    kid.symbols.contains(from_id) || kid.symbols.contains(to_id)
+                });
+                kid.compile(policies, depth + 1, be_class, node_set, state, kid_has_edge);
             }
         }
     }
