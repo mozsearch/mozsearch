@@ -493,7 +493,7 @@ private:
   // Returns the qualified name of `d` without considering template parameters.
   std::string getQualifiedName(const NamedDecl *D) {
     const DeclContext *Ctx = D->getDeclContext();
-    if (Ctx->isFunctionOrMethod()) {
+    if (Ctx->isFunctionOrMethod() && !dyn_cast<CXXRecordDecl>(D)) {
       return D->getQualifiedNameAsString();
     }
 
