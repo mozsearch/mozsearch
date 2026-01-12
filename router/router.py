@@ -455,6 +455,22 @@ def search_files(tree_name, path):
     limit_hit = len(results) > FILE_RESPONSE_LIMIT
     return (results[:FILE_PRE_FILTER_RESPONSE_LIMIT], limit_hit)
 
+def demangled_symbol(keys, sym, demangle_process):
+    if 'meta' in keys:
+        meta_arr = keys['meta']
+        for meta in meta_arr:
+            if 'pretty' in meta:
+                return meta['pretty']
+
+    if demangle_process is not None:
+        try:
+            demangle_process.stdin.write(sym + '\n')
+            return demangle_process.stdout.readline().strip()
+        except:
+            pass
+
+    return sym
+
 def identifier_search(search, tree_name, needle, complete, fold_case):
     t = time.time()
     needle = re.sub(r'\\(.)', r'\1', needle)
@@ -488,19 +504,13 @@ def identifier_search(search, tree_name, needle, complete, fold_case):
         if i > 500:
             break
 
-        q = sym
-
-        if demangle_process is not None:
-            try:
-                demangle_process.stdin.write(sym + '\n')
-                q = demangle_process.stdout.readline().strip()
-            except:
-                pass
+        keys = crossrefs.lookup_merging(tree_name, sym)
+        q = demangled_symbol(keys, sym, demangle_process)
 
         if q == sym:
             q = qualified
 
-        results = expand_keys(tree_name, crossrefs.lookup_merging(tree_name, sym))
+        results = expand_keys(tree_name, keys)
         search.add_qualified_results(q, results, line_modifier)
     log('  identifier_search "%s" - %f', needle, time.time() - t)
 
