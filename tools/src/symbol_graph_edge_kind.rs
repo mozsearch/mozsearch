@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum EdgeKind {
     Default, // solid line, closed arrow ("normal")
     // These value are meant to be UML-ish
