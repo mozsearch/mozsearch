@@ -18,7 +18,7 @@ mod cmd_fuse_crossrefs;
 mod cmd_graph;
 mod cmd_jumpref_lookup;
 mod cmd_merge_analyses;
-mod cmd_prod_filter;
+mod cmd_normalize_unstable_data;
 mod cmd_query;
 mod cmd_render;
 mod cmd_search;

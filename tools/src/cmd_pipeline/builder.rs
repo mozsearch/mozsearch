@@ -3,7 +3,7 @@ use clap::Parser;
 use crate::{
     abstract_server::AbstractServer,
     cmd_pipeline::{
-        cmd_prod_filter::ProductionFilterCommand, cmd_query::QueryCommand,
+        cmd_normalize_unstable_data::NormalizeUnstableDataCommand, cmd_query::QueryCommand,
         cmd_search_text::SearchTextCommand, interface::JunctionInvocation, PipelineCommand,
     },
     query::chew_query::QueryPipelineGroupBuilder,
@@ -73,7 +73,9 @@ pub fn fab_command_from_opts(
 
         (Command::MergeAnalyses(ma), _) => Ok(Box::new(MergeAnalysesCommand { args: ma })),
 
-        (Command::ProductionFilter(pf), _) => Ok(Box::new(ProductionFilterCommand { args: pf })),
+        (Command::NormalizeUnstableData(pf), _) => {
+            Ok(Box::new(NormalizeUnstableDataCommand { args: pf }))
+        }
 
         (Command::Query(q), _) => Ok(Box::new(QueryCommand { args: q })),
 

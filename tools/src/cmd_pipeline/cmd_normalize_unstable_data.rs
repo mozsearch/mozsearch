@@ -17,12 +17,12 @@ use crate::{
 /// details like line numbers or `data-i` indexes that are subject to churn
 /// due to changes elsewhere in the file are normalized to "NORM".
 #[derive(Debug, Args)]
-pub struct ProductionFilter {}
+pub struct NormalizeUnstableData {}
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub struct ProductionFilterCommand {
-    pub args: ProductionFilter,
+pub struct NormalizeUnstableDataCommand {
+    pub args: NormalizeUnstableData,
 }
 
 /// Normalize JSON values by:
@@ -81,7 +81,7 @@ fn norm_html_value(s: String) -> String {
 }
 
 #[async_trait]
-impl PipelineCommand for ProductionFilterCommand {
+impl PipelineCommand for NormalizeUnstableDataCommand {
     async fn execute(
         &self,
         _server: &(dyn AbstractServer + Send + Sync),

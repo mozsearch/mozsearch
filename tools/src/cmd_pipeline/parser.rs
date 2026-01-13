@@ -12,7 +12,7 @@ use super::cmd_fuse_crossrefs::FuseCrossrefs;
 use super::cmd_graph::Graph;
 use super::cmd_jumpref_lookup::JumprefLookup;
 use super::cmd_merge_analyses::MergeAnalyses;
-use super::cmd_prod_filter::ProductionFilter;
+use super::cmd_normalize_unstable_data::NormalizeUnstableData;
 use super::cmd_query::Query;
 use super::cmd_render::Render;
 use super::cmd_search::Search;
@@ -72,7 +72,7 @@ pub enum Command {
     Graph(Graph),
     JumprefLookup(JumprefLookup),
     MergeAnalyses(MergeAnalyses),
-    ProductionFilter(ProductionFilter),
+    NormalizeUnstableData(NormalizeUnstableData),
     Query(Query),
     Render(Render),
     Search(Search),
