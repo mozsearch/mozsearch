@@ -20,7 +20,7 @@ input_file: inputs/analysis/cpp/lambdas.cpp/Struct1UsedInLambda
     "kind": "use",
     "pretty": "Struct1::method",
     "sym": "_ZNK7Struct16methodEv",
-    "context": "test()::(anonymous class)::operator()",
+    "context": "test::(lambda1)",
     "contextsym": "_ZZ4testvENK3$_0clEOT_"
   },
   {
