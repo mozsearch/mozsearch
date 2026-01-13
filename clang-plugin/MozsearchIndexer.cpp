@@ -1044,7 +1044,7 @@ public:
       D = F->getTemplateInstantiationPattern();
     }
 
-    return Context(D->getQualifiedNameAsString(),
+    return Context(getQualifiedName(D),
                    getMangledName(CurMangleContext, D));
   }
 
