@@ -1017,8 +1017,24 @@ public:
     cls->setLambdaNumbering(numbering);
   }
 
+  void AddImplicitLambdaUse(LambdaExpr *E) {
+    CXXMethodDecl* Lambda = E->getCallOperator();
+    if (!Lambda) {
+      return;
+    }
+
+    SourceLocation Loc = Lambda->getLocation();
+    SourceLocation SpellingLoc = SM.getSpellingLoc(Loc);
+    std::string Mangled = getMangledName(CurMangleContext, Lambda);
+
+    visitIdentifier("use", "function", getQualifiedName(Lambda), Loc,
+                    Mangled, Lambda->getType(),
+                    getContext(SpellingLoc), NotIdentifierToken);
+  }
+
   bool TraverseLambdaExpr(LambdaExpr *E) {
     AddLambdaNumbering(E);
+    AddImplicitLambdaUse(E);
 
     AutoSetContext Asc(this, nullptr, true);
 
