@@ -32,6 +32,42 @@ pub struct FilterAnalysisCommand {
     pub args: FilterAnalysis,
 }
 
+// Source records have a space-delimited prefix that we want to skip.
+// Given that template and other parts can also contain spaces, skip
+// only the leading alpha-numeric parts.
+fn remove_source_prefix(name: &str) -> &str {
+    let mut last_space: Option<usize> = None;
+    let mut i: usize = 0;
+    let mut chars = name.chars();
+    loop {
+        let c = match chars.next() {
+            None => break,
+            Some(c) => c,
+        };
+        match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '_' => {
+                i += 1;
+            }
+            ' ' => {
+                last_space = Some(i);
+                i += 1;
+            }
+            _ => {
+                break;
+            }
+        }
+    }
+    if last_space.is_none() {
+        name
+    } else {
+        // This is an index
+        match name.get(last_space.unwrap() + 1..) {
+            Some(s) => s,
+            None => name,
+        }
+    }
+}
+
 /// ### Implementation Note
 /// Filtering is currently performed via generic JSON rather than the strongly
 /// typed `analysis.rs` types, but this pre-dates the change to using serde-json
@@ -105,9 +141,7 @@ impl PipelineCommand for FilterAnalysisCommand {
             filtered = Box::pin(filtered.filter(move |val| {
                 match val["pretty"].as_str() {
                     None => false,
-                    // source records have a space-delimited prefix that we want
-                    // to skip; by using split/last we handle it being optional.
-                    Some(actual) => actual.split(" ").last().unwrap_or("") == identifier,
+                    Some(actual) => remove_source_prefix(actual) == identifier,
                 }
             }));
         }
