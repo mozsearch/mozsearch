@@ -1567,7 +1567,7 @@ public:
       LangOptions langOptions;
       PrintingPolicy Policy(langOptions);
       Policy.PrintCanonicalTypes = true;
-      J.attribute("type", CanonicalFieldType.getAsString(Policy));
+      J.attribute("type", typeToString(CanonicalFieldType, Policy));
 
       const TagDecl *tagDecl = CanonicalFieldType->getAsTagDecl();
       if (!tagDecl) {
@@ -1640,7 +1640,7 @@ public:
 
       J.attribute("name", param->getName());
       QualType ArgType = param->getOriginalType();
-      J.attribute("type", ArgType.getAsString());
+      J.attribute("type", typeToString(ArgType));
 
       QualType CanonicalArgType = ArgType.getCanonicalType();
       const TagDecl *canonDecl = CanonicalArgType->getAsTagDecl();
@@ -1816,6 +1816,23 @@ public:
     F->Output.push_back(std::move(ros.str()));
   }
 
+  std::string typeToString(QualType Type) {
+    if (CXXRecordDecl* cxxDecl = Type->getAsCXXRecordDecl()) {
+      if (cxxDecl->isLambda()) {
+        return getQualifiedName(cxxDecl);
+      }
+    }
+    return Type.getAsString();
+  }
+  std::string typeToString(QualType Type, PrintingPolicy policy) {
+    if (CXXRecordDecl* cxxDecl = Type->getAsCXXRecordDecl()) {
+      if (cxxDecl->isLambda()) {
+        return getQualifiedName(cxxDecl);
+      }
+    }
+    return Type.getAsString(policy);
+  }
+
   // XXX Type annotating.
   // QualType is the type class.  It has helpers like TagDecl via getAsTagDecl.
   // ValueDecl exposes a getType() method.
@@ -1958,7 +1975,7 @@ public:
     }
 
     if (!MaybeType.isNull()) {
-      J.attribute("type", MaybeType.getAsString());
+      J.attribute("type", typeToString(MaybeType));
       QualType canonical = MaybeType.getCanonicalType();
       const TagDecl *decl = canonical->getAsTagDecl();
       if (!decl) {
