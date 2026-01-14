@@ -277,3 +277,6 @@ favicon:
 	cp ./static/icons/search.png ./static/icons/production.png
 	convert -modulate 100,100,240 -flip ./static/icons/search.png ./static/icons/testing.png
 	convert -modulate 50,100,180 -flop ./static/icons/search.png ./static/icons/localhost.png
+
+rustfmt:
+	git ls-files tools/**/*.rs tools/*.rs | xargs rustfmt --edition 2021
