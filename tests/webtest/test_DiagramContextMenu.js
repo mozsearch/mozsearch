@@ -485,3 +485,16 @@ add_task(async function test_DiagramContextMenu_sync() {
     ok(!subsection, "Pinned section is not shown");
   }
 });
+
+add_task(async function test_DiagramContextMenu_merge() {
+  await TestUtils.loadPath("/tests/source/cpp/diagram_merge.cpp");
+
+  {
+    const foo = frame.contentDocument.querySelector(`span[data-symbols*="_ZN13diagram_merge3foo"]`);
+    TestUtils.click(foo);
+
+    const menu = frame.contentDocument.querySelector("#context-menu");
+    const brushRows = menu.querySelectorAll(".icon-brush");
+    is(brushRows.length, 1, "Only one diagram menu item is shown");
+  }
+});
