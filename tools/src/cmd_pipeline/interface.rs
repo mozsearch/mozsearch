@@ -49,6 +49,10 @@ pub struct SymbolicQueryOpts {
     /// Exact identifier match
     #[clap(short, value_parser)]
     pub identifier: Option<String>,
+
+    /// Prefix identifier match
+    #[clap(long, value_parser)]
+    pub identifier_prefix: Option<String>,
 }
 
 #[derive(Serialize)]

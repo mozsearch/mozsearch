@@ -138,11 +138,17 @@ impl PipelineCommand for FilterAnalysisCommand {
 
         // ## Filter by identifier
         if let Some(identifier) = &self.args.query_opts.identifier {
-            filtered = Box::pin(filtered.filter(move |val| {
-                match val["pretty"].as_str() {
-                    None => false,
-                    Some(actual) => remove_source_prefix(actual) == identifier,
-                }
+            filtered = Box::pin(filtered.filter(move |val| match val["pretty"].as_str() {
+                None => false,
+                Some(actual) => remove_source_prefix(actual) == identifier,
+            }));
+        }
+
+        // ## Filter by identifier prefix
+        if let Some(identifier_prefix) = &self.args.query_opts.identifier_prefix {
+            filtered = Box::pin(filtered.filter(move |val| match val["pretty"].as_str() {
+                None => false,
+                Some(actual) => remove_source_prefix(actual).starts_with(identifier_prefix),
             }));
         }
 
