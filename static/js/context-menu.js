@@ -642,6 +642,16 @@ class DiagramMenuSection extends MenuItem {
   removePinnedItem() {
     localStorage.removeItem("diagram-pinned");
   }
+
+  toKey() {
+    return JSON.stringify({
+      type: "diagram",
+      pretty: this.pretty,
+      tree: this.tree,
+      isClass: this.isClass,
+      showInheritance: this.showInheritance,
+    });
+  }
 }
 
 var ContextMenu = new (class ContextMenu extends ContextMenuBase {
