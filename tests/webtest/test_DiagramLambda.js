@@ -58,3 +58,32 @@ add_task(async function test_DiagramLambdaInMethod() {
     ok(edge, `${sym} edge exists`);
   }
 });
+
+add_task(async function test_DiagramImplicitLambdaUse() {
+  await TestUtils.resetFeatureGate("diagramming");
+
+  await TestUtils.loadQuery("tests", "calls-to:'implicit_lambda_use::func' depth:4");
+
+  const nodeSyms = [
+    "_ZN19implicit_lambda_use7caller1Ev",
+    "_ZN19implicit_lambda_use5test1Ev",
+    "_ZZN19implicit_lambda_use5test1EvENK3$_0clEv",
+    "_ZN19implicit_lambda_use4funcEv",
+  ];
+
+  for (const sym of nodeSyms) {
+    const node = frame.contentDocument.querySelector(`[data-symbols="${sym}"]`);
+    ok(node, `${sym} node exists`);
+  }
+
+  const edgeSyms = [
+    "_ZN19implicit_lambda_use7caller1Ev->_ZN19implicit_lambda_use5test1Ev",
+    "_ZN19implicit_lambda_use5test1Ev->_ZZN19implicit_lambda_use5test1EvENK3$_0clEv",
+    "_ZZN19implicit_lambda_use5test1EvENK3$_0clEv->_ZN19implicit_lambda_use4funcEv",
+  ];
+
+  for (const sym of edgeSyms) {
+    const edge = frame.contentDocument.querySelector(`[data-symbols="${sym}"]`);
+    ok(edge, `${sym} edge exists`);
+  }
+});
