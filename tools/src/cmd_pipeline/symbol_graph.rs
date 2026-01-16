@@ -478,16 +478,17 @@ impl SymbolGraphCollection {
         // 3. We process the segments to populate the nodes.
         //
         // Extra complications:
-        // - Inner classes (a class defined within another class) are a major
-        //   practical problem because visually we would like to represent a
-        //   class and its fields as a "record"-type HTML label display, but
-        //   if we nest the inner class under the root class, this causes our
-        //   heuristics to not fire.  We address this problem by aggregating
-        //   the outer class name onto the inner class name.  A class "Foo" in
-        //   the namespace "ns" which has an inner class "InnerFoo" would end
-        //   up with Foo having pretty segments of ["ns", "Foo"] and InnerFoo
-        //   having pretty segments of ["ns", "Foo::Innerfoo"] with no potential
-        //   for "Foo::InnerFoo" to be split an additional time.
+        // - Inner classes (a class defined within another class, function, or
+        //   method) are a major practical problem because visually we would
+        //   like to represent a class and its fields as a "record"-type HTML
+        //   label display, but if we nest the inner class under the root class,
+        //   this causes our heuristics to not fire.  We address this problem
+        //   by aggregating the outer class name onto the inner class name.
+        //   A class "Foo" in the namespace "ns" which has an inner class
+        //   "InnerFoo" would end up with Foo having pretty segments of
+        //   ["ns", "Foo"] and InnerFoo having pretty segments of
+        //   ["ns", "Foo::Innerfoo"] with no potential for "Foo::InnerFoo" to
+        //   be split an additional time.
 
         // For synthetic nodes / clusters, give them a depth of 13 right now
         // which is current our last depth enum, although we saturate depth
@@ -507,8 +508,9 @@ impl SymbolGraphCollection {
                 }
                 _ => split_pretty(sym_pretty, sym),
             };
-            let mut pieces_and_syms = vec![];
-            for mut piece in pieces {
+
+            let mut unmerged_pieces_infos = vec![];
+            for piece in pieces {
                 trace!(piece = %piece, "processing piece");
                 pretty_so_far = if pretty_so_far.is_empty() {
                     piece.clone()
@@ -523,27 +525,16 @@ impl SymbolGraphCollection {
                 if sym_pretty == pretty_so_far || !checked_pretties.contains_key(&ustr_so_far) {
                     // We haven't checked this before, so process it.
 
-                    // inner class handling help
-                    // (needs to borrow from node_set, so invoke before ensure_symbol below)
-                    let container_is_class = match pieces_and_syms.last() {
-                        Some((_, Some(container_sym_id))) => {
-                            let container_info = self.node_set.get(container_sym_id);
-                            container_info.is_class()
-                        }
-                        _ => false,
-                    };
-
                     // See if we can find a symbol for this identifier.
                     if sym_pretty == pretty_so_far {
                         trace!(pretty = %pretty_so_far, "reusing known symbol");
 
-                        if container_is_class && self.node_set.get(&sym_id).is_class() {
-                            if let Some((container_piece, _)) = pieces_and_syms.pop() {
-                                trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
-                                piece = format!("{}{}{}", container_piece, delim, piece);
-                            }
-                        }
-                        pieces_and_syms.push((piece, Some(sym_id.clone())));
+                        let sym_info = self.node_set.get(&sym_id);
+                        unmerged_pieces_infos.push((
+                            piece,
+                            Some(sym_id.clone()),
+                            Some((sym_info.is_class(), sym_info.is_namespace())),
+                        ));
                     } else {
                         // TODO: Either don't set the limit to 1 or provide a better
                         // explanation or some assert on why this is okay.  In
@@ -560,41 +551,65 @@ impl SymbolGraphCollection {
                                 .ensure_symbol(match_sym, server, SYNTHETIC_DEPTH)
                                 .await?;
 
-                            let needs_pop = if container_is_class && match_sym_info.is_class() {
-                                if let Some((container_piece, _)) = pieces_and_syms.pop() {
-                                    trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
-                                    piece = format!("{}{}{}", container_piece, delim, piece);
-                                }
-                                true
-                            } else {
-                                false
-                            };
-
-                            checked_pretties
-                                .insert(ustr_so_far, Some((match_sym_id.clone(), needs_pop)));
-                            pieces_and_syms.push((piece, Some(match_sym_id)));
+                            checked_pretties.insert(
+                                ustr_so_far,
+                                Some((
+                                    match_sym_id.clone(),
+                                    match_sym_info.is_class(),
+                                    match_sym_info.is_namespace(),
+                                )),
+                            );
+                            unmerged_pieces_infos.push((
+                                piece,
+                                Some(match_sym_id.clone()),
+                                Some((match_sym_info.is_class(), match_sym_info.is_namespace())),
+                            ));
                         } else {
                             trace!(pretty = %pretty_so_far, "failed to locate symbol for identifier");
                             checked_pretties.insert(ustr_so_far, None);
-                            pieces_and_syms.push((piece, None));
+                            unmerged_pieces_infos.push((piece, None, None));
                         }
                     };
                 } else {
                     match checked_pretties.get(&ustr_so_far) {
-                        Some(Some((use_sym_id, needs_pop))) => {
-                            if *needs_pop {
-                                if let Some((container_piece, _)) = pieces_and_syms.pop() {
-                                    trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
-                                    piece = format!("{}{}{}", container_piece, delim, piece);
-                                }
-                            }
-                            pieces_and_syms.push((piece, Some(use_sym_id.clone())));
+                        Some(Some((use_sym_id, use_sym_is_class, use_sym_is_namespace))) => {
+                            unmerged_pieces_infos.push((
+                                piece,
+                                Some(use_sym_id.clone()),
+                                Some((use_sym_is_class.clone(), use_sym_is_namespace.clone())),
+                            ));
                         }
                         _ => {
-                            pieces_and_syms.push((piece, None));
+                            unmerged_pieces_infos.push((piece, None, None));
                         }
                     }
                 }
+            }
+
+            // For classes inside other class, function, or method, merge the
+            // piece, to visualize the inner class as a separate node than the
+            // enclosing class, function, or method.
+
+            let mut pieces_and_syms = vec![];
+            let mut index = 0;
+            let mut first_non_namespace = 0;
+            for (mut piece, sym_id, maybe_info) in unmerged_pieces_infos {
+                if let Some((is_class, is_namespace)) = maybe_info {
+                    if is_namespace {
+                        first_non_namespace = index + 1;
+                    }
+                    index += 1;
+
+                    if is_class {
+                        while pieces_and_syms.len() > first_non_namespace {
+                            let (container_piece, _) = pieces_and_syms.pop().unwrap();
+                            trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
+                            piece = format!("{}{}{}", container_piece, delim, piece);
+                        }
+                    }
+                }
+
+                pieces_and_syms.push((piece, sym_id));
             }
 
             let first_real_sym = pieces_and_syms
