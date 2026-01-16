@@ -1,0 +1,32 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/class_in_method.js/class_in_method__json
+---
+[
+  [
+    "NS_class_in_method",
+    "T_class_in_method::D1",
+    "T_class_in_method::D1::m0::C1",
+    "T_class_in_method::D2",
+    "T_class_in_method::D2::m0::C2",
+    "_ZN15class_in_method2D12m0Ev",
+    "_ZN15class_in_method2D22m0Ev",
+    "_ZN15class_in_method4funcEv",
+    "_ZN15class_in_method7caller1Ev",
+    "_ZN15class_in_method7caller2Ev",
+    "_ZZN15class_in_method2D12m0EvEN2C12m1Ev",
+    "_ZZN15class_in_method2D22m0EvEN2C22m1Ev",
+    "_ZZN15class_in_method2D22m0EvEN2C22m2Ev"
+  ],
+  [
+    "_ZN15class_in_method2D12m0Ev -> _ZZN15class_in_method2D12m0EvEN2C12m1Ev",
+    "_ZN15class_in_method2D22m0Ev -> _ZZN15class_in_method2D22m0EvEN2C22m1Ev",
+    "_ZN15class_in_method2D22m0Ev -> _ZZN15class_in_method2D22m0EvEN2C22m2Ev",
+    "_ZN15class_in_method7caller1Ev -> _ZN15class_in_method2D12m0Ev",
+    "_ZN15class_in_method7caller2Ev -> _ZN15class_in_method2D22m0Ev",
+    "_ZZN15class_in_method2D12m0EvEN2C12m1Ev -> _ZN15class_in_method4funcEv",
+    "_ZZN15class_in_method2D22m0EvEN2C22m1Ev -> _ZN15class_in_method4funcEv",
+    "_ZZN15class_in_method2D22m0EvEN2C22m2Ev -> _ZN15class_in_method4funcEv"
+  ]
+]
