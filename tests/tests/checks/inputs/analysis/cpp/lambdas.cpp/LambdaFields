@@ -1,1 +1,1 @@
-filter-analysis lambdas.cpp -r structured -i "test::(anonymous)::(anonymous)"
+filter-analysis lambdas.cpp -r structured --symbol-prefix "F_" --identifier-prefix "test::(lambda class"

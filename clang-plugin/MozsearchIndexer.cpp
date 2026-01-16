@@ -326,6 +326,7 @@ private:
     AutoSetContext *Prev;
     NamedDecl *Decl;
     bool VisitImplicit;
+    unsigned nextLambdaIndex = 1;
   };
   AutoSetContext *CurDeclContext;
 
@@ -504,13 +505,26 @@ private:
       Ctx = Ctx->getParent();
     }
 
-    std::string Result;
-
-    std::reverse(Contexts.begin(), Contexts.end());
+    std::vector<std::string> ReversedComponents;
+    if (D->getDeclName()) {
+      ReversedComponents.push_back(D->getNameAsString());
+    } else {
+      auto cxxDecl = dyn_cast<CXXRecordDecl>(D);
+      if (cxxDecl && cxxDecl->isLambda()) {
+        char index[64];
+        sprintf(index, "%u", cxxDecl->getLambdaIndexInContext());
+        std::string Component = "(lambda class";
+        Component += index;
+        Component += ")";
+        ReversedComponents.push_back(Component);
+      } else {
+        ReversedComponents.push_back("(anonymous)");
+      }
+    }
 
     for (const DeclContext *DC : Contexts) {
       if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
-        Result += Spec->getNameAsString();
+        std::string Component = Spec->getNameAsString();
 
         if (Spec->getSpecializationKind() == TSK_ExplicitSpecialization) {
           std::string Backing;
@@ -518,40 +532,68 @@ private:
           const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
           printTemplateArgumentList(Stream, TemplateArgs.asArray(),
                                     PrintingPolicy(CI.getLangOpts()));
-          Result += Stream.str();
+          Component += Stream.str();
         }
+
+        ReversedComponents.push_back(Component);
       } else if (const auto *Nd = dyn_cast<NamespaceDecl>(DC)) {
         if (Nd->isAnonymousNamespace() || Nd->isInline()) {
           continue;
         }
-        Result += Nd->getNameAsString();
+        ReversedComponents.push_back(Nd->getNameAsString());
       } else if (const auto *Rd = dyn_cast<RecordDecl>(DC)) {
-        if (!Rd->getIdentifier()) {
-          Result += "(anonymous)";
+        auto cxxDecl = dyn_cast<CXXRecordDecl>(Rd);
+        if (cxxDecl && cxxDecl->isLambda()) {
+          // Lambda functions are anonymous classes with `operator()`.
+          //
+          // We use `(lambda classN)` notation for those classes,
+          // where the `N` is the index inside the context
+          // (calculated by our own).
+          //
+          // Also we use `(lambdaN)` notation for
+          // `(lambda classN)::operator()`.
+
+          char index[64];
+          sprintf(index, "%u", cxxDecl->getLambdaIndexInContext());
+
+          std::string Component;
+          if (!ReversedComponents.empty() && ReversedComponents.back() == "operator()") {
+            ReversedComponents.pop_back();
+            Component = "(lambda";
+          } else {
+            Component = "(lambda class";
+          }
+          Component += index;
+          Component += ")";
+          ReversedComponents.push_back(Component);
+        } else if (!Rd->getIdentifier()) {
+          ReversedComponents.push_back("(anonymous)");
         } else {
-          Result += Rd->getNameAsString();
+          ReversedComponents.push_back(Rd->getNameAsString());
         }
       } else if (const auto *Fd = dyn_cast<FunctionDecl>(DC)) {
-        Result += Fd->getNameAsString();
+        ReversedComponents.push_back(Fd->getNameAsString());
       } else if (const auto *Ed = dyn_cast<EnumDecl>(DC)) {
         // C++ [dcl.enum]p10: Each enum-name and each unscoped
         // enumerator is declared in the scope that immediately contains
         // the enum-specifier. Each scoped enumerator is declared in the
         // scope of the enumeration.
-        if (Ed->isScoped() || Ed->getIdentifier())
-          Result += Ed->getNameAsString();
-        else
-          continue;
+        if (Ed->isScoped() || Ed->getIdentifier()) {
+          ReversedComponents.push_back(Ed->getNameAsString());
+        }
       } else {
-        Result += cast<NamedDecl>(DC)->getNameAsString();
+        ReversedComponents.push_back(cast<NamedDecl>(DC)->getNameAsString());
       }
-      Result += "::";
     }
 
-    if (D->getDeclName())
-      Result += D->getNameAsString();
-    else
-      Result += "(anonymous)";
+    std::string Result;
+    for (const auto& Component : ReversedComponents) {
+      if (Result.empty()) {
+        Result = Component;
+      } else {
+        Result = Component + "::" + Result;
+      }
+    }
 
     return Result;
   }
@@ -957,8 +999,29 @@ public:
     return Super::TraverseCXXDestructorDecl(D);
   }
 
+  // While the LambdaExpr node has fields for indices, all the indices
+  // are set to 0.
+  // We calculate and set it based on the index inside the enclosing context.
+  void AddLambdaNumbering(LambdaExpr *E) {
+    if (!CurDeclContext) {
+      return;
+    }
+
+    CXXRecordDecl *cls = E->getLambdaClass();
+    if (!cls) {
+      return;
+    }
+
+    auto numbering = cls->getLambdaNumbering();
+    numbering.IndexInContext = CurDeclContext->nextLambdaIndex++;
+    cls->setLambdaNumbering(numbering);
+  }
+
   bool TraverseLambdaExpr(LambdaExpr *E) {
+    AddLambdaNumbering(E);
+
     AutoSetContext Asc(this, nullptr, true);
+
     return Super::TraverseLambdaExpr(E);
   }
 

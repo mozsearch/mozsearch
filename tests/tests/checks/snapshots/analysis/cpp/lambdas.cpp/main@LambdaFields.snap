@@ -7,7 +7,7 @@ input_file: inputs/analysis/cpp/lambdas.cpp/LambdaFields
   {
     "loc": "00017:42-48",
     "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
+    "pretty": "test::(lambda class4)::(anonymous)",
     "sym": "F_<T_06bb4ec31a255159>_",
     "type_pretty": null,
     "kind": "field",
@@ -29,7 +29,7 @@ input_file: inputs/analysis/cpp/lambdas.cpp/LambdaFields
   {
     "loc": "00020:39-45",
     "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
+    "pretty": "test::(lambda class7)::(anonymous)",
     "sym": "F_<T_12df2fc31a255159>_",
     "type_pretty": null,
     "kind": "field",
@@ -51,7 +51,7 @@ input_file: inputs/analysis/cpp/lambdas.cpp/LambdaFields
   {
     "loc": "00019:44-50",
     "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
+    "pretty": "test::(lambda class6)::(anonymous)",
     "sym": "F_<T_424d5ec31a255159>_",
     "type_pretty": null,
     "kind": "field",
@@ -73,7 +73,7 @@ input_file: inputs/analysis/cpp/lambdas.cpp/LambdaFields
   {
     "loc": "00016:48-54",
     "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
+    "pretty": "test::(lambda class3)::(anonymous)",
     "sym": "F_<T_4ee24ec31a255159>_",
     "type_pretty": null,
     "kind": "field",
@@ -95,7 +95,7 @@ input_file: inputs/analysis/cpp/lambdas.cpp/LambdaFields
   {
     "loc": "00018:37-43",
     "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
+    "pretty": "test::(lambda class5)::(anonymous)",
     "sym": "F_<T_6a745ec31a255159>_",
     "type_pretty": null,
     "kind": "field",
@@ -117,7 +117,7 @@ input_file: inputs/analysis/cpp/lambdas.cpp/LambdaFields
   {
     "loc": "00015:52-58",
     "structured": 1,
-    "pretty": "test::(anonymous)::(anonymous)",
+    "pretty": "test::(lambda class2)::(anonymous)",
     "sym": "F_<T_e92a3ec31a255159>_",
     "type_pretty": null,
     "kind": "field",
