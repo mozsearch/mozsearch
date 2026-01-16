@@ -134,6 +134,83 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
     }
 }
 
+// Returns true if given pretty string is for lambda.
+// This checks if the string matches the following regexp:
+//   \(lambda\d+\)$
+fn is_lambda_pretty(pretty: &str) -> bool {
+    let mut bytes = pretty.bytes().rev();
+    match bytes.next() {
+        Some(b')') => {}
+        _ => {
+            return false;
+        }
+    }
+
+    match bytes.next() {
+        Some(c) => match c {
+            b'0'..=b'9' => {}
+            _ => {
+                return false;
+            }
+        },
+        None => {
+            return false;
+        }
+    }
+
+    loop {
+        if let Some(c) = bytes.next() {
+            match c {
+                b'0'..=b'9' => {}
+                b'a' => break,
+                _ => {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+    }
+
+    match bytes.next() {
+        Some(b'd') => {}
+        _ => {
+            return false;
+        }
+    }
+    match bytes.next() {
+        Some(b'b') => {}
+        _ => {
+            return false;
+        }
+    }
+    match bytes.next() {
+        Some(b'm') => {}
+        _ => {
+            return false;
+        }
+    }
+    match bytes.next() {
+        Some(b'a') => {}
+        _ => {
+            return false;
+        }
+    }
+    match bytes.next() {
+        Some(b'l') => {}
+        _ => {
+            return false;
+        }
+    }
+    match bytes.next() {
+        Some(b'(') => {}
+        _ => {
+            return false;
+        }
+    }
+    return true;
+}
+
 // TODO: evaluate the type of kinds we now allow thanks to SCIP; we may need to
 // expand this match branch or just normalize more in SCIP indexing.
 pub fn semantic_kind_is_class(semantic_kind: &str) -> bool {
@@ -157,6 +234,13 @@ impl DerivedSymbolInfo {
     pub fn is_class(&self) -> bool {
         match self.crossref_info.pointer("/meta/kind") {
             Some(Value::String(sem_kind)) => semantic_kind_is_class(sem_kind),
+            _ => false,
+        }
+    }
+
+    pub fn is_lambda(&self) -> bool {
+        match self.crossref_info.pointer("/meta/pretty") {
+            Some(Value::String(pretty)) => is_lambda_pretty(pretty),
             _ => false,
         }
     }
@@ -533,7 +617,10 @@ impl SymbolGraphCollection {
                         unmerged_pieces_infos.push((
                             piece,
                             Some(sym_id.clone()),
-                            Some((sym_info.is_class(), sym_info.is_namespace())),
+                            Some((
+                                sym_info.is_class() || sym_info.is_lambda(),
+                                sym_info.is_namespace(),
+                            )),
                         ));
                     } else {
                         // TODO: Either don't set the limit to 1 or provide a better
@@ -555,14 +642,17 @@ impl SymbolGraphCollection {
                                 ustr_so_far,
                                 Some((
                                     match_sym_id.clone(),
-                                    match_sym_info.is_class(),
+                                    match_sym_info.is_class() || match_sym_info.is_lambda(),
                                     match_sym_info.is_namespace(),
                                 )),
                             );
                             unmerged_pieces_infos.push((
                                 piece,
                                 Some(match_sym_id.clone()),
-                                Some((match_sym_info.is_class(), match_sym_info.is_namespace())),
+                                Some((
+                                    match_sym_info.is_class() || match_sym_info.is_lambda(),
+                                    match_sym_info.is_namespace(),
+                                )),
                             ));
                         } else {
                             trace!(pretty = %pretty_so_far, "failed to locate symbol for identifier");
@@ -572,11 +662,18 @@ impl SymbolGraphCollection {
                     };
                 } else {
                     match checked_pretties.get(&ustr_so_far) {
-                        Some(Some((use_sym_id, use_sym_is_class, use_sym_is_namespace))) => {
+                        Some(Some((
+                            use_sym_id,
+                            use_sym_is_class_or_lambda,
+                            use_sym_is_namespace,
+                        ))) => {
                             unmerged_pieces_infos.push((
                                 piece,
                                 Some(use_sym_id.clone()),
-                                Some((use_sym_is_class.clone(), use_sym_is_namespace.clone())),
+                                Some((
+                                    use_sym_is_class_or_lambda.clone(),
+                                    use_sym_is_namespace.clone(),
+                                )),
                             ));
                         }
                         _ => {
@@ -594,13 +691,13 @@ impl SymbolGraphCollection {
             let mut index = 0;
             let mut first_non_namespace = 0;
             for (mut piece, sym_id, maybe_info) in unmerged_pieces_infos {
-                if let Some((is_class, is_namespace)) = maybe_info {
+                if let Some((is_class_or_lambda, is_namespace)) = maybe_info {
                     if is_namespace {
                         first_non_namespace = index + 1;
                     }
                     index += 1;
 
-                    if is_class {
+                    if is_class_or_lambda {
                         while pieces_and_syms.len() > first_non_namespace {
                             let (container_piece, _) = pieces_and_syms.pop().unwrap();
                             trace!(pretty = %pretty_so_far, "inner class heuristic merging class piece '{}' with container '{}'", container_piece, piece);
