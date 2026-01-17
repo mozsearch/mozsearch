@@ -13,7 +13,7 @@ use axum::{
 };
 use axum_macros::debug_handler;
 use liquid::Template;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tools::{
     abstract_server::{make_all_local_servers, AbstractServer, ServerError},
     cmd_pipeline::{builder::build_pipeline_graph, PipelineValues},
@@ -98,8 +98,17 @@ async fn handle_query(
             _ => "{}".to_string(),
         };
 
+        // For simplicity, the template expects "results" variable to always be
+        // an array.
+        // Use an empty array for the void result, which is used when the
+        // query is an empty string.
+        let result_value = match result {
+            PipelineValues::Void => json!([]),
+            _ => serde_json::to_value(result).unwrap(),
+        };
+
         let globals = liquid::object!({
-            "results": result,
+            "results": result_value,
             "query": query.clone(),
             "preset": preset.clone(),
             "tree": tree.clone(),
