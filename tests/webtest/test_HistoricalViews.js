@@ -39,6 +39,13 @@ add_task(async function test_HistoricalDirectoryView() {
 
   ok(frame.contentDocument.documentElement.classList.contains("old-rev"),
      "the root element has old-rev class");
+
+  const latestLink = frame.contentDocument.querySelector("#panel-vcs-latest");
+  ok(!!latestLink, "latst link exists");
+
+  is(latestLink.getAttribute("href"),
+     "/searchfox/source/tools",
+     "links to the latest view");
 });
 
 add_task(async function test_HistoricalDirectoryViewInSubmodule() {
@@ -66,6 +73,13 @@ add_task(async function test_HistoricalDirectoryViewInSubmodule() {
 
   ok(frame.contentDocument.documentElement.classList.contains("old-rev"),
      "the root element has old-rev class");
+
+  const latestLink = frame.contentDocument.querySelector("#panel-vcs-latest");
+  ok(!!latestLink, "latst link exists");
+
+  is(latestLink.getAttribute("href"),
+     "/searchfox/source/tools/ipdl_parser",
+     "links to the latest view");
 });
 
 add_task(async function test_HistoricalViewNotFound() {
