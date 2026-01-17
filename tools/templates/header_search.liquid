@@ -4,7 +4,9 @@
   {%- assign maybe_autofocus = "" -%}
 {%- endif -%}
 <!DOCTYPE html>
-<html lang="en-US">
+<html lang="en-US"
+  {%- if rev_box %} class="old-rev"{% endif -%}
+>
 <head>
   <meta charset="utf-8">
   <meta name="color-scheme" content="light dark">
@@ -51,5 +53,11 @@
          logic. -->
     <input type="submit" value="Search" disabled class="visually-hidden" />
     <span id="data" data-root="/" data-search="/{{tree}}/search" data-tree="{{tree}}"></span>
+    {%- if rev_box %}
+      <div id="revision">
+        <span id="rev-id">Showing <a href="/searchfox/commit/{{rev_box.long | escape}}">{{rev_box.short | escape}}</a>:</span>
+        <span id="rev-desc">{{rev_box.desc_html}}</span>
+      </div>
+    {%- endif %}
   </form>
 </div>
