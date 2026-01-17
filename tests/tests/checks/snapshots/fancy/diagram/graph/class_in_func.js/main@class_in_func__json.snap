@@ -1,0 +1,30 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/class_in_func.js/class_in_func__json
+---
+[
+  [
+    "NS_class_in_func",
+    "T_class_in_func::test1::C1",
+    "T_class_in_func::test2::C2",
+    "_ZN13class_in_func4funcEv",
+    "_ZN13class_in_func5test1Ev",
+    "_ZN13class_in_func5test2Ev",
+    "_ZN13class_in_func7caller1Ev",
+    "_ZN13class_in_func7caller2Ev",
+    "_ZZN13class_in_func5test1EvEN2C12m1Ev",
+    "_ZZN13class_in_func5test2EvEN2C22m1Ev",
+    "_ZZN13class_in_func5test2EvEN2C22m2Ev"
+  ],
+  [
+    "_ZN13class_in_func5test1Ev -> _ZZN13class_in_func5test1EvEN2C12m1Ev",
+    "_ZN13class_in_func5test2Ev -> _ZZN13class_in_func5test2EvEN2C22m1Ev",
+    "_ZN13class_in_func5test2Ev -> _ZZN13class_in_func5test2EvEN2C22m2Ev",
+    "_ZN13class_in_func7caller1Ev -> _ZN13class_in_func5test1Ev",
+    "_ZN13class_in_func7caller2Ev -> _ZN13class_in_func5test2Ev",
+    "_ZZN13class_in_func5test1EvEN2C12m1Ev -> _ZN13class_in_func4funcEv",
+    "_ZZN13class_in_func5test2EvEN2C22m1Ev -> _ZN13class_in_func4funcEv",
+    "_ZZN13class_in_func5test2EvEN2C22m2Ev -> _ZN13class_in_func4funcEv"
+  ]
+]

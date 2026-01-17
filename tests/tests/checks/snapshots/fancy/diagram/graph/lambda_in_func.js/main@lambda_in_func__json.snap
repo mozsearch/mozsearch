@@ -1,0 +1,19 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_in_func.js/lambda_in_func__json
+---
+[
+  [
+    "NS_lambda_in_func",
+    "_ZN14lambda_in_func4funcEv",
+    "_ZN14lambda_in_func5test1Ev",
+    "_ZN14lambda_in_func7caller1Ev",
+    "_ZZN14lambda_in_func5test1EvENK3$_0clEv"
+  ],
+  [
+    "_ZN14lambda_in_func5test1Ev -> _ZZN14lambda_in_func5test1EvENK3$_0clEv",
+    "_ZN14lambda_in_func7caller1Ev -> _ZN14lambda_in_func5test1Ev",
+    "_ZZN14lambda_in_func5test1EvENK3$_0clEv -> _ZN14lambda_in_func4funcEv"
+  ]
+]

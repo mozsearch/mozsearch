@@ -23,6 +23,8 @@ async-trait = "0.1.50"
 axum = "0.6.17"
 axum-macros = "0.3.7"
 bitflags = { version = "2.4.2", features = ["serde"] }
+# NOTE: jaq-json requires newer bytes.
+bytes = "1.11.0"
 chrono = "0.2"
 clap = { version = "4.0", features = ["cargo", "derive", "env"] }
 dot-generator = "0.2.0"
@@ -39,6 +41,9 @@ hyper = "0.10"
 include_dir = "0.7.2"
 insta = { version = "1.39.0", features = ["json"] }
 ipdl_parser = { path = "./ipdl_parser" }
+jaq-core = { version = "3.0.0-beta", default-features = false, features = [] }
+jaq-json = { version = "2.0.0-beta", default-features = false, features = ["serde"] }
+jaq-std = { version = "3.0.0-beta", default-features = false, features = [] }
 json-structural-diff = "0.1.0"
 lazy_static = "1.1"
 lexical-sort = "0.3"

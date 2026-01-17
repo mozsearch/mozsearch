@@ -1,0 +1,20 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/fancy/diagram/graph/lambda_in_method.js/lambda_in_method__json
+---
+[
+  [
+    "NS_lambda_in_method",
+    "T_lambda_in_method::C",
+    "_ZN16lambda_in_method1C2m0Ev",
+    "_ZN16lambda_in_method4funcEv",
+    "_ZN16lambda_in_method7caller1Ev",
+    "_ZZN16lambda_in_method1C2m0EvENKUlvE_clEv"
+  ],
+  [
+    "_ZN16lambda_in_method1C2m0Ev -> _ZZN16lambda_in_method1C2m0EvENKUlvE_clEv",
+    "_ZN16lambda_in_method7caller1Ev -> _ZN16lambda_in_method1C2m0Ev",
+    "_ZZN16lambda_in_method1C2m0EvENKUlvE_clEv -> _ZN16lambda_in_method4funcEv"
+  ]
+]
