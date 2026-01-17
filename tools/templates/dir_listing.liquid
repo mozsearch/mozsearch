@@ -3,7 +3,7 @@
 {%- else -%}
   {%- capture title %}{{ path | escape }} - mozsearch{% endcapture -%}
 {%- endif -%}
-{% include 'header_search.liquid' title: title, autofocus: false %}
+{% include 'header_search.liquid' title: title, autofocus: false, rev_box: rev_box %}
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
     {% include 'breadcrumbs.liquid' path: path, hidden: false %}

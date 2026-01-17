@@ -57,6 +57,7 @@ impl PipelineCommand for BatchRenderCommand {
                             "query": "",
                             "path": item.name,
                             "files": fm.file_matches,
+                            "rev_box": false,
                         });
                         let rendered = match template.render(&liquid_globals) {
                             Ok(r) => r,

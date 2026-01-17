@@ -993,7 +993,10 @@ pub fn format_path(
             let tree = object
                 .into_tree()
                 .expect("Should really be a tree, we just checked the object kind.");
-            format_tree(tree_name, rev, path, writer, &repo, tree)
+
+            let commit = commit_obj.into_commit().or(Err("Bad revision"))?;
+            let (header, _, _) = blame::commit_header(&commit)?;
+            format_tree(tree_name, rev, path, writer, &repo, tree, &header)
         }
         _ => Err("Invalid path"),
     }
@@ -1006,6 +1009,7 @@ fn format_tree(
     writer: &mut dyn Write,
     repo: &Repository,
     tree: Tree<'_>,
+    desc_html: &str,
 ) -> Result<(), &'static str> {
     let files = tree
         .iter()
@@ -1050,6 +1054,11 @@ fn format_tree(
         "path": path,
         "files": files,
         "rev": rev,
+        "rev_box": {
+            "long": rev,
+            "short": &rev[..8],
+            "desc_html": desc_html,
+        },
     });
 
     let template = build_and_parse_dir_listing();
