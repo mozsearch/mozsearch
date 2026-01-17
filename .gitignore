@@ -36,3 +36,4 @@ mozsearch-firefox*
 /tests/tests/files/target
 /tests/tests/files/test_rust_dependency/Cargo.lock
 /tests/tests/files/test_rust_dependency/target
+/tests/tests/files/.kotlin
