@@ -28,6 +28,17 @@ add_task(async function test_HistoricalDirectoryView() {
   is(languagesDirectory.cells.length, 3, "languages row has 3 columns");
   is(languagesDirectory.cells[0].textContent, "languages", "Line displays languages");
   is(languagesDirectory.cells[2].textContent, "", "languages doesn't have size");
+
+  const revision = frame.contentDocument.querySelector("#revision");
+  ok(!!revision, "revision box exists");
+
+  const link = revision.querySelector("a");
+  is(link.getAttribute("href"),
+     "/searchfox/commit/a132a39fb2e66eeb13b78ee670dc5372cac05208",
+     "revision box links to the commit");
+
+  ok(frame.contentDocument.documentElement.classList.contains("old-rev"),
+     "the root element has old-rev class");
 });
 
 add_task(async function test_HistoricalDirectoryViewInSubmodule() {
@@ -44,6 +55,17 @@ add_task(async function test_HistoricalDirectoryViewInSubmodule() {
   is(makeTestCommandFile.cells.length, 3, "make_test_command.py row has 3 columns");
   is(makeTestCommandFile.cells[0].textContent, "make_test_command.py", "Line displays make_test_command.py");
   is(makeTestCommandFile.cells[2].textContent, "2345", "make_test_command.py has size");
+
+  const revision = frame.contentDocument.querySelector("#revision");
+  ok(!!revision, "revision box exists");
+
+  const link = revision.querySelector("a");
+  is(link.getAttribute("href"),
+     "/searchfox/commit/a132a39fb2e66eeb13b78ee670dc5372cac05208",
+     "revision box links to the commit");
+
+  ok(frame.contentDocument.documentElement.classList.contains("old-rev"),
+     "the root element has old-rev class");
 });
 
 add_task(async function test_HistoricalViewNotFound() {
