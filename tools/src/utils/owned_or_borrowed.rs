@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 /// This is similar to Cow, without the clone semantics
+#[allow(unused)]
 pub enum OwnedOrBorrowed<'a, T> {
     Owned(T),
     Borrowed(&'a T),
