@@ -45,3 +45,35 @@ add_task(async function test_HistoricalDirectoryViewInSubmodule() {
   is(makeTestCommandFile.cells[0].textContent, "make_test_command.py", "Line displays make_test_command.py");
   is(makeTestCommandFile.cells[2].textContent, "2345", "make_test_command.py has size");
 });
+
+add_task(async function test_HistoricalViewNotFound() {
+  // test_HistoricalViews.js is added by 8c206d60bf8ff33097065f5da02172f56864fac8,
+  // and a132a39fb2e66eeb13b78ee670dc5372cac05208 is the parent of the commit.
+  //
+  // If an user clicks "Show latest version without this line" for the blame popup for
+  // the 8c206d revision, the page for the a132a3 revision is opened.
+  //
+  // The page should explicitly say the file does not exist.
+  {
+    const path = "/searchfox/rev/8c206d60bf8ff33097065f5da02172f56864fac8/tests/webtest/test_HistoricalViews.js";
+    await TestUtils.loadPath(path);
+
+    const file = frame.contentDocument.querySelector("#file");
+    ok(!!file, "File is shown if the revision has the file.");
+  }
+
+  {
+    const path = "/searchfox/rev/a132a39fb2e66eeb13b78ee670dc5372cac05208/tests/webtest/test_HistoricalViews.js";
+    await TestUtils.loadPath(path);
+
+    const file = frame.contentDocument.querySelector("#file");
+    ok(!file, "File is not shown if the revision does not have the file.");
+
+    const table = frame.contentDocument.querySelector("table.folder-content");
+    ok(!table, "Folder is not shown if the revision does not have the file");
+
+    is(frame.contentDocument.body.textContent,
+       "File, directory, or parent git submodule not found",
+       "Error message is shown");
+  }
+});

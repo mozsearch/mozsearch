@@ -33,7 +33,7 @@ use crate::url_encode_path::url_encode_path;
 use chrono::datetime::DateTime;
 use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
-use git2::{Oid, Repository, Tree};
+use git2::{Oid, Repository, Tree, TreeEntry};
 use itertools::Itertools;
 use serde_json::{json, to_string, to_string_pretty, Map};
 use ustr::{ustr, Ustr, UstrMap};
@@ -884,6 +884,27 @@ fn format_to_slug_attribute(format: &FormatAs) -> String {
     format!(r#" data-markdown-slug="{}""#, slug)
 }
 
+fn get_submodule_object_at<'a>(
+    repo: &OwnedOrBorrowed<'a, Repository>,
+    entry: TreeEntry,
+    submodule_path: &Path,
+    full_path: &Path,
+) -> Result<(OwnedOrBorrowed<'a, Repository>, Oid), &'static str> {
+    let submodule_path_str = submodule_path.to_str().ok_or("UTF-8 error")?;
+    let submodule = repo
+        .find_submodule(submodule_path_str)
+        .or(Err("Can't find submodule"))?;
+    let subrepo = submodule.open().or(Err("Can't open submodule"))?;
+    let path_in_submodule = full_path
+        .strip_prefix(submodule_path_str)
+        .expect("submodule path is a always an ancestor of full path");
+    get_object_at(
+        OwnedOrBorrowed::Owned(subrepo),
+        entry.id(),
+        path_in_submodule,
+    )
+}
+
 fn get_object_at<'a>(
     repo: OwnedOrBorrowed<'a, Repository>,
     commit: Oid,
@@ -899,36 +920,36 @@ fn get_object_at<'a>(
         return Ok((repo, tree_id));
     }
 
-    let (ancestor, entry) = path
-        .ancestors()
-        .find_map(|ancestor| tree.get_path(ancestor).ok().map(|entry| (ancestor, entry)))
-        .ok_or("File, directory or parent git submodule not found")?;
+    if let Ok(entry) = tree.get_path(path) {
+        let kind = entry.kind().ok_or("Unknown git object kind")?;
 
-    let kind = entry.kind().ok_or("Unknown git object kind")?;
-
-    match kind {
-        git2::ObjectType::Commit => {
-            let submodule_path = ancestor.to_str().ok_or("UTF-8 error")?;
-            let submodule = repo
-                .find_submodule(submodule_path)
-                .or(Err("Can't find submodule"))?;
-            let subrepo = submodule.open().or(Err("Can't open submodule"))?;
-            let path_in_submodule = path
-                .strip_prefix(ancestor)
-                .expect("ancestor is a always an ancestor of path");
-            get_object_at(
-                OwnedOrBorrowed::Owned(subrepo),
-                entry.id(),
-                path_in_submodule,
-            )
-        }
-        git2::ObjectType::Tree | git2::ObjectType::Blob => {
-            drop(commit);
-            drop(tree);
-            Ok((repo, entry.id()))
-        }
-        _ => Err("Unsupported git object kind"),
+        return match kind {
+            // If the path was exactly for the root of a submodule, handle it
+            // here. Paths inside the submodule will be handled below after
+            // first walking the ancestors to find any submodules.
+            git2::ObjectType::Commit => get_submodule_object_at(&repo, entry, path, path),
+            git2::ObjectType::Tree | git2::ObjectType::Blob => {
+                drop(commit);
+                drop(tree);
+                Ok((repo, entry.id()))
+            }
+            _ => Err("Unsupported git object kind"),
+        };
     }
+
+    let (submodule_path, entry) = path
+        .ancestors()
+        .skip(1)
+        .find_map(|ancestor| match tree.get_path(ancestor) {
+            Ok(entry) => match entry.kind() {
+                Some(git2::ObjectType::Commit) => Some((ancestor, entry)),
+                _ => None,
+            },
+            Err(_) => None,
+        })
+        .ok_or("File, directory, or parent git submodule not found")?;
+
+    get_submodule_object_at(&repo, entry, submodule_path, path)
 }
 
 /// Dynamically renders the contents of a specific file with blame annotations but without any
