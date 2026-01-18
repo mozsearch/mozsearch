@@ -14,9 +14,10 @@ use super::server_interface::{
     AbstractServer, ErrorDetails, ErrorLayer, FileMatches, HtmlFileRoot, Result,
     SearchfoxIndexRoot, ServerError, TextBounds, TextMatchInFile,
 };
-use super::{TextMatches, TextMatchesByFile, TreeInfo};
+use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 
 use crate::abstract_server::lazy_crossref::perform_lazy_crossref;
+use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
 use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
@@ -134,6 +135,7 @@ pub struct LocalIndex {
     crossref_lookup_map: Option<CrossrefLookupMap>,
     jumpref_lookup_map: Option<CrossrefLookupMap>,
     file_lookup_map: FileLookupMap,
+    head_info: Option<CommitInfo>,
 }
 
 impl LocalIndex {
@@ -159,6 +161,10 @@ impl AbstractServer for LocalIndex {
         Ok(TreeInfo {
             name: self.tree_name.clone(),
         })
+    }
+
+    fn commit_info(&self) -> Result<Option<CommitInfo>> {
+        Ok(self.head_info.clone())
     }
 
     fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String> {
@@ -475,6 +481,24 @@ fn fab_server(
 
     let file_lookup_map = FileLookupMap::new(&file_lookup_path);
 
+    let head_info = match tree_config.get_git() {
+        Ok(git) => match git.repo.head() {
+            Ok(r) => match r.target() {
+                Some(rev) => {
+                    let commit = git.repo.find_commit(rev).unwrap();
+                    let (header, _, _) = blame::commit_header(&commit).unwrap();
+                    Some(CommitInfo {
+                        rev: rev.to_string(),
+                        header,
+                    })
+                }
+                None => None,
+            },
+            Err(_) => None,
+        },
+        Err(_) => None,
+    };
+
     Ok(Box::new(LocalIndex {
         // We don't need the blame_map and hg_map (yet)
         config_paths: tree_config.paths,
@@ -484,6 +508,7 @@ fn fab_server(
         crossref_lookup_map,
         jumpref_lookup_map,
         file_lookup_map,
+        head_info,
     }))
 }
 

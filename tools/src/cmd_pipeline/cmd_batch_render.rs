@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use clap::Args;
 
 use super::interface::{PipelineCommand, PipelineValues};
+use crate::links;
 use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
@@ -28,6 +29,10 @@ pub struct BatchRenderCommand {
     pub args: BatchRender,
 }
 
+fn entity_replace(s: &str) -> String {
+    s.replace("&", "&amp;").replace("<", "&lt;")
+}
+
 #[async_trait]
 impl PipelineCommand for BatchRenderCommand {
     async fn execute(
@@ -49,16 +54,26 @@ impl PipelineCommand for BatchRenderCommand {
             "dir" => {
                 let template = build_and_parse_dir_listing();
                 let tree_info = server.tree_info()?;
+                let commit_info = server.commit_info()?;
                 for item in batch_groups.groups {
                     if let PipelineValues::FileMatches(fm) = item.value {
-                        let liquid_globals = liquid::object!({
+                        let mut liquid_globals = liquid::object!({
                             "tree": tree_info.name,
                             // the header always needs this
                             "query": "",
                             "path": item.name,
                             "files": fm.file_matches,
-                            "rev_box": false,
                         });
+                        if let Some(info) = &commit_info {
+                            liquid_globals.insert("rev_box".into(), liquid::object!({
+                                "long": info.rev,
+                                "short": &info.rev[..8],
+                                "desc_html": links::linkify_commit_header(&entity_replace(info.header.as_str())),
+                            }).into());
+                        } else {
+                            liquid_globals.insert("rev_box".into(), liquid::model::Value::Nil);
+                        }
+
                         let rendered = match template.render(&liquid_globals) {
                             Ok(r) => r,
                             Err(e) => {

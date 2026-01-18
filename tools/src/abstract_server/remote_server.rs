@@ -9,7 +9,7 @@ use super::{
         AbstractServer, ErrorDetails, ErrorLayer, FileMatches, Result, SearchfoxIndexRoot,
         ServerError,
     },
-    HtmlFileRoot, TextMatches, TreeInfo,
+    CommitInfo, HtmlFileRoot, TextMatches, TreeInfo,
 };
 
 /// reqwest won't return an error for an unhappy status code itself; someone
@@ -100,6 +100,10 @@ impl AbstractServer for RemoteServer {
         Ok(TreeInfo {
             name: self.tree_name.clone(),
         })
+    }
+
+    fn commit_info(&self) -> Result<Option<CommitInfo>> {
+        Ok(None)
     }
 
     fn translate_path(&self, _root: SearchfoxIndexRoot, _sf_path: &str) -> Result<String> {
