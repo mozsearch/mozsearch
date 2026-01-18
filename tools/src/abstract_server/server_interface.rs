@@ -222,6 +222,12 @@ pub struct TreeInfo {
     pub name: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct CommitInfo {
+    pub rev: String,
+    pub header: String,
+}
+
 /// Unified exposure for interacting with a local Searchfox index on disk or
 /// a remote searchfox server over HTTPS talking to the web-server.
 ///
@@ -273,6 +279,9 @@ pub trait AbstractServer {
 
     /// Return info about this tree, primarily for templating purposes.
     fn tree_info(&self) -> Result<TreeInfo>;
+
+    /// Return info about the latest commit, primarily for templating purposes.
+    fn commit_info(&self) -> Result<Option<CommitInfo>>;
 
     /// Convert a searchfox tree-local path into an absolute path on disk using
     /// the requested root.  This fundamentally only works for local indices.

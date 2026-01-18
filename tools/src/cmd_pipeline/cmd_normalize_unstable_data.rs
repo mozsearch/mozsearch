@@ -87,6 +87,17 @@ fn norm_html_value(s: String) -> String {
             el.set_attribute("data-line-number", "NORM").unwrap();
             Ok(())
         }),
+        element!(r#"#rev-id a"#, |el| {
+            if let Some(url) = el.get_attribute("href") {
+                lazy_static! {
+                    static ref PATTERN: Regex = Regex::new("/commit/[0-9a-f]+").unwrap();
+                }
+                let url = PATTERN.replace_all(&url, "/commit/REV");
+                el.set_attribute("href", &url).unwrap();
+                el.set_inner_content("REV", lol_html::html_content::ContentType::Text);
+            }
+            Ok(())
+        }),
         element!(r"a#panel-permalink", |el| {
             for attribute in ["href", "data-link"] {
                 if let Some(url) = el.get_attribute(attribute) {

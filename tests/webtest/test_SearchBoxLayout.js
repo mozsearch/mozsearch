@@ -5,7 +5,7 @@ function roundToOneDecimalPlace(n) {
 }
 
 add_task(async function test_SearchBoxLayout_noRevision() {
-  await TestUtils.loadPath("/tests/source/");
+  await TestUtils.loadPath("/tests/pages/settings.html");
 
   const searchbox = frame.contentDocument.querySelector("#search-box");
   const panel = frame.contentDocument.querySelector("#panel");
@@ -91,7 +91,7 @@ add_task(async function test_SearchBoxLayout_withRevision() {
 });
 
 add_task(async function test_SearchBoxLayout_Query() {
-  await TestUtils.loadPath("/tests/source/");
+  await TestUtils.loadPath("/tests/pages/settings.html");
 
   const bottom = frame.contentDocument.querySelector("#search-box").getBoundingClientRect().bottom;
 
