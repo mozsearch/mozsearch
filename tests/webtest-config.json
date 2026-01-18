@@ -6,39 +6,15 @@
 
   "trees": {
     "tests": {
-      "priority": 100,
-      "on_error": "halt",
-      "cache": "everything",
-      "index_path": "$WORKING/tests",
-      "files_path": "$WORKING/tests/files",
-      "git_path": "$WORKING/tests/git",
-      "git_blame_path": "$WORKING/tests/blame",
-      "webidl_binding_local_path": "webidl/bindings",
-      "staticprefs_binding_local_path": "staticprefs/bindings",
-      "objdir_path": "$WORKING/tests/objdir",
-      "wpt_root": "testing/web-platform",
-      "codesearch_path": "$WORKING/tests/livegrep.idx",
-      "codesearch_port": 8080,
-      "scip_subtrees": {}
+      "IMPORT": {
+        "file": "$MOZSEARCH_PATH/tests/config.json",
+        "tree_name": "tests"
+      }
     },
     "searchfox": {
-      "priority": 100,
-      "on_error": "halt",
-      "cache": "everything",
-      "index_path": "$WORKING/searchfox",
-      "files_path": "$MOZSEARCH_SOURCE_PATH",
-      "objdir_path": "$WORKING/searchfox/objdir",
-      "git_path": "$MOZSEARCH_SOURCE_PATH",
-      "git_blame_path": "$WORKING/searchfox/blame",
-      "github_repo": "https://github.com/mozsearch/mozsearch",
-      "history_path": "$WORKING/searchfox/history",
-      "codesearch_path": "$WORKING/searchfox/livegrep.idx",
-      "codesearch_port": 8081,
-      "scip_subtrees": {
-        "rust": {
-          "scip_index_path": "$WORKING/searchfox/objdir/tools/rust.scip",
-          "subtree_root": "tools"
-        }
+      "IMPORT": {
+        "file": "$MOZSEARCH_PATH/tests/searchfox-config.json",
+        "tree_name": "searchfox"
       }
     }
   },
