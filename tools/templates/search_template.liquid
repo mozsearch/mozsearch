@@ -2,7 +2,7 @@
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
     {% include 'breadcrumbs.liquid' path: "", hidden: false %}
-    {% include 'navigation_panel.liquid' expanded: false %}
+    {% include 'navigation_panel.liquid' expanded: false, panel: null %}
     <script>
       var results = {{ "{{BODY}}" }};
       window.addEventListener("load", function() { showSearchResults(results); });

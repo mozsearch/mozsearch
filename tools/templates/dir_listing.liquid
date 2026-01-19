@@ -7,7 +7,7 @@
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
     {% include 'breadcrumbs.liquid' path: path, hidden: false %}
-    {% include 'navigation_panel.liquid' expanded: false %}
+    {% include 'navigation_panel.liquid' expanded: false, panel: panel %}
 
     {%- include 'query_results/file_table.liquid' files: files %}
   </div>
