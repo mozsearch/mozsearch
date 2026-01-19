@@ -4,6 +4,8 @@
 use std::io::Write;
 use std::path::Path;
 
+use serde::Serialize;
+
 extern crate chrono;
 use crate::url_encode_path::url_encode_path;
 
@@ -343,6 +345,7 @@ pub fn generate_footer(
     Ok(())
 }
 
+#[derive(Serialize)]
 pub struct PanelItem {
     pub label: String,
     pub tooltip: String,
@@ -355,6 +358,7 @@ pub struct PanelItem {
     pub copyable: bool,
 }
 
+#[derive(Serialize)]
 pub struct PanelSection {
     pub name: String,
     pub items: Vec<PanelItem>,

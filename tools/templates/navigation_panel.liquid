@@ -13,5 +13,42 @@
            %}aria-expanded="false" aria-hidden="true" style="display: none;"{%
            endif %}>
     <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
+{%- if panel -%}
+{%- for section in panel %}
+  <h4>{{section.name | escape}}</h4>
+  <ul>
+{%- for item in section.items -%}
+{% if item.link != "" -%}
+{%- assign tag = "a" -%}
+{%- else -%}
+{%- assign tag = "button" -%}
+{%- endif %}
+    <li>
+      <{{tag}} {%
+               if item.id != ""
+               %}id="{{item.id}}" {%
+               endif
+               %}{%
+               if item.link != ""
+               %}href="{{item.link | escape}}" {%
+               endif
+               %}{%
+               if item.accel_key
+               %}data-accel="{{item.accel_key | escape}}" {%
+               endif
+               %}title="{{item.tooltip | escape}}" class="icon item"{%
+               if item.update_link_lineno != ""
+               %} data-update-link="{{item.update_link_lineno | escape}}" data-link="{{item.link | escape}}}"{%
+               endif
+               %}>{{item.label | escape}}{%
+        if item.copyable
+        %}<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button>{%
+        endif
+        %}</{{tag}}>
+    </li>
+{% endfor -%}
+  </ul>
+{% endfor -%}
+{%- endif %}
   </section>
 </div>

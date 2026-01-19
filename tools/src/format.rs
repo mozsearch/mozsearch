@@ -1047,6 +1047,20 @@ fn format_tree(
         })
         .collect::<Result<Vec<_>, &str>>()?;
 
+    let panel = vec![PanelSection {
+        name: "Revision control".to_owned(),
+        items: vec![PanelItem {
+            label: "Go to latest revision".to_owned(),
+            tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
+            id: "panel-vcs-latest",
+            link: format!("/{}/source/{}", tree_name, path.to_string_lossy()),
+            update_link_lineno: "",
+            accel_key: None,
+            copyable: true,
+        }],
+        raw_items: vec![],
+    }];
+
     let liquid_globals = liquid::object!({
         "tree": tree_name,
         // the header always needs this
@@ -1059,6 +1073,7 @@ fn format_tree(
             "short": &rev[..8],
             "desc_html": desc_html,
         },
+        "panel": panel,
     });
 
     let template = build_and_parse_dir_listing();

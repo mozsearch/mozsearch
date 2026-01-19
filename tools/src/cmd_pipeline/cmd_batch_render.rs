@@ -63,6 +63,7 @@ impl PipelineCommand for BatchRenderCommand {
                             "query": "",
                             "path": item.name,
                             "files": fm.file_matches,
+                            "panel": liquid::model::Value::Nil,
                         });
                         if let Some(info) = &commit_info {
                             liquid_globals.insert("rev_box".into(), liquid::object!({
