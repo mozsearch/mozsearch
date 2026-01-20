@@ -375,7 +375,7 @@ class SearchResults(object):
                         if count == self.max_count:
                             self.count_limit_hit = True
                             break
-                    else:
+                    if len(lines) == 0:
                         # if there were no lines, as is the case for files, still
                         # count this as 1 result.
                         count += 1
