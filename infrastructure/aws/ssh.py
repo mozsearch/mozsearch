@@ -22,10 +22,11 @@ from six.moves import input
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
-def print_instances(select, pattern):
+def print_instances(select, multiple, pattern):
     now = None
 
-    ids = {}
+    id_map = {}
+    id_list = []
     current_index = 1
 
     for instance in ec2.instances.all():
@@ -58,9 +59,13 @@ def print_instances(select, pattern):
             if pattern not in line:
                 continue
 
+        if multiple:
+            id_list.append([instance.id, line])
+            continue
+
         if select:
             print(' {}) '.format(current_index), end='')
-            ids[str(current_index)] = instance.id
+            id_map[str(current_index)] = instance.id
             current_index += 1
 
         print(line)
@@ -69,8 +74,11 @@ def print_instances(select, pattern):
         print()
         while True:
             index = input('index: ')
-            if index in ids:
-                return ids[index]
+            if index in id_map:
+                return id_map[index]
+
+    if multiple:
+        return id_list
 
 def prompt(text):
     while True:
@@ -128,7 +136,7 @@ def change_security(instance, make_secure):
     instance.modify_attribute(Groups=[new_group.id])
     return True
 
-def log_into(instance):
+def log_into(instance, remote_cmd=[]):
     old_state = ensure_started(instance)
     sec_changed = change_security(instance, False)
 
@@ -150,7 +158,7 @@ def log_into(instance):
     hostkey_args = ["-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no"]
 
     print('Connecting to', instance.public_ip_address)
-    p = subprocess.Popen(['ssh'] + hostkey_args + identity_args + ['ubuntu@' + instance.public_ip_address])
+    p = subprocess.Popen(['ssh'] + hostkey_args + identity_args + ['ubuntu@' + instance.public_ip_address] + remote_cmd)
     p.wait()
 
     if sec_changed:
@@ -159,6 +167,9 @@ def log_into(instance):
         if prompt("Instance was started before connection, attempt to restore original state '%s'?" % old_state):
             restore_state(instance, old_state)
 
+    if len(remote_cmd):
+        print("Return code =", p.returncode)
+        return
     sys.exit(p.returncode)
 
 if len(sys.argv) == 1:
@@ -169,16 +180,28 @@ if len(sys.argv) == 1:
     print('           with applying substring-match filter')
     print()
     print('Current instances:')
-    print_instances(select=False, pattern=None)
+    print_instances(select=False, multiple=False, pattern=None)
     sys.exit(0)
 
 id = sys.argv[1]
+
+if len(sys.argv) >= 3:
+    pattern = sys.argv[1]
+    remote_cmd = sys.argv[2:]
+
+    ids = print_instances(select=False, multiple=True, pattern=pattern)
+
+    for [id, line] in ids:
+        instance = ec2.Instance(id)
+        print("#", line)
+        log_into(instance, remote_cmd)
+    sys.exit(0)
 
 if not id.startswith('i-'):
     pattern = sys.argv[1]
 
     print('Current instances:')
-    id = print_instances(select=True, pattern=pattern)
+    id = print_instances(select=True, multiple=False, pattern=pattern)
 
 instance = ec2.Instance(id)
 log_into(instance)

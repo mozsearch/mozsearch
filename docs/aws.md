@@ -249,6 +249,22 @@ and connect to it:
 infrastructure/aws/ssh.py i-955af89
 ```
 
+Passing a substring-match pattern as the 1st argument prints a list of
+instances and the prompt to select the instance:
+
+```
+infrastructure/aws/ssh.py config1
+infrastructure/aws/ssh.py web-server
+```
+
+Passing 2nd+ arguments executes the command in all matching instances.
+The following command prints the result of `df -h` on all web-server
+instances.
+
+```
+infrastructure/aws/ssh.py web-server df -h
+```
+
 ## Lambda
 
 The AWS Lambda task uses a cron-style scheduler to run once a day for all
