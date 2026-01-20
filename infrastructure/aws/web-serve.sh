@@ -82,7 +82,10 @@ sudo chown ubuntu:ubuntu /index
 # store.  We choose this spot because:
 # - It has more free space than our instance's root FS (~3.2G of 7.7G avail.)
 # - It's bigger and hence also gets more EBS IO ops.
+# In case the index volume is reused (e.g. migrating from other instance),
+# clear the cache to avoid unexpected behavior.
 NGINX_CACHE_DIR=/index/nginx-cache
+rm -rf $NGINX_CACHE_DIR
 mkdir $NGINX_CACHE_DIR
 
 # Redirect port 80 to port 16995, where our root-less nginx listens
