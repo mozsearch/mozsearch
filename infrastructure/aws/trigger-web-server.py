@@ -12,6 +12,9 @@
 # Usage: ./trigger-web-server.py <channel> <mozsearch-repo-url> <mozsearch-rev>
 #     <config-repo-url> <config-rev> <config-file-name> <index-volume-id>
 #     <check-script> <config-repo-path> <working-dir>
+#
+# Pass "-" to <check-script> and <working-dir> when using this script
+# outside of the indexer.
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -51,8 +54,27 @@ sudo -i -u ubuntu ./update.sh "{mozsearch_repo}" "{mozsearch_rev}" "{config_repo
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_file_name}" "{volumeId}" "{channel}"
 '''
 
-volumes = ec2.describe_volumes(VolumeIds=[volumeId])
-availability_zone = volumes['Volumes'][0]['AvailabilityZone']
+while True:
+    volumes = ec2.describe_volumes(VolumeIds=[volumeId])
+    index_volume = volumes['Volumes'][0]
+
+    # - Detach the index volume if necessary
+
+    if len(index_volume['Attachments']) > 0:
+        print('Detaching the index volume...')
+
+        ec2.detach_volume(
+            VolumeId=volumeId,
+            Force=True
+        )
+
+        print('Waiting before querying again...')
+        time.sleep(10)
+        continue
+
+    break
+
+availability_zone = index_volume['AvailabilityZone']
 
 # - Start the web server instance, tag it as a web server
 
@@ -133,31 +155,46 @@ webServerInstance.modify_attribute(BlockDeviceMappings=[{
     },
 }])
 
-# - Wait until the web server is ready to serve requests
+if check_script == '-':
+    # This branch is for the execution outside of AWS.
+    # At this point, the instance is not accessible with HTTP from outside.
+    # The equivalent steps of the "else" branch need to be done manually.
+    #
+    # TODO: Automatically do them by invoking ssh.py ?
+    print('Please perform the following steps to ensure the web server is ready:')
+    print('  1. Wait until the instance to boot (2-3 minutes)')
+    print('  2. SSH into %s' % webServerInstance.id)
+    print('  3. Wait until the ~/docroot/status.txt to be present with 2 lines (15min)')
+    print('  4. Optionally check the server response')
+    print('  5. Hit Enter below to proceed to the next steps')
+    print('')
+    input('Hit Enter:');
+else:
+    # - Wait until the web server is ready to serve requests
 
-ip = webServerInstance.private_ip_address
+    ip = webServerInstance.private_ip_address
 
-print('Pinging web-server at %s to check readiness...' % ip)
+    print('Pinging web-server at %s to check readiness...' % ip)
 
-while True:
-    try:
-        status = subprocess.check_output(
-            ["curl", "-f", "-s", "-m", "10.0", "http://%s/status.txt" % ip])
-        print('Got status.txt: [%s]' % status)
-        if len(status.splitlines()) < 2:
+    while True:
+        try:
+            status = subprocess.check_output(
+                ["curl", "-f", "-s", "-m", "10.0", "http://%s/status.txt" % ip])
+            print('Got status.txt: [%s]' % status)
+            if len(status.splitlines()) < 2:
+                time.sleep(10)
+                continue
+        except:
             time.sleep(10)
             continue
-    except:
-        time.sleep(10)
-        continue
-    break
+        break
 
-# - Run the sanity checks on the web server to ensure it is serving things fine
+    # - Run the sanity checks on the web server to ensure it is serving things fine
 
-print('Checking web-server at %s to ensure served data seems reasonable...' % ip)
+    print('Checking web-server at %s to ensure served data seems reasonable...' % ip)
 
-subprocess.run([check_script, config_repo_path, working_dir, "http://%s/" % ip],
-               check=True)
+    subprocess.run([check_script, config_repo_path, working_dir, "http://%s/" % ip],
+                   check=True)
 
 # - Attach the elastic IP to the new web server
 
