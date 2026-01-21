@@ -620,3 +620,48 @@ function add_task(func) {
 function registerCleanupFunction(func) {
   TestHarness.registerCleanupFunction(func);
 }
+
+// Given the focus event requires user interaction, use test-only events
+// to detect the focus handling.
+const focusEvents = (async function* () {
+  while (true) {
+    const event = await new Promise(resolve => {
+      frame.contentDocument.addEventListener("focusmenuitem", event => {
+        resolve(event);
+      }, { once: true });
+    });
+
+    yield event;
+  }
+})();
+
+class KeyboardNavigationTester {
+  constructor(currentItem) {
+    this.currentItem = currentItem;
+
+    // Set to true to track the navigation.
+    this.debug = false;
+
+    if (this.debug) {
+      this.currentItem.style.outline = "1px dashed red";
+    }
+  }
+
+  async keydown(key) {
+    if (this.debug) {
+      this.currentItem.style.outline = "";
+    }
+
+    const eventPromise = focusEvents.next();
+    TestUtils.keydown(this.currentItem, { key });
+    const event = (await eventPromise).value;
+    this.currentItem = event.targetItem;
+
+    if (this.debug) {
+      this.currentItem.style.outline = "1px dashed red";
+      await TestUtils.sleep(100);
+    }
+
+    return this.currentItem;
+  }
+};
