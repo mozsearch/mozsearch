@@ -956,6 +956,7 @@ span[data-symbols].selected {
 }
 
 .contextmenu-link:before,
+.submenu-label:before,
 .contextmenu-section-title:before,
 .contextmenu-subsection-title:before {
   padding-right: 0.4em;
@@ -1013,6 +1014,16 @@ span[data-symbols].selected {
 
 .contextmenu-row ~ .contextmenu-row.contextmenu-new-section  {
   border-top: 1px solid var(--context-menu-new-section);
+}
+
+.contextmenu-row.has-submenu a {
+  display: flex;
+}
+.contextmenu-row.has-submenu a .submenu-label {
+  flex: 1;
+}
+.contextmenu-row.has-submenu a .submenu-marker:before {
+  content: ">";
 }
 
 /* ## Line number goto ##

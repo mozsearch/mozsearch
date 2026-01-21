@@ -272,6 +272,98 @@ class MenuItem {
   }
 }
 
+class MenuItemWithSubMenu extends MenuItem {
+  constructor(options) {
+    super({
+      ...options,
+      menu: undefined,
+      html: "",
+      icon: "",
+    });
+    this.subMenuHTML = options.html;
+    this.subMenuIcon = options.icon;
+    this.menu = options.menu;
+    this.subMenuInstance = null;
+  }
+
+  toKey() {
+    return this.subMenuHTML;
+  }
+
+  isFocusable() {
+    return true;
+  }
+
+  createListItem(...args) {
+    let li = super.createListItem(...args);
+    li.classList.add("has-submenu");
+    li.addEventListener("mouseenter", () => {
+      this.showSubMenu();
+    });
+    li.addEventListener("click", () => {
+      this.toggleSubMenu();
+    });
+    li.addEventListener("mouseleave", () => {
+      this.hideSubMenuSoon();
+    });
+
+    return li;
+  }
+
+  populateListItem(li, menu, pos) {
+    super.populateListItem(li, menu, pos);
+
+    const link = this.focusableElement;
+
+    link.href = "#";
+
+    const label = document.createElement("div");
+    label.classList.add("submenu-label");
+    if (this.subMenuIcon) {
+      label.classList.add(`icon-${this.subMenuIcon}`);
+    }
+    label.innerHTML = this.subMenuHTML;
+
+    const marker = document.createElement("div");
+    marker.classList.add("submenu-marker");
+
+    link.replaceChildren(label, marker);
+  }
+
+  showSubMenu() {
+    if (!this.subMenuInstance) {
+      this.subMenuInstance = new ContextSubMenu(this.tree, this.items, this.searches, this.menu, this);
+    }
+
+    this.subMenuInstance.open();
+  }
+
+  hideSubMenuSoon() {
+    this.subMenuInstance?.hideSoon();
+  }
+
+  toggleSubMenu() {
+    if (this.subMenuInstance?.isShown()) {
+      this.subMenuInstance?.hide();
+      return;
+    }
+    this.showSubMenu();
+  }
+
+  onKeyDown(event, menu, link, pos) {
+    switch (event.key) {
+      case "ArrowRight":
+      case "Right": {
+        this.showSubMenu();
+        this.subMenuInstance.focusItemAt({ col: 0, row: 0 }, "start");
+        return;
+      }
+    }
+
+    menu.onKeyDown(event, this, pos);
+  }
+}
+
 class GotoMenuItem extends MenuItem {
   constructor(options) {
     // Special handle a link to #lineno.
@@ -774,6 +866,84 @@ class ContextMenuOrSubMenu extends ContextMenuBase {
   }
 }
 
+class ContextSubMenu extends ContextMenuOrSubMenu {
+  constructor(tree, items, searches, parentMenu, parentItem) {
+    super();
+
+    this.menu.classList.add("context-submenu");
+
+    this.menu.addEventListener("mouseenter", event => {
+      this.keepShown();
+    });
+    this.menu.addEventListener("mouseleave", event => {
+      this.hideSoon();
+    });
+
+    this.tree = tree;
+    this.items = items;
+    this.searches = searches;
+    this.hideTimer = null;
+    this.parentMenu = parentMenu;
+    this.parentItem = parentItem;
+  }
+
+  isShown() {
+    return this.menu.parentNode && this.menu.style.display !== "none";
+  }
+
+  keepShown() {
+    if (this.hideTimer) {
+      clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+  }
+
+  open() {
+    this.parentMenu.openedSubMenus.add(this);
+    this.keepShown();
+
+    document.body.appendChild(this.menu);
+
+    const searchMenuItems = [];
+    this.convertSearchesToItems(this.searches, searchMenuItems, this.tree, 1);
+
+    const menuItems = [
+      ...this.items,
+      ...searchMenuItems,
+    ];
+
+    this.populateMenu(this.menu, menuItems);
+
+    const openerRect = this.parentItem.focusableElement.getBoundingClientRect();
+    this.positionMenuAt(openerRect.right, openerRect.top, openerRect.bottom);
+  }
+
+  hideSoon() {
+    this.hideTimer = setTimeout(() => {
+      this.hide();
+      this.hideTimer = null;
+    }, 100);
+  }
+
+  hide() {
+    this.menu.remove();
+  }
+
+  onKeyDown(event, item, itemPos) {
+    switch (event.key) {
+      case "ArrowLeft":
+      case "Left":
+        if (itemPos.col === 0) {
+          this.parentMenu.focusItem(this.parentItem, "start");
+          this.hide();
+          return;
+        }
+    }
+
+    super.onKeyDown(event, item, itemPos);
+  }
+}
+
 var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
   constructor() {
     super();
@@ -918,6 +1088,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     let fieldLayoutMenuItems = [];
     // then the text search
     let textSearchMenuItems = [];
+    // then possible IDL definitions
+    let idlMenuItems = [];
     // then sticky highlight option
     let stickyMenuItems = [];
 
@@ -928,6 +1100,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     let diagramMenuItems = [];
     // then gc item
     let gcMenuItems = [];
+
+    let idlSubMenuItems = [];
+    let idlSubMenuSearches = [];
 
     let expansions = {};
     let onlyOneExpansion = true;
@@ -1351,7 +1526,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               }
               const def = idlInfo?.jumps?.idl;
               if (def) {
-                jumpMenuItems.push(new GotoMenuItem({
+                idlSubMenuItems.push(new GotoMenuItem({
                   html: this.fmt("Go to IDL definition of <strong>_</strong>", idlInfo.pretty),
                   href: `/${tree}/source/${def}`,
                   icon: "export-alt",
@@ -1359,11 +1534,23 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
                   confidence,
                 }));
               }
-              searches.push({
+              idlSubMenuSearches.push({
                 label: `IDL ${prefix}${idlInfo.pretty}`,
                 syms: [idlInfo.sym],
                 def,
               });
+
+              if (idlMenuItems.length == 0) {
+                idlMenuItems.push(new MenuItemWithSubMenu({
+                  html: "Possible IDL definitions",
+                  tree,
+                  icon: "export-alt",
+                  section: "idl",
+                  items: idlSubMenuItems,
+                  searches: idlSubMenuSearches,
+                  menu: this,
+                }));
+              }
             }
           }
         }
@@ -1492,6 +1679,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       ...searchMenuItems,
       ...fieldLayoutMenuItems,
       ...textSearchMenuItems,
+      ...idlMenuItems,
       ...stickyMenuItems,
       ...diagramMenuItems,
       ...gcMenuItems,
