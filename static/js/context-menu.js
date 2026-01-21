@@ -259,12 +259,16 @@ class MenuItem {
       }
     }
     link.addEventListener("keydown", event => {
-      menu.onKeyDown(event, this, pos);
+      this.onKeyDown(event, menu, link, pos);
     });
 
     link.innerHTML = this.html;
 
     this.focusableElement = link;
+  }
+
+  onKeyDown(event, menu, link, pos) {
+    menu.onKeyDown(event, this, pos);
   }
 }
 
