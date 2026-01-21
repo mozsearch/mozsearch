@@ -650,3 +650,29 @@ infrastructure/aws/delete-volume.py <volume-id>
 from within your local searchfox venv (see the above section
 on setting up AWS locally). The terminate-indexer.py script or the
 web console will let you know the volume ID of the volume to delete.
+
+## Migrate the web-server for emergency reasons
+
+In case the web-server instance bumps into troubles, such as it becomes
+unresponsive, you can migrate to a new web-server instance reusing the
+result of index by the following command, replacing each uppercase arguments:
+
+```
+infrastructure/aws/trigger-web-server.py \
+  CHANNEL \
+  https://github.com/SOME_USER/mozsearch \
+  MOZSEARCH_REV \
+  https://github.com/SOME_USER/mozsearch-mozilla \
+  CONFIG_REV \
+  CONFIG_FILE.JSON \
+  INDEX_VOLUME_ID \
+  "-" \
+  LOCAL_CONFIG_REPO_PATH \
+  "-"
+```
+
+This script performs the same thing as the indexer which starts a new
+web-server instance, except for the following:
+  * Reuse the `/index` volume in `INDEX_VOLUME_ID` (`vol-***`)
+  * Forcibly detach the volume from the already-attached instances
+  * Do not perform automatic check for the server statup.  Please follow the message and manually perform it
