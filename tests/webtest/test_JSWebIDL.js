@@ -35,6 +35,22 @@ function findMenuLink(menu, text) {
   return null;
 }
 
+async function openIDLSubMenu(menu) {
+  const item = findMenuLink(menu, "Possible IDL definitions");
+  TestUtils.click(item);
+
+  await TestUtils.waitForCondition(() => {
+    const submenu = frame.contentDocument.querySelector(".context-submenu");
+    return submenu;
+  }, `Context menu is shown when clicking possible IDL menu item`);
+
+  const submenu = frame.contentDocument.querySelector(".context-submenu");
+  await waitForShown(submenu, `Context menu is shown when clicking IDL menu item`);
+
+  return submenu;
+}
+
+
 add_task(async function test_JSDefinitionInWebIDL() {
   await TestUtils.loadPath("/tests/source/webidl/consumer.js");
 
@@ -71,7 +87,7 @@ add_task(async function test_JSDefinitionInWebIDL() {
       line: 8,
       sym: "#JSWebIDLDictionary",
       pretty: "JSWebIDLDictionary",
-      noGoto: true,
+      noSubMenu: true,
     },
     {
       line: 9,
@@ -84,19 +100,19 @@ add_task(async function test_JSDefinitionInWebIDL() {
       line: 12,
       sym: "#JSWebIDLEnum",
       pretty: "JSWebIDLEnum",
-      noGoto: true,
+      noSubMenu: true,
     },
     {
       line: 13,
       sym: "#js_webidl_enum1",
       pretty: "js_webidl_enum1",
-      noGoto: true,
+      noSubMenu: true,
     },
     {
       line: 16,
       sym: "#JSWebIDLMixin",
       pretty: "JSWebIDLMixin",
-      noGoto: true,
+      noSubMenu: true,
     },
     {
       line: 19,
@@ -123,7 +139,7 @@ add_task(async function test_JSDefinitionInWebIDL() {
       line: 24,
       sym: "#JSWebIDLCallback",
       pretty: "JSWebIDLCallback",
-      noGoto: true,
+      noSubMenu: true,
     },
     {
       line: 27,
@@ -206,11 +222,11 @@ add_task(async function test_JSDefinitionInWebIDL() {
       line: 47,
       sym: "#jsWebIDLConflictAttrMany",
       pretty: "jsWebIDLConflictAttrMany",
-      noGoto: true,
+      noSubMenu: true,
     },
   ];
 
-  for (const { line, sym, pretty, defLine, kind, noGoto=false } of tests) {
+  for (const { line, sym, pretty, defLine, kind, noGoto=false, noSubMenu=false } of tests) {
     const selector = `#line-${line} span[data-symbols*="${sym}"]`;
     const elem = frame.contentDocument.querySelector(selector);
     ok(!!elem, `Symbol element exists for ${sym}`);
@@ -219,8 +235,16 @@ add_task(async function test_JSDefinitionInWebIDL() {
     const menu = frame.contentDocument.querySelector("#context-menu");
     await waitForShown(menu, `Context menu is shown when clicking ${sym} symbol`);
 
+    if (noSubMenu) {
+      const link = findMenuLink(menu, "Possible IDL definitions");
+      ok(!link, "Possible IDL menu item for " + pretty);
+      continue;
+    }
+
+    const submenu = await openIDLSubMenu(menu);
+
     const label = `Go to IDL definition of ${pretty}`;
-    const link = findMenuLink(menu, label);
+    const link = findMenuLink(submenu, label);
     if (noGoto) {
       ok(!link, "Menu item with " + label);
     } else {
@@ -231,7 +255,7 @@ add_task(async function test_JSDefinitionInWebIDL() {
 
     if (kind) {
       const label2 = `Search for IDL ${kind} ${pretty}`;
-      const link2 = findMenuLink(menu, label2);
+      const link2 = findMenuLink(submenu, label2);
       ok(!!link2, "Menu item with " + label2);
     }
   }
@@ -252,8 +276,10 @@ add_task(async function test_JSDefinitionInWebIDL_overload() {
   const menu = frame.contentDocument.querySelector("#context-menu");
   await waitForShown(menu, `Context menu is shown when clicking ${sym} symbol`);
 
+    const submenu = await openIDLSubMenu(menu);
+
   const label = `Search for IDL method ${pretty}`;
-  const link = findMenuLink(menu, label);
+  const link = findMenuLink(submenu, label);
   ok(!!link, "Menu item with " + label);
 
   const loadPromise = TestUtils.waitForLoad();
@@ -281,8 +307,10 @@ add_task(async function test_JSDefinitionInWebIDL_partial_interface() {
   const menu = frame.contentDocument.querySelector("#context-menu");
   await waitForShown(menu, `Context menu is shown when clicking ${sym} symbol`);
 
+  const submenu = await openIDLSubMenu(menu);
+
   const label = `Search for IDL interface ${pretty}`;
-  const link = findMenuLink(menu, label);
+  const link = findMenuLink(submenu, label);
   ok(!!link, "Menu item with " + label);
 
   const loadPromise = TestUtils.waitForLoad();
@@ -314,8 +342,10 @@ add_task(async function test_JSDefinitionInWebIDL_partial_namespace() {
   const menu = frame.contentDocument.querySelector("#context-menu");
   await waitForShown(menu, `Context menu is shown when clicking ${sym} symbol`);
 
+  const submenu = await openIDLSubMenu(menu);
+
   const label = `Search for IDL namespace ${pretty}`;
-  const link = findMenuLink(menu, label);
+  const link = findMenuLink(submenu, label);
   ok(!!link, "Menu item with " + label);
 
   const loadPromise = TestUtils.waitForLoad();
