@@ -172,6 +172,9 @@ class ContextMenuBase {
           pos.row = this.columns[pos.col].length - 1;
         }
         break;
+
+      default:
+        return;
     }
 
     event.preventDefault();
@@ -775,6 +778,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
     // Tree switcher is inside breadcrumbs, but it has its own menu.
     if (event.target.closest("#tree-switcher") ||
         event.target.closest("#tree-switcher-menu")) {
+      return;
+    }
+
+    // The click (especially, keyboard-initiated click) inside
+    // a context menu shouldn't be handled here.
+    if (event.target.closest(".context-menu")) {
       return;
     }
 
