@@ -661,17 +661,16 @@ class DiagramMenuSection extends MenuItem {
   }
 }
 
-var ContextMenu = new (class ContextMenu extends ContextMenuBase {
+class ContextMenuOrSubMenu extends ContextMenuBase {
   constructor() {
     super();
+
     this.menu = document.createElement("ul");
-    this.menu.className = this.menu.id = "context-menu";
+    this.menu.classList.add("context-menu");
     this.menu.tabIndex = 0;
     this.menu.style.display = "none";
     this.menu.setAttribute("role", "menu");
     document.body.appendChild(this.menu);
-
-    this.selectedToken = null;
 
     this.menu.addEventListener("mousedown", function (event) {
       // Prevent clicks on the menu to propagate
@@ -679,6 +678,109 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       // removed and links will be followed.
       event.stopPropagation();
     });
+
+    this.openedSubMenus = new Set();
+  }
+
+  hide() {
+    this.closeSubMenu();
+    super.hide();
+  }
+
+  closeSubMenu() {
+    for (const submenu of this.openedSubMenus) {
+      submenu.hide();
+    }
+    this.openedSubMenus.clear();
+  }
+
+  convertSearchesToItems(searches, searchMenuItems, tree, confidence) {
+    for (const { label, syms, def } of searches) {
+      searchMenuItems.push(new SearchMenuItem({
+        label,
+        tree,
+        syms,
+        def,
+        confidence,
+      }));
+    }
+  }
+
+  positionMenuAt(anchorRight, anchorTop, anchorBottom) {
+    const x = anchorRight + window.scrollX;
+    const y = anchorTop + window.scrollY;
+
+    const viewportHeight = window.innerHeight;
+    const spaceTowardsBottom = viewportHeight - anchorTop;
+    const spaceTowardsTop = viewportHeight - spaceTowardsBottom;
+
+    // Position the menu towards the bottom, and if that overflows and there's
+    // more space to the top, flip it.
+    this.menu.classList.remove("bottom");
+    this.menu.style.bottom = "";
+    this.menu.style.top = y + "px";
+    this.menu.style.left = x + "px";
+    this.menu.style.maxHeight = "none";
+
+    this.menu.style.display = "";
+    this.menu.style.opacity = "0";
+
+    const rect = this.menu.getBoundingClientRect();
+    // If it overflows, either flip it or constrain its height.
+    if (rect.height > spaceTowardsBottom) {
+      if (spaceTowardsTop > spaceTowardsBottom) {
+        // Position it towards the top.
+        this.menu.classList.add("bottom");
+        const y2 = anchorBottom + window.scrollY;
+        this.menu.style.bottom = viewportHeight - y2 + "px";
+        this.menu.style.top = "";
+        if (rect.height > spaceTowardsTop) {
+          this.menu.style.maxHeight = spaceTowardsTop + "px";
+        }
+      } else {
+        // Constrain its height.
+        this.menu.style.maxHeight = spaceTowardsBottom + "px";
+      }
+    }
+
+    // Now the menu is correctly positioned, show it.
+    this.menu.style.opacity = "";
+    this.menu.focus();
+
+    // Context menu doesn't focus on the item by default.
+    this.menu.addEventListener("keydown", event => {
+      if (event.target != this.menu) {
+        return;
+      }
+
+      switch (event.key) {
+        case "ArrowUp":
+        case "Up": {
+          const column = this.columns[0];
+          this.focusItem(column[column.length - 1], "last");
+          break;
+        }
+        case "ArrowDown":
+        case "Down":
+          const column = this.columns[0];
+          this.focusItem(column[0], "first");
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+    });
+  }
+}
+
+var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
+  constructor() {
+    super();
+
+    this.menu.id = "context-menu";
+
+    this.selectedToken = null;
 
     window.addEventListener("click", event => this.tryShowOnClick(event));
   }
@@ -1266,15 +1368,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
           }
         }
 
-        for (const { label, syms, def } of searches) {
-          searchMenuItems.push(new SearchMenuItem({
-            label,
-            tree,
-            syms,
-            def,
-            confidence,
-          }));
-        }
+        this.convertSearchesToItems(searches, searchMenuItems, tree, confidence);
 
         if (Settings.semanticInfo.enabled) {
           for (const jumpref of diagrammableSyms) {
@@ -1407,71 +1501,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuBase {
       return;
     }
 
+    this.closeSubMenu();
     this.populateMenu(this.menu, menuItems);
 
-    let x = event.clientX + window.scrollX;
-    let y = event.clientY + window.scrollY;
-
-    let viewportHeight = window.innerHeight;
-    let spaceTowardsBottom = viewportHeight - event.clientY;
-    let spaceTowardsTop = viewportHeight - spaceTowardsBottom;
-
-    // Position the menu towards the bottom, and if that overflows and there's
-    // more space to the top, flip it.
-    this.menu.classList.remove("bottom");
-    this.menu.style.bottom = "";
-    this.menu.style.top = y + "px";
-    this.menu.style.left = x + "px";
-    this.menu.style.maxHeight = "none";
-
-    this.menu.style.display = "";
-    this.menu.style.opacity = "0";
-
-    let rect = this.menu.getBoundingClientRect();
-    // If it overflows, either flip it or constrain its height.
-    if (rect.height > spaceTowardsBottom) {
-      if (spaceTowardsTop > spaceTowardsBottom) {
-        // Position it towards the top.
-        this.menu.classList.add("bottom");
-        this.menu.style.bottom = viewportHeight - y + "px";
-        this.menu.style.top = "";
-        if (rect.height > spaceTowardsTop) {
-          this.menu.style.maxHeight = spaceTowardsTop + "px";
-        }
-      } else {
-        // Constrain its height.
-        this.menu.style.maxHeight = spaceTowardsBottom + "px";
-      }
-    }
-
-    // Now the menu is correctly positioned, show it.
-    this.menu.style.opacity = "";
-    this.menu.focus();
-
-    // Context menu doesn't focus on the item by default.
-    this.menu.addEventListener("keydown", event => {
-      if (event.target != this.menu) {
-        return;
-      }
-
-      switch (event.key) {
-        case "ArrowUp":
-        case "Up": {
-          const column = this.columns[0];
-          this.focusItem(column[column.length - 1], "last");
-          break;
-        }
-        case "ArrowDown":
-        case "Down":
-          const column = this.columns[0];
-          this.focusItem(column[0], "first");
-          break;
-        default:
-          return;
-      }
-
-      event.preventDefault();
-    });
+    this.positionMenuAt(event.clientX, event.clientY, event.clientY);
   }
 
   get active() {
