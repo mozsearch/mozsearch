@@ -352,9 +352,13 @@ var Sticky = new (class Sticky {
     this.stuck = [];
     this.scroller = window;
 
+    this.breadcrumbs = document.querySelector(".breadcrumbs");
     const fixedHeader = document.querySelector("#fixed-header");
     if (fixedHeader) {
       this.firstSourceY = fixedHeader.getBoundingClientRect().bottom;
+      if (this.breadcrumbs) {
+        this.firstSourceY += this.breadcrumbs.getBoundingClientRect().height;
+      }
     } else {
       const scrolling = document.querySelector("#scrolling");
       if (!scrolling) {
@@ -371,6 +375,10 @@ var Sticky = new (class Sticky {
       .classList.contains("diff");
     if (this.firstLineNumber && !isDiffView) {
       this.scroller.addEventListener("scroll", () => this.handleScroll(), {
+        passive: true,
+      });
+    } else if (this.breadcrumbs) {
+      this.scroller.addEventListener("scroll", () => this.handleScrollForBreadcrumbs(false), {
         passive: true,
       });
     }
@@ -516,8 +524,28 @@ var Sticky = new (class Sticky {
       elem.classList.remove("stuck");
     }
 
+    if (this.breadcrumbs) {
+      this.handleScrollForBreadcrumbs(newlyStuckElements.length > 0);
+    }
+
     this.stuck = newlyStuckElements;
     DocumentTitler.processStickyElems(this.stuck);
+  }
+
+  handleScrollForBreadcrumbs(hasOtherStuckElements) {
+    const breadcrumbsMarginTop = 18;
+
+    if (document.documentElement.scrollTop >= breadcrumbsMarginTop) {
+      this.breadcrumbs.classList.add("stuck");
+      if (hasOtherStuckElements) {
+        this.breadcrumbs.classList.remove("last-stuck");
+      } else {
+        this.breadcrumbs.classList.add("last-stuck");
+      }
+    } else {
+      this.breadcrumbs.classList.remove("stuck");
+      this.breadcrumbs.classList.remove("last-stuck");
+    }
   }
 })();
 
