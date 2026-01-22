@@ -36,10 +36,24 @@ sleep 0.1s
 LIVEGREP_VENV="$HOME/livegrep-venv"
 PATH="$LIVEGREP_VENV/bin:$PATH"
 
-nohup $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/router.log 2> $SERVER_ROOT/router.err < /dev/null &
+nohup \
+    $MOZSEARCH_PATH/infrastructure/with-auto-restart.sh \
+    $MOZSEARCH_PATH $CHANNEL router $DEST_EMAIL $SERVER_ROOT/router.err \
+    \
+    $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE \
+    > $SERVER_ROOT/router.log \
+    2> $SERVER_ROOT/router.err \
+    < /dev/null &
 
 export RUST_BACKTRACE=1
-nohup web-server $CONFIG_FILE $STATUS_FILE > $SERVER_ROOT/rust-server.log 2> $SERVER_ROOT/rust-server.err < /dev/null &
+nohup \
+    $MOZSEARCH_PATH/infrastructure/with-auto-restart.sh \
+    $MOZSEARCH_PATH $CHANNEL web-server $DEST_EMAIL $SERVER_ROOT/rust-server.err \
+    \
+    web-server $CONFIG_FILE $STATUS_FILE \
+    > $SERVER_ROOT/rust-server.log \
+    2> $SERVER_ROOT/rust-server.err \
+    < /dev/null &
 
 # Let's try and stop the pipeline-server from causing problems by setting a ulimit
 # on virtual memory usage.  We use du to figure out the total sizes of all of
@@ -69,7 +83,14 @@ ulimit -v $PIPELINE_SERVER_VM_LIMIT_K
 
 # Note that we do not currently wait for the pipeline-server and it does not
 # write to the STATUS_FILE.
-nohup pipeline-server $CONFIG_FILE > $SERVER_ROOT/pipeline-server.log 2> $SERVER_ROOT/pipeline-server.err < /dev/null &
+nohup \
+    $MOZSEARCH_PATH/infrastructure/with-auto-restart.sh \
+    $MOZSEARCH_PATH $CHANNEL pipeline-server $DEST_EMAIL $SERVER_ROOT/pipeline-server.err \
+    \
+    pipeline-server $CONFIG_FILE \
+    > $SERVER_ROOT/pipeline-server.log \
+    2> $SERVER_ROOT/pipeline-server.err \
+    < /dev/null &
 
 # If WAIT was passed, wait until the servers report they loaded.
 if [[ ${6:-} = "WAIT" ]]; then
