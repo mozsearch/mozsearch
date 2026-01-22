@@ -974,10 +974,11 @@ pub fn format_path(
         .find_object(oid, None)
         .map_err(|_| "Failed to retrieve git object from id")?;
 
+    let commit = commit_obj.into_commit().or(Err("Bad revision"))?;
+
     match object.kind() {
         Some(git2::ObjectType::Blob) => {
             let blob = git_ops::read_blob_object(&object);
-            let commit = commit_obj.into_commit().or(Err("Bad revision"))?;
             format_blob(
                 cfg,
                 tree_name,
@@ -994,9 +995,7 @@ pub fn format_path(
                 .into_tree()
                 .expect("Should really be a tree, we just checked the object kind.");
 
-            let commit = commit_obj.into_commit().or(Err("Bad revision"))?;
-            let (header, _, _) = blame::commit_header(&commit)?;
-            format_tree(tree_name, rev, path, writer, &repo, tree, &header)
+            format_tree(tree_name, rev, path, writer, commit, &repo, tree)
         }
         _ => Err("Invalid path"),
     }
@@ -1007,10 +1006,12 @@ fn format_tree(
     rev: &str,
     path: &Path,
     writer: &mut dyn Write,
+    commit: git2::Commit<'_>,
     repo: &Repository,
     tree: Tree<'_>,
-    desc_html: &str,
 ) -> Result<(), &'static str> {
+    let (desc_html, _, _) = blame::commit_header(&commit)?;
+
     let files = tree
         .iter()
         .map(|entry| {
@@ -1061,6 +1062,8 @@ fn format_tree(
         raw_items: vec![],
     }];
 
+    let commit_hash = commit.id().to_string();
+
     let liquid_globals = liquid::object!({
         "tree": tree_name,
         // the header always needs this
@@ -1069,8 +1072,8 @@ fn format_tree(
         "files": files,
         "rev": rev,
         "rev_box": {
-            "long": rev,
-            "short": &rev[..8],
+            "long": commit_hash,
+            "short": &commit_hash[..8],
             "desc_html": desc_html,
         },
         "panel": panel,
