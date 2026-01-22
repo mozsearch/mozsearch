@@ -1,7 +1,6 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
-input_file: inputs/web/dirs/root_listing__html
 ---
 <!DOCTYPE html>
 <html lang="en-US" class="old-rev">
@@ -83,6 +82,7 @@ input_file: inputs/web/dirs/root_listing__html
         <th scope="col">Name</th>
         <th scope="col">Description</th>
         <th scope="col">Size</th>
+        <th scope="col">Coverage</th>
       </tr>
     </thead>
     <tbody>
@@ -90,30 +90,35 @@ input_file: inputs/web/dirs/root_listing__html
           <td><a href="/tests/source/.clang-format" class="mimetype-fixed-container mimetype-icon-clang-format">.clang-format</a></td>
           <td class="description"><a href="/tests/source/.clang-format" title=""></td>
           <td><a href="/tests/source/.clang-format">1169</a></td>
+          <td class="coverage"><a href="/tests/source/.clang-format" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/.eslintignore" class="mimetype-fixed-container mimetype-icon-eslintignore">.eslintignore</a></td>
           <td class="description"><a href="/tests/source/.eslintignore" title=""></td>
           <td><a href="/tests/source/.eslintignore">236</a></td>
+          <td class="coverage"><a href="/tests/source/.eslintignore" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/.gitattributes" class="mimetype-fixed-container mimetype-icon-gitattributes">.gitattributes</a></td>
           <td class="description"><a href="/tests/source/.gitattributes" title=""></td>
           <td><a href="/tests/source/.gitattributes">205</a></td>
+          <td class="coverage"><a href="/tests/source/.gitattributes" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/.gitignore" class="mimetype-fixed-container mimetype-icon-gitignore">.gitignore</a></td>
           <td class="description"><a href="/tests/source/.gitignore" title=""></td>
           <td><a href="/tests/source/.gitignore">103</a></td>
+          <td class="coverage"><a href="/tests/source/.gitignore" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/__GENERATED__" class="mimetype-fixed-container mimetype-icon-folder">__GENERATED__</a></td>
           <td class="description"><a href="/tests/source/__GENERATED__" title=""></td>
           <td><a href="/tests/source/__GENERATED__"></a></td>
+          <td class="coverage"><a href="/tests/source/__GENERATED__" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
@@ -124,12 +129,14 @@ input_file: inputs/web/dirs/root_listing__html
  from an add-on&#39;s remote update manifest.
  </td>
           <td><a href="/tests/source/AddonUpdateChecker.jsm">32880</a></td>
+          <td class="coverage"><a href="/tests/source/AddonUpdateChecker.jsm" class="cov-percentage cov-percentage-0" title="0 lines out of 200 instrumented lines are covered in this file."">0 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/atom_list.h" class="mimetype-fixed-container mimetype-icon-h">atom_list.h</a></td>
           <td class="description"><a href="/tests/source/atom_list.h" title=""></td>
           <td><a href="/tests/source/atom_list.h">218</a></td>
+          <td class="coverage"><a href="/tests/source/atom_list.h" class="cov-percentage cov-percentage-0" title="10 lines out of 200 instrumented lines are covered in this file."">5 %</a></td>
         </tr>
 
         <tr>
@@ -142,6 +149,7 @@ input_file: inputs/web/dirs/root_listing__html
    included multiple times.  (We didn&#39;t really have coverage for this before,
    and this is important for our merging logic.) </td>
           <td><a href="/tests/source/atom_magic.h">615</a></td>
+          <td class="coverage"><a href="/tests/source/atom_magic.h" class="cov-percentage cov-percentage-1" title="20 lines out of 200 instrumented lines are covered in this file."">10 %</a></td>
         </tr>
 
         <tr>
@@ -174,24 +182,28 @@ input_file: inputs/web/dirs/root_listing__html
  - Not using templates.
  </td>
           <td><a href="/tests/source/big_cpp.cpp">10261</a></td>
+          <td class="coverage"><a href="/tests/source/big_cpp.cpp" class="cov-percentage cov-percentage-1" title="30 lines out of 200 instrumented lines are covered in this file."">15 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/big_header.h" class="mimetype-fixed-container mimetype-icon-h">big_header.h</a></td>
           <td class="description"><a href="/tests/source/big_header.h" title=""></td>
           <td><a href="/tests/source/big_header.h">9519</a></td>
+          <td class="coverage"><a href="/tests/source/big_header.h" class="cov-percentage cov-percentage-2" title="40 lines out of 200 instrumented lines are covered in this file."">20 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/blame" class="mimetype-fixed-container mimetype-icon-folder">blame</a></td>
           <td class="description"><a href="/tests/source/blame" title=""></td>
           <td><a href="/tests/source/blame"></a></td>
+          <td class="coverage"><a href="/tests/source/blame" class="cov-percentage cov-percentage-2" title="50 lines out of 200 instrumented lines are covered in this folder."">25 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/browser.ini" class="mimetype-fixed-container mimetype-icon-ini">browser.ini</a></td>
           <td class="description"><a href="/tests/source/browser.ini" title=""></td>
           <td><a href="/tests/source/browser.ini">202</a></td>
+          <td class="coverage"><a href="/tests/source/browser.ini" class="cov-percentage cov-percentage-3" title="60 lines out of 200 instrumented lines are covered in this file."">30 %</a></td>
         </tr>
 
         <tr>
@@ -202,24 +214,28 @@ input_file: inputs/web/dirs/root_listing__html
  JS::ProfilingFrameIterator::getPhysicalFrameAndEntry which was highlighting
  incorrectly in bug 1432300 </td>
           <td><a href="/tests/source/bug1432300.cpp">444</a></td>
+          <td class="coverage"><a href="/tests/source/bug1432300.cpp" class="cov-percentage cov-percentage-3" title="70 lines out of 200 instrumented lines are covered in this file."">35 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/bug1435345.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1435345.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1435345.cpp" title="Searchfox should analyze uses of operator== ">Searchfox should analyze uses of operator== </td>
           <td><a href="/tests/source/bug1435345.cpp">247</a></td>
+          <td class="coverage"><a href="/tests/source/bug1435345.cpp" class="cov-percentage cov-percentage-4" title="80 lines out of 200 instrumented lines are covered in this file."">40 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/bug1446220_unicode.html" class="mimetype-fixed-container mimetype-icon-html">bug1446220_unicode.html</a></td>
           <td class="description"><a href="/tests/source/bug1446220_unicode.html" title="Font family name parsing tests">Font family name parsing tests</td>
           <td><a href="/tests/source/bug1446220_unicode.html">10479</a></td>
+          <td class="coverage"><a href="/tests/source/bug1446220_unicode.html" class="cov-percentage cov-percentage-4" title="90 lines out of 200 instrumented lines are covered in this file."">45 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/bug1449291.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1449291.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1449291.cpp" title=""></td>
           <td><a href="/tests/source/bug1449291.cpp">578</a></td>
+          <td class="coverage"><a href="/tests/source/bug1449291.cpp" class="cov-percentage cov-percentage-5" title="100 lines out of 200 instrumented lines are covered in this file."">50 %</a></td>
         </tr>
 
         <tr>
@@ -232,246 +248,287 @@ input_file: inputs/web/dirs/root_listing__html
  highlighting in bug 1588908.
  </td>
           <td><a href="/tests/source/bug1588908.js">325</a></td>
+          <td class="coverage"><a href="/tests/source/bug1588908.js" class="cov-percentage cov-percentage-5" title="110 lines out of 200 instrumented lines are covered in this file."">55 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/bug1781178.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug1781178.cpp</a></td>
           <td class="description"><a href="/tests/source/bug1781178.cpp" title=""></td>
           <td><a href="/tests/source/bug1781178.cpp">1301</a></td>
+          <td class="coverage"><a href="/tests/source/bug1781178.cpp" class="cov-percentage cov-percentage-6" title="120 lines out of 200 instrumented lines are covered in this file."">60 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/build.gradle.kts" class="mimetype-fixed-container mimetype-icon-kts">build.gradle.kts</a></td>
           <td class="description"><a href="/tests/source/build.gradle.kts" title=""></td>
           <td><a href="/tests/source/build.gradle.kts">2435</a></td>
+          <td class="coverage"><a href="/tests/source/build.gradle.kts" class="cov-percentage cov-percentage-6" title="130 lines out of 200 instrumented lines are covered in this file."">65 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/build.rs" class="mimetype-fixed-container mimetype-icon-rs">build.rs</a></td>
           <td class="description"><a href="/tests/source/build.rs" title=""></td>
           <td><a href="/tests/source/build.rs">358</a></td>
+          <td class="coverage"><a href="/tests/source/build.rs" class="cov-percentage cov-percentage-7" title="140 lines out of 200 instrumented lines are covered in this file."">70 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/Cargo.lock" class="mimetype-fixed-container mimetype-icon-lock">Cargo.lock</a></td>
           <td class="description"><a href="/tests/source/Cargo.lock" title=""></td>
           <td><a href="/tests/source/Cargo.lock">254</a></td>
+          <td class="coverage"><a href="/tests/source/Cargo.lock" class="cov-percentage cov-percentage-7" title="150 lines out of 200 instrumented lines are covered in this file."">75 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/Cargo.toml" class="mimetype-fixed-container mimetype-icon-toml">Cargo.toml</a></td>
           <td class="description"><a href="/tests/source/Cargo.toml" title=""></td>
           <td><a href="/tests/source/Cargo.toml">267</a></td>
+          <td class="coverage"><a href="/tests/source/Cargo.toml" class="cov-percentage cov-percentage-8" title="160 lines out of 200 instrumented lines are covered in this file."">80 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/chrome.ini" class="mimetype-fixed-container mimetype-icon-ini">chrome.ini</a></td>
           <td class="description"><a href="/tests/source/chrome.ini" title=""></td>
           <td><a href="/tests/source/chrome.ini">40</a></td>
+          <td class="coverage"><a href="/tests/source/chrome.ini" class="cov-percentage cov-percentage-8" title="170 lines out of 200 instrumented lines are covered in this file."">85 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/circle.svg" class="mimetype-fixed-container mimetype-icon-svg">circle.svg</a></td>
           <td class="description"><a href="/tests/source/circle.svg" title=""></td>
           <td><a href="/tests/source/circle.svg">140</a></td>
+          <td class="coverage"><a href="/tests/source/circle.svg" class="cov-percentage cov-percentage-9" title="180 lines out of 200 instrumented lines are covered in this file."">90 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/cpp" class="mimetype-fixed-container mimetype-icon-folder">cpp</a></td>
           <td class="description"><a href="/tests/source/cpp" title=""></td>
           <td><a href="/tests/source/cpp"></a></td>
+          <td class="coverage"><a href="/tests/source/cpp" class="cov-percentage cov-percentage-9" title="190 lines out of 200 instrumented lines are covered in this folder."">95 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/critters-postcard.jpg" class="mimetype-fixed-container mimetype-icon-jpg">critters-postcard.jpg</a></td>
           <td class="description"><a href="/tests/source/critters-postcard.jpg" title=""></td>
           <td><a href="/tests/source/critters-postcard.jpg">108154</a></td>
+          <td class="coverage"><a href="/tests/source/critters-postcard.jpg" class="cov-percentage cov-percentage-10" title="200 lines out of 200 instrumented lines are covered in this file."">100 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/css" class="mimetype-fixed-container mimetype-icon-folder">css</a></td>
           <td class="description"><a href="/tests/source/css" title=""></td>
           <td><a href="/tests/source/css"></a></td>
+          <td class="coverage"><a href="/tests/source/css" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/docs" class="mimetype-fixed-container mimetype-icon-folder">docs</a></td>
           <td class="description"><a href="/tests/source/docs" title=""></td>
           <td><a href="/tests/source/docs"></a></td>
+          <td class="coverage"><a href="/tests/source/docs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/enummacro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">enummacro.cpp</a></td>
           <td class="description"><a href="/tests/source/enummacro.cpp" title=""></td>
           <td><a href="/tests/source/enummacro.cpp">353</a></td>
+          <td class="coverage"><a href="/tests/source/enummacro.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/enummacro.h" class="mimetype-fixed-container mimetype-icon-h">enummacro.h</a></td>
           <td class="description"><a href="/tests/source/enummacro.h" title=""></td>
           <td><a href="/tests/source/enummacro.h">94</a></td>
+          <td class="coverage"><a href="/tests/source/enummacro.h" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/field-layout" class="mimetype-fixed-container mimetype-icon-folder">field-layout</a></td>
           <td class="description"><a href="/tests/source/field-layout" title=""></td>
           <td><a href="/tests/source/field-layout"></a></td>
+          <td class="coverage"><a href="/tests/source/field-layout" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/ForwardingTemplates.cpp" class="mimetype-fixed-container mimetype-icon-cpp">ForwardingTemplates.cpp</a></td>
           <td class="description"><a href="/tests/source/ForwardingTemplates.cpp" title=""></td>
           <td><a href="/tests/source/ForwardingTemplates.cpp">3089</a></td>
+          <td class="coverage"><a href="/tests/source/ForwardingTemplates.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/GeckoApp.java" class="mimetype-fixed-container mimetype-icon-java">GeckoApp.java</a></td>
           <td class="description"><a href="/tests/source/GeckoApp.java" title=""></td>
           <td><a href="/tests/source/GeckoApp.java">104036</a></td>
+          <td class="coverage"><a href="/tests/source/GeckoApp.java" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/gradle" class="mimetype-fixed-container mimetype-icon-folder">gradle</a></td>
           <td class="description"><a href="/tests/source/gradle" title=""></td>
           <td><a href="/tests/source/gradle"></a></td>
+          <td class="coverage"><a href="/tests/source/gradle" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/gradlew" class="mimetype-fixed-container mimetype-icon-">gradlew</a></td>
           <td class="description"><a href="/tests/source/gradlew" title=""></td>
           <td><a href="/tests/source/gradlew">8762</a></td>
+          <td class="coverage"><a href="/tests/source/gradlew" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/gradlew.bat" class="mimetype-fixed-container mimetype-icon-bat">gradlew.bat</a></td>
           <td class="description"><a href="/tests/source/gradlew.bat" title=""></td>
           <td><a href="/tests/source/gradlew.bat">2966</a></td>
+          <td class="coverage"><a href="/tests/source/gradlew.bat" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/gzip-colliding-file" class="mimetype-fixed-container mimetype-icon-">gzip-colliding-file</a></td>
           <td class="description"><a href="/tests/source/gzip-colliding-file" title=""></td>
           <td><a href="/tests/source/gzip-colliding-file">125</a></td>
+          <td class="coverage"><a href="/tests/source/gzip-colliding-file" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/gzip-colliding-file.gz" class="mimetype-fixed-container mimetype-icon-gz">gzip-colliding-file.gz</a></td>
           <td class="description"><a href="/tests/source/gzip-colliding-file.gz" title=""></td>
           <td><a href="/tests/source/gzip-colliding-file.gz">132</a></td>
+          <td class="coverage"><a href="/tests/source/gzip-colliding-file.gz" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/html" class="mimetype-fixed-container mimetype-icon-folder">html</a></td>
           <td class="description"><a href="/tests/source/html" title=""></td>
           <td><a href="/tests/source/html"></a></td>
+          <td class="coverage"><a href="/tests/source/html" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/IGeckoEditableParent.aidl" class="mimetype-fixed-container mimetype-icon-aidl">IGeckoEditableParent.aidl</a></td>
           <td class="description"><a href="/tests/source/IGeckoEditableParent.aidl" title=""></td>
           <td><a href="/tests/source/IGeckoEditableParent.aidl">1425</a></td>
+          <td class="coverage"><a href="/tests/source/IGeckoEditableParent.aidl" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/ignored-js" class="mimetype-fixed-container mimetype-icon-folder">ignored-js</a></td>
           <td class="description"><a href="/tests/source/ignored-js" title=""></td>
           <td><a href="/tests/source/ignored-js"></a></td>
+          <td class="coverage"><a href="/tests/source/ignored-js" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/implicit.cpp" class="mimetype-fixed-container mimetype-icon-cpp">implicit.cpp</a></td>
           <td class="description"><a href="/tests/source/implicit.cpp" title=""></td>
           <td><a href="/tests/source/implicit.cpp">193</a></td>
+          <td class="coverage"><a href="/tests/source/implicit.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/imported-module.mjs" class="mimetype-fixed-container mimetype-icon-mjs">imported-module.mjs</a></td>
           <td class="description"><a href="/tests/source/imported-module.mjs" title=""></td>
           <td><a href="/tests/source/imported-module.mjs">401</a></td>
+          <td class="coverage"><a href="/tests/source/imported-module.mjs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/invalid-files" class="mimetype-fixed-container mimetype-icon-folder">invalid-files</a></td>
           <td class="description"><a href="/tests/source/invalid-files" title=""></td>
           <td><a href="/tests/source/invalid-files"></a></td>
+          <td class="coverage"><a href="/tests/source/invalid-files" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/ipdl" class="mimetype-fixed-container mimetype-icon-folder">ipdl</a></td>
           <td class="description"><a href="/tests/source/ipdl" title=""></td>
           <td><a href="/tests/source/ipdl"></a></td>
+          <td class="coverage"><a href="/tests/source/ipdl" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/jni.cpp" class="mimetype-fixed-container mimetype-icon-cpp">jni.cpp</a></td>
           <td class="description"><a href="/tests/source/jni.cpp" title=""></td>
           <td><a href="/tests/source/jni.cpp">1742</a></td>
+          <td class="coverage"><a href="/tests/source/jni.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/js" class="mimetype-fixed-container mimetype-icon-folder">js</a></td>
           <td class="description"><a href="/tests/source/js" title=""></td>
           <td><a href="/tests/source/js"></a></td>
+          <td class="coverage"><a href="/tests/source/js" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/lambdas.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lambdas.cpp</a></td>
           <td class="description"><a href="/tests/source/lambdas.cpp" title=""></td>
           <td><a href="/tests/source/lambdas.cpp">608</a></td>
+          <td class="coverage"><a href="/tests/source/lambdas.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/LightweightThemeManager.jsm" class="mimetype-fixed-container mimetype-icon-jsm">LightweightThemeManager.jsm</a></td>
           <td class="description"><a href="/tests/source/LightweightThemeManager.jsm" title="globals AddonManagerPrivate">globals AddonManagerPrivate</td>
           <td><a href="/tests/source/LightweightThemeManager.jsm">25383</a></td>
+          <td class="coverage"><a href="/tests/source/LightweightThemeManager.jsm" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/lots_of_calls.cpp" class="mimetype-fixed-container mimetype-icon-cpp">lots_of_calls.cpp</a></td>
           <td class="description"><a href="/tests/source/lots_of_calls.cpp" title=""></td>
           <td><a href="/tests/source/lots_of_calls.cpp">1663</a></td>
+          <td class="coverage"><a href="/tests/source/lots_of_calls.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/macro.cpp" class="mimetype-fixed-container mimetype-icon-cpp">macro.cpp</a></td>
           <td class="description"><a href="/tests/source/macro.cpp" title=""></td>
           <td><a href="/tests/source/macro.cpp">1757</a></td>
+          <td class="coverage"><a href="/tests/source/macro.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/mobile" class="mimetype-fixed-container mimetype-icon-folder">mobile</a></td>
           <td class="description"><a href="/tests/source/mobile" title=""></td>
           <td><a href="/tests/source/mobile"></a></td>
+          <td class="coverage"><a href="/tests/source/mobile" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/mochitest-alt-pref.ini" class="mimetype-fixed-container mimetype-icon-ini">mochitest-alt-pref.ini</a></td>
           <td class="description"><a href="/tests/source/mochitest-alt-pref.ini" title=""></td>
           <td><a href="/tests/source/mochitest-alt-pref.ini">69</a></td>
+          <td class="coverage"><a href="/tests/source/mochitest-alt-pref.ini" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/mochitest-common.ini" class="mimetype-fixed-container mimetype-icon-ini">mochitest-common.ini</a></td>
           <td class="description"><a href="/tests/source/mochitest-common.ini" title=""></td>
           <td><a href="/tests/source/mochitest-common.ini">37</a></td>
+          <td class="coverage"><a href="/tests/source/mochitest-common.ini" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/mochitest.ini" class="mimetype-fixed-container mimetype-icon-ini">mochitest.ini</a></td>
           <td class="description"><a href="/tests/source/mochitest.ini" title=""></td>
           <td><a href="/tests/source/mochitest.ini">140</a></td>
+          <td class="coverage"><a href="/tests/source/mochitest.ini" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/mozbuild" class="mimetype-fixed-container mimetype-icon-folder">mozbuild</a></td>
           <td class="description"><a href="/tests/source/mozbuild" title=""></td>
           <td><a href="/tests/source/mozbuild"></a></td>
+          <td class="coverage"><a href="/tests/source/mozbuild" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/mozilla" class="mimetype-fixed-container mimetype-icon-folder">mozilla</a></td>
           <td class="description"><a href="/tests/source/mozilla" title=""></td>
           <td><a href="/tests/source/mozilla"></a></td>
+          <td class="coverage"><a href="/tests/source/mozilla" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
@@ -480,18 +537,21 @@ input_file: inputs/web/dirs/root_listing__html
  ">Some documentation.
  </td>
           <td><a href="/tests/source/multiline.cpp">319</a></td>
+          <td class="coverage"><a href="/tests/source/multiline.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/nsISupports.h" class="mimetype-fixed-container mimetype-icon-h">nsISupports.h</a></td>
           <td class="description"><a href="/tests/source/nsISupports.h" title=""></td>
           <td><a href="/tests/source/nsISupports.h">730</a></td>
+          <td class="coverage"><a href="/tests/source/nsISupports.h" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/nsTArray.h" class="mimetype-fixed-container mimetype-icon-h">nsTArray.h</a></td>
           <td class="description"><a href="/tests/source/nsTArray.h" title=""></td>
           <td><a href="/tests/source/nsTArray.h">673</a></td>
+          <td class="coverage"><a href="/tests/source/nsTArray.h" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
@@ -502,48 +562,56 @@ input_file: inputs/web/dirs/root_listing__html
  a base class with a limited number of overrides.
 </td>
           <td><a href="/tests/source/overs.cpp">1521</a></td>
+          <td class="coverage"><a href="/tests/source/overs.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/python" class="mimetype-fixed-container mimetype-icon-folder">python</a></td>
           <td class="description"><a href="/tests/source/python" title=""></td>
           <td><a href="/tests/source/python"></a></td>
+          <td class="coverage"><a href="/tests/source/python" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/README.md" class="mimetype-fixed-container mimetype-icon-md">README.md</a></td>
           <td class="description"><a href="/tests/source/README.md" title="This is a README">This is a README</td>
           <td><a href="/tests/source/README.md">342</a></td>
+          <td class="coverage"><a href="/tests/source/README.md" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/root-module.mjs" class="mimetype-fixed-container mimetype-icon-mjs">root-module.mjs</a></td>
           <td class="description"><a href="/tests/source/root-module.mjs" title=""></td>
           <td><a href="/tests/source/root-module.mjs">371</a></td>
+          <td class="coverage"><a href="/tests/source/root-module.mjs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/runnables.cpp" class="mimetype-fixed-container mimetype-icon-cpp">runnables.cpp</a></td>
           <td class="description"><a href="/tests/source/runnables.cpp" title=""></td>
           <td><a href="/tests/source/runnables.cpp">1146</a></td>
+          <td class="coverage"><a href="/tests/source/runnables.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/rust" class="mimetype-fixed-container mimetype-icon-folder">rust</a></td>
           <td class="description"><a href="/tests/source/rust" title=""></td>
           <td><a href="/tests/source/rust"></a></td>
+          <td class="coverage"><a href="/tests/source/rust" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/secret-madjewel.js" class="mimetype-fixed-container mimetype-icon-js">secret-madjewel.js</a></td>
           <td class="description"><a href="/tests/source/secret-madjewel.js" title=""></td>
           <td><a href="/tests/source/secret-madjewel.js">361</a></td>
+          <td class="coverage"><a href="/tests/source/secret-madjewel.js" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/simple.cpp" class="mimetype-fixed-container mimetype-icon-cpp">simple.cpp</a></td>
           <td class="description"><a href="/tests/source/simple.cpp" title=""></td>
           <td><a href="/tests/source/simple.cpp">1839</a></td>
+          <td class="coverage"><a href="/tests/source/simple.cpp" class="cov-percentage cov-percentage-9" title="24 lines out of 24 instrumented lines are covered in this file."">96 %</a></td>
         </tr>
 
         <tr>
@@ -554,18 +622,21 @@ input_file: inputs/web/dirs/root_listing__html
    Note how this comment ends up in the file description, too!
 </td>
           <td><a href="/tests/source/simple.rs">2018</a></td>
+          <td class="coverage"><a href="/tests/source/simple.rs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/some_ini.ini" class="mimetype-fixed-container mimetype-icon-ini">some_ini.ini</a></td>
           <td class="description"><a href="/tests/source/some_ini.ini" title=""></td>
           <td><a href="/tests/source/some_ini.ini">34</a></td>
+          <td class="coverage"><a href="/tests/source/some_ini.ini" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/some_javascript.js" class="mimetype-fixed-container mimetype-icon-js">some_javascript.js</a></td>
           <td class="description"><a href="/tests/source/some_javascript.js" title=""></td>
           <td><a href="/tests/source/some_javascript.js">2555</a></td>
+          <td class="coverage"><a href="/tests/source/some_javascript.js" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
@@ -606,204 +677,238 @@ Spread over multiple lines.
 Spread over multiple lines.
 </td>
           <td><a href="/tests/source/some_python.py">672</a></td>
+          <td class="coverage"><a href="/tests/source/some_python.py" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/spaces  are bad.txt" class="mimetype-fixed-container mimetype-icon-txt">spaces  are bad.txt</a></td>
           <td class="description"><a href="/tests/source/spaces  are bad.txt" title=""></td>
           <td><a href="/tests/source/spaces  are bad.txt">84</a></td>
+          <td class="coverage"><a href="/tests/source/spaces  are bad.txt" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/src" class="mimetype-fixed-container mimetype-icon-folder">src</a></td>
           <td class="description"><a href="/tests/source/src" title=""></td>
           <td><a href="/tests/source/src"></a></td>
+          <td class="coverage"><a href="/tests/source/src" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/staticprefs" class="mimetype-fixed-container mimetype-icon-folder">staticprefs</a></td>
           <td class="description"><a href="/tests/source/staticprefs" title=""></td>
           <td><a href="/tests/source/staticprefs"></a></td>
+          <td class="coverage"><a href="/tests/source/staticprefs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/subdir" class="mimetype-fixed-container mimetype-icon-folder">subdir</a></td>
           <td class="description"><a href="/tests/source/subdir" title=""></td>
           <td><a href="/tests/source/subdir"></a></td>
+          <td class="coverage"><a href="/tests/source/subdir" class="cov-percentage cov-percentage-10" title="2 lines out of 2 instrumented lines are covered in this folder."">100 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/template_shapes.cpp" class="mimetype-fixed-container mimetype-icon-cpp">template_shapes.cpp</a></td>
           <td class="description"><a href="/tests/source/template_shapes.cpp" title=""></td>
           <td><a href="/tests/source/template_shapes.cpp">1126</a></td>
+          <td class="coverage"><a href="/tests/source/template_shapes.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/template_specialization.cpp" class="mimetype-fixed-container mimetype-icon-cpp">template_specialization.cpp</a></td>
           <td class="description"><a href="/tests/source/template_specialization.cpp" title=""></td>
           <td><a href="/tests/source/template_specialization.cpp">288</a></td>
+          <td class="coverage"><a href="/tests/source/template_specialization.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates_nsTArray.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates_nsTArray.cpp</a></td>
           <td class="description"><a href="/tests/source/templates_nsTArray.cpp" title=""></td>
           <td><a href="/tests/source/templates_nsTArray.cpp">123</a></td>
+          <td class="coverage"><a href="/tests/source/templates_nsTArray.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates1.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates1.cpp</a></td>
           <td class="description"><a href="/tests/source/templates1.cpp" title=""></td>
           <td><a href="/tests/source/templates1.cpp">247</a></td>
+          <td class="coverage"><a href="/tests/source/templates1.cpp" class="cov-percentage cov-percentage-0" title="0 lines out of 24 instrumented lines are covered in this file."">0 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates2.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates2.cpp</a></td>
           <td class="description"><a href="/tests/source/templates2.cpp" title=""></td>
           <td><a href="/tests/source/templates2.cpp">408</a></td>
+          <td class="coverage"><a href="/tests/source/templates2.cpp" class="cov-percentage cov-percentage-0" title="7 lines out of 100 instrumented lines are covered in this file."">7 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates3.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates3.cpp</a></td>
           <td class="description"><a href="/tests/source/templates3.cpp" title=""></td>
           <td><a href="/tests/source/templates3.cpp">414</a></td>
+          <td class="coverage"><a href="/tests/source/templates3.cpp" class="cov-percentage cov-percentage-1" title="18 lines out of 100 instrumented lines are covered in this file."">18 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates4.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates4.cpp</a></td>
           <td class="description"><a href="/tests/source/templates4.cpp" title=""></td>
           <td><a href="/tests/source/templates4.cpp">109</a></td>
+          <td class="coverage"><a href="/tests/source/templates4.cpp" class="cov-percentage cov-percentage-4" title="42 lines out of 100 instrumented lines are covered in this file."">42 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates5.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates5.cpp</a></td>
           <td class="description"><a href="/tests/source/templates5.cpp" title=""></td>
           <td><a href="/tests/source/templates5.cpp">170</a></td>
+          <td class="coverage"><a href="/tests/source/templates5.cpp" class="cov-percentage cov-percentage-8" title="83 lines out of 100 instrumented lines are covered in this file."">83 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates5.h" class="mimetype-fixed-container mimetype-icon-h">templates5.h</a></td>
           <td class="description"><a href="/tests/source/templates5.h" title=""></td>
           <td><a href="/tests/source/templates5.h">212</a></td>
+          <td class="coverage"><a href="/tests/source/templates5.h" class="cov-percentage cov-percentage-10" title="100 lines out of 100 instrumented lines are covered in this file."">100 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates6.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates6.cpp</a></td>
           <td class="description"><a href="/tests/source/templates6.cpp" title=""></td>
           <td><a href="/tests/source/templates6.cpp">144</a></td>
+          <td class="coverage"><a href="/tests/source/templates6.cpp" class="cov-percentage cov-percentage-6" title="62 lines out of 100 instrumented lines are covered in this file."">62 %</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates6.h" class="mimetype-fixed-container mimetype-icon-h">templates6.h</a></td>
           <td class="description"><a href="/tests/source/templates6.h" title=""></td>
           <td><a href="/tests/source/templates6.h">67</a></td>
+          <td class="coverage"><a href="/tests/source/templates6.h" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/templates7.cpp" class="mimetype-fixed-container mimetype-icon-cpp">templates7.cpp</a></td>
           <td class="description"><a href="/tests/source/templates7.cpp" title=""></td>
           <td><a href="/tests/source/templates7.cpp">709</a></td>
+          <td class="coverage"><a href="/tests/source/templates7.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/test_custom_element_base.xul" class="mimetype-fixed-container mimetype-icon-xul">test_custom_element_base.xul</a></td>
           <td class="description"><a href="/tests/source/test_custom_element_base.xul" title=""></td>
           <td><a href="/tests/source/test_custom_element_base.xul">14636</a></td>
+          <td class="coverage"><a href="/tests/source/test_custom_element_base.xul" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" class="mimetype-fixed-container mimetype-icon-html">test_DOMWindowCreated_chromeonly.html</a></td>
           <td class="description"><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" title="DOMWindowCreated not visible in content">DOMWindowCreated not visible in content</td>
           <td><a href="/tests/source/test_DOMWindowCreated_chromeonly.html">728</a></td>
+          <td class="coverage"><a href="/tests/source/test_DOMWindowCreated_chromeonly.html" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/test_many_manifest_permutations.js" class="mimetype-fixed-container mimetype-icon-js">test_many_manifest_permutations.js</a></td>
           <td class="description"><a href="/tests/source/test_many_manifest_permutations.js" title=""></td>
           <td><a href="/tests/source/test_many_manifest_permutations.js">130</a></td>
+          <td class="coverage"><a href="/tests/source/test_many_manifest_permutations.js" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/test_rust_dependency" class="mimetype-fixed-container mimetype-icon-folder">test_rust_dependency</a></td>
           <td class="description"><a href="/tests/source/test_rust_dependency" title=""></td>
           <td><a href="/tests/source/test_rust_dependency"></a></td>
+          <td class="coverage"><a href="/tests/source/test_rust_dependency" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/test_talosconfig_browser_config.json" class="mimetype-fixed-container mimetype-icon-json">test_talosconfig_browser_config.json</a></td>
           <td class="description"><a href="/tests/source/test_talosconfig_browser_config.json" title=""></td>
           <td><a href="/tests/source/test_talosconfig_browser_config.json">3356</a></td>
+          <td class="coverage"><a href="/tests/source/test_talosconfig_browser_config.json" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/testing" class="mimetype-fixed-container mimetype-icon-folder">testing</a></td>
           <td class="description"><a href="/tests/source/testing" title=""></td>
           <td><a href="/tests/source/testing"></a></td>
+          <td class="coverage"><a href="/tests/source/testing" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/tests" class="mimetype-fixed-container mimetype-icon-folder">tests</a></td>
           <td class="description"><a href="/tests/source/tests" title=""></td>
           <td><a href="/tests/source/tests"></a></td>
+          <td class="coverage"><a href="/tests/source/tests" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/third_party" class="mimetype-fixed-container mimetype-icon-folder">third_party</a></td>
           <td class="description"><a href="/tests/source/third_party" title=""></td>
           <td><a href="/tests/source/third_party"></a></td>
+          <td class="coverage"><a href="/tests/source/third_party" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/tiger.svg" class="mimetype-fixed-container mimetype-icon-svg">tiger.svg</a></td>
           <td class="description"><a href="/tests/source/tiger.svg" title=""></td>
           <td><a href="/tests/source/tiger.svg">68630</a></td>
+          <td class="coverage"><a href="/tests/source/tiger.svg" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/tricky_symbol_names.cpp" class="mimetype-fixed-container mimetype-icon-cpp">tricky_symbol_names.cpp</a></td>
           <td class="description"><a href="/tests/source/tricky_symbol_names.cpp" title=""></td>
           <td><a href="/tests/source/tricky_symbol_names.cpp">313</a></td>
+          <td class="coverage"><a href="/tests/source/tricky_symbol_names.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/urlmap" class="mimetype-fixed-container mimetype-icon-folder">urlmap</a></td>
           <td class="description"><a href="/tests/source/urlmap" title=""></td>
           <td><a href="/tests/source/urlmap"></a></td>
+          <td class="coverage"><a href="/tests/source/urlmap" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/using.cpp" class="mimetype-fixed-container mimetype-icon-cpp">using.cpp</a></td>
           <td class="description"><a href="/tests/source/using.cpp" title=""></td>
           <td><a href="/tests/source/using.cpp">233</a></td>
+          <td class="coverage"><a href="/tests/source/using.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/webidl" class="mimetype-fixed-container mimetype-icon-folder">webidl</a></td>
           <td class="description"><a href="/tests/source/webidl" title=""></td>
           <td><a href="/tests/source/webidl"></a></td>
+          <td class="coverage"><a href="/tests/source/webidl" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/webtest" class="mimetype-fixed-container mimetype-icon-folder">webtest</a></td>
           <td class="description"><a href="/tests/source/webtest" title=""></td>
           <td><a href="/tests/source/webtest"></a></td>
+          <td class="coverage"><a href="/tests/source/webtest" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/xpidl" class="mimetype-fixed-container mimetype-icon-folder">xpidl</a></td>
           <td class="description"><a href="/tests/source/xpidl" title=""></td>
           <td><a href="/tests/source/xpidl"></a></td>
+          <td class="coverage"><a href="/tests/source/xpidl" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/xpidl_cpp_consumer.cpp" class="mimetype-fixed-container mimetype-icon-cpp">xpidl_cpp_consumer.cpp</a></td>
           <td class="description"><a href="/tests/source/xpidl_cpp_consumer.cpp" title=""></td>
           <td><a href="/tests/source/xpidl_cpp_consumer.cpp">417</a></td>
+          <td class="coverage"><a href="/tests/source/xpidl_cpp_consumer.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td><a href="/tests/source/yaml" class="mimetype-fixed-container mimetype-icon-folder">yaml</a></td>
           <td class="description"><a href="/tests/source/yaml" title=""></td>
           <td><a href="/tests/source/yaml"></a></td>
+          <td class="coverage"><a href="/tests/source/yaml" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
     </tbody>
