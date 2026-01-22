@@ -3,6 +3,7 @@
 add_task(async function test_StickyLines() {
   await TestUtils.loadPath("/tests/source/big_cpp.cpp#360");
 
+  const breadcrumbs = frame.contentDocument.querySelector(".breadcrumbs");
   const sticky1 = frame.contentDocument.querySelector("#line-128");
   const sticky2 = frame.contentDocument.querySelector("#line-210");
   const sticky3 = frame.contentDocument.querySelector("#line-348");
@@ -15,8 +16,11 @@ add_task(async function test_StickyLines() {
 
   const searchbox = frame.contentDocument.querySelector("#search-box");
   is(searchbox.getBoundingClientRect().bottom,
+     breadcrumbs.getBoundingClientRect().top,
+     "the breadcrumbs should touch the bottom of the searchbox");
+  is(breadcrumbs.getBoundingClientRect().bottom,
      sticky1.getBoundingClientRect().top,
-     "the first sticky line should touch the bottom of the search box");
+     "the first sticky line should touch the bottom of the breadcrumb");
   is(sticky1.getBoundingClientRect().bottom,
      sticky2.getBoundingClientRect().top,
      "the second sticky line should touch the bottom of the first sticky line");
