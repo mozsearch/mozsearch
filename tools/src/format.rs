@@ -15,7 +15,7 @@ use crate::file_format::crossref_converter::{
 };
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
-use crate::git_ops;
+use crate::git_ops::{self, coverage_summary};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
@@ -996,7 +996,7 @@ pub fn format_path(
                 .into_tree()
                 .expect("Should really be a tree, we just checked the object kind.");
 
-            format_tree(tree_name, rev, path, writer, commit, &repo, tree)
+            format_tree(tree_name, rev, path, writer, git, commit, &repo, tree)
         }
         _ => Err("Invalid path"),
     }
@@ -1007,11 +1007,14 @@ fn format_tree(
     rev: &str,
     path: &Path,
     writer: &mut dyn Write,
+    git: &GitData,
     commit: git2::Commit<'_>,
     repo: &Repository,
     tree: Tree<'_>,
 ) -> Result<(), &'static str> {
     let desc_html = blame::commit_header(&commit)?;
+
+    let coverage_rev = format!("refs/tags/reverse/all/all/{}", commit.id());
 
     let files = tree
         .iter()
@@ -1031,6 +1034,10 @@ fn format_tree(
                 object.into_blob().map_or(0, |blob| blob.size())
             };
 
+            let path = path.join(filename);
+
+            let coverage_info = coverage_summary(Some(git), &coverage_rev, &path);
+
             let concise = ConcisePerFileInfo {
                 path_kind: "".into(),
                 is_dir,
@@ -1040,10 +1047,11 @@ fn format_tree(
                 tags: vec![],
                 description: None,
                 info: serde_json::Value::Null,
+                coverage: coverage_info,
             };
 
             Ok(FileMatch {
-                path: path.join(filename).to_str().unwrap().into(),
+                path: path.to_str().unwrap().into(),
                 concise,
             })
         })

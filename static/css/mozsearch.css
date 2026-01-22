@@ -411,6 +411,27 @@ table.folder-content td.description a {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+table.folder-content td.coverage {
+  .cov-percentage {
+    font-weight: 600;
+  }
+
+  .cov-percentage-0 {
+    color: #d91a47;
+    font-weight: 800;
+  }
+  .cov-percentage-1    { color: #c62828; }
+  .cov-percentage-2    { color: #d32f2f; }
+  .cov-percentage-3    { color: #e53935; }
+  .cov-percentage-4    { color: #f57c00; }
+  .cov-percentage-5    { color: #fbc02d; }
+  .cov-percentage-6    { color: #c0ca33; }
+  .cov-percentage-7    { color: #7cb342; }
+  .cov-percentage-8    { color: #43a047; }
+  .cov-percentage-9    { color: #2e7d32; }
+  .cov-percentage-10   { color: #00c853; }
+  .cov-percentage-none { color: #9e9e9e; }
+}
 td.code {
   padding: 0 0 0 0.5em;
 }

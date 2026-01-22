@@ -15,7 +15,13 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "Font family name parsing tests",
-        "info": {}
+        "info": {},
+        "coverage": {
+          "coveragePercent": 45.0,
+          "linesCovered": 90,
+          "linesMissed": 110,
+          "linesTotal": 200
+        }
       }
     },
     {
@@ -28,7 +34,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "css",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -41,7 +48,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "script",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -54,7 +62,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "Parser shouldn't fail with invalid entity references",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -67,7 +76,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "script",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -80,7 +90,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "Inputs",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -100,7 +111,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
               "chrome.ini"
             ]
           }
-        }
+        },
+        "coverage": null
       }
     },
     {
@@ -113,7 +125,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -126,7 +139,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -139,7 +153,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -152,7 +167,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -165,7 +181,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "chrome1",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -178,7 +195,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "mozsrc1",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -191,7 +209,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "resource1",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -204,7 +223,8 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": "url map",
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     }
   ]
