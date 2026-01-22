@@ -106,11 +106,12 @@ class CppSymbolsBuilder:
         self.current_member_item = None
 
     @staticmethod
-    def parse_sym(sym):
-        '''Given C++ symbol, return the class/interface name and member name.
+    def parse_binding_sym(sym):
+        '''Given C++ symbol for the binding's methods, return the
+        class/interface name and member name.
         The '_Binding' suffix is not removed.
 
-        If the symbol doesn't match the binding or implementation's pattern,
+        If the symbol doesn't match the binding's pattern,
         returns None for both.
         '''
 
@@ -134,7 +135,7 @@ class CppSymbolsBuilder:
     def maybe_add_binding(self, sym):
         '''If given symbol is C++ binding function, add it.'''
 
-        iface_name, member_name = self.parse_sym(sym)
+        iface_name, member_name = self.parse_binding_sym(sym)
         if iface_name is None:
             return
         if not iface_name.endswith('_Binding'):
@@ -158,7 +159,7 @@ class CppSymbolsBuilder:
         '''If given symbol is C++ implementation function for the
         current C++ binding function, add it.'''
 
-        context_iface_name, context_member_name = self.parse_sym(contextsym)
+        context_iface_name, context_member_name = self.parse_binding_sym(contextsym)
         if context_iface_name is None:
             return
         if not context_iface_name.endswith('_Binding'):
@@ -170,7 +171,7 @@ class CppSymbolsBuilder:
         if self.current_member_name != context_member_name:
             return
 
-        iface_name, member_name = self.parse_sym(sym)
+        iface_name, member_name = self.parse_binding_sym(sym)
 
         if iface_name is None:
             return
