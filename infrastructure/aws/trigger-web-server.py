@@ -117,6 +117,9 @@ r = ec2.run_instances(
     UserData=userData,
     InstanceType=instance_type,
     Placement={'AvailabilityZone': availability_zone},
+    IamInstanceProfile={
+        'Name': 'web-server-role',
+    },
 )
 
 webServerInstanceId = r['Instances'][0]['InstanceId']
