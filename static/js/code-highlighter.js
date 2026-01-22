@@ -352,11 +352,16 @@ var Sticky = new (class Sticky {
     this.stuck = [];
     this.scroller = window;
 
-    const scrolling = document.querySelector("#scrolling");
-    if (!scrolling) {
-      return;
+    const fixedHeader = document.querySelector("#fixed-header");
+    if (fixedHeader) {
+      this.firstSourceY = fixedHeader.getBoundingClientRect().bottom;
+    } else {
+      const scrolling = document.querySelector("#scrolling");
+      if (!scrolling) {
+        return;
+      }
+      this.firstSourceY = scrolling.offsetTop;
     }
-    this.firstSourceY = scrolling.offsetTop;
     this.firstLineNumber = document.querySelector(".line-number");
 
     // Our logic can't work on our diff output because there will be line
