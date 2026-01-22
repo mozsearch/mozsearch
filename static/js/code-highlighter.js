@@ -352,13 +352,19 @@ var Sticky = new (class Sticky {
     this.stuck = [];
     this.scroller = window;
 
+    const scrolling = document.querySelector("#scrolling");
+    if (!scrolling) {
+      return;
+    }
+    this.firstSourceY = scrolling.offsetTop;
+    this.firstLineNumber = document.querySelector(".line-number");
+
     // Our logic can't work on our diff output because there will be line
     // number discontinuities and line numbers that are simply missing.
-    let hasLineNumbers = !!document.querySelector(".line-number");
     let isDiffView = document
       .getElementById("content")
       .classList.contains("diff");
-    if (hasLineNumbers && !isDiffView) {
+    if (this.firstLineNumber && !isDiffView) {
       this.scroller.addEventListener("scroll", () => this.handleScroll(), {
         passive: true,
       });
@@ -389,11 +395,8 @@ var Sticky = new (class Sticky {
    */
   handleScroll() {
     const MAX_NESTING = 10;
-    const scrolling = document.getElementById("scrolling");
-    const firstSourceY = scrolling.offsetTop;
     // The goal is to make sure we're in the area the source line numbers live.
-    const lineForSizing = document.querySelector(".line-number");
-    const lineRect = lineForSizing.getBoundingClientRect();
+    const lineRect = this.firstLineNumber.getBoundingClientRect();
     const sourceLinesX = lineRect.left + 6;
     const lineHeight = lineRect.height;
 
@@ -401,7 +404,7 @@ var Sticky = new (class Sticky {
     let lastStuck = null;
     const jitter = 6;
 
-    function extractLineNumberFromElem(elem) {
+    const extractLineNumberFromElem = elem => {
       if (!elem || !elem.classList.contains("line-number")) {
         return null;
       }
@@ -410,7 +413,7 @@ var Sticky = new (class Sticky {
         return null;
       }
       return num;
-    }
+    };
 
     /**
      * Walk at a fixed offset into the middle of what should be stuck line
@@ -423,7 +426,7 @@ var Sticky = new (class Sticky {
      * If we do find a line-number, then we look at the displacement vs. the
      * statically-positioned ancestor, to detect which ones are stuck.
      */
-    function walkLinesAndGetLines() {
+    const walkLinesAndGetLines = () => {
       let offset = 6;
       let sourceLines = [];
 
@@ -431,7 +434,7 @@ var Sticky = new (class Sticky {
       let sanityCheckLineNum = extractLineNumberFromElem(
         document.elementFromPoint(
           sourceLinesX,
-          firstSourceY + offset + lineHeight * MAX_NESTING
+          this.firstSourceY + offset + lineHeight * MAX_NESTING
         )
       );
       // if we didn't find a line, try again with a slight jitter because there
@@ -440,7 +443,7 @@ var Sticky = new (class Sticky {
         sanityCheckLineNum = extractLineNumberFromElem(
           document.elementFromPoint(
             sourceLinesX,
-            jitter + firstSourceY + offset + lineHeight * MAX_NESTING
+            jitter + this.firstSourceY + offset + lineHeight * MAX_NESTING
           )
         );
       }
@@ -455,7 +458,7 @@ var Sticky = new (class Sticky {
       for (let iLine = 0; iLine <= MAX_NESTING; iLine++) {
         let elem = document.elementFromPoint(
           sourceLinesX,
-          firstSourceY + offset
+          this.firstSourceY + offset
         );
         if (!elem || !elem.classList.contains("line-number")) {
           break;
@@ -478,7 +481,7 @@ var Sticky = new (class Sticky {
       }
 
       return sourceLines;
-    }
+    };
 
     let newlyStuckElements = walkLinesAndGetLines();
 
