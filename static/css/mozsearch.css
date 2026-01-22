@@ -139,6 +139,9 @@ table {
   --diagram-hovered-out-edge: blue;
   --diagram-hovered-in-edge: green;
   --diagram-true-diag: white;
+
+  --tree-switcher-width: 24px;
+  --tree-switcher-height: 24px;
 }
 
 :root.old-rev {
@@ -727,8 +730,8 @@ tr.after-context-line + tr.before-context-line {
   appearance: none;
   border: none;
   vertical-align: middle;
-  width: 24px;
-  height: 24px;
+  width: var(--tree-switcher-width);
+  height: var(--tree-switcher-height);
   border-radius: 2px;
 }
 #tree-switcher:hover {
