@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(fm).unwrap()"
-snapshot_kind: text
+input_file: inputs/search-files/file_list_ingestion_check__json
 ---
 {
   "file_matches": [
@@ -17,7 +17,8 @@ snapshot_kind: text
           "eslint-ignored"
         ],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -32,7 +33,8 @@ snapshot_kind: text
           "eslint-ignored"
         ],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -45,7 +47,8 @@ snapshot_kind: text
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -60,7 +63,8 @@ snapshot_kind: text
           "eslint-ignored"
         ],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -75,7 +79,8 @@ snapshot_kind: text
           "eslint-ignored"
         ],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     }
   ]

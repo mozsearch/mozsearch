@@ -4,6 +4,7 @@
         <th scope="col">Name</th>
         <th scope="col">Description</th>
         <th scope="col">Size</th>
+        <th scope="col">Coverage</th>
       </tr>
     </thead>
     <tbody>
@@ -12,9 +13,11 @@
         {%- if file.concise.is_dir -%}
             {%- assign icon_kind = "folder" -%}
             {%- assign file_size = "" %}
+            {%- assign node_kind = "folder" %}
         {%- else -%}
             {%- capture icon_kind %}{{ file.path | fileext }}{% endcapture -%}
             {%- capture file_size %}{{ file.concise.file_size }}{% endcapture -%}
+            {%- assign node_kind = "file" %}
         {%- endif -%}
         <tr>
           {% comment %}
@@ -27,6 +30,17 @@
           <td><a href="{{ file_url }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind }}">{{ file.path | split: "/" | last }}</a></td>
           <td class="description"><a href="{{ file_url }}" title="{{ file.concise.description | default: "" | escape }}">{{ file.concise.description | default: "" | escape }}</td>
           <td><a href="{{ file_url }}">{{ file_size }}</a></td>
+          {% assign coverage = file.concise.coverage %}
+          {%- if coverage != nil and coverage.linesTotal != 0 -%}
+            {%- assign coverage_bucket = coverage.coveragePercent | divided_by: 10 | floor -%}
+            {%- capture coverage_title -%}{{ coverage.linesCovered }} lines out of {{ coverage.linesTotal }} instrumented lines are covered in this {{ node_kind }}."{%- endcapture -%}
+            {%- capture coverage_content -%}{{ coverage.coveragePercent | round }} %{%- endcapture -%}
+          {%- else -%}
+            {%- assign coverage_bucket = "none" -%}
+            {%- capture coverage_title -%}There's no coverage data available for this {{ node_kind }}.{%- endcapture -%}
+            {%- capture coverage_content -%} - {%- endcapture -%}
+          {%- endif -%}
+          <td class="coverage"><a href="{{ file_url }}" class="cov-percentage cov-percentage-{{ coverage_bucket }}" title="{{ coverage_title }}">{{ coverage_content }}</a></td>
         </tr>
 {% endfor %}
     </tbody>

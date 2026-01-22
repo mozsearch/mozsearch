@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(fm).unwrap()"
-snapshot_kind: text
+input_file: inputs/search-files/anchored_star_html__json
 ---
 {
   "file_matches": [
@@ -15,7 +15,13 @@ snapshot_kind: text
         "subsystem": null,
         "tags": [],
         "description": "Font family name parsing tests",
-        "info": {}
+        "info": {},
+        "coverage": {
+          "coveragePercent": 45.0,
+          "linesCovered": 90,
+          "linesMissed": 110,
+          "linesTotal": 200
+        }
       }
     },
     {
@@ -35,7 +41,8 @@ snapshot_kind: text
               "chrome.ini"
             ]
           }
-        }
+        },
+        "coverage": null
       }
     }
   ]
