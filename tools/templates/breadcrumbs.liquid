@@ -5,5 +5,10 @@
   <span class="path-separator">/</span>
   {%- assign path_so_far = path_segments | slice: 0, forloop.index | join: "/" -%}
   <a href="/{{tree}}/{% if rev %}rev/{{ rev }}{% else %}source{% endif %}/{{path_so_far}}">{{ segment }}</a>
-{%- endfor %}
+{%- endfor -%}
+{%- if is_graph %}
+  <button id="diagram-panel-toggle" onclick="Dxr.toggleDiagramPanel()">
+    Diagram Controls <span class="icon-cog"></span>
+  </button>
+{%- endif %}
   </div>

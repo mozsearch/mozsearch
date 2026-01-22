@@ -8,17 +8,11 @@
 {%- endfor -%}
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
+    {% include 'breadcrumbs.liquid' path: "", hidden: false, is_graph: is_graph %}
+    {% include 'navigation_panel.liquid' expanded: false, panel: null %}
     <div>
-      {% include 'breadcrumbs.liquid' path: "", hidden: false %}
-      {% if is_graph %}
-        <button id="diagram-panel-toggle" onclick="Dxr.toggleDiagramPanel()">
-          Diagram Controls <span class="icon-cog"></span>
-        </button>
-      {% endif %}
-      {% include 'navigation_panel.liquid' expanded: false, panel: null %}
-    </div>
-    {% for result_pair in results %}
-      {% case result_pair[0] %}
+      {% for result_pair in results %}
+        {% case result_pair[0] %}
         {% when "FlattenedResultsBundle" %}
           {% include 'query_results/rb_root.liquid' %}
         {% when "GraphResultsBundle" %}
@@ -48,6 +42,7 @@
         <pre id="query-debug-results-json-pre">
         </pre>
       </fieldset>
+    </div>
   </div>
   <script>
 var SYM_INFO = {{ SYM_INFO_STR }};

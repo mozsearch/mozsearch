@@ -6,7 +6,7 @@
 {% include 'header_search.liquid' title: title, autofocus: false, rev_box: rev_box %}
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
-    {% include 'breadcrumbs.liquid' path: path, hidden: false %}
+    {% include 'breadcrumbs.liquid' path: path, hidden: false, is_graph: false %}
     {% include 'navigation_panel.liquid' expanded: false, panel: panel %}
 
     {%- include 'query_results/file_table.liquid' files: files %}
