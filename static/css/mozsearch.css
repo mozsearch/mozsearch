@@ -142,6 +142,11 @@ table {
 
   --tree-switcher-width: 24px;
   --tree-switcher-height: 24px;
+
+  --breadcrumbs-margin-top: 18px;
+  --breadcrumbs-padding: 1rem;
+  --breadcrumbs-height: var(--tree-switcher-height);
+  --stuck-shadow-radius: 8px;
 }
 
 :root.old-rev {
@@ -450,11 +455,13 @@ td#line-numbers {
   flex-grow: 1;
 }
 
+.breadcrumbs.stuck,
 .source-line-with-number.stuck {
   background-color: var(--line-stuck-background);
 }
+.breadcrumbs.last-stuck,
 .source-line-with-number.last-stuck {
-  box-shadow: 0px 4px 8px rgba(0, 0, 0, .9);
+  box-shadow: 0px 4px var(--stuck-shadow-radius) rgba(0, 0, 0, .9);
 }
 
 .source-line a,
@@ -551,6 +558,7 @@ mark {
   background-color: var(--page-background);
   top: calc(
       var(--header-height) +
+      var(--breadcrumbs-height) +
       var(--nesting-level) * var(--base-font-size) * var(--source-line-height)
   );
   z-index: calc(100 - var(--nesting-level));
@@ -707,7 +715,7 @@ tr.after-context-line + tr.before-context-line {
   font-weight: bold;
 }
 .content {
-  padding: 0.5rem 0rem;
+  padding: 0 0 0.5rem 0;
 }
 
 /* Breadcrumbs */
@@ -718,7 +726,17 @@ tr.after-context-line + tr.before-context-line {
   display: inline-block;
   margin: 0;
   padding: 1rem;
+  position: sticky;
+  z-index: 101;
+  top: var(--header-height);
+  margin: var(--breadcrumbs-margin-top) 0 1rem 0;
+  padding: 0 var(--breadcrumbs-padding);
+  width: 100%;
+  height: var(--breadcrumbs-height);
   text-align: left;
+}
+.breadcrumbs.stuck {
+  white-space: no-wrap;
 }
 
 #tree-switcher {
@@ -1048,6 +1066,7 @@ span[data-symbols].selected {
    */
   scroll-margin-top: calc(
       var(--header-height) +
+      var(--breadcrumbs-height) + var(--stuck-shadow-radius) +
       (var(--nesting-level, -2) + 2) * var(--base-font-size) * var(--source-line-height)
   );
 }
@@ -1061,6 +1080,7 @@ span[data-symbols].selected {
    */
   scroll-margin-top: calc(
       var(--header-height) +
+      var(--breadcrumbs-height) + var(--stuck-shadow-radius) +
       (var(--nesting-level) + 1) * var(--base-font-size) * var(--source-line-height)
   );
 }
