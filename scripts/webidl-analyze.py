@@ -171,11 +171,20 @@ class CppSymbolsBuilder:
         if self.current_member_name != context_member_name:
             return
 
-        iface_name, member_name = self.parse_binding_sym(sym)
-
-        if iface_name is None:
+        impl_names = parse_mangled(sym)
+        if impl_names is None or len(impl_names) < 2:
             return
-        if iface_name != context_iface_name:
+
+        impl_member_name = impl_names[-1]
+        impl_class_name = impl_names[-2]
+
+        # The implementation's class can be customized with the Bindings.conf.
+        # We do not apply strict filter here, assuming the filter with the
+        # member name is sufficient.
+        if impl_class_name == self.current_iface_name + '_Binding':
+            # This is a wrapper for other binding method.
+            return
+        if impl_class_name == 'dom' and impl_member_name == 'CreateInterfaceObjects':
             return
 
         if context_member_name.startswith('get_'):
@@ -188,7 +197,7 @@ class CppSymbolsBuilder:
             name = capitalize(context_member_name)
             expected = [name]
 
-        if member_name not in expected:
+        if impl_member_name not in expected:
             return
 
         self.current_member_item.add_impl(sym)
