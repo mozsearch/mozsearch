@@ -1634,7 +1634,7 @@ g.true-diag g.node polygon {
 }
 
 #diagram-panel-toggle {
-  margin-inline-start: 1rem;
+  margin-inline-start: 2rem;
   width: fit-content;
   border: 1px solid var(--page-border-color);
 }
