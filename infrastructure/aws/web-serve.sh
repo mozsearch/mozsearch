@@ -13,7 +13,7 @@ then
 fi
 
 SCRIPT_PATH=$(readlink -f "$0")
-MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/..
+MOZSEARCH_PATH=$(dirname "$SCRIPT_PATH")/../..
 
 CONFIG_REPO=$(readlink -f $1)
 CONFIG_INPUT="$2"
@@ -93,5 +93,16 @@ mkdir $NGINX_CACHE_DIR
 sudo iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 16995
 sudo iptables -t nat -I OUTPUT -p tcp -o lo --dport 80 -j REDIRECT --to-ports 16995
 
-$MOZSEARCH_PATH/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT /index ~ hsts $NGINX_CACHE_DIR
-$MOZSEARCH_PATH/web-server-run.sh $CONFIG_REPO /index ~
+case "$CHANNEL" in
+release* )
+    DEST_EMAIL="searchfox-aws@mozilla.com"
+    ;;
+* )
+    # For dev-channel runs, send emails to the author of the HEAD commit in the
+    # repo.
+    DEST_EMAIL=$(git --git-dir="$MOZSEARCH_PATH/.git" show --format="%aE" --no-patch HEAD)
+    ;;
+esac
+
+$MOZSEARCH_PATH/infrastructure/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT /index ~ hsts $NGINX_CACHE_DIR
+$MOZSEARCH_PATH/infrastructure/web-server-run.sh $CONFIG_REPO /index ~ $CHANNEL $DEST_EMAIL

@@ -4,9 +4,12 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [[ $# -lt 3 ]]
+if [[ $# -lt 5 ]]
 then
-    echo "usage: $0 <config-repo-path> <index-path> <server-root> [WAIT]"
+    echo "usage: $0 <config-repo-path> <index-path> <server-root> <channel> <dest-email> [WAIT]"
+    echo ""
+    echo "<channel> and <dest-email> are used when the server continuously fails."
+    echo "passing NO_CHANNEL and NO_EMAIL suppresses the behavior."
     echo ""
     echo "WAIT can optionally be passed to wait until the web server is ready."
     exit 1
@@ -16,6 +19,8 @@ MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/..)
 
 WORKING=$(readlink -f $2)
 SERVER_ROOT=$(readlink -f $3)
+CHANNEL=$4
+DEST_EMAIL=$5
 CONFIG_FILE="$SERVER_ROOT/config.json"
 STATUS_FILE="${SERVER_ROOT}/docroot/status.txt"
 
@@ -67,7 +72,7 @@ ulimit -v $PIPELINE_SERVER_VM_LIMIT_K
 nohup pipeline-server $CONFIG_FILE > $SERVER_ROOT/pipeline-server.log 2> $SERVER_ROOT/pipeline-server.err < /dev/null &
 
 # If WAIT was passed, wait until the servers report they loaded.
-if [[ ${4:-} = "WAIT" ]]; then
+if [[ ${6:-} = "WAIT" ]]; then
   echo "Waiting for router.py and web-server to report they have started in ${STATUS_FILE}"
   until [[ $(grep -c loaded ${STATUS_FILE}) -eq 2 ]]; do
     sleep 0.1s

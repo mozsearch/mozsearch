@@ -66,7 +66,7 @@ requests, we can start the server as follows:
 /vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 
 # Starts the Python and Rust servers needed for Mozsearch.
-/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~
+/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ NO_CHANNEL NO_EMAIL
 ```
 
 At this point, you should be able to visit the server, which is
