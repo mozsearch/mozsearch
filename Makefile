@@ -32,12 +32,12 @@ build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
 	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
 
 serve-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
 
 check-test-repo:
 	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
@@ -64,7 +64,7 @@ review-test-repo: export INSTA_FORCE_PASS=1
 review-test-repo:
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
 	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
 	cargo insta review --workspace-root=/vagrant/tests/tests/checks
 
@@ -75,7 +75,7 @@ build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/searchfox-index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/searchfox-index ~
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/searchfox-index ~ NO_CHANNEL NO_EMAIL
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
@@ -90,11 +90,11 @@ build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~ NO_CHANNEL NO_EMAIL
 
 serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~ NO_CHANNEL NO_EMAIL
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
@@ -109,11 +109,11 @@ build-firefox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh ~/firefox-config just-fm.json ~/firefox-index
 	/vagrant/infrastructure/indexer-run.sh ~/firefox-config ~/firefox-index
 	/vagrant/infrastructure/web-server-setup.sh ~/firefox-config just-fm.json ~/firefox-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/firefox-config ~/firefox-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/firefox-config ~/firefox-index ~ NO_CHANNEL NO_EMAIL
 
 serve-firefox-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/firefox-config just-fm.json ~/firefox-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/firefox-config ~/firefox-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/firefox-config ~/firefox-index ~ NO_CHANNEL NO_EMAIL
 
 # This builds both mozsearch and mozsearch-mozilla using the trees as they exist
 # on github rather than your local copies.  This differs from the
@@ -133,11 +133,11 @@ build-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozsearch-config ~/mozsearch-index
 	/vagrant/infrastructure/web-server-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~ NO_CHANNEL NO_EMAIL
 
 serve-mozsearch-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/mozsearch-config just-mozsearch.json ~/mozsearch-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozsearch-config ~/mozsearch-index ~ NO_CHANNEL NO_EMAIL
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
@@ -149,11 +149,11 @@ build-blonk-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh ~/blonk-config config6.json ~/blonk-index
 	/vagrant/infrastructure/indexer-run.sh ~/blonk-config ~/blonk-index
 	/vagrant/infrastructure/web-server-setup.sh ~/blonk-config config6.json ~/blonk-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/blonk-config ~/blonk-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/blonk-config ~/blonk-index ~ NO_CHANNEL NO_EMAIL
 
 serve-blonk-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/blonk-config config6.json ~/blonk-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/blonk-config ~/blonk-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/blonk-config ~/blonk-index ~ NO_CHANNEL NO_EMAIL
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
@@ -165,11 +165,11 @@ build-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh ~/llvm-config just-llvm.json ~/llvm-index
 	/vagrant/infrastructure/indexer-run.sh ~/llvm-config ~/llvm-index
 	/vagrant/infrastructure/web-server-setup.sh ~/llvm-config just-llvm.json ~/llvm-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~ NO_CHANNEL NO_EMAIL
 
 serve-llvm-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/llvm-config just-llvm.json ~/llvm-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/llvm-config ~/llvm-index ~ NO_CHANNEL NO_EMAIL
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
@@ -181,23 +181,23 @@ build-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index
 	/vagrant/infrastructure/indexer-run.sh ~/graphviz-config ~/graphviz-index
 	/vagrant/infrastructure/web-server-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~ NO_CHANNEL NO_EMAIL
 
 serve-graphviz-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh ~/graphviz-config just-graphviz.json ~/graphviz-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/graphviz-config ~/graphviz-index ~ NO_CHANNEL NO_EMAIL
 
 build-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	mkdir -p ~/trees-index
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tree-configs config.json ~/trees-index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tree-configs ~/trees-index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ NO_CHANNEL NO_EMAIL WAIT
 	/vagrant/infrastructure/web-server-check.sh /vagrant/tree-configs ~/trees-index "http://localhost:16995/"
 
 serve-trees: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tree-configs config.json ~/trees-index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ WAIT
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tree-configs ~/trees-index ~ NO_CHANNEL NO_EMAIL WAIT
 
 # This is similar to build-mozilla-repo, except it strips out the non-firefox-main trees
 # from config.json and puts the stripped version into trypush.json.
@@ -208,7 +208,7 @@ trypush: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config trypush.json ~/trypush-index
 	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/trypush-index
 	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config trypush.json ~/trypush-index ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/trypush-index ~
+	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/trypush-index ~ NO_CHANNEL NO_EMAIL
 
 nss-reblame: check-in-vagrant build-rust-tools
 	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
@@ -247,12 +247,12 @@ build-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests webtest-config.json ~/index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
 
 serve-webtest-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
 serve-webtest-repo: check-in-vagrant build-clang-plugin build-rust-tools
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests webtest-config.json ~/index ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ WAIT
+	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
 
 webtest: export MOZSEARCH_SOURCE_PATH=/vagrant
 webtest: build-webtest-repo
