@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use clap::Args;
 
 use super::interface::{PipelineCommand, PipelineValues};
-use crate::links;
 use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
@@ -27,10 +26,6 @@ pub struct BatchRender {
 #[derive(Debug)]
 pub struct BatchRenderCommand {
     pub args: BatchRender,
-}
-
-fn entity_replace(s: &str) -> String {
-    s.replace("&", "&amp;").replace("<", "&lt;")
 }
 
 #[async_trait]
@@ -69,7 +64,7 @@ impl PipelineCommand for BatchRenderCommand {
                             liquid_globals.insert("rev_box".into(), liquid::object!({
                                 "long": info.rev,
                                 "short": &info.rev[..8],
-                                "desc_html": links::linkify_commit_header(&entity_replace(info.header.as_str())),
+                                "desc_html": info.header.as_str(),
                             }).into());
                         } else {
                             liquid_globals.insert("rev_box".into(), liquid::model::Value::Nil);
