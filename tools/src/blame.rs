@@ -21,9 +21,16 @@ fn find_phab_rev(iter: Split<char>) -> Option<String> {
     None
 }
 
-pub fn commit_header(
+enum CommitHeaderResultKind {
+    HeaderOnly,
+    HeaderRemainder,
+    HeaderPatch,
+}
+
+fn commit_header_impl(
     commit: &git2::Commit,
-) -> Result<(String, String, Option<String>), &'static str> {
+    kind: CommitHeaderResultKind,
+) -> Result<(String, Option<String>, Option<String>), &'static str> {
     fn entity_replace(s: &str) -> String {
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
@@ -31,10 +38,33 @@ pub fn commit_header(
     let msg = commit.message().ok_or("Invalid message")?;
     let mut iter = msg.split('\n');
     let header = iter.next().unwrap();
-    let phab_rev = find_phab_rev(iter.clone());
-    let remainder = iter.collect::<Vec<_>>().join("\n");
+    let phab_rev = match kind {
+        CommitHeaderResultKind::HeaderPatch => find_phab_rev(iter.clone()),
+        _ => None,
+    };
+    let remainder = match kind {
+        CommitHeaderResultKind::HeaderRemainder => {
+            let raw = iter.collect::<Vec<_>>().join("\n");
+            Some(entity_replace(&raw))
+        }
+        _ => None,
+    };
     let header = links::linkify_commit_header(&entity_replace(header));
-    Ok((header, entity_replace(&remainder), phab_rev))
+    Ok((header, remainder, phab_rev))
+}
+
+pub fn commit_header(commit: &git2::Commit) -> Result<String, &'static str> {
+    commit_header_impl(commit, CommitHeaderResultKind::HeaderOnly).map(|x| x.0)
+}
+
+pub fn commit_header_remainder(commit: &git2::Commit) -> Result<(String, String), &'static str> {
+    commit_header_impl(commit, CommitHeaderResultKind::HeaderRemainder).map(|x| (x.0, x.1.unwrap()))
+}
+
+pub fn commit_header_patch(
+    commit: &git2::Commit,
+) -> Result<(String, Option<String>), &'static str> {
+    commit_header_impl(commit, CommitHeaderResultKind::HeaderPatch).map(|x| (x.0, x.2))
 }
 
 pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<String, &'static str> {
@@ -44,7 +74,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
     for rev in revs.split(',') {
         let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
         let commit = commit_obj.as_commit().ok_or("Bad revision")?;
-        let (msg, _, phab_rev) = commit_header(commit)?;
+        let (msg, phab_rev) = commit_header_patch(commit)?;
 
         let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
         let tz = FixedOffset::east(commit.time().offset_minutes() * 60);

@@ -654,7 +654,7 @@ pub fn format_file_data(
     let revision_owned = match *commit {
         Some(ref commit) => {
             let rev = commit.id().to_string();
-            let (header, _, _) = blame::commit_header(commit)?;
+            let header = blame::commit_header(commit)?;
             Some((rev, header))
         }
         None => None,
@@ -1010,7 +1010,7 @@ fn format_tree(
     repo: &Repository,
     tree: Tree<'_>,
 ) -> Result<(), &'static str> {
-    let (desc_html, _, _) = blame::commit_header(&commit)?;
+    let desc_html = blame::commit_header(&commit)?;
 
     let files = tree
         .iter()
@@ -1398,7 +1398,7 @@ pub fn format_diff(
     let slug = format_to_slug_attribute(&format);
     let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, &new_lines, &analysis);
 
-    let (header, _, _) = blame::commit_header(commit)?;
+    let header = blame::commit_header(commit)?;
 
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
@@ -1598,7 +1598,7 @@ fn generate_commit_info(
     commit: &git2::Commit,
     blame_commit: Option<&git2::Commit>,
 ) -> Result<(), &'static str> {
-    let (header, remainder, _) = blame::commit_header(commit)?;
+    let (header, remainder) = blame::commit_header_remainder(commit)?;
 
     fn format_rev(tree_name: &str, oid: git2::Oid) -> String {
         format!("<a href=\"/{}/commit/{}\">{}</a>", tree_name, oid, oid)
