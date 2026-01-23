@@ -486,7 +486,7 @@ fn fab_server(
             Ok(r) => match r.target() {
                 Some(rev) => {
                     let commit = git.repo.find_commit(rev).unwrap();
-                    let (header, _, _) = blame::commit_header(&commit).unwrap();
+                    let header = blame::commit_header(&commit).unwrap();
                     Some(CommitInfo {
                         rev: rev.to_string(),
                         header,
