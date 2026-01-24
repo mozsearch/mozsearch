@@ -36,6 +36,39 @@ for provisioner in provisioners:
 
 user_data = f'''#!/usr/bin/env bash
 
+# This file is overwritten when running each instance.
+cat > /home/ubuntu/.bashrc_prompt_data <<"FINAL"
+MOZSEARCH_PS_KIND="provisioner/{kind}"
+MOZSEARCH_PS_CHANNEL="-"
+MOZSEARCH_PS_BRANCH="-"
+MOZSEARCH_PS_CONFIG="-"
+FINAL
+
+cat >> /home/ubuntu/.bashrc <<"FINAL"
+. /home/ubuntu/.bashrc_prompt_data
+
+MOZSEARCH_PS_ID=$(ec2metadata --instance-id)
+MOZSEARCH_PS="== $MOZSEARCH_PS_KIND :: $MOZSEARCH_PS_CHANNEL/$MOZSEARCH_PS_BRANCH :: $MOZSEARCH_PS_CONFIG :: $MOZSEARCH_PS_ID =="
+
+case "$TERM" in
+    xterm-color|*-256color) color_prompt=yes;;
+    *) color_prompt=;;
+esac
+
+if [ "$color_prompt" = yes ]; then
+    PS1="\\[\\033[01;35m\\]$MOZSEARCH_PS\\[\\033[00m\\]\\n$PS1"
+else
+    PS1="$MOZSEARCH_PS\\n$PS1"
+fi
+unset color_prompt
+unset MOZSEARCH_PS
+unset MOZSEARCH_PS_KIND
+unset MOZSEARCH_PS_CHANNEL
+unset MOZSEARCH_PS_BRANCH
+unset MOZSEARCH_PS_CONFIG
+unset MOZSEARCH_PS_ID
+FINAL
+
 cat > ~ubuntu/provision.sh <<"FINAL"
 {script}
 FINAL

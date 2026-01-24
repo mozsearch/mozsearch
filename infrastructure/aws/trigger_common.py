@@ -131,14 +131,24 @@ class TriggerCommandBase:
         user_data = '''#!/usr/bin/env bash
 
     cd ~ubuntu
+
+cat > /home/ubuntu/.bashrc_prompt_data <<"FINAL"
+MOZSEARCH_PS_KIND="{indexer_type}"
+MOZSEARCH_PS_CHANNEL="{channel}"
+MOZSEARCH_PS_BRANCH="{branch}"
+MOZSEARCH_PS_CONFIG="{config}"
+FINAL
+
     {extra_commands}
     sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{config_rev}"
     sudo -i -u ubuntu {cmd_env_vars} mozsearch/infrastructure/aws/main.sh {core_script} {max_runtime_hours} "{branch}" "{channel}" {extra_args}
     '''.format(
         core_script=self.core_script,
         max_runtime_hours=self.max_runtime_hours,
+        indexer_type=self.indexer_type,
         branch=args.branch,
         channel=args.channel,
+        config=args.config_input,
         mozsearch_repo=args.mozsearch_repo,
         config_repo=args.config_repo,
         config_rev=args.config_rev or args.branch,

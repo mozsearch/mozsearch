@@ -39,6 +39,7 @@ volumeId = sys.argv[7]
 check_script = sys.argv[8]
 config_repo_path = sys.argv[9]
 working_dir = sys.argv[10]
+branch_for_display = sys.argv[11]
 
 targetGroup = "%s-target" % channel
 
@@ -49,6 +50,14 @@ elb = boto3.client('elbv2')
 userData = f'''#!/usr/bin/env bash
 
 cd ~ubuntu
+
+cat > /home/ubuntu/.bashrc_prompt_data <<"FINAL"
+MOZSEARCH_PS_KIND="web-server"
+MOZSEARCH_PS_CHANNEL="{channel}"
+MOZSEARCH_PS_BRANCH="{branch_for_display}"
+MOZSEARCH_PS_CONFIG="{config_file_name}"
+FINAL
+
 touch web_server_started
 sudo -i -u ubuntu ./update.sh "{mozsearch_repo}" "{mozsearch_rev}" "{config_repo}" "{config_rev}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_file_name}" "{volumeId}" "{channel}"
