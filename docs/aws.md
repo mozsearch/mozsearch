@@ -668,7 +668,8 @@ infrastructure/aws/trigger-web-server.py \
   INDEX_VOLUME_ID \
   "-" \
   LOCAL_CONFIG_REPO_PATH \
-  "-"
+  "-" \
+  BRANCH_NAME_FOR_DISPLAY
 ```
 
 This script performs the same thing as the indexer which starts a new

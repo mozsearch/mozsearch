@@ -124,7 +124,8 @@ $AWS_ROOT/trigger-web-server.py \
     $VOLUME_ID \
     "$MOZSEARCH_PATH/infrastructure/web-server-check.sh" \
     $CONFIG_REPO_PATH \
-    "/index"
+    "/index" \
+    $BRANCH
 
 case "$CHANNEL" in
 release* )
