@@ -25,14 +25,11 @@ where the index will be stored. The following paragraphs explain the
 lifecycle of a single indexer and its web server; the lifecycle applies
 to each indexer instance.
 
-Note that as of this writing, config1.json, config2.json, config4.json, and config5.json
+Note that as of this writing, config1.json, config2.json, config4.json,
+config5.json, and config6.json
 are processed via the above-described Lambda task/indexer every day.
 config3.json contains "archived" repositories (ones
-which are not getting any more code updates). This one is not run
-via a daily Lambda task, and need to be triggered manually if an
-update is desired (generally not, since the code isn't changing).
-Updates for this config should only be needed if the generated HTML
-changes significantly.
+which are not getting any more code updates). This one is run weekly.
 
 The indexing instance downloads all the Git repositories from an
 Amazon S3 bucket. It updates these repositories to the latest version
@@ -45,7 +42,7 @@ that, the normal indexing process commences.
 When indexing is complete, the indexer instance unmounts and detaches
 the EBS volume containing the index. It does this using the AWS
 API. Then the indexer uses the API to start a new EC2 instance for web
-serving, passing it the name of the indexer instance as an
+serving, passing it the name of the index volume as an
 argument. The web server instance attaches and mounts the index volume
 and starts serving web pages.
 
