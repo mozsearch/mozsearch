@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# Usage: build-lambda-delete-old-ami.sh
+
+MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/../..)
+
+rm -rf /tmp/lambda
+mkdir /tmp/lambda
+cp $MOZSEARCH_PATH/infrastructure/aws/delete-old-ami.py /tmp/lambda
+
+pushd /tmp/lambda
+python3 -m venv env
+env/bin/pip install boto3
+# Note: The below comment may no longer apply since we've migrated from
+# virtualenv to venv, but it seems like it can't hurt, so I'm leaving it around.
+#
+# Because our virtualenv doesn't specify --no-seed/--without-pip, it may pull
+# packages from your machine into the virtualenv which can include a potentially
+# out-of-date version of certifi.  For example, on asuth's Ubuntu 20.04 machine,
+# certifi==2019.11.28 is installed via a debian package somehow.  Without an
+# explicit upgrade, we end up trying to use that version which will fail to
+# validate the AWS server's certificate.
+env/bin/pip install --upgrade certifi
+cp -r env/lib/python3*/site-packages/* .
+rm -rf env
+
+rm -rf /tmp/lambda.zip
+zip -r /tmp/lambda.zip *
+
+popd
+rm -rf /tmp/lambda
+
+FINAL_ZIP_NAME=/vagrant/lambda-$CHANNEL.zip
+mv /tmp/lambda.zip $FINAL_ZIP_NAME
+echo "Upload $FINAL_ZIP_NAME to AWS Lambda"
