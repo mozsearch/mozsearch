@@ -27,9 +27,9 @@
           for this feature to come back, we should probably pre-compute low(er)
           resolution versions of the icons.
           {% endcomment -%}
-          <td><a href="{{ file_url }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind }}">{{ file.path | split: "/" | last }}</a></td>
+          <td class="name"><a href="{{ file_url }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind }}">{{ file.path | split: "/" | last }}</a></td>
           <td class="description"><a href="{{ file_url }}" title="{{ file.concise.description | default: "" | escape }}">{{ file.concise.description | default: "" | escape }}</td>
-          <td><a href="{{ file_url }}">{{ file_size }}</a></td>
+          <td class="size"><a href="{{ file_url }}">{{ file_size }}</a></td>
           {% assign coverage = file.concise.coverage %}
           {%- if coverage != nil and coverage.linesTotal != 0 -%}
             {%- assign coverage_bucket = coverage.coveragePercent | divided_by: 10 | floor -%}
