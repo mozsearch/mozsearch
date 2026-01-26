@@ -402,14 +402,22 @@ table.folder-content a {
 table td {
   padding: 0.5em;
 }
+table.folder-content td.name {
+  white-space: nowrap;
+  min-width: 40ch;
+}
 table.folder-content td.description {
   max-width: 60vw;
   padding-right: 2em;
+  width: 100%;
 }
 table.folder-content td.description a {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+table.folder-content td.size {
+  min-width: 9ch;
 }
 table.folder-content td.coverage {
   .cov-percentage {
