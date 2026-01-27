@@ -1,5 +1,11 @@
+use chrono::Datelike;
 use git2::{Commit, Object, Repository, TreeEntry};
-use std::{path::Path, str::FromStr};
+use liquid::model::DateTime;
+use serde::Serialize;
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use crate::file_format::{
     code_coverage_report,
@@ -99,12 +105,16 @@ pub fn coverage_summary(
 
     let tree = coverage_commit.tree().ok()?;
 
-    let covered = tree.get_path(path).ok()?;
+    let coverage_summary_path = if path == "" {
+        PathBuf::from("index.json")
+    } else {
+        let covered = tree.get_path(path).ok()?;
 
-    let coverage_summary_path = match covered.kind()? {
-        git2::ObjectType::Tree => path.join("index.json"),
-        git2::ObjectType::Blob => path.with_added_extension("summary.json"),
-        _ => return None,
+        match covered.kind()? {
+            git2::ObjectType::Tree => path.join("index.json"),
+            git2::ObjectType::Blob => path.with_added_extension("summary.json"),
+            _ => return None,
+        }
     };
 
     let coverage_summary_object = tree
@@ -126,4 +136,60 @@ pub fn coverage_summary_for_head(
     let coverage_rev = format!("refs/tags/reverse/all/all/{}", head_oid);
 
     coverage_summary(git_data, &coverage_rev, path)
+}
+
+#[derive(Serialize, Debug)]
+pub struct RevisionCoverage {
+    pub rev: String,
+    pub date: DateTime,
+    #[serde(flatten)]
+    pub data: code_coverage_report::NodeMetadata,
+}
+
+pub fn coverage_history(
+    git_data: Option<&GitData>,
+    path: impl AsRef<Path>,
+) -> Option<Vec<RevisionCoverage>> {
+    let path = path.as_ref();
+
+    let coverage_repo = git_data.as_ref()?.coverage_repo.as_ref()?;
+
+    let mut revwalk = coverage_repo.revwalk().ok()?;
+    revwalk
+        .set_sorting(git2::Sort::TIME | git2::Sort::REVERSE)
+        .ok()?;
+    revwalk.push_head().ok()?;
+
+    Some(
+        revwalk
+            .into_iter()
+            .flat_map(|commit_oid| {
+                let commit_oid = commit_oid.ok()?;
+
+                let coverage_commit = coverage_repo.find_commit(commit_oid).ok()?;
+
+                let main_repo_oid = coverage_commit.message()?.trim().to_owned();
+
+                let commit_rev = commit_oid.to_string();
+                let data = coverage_summary(git_data, &commit_rev, path)?;
+
+                let date = chrono::NaiveDateTime::from_timestamp(
+                    coverage_commit.author().when().seconds(),
+                    0,
+                );
+
+                let date = liquid::model::DateTime::from_ymd(
+                    date.year(),
+                    date.month() as u8,
+                    date.day() as u8,
+                );
+
+                Some(RevisionCoverage {
+                    rev: main_repo_oid,
+                    date,
+                    data,
+                })
+            })
+            .collect(),
+    )
 }

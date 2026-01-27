@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
+input_file: inputs/web/dirs/root_listing__html
 ---
 <!DOCTYPE html>
 <html lang="en-US" class="old-rev">
@@ -75,6 +76,40 @@ expression: "&fb.contents"
   <section id="panel-content" aria-expanded="false" aria-hidden="true" style="display: none;">
     <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
   </section>
+</div>
+<div id="coverage-history">
+  <ol class="coverage-history-list">
+      <li class="coverage-history-item">
+        <a href="/tests/rev/0e7d84cd9d5c5d6d942099fa9a60866257523a6a/">
+          <time class="coverage-history-date" datetime="2025-01-04">2025-01-04</time>:
+          <span class="coverage-history-percentage">10 %</span>
+        </a>
+      </li>
+      <li class="coverage-history-item">
+        <a href="/tests/rev/480c709b68b7993f89dd6db967d87c151adfd3c0/">
+          <time class="coverage-history-date" datetime="2025-01-05">2025-01-05</time>:
+          <span class="coverage-history-percentage">63 %</span>
+        </a>
+      </li>
+      <li class="coverage-history-item">
+        <a href="/tests/rev/e27d9b0c3dc9007d529b31bc56a7cad4635489c2/">
+          <time class="coverage-history-date" datetime="2025-01-10">2025-01-10</time>:
+          <span class="coverage-history-percentage">50 %</span>
+        </a>
+      </li>
+      <li class="coverage-history-item">
+        <a href="/tests/rev/3e2e6335835f63ccc3be54c1a037256ecb3ec907/">
+          <time class="coverage-history-date" datetime="2025-01-11">2025-01-11</time>:
+          <span class="coverage-history-percentage">75 %</span>
+        </a>
+      </li>
+      <li class="coverage-history-item">
+        <a href="/tests/rev/0ea876af00857c67229c29f03407f803e43a1470/">
+          <time class="coverage-history-date" datetime="2025-01-27">2025-01-27</time>:
+          <span class="coverage-history-percentage">96 %</span>
+        </a>
+      </li>
+  </ol>
 </div>
 <table class="folder-content">
     <thead>

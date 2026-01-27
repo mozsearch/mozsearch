@@ -1,0 +1,14 @@
+<div id="coverage-history">
+  <ol class="coverage-history-list">
+    {%- for coverage in coverage_history -%}
+      {%- capture file_url -%}/{{ tree }}/rev/{{ coverage.rev }}/{{ path }}{%- endcapture -%}
+      {%- assign date = coverage.date | date: "%F" %}
+      <li class="coverage-history-item">
+        <a href="{{ file_url }}">
+          <time class="coverage-history-date" datetime="{{ date }}">{{ date }}</time>:
+          <span class="coverage-history-percentage">{{ coverage.coveragePercent | round }} %</span>
+        </a>
+      </li>
+    {%- endfor %}
+  </ol>
+</div>

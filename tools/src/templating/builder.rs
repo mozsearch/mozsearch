@@ -89,6 +89,15 @@ pub fn build_and_parse_dir_listing() -> Template {
     build_and_parse(template_str)
 }
 
+pub fn build_and_parse_coverage_history() -> Template {
+    let template_str = TEMPLATE_DIR
+        .get_file("coverage_history.liquid")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    build_and_parse(template_str)
+}
+
 pub fn build_and_parse_search_template() -> Template {
     let template_str = TEMPLATE_DIR
         .get_file("search_template.liquid")
