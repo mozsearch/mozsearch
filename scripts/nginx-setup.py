@@ -347,9 +347,9 @@ for repo in config['trees']:
     # the rust web-server. This is worth it because when HEAD-rev permalinks are generated they are
     # often hit multiple times while they are still the HEAD revision.
     if head_rev is not None:
-        location(f'~^/{repo}/rev/{head_rev}/(?<head_path>.+)$', [
-            f'root {doc_root}/file/{repo}/source;',
-            'try_files /$head_path =404;',
+        location(f'~^/{repo}/rev/{head_rev}/(?<head_path>.*)$', [
+            f'root {doc_root};',
+            f'try_files /file/{repo}/source/$head_path /dir/{repo}/source/$head_path/index.html =404;',
             f'types {{ {binary_types_str} }}',
             'default_type text/html;',
             'add_header Cache-Control "must-revalidate";',
