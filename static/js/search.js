@@ -1554,15 +1554,16 @@ function populateResults(data, full, jumpToSingle) {
     // Remove path and symbols.
     //
     // NOTE: Search can be initiated from source or directory listing,
-    //       where breadcrumbs has path for the file or directory.
-    let foundSep = false;
+    //       where breadcrumbs has path for the file or directory and
+    //       may have coverage graph toggle button.
+    let shouldRemove = false;
     for (const node of [...breadcrumbs.childNodes]) {
       if (node instanceof HTMLElement) {
-        if (node.classList.contains("path-separator")) {
-          foundSep = true;
+        if (node.classList.contains("path-separator") || node.classList.contains("breadcrumbs-extra-button")) {
+          shouldRemove = true;
         }
       }
-      if (foundSep) {
+      if (shouldRemove) {
         breadcrumbs.removeChild(node);
       }
     }

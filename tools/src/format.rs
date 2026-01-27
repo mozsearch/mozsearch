@@ -15,11 +15,11 @@ use crate::file_format::crossref_converter::{
 };
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
-use crate::git_ops::{self, coverage_summary};
+use crate::git_ops::{self, coverage_history, coverage_summary};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
-use crate::templating::builder::build_and_parse_dir_listing;
+use crate::templating::builder::{build_and_parse_coverage_history, build_and_parse_dir_listing};
 use crate::tokenize;
 use crate::utils::OwnedOrBorrowed;
 
@@ -680,7 +680,20 @@ pub fn format_file_data(
 
     let file_syms = collect_file_syms_from_source(path, analysis);
 
-    output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
+    let coverage_history = coverage_history(cfg.trees[tree_name].git.as_ref(), path);
+    let coverage_summary = coverage_commit.and_then(|commit| {
+        let coverage_rev = commit.id().to_string();
+        git_ops::coverage_summary(tree_config.git.as_ref(), &coverage_rev, path)
+    });
+    output::generate_breadcrumbs(
+        &opt,
+        writer,
+        path,
+        &file_syms,
+        !analysis.is_empty(),
+        coverage_summary,
+        coverage_history.is_some(),
+    )?;
 
     let coverage_navigation = commit
         .as_ref()
@@ -701,6 +714,18 @@ pub fn format_file_data(
     }
     write!(writer, r#"></span>"#).unwrap();
 
+    if let Some(coverage_history) = coverage_history {
+        let liquid_globals = liquid::object!({
+            "tree": tree_name,
+            "path": path,
+            "coverage_history": coverage_history,
+        });
+
+        let template = build_and_parse_coverage_history();
+        template
+            .render_to(writer, &liquid_globals)
+            .or(Err("Template problems"))?;
+    }
     output::generate_panel(&opt, writer, panel, false)?;
 
     let info_boxes_container = F::Seq(vec![
@@ -1086,6 +1111,9 @@ fn format_tree(
         raw_items: vec![],
     }];
 
+    let coverage_history = coverage_history(Some(git), path);
+    let coverage = git_ops::coverage_summary(Some(git), &coverage_rev, path);
+
     let commit_hash = commit.id().to_string();
 
     let liquid_globals = liquid::object!({
@@ -1100,6 +1128,8 @@ fn format_tree(
             "short": &commit_hash[..8],
             "desc_html": desc_html,
         },
+        "coverage": coverage,
+        "coverage_history": coverage_history,
         "panel": panel,
     });
 
@@ -1440,7 +1470,7 @@ pub fn format_diff(
     // the file symbol should never contain the platform.
     let file_syms = vec![make_file_sym_from_path(path)];
 
-    output::generate_breadcrumbs(&opt, writer, path, &file_syms, false)?;
+    output::generate_breadcrumbs(&opt, writer, path, &file_syms, false, None, false)?;
 
     let encoded_path = url_encode_path(path);
 
@@ -1793,7 +1823,7 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, "", &[], false)?;
+    output::generate_breadcrumbs(&opt, writer, "", &[], false, None, false)?;
 
     output::generate_panel(&opt, writer, &[], true)?;
 

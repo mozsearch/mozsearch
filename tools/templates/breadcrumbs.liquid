@@ -11,4 +11,7 @@
     Diagram Controls <span class="icon-cog"></span>
   </button>
 {%- endif %}
+{%- if has_coverage_history %}
+  {% include 'coverage_graph_toggle.liquid' coverage: coverage %}
+{%- endif %}
   </div>

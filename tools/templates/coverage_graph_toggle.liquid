@@ -1,0 +1,14 @@
+<button
+  id="coverage-graph-toggle"
+  class="breadcrumbs-extra-button"
+  aria-expanded="false"
+  aria-controls="coverage-graph"
+  onclick="CoverageGraph.toggle()">
+  <span>Coverage</span>
+  {%- if coverage != nil -%}
+    {%- assign coverage_bucket = coverage.coveragePercent | divided_by: 10 | floor -%}
+    {%- capture coverage_content -%}{{ coverage.coveragePercent | round }} %{%- endcapture -%}
+    <span class="cov-percentage cov-percentage-{{ coverage_bucket }}"> {{coverage_content}}</span>
+  {%- endif -%}
+  <span id="coverage-sparkline"></span>
+</button>

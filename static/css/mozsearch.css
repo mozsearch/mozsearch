@@ -429,7 +429,7 @@ table.folder-content td.description a {
 table.folder-content td.size {
   min-width: 9ch;
 }
-table.folder-content td.coverage {
+table.folder-content td.coverage, #coverage-graph-toggle {
   .cov-percentage {
     font-weight: 600;
   }
@@ -873,6 +873,28 @@ tr.after-context-line + tr.before-context-line {
 #tree-switcher-menu .indent {
   padding-inline-start: 24px;
   padding-inline-end: 24px;
+}
+
+#coverage-graph-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+#coverage-sparkline {
+  display: flex;
+}
+
+#coverage-graph {
+  display: flex;
+  margin: 0.5rem 2rem;
+  width: calc(100% - 4rem);
+  border: 1px solid var(--page-border-color);
+
+  svg a:hover circle {
+    fill: var(--list-hover-color);
+    stroke: var(--list-hover-color);
+  }
 }
 
 /* Footer */
