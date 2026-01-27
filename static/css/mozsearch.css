@@ -1786,8 +1786,8 @@ g.true-diag g.node polygon {
   display: flex;
 }
 
-#diagram-panel.hidden {
-  display: none;
+.hidden {
+  display: none !important;
 }
 
 #diagram-panel h3 {
