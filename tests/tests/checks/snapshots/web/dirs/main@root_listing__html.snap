@@ -52,7 +52,7 @@ expression: "&fb.contents"
     <span id="data" data-root="/" data-search="/tests/search" data-tree="tests"></span>
       <div id="revision">
         <span id="rev-id">Showing <a href="/tests/commit/REV">REV</a>:</span>
-        <span id="rev-desc">Initial commit</span>
+        <span id="rev-desc">Add remaining files</span>
       </div>
   </form>
 </div>
@@ -402,7 +402,7 @@ expression: "&fb.contents"
           <td class="name"><a href="/tests/source/html" class="mimetype-fixed-container mimetype-icon-folder">html</a></td>
           <td class="description"><a href="/tests/source/html" title=""></td>
           <td class="size"><a href="/tests/source/html"></a></td>
-          <td class="coverage"><a href="/tests/source/html" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+          <td class="coverage"><a href="/tests/source/html" class="cov-percentage cov-percentage-0" title="0 lines out of 200 instrumented lines are covered in this folder."">0 %</a></td>
         </tr>
 
         <tr>
@@ -597,7 +597,7 @@ expression: "&fb.contents"
           <td class="name"><a href="/tests/source/rust" class="mimetype-fixed-container mimetype-icon-folder">rust</a></td>
           <td class="description"><a href="/tests/source/rust" title=""></td>
           <td class="size"><a href="/tests/source/rust"></a></td>
-          <td class="coverage"><a href="/tests/source/rust" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+          <td class="coverage"><a href="/tests/source/rust" class="cov-percentage cov-percentage-7" title="75 lines out of 100 instrumented lines are covered in this folder."">75 %</a></td>
         </tr>
 
         <tr>
