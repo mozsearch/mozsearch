@@ -34,6 +34,6 @@ zip -r /tmp/lambda.zip *
 popd
 rm -rf /tmp/lambda
 
-FINAL_ZIP_NAME=/vagrant/lambda-$CHANNEL.zip
+FINAL_ZIP_NAME=/vagrant/lambda-delete-old-ami.zip
 mv /tmp/lambda.zip $FINAL_ZIP_NAME
 echo "Upload $FINAL_ZIP_NAME to AWS Lambda"
