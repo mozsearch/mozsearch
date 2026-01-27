@@ -1,0 +1,49 @@
+{
+  "name": "",
+  "coveragePercent": 63.33,
+  "linesCovered": 190,
+  "linesMissed": 110,
+  "linesTotal": 300,
+  "children": {
+    "html": {
+      "coveragePercent": 70,
+      "linesCovered": 140,
+      "linesMissed": 60,
+      "linesTotal": 200,
+      "children": {
+        "html-in-script.html": {
+          "name": "html-in-script.html",
+          "coveragePercent": 40,
+          "linesCovered": 40,
+          "linesMissed": 60,
+          "linesTotal": 100,
+          "coverage": []
+        },
+        "script.html": {
+          "name": "script.html",
+          "coveragePercent": 100,
+          "linesCovered": 100,
+          "linesMissed": 0,
+          "linesTotal": 100,
+          "coverage": []
+        }
+      }
+    },
+    "python": {
+      "coveragePercent": 50,
+      "linesCovered": 50,
+      "linesMissed": 50,
+      "linesTotal": 100,
+      "children": {
+        "contextual-keyword.py": {
+          "name": "script.html",
+          "coveragePercent": 50,
+          "linesCovered": 50,
+          "linesMissed": 50,
+          "linesTotal": 100,
+          "coverage": []
+        }
+      }
+    }
+  }
+}
