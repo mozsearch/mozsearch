@@ -1,0 +1,33 @@
+{
+  "name": "",
+  "coveragePercent": 10,
+  "linesCovered": 20,
+  "linesMissed": 180,
+  "linesTotal": 200,
+  "children": {
+    "html": {
+      "coveragePercent": 10,
+      "linesCovered": 20,
+      "linesMissed": 180,
+      "linesTotal": 200,
+      "children": {
+        "html-in-script.html": {
+          "name": "html-in-script.html",
+          "coveragePercent": 20,
+          "linesCovered": 20,
+          "linesMissed": 80,
+          "linesTotal": 100,
+          "coverage": []
+        },
+        "script.html": {
+          "name": "script.html",
+          "coveragePercent": 0,
+          "linesCovered": 0,
+          "linesMissed": 100,
+          "linesTotal": 100,
+          "coverage": []
+        }
+      }
+    }
+  }
+}
