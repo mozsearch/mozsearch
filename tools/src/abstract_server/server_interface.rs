@@ -6,7 +6,9 @@ use serde::Serialize;
 use serde_json::Value;
 use ustr::{Ustr, ustr};
 
+use crate::file_format::code_coverage_report;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
+use crate::git_ops::RevisionCoverage;
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
@@ -300,6 +302,13 @@ pub trait AbstractServer {
     ///   write happens.
     /// - We think this could make some kinds of testing easier or faster.
     fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String>;
+
+    async fn coverage_history(&self, sf_path: &str) -> Result<Option<Vec<RevisionCoverage>>>;
+
+    async fn coverage_summary(
+        &self,
+        sf_path: &str,
+    ) -> Result<Option<code_coverage_report::NodeMetadata>>;
 
     /// Fetch the contents of the analysis file for the given searchfox
     /// tree-local path, decompressing if it's compressed.

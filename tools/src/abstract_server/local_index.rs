@@ -20,11 +20,13 @@ use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 use crate::abstract_server::lazy_crossref::perform_lazy_crossref;
 use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
-use crate::file_format::config::{TreeConfig, TreeConfigPaths, load};
+use crate::file_format::code_coverage_report;
+use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::format::format_code;
+use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary};
 use crate::languages::select_formatting;
 
 pub mod livegrep {
@@ -196,6 +198,30 @@ impl AbstractServer for LocalIndex {
                 self.config_paths.index_path, sf_path
             )),
         }
+    }
+
+    async fn coverage_history(&self, sf_path: &str) -> Result<Option<Vec<RevisionCoverage>>> {
+        let norm_path = self.normalize_and_validate_path(sf_path)?;
+        let git = git_data(&self.config_paths, false);
+        Ok(coverage_history(git.as_ref(), norm_path))
+    }
+
+    async fn coverage_summary(
+        &self,
+        sf_path: &str,
+    ) -> Result<Option<code_coverage_report::NodeMetadata>> {
+        let norm_path = self.normalize_and_validate_path(sf_path)?;
+        let Some(git) = git_data(&self.config_paths, false) else {
+            return Ok(None);
+        };
+        let Ok(head) = git.repo.head() else {
+            return Ok(None);
+        };
+        let Ok(commit) = head.peel_to_commit() else {
+            return Ok(None);
+        };
+        let coverage_rev = format!("refs/tags/reverse/all/all/{}", commit.id());
+        Ok(coverage_summary(Some(&git), &coverage_rev, norm_path))
     }
 
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {

@@ -7,7 +7,10 @@ use std::path::Path;
 use serde::Serialize;
 
 extern crate chrono;
-use crate::url_encode_path::url_encode_path;
+use crate::{
+    file_format::code_coverage_report, templating::builder::build_and_parse_coverage_graph_toggle,
+    url_encode_path::url_encode_path,
+};
 
 use self::chrono::{DateTime, Local};
 
@@ -67,6 +70,8 @@ pub fn generate_breadcrumbs(
     path: &str,
     file_syms: &[String],
     generate_symbol: bool,
+    coverage: Option<code_coverage_report::NodeMetadata>,
+    has_coverage_history: bool,
 ) -> Result<(), &'static str> {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
@@ -93,6 +98,16 @@ pub fn generate_breadcrumbs(
             "  <span data-symbols=\"{}\">(file symbol)</span>",
             file_syms.join(","),
         ));
+    }
+
+    if has_coverage_history {
+        let template = build_and_parse_coverage_graph_toggle();
+        let coverage_toggle = template
+            .render(&liquid::object!({
+                "coverage": coverage,
+            }))
+            .or(Err("Template problems"))?;
+        breadcrumbs.push_str(&coverage_toggle);
     }
 
     writeln!(*writer, "<div class=\"breadcrumbs\">{}</div>", breadcrumbs)
@@ -313,6 +328,8 @@ pub fn generate_footer(
         "panel.js",
         "code-highlighter.js",
         "blame.js",
+        "d3.v7.min.js",
+        "coverage-history.js",
     ];
     let script_tags: Vec<_> = scripts
         .iter()

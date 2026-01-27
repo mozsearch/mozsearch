@@ -6,9 +6,16 @@
 {% include 'header_search.liquid' title: title, autofocus: false, rev_box: rev_box %}
 <div id="scrolling">
   <div id="content" class="content" data-no-results="No results for current query.">
-    {% include 'breadcrumbs.liquid' path: path, hidden: false, is_graph: false %}
+    {%- if coverage_history != nil -%}
+      {%- assign has_coverage_history = true -%}
+    {%- else -%}
+      {%- assign has_coverage_history = false -%}
+    {%- endif -%}
+    {% include 'breadcrumbs.liquid' path: path, hidden: false, is_graph: false, coverage: coverage, has_coverage_history: has_coverage_history %}
     {% include 'navigation_panel.liquid' expanded: false, panel: panel %}
-
+    {%- if coverage_history != nil -%}
+      {% include 'coverage_history.liquid' coverage_history: coverage_history %}
+    {%- endif -%}
     {%- include 'query_results/file_table.liquid' files: files %}
   </div>
   {% include 'scroll_footer.liquid' %}

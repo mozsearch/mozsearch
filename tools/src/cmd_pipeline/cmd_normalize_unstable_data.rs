@@ -110,6 +110,22 @@ fn norm_html_value(s: String) -> String {
 
             Ok(())
         }),
+        element!(r#".coverage-history-item"#, |el| {
+            if let Some(_) = el.get_attribute("data-rev") {
+                el.set_attribute("data-rev", "REV").unwrap();
+            }
+            Ok(())
+        }),
+        element!(r#".coverage-history-item a"#, |el| {
+            if let Some(url) = el.get_attribute("href") {
+                lazy_static! {
+                    static ref PATTERN: Regex = Regex::new("/rev/[^/]+/").unwrap();
+                }
+                let url = PATTERN.replace_all(&url, "/rev/REV/");
+                el.set_attribute("href", &url).unwrap();
+            }
+            Ok(())
+        }),
     ];
 
     rewrite_str(
