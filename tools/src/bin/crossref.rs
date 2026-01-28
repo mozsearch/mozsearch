@@ -350,7 +350,7 @@ async fn main() {
     let mut ingestion = RepoIngestion::new(&per_file_info_toml_str)
         .expect("Your per-file-info.toml file has issues");
     ingestion.ingest_file_list_and_apply_heuristics(&all_files_paths, tree_config);
-    ingestion.ingest_dir_list(&all_dirs_paths);
+    ingestion.ingest_dir_list(&all_dirs_paths, tree_config);
 
     ingestion
         .ingest_files(|root: &str, file: &str| {

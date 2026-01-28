@@ -12,6 +12,8 @@ use serde_json::{from_str, from_value, json, to_writer, Map, Value};
 use ustr::{ustr, Ustr};
 
 use crate::describe::describe_file;
+use crate::file_format::code_coverage_report;
+use crate::git_ops::coverage_summary_for_head;
 use crate::languages::select_formatting;
 use crate::templating::builder::build_and_parse;
 
@@ -408,6 +410,7 @@ pub struct ConcisePerFileInfo<T: Ord> {
     pub tags: Vec<T>,
     pub description: Option<String>,
     pub info: Value,
+    pub coverage: Option<code_coverage_report::NodeMetadata>,
 }
 
 impl ConcisePerFileInfo<Ustr> {
@@ -421,6 +424,7 @@ impl ConcisePerFileInfo<Ustr> {
             tags: vec![],
             description: None,
             info: json!({}),
+            coverage: None,
         }
     }
 }
@@ -610,13 +614,16 @@ impl RepoIngestion {
                 pfi.path_kind = use_path_kind;
                 pfi.description = description;
                 pfi.file_size = file_size;
+                pfi.coverage = coverage_summary_for_head(tree_config.git.as_ref(), file_path);
             });
         }
     }
 
-    pub fn ingest_dir_list(&mut self, dirs: &Vec<Ustr>) {
+    pub fn ingest_dir_list(&mut self, dirs: &Vec<Ustr>, tree_config: &TreeConfig) {
         for dir_path in dirs {
-            self.state.with_file_info(dir_path, true, |_cfi, _dfi| {});
+            self.state.with_file_info(dir_path, true, |cfi, _dfi| {
+                cfi.coverage = coverage_summary_for_head(tree_config.git.as_ref(), dir_path);
+            });
         }
     }
 

@@ -1,10 +1,10 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
-input_file: inputs/web/dirs/generated_listing__html
 ---
 <tr>
           <td><a href="/tests/source/__GENERATED__/__linux64-opt__" class="mimetype-fixed-container mimetype-icon-folder">__linux64-opt__</a></td>
           <td class="description"><a href="/tests/source/__GENERATED__/__linux64-opt__" title=""></td>
           <td><a href="/tests/source/__GENERATED__/__linux64-opt__"></a></td>
+          <td class="coverage"><a href="/tests/source/__GENERATED__/__linux64-opt__" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>

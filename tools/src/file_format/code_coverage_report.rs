@@ -33,13 +33,13 @@ pub struct ReportMetadata {
     pub date: OffsetDateTime,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-struct NodeMetadata {
-    coverage_percent: f32,
-    lines_covered: u32,
-    lines_missed: u32,
-    lines_total: u32,
+pub struct NodeMetadata {
+    pub coverage_percent: f32,
+    pub lines_covered: u32,
+    pub lines_missed: u32,
+    pub lines_total: u32,
 }
 
 #[derive(Deserialize, Debug)]

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(fm).unwrap()"
+input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
 ---
 {
   "file_matches": [
@@ -14,7 +15,8 @@ expression: "&to_value(fm).unwrap()"
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -27,7 +29,8 @@ expression: "&to_value(fm).unwrap()"
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -40,7 +43,8 @@ expression: "&to_value(fm).unwrap()"
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -53,7 +57,8 @@ expression: "&to_value(fm).unwrap()"
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {}
+        "info": {},
+        "coverage": null
       }
     },
     {
@@ -75,7 +80,8 @@ expression: "&to_value(fm).unwrap()"
               "complex-tests/mozilla_specific_test.any.worker.html"
             ]
           }
-        }
+        },
+        "coverage": null
       }
     },
     {
@@ -107,7 +113,8 @@ expression: "&to_value(fm).unwrap()"
             ],
             "disabled_subtests_count": 1
           }
-        }
+        },
+        "coverage": null
       }
     },
     {
@@ -149,7 +156,8 @@ expression: "&to_value(fm).unwrap()"
               ]
             ]
           }
-        }
+        },
+        "coverage": null
       }
     },
     {
@@ -178,7 +186,8 @@ expression: "&to_value(fm).unwrap()"
             ],
             "disabled_subtests_count": 3
           }
-        }
+        },
+        "coverage": null
       }
     },
     {
@@ -206,7 +215,8 @@ expression: "&to_value(fm).unwrap()"
               "fake-standard/test_ima_weird_meta_wpt.js"
             ]
           }
-        }
+        },
+        "coverage": null
       }
     }
   ]

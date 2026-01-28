@@ -6,6 +6,174 @@
   "linesMissed": 1,
   "linesTotal": 26,
   "children": {
+    "AddonUpdateChecker.jsm": {
+      "name": "AddonUpdateChecker.jsm",
+      "coveragePercent": 0.0,
+      "linesCovered": 0,
+      "linesMissed": 200,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "atom_list.h": {
+      "name": "atom_list.h",
+      "coveragePercent": 5.0,
+      "linesCovered": 10,
+      "linesMissed": 190,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "atom_magic.h": {
+      "name": "atom_magic.h",
+      "coveragePercent": 10.0,
+      "linesCovered": 20,
+      "linesMissed": 180,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "big_cpp.cpp": {
+      "name": "big_cpp.cpp",
+      "coveragePercent": 15.0,
+      "linesCovered": 30,
+      "linesMissed": 170,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "big_header.h": {
+      "name": "big_header.h",
+      "coveragePercent": 20.0,
+      "linesCovered": 40,
+      "linesMissed": 160,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "blame": {
+      "name": "blame",
+      "coveragePercent": 25.0,
+      "linesCovered": 50,
+      "linesMissed": 150,
+      "linesTotal": 200,
+      "children": {}
+    },
+    "browser.ini": {
+      "name": "browser.ini",
+      "coveragePercent": 30.0,
+      "linesCovered": 60,
+      "linesMissed": 140,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "bug1432300.cpp": {
+      "name": "bug1432300.cpp",
+      "coveragePercent": 35.0,
+      "linesCovered": 70,
+      "linesMissed": 130,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "bug1435345.cpp": {
+      "name": "bug1435345.cpp",
+      "coveragePercent": 40.0,
+      "linesCovered": 80,
+      "linesMissed": 120,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "bug1446220_unicode.html": {
+      "name": "bug1446220_unicode.html",
+      "coveragePercent": 45.0,
+      "linesCovered": 90,
+      "linesMissed": 110,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "bug1449291.cpp": {
+      "name": "bug1449291.cpp",
+      "coveragePercent": 50.0,
+      "linesCovered": 100,
+      "linesMissed": 100,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "bug1588908.js": {
+      "name": "bug1588908.js",
+      "coveragePercent": 55.0,
+      "linesCovered": 110,
+      "linesMissed": 90,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "bug1781178.cpp": {
+      "name": "bug1781178.cpp",
+      "coveragePercent": 60.0,
+      "linesCovered": 120,
+      "linesMissed": 80,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "build.gradle.kts": {
+      "name": "build.gradle.kts",
+      "coveragePercent": 65.0,
+      "linesCovered": 130,
+      "linesMissed": 70,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "build.rs": {
+      "name": "build.rs",
+      "coveragePercent": 70.0,
+      "linesCovered": 140,
+      "linesMissed": 60,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "Cargo.lock": {
+      "name": "Cargo.lock",
+      "coveragePercent": 75.0,
+      "linesCovered": 150,
+      "linesMissed": 50,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "Cargo.toml": {
+      "name": "Cargo.toml",
+      "coveragePercent": 80.0,
+      "linesCovered": 160,
+      "linesMissed": 40,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "chrome.ini": {
+      "name": "chrome.ini",
+      "coveragePercent": 85.0,
+      "linesCovered": 170,
+      "linesMissed": 30,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "circle.svg": {
+      "name": "circle.svg",
+      "coveragePercent": 90.0,
+      "linesCovered": 180,
+      "linesMissed": 20,
+      "linesTotal": 200,
+      "coverage": []
+    },
+    "cpp": {
+      "name": "cpp",
+      "coveragePercent": 95.0,
+      "linesCovered": 190,
+      "linesMissed": 10,
+      "linesTotal": 200,
+      "children": {}
+    },
+    "critters-postcard.jpg": {
+      "name": "critters-postcard.jpg",
+      "coveragePercent": 100.0,
+      "linesCovered": 200,
+      "linesMissed": 0,
+      "linesTotal": 200,
+      "coverage": []
+    },
     "simple.cpp": {
       "comment": "every line in the coverage arrays is 10 entries",
       "name": "simple.cpp",
@@ -32,6 +200,62 @@
         -1, 1, -1, 1, -1, 2, -1, 0, -1, 1,
         -1, 2, -1
       ]
+    },
+    "templates1.cpp": {
+      "name": "templates1.cpp",
+      "coveragePercent": 0,
+      "linesCovered": 0,
+      "linesMissed": 24,
+      "linesTotal": 24,
+      "coverage": []
+    },
+    "templates2.cpp": {
+      "name": "templates2.cpp",
+      "coveragePercent": 7,
+      "linesCovered": 7,
+      "linesMissed": 93,
+      "linesTotal": 100,
+      "coverage": [7]
+    },
+    "templates3.cpp": {
+      "name": "templates3.cpp",
+      "coveragePercent": 18,
+      "linesCovered": 18,
+      "linesMissed": 82,
+      "linesTotal": 100,
+      "coverage": [-1, -1, 10, 8]
+    },
+    "templates4.cpp": {
+      "name": "templates4.cpp",
+      "coveragePercent": 42,
+      "linesCovered": 42,
+      "linesMissed": 58,
+      "linesTotal": 100,
+      "coverage": [-1, -1, 20, 20, 2]
+    },
+    "templates5.cpp": {
+      "name": "templates5.cpp",
+      "coveragePercent": 83,
+      "linesCovered": 83,
+      "linesMissed": 17,
+      "linesTotal": 100,
+      "coverage": [-1, -1, 20, 20, 5, 8, 3, 9, 30, 35]
+    },
+    "templates5.h": {
+      "name": "templates5.h",
+      "coveragePercent": 100,
+      "linesCovered": 100,
+      "linesMissed": 0,
+      "linesTotal": 100,
+      "coverage": [-1, -1, 20, 20, 5, 8, 3, 9, 30, 35]
+    },
+    "templates6.cpp": {
+      "name": "templates6.cpp",
+      "coveragePercent": 62,
+      "linesCovered": 62,
+      "linesMissed": 38,
+      "linesTotal": 100,
+      "coverage": [-1, -1, 20, 20, 5, 8, 3, 9, 30, 35]
     },
     "subdir": {
       "comment": "This is necessary to test derived file info creation.",
