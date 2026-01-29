@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 
-# Consumes the NDJSON fed to us by the indexer-logs-analyze.sh script which is
-# an exciting bunch of shell data that eventually ends up as JSON that it's just
-# most practical to actual be using a high level language on at this point.
-
 import datetime
-import json
+import re
 import sys
 
 from rich import box, print
@@ -21,12 +17,19 @@ class IndexerLogStdinPrinter:
 
     def consume(self, fp):
         for line in fp.readlines():
-            data = json.loads(line)
-            if 'tree' not in data:
+            m = re.match('Performing (.+) step for (.+) : (.+)', line)
+            if m is None:
                 continue
 
-            tree = data['tree']
-            dtime = data['time'] = datetime.datetime.fromisoformat(data['time'])
+            dtime = datetime.datetime.fromisoformat(m.group(3))
+
+            tree = m.group(2)
+
+            data = {
+                'script': m.group(1),
+                'time': dtime,
+                'dur': '',
+            }
 
             if tree not in self.data_by_tree:
                 tree_data = {
@@ -38,7 +41,6 @@ class IndexerLogStdinPrinter:
                 self.data_by_tree[tree] = tree_data
             else:
                 tree_data = self.data_by_tree[tree]
-            data['dur'] = ''
             if len(tree_data['data']):
                 prev_data = tree_data['data'][-1]
                 prev_data['dur'] = data['time'] - prev_data['time']
