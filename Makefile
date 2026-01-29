@@ -46,6 +46,10 @@ check-test-repo:
 # - Runs the check scripts in a special mode that lets the tests run without
 #   failing, instead generating the revised expectations for anything that has
 #   changed.
+#   - We need to re-run `indexer-setup.sh` too because it rebuilds the git
+#     repository and the blame repository, which need to reflect the latest
+#     files, in order to make the output step see a consistent data between the
+#     raw file vs the blame file.
 #   - We need to re-run `indexer-run.sh` too because it embeds the disk check
 #     inside `mkindex.sh`.  Arguably maybe we want to fix web-server-check.sh
 #     to perhaps help run the indexer check.
@@ -62,6 +66,7 @@ check-test-repo:
 review-test-repo: export CHECK_WARNINGS=1
 review-test-repo: export INSTA_FORCE_PASS=1
 review-test-repo:
+	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
 	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
 	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~
 	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
