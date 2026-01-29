@@ -61,11 +61,15 @@ impl PipelineCommand for BatchRenderCommand {
                             "panel": liquid::model::Value::Nil,
                         });
                         if let Some(info) = &commit_info {
-                            liquid_globals.insert("rev_box".into(), liquid::object!({
-                                "long": info.rev,
-                                "short": &info.rev[..8],
-                                "desc_html": info.header.as_str(),
-                            }).into());
+                            liquid_globals.insert(
+                                "rev_box".into(),
+                                liquid::object!({
+                                    "long": info.rev,
+                                    "short": &info.rev[..8],
+                                    "desc_html": info.header.as_str(),
+                                })
+                                .into(),
+                            );
                         } else {
                             liquid_globals.insert("rev_box".into(), liquid::model::Value::Nil);
                         }
