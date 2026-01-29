@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 #[cfg(not(target_arch = "wasm32"))]
+use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
 use std::hash::Hash;
 #[cfg(not(target_arch = "wasm32"))]
@@ -1093,7 +1095,13 @@ pub fn read_analyses<T>(
 ) -> Vec<WithLocation<Vec<T>>> {
     let mut result = Vec::new();
     for (i_file, filename) in filenames.iter().enumerate() {
-        let file = match File::open(filename) {
+        let used_filename = if filename.ends_with(".gz") && !fs::exists(filename).unwrap_or(false) {
+            &filename[..filename.len() - 3]
+        } else {
+            filename.as_str()
+        };
+
+        let file = match File::open(used_filename) {
             Ok(f) => f,
             Err(_) => {
                 // TODO: This should be a warning again or have more explicit
@@ -1106,13 +1114,13 @@ pub fn read_analyses<T>(
                 // end up trying to ingest files that aren't there?  Both of
                 // these things should be addressed if we want to turn this back
                 // into a warning.
-                info!("Error trying to open analysis file [{}]", filename);
+                info!("Error trying to open analysis file [{}]", used_filename);
                 continue;
             }
         };
         // An analysis file that ends in .gz is compressed and should be
         // dynamically decompressed.
-        let reader: Box<dyn Read> = if filename.ends_with(".gz") {
+        let reader: Box<dyn Read> = if used_filename.ends_with(".gz") {
             Box::new(GzDecoder::new(file))
         } else {
             Box::new(file)
@@ -1128,7 +1136,7 @@ pub fn read_analyses<T>(
                 Err(e) => {
                     warn!(
                         "Error [{}] trying to read analysis from file [{}] line [{}]: [{}]",
-                        e, filename, lineno, &line
+                        e, used_filename, lineno, &line
                     );
                     continue;
                 }
