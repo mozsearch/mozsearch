@@ -3,6 +3,7 @@ use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
 use serde_json::{from_str, Value};
 use std::collections::BTreeMap;
+use std::fs;
 use std::io::Read;
 use std::time::Instant;
 use tokio::fs::File;
@@ -72,9 +73,18 @@ impl From<tonic::transport::Error> for ServerError {
     }
 }
 
-/// Read newline-delimited JSON that's been gzip-compressed.
-async fn read_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
-    let mut f = File::open(path).await?;
+/// Read newline-delimited JSON that's possibly been gzip-compressed.
+async fn read_maybe_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
+    let used_path = if path.ends_with(".gz") && !fs::exists(path).unwrap_or(false) {
+        &path[..path.len() - 3]
+    } else {
+        path
+    };
+
+    let mut f = File::open(used_path).await?;
+
+    let mut raw_str = String::new();
+
     // We read the entirety to a buffer because
     // https://github.com/serde-rs/json/issues/160 suggests that the buffered
     // reader performance is likely to be much worse.
@@ -82,16 +92,15 @@ async fn read_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
     // When we want to go async here,
     // https://github.com/rust-lang/flate2-rs/pull/214 suggests that we want to
     // use the `async-compression` crate.
-    let mut buffer = Vec::new();
-    f.read_to_end(&mut buffer).await?;
+    if used_path.ends_with(".gz") {
+        let mut buffer = Vec::new();
+        f.read_to_end(&mut buffer).await?;
+        let mut gz = GzDecoder::new(&buffer[..]);
 
-    let mut gz = GzDecoder::new(&buffer[..]);
-
-    let mut raw_str = String::new();
-    gz.read_to_string(&mut raw_str)?;
-
-    // let mut raw_str = String::new();
-    // f.read_to_string(&mut raw_str).await?;
+        gz.read_to_string(&mut raw_str)?;
+    } else {
+        f.read_to_string(&mut raw_str).await?;
+    }
 
     raw_str
         .lines()
@@ -192,7 +201,7 @@ impl AbstractServer for LocalIndex {
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
         let full_path = self.translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
-        let values = read_gzipped_ndjson_from_file(&full_path).await?;
+        let values = read_maybe_gzipped_ndjson_from_file(&full_path).await?;
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 
