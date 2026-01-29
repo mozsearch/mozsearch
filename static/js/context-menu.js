@@ -1203,10 +1203,23 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       // symbol won't be present here because it won't have been mered in by the
       // merge-analyses step.)
       let filteredSymTuples = [];
+      let jsLocalSyms = [];
+      let nonJSLocalSyms = [];
       let sawDef = false;
       symbols.forEach((sym, index) => {
         // Avoid processing the same symbol more than once.
         if (seenSyms.has(sym)) {
+          return;
+        }
+
+        if (sym.match(/^\d+-\d+$/)) {
+          // JS local symbols from js-analyze.js.
+          jsLocalSyms.push(sym);
+          return;
+        }
+        if (sym.match(/^V_[0-9a-fA-F]+_[0-9a-fA-F]+$/)) {
+          // C/C++ local symbols from MozsearchIndexer.cpp.
+          nonJSLocalSyms.push(sym);
           return;
         }
 
@@ -1225,6 +1238,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         // XXX Ignore no_crossref data that's currently not useful/used.
         if (!symInfo || !symInfo.sym || !symInfo.pretty) {
+          if (sym.match(/^S_(rs|java|jvm)_.+\/#\d+$/)) {
+            // Rust/Java/Kotlin symbols from scip-indexer.rs.
+            nonJSLocalSyms.push(sym);
+            return;
+          }
+          // NOTE: Python also has S_py_ style symbol for local variables,
+          //       but given it has no explicit declaration, it's hard to point
+          //       the right thing.
           return;
         }
 
@@ -1639,6 +1660,76 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
         }
+      }
+
+      const findJSLocalDef = sym => {
+        // For JS local variables, the declaration has syn_deflocal class.
+        for (const def of document.querySelectorAll(`.syn_deflocal[data-symbols*="${sym}"`)) {
+          const syms = def.getAttribute("data-symbols").split(",");
+          if (syms.includes(sym)) {
+            return def;
+          }
+        }
+        return null;
+      };
+
+      const findNonJSLocalDef = sym => {
+        // For non-JS local variables, the first occurrence should be the
+        // declaration.
+        for (const def of document.querySelectorAll(`[data-symbols*="${sym}"`)) {
+          const syms = def.getAttribute("data-symbols").split(",");
+          if (syms.includes(sym)) {
+            return def;
+          }
+        }
+        return null;
+      };
+
+      const addLocalJump = def => {
+        const sourceline = def.closest(`.source-line-with-number`);
+        if (!sourceline) {
+          return;
+        }
+
+        const line = sourceline.querySelector(`.line-number`);
+        if (!line) {
+          return;
+        }
+
+        const lineno = line.getAttribute("data-line-number");
+
+        jumpMenuItems.push(new GotoMenuItem({
+          html: this.fmt("Go to definition of <strong>_</strong>",
+                         event.target.textContent),
+          preaction: () => {
+            this.hide();
+          },
+          href: `${document.location.pathname}#${lineno}`,
+          icon: "export-alt",
+          section: "jumps",
+        }));
+      };
+
+      for (const sym of jsLocalSyms) {
+        if (event.target.classList.contains("syn_deflocal")) {
+          continue;
+        }
+
+        const def = findJSLocalDef(sym);
+        if (!def) {
+          continue;
+        }
+
+        addLocalJump(def);
+      }
+
+      for (const sym of nonJSLocalSyms) {
+        const def = findNonJSLocalDef(sym);
+        if (!def || def === event.target) {
+          continue;
+        }
+
+        addLocalJump(def);
       }
 
       const tokenText = symbolToken.textContent;
