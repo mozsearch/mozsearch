@@ -477,7 +477,7 @@ class TestUtils {
    *         Resolves when the element becomes shown.
    */
   static async waitForShown(elem, ...args) {
-    this.waitForCondition(() => {
+    return this.waitForCondition(() => {
       return this.isShown(elem);
     }, ...args);
   }
