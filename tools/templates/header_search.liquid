@@ -55,7 +55,7 @@
     <span id="data" data-root="/" data-search="/{{tree}}/search" data-tree="{{tree}}"></span>
     {%- if rev_box %}
       <div id="revision">
-        <span id="rev-id">Showing <a href="/searchfox/commit/{{rev_box.long | escape}}">{{rev_box.short | escape}}</a>:</span>
+        <span id="rev-id">Showing <a href="/{{tree}}/commit/{{rev_box.long | escape}}">{{rev_box.short | escape}}</a>:</span>
         <span id="rev-desc">{{rev_box.desc_html}}</span>
       </div>
     {%- endif %}
