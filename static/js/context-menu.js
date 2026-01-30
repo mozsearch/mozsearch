@@ -798,7 +798,7 @@ class ContextMenuOrSubMenu extends ContextMenuBase {
     }
   }
 
-  positionMenuAt(anchorRight, anchorTop, anchorBottom) {
+  positionMenuAt(anchorLeft, anchorRight, anchorTop, anchorBottom){
     const x = anchorRight + window.scrollX;
     const y = anchorTop + window.scrollY;
 
@@ -812,12 +812,23 @@ class ContextMenuOrSubMenu extends ContextMenuBase {
     this.menu.style.bottom = "";
     this.menu.style.top = y + "px";
     this.menu.style.left = x + "px";
+    this.menu.style.right = "";
     this.menu.style.maxHeight = "none";
 
     this.menu.style.display = "";
     this.menu.style.opacity = "0";
 
     const rect = this.menu.getBoundingClientRect();
+
+    const overflowsRight = rect.right > document.body.clientWidth;
+    const spaceOnLeft = anchorLeft + window.scrollX;
+    const fitsOnLeft = rect.width <= spaceOnLeft;
+
+    if (overflowsRight && fitsOnLeft) {
+      this.menu.style.left = "";
+      this.menu.style.right = (document.body.clientWidth - spaceOnLeft) + "px";
+    }
+
     // If it overflows, either flip it or constrain its height.
     if (rect.height > spaceTowardsBottom) {
       if (spaceTowardsTop > spaceTowardsBottom) {
@@ -915,7 +926,7 @@ class ContextSubMenu extends ContextMenuOrSubMenu {
     this.populateMenu(this.menu, menuItems);
 
     const openerRect = this.parentItem.focusableElement.getBoundingClientRect();
-    this.positionMenuAt(openerRect.right, openerRect.top, openerRect.bottom);
+    this.positionMenuAt(openerRect.left, openerRect.right, openerRect.top, openerRect.bottom);
   }
 
   hideSoon() {
@@ -1692,7 +1703,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     this.closeSubMenu();
     this.populateMenu(this.menu, menuItems);
 
-    this.positionMenuAt(event.clientX, event.clientY, event.clientY);
+    this.positionMenuAt(event.clientX, event.clientX, event.clientY, event.clientY);
   }
 
   get active() {
