@@ -52,7 +52,7 @@ input_file: inputs/web/dirs/root_listing__html
     <input type="submit" value="Search" disabled class="visually-hidden" />
     <span id="data" data-root="/" data-search="/tests/search" data-tree="tests"></span>
       <div id="revision">
-        <span id="rev-id">Showing <a href="/searchfox/commit/REV">REV</a>:</span>
+        <span id="rev-id">Showing <a href="/tests/commit/REV">REV</a>:</span>
         <span id="rev-desc">Initial commit</span>
       </div>
   </form>
