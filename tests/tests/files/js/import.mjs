@@ -5,3 +5,13 @@ import { exportedName3 as importAs } from "./mod4.mjs";
 import { default as defaultAs } from "./mod5.mjs";
 import { "string name" as stringAs } from "./mod6.mjs";
 import "./mod7.mjs";
+
+var importedItems = [
+  ns,
+  nsAs,
+  exportedName1,
+  exportedName2,
+  importAs,
+  defaultAs,
+  stringAs,
+];
