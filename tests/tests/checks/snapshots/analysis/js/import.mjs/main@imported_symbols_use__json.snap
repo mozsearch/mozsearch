@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/js/import.mjs/imported_symbols_use__json
 ---
 [
   {
@@ -31,6 +32,111 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "default",
     "sym": "#default",
+    "context": ""
+  },
+  {
+    "loc": "10:2-4",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property ns",
+    "sym": "#ns"
+  },
+  {
+    "loc": "10:2-4",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ns",
+    "sym": "#ns",
+    "context": ""
+  },
+  {
+    "loc": "11:2-6",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property nsAs",
+    "sym": "#nsAs"
+  },
+  {
+    "loc": "11:2-6",
+    "target": 1,
+    "kind": "use",
+    "pretty": "nsAs",
+    "sym": "#nsAs",
+    "context": ""
+  },
+  {
+    "loc": "12:2-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property exportedName1",
+    "sym": "#exportedName1"
+  },
+  {
+    "loc": "12:2-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "exportedName1",
+    "sym": "#exportedName1",
+    "context": ""
+  },
+  {
+    "loc": "13:2-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property exportedName2",
+    "sym": "#exportedName2"
+  },
+  {
+    "loc": "13:2-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "exportedName2",
+    "sym": "#exportedName2",
+    "context": ""
+  },
+  {
+    "loc": "14:2-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property importAs",
+    "sym": "#importAs"
+  },
+  {
+    "loc": "14:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "importAs",
+    "sym": "#importAs",
+    "context": ""
+  },
+  {
+    "loc": "15:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property defaultAs",
+    "sym": "#defaultAs"
+  },
+  {
+    "loc": "15:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "defaultAs",
+    "sym": "#defaultAs",
+    "context": ""
+  },
+  {
+    "loc": "16:2-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property stringAs",
+    "sym": "#stringAs"
+  },
+  {
+    "loc": "16:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "stringAs",
+    "sym": "#stringAs",
     "context": ""
   }
 ]

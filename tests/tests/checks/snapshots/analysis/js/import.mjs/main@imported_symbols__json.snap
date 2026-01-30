@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/js/import.mjs/imported_symbols__json
 ---
 [
   {
@@ -113,6 +114,21 @@ expression: "&json_results"
     "kind": "def",
     "pretty": "stringAs",
     "sym": "#stringAs",
+    "context": ""
+  },
+  {
+    "loc": "9:4-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property importedItems",
+    "sym": "#importedItems"
+  },
+  {
+    "loc": "9:4-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "importedItems",
+    "sym": "#importedItems",
     "context": ""
   }
 ]
