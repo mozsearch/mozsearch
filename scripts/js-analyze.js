@@ -1091,6 +1091,8 @@ let Analyzer = {
           this.pattern(spec.name);
 
           if (spec.type === "ImportSpecifier" &&
+              spec.id.type === "Identifier" &&
+              spec.id.name !== "default" &&
               !isSameLocation(spec.id.loc, spec.name.loc)) {
             this.expression(spec.id);
           }
@@ -1123,11 +1125,15 @@ let Analyzer = {
         for (const spec of stmt.specifiers) {
           if (spec.type === "ExportSpecifier" ||
               spec.type === "ExportNamespaceSpecifier") {
-            if (spec.name.type !== "Literal") {
+            if (spec.name.type !== "Literal" &&
+                !(spec.name.type === "Identifier" &&
+                  spec.name.name === "default")) {
               this.pattern(spec.name);
             }
 
             if (spec.type === "ExportSpecifier" &&
+                !(spec.id.type === "Identifier" &&
+                  spec.id.name === "default") &&
                 !isSameLocation(spec.id.loc, spec.name.loc)) {
               this.expression(spec.id);
             }
