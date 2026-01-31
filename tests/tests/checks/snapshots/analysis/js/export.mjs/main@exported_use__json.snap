@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/js/export.mjs/exported_use__json
 ---
 [
   {
@@ -61,21 +62,6 @@ expression: "&json_results"
     "kind": "use",
     "pretty": "exportedName3",
     "sym": "#exportedName3",
-    "context": ""
-  },
-  {
-    "loc": "15:9-16",
-    "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property default",
-    "sym": "#default"
-  },
-  {
-    "loc": "15:9-16",
-    "target": 1,
-    "kind": "use",
-    "pretty": "default",
-    "sym": "#default",
     "context": ""
   }
 ]

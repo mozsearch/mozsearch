@@ -20,21 +20,6 @@ input_file: inputs/analysis/js/import.mjs/imported_symbols_use__json
     "context": ""
   },
   {
-    "loc": "5:9-16",
-    "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property default",
-    "sym": "#default"
-  },
-  {
-    "loc": "5:9-16",
-    "target": 1,
-    "kind": "use",
-    "pretty": "default",
-    "sym": "#default",
-    "context": ""
-  },
-  {
     "loc": "10:2-4",
     "source": 1,
     "syntax": "use,prop",
