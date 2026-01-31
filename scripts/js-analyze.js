@@ -1145,9 +1145,25 @@ let Analyzer = {
               this.expression(spec.id);
             }
 
+            // The following patterns don't need definitions:
+            //   export { "string" } from "./module.mjs";
+            //   export { default } from "./module.mjs";
+            //
+            // The following also doesn't need defintiion, given there's an
+            // actual definition in module.mjs:
+            //   export { NAME } from "module.mjs";
+            //
+            // The following needs definition, because it refers module global,
+            // which uses "defmg" instead of "def":
+            //   export { NAME };
             if (spec.name.type !== "Literal" &&
                 !(spec.name.type === "Identifier" &&
-                  spec.name.name === "default")) {
+                  spec.name.name === "default") &&
+                !(stmt.moduleRequest &&
+                  spec.type === "ExportSpecifier" &&
+                  spec.id.type === "Identifier" &&
+                  spec.name.type === "Identifier" &&
+                  spec.id.name === spec.name.name)) {
               this.pattern(spec.name);
             }
           }
