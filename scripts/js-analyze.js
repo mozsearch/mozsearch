@@ -1577,6 +1577,10 @@ let Analyzer = {
     case "ObjectPattern":
       for (let prop of pat.properties) {
         if (prop.type == "Property") {
+          if (prop.key.type === "Identifier") {
+            this.useProp(prop.key.name, prop.key.loc);
+          }
+
           this.pattern(prop.value);
         } else if (prop.type == "SpreadExpression") {
           this.pattern(prop.expression);
