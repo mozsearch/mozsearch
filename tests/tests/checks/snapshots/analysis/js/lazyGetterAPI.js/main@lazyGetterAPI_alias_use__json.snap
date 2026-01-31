@@ -1,0 +1,119 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/lazyGetterAPI.js/lazyGetterAPI_alias_use__json
+---
+[
+  {
+    "loc": "13:2-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyImport1",
+    "sym": "#LazyImport1",
+    "context": ""
+  },
+  {
+    "loc": "20:2-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyImport2",
+    "sym": "#LazyImport2",
+    "context": ""
+  },
+  {
+    "loc": "31:2-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyImport3",
+    "sym": "#LazyImport3",
+    "context": ""
+  },
+  {
+    "loc": "38:5-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyImport1",
+    "sym": "#LazyImport1",
+    "context": ""
+  },
+  {
+    "loc": "39:5-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyPref1",
+    "sym": "#LazyPref1",
+    "context": ""
+  },
+  {
+    "loc": "40:5-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyService1",
+    "sym": "#LazyService1",
+    "context": ""
+  },
+  {
+    "loc": "41:5-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyFunc1",
+    "sym": "#LazyFunc1",
+    "context": ""
+  },
+  {
+    "loc": "43:6-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyImport2",
+    "sym": "#LazyImport2",
+    "context": ""
+  },
+  {
+    "loc": "44:6-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyPref2",
+    "sym": "#LazyPref2",
+    "context": ""
+  },
+  {
+    "loc": "45:6-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyService2",
+    "sym": "#LazyService2",
+    "context": ""
+  },
+  {
+    "loc": "46:6-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyFunc2",
+    "sym": "#LazyFunc2",
+    "context": ""
+  },
+  {
+    "loc": "48:5-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyService3",
+    "sym": "#LazyService3",
+    "context": ""
+  },
+  {
+    "loc": "50:5-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyImport3",
+    "sym": "#LazyImport3",
+    "context": ""
+  },
+  {
+    "loc": "52:5-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LazyUnknown1",
+    "sym": "#LazyUnknown1",
+    "context": ""
+  }
+]

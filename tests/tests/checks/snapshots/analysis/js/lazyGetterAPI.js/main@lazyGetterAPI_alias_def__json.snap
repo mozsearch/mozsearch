@@ -1,0 +1,71 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/lazyGetterAPI.js/lazyGetterAPI_alias_def__json
+---
+[
+  {
+    "loc": "14:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyPref1",
+    "sym": "#LazyPref1",
+    "context": ""
+  },
+  {
+    "loc": "15:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyService1",
+    "sym": "#LazyService1",
+    "context": ""
+  },
+  {
+    "loc": "16:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyFunc1",
+    "sym": "#LazyFunc1",
+    "context": ""
+  },
+  {
+    "loc": "21:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyPref2",
+    "sym": "#LazyPref2",
+    "context": ""
+  },
+  {
+    "loc": "22:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyService2",
+    "sym": "#LazyService2",
+    "context": ""
+  },
+  {
+    "loc": "23:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyFunc2",
+    "sym": "#LazyFunc2",
+    "context": ""
+  },
+  {
+    "loc": "27:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyService3",
+    "sym": "#LazyService3",
+    "context": ""
+  },
+  {
+    "loc": "35:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LazyUnknown1",
+    "sym": "#LazyUnknown1",
+    "context": ""
+  }
+]
