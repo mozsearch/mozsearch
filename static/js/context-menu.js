@@ -380,6 +380,8 @@ class GotoMenuItem extends MenuItem {
         // Ensure the anchor exists at the point of navigation,
         // to avoid possible glitch.
         Highlighter.createSyntheticAnchor(lineno);
+
+        ContextMenu.hide();
       };
     }
 
@@ -1701,9 +1703,6 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         jumpMenuItems.push(new GotoMenuItem({
           html: this.fmt("Go to definition of <strong>_</strong>",
                          event.target.textContent),
-          preaction: () => {
-            this.hide();
-          },
           href: `${document.location.pathname}#${lineno}`,
           icon: "export-alt",
           section: "jumps",
