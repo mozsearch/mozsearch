@@ -1088,12 +1088,26 @@ let Analyzer = {
       for (const spec of stmt.specifiers) {
         if (spec.type === "ImportSpecifier" ||
             spec.type === "ImportNamespaceSpecifier") {
-          this.pattern(spec.name);
+          // The following case shouldn't create any definition:
+          //   import { NAME } from "module.mjs";
+          //
+          // The following case should create a definition for NAME2:
+          //   import { NAME as NAME2 } from "module.mjs";
+          //
+          // The namespace import always define a new identifier:
+          //   import NS from "module.mjs";
+          if (spec.type === "ImportNamespaceSpecifier" ||
+              !isSameLocation(spec.id.loc, spec.name.loc)) {
+            this.pattern(spec.name);
+          }
 
+          // In both of the following cases, the "NAME" is a reference to
+          // the exported symbol inside "module.mjs":
+          //   import { NAME } from "module.mjs";
+          //   import { NAME as NAME2 } from "module.mjs";
           if (spec.type === "ImportSpecifier" &&
               spec.id.type === "Identifier" &&
-              spec.id.name !== "default" &&
-              !isSameLocation(spec.id.loc, spec.name.loc)) {
+              spec.id.name !== "default") {
             this.expression(spec.id);
           }
         }
