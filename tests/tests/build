@@ -77,43 +77,14 @@ do
 done
 
 ## C++ Build Stuff
-CPP_FILES=$(
 find . -name '*.cpp' | \
-  grep -v /ipdl/
-)
-OBJ_CPP_FILES=$(
+    grep -v /ipdl/ > $INDEX_ROOT/c-input-files
 find $OBJDIR -name '*.cpp' | \
-  grep -v /ipdl/
-)
+    grep -v /ipdl/ >> $INDEX_ROOT/c-input-files
 
-for SRC_FILE in $CPP_FILES $OBJ_CPP_FILES
-do
-  if echo $SRC_FILE | grep $OBJDIR > /dev/null; then
-      LOCAL_FILE=$(echo $SRC_FILE | sed -e "s|$OBJDIR|__GENERATED__|")
-      OBJ_FILE=$OBJDIR/__${PLATFORM}__/${LOCAL_FILE%%.cpp}.o
-  else
-      LOCAL_FILE=$SRC_FILE
-      OBJ_FILE=$OBJDIR/__${PLATFORM}__/${LOCAL_FILE%%.cpp}.o
-  fi
-  mkdir -p $(dirname $OBJ_FILE)
-
-  for PLATFORM in ${PLATFORMS}
-  do
-    MACRO_PLATFORM=$(echo ${PLATFORM} | cut -d - -f 1)
-    if echo ${PLATFORM} | grep '.-opt$'; then
-        EXTRA_OPTS=""
-    else
-        EXTRA_OPTS="-DDEBUG"
-    fi
-    MOZSEARCH_PLATFORM=$PLATFORM $CXX -DTEST_MACRO1 -DTEST_MACRO2 -DTARGET_$MACRO_PLATFORM ${EXTRA_OPTS} -DTEST_MACRO_INCLUDE='"nsISupports.h"' $SRC_FILE -std=c++17 -I . -I $OBJDIR -c -o $OBJ_FILE -Wall
-    mkdir -p  $(dirname $INDEX_ROOT/analysis-$PLATFORM/$LOCAL_FILE)
-    mv $INDEX_ROOT/analysis/$LOCAL_FILE $INDEX_ROOT/analysis-$PLATFORM/$LOCAL_FILE
-  done
-
-  pushd $INDEX_ROOT
-  merge-analyses analysis-*/$LOCAL_FILE > analysis/$LOCAL_FILE
-  popd
-done
+cat $INDEX_ROOT/c-input-files | \
+    parallel --jobs 8 --halt 2 -q \
+    $MOZSEARCH_PATH/tests/tests/build-c.sh {} $OBJDIR "$PLATFORMS"
 
 ## moz.build generated files
 
