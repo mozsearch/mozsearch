@@ -383,9 +383,10 @@ SymbolTable.prototype = {
   },
 };
 
-SymbolTable.Symbol = function(name, loc, isModuleGlobal) {
+SymbolTable.Symbol = function(name, loc, isAlias, isModuleGlobal) {
   this.name = name;
   this.loc = loc;
+  this.isAlias = isAlias;
   this.isModuleGlobal = isModuleGlobal;
   if (this.isModuleGlobal) {
     this.id = "#M-" + name;
@@ -858,16 +859,16 @@ let Analyzer = {
     }
   },
 
-  defVar(name, loc, maybeNesting) {
+  defVar(name, loc, isAlias, maybeNesting) {
     if (!nameValid(name)) {
       return;
     }
-    if (this.isGlobalSymbolScope()) {
+    if (this.isGlobalSymbolScope() && !isAlias) {
       this.defProp(name, loc, undefined, undefined, maybeNesting);
       return;
     }
 
-    this.defLocal(name, loc, maybeNesting);
+    this.defLocal(name, loc, isAlias, maybeNesting);
   },
 
   findSymbol(name) {
@@ -888,7 +889,7 @@ let Analyzer = {
       return;
     }
     let sym = this.findSymbol(name);
-    if (!sym) {
+    if (!sym || sym.isAlias) {
       this.useProp(name, loc);
     } else if (!sym.skip) {
       this.useLocal(name, loc, sym);
@@ -900,7 +901,7 @@ let Analyzer = {
       return;
     }
     let sym = this.findSymbol(name);
-    if (!sym) {
+    if (!sym || sym.isAlias) {
       this.assignProp(name, loc);
     } else if (!sym.skip) {
       this.useLocal(name, loc, sym);
@@ -909,11 +910,11 @@ let Analyzer = {
 
   functionDecl(f) {
     for (let i = 0; i < f.params.length; i++) {
-      this.pattern(f.params[i]);
+      this.pattern(f.params[i], false);
       this.maybeExpression(f.defaults[i]);
     }
     if (f.rest) {
-      this.defVar(f.rest.name, f.rest.loc);
+      this.defVar(f.rest.name, f.rest.loc, false);
     }
     if (f.body.type == "BlockStatement") {
       this.statement(f.body);
@@ -922,9 +923,14 @@ let Analyzer = {
     }
   },
 
-  defLocal(name, loc, maybeNesting) {
-    let sym = new SymbolTable.Symbol(name, loc, this.isModuleGlobalScope());
+  defLocal(name, loc, isAlias, maybeNesting) {
+    let sym = new SymbolTable.Symbol(name, loc, isAlias, this.isModuleGlobalScope());
     this.symbols.put(name, sym);
+
+    if (sym.isAlias) {
+      this.useProp(name, loc);
+      return;
+    }
 
     let syntax, no_crossref;
     if (sym.isModuleGlobal) {
@@ -1064,7 +1070,7 @@ let Analyzer = {
       break;
 
     case "FunctionDeclaration":
-      this.defVar(stmt.id.name, stmt.loc, stmt.body);
+      this.defVar(stmt.id.name, stmt.loc, false, stmt.body);
       this.scoped(stmt.id.name, () => {
         this.functionDecl(stmt);
       });
@@ -1076,7 +1082,7 @@ let Analyzer = {
 
     //
     case "ClassStatement":
-      this.defVar(stmt.id.name, stmt.id.loc,
+      this.defVar(stmt.id.name, stmt.id.loc, false,
                   this.deriveLocationFromOuterNodeAndIdNode(stmt, stmt.id));
       this.scoped(stmt.id.name, () => {
         let oldClass = this.className;
@@ -1153,7 +1159,7 @@ let Analyzer = {
           //   import NS from "module.mjs";
           if (spec.type === "ImportNamespaceSpecifier" ||
               !isSameLocation(spec.id.loc, spec.name.loc)) {
-            this.pattern(spec.name);
+            this.pattern(spec.name, false);
           }
 
           // In both of the following cases, the "NAME" is a reference to
@@ -1221,7 +1227,7 @@ let Analyzer = {
                   spec.id.type === "Identifier" &&
                   spec.name.type === "Identifier" &&
                   spec.id.name === spec.name.name)) {
-              this.pattern(spec.name);
+              this.pattern(spec.name, false);
             }
           }
         }
@@ -1249,7 +1255,7 @@ let Analyzer = {
   },
 
   variableDeclarator(decl) {
-    this.pattern(decl.id);
+    this.pattern(decl.id, false);
 
     let name = null;
     let oldNameForThis = this.nameForThis;
@@ -1290,7 +1296,7 @@ let Analyzer = {
 
   catchClause(clause) {
     if (clause.param) {
-      this.pattern(clause.param);
+      this.pattern(clause.param, false);
     }
     if (clause.guard) {
       this.expression(clause.guard);
@@ -1390,7 +1396,7 @@ let Analyzer = {
         }
 
         if (expr.type == "FunctionExpression" && name) {
-          this.defVar(name, expr.loc);
+          this.defVar(name, expr.loc, false);
         }
 
         this.functionDecl(expr);
@@ -1554,7 +1560,7 @@ let Analyzer = {
   comprehensionBlock(block) {
     switch (block.type) {
     case "ComprehensionBlock":
-      this.pattern(block.left);
+      this.pattern(block.left, false);
       this.expression(block.right);
       break;
 
@@ -1564,14 +1570,14 @@ let Analyzer = {
     }
   },
 
-  pattern(pat) {
+  pattern(pat, isAlias=false) {
     if (!pat) {
       print(Error().stack);
     }
 
     switch (pat.type) {
     case "Identifier":
-      this.defVar(pat.name, pat.loc);
+      this.defVar(pat.name, pat.loc, isAlias);
       break;
 
     case "ObjectPattern":
@@ -1581,9 +1587,9 @@ let Analyzer = {
             this.useProp(prop.key.name, prop.key.loc);
           }
 
-          this.pattern(prop.value);
+          this.pattern(prop.value, false);
         } else if (prop.type == "SpreadExpression") {
-          this.pattern(prop.expression);
+          this.pattern(prop.expression, false);
         } else {
           throw `Unexpected prop ${JSON.stringify(prop)} in ObjectPattern`;
         }
@@ -1593,17 +1599,17 @@ let Analyzer = {
     case "ArrayPattern":
       for (let e of pat.elements) {
         if (e) {
-          this.pattern(e);
+          this.pattern(e, false);
         }
       }
       break;
 
     case "SpreadExpression":
-      this.pattern(pat.expression);
+      this.pattern(pat.expression, false);
       break;
 
     case "AssignmentExpression":
-      this.pattern(pat.left);
+      this.pattern(pat.left, false);
       this.expression(pat.right);
       break;
 
@@ -2192,7 +2198,7 @@ class XBLParser extends XMLParser {
       line = p.attrs.NAME.valueLine;
       column = p.attrs.NAME.valueColumn;
 
-      Analyzer.defVar(text, {start: {line: line + 1, column}});
+      Analyzer.defVar(text, {start: {line: line + 1, column}}, false);
     }
 
     if (tag.body) {
