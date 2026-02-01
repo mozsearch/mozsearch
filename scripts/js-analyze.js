@@ -587,6 +587,11 @@ let Analyzer = {
   isModule: false,
   isExport: false,
 
+  // The object expression for lazy getter API.
+  // Module imports in the object expression shouldn't be treated as
+  // definitions.
+  latestLazyObject: null,
+
   resetState() {
     this.symbols = new SymbolTable();
     this.symbolTableStack = [];
@@ -1361,6 +1366,41 @@ let Analyzer = {
     this.statement(clause.body);
   },
 
+  maybeSetLazyObjectAt(args, index) {
+    if (index >= args.length) {
+      return;
+    }
+    const arg = args[index];
+    if (arg.type !== "ObjectExpression") {
+      return;
+    }
+    this.latestLazyObject = arg;
+  },
+
+  checkDefineLazyAPI(callee, args) {
+    if (callee.type !== "MemberExpression" ||
+        callee.object.type !== "Identifier" ||
+        callee.property.type !== "Identifier") {
+      return;
+    }
+
+    const obj = callee.object.name;
+    const prop = callee.property.name;
+    if (obj === "XPCOMUtils") {
+      if (prop === "defineLazy" ||
+          prop === "defineLazyServiceGetters") {
+        this.maybeSetLazyObjectAt(args, 1);
+      }
+      if (prop === "declareLazy") {
+        this.maybeSetLazyObjectAt(args, 0);
+      }
+    } else if (obj === "ChromeUtils") {
+      if (prop === "defineESModuleGetters") {
+        this.maybeSetLazyObjectAt(args, 1);
+      }
+    }
+  },
+
   expression(expr) {
     if (!expr) print(Error().stack);
 
@@ -1424,7 +1464,19 @@ let Analyzer = {
             extraPretty = `${this.nameForThis}.${name}`;
           }
           if (name) {
-            this.defProp(name, prop.key.loc, extra, extraPretty, prop.value);
+            if (expr === this.latestLazyObject &&
+                prop.value &&
+                prop.value.type === "Literal" &&
+                typeof(prop.value.value) == "string") {
+              // This is lazy module import API.
+              // The property definition shouldn't be treated as a definition,
+              // but a reference to the exported symbol.
+              if (prop.key.type == "Identifier") {
+                this.useProp(name, prop.key.loc);
+              }
+            } else {
+              this.defProp(name, prop.key.loc, extra, extraPretty, prop.value);
+            }
           }
         }
 
@@ -1530,6 +1582,9 @@ let Analyzer = {
     case "CallExpression":
     case "OptionalCallExpression":
       this.expression(expr.callee);
+
+      this.checkDefineLazyAPI(expr.callee, expr.arguments);
+
       for (let arg of expr.arguments) {
         this.expression(arg);
       }
