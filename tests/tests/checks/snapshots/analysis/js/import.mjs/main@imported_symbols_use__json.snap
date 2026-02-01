@@ -67,16 +67,16 @@ input_file: inputs/analysis/js/import.mjs/imported_symbols_use__json
   {
     "loc": "11:2-6",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property nsAs",
-    "sym": "#nsAs"
+    "syntax": "use,variable",
+    "pretty": "variable nsAs",
+    "sym": "#M-nsAs"
   },
   {
     "loc": "11:2-6",
     "target": 1,
     "kind": "use",
     "pretty": "nsAs",
-    "sym": "#nsAs",
+    "sym": "#M-nsAs",
     "context": ""
   },
   {
@@ -112,46 +112,46 @@ input_file: inputs/analysis/js/import.mjs/imported_symbols_use__json
   {
     "loc": "14:2-10",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property importAs",
-    "sym": "#importAs"
+    "syntax": "use,variable",
+    "pretty": "variable importAs",
+    "sym": "#M-importAs"
   },
   {
     "loc": "14:2-10",
     "target": 1,
     "kind": "use",
     "pretty": "importAs",
-    "sym": "#importAs",
+    "sym": "#M-importAs",
     "context": ""
   },
   {
     "loc": "15:2-11",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property defaultAs",
-    "sym": "#defaultAs"
+    "syntax": "use,variable",
+    "pretty": "variable defaultAs",
+    "sym": "#M-defaultAs"
   },
   {
     "loc": "15:2-11",
     "target": 1,
     "kind": "use",
     "pretty": "defaultAs",
-    "sym": "#defaultAs",
+    "sym": "#M-defaultAs",
     "context": ""
   },
   {
     "loc": "16:2-10",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property stringAs",
-    "sym": "#stringAs"
+    "syntax": "use,variable",
+    "pretty": "variable stringAs",
+    "sym": "#M-stringAs"
   },
   {
     "loc": "16:2-10",
     "target": 1,
     "kind": "use",
     "pretty": "stringAs",
-    "sym": "#stringAs",
+    "sym": "#M-stringAs",
     "context": ""
   }
 ]

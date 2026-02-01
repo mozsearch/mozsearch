@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/js/export8.mjs/ignore_anonymous_function_default__json
 ---
 [
   {
@@ -13,16 +14,16 @@ expression: "&json_results"
   {
     "loc": "2:4-13",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property something",
-    "sym": "#something"
+    "syntax": "def,variable",
+    "pretty": "variable something",
+    "sym": "#M-something"
   },
   {
     "loc": "2:4-13",
     "target": 1,
     "kind": "def",
     "pretty": "something",
-    "sym": "#something",
+    "sym": "#M-something",
     "context": ""
   }
 ]
