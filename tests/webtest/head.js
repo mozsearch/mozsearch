@@ -1,5 +1,12 @@
 "use strict";
 
+const COLOR_YELLOW = "light-dark(#B0A000, #D0D040)";
+const COLOR_RED = "light-dark(#D00000, #FF4040)";
+const COLOR_GREEN = "light-dark(#00A600, #40D940)";
+const COLOR_BLUE   = "light-dark(#0000FF, #6060FF)";
+const COLOR_GRAY   = "light-dark(#A0A0A0, #A0A0A0)";
+const COLOR_CYAN   = "light-dark(#00A6B2, #60E5E5)";
+
 /**
  * A class for communication with webtest command.
  */
@@ -14,6 +21,10 @@ class TestHarness {
    * List of test functions added by add_task (or TestHarness.addTest)
    */
   static tests = [];
+
+  static testCount = 0;
+  static failedTests = new Map();
+  static currentTest = null;
 
   /**
    * List of functions added by registerCleanupFunction
@@ -32,30 +43,24 @@ class TestHarness {
     let color = "";
     switch (type) {
       case "INFO":
-        // blue
-        color = "light-dark(#0000FF, #6060FF)";
+        color = COLOR_BLUE;
         break;
       case "DEBUG":
-        // gray
-        color = "light-dark(#A0A0A0, #A0A0A0)";
+        color = COLOR_GRAY;
         break;
       case "PASS":
-        // green
-        color = "light-dark(#00A600, #40D940)";
+        color = COLOR_GREEN;
         break;
       case "FAIL":
       case "STACK":
-        // red
-        color = "light-dark(#D00000, #FF4040)";
+        color = COLOR_RED;
         break;
       case "TEST_START":
       case "TEST_END":
-        // yellow
-        color = "light-dark(#B0A000, #D0D040)";
+        color = COLOR_YELLOW;
         break;
       default:
-        // cyan
-        color = "light-dark(#00A6B2, #60E5E5)";
+        color = COLOR_CYAN;
         break;
         // unused
         // magenta
@@ -64,6 +69,51 @@ class TestHarness {
     console.log(`%c${type}%c - %s`,
                 `color: ${color};`, "", msg);
     this.pendingLogs.push([type, `${msg}`]);
+
+    if (type === "TEST_START") {
+      this.currentTest = msg;
+    }
+
+    if (type === "SUBTEST") {
+      this.testCount++;
+    }
+
+    if (type === "FAIL") {
+      if (!this.failedTests.has(this.currentTest)) {
+        this.failedTests.set(this.currentTest, []);
+      }
+      this.failedTests.get(this.currentTest).push([type, msg]);
+    }
+
+    if (type === "STACK") {
+      this.failedTests.get(this.currentTest)?.push([type, msg]);
+    }
+  }
+
+  static logSummary() {
+    const failedCount = this.failedTests.size;
+    const passedCount = this.testCount - failedCount;
+
+    console.log("%cOverall Summary", `color: ${COLOR_YELLOW}; font-weight: bold`);
+    console.log("%c===============", `color: ${COLOR_YELLOW}`);
+
+    console.log(`Ran ${this.testCount} tests.`);
+    console.log(`Passed: ${passedCount} tests`);
+    console.log(`Failed: ${failedCount} tests`);
+
+    if (failedCount > 0) {
+      console.log("%cUnexpected Results", `color: ${COLOR_YELLOW}; font-weight: bold`);
+      console.log("%c------------------", `color: ${COLOR_YELLOW}`);
+
+      for (const [path, logs] of this.failedTests) {
+        console.log(`%c${path}`, "font-weight: bold");
+        for (const [type, msg] of logs) {
+          console.log(`%c${type}%c - ${msg}`, `color: ${COLOR_RED}; font-weight: bold`, "");
+        }
+      }
+    } else {
+      console.log("%cOK", `color: ${COLOR_GREEN}; font-weight: bold`);
+    }
   }
 
   // Wrappers for logging.
@@ -182,6 +232,10 @@ class TestHarness {
       return;
     }
 
+    this.testCount = 0;
+    this.failedTests.clear();
+    this.currentTest = null;
+
     this.log("TEST_START", path);
 
     const script = document.createElement("script");
@@ -194,6 +248,7 @@ class TestHarness {
       window.removeEventListener("error", onError);
       await this.runTests();
       this.log("TEST_END", path);
+      TestHarness.logSummary();
     });
     document.body.append(script);
   }
