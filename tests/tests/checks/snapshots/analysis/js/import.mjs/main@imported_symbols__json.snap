@@ -14,76 +14,76 @@ input_file: inputs/analysis/js/import.mjs/imported_symbols__json
   {
     "loc": "2:12-16",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property nsAs",
-    "sym": "#nsAs"
+    "syntax": "def,variable",
+    "pretty": "variable nsAs",
+    "sym": "#M-nsAs"
   },
   {
     "loc": "2:12-16",
     "target": 1,
     "kind": "def",
     "pretty": "nsAs",
-    "sym": "#nsAs",
+    "sym": "#M-nsAs",
     "context": ""
   },
   {
     "loc": "4:26-34",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property importAs",
-    "sym": "#importAs"
+    "syntax": "def,variable",
+    "pretty": "variable importAs",
+    "sym": "#M-importAs"
   },
   {
     "loc": "4:26-34",
     "target": 1,
     "kind": "def",
     "pretty": "importAs",
-    "sym": "#importAs",
+    "sym": "#M-importAs",
     "context": ""
   },
   {
     "loc": "5:20-29",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property defaultAs",
-    "sym": "#defaultAs"
+    "syntax": "def,variable",
+    "pretty": "variable defaultAs",
+    "sym": "#M-defaultAs"
   },
   {
     "loc": "5:20-29",
     "target": 1,
     "kind": "def",
     "pretty": "defaultAs",
-    "sym": "#defaultAs",
+    "sym": "#M-defaultAs",
     "context": ""
   },
   {
     "loc": "6:26-34",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property stringAs",
-    "sym": "#stringAs"
+    "syntax": "def,variable",
+    "pretty": "variable stringAs",
+    "sym": "#M-stringAs"
   },
   {
     "loc": "6:26-34",
     "target": 1,
     "kind": "def",
     "pretty": "stringAs",
-    "sym": "#stringAs",
+    "sym": "#M-stringAs",
     "context": ""
   },
   {
     "loc": "9:4-17",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property importedItems",
-    "sym": "#importedItems"
+    "syntax": "def,variable",
+    "pretty": "variable importedItems",
+    "sym": "#M-importedItems"
   },
   {
     "loc": "9:4-17",
     "target": 1,
     "kind": "def",
     "pretty": "importedItems",
-    "sym": "#importedItems",
+    "sym": "#M-importedItems",
     "context": ""
   }
 ]

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/js/export2.mjs/exported_decls__json
 ---
 [
   {
@@ -13,16 +14,16 @@ expression: "&json_results"
   {
     "loc": "1:4-9",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property dummy",
-    "sym": "#dummy"
+    "syntax": "def,variable",
+    "pretty": "variable dummy",
+    "sym": "#M-dummy"
   },
   {
     "loc": "1:4-9",
     "target": 1,
     "kind": "def",
     "pretty": "dummy",
-    "sym": "#dummy",
+    "sym": "#M-dummy",
     "context": ""
   }
 ]

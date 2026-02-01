@@ -1,21 +1,22 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/js/export2.mjs/exported_use__json
 ---
 [
   {
     "loc": "2:15-20",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property dummy",
-    "sym": "#dummy"
+    "syntax": "use,variable",
+    "pretty": "variable dummy",
+    "sym": "#M-dummy"
   },
   {
     "loc": "2:15-20",
     "target": 1,
     "kind": "use",
     "pretty": "dummy",
-    "sym": "#dummy",
+    "sym": "#M-dummy",
     "context": ""
   }
 ]

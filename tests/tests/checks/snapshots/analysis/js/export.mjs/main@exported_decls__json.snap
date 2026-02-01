@@ -76,46 +76,46 @@ input_file: inputs/analysis/js/export.mjs/exported_decls__json
   {
     "loc": "5:4-9",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property dummy",
-    "sym": "#dummy"
+    "syntax": "def,variable",
+    "pretty": "variable dummy",
+    "sym": "#M-dummy"
   },
   {
     "loc": "5:4-9",
     "target": 1,
     "kind": "def",
     "pretty": "dummy",
-    "sym": "#dummy",
+    "sym": "#M-dummy",
     "context": ""
   },
   {
     "loc": "5:15-21",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property local1",
-    "sym": "#local1"
+    "syntax": "def,variable",
+    "pretty": "variable local1",
+    "sym": "#M-local1"
   },
   {
     "loc": "5:15-21",
     "target": 1,
     "kind": "def",
     "pretty": "local1",
-    "sym": "#local1",
+    "sym": "#M-local1",
     "context": ""
   },
   {
     "loc": "5:27-33",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property local2",
-    "sym": "#local2"
+    "syntax": "def,variable",
+    "pretty": "variable local2",
+    "sym": "#M-local2"
   },
   {
     "loc": "5:27-33",
     "target": 1,
     "kind": "def",
     "pretty": "local2",
-    "sym": "#local2",
+    "sym": "#M-local2",
     "context": ""
   },
   {

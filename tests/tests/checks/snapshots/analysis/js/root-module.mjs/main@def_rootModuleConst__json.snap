@@ -1,21 +1,22 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/js/root-module.mjs/def_rootModuleConst__json
 ---
 [
   {
     "loc": "12:6-21",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property rootModuleConst",
-    "sym": "#rootModuleConst"
+    "syntax": "def,variable",
+    "pretty": "variable rootModuleConst",
+    "sym": "#M-rootModuleConst"
   },
   {
     "loc": "12:6-21",
     "target": 1,
     "kind": "def",
     "pretty": "rootModuleConst",
-    "sym": "#rootModuleConst",
+    "sym": "#M-rootModuleConst",
     "context": ""
   }
 ]

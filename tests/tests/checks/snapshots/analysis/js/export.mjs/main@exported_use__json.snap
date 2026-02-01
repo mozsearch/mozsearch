@@ -7,76 +7,76 @@ input_file: inputs/analysis/js/export.mjs/exported_use__json
   {
     "loc": "6:9-15",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property local1",
-    "sym": "#local1"
+    "syntax": "use,variable",
+    "pretty": "variable local1",
+    "sym": "#M-local1"
   },
   {
     "loc": "6:9-15",
     "target": 1,
     "kind": "use",
     "pretty": "local1",
-    "sym": "#local1",
+    "sym": "#M-local1",
     "context": ""
   },
   {
     "loc": "6:17-23",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property local2",
-    "sym": "#local2"
+    "syntax": "use,variable",
+    "pretty": "variable local2",
+    "sym": "#M-local2"
   },
   {
     "loc": "6:17-23",
     "target": 1,
     "kind": "use",
     "pretty": "local2",
-    "sym": "#local2",
+    "sym": "#M-local2",
     "context": ""
   },
   {
     "loc": "7:9-14",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property dummy",
-    "sym": "#dummy"
+    "syntax": "use,variable",
+    "pretty": "variable dummy",
+    "sym": "#M-dummy"
   },
   {
     "loc": "7:9-14",
     "target": 1,
     "kind": "use",
     "pretty": "dummy",
-    "sym": "#dummy",
+    "sym": "#M-dummy",
     "context": ""
   },
   {
     "loc": "8:9-14",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property dummy",
-    "sym": "#dummy"
+    "syntax": "use,variable",
+    "pretty": "variable dummy",
+    "sym": "#M-dummy"
   },
   {
     "loc": "8:9-14",
     "target": 1,
     "kind": "use",
     "pretty": "dummy",
-    "sym": "#dummy",
+    "sym": "#M-dummy",
     "context": ""
   },
   {
     "loc": "9:9-14",
     "source": 1,
-    "syntax": "use,prop",
-    "pretty": "property dummy",
-    "sym": "#dummy"
+    "syntax": "use,variable",
+    "pretty": "variable dummy",
+    "sym": "#M-dummy"
   },
   {
     "loc": "9:9-14",
     "target": 1,
     "kind": "use",
     "pretty": "dummy",
-    "sym": "#dummy",
+    "sym": "#M-dummy",
     "context": ""
   },
   {
