@@ -1195,6 +1195,30 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         }
       }
 
+      const findJSModuleGlobalDef = sym => {
+        for (const def of document.querySelectorAll(`.syn_def[data-symbols*="${sym}"`)) {
+          const syms = def.getAttribute("data-symbols").split(",");
+          if (syms.includes(sym)) {
+            return def;
+          }
+        }
+        return null;
+      };
+
+      const getLinenoFor = elem => {
+        const sourceline = elem.closest(`.source-line-with-number`);
+        if (!sourceline) {
+          return undefined;
+        }
+
+        const line = sourceline.querySelector(`.line-number`);
+        if (!line) {
+          return undefined;
+        }
+
+        return line.getAttribute("data-line-number");
+      };
+
       // ## First pass: Process symbols and potentially filter out implicit constructors
       //
       // In the future we can potentially use this pass to do more clever things,
@@ -1259,6 +1283,25 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           //       but given it has no explicit declaration, it's hard to point
           //       the right thing.
           return;
+        }
+
+        let isJSModuleGlobal = false;
+        if (sym.match(/^#M-.+$/)) {
+          isJSModuleGlobal = true;
+          if (!symInfo.jumps) {
+            // This is a JS module global, which has multiple definitions across
+            // files.
+            // Within single file, all consumers should point single definition.
+            const def = findJSModuleGlobalDef(sym);
+            if (def) {
+              const lineno = getLinenoFor(def);
+              const localPath = document.location.pathname
+                    .replace(/^\/[^\/]+\/source\//, "");
+              symInfo.jumps = {
+                def: `${localPath}#${lineno}`,
+              };
+            }
+          }
         }
 
         const confidence = confidences[index];
@@ -1698,17 +1741,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       };
 
       const addLocalJump = def => {
-        const sourceline = def.closest(`.source-line-with-number`);
-        if (!sourceline) {
+        const lineno = getLinenoFor(def);
+        if (!lineno) {
           return;
         }
-
-        const line = sourceline.querySelector(`.line-number`);
-        if (!line) {
-          return;
-        }
-
-        const lineno = line.getAttribute("data-line-number");
 
         jumpMenuItems.push(new GotoMenuItem({
           html: this.fmt("Go to definition of <strong>_</strong>",
