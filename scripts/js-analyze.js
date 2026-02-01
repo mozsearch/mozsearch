@@ -383,10 +383,15 @@ SymbolTable.prototype = {
   },
 };
 
-SymbolTable.Symbol = function(name, loc) {
+SymbolTable.Symbol = function(name, loc, isModuleGlobal) {
   this.name = name;
   this.loc = loc;
-  this.id = fileIndex + "-" + nextSymId++;
+  this.isModuleGlobal = isModuleGlobal;
+  if (this.isModuleGlobal) {
+    this.id = "#M-" + name;
+  } else {
+    this.id = fileIndex + "-" + nextSymId++;
+  }
   this.uses = [];
   this.skip = false;
 };
@@ -578,6 +583,9 @@ let Analyzer = {
   // with empty strings.
   _lines: [],
 
+  isModule: false,
+  isExport: false,
+
   resetState() {
     this.symbols = new SymbolTable();
     this.symbolTableStack = [];
@@ -650,6 +658,17 @@ let Analyzer = {
 
   isToplevel() {
     return this.symbolTableStack.length == 0;
+  },
+
+  isGlobalSymbolScope() {
+    if (this.isModule) {
+      return this.isToplevel() && this.isExport;
+    }
+    return this.isToplevel();
+  },
+
+  isModuleGlobalScope() {
+    return this.isModule && this.isToplevel();
   },
 
   /**
@@ -734,6 +753,7 @@ let Analyzer = {
       logError(`Unable to parse JS file ${filename}:${line}${maybeAttr} because ${e}: ${e.fileName}:${e.lineNumber}`);
       return null;
     }
+    this.isModule = gParsedAs === "module";
     return ast;
   },
 
@@ -842,15 +862,12 @@ let Analyzer = {
     if (!nameValid(name)) {
       return;
     }
-    if (this.isToplevel()) {
+    if (this.isGlobalSymbolScope()) {
       this.defProp(name, loc, undefined, undefined, maybeNesting);
       return;
     }
-    let sym = new SymbolTable.Symbol(name, loc);
-    this.symbols.put(name, sym);
 
-    this.source(loc, name, "deflocal,variable", `variable ${name}`, sym.id, true,
-                maybeNesting);
+    this.defLocal(name, loc, maybeNesting);
   },
 
   findSymbol(name) {
@@ -874,7 +891,7 @@ let Analyzer = {
     if (!sym) {
       this.useProp(name, loc);
     } else if (!sym.skip) {
-      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id, true);
+      this.useLocal(name, loc, sym);
     }
   },
 
@@ -886,7 +903,7 @@ let Analyzer = {
     if (!sym) {
       this.assignProp(name, loc);
     } else if (!sym.skip) {
-      this.source(loc, name, "uselocal,variable", `variable ${name}`, sym.id, true);
+      this.useLocal(name, loc, sym);
     }
   },
 
@@ -902,6 +919,44 @@ let Analyzer = {
       this.statement(f.body);
     } else {
       this.expression(f.body);
+    }
+  },
+
+  defLocal(name, loc, maybeNesting) {
+    let sym = new SymbolTable.Symbol(name, loc, this.isModuleGlobalScope());
+    this.symbols.put(name, sym);
+
+    let syntax, no_crossref;
+    if (sym.isModuleGlobal) {
+      syntax = "def";
+      no_crossref = false;
+    } else {
+      syntax = "deflocal";
+      no_crossref = true;
+    }
+
+    this.source(loc, name, syntax + ",variable", `variable ${name}`, sym.id,
+                no_crossref, maybeNesting);
+
+    if (sym.isModuleGlobal) {
+      this.target(loc, name, syntax, name, sym.id);
+    }
+  },
+
+  useLocal(name, loc, sym) {
+    let syntax, no_crossref;
+    if (sym.isModuleGlobal) {
+      syntax = "use";
+      no_crossref = false;
+    } else {
+      syntax = "uselocal";
+      no_crossref = true;
+    }
+    this.source(loc, name, syntax + ",variable", `variable ${name}`, sym.id,
+                no_crossref);
+
+    if (sym.isModuleGlobal) {
+      this.target(loc, name, syntax, name, sym.id);
     }
   },
 
@@ -1121,6 +1176,8 @@ let Analyzer = {
     }
 
     case "ExportDeclaration": {
+      this.isExport = true;
+
       if (stmt.declaration) {
         if (stmt.declaration.type === "FunctionDeclaration") {
           if (stmt.declaration.id) {
@@ -1174,6 +1231,8 @@ let Analyzer = {
           stmt.moduleRequest.source.type === "Literal") {
         this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source, true);
       }
+
+      this.isExport = false;
       break;
     }
 
