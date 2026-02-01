@@ -928,7 +928,6 @@ let Analyzer = {
     this.symbols.put(name, sym);
 
     if (sym.isAlias) {
-      this.useProp(name, loc);
       return;
     }
 
@@ -1254,8 +1253,66 @@ let Analyzer = {
     }
   },
 
+  // Returns true if the expression is either:
+  //   * ChromeUtils.importESModule(...)
+  //   * SpecialPowers.ChromeUtils.importESModule(...)
+  isChromeUtilsImportESModule(expr) {
+    if (expr.type !== "CallExpression") {
+      return false;
+    }
+
+    if (expr.callee.type !== "MemberExpression") {
+      return false;
+    }
+
+    const property = expr.callee.property;
+
+    if (property.type !== "Identifier" ||
+        property.name !== "importESModule") {
+      return false;
+    }
+
+    const object = expr.callee.object;
+
+    if (object.type === "Identifier" &&
+        object.name === "ChromeUtils") {
+      return true;
+    }
+
+    if (object.type === "MemberExpression" &&
+        object.object.type === "Identifier" &&
+        object.object.name === "SpecialPowers" &&
+        object.property.type === "Identifier" &&
+        object.property.name === "ChromeUtils") {
+      return true;
+    }
+
+    return false;
+  },
+
   variableDeclarator(decl) {
-    this.pattern(decl.id, false);
+    let rhsInfo = undefined;
+    if (decl.init && this.isChromeUtilsImportESModule(decl.init)) {
+      // This is the following code:
+      //   const ... = ChromeUtils.importESModule(...);
+      // If the LHS is an object destructuring, it can be an alias.
+      rhsInfo = {
+        isModuleNamespace: true,
+      };
+    }
+    if (decl.init && decl.init.type === "MemberExpression" &&
+        this.isChromeUtilsImportESModule(decl.init.object) &&
+        decl.init.property.type === "Identifier") {
+      // This is the following code:
+      //   const ... = ChromeUtils.importESModule(...).NAME;
+      // If the LHS is an identifier with NAME, it's an alias.
+      rhsInfo = {
+        isModuleExportedName: true,
+        name: decl.init.property.name,
+      };
+    }
+
+    this.pattern(decl.id, false, rhsInfo);
 
     let name = null;
     let oldNameForThis = this.nameForThis;
@@ -1570,13 +1627,21 @@ let Analyzer = {
     }
   },
 
-  pattern(pat, isAlias=false) {
+  pattern(pat, isAlias=false, rhsInfo=false) {
     if (!pat) {
       print(Error().stack);
     }
 
     switch (pat.type) {
     case "Identifier":
+      if (rhsInfo && rhsInfo.isModuleExportedName &&
+          rhsInfo.name === pat.name) {
+        // This is the following code:
+        //   const NAME = ChromeUtils.importESModule(...).NAME;
+        // Treat the NAME also as use.
+        isAlias = true;
+        this.useProp(pat.name, pat.loc);
+      }
       this.defVar(pat.name, pat.loc, isAlias);
       break;
 
@@ -1587,7 +1652,21 @@ let Analyzer = {
             this.useProp(prop.key.name, prop.key.loc);
           }
 
-          this.pattern(prop.value, false);
+          let isAlias = false;
+          if (rhsInfo &&
+              rhsInfo.isModuleNamespace &&
+              prop.key.type === "Identifier" &&
+              prop.value.type === "Identifier" &&
+              prop.key.name === prop.value.name) {
+            // This is the following code:
+            //   const { NAME } = ChromeUtils.importESModule(...);
+            // The following pattern(...) will create an alias symbol,
+            // without creating "def" record.
+            // The use record is created above.
+            isAlias = true;
+          }
+
+          this.pattern(prop.value, isAlias);
         } else if (prop.type == "SpreadExpression") {
           this.pattern(prop.expression, false);
         } else {
