@@ -5,6 +5,36 @@ input_file: inputs/analysis/js/import.mjs/imported_symbols_use__json
 ---
 [
   {
+    "loc": "3:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property exportedName1",
+    "sym": "#exportedName1"
+  },
+  {
+    "loc": "3:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "exportedName1",
+    "sym": "#exportedName1",
+    "context": ""
+  },
+  {
+    "loc": "3:24-37",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property exportedName2",
+    "sym": "#exportedName2"
+  },
+  {
+    "loc": "3:24-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "exportedName2",
+    "sym": "#exportedName2",
+    "context": ""
+  },
+  {
     "loc": "4:9-22",
     "source": 1,
     "syntax": "use,prop",
