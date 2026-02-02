@@ -197,3 +197,26 @@ add_task(async function test_TestModuleGlobals2() {
     }
   }
 });
+
+add_task(async function test_ModuleGlobalAndThenExport() {
+  const path = "/tests/source/js/export9.mjs";
+  await TestUtils.loadPath(path);
+
+  const call = frame.contentDocument.querySelector(`#line-3 [data-symbols]`);
+  TestUtils.click(call);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for symbol click");
+
+  const items = findMenuItemsForName(menu, "declaredAsLocalAndThenExported");
+  is(items.length, 3, `Context menu has expected items`);
+  is(items[0].getAttribute("href"), `${path}#1`,
+     `Go to definition should link to the module global.`);
+  is(items[1].getAttribute("href"), getSearchHref(`#M-declaredAsLocalAndThenExported`),
+     `The first search should be for the module global`);
+  ok(items[1].textContent.includes("module global"),
+     `The first search should be for the module global`);
+  is(items[2].getAttribute("href"), getSearchHref(`#declaredAsLocalAndThenExported`),
+     `The second search should be for the exported symbol`);
+  ok(!items[2].textContent.includes("module global"),
+     `The second search should be for the exported symbol`);
+});
