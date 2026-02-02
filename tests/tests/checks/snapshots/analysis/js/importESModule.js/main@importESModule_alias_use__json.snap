@@ -1,0 +1,277 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/importESModule.js/importESModule_alias_use__json
+---
+[
+  {
+    "loc": "1:8-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func1",
+    "sym": "#func1"
+  },
+  {
+    "loc": "1:8-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func1",
+    "sym": "#func1",
+    "context": ""
+  },
+  {
+    "loc": "2:8-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func2",
+    "sym": "#func2"
+  },
+  {
+    "loc": "2:8-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func2",
+    "sym": "#func2",
+    "context": ""
+  },
+  {
+    "loc": "3:6-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func3",
+    "sym": "#func3"
+  },
+  {
+    "loc": "3:6-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func3",
+    "sym": "#func3",
+    "context": ""
+  },
+  {
+    "loc": "3:70-75",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func3",
+    "sym": "#func3"
+  },
+  {
+    "loc": "3:70-75",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func3",
+    "sym": "#func3",
+    "context": ""
+  },
+  {
+    "loc": "4:71-76",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func4",
+    "sym": "#func4"
+  },
+  {
+    "loc": "4:71-76",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func4",
+    "sym": "#func4",
+    "context": ""
+  },
+  {
+    "loc": "6:8-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func5",
+    "sym": "#func5"
+  },
+  {
+    "loc": "6:8-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func5",
+    "sym": "#func5",
+    "context": ""
+  },
+  {
+    "loc": "7:8-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func6",
+    "sym": "#func6"
+  },
+  {
+    "loc": "7:8-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func6",
+    "sym": "#func6",
+    "context": ""
+  },
+  {
+    "loc": "8:6-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func7",
+    "sym": "#func7"
+  },
+  {
+    "loc": "8:6-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func7",
+    "sym": "#func7",
+    "context": ""
+  },
+  {
+    "loc": "8:84-89",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func7",
+    "sym": "#func7"
+  },
+  {
+    "loc": "8:84-89",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func7",
+    "sym": "#func7",
+    "context": ""
+  },
+  {
+    "loc": "9:85-90",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func8",
+    "sym": "#func8"
+  },
+  {
+    "loc": "9:85-90",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func8",
+    "sym": "#func8",
+    "context": ""
+  },
+  {
+    "loc": "12:2-7",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func1",
+    "sym": "#func1"
+  },
+  {
+    "loc": "12:2-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func1",
+    "sym": "#func1",
+    "context": ""
+  },
+  {
+    "loc": "13:2-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func2b",
+    "sym": "#func2b"
+  },
+  {
+    "loc": "13:2-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func2b",
+    "sym": "#func2b",
+    "context": ""
+  },
+  {
+    "loc": "14:2-7",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func3",
+    "sym": "#func3"
+  },
+  {
+    "loc": "14:2-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func3",
+    "sym": "#func3",
+    "context": ""
+  },
+  {
+    "loc": "15:2-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func4b",
+    "sym": "#func4b"
+  },
+  {
+    "loc": "15:2-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func4b",
+    "sym": "#func4b",
+    "context": ""
+  },
+  {
+    "loc": "16:2-7",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func5",
+    "sym": "#func5"
+  },
+  {
+    "loc": "16:2-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func5",
+    "sym": "#func5",
+    "context": ""
+  },
+  {
+    "loc": "17:2-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func6b",
+    "sym": "#func6b"
+  },
+  {
+    "loc": "17:2-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func6b",
+    "sym": "#func6b",
+    "context": ""
+  },
+  {
+    "loc": "18:2-7",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func7",
+    "sym": "#func7"
+  },
+  {
+    "loc": "18:2-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func7",
+    "sym": "#func7",
+    "context": ""
+  },
+  {
+    "loc": "19:2-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func8b",
+    "sym": "#func8b"
+  },
+  {
+    "loc": "19:2-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func8b",
+    "sym": "#func8b",
+    "context": ""
+  }
+]

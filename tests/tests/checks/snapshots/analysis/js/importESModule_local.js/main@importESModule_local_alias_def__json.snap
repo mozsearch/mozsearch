@@ -1,0 +1,6 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/importESModule_local.js/importESModule_local_alias_def__json
+---
+[]

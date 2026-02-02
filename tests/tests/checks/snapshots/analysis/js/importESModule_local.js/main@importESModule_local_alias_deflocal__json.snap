@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/importESModule_local.js/importESModule_local_alias_deflocal__json
+---
+[
+  {
+    "loc": "3:17-23",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable func2b",
+    "sym": "24-1",
+    "no_crossref": 1
+  },
+  {
+    "loc": "5:8-14",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable func4b",
+    "sym": "24-3",
+    "no_crossref": 1
+  }
+]
