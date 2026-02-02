@@ -1,0 +1,67 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/importESModule.js/importESModule_alias_def__json
+---
+[
+  {
+    "loc": "2:15-21",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property func2b",
+    "sym": "#func2b"
+  },
+  {
+    "loc": "2:15-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "func2b",
+    "sym": "#func2b",
+    "context": ""
+  },
+  {
+    "loc": "4:6-12",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property func4b",
+    "sym": "#func4b"
+  },
+  {
+    "loc": "4:6-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "func4b",
+    "sym": "#func4b",
+    "context": ""
+  },
+  {
+    "loc": "7:15-21",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property func6b",
+    "sym": "#func6b"
+  },
+  {
+    "loc": "7:15-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "func6b",
+    "sym": "#func6b",
+    "context": ""
+  },
+  {
+    "loc": "9:6-12",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property func8b",
+    "sym": "#func8b"
+  },
+  {
+    "loc": "9:6-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "func8b",
+    "sym": "#func8b",
+    "context": ""
+  }
+]

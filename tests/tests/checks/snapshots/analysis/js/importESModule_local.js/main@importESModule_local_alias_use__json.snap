@@ -1,0 +1,112 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/importESModule_local.js/importESModule_local_alias_use__json
+---
+[
+  {
+    "loc": "2:10-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func1",
+    "sym": "#func1"
+  },
+  {
+    "loc": "2:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func1",
+    "sym": "#func1",
+    "context": ""
+  },
+  {
+    "loc": "3:10-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func2",
+    "sym": "#func2"
+  },
+  {
+    "loc": "3:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func2",
+    "sym": "#func2",
+    "context": ""
+  },
+  {
+    "loc": "4:8-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func3",
+    "sym": "#func3"
+  },
+  {
+    "loc": "4:8-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func3",
+    "sym": "#func3",
+    "context": ""
+  },
+  {
+    "loc": "4:72-77",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func3",
+    "sym": "#func3"
+  },
+  {
+    "loc": "4:72-77",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func3",
+    "sym": "#func3",
+    "context": ""
+  },
+  {
+    "loc": "5:73-78",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func4",
+    "sym": "#func4"
+  },
+  {
+    "loc": "5:73-78",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func4",
+    "sym": "#func4",
+    "context": ""
+  },
+  {
+    "loc": "8:4-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func1",
+    "sym": "#func1"
+  },
+  {
+    "loc": "8:4-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func1",
+    "sym": "#func1",
+    "context": ""
+  },
+  {
+    "loc": "10:4-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property func3",
+    "sym": "#func3"
+  },
+  {
+    "loc": "10:4-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "func3",
+    "sym": "#func3",
+    "context": ""
+  }
+]
