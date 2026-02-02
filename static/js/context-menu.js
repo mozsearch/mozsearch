@@ -1232,6 +1232,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       let jsLocalSyms = [];
       let nonJSLocalSyms = [];
       let sawDef = false;
+      let hasModuleGlobalAndExported = false;
       symbols.forEach((sym, index) => {
         // Avoid processing the same symbol more than once.
         if (seenSyms.has(sym)) {
@@ -1302,7 +1303,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         if (symInfo?.jumps?.idl === sourceLineClicked ||
             symInfo?.jumps?.def === sourceLineClicked ) {
-          if (!sawDef) {
+          if (sym.startsWith("#") &&
+              filteredSymTuples.length == 1 &&
+              filteredSymTuples[0][0] == "#M-" + sym.slice(1)) {
+            hasModuleGlobalAndExported = true;
+          }
+          if (!sawDef && !hasModuleGlobalAndExported) {
             // Transition to "kick out the implicit constructors" mode.
             sawDef = true;
             filteredSymTuples = [];
@@ -1498,6 +1504,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               def: symInfo?.jumps?.def,
             });
           }
+        } else if (hasModuleGlobalAndExported && sym.startsWith("#M-")) {
+          jumpify(symInfo, symInfo.pretty);
+          searches.push({
+            label: "module global " + symInfo.pretty,
+            syms: [sym],
+            def: symInfo?.jumps?.def,
+          });
         } else {
           jumpify(symInfo, symInfo.pretty);
           searches.push({
