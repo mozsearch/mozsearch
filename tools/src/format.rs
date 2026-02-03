@@ -693,6 +693,25 @@ pub fn format_file_data(
 
     output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
+    let coverage_navigation = commit
+        .as_ref()
+        .and_then(|commit| {
+            git_ops::coverage_navigation(tree_config.git.as_ref(), path, commit.id())
+        })
+        .unwrap_or_default();
+
+    write!(writer, r#"<span id="coverage-navigation""#).unwrap();
+    if let Some(prev) = coverage_navigation.previous {
+        write!(writer, r#" data-previous="{prev}""#).unwrap();
+    }
+    if let Some(next) = coverage_navigation.next {
+        write!(writer, r#" data-next="{next}""#).unwrap();
+    }
+    if let Some(latest) = coverage_navigation.latest {
+        write!(writer, r#" data-latest="{latest}""#).unwrap();
+    }
+    write!(writer, r#"></span>"#).unwrap();
+
     output::generate_panel(&opt, writer, panel, false)?;
 
     let info_boxes_container = F::Seq(vec![

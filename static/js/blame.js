@@ -190,25 +190,42 @@ var BlamePopup = new (class BlamePopup {
   }
 
   async generateCoverageContent(elt) {
-    let content;
+    let content = `<div class="coverage-entry">`;
 
     if (elt.classList.contains("cov-no-data")) {
-      content = `<div>There is no coverage data for this file.</div>`;
+      content = `There is no coverage data for this file.`;
     } else if (elt.classList.contains("cov-unknown")) {
-      content = `<div>There was coverage data for this file but not for this line.</div>`;
+      content = `There was coverage data for this file but not for this line.`;
     } else if (elt.classList.contains("cov-interpolated")) {
       content =
-        `<div>This line wasn't instrumented for coverage, but we ` +
+        `This line wasn't instrumented for coverage, but we ` +
         `interpolated coverage for this line to make it visually less ` +
-        `distracting.</div>`;
+        `distracting.`;
     } else if (elt.classList.contains("cov-uncovered")) {
-      content = `<div>This line wasn't instrumented for coverage.</div>`;
+      content = `This line wasn't instrumented for coverage.`;
     } else {
       const hitCount = parseInt(elt.dataset.coverage, 10);
       content =
-        `<div>This line was hit ${hitCount} times per coverage ` +
-        `instrumentation.<div>`;
+        `This line was hit ${hitCount} times per coverage ` +
+        `instrumentation.`;
     }
+
+    const makeLink = (revision) =>  {
+      const data = document.getElementById("data");
+      const path = data.dataset.path;
+      const tree = data.dataset.tree;
+      return `/${tree}/rev/${revision}/${path}`;
+    };
+
+    const data = document.getElementById("coverage-navigation").dataset;
+    if ("previous" in data)
+      content += `<br><a href="${makeLink(data.previous)}">Show previous file revision with coverage</a>`;
+    if ("next" in data)
+      content += `<br><a href="${makeLink(data.next)}">Show next file revision with coverage</a>`;
+    if ("latest" in data)
+      content += `<br><a href="${makeLink(data.latest)}">Show latest file revision with coverage</a>`;
+
+    content += `</div>`;
 
     return content;
   }
