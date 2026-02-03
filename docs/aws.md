@@ -674,3 +674,19 @@ web-server instance, except for the following:
   * Reuse the `/index` volume in `INDEX_VOLUME_ID` (`vol-***`)
   * Forcibly detach the volume from the already-attached instances
   * Do not perform automatic check for the server statup.  Please follow the message and manually perform it
+
+## Backup the repository tarball in Amazon S3 bucket
+
+The repository tarballs are stored in the Amazon S3 bucket `searchfox.repositories`.
+We have a backup of them inside `backups/` directory there, and the backups are currently manually updated when necessary.
+
+`infrastructure/aws/backup.sh` receives the tarball filename and it creates the backup, overwriting the old backup.
+(There's no script for the restoration right now, but it can be created from the `backup.sh` script)
+
+The following creates backups for the firefox-shared tarballs.
+
+```
+infrastructure/aws/backup.sh firefox-shared-blame.tar.lz4
+infrastructure/aws/backup.sh firefox-shared-git.tar.lz4
+infrastructure/aws/backup.sh firefox-shared-oldgit.tar.lz4
+```
