@@ -828,20 +828,21 @@ pub fn format_file_data(
                 }
             )),
             F::Indent(vec![
-                // Coverage Info. Its contents go in a div nested inside the
-                // "cell" role div because in order to make the hover UI
-                // accessible we expose it as a role=button which needs its own
-                // element.
-                F::T(format!(
-                    "<div role=\"cell\"><div{}></div></div>",
-                    coverage_data
-                )),
-                // Blame info.  Contents are nested for the exact same reason as
-                // the coverage info (role=button needs its own div).
-                F::T(format!(
-                    "<div role=\"cell\"><div{}></div></div>",
-                    blame_data
-                )),
+                // Coverage and Blame data strip.
+                F::S(r#"<div class="line-strip">"#),
+                F::Indent(vec![
+                    // Coverage Info. Its contents go in a div nested inside the
+                    // "cell" role div because in order to make the hover UI
+                    // accessible we expose it as a role=button which needs its own
+                    // element.
+                    F::T(format!(
+                        r#"<div role="cell"><div{coverage_data}></div></div>"#
+                    )),
+                    // Blame info.  Contents are nested for the exact same reason as
+                    // the coverage info (role=button needs its own div).
+                    F::T(format!(r#"<div role="cell"><div{blame_data}></div></div>"#)),
+                ]),
+                F::S("</div>"),
                 // The line number.
                 F::T(format!(
                     "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",

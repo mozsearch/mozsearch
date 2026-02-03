@@ -1,10 +1,13 @@
 ---
 source: src/bin/test-index.rs
 expression: "&aggr_str"
+input_file: inputs/analysis/rust/test_rust_dependency/MyType__html
 ---
 <div role="row" id="line-NORM" class="source-line-with-number nesting-sticky-line">
-  <div role="cell"><div class="cov-strip cov-no-data"></div></div>
-  <div role="cell"><div class="blame-strip" data-blame="BLAME" role="button" aria-expanded="false"></div></div>
+  <div class="line-strip">
+    <div role="cell"><div class="cov-strip cov-no-data"></div></div>
+    <div role="cell"><div class="blame-strip" data-blame="BLAME" role="button" aria-expanded="false"></div></div>
+  </div>
   <div role="cell" class="line-number" data-line-number="NORM"></div>
   <code role="cell" class="source-line">    <span class="syn_reserved" >pub</span> <span class="syn_reserved" >fn</span> <span class="syn_def" data-symbols="S_rs_impl#[MyType]do_foo()." data-confidences="[&quot;concrete&quot;]">do_foo</span>(<span class="syn_def" data-symbols="S_rs_test_rust_dependency/src/lib.rs/#0" data-confidences="[&quot;concrete&quot;]">self</span>) -> <span data-symbols="S_rs_MyType#" data-confidences="[&quot;concrete&quot;]">MyType</span> {
 </code>
