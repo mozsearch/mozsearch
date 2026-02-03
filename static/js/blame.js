@@ -74,8 +74,6 @@ var BlamePopup = new (class BlamePopup {
       return;
     }
 
-    // Latch the current element in case by the time our fetch comes back it's
-    // no longer the current one.
     const elt = this.triggerElement;
     let content;
 
@@ -99,7 +97,6 @@ var BlamePopup = new (class BlamePopup {
     }
 
     const isExpansion = typeof elt.dataset.expansions !== 'undefined' && elt.dataset.expansions !== null;
-    const isAnnotate = !!elt.dataset.blame;
     if (isExpansion) {
       content = await this.generateExpansionContent(elt);
       let rect = elt.getBoundingClientRect();
@@ -122,25 +119,18 @@ var BlamePopup = new (class BlamePopup {
       top = rect.bottom + window.scrollY;
       left = rect.left + window.scrollX;
     } else {
-      // The coverage and annotate strips are adjacent and it would be bad UX for
-      // hovering over the coverage strip to occlude the annotate strip, so we
-      // adjust the coverage elements to use the annotate element for positioning.
-      let hoverRightOfElt;
+      // this.triggerElement can be the .cov-strip or .blame-strip element.
+      // Get their parent .line-strip and find the other one.
+      const lineElt = this.triggerElement.closest(".line-strip");
+      const covElt = lineElt.querySelector(".cov-strip");
+      const blameElt = lineElt.querySelector(".blame-strip");
 
-      if (isAnnotate) {
-        content = await this.generateAnnotateContent(elt);
-        hoverRightOfElt = elt;
-      } else {
-        content = await this.generateCoverageContent(elt);
-        // This obviously assumes the known hard-coded DOM from `format.rs`.
-        hoverRightOfElt = elt.parentElement.nextElementSibling?.firstElementChild;
-      }
+      content = "";
+      content += await this.generateCoverageContent(covElt);
+      content += "<hr>";
+      content += await this.generateAnnotateContent(blameElt);
 
-      if (!hoverRightOfElt) {
-        return;
-      }
-
-      let rect = hoverRightOfElt.getBoundingClientRect();
+      let rect = lineElt.getBoundingClientRect();
       top = rect.top + window.scrollY;
       left = rect.right + window.scrollX;
     }
@@ -170,11 +160,7 @@ var BlamePopup = new (class BlamePopup {
     }
 
     if (!isExpansion && !isGC) {
-      if (isAnnotate) {
-        this.hideCoverageStripDetails();
-      } else {
-        this.showCoverageStripDetails();
-      }
+      this.showCoverageStripDetails();
     }
   }
 
@@ -235,6 +221,10 @@ var BlamePopup = new (class BlamePopup {
     const path = data.getAttribute("data-path");
     const tree = data.getAttribute("data-tree");
 
+    // Latch the current element in case by the time our fetch comes back it's
+    // no longer the current one.
+    const triggerElement = this.triggerElement;
+
     if (this.prevRevs != revs) {
       let response = await fetch(`/${tree}/commit-info/${revs}`);
       this.prevJson = await response.json();
@@ -243,7 +233,7 @@ var BlamePopup = new (class BlamePopup {
 
     // If the request was too slow, we may no longer want to display blame for
     // this element, bail.
-    if (this.triggerElement != elt) {
+    if (this.triggerElement != triggerElement) {
       return;
     }
 
