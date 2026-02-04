@@ -1068,6 +1068,16 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
+    // Diagram toggle does not need context menu.
+    if (event.target.closest("#diagram-panel-toggle")) {
+      return;
+    }
+
+    // Breadcrumbs itself doesn't need context menu.
+    if (event.target?.classList.contains("breadcrumbs")) {
+      return;
+    }
+
     // The click (especially, keyboard-initiated click) inside
     // a context menu shouldn't be handled here.
     if (event.target.closest(".context-menu")) {
