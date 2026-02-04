@@ -81,7 +81,12 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
 
   // Test breadcrumbs.
   {
-    const links = frame.contentDocument.querySelectorAll(".breadcrumbs a");
+    function getBreadcrumbsLinks() {
+      return frame.contentDocument.querySelectorAll(`.breadcrumbs a`);
+    }
+    await waitForCondition(() => getBreadcrumbsLinks().length > 0);
+
+    const links = getBreadcrumbsLinks();
 
     is(links.length, 6);
     is(links[5].getAttribute("href"),
