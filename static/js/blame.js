@@ -145,8 +145,10 @@ var BlamePopup = new (class BlamePopup {
     // This also works, but transform doesn't even require layout.
     // this.popup.style.left = left + "px";
     // this.popup.style.top = top + "px";
-    this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     this.popup.innerHTML = content;
+    const blameContent = this.popup.querySelector(".blame-entry");
+    top -= blameContent ? blameContent.offsetTop : 0;
+    this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     this.popupOwner = this.triggerElement;
     // We set aria-owns on the parent role=cell instead of the button.
     this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
