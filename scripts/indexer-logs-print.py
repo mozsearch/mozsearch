@@ -17,7 +17,7 @@ class IndexerLogStdinPrinter:
 
     def consume(self, fp):
         for line in fp.readlines():
-            m = re.match('Performing (.+) step for (.+) : (.+)', line)
+            m = re.match('(?:.+:)?Performing (.+) step for (.+) : (.+)', line)
             if m is None:
                 continue
 
