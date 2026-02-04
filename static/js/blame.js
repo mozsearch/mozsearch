@@ -12,8 +12,8 @@ var BlamePopup = new (class BlamePopup {
     this.popup.style.display = "none";
     document.body.appendChild(this.popup);
 
-    // The .blame-strip element for which blame is currently being displayed.
-    this._blameElement = null;
+    // The .cov-strip, .blame-strip, macro or gc button for which the popup is currently being displayed.
+    this._triggerElement = null;
     this._expansionIndex = null;
 
     // The previous blame element for which we have already shown the popup.
@@ -24,7 +24,7 @@ var BlamePopup = new (class BlamePopup {
     // A very simply MRU cache of size 1.  We don't issue an XHR if we already
     // have the data.  This is important for the case where the user is moving
     // their mouse along the same contiguous run of blame data.  In that case,
-    // the `blameElement` changes, but the `revs` stays the same.
+    // the `triggerElement` changes, but the `revs` stays the same.
     this.prevRevs = null;
     this.prevJson = null;
 
@@ -66,17 +66,17 @@ var BlamePopup = new (class BlamePopup {
   }
 
   // Asynchronously initiates lookup and display of the blame data for the current
-  // `blameElement`. The popup is added as a child of the blameElt in the DOM.
+  // `triggerElement`. The popup is added as a child of the blameElt in the DOM.
   async update() {
     // If there's no current element, just bail.
-    if (!this.blameElement) {
+    if (!this.triggerElement) {
       this.hide();
       return;
     }
 
     // Latch the current element in case by the time our fetch comes back it's
     // no longer the current one.
-    const elt = this.blameElement;
+    const elt = this.triggerElement;
     let content;
 
     let top;
@@ -145,8 +145,8 @@ var BlamePopup = new (class BlamePopup {
       left = rect.right + window.scrollX;
     }
 
-    // If no content was returned or the blame element has changed, bail.
-    if (!content || this.blameElement != elt) {
+    // If no content was returned or the trigger element has changed, bail.
+    if (!content || this.triggerElement != elt) {
       return;
     }
 
@@ -157,7 +157,7 @@ var BlamePopup = new (class BlamePopup {
     // this.popup.style.top = top + "px";
     this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     this.popup.innerHTML = content;
-    this.popupOwner = this.blameElement;
+    this.popupOwner = this.triggerElement;
     // We set aria-owns on the parent role=cell instead of the button.
     this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
     this.popupOwner.setAttribute("aria-expanded", "true");
@@ -243,7 +243,7 @@ var BlamePopup = new (class BlamePopup {
 
     // If the request was too slow, we may no longer want to display blame for
     // this element, bail.
-    if (this.blameElement != elt) {
+    if (this.triggerElement != elt) {
       return;
     }
 
@@ -321,15 +321,15 @@ var BlamePopup = new (class BlamePopup {
     return content;
   }
 
-  get blameElement() {
-    return this._blameElement;
+  get triggerElement() {
+    return this._triggerElement;
   }
 
-  set blameElement(newElement) {
-    if (this.blameElement == newElement) {
+  set triggerElement(newElement) {
+    if (this.triggerElement == newElement) {
       return;
     }
-    this._blameElement = newElement;
+    this._triggerElement = newElement;
     this.update();
   }
 
@@ -398,7 +398,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
           event.touches[0].clientX,
           event.touches[0].clientY
         );
-        BlamePopup.blameElement = this.isStripElement(elementUnderTouch)
+        BlamePopup.triggerElement = this.isStripElement(elementUnderTouch)
           ? elementUnderTouch
           : null;
       }
@@ -419,7 +419,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
 
     let clickedOutsideBlameStrip =
       event.type == "click" && !this.isStripElement(event.target);
-    if (clickedOutsideBlameStrip && !BlamePopup.blameElement) {
+    if (clickedOutsideBlameStrip && !BlamePopup.triggerElement) {
       // Don't care about clicks outside the blame strip if there's no popup showing.
       return;
     }
@@ -446,7 +446,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
         if (this.mouseElement) {
           return;
         } // Mouse moved somewhere else inside the strip.
-        BlamePopup.blameElement = null;
+        BlamePopup.triggerElement = null;
       }, 100);
     } else {
       // We run this code on either "mouseenter", or on a "click" event where
@@ -468,13 +468,13 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       if (isClick && this.mouseElement === event.target) {
         this.keepVisible = false;
         this.mouseElement = null;
-        BlamePopup.blameElement = null;
+        BlamePopup.triggerElement = null;
         return;
       }
       this.keepVisible = isClick;
       this.mouseElement = event.target;
       if (this.mouseElement != BlamePopup.popup) {
-        BlamePopup.blameElement = this.mouseElement;
+        BlamePopup.triggerElement = this.mouseElement;
       }
     }
   }
