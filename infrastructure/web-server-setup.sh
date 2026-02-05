@@ -64,7 +64,11 @@ do
 done
 
 rm -f $DOCROOT/tree-list.js
-ln -s $CONFIG_REPO/tree-list.js $DOCROOT
+if [[ -f $CONFIG_REPO/build-tree-list ]]; then
+    $CONFIG_REPO/build-tree-list $CONFIG_REPO $DOCROOT/tree-list.js
+else
+    ln -s $CONFIG_REPO/tree-list.js $DOCROOT
+fi
 
 # ### Create and emplace the nginx configuration file
 $MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > "$NGINX_CONFIG_PATH"

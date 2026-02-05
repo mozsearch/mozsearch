@@ -67,7 +67,7 @@ impl PipelineCommand for RenderCommand {
                 let template = build_and_parse_help_index();
 
                 let content_path =
-                    server.translate_path(SearchfoxIndexRoot::ConfigRepo, "help.html")?;
+                    server.translate_path(SearchfoxIndexRoot::IndexTemplates, "help-input.html")?;
                 let content = std::fs::read_to_string(content_path)?;
 
                 let liquid_globals = liquid::object!({
