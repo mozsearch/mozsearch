@@ -77,6 +77,12 @@ SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
     searchfox-tool "$TOOL_CMD"
 
+if [[ -f $CONFIG_REPO/build-help ]]; then
+    $CONFIG_REPO/build-help $CONFIG_REPO $INDEX_ROOT/templates/help-input.html
+else
+    cp $CONFIG_REPO/help.html $INDEX_ROOT/templates/help-input.html
+fi
+
 TOOL_CMD="render help"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
