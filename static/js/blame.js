@@ -12,8 +12,8 @@ var BlamePopup = new (class BlamePopup {
     this.popup.style.display = "none";
     document.body.appendChild(this.popup);
 
-    // The .blame-strip element for which blame is currently being displayed.
-    this._blameElement = null;
+    // The .cov-strip, .blame-strip, macro or gc button for which the popup is currently being displayed.
+    this._triggerElement = null;
     this._expansionIndex = null;
 
     // The previous blame element for which we have already shown the popup.
@@ -24,7 +24,7 @@ var BlamePopup = new (class BlamePopup {
     // A very simply MRU cache of size 1.  We don't issue an XHR if we already
     // have the data.  This is important for the case where the user is moving
     // their mouse along the same contiguous run of blame data.  In that case,
-    // the `blameElement` changes, but the `revs` stays the same.
+    // the `triggerElement` changes, but the `revs` stays the same.
     this.prevRevs = null;
     this.prevJson = null;
 
@@ -66,17 +66,15 @@ var BlamePopup = new (class BlamePopup {
   }
 
   // Asynchronously initiates lookup and display of the blame data for the current
-  // `blameElement`. The popup is added as a child of the blameElt in the DOM.
+  // `triggerElement`. The popup is added as a child of the blameElt in the DOM.
   async update() {
     // If there's no current element, just bail.
-    if (!this.blameElement) {
+    if (!this.triggerElement) {
       this.hide();
       return;
     }
 
-    // Latch the current element in case by the time our fetch comes back it's
-    // no longer the current one.
-    const elt = this.blameElement;
+    const elt = this.triggerElement;
     let content;
 
     let top;
@@ -99,7 +97,6 @@ var BlamePopup = new (class BlamePopup {
     }
 
     const isExpansion = typeof elt.dataset.expansions !== 'undefined' && elt.dataset.expansions !== null;
-    const isAnnotate = !!elt.dataset.blame;
     if (isExpansion) {
       content = await this.generateExpansionContent(elt);
       let rect = elt.getBoundingClientRect();
@@ -122,31 +119,24 @@ var BlamePopup = new (class BlamePopup {
       top = rect.bottom + window.scrollY;
       left = rect.left + window.scrollX;
     } else {
-      // The coverage and annotate strips are adjacent and it would be bad UX for
-      // hovering over the coverage strip to occlude the annotate strip, so we
-      // adjust the coverage elements to use the annotate element for positioning.
-      let hoverRightOfElt;
+      // this.triggerElement can be the .cov-strip or .blame-strip element.
+      // Get their parent .line-strip and find the other one.
+      const lineElt = this.triggerElement.closest(".line-strip");
+      const covElt = lineElt.querySelector(".cov-strip");
+      const blameElt = lineElt.querySelector(".blame-strip");
 
-      if (isAnnotate) {
-        content = await this.generateAnnotateContent(elt);
-        hoverRightOfElt = elt;
-      } else {
-        content = await this.generateCoverageContent(elt);
-        // This obviously assumes the known hard-coded DOM from `format.rs`.
-        hoverRightOfElt = elt.parentElement.nextElementSibling?.firstElementChild;
-      }
+      content = "";
+      content += await this.generateCoverageContent(covElt);
+      content += "<hr>";
+      content += await this.generateAnnotateContent(blameElt);
 
-      if (!hoverRightOfElt) {
-        return;
-      }
-
-      let rect = hoverRightOfElt.getBoundingClientRect();
+      let rect = lineElt.getBoundingClientRect();
       top = rect.top + window.scrollY;
       left = rect.right + window.scrollX;
     }
 
-    // If no content was returned or the blame element has changed, bail.
-    if (!content || this.blameElement != elt) {
+    // If no content was returned or the trigger element has changed, bail.
+    if (!content || this.triggerElement != elt) {
       return;
     }
 
@@ -155,9 +145,11 @@ var BlamePopup = new (class BlamePopup {
     // This also works, but transform doesn't even require layout.
     // this.popup.style.left = left + "px";
     // this.popup.style.top = top + "px";
-    this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
     this.popup.innerHTML = content;
-    this.popupOwner = this.blameElement;
+    const blameContent = this.popup.querySelector(".blame-entry");
+    top -= blameContent ? blameContent.offsetTop : 0;
+    this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
+    this.popupOwner = this.triggerElement;
     // We set aria-owns on the parent role=cell instead of the button.
     this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
     this.popupOwner.setAttribute("aria-expanded", "true");
@@ -170,11 +162,7 @@ var BlamePopup = new (class BlamePopup {
     }
 
     if (!isExpansion && !isGC) {
-      if (isAnnotate) {
-        this.hideCoverageStripDetails();
-      } else {
-        this.showCoverageStripDetails();
-      }
+      this.showCoverageStripDetails();
     }
   }
 
@@ -204,25 +192,42 @@ var BlamePopup = new (class BlamePopup {
   }
 
   async generateCoverageContent(elt) {
-    let content;
+    let content = `<div class="coverage-entry">`;
 
     if (elt.classList.contains("cov-no-data")) {
-      content = `<div>There is no coverage data for this file.</div>`;
+      content = `There is no coverage data for this file.`;
     } else if (elt.classList.contains("cov-unknown")) {
-      content = `<div>There was coverage data for this file but not for this line.</div>`;
+      content = `There was coverage data for this file but not for this line.`;
     } else if (elt.classList.contains("cov-interpolated")) {
       content =
-        `<div>This line wasn't instrumented for coverage, but we ` +
+        `This line wasn't instrumented for coverage, but we ` +
         `interpolated coverage for this line to make it visually less ` +
-        `distracting.</div>`;
+        `distracting.`;
     } else if (elt.classList.contains("cov-uncovered")) {
-      content = `<div>This line wasn't instrumented for coverage.</div>`;
+      content = `This line wasn't instrumented for coverage.`;
     } else {
       const hitCount = parseInt(elt.dataset.coverage, 10);
       content =
-        `<div>This line was hit ${hitCount} times per coverage ` +
-        `instrumentation.<div>`;
+        `This line was hit ${hitCount} times per coverage ` +
+        `instrumentation.`;
     }
+
+    const makeLink = (revision) =>  {
+      const data = document.getElementById("data");
+      const path = data.dataset.path;
+      const tree = data.dataset.tree;
+      return `/${tree}/rev/${revision}/${path}`;
+    };
+
+    const data = document.getElementById("coverage-navigation").dataset;
+    if ("previous" in data)
+      content += `<br><a href="${makeLink(data.previous)}">Show previous file revision with coverage</a>`;
+    if ("next" in data)
+      content += `<br><a href="${makeLink(data.next)}">Show next file revision with coverage</a>`;
+    if ("latest" in data)
+      content += `<br><a href="${makeLink(data.latest)}">Show latest file revision with coverage</a>`;
+
+    content += `</div>`;
 
     return content;
   }
@@ -235,6 +240,10 @@ var BlamePopup = new (class BlamePopup {
     const path = data.getAttribute("data-path");
     const tree = data.getAttribute("data-tree");
 
+    // Latch the current element in case by the time our fetch comes back it's
+    // no longer the current one.
+    const triggerElement = this.triggerElement;
+
     if (this.prevRevs != revs) {
       let response = await fetch(`/${tree}/commit-info/${revs}`);
       this.prevJson = await response.json();
@@ -243,7 +252,7 @@ var BlamePopup = new (class BlamePopup {
 
     // If the request was too slow, we may no longer want to display blame for
     // this element, bail.
-    if (this.blameElement != elt) {
+    if (this.triggerElement != triggerElement) {
       return;
     }
 
@@ -321,15 +330,15 @@ var BlamePopup = new (class BlamePopup {
     return content;
   }
 
-  get blameElement() {
-    return this._blameElement;
+  get triggerElement() {
+    return this._triggerElement;
   }
 
-  set blameElement(newElement) {
-    if (this.blameElement == newElement) {
+  set triggerElement(newElement) {
+    if (this.triggerElement == newElement) {
       return;
     }
-    this._blameElement = newElement;
+    this._triggerElement = newElement;
     this.update();
   }
 
@@ -398,7 +407,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
           event.touches[0].clientX,
           event.touches[0].clientY
         );
-        BlamePopup.blameElement = this.isStripElement(elementUnderTouch)
+        BlamePopup.triggerElement = this.isStripElement(elementUnderTouch)
           ? elementUnderTouch
           : null;
       }
@@ -419,7 +428,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
 
     let clickedOutsideBlameStrip =
       event.type == "click" && !this.isStripElement(event.target);
-    if (clickedOutsideBlameStrip && !BlamePopup.blameElement) {
+    if (clickedOutsideBlameStrip && !BlamePopup.triggerElement) {
       // Don't care about clicks outside the blame strip if there's no popup showing.
       return;
     }
@@ -446,7 +455,7 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
         if (this.mouseElement) {
           return;
         } // Mouse moved somewhere else inside the strip.
-        BlamePopup.blameElement = null;
+        BlamePopup.triggerElement = null;
       }, 100);
     } else {
       // We run this code on either "mouseenter", or on a "click" event where
@@ -468,13 +477,13 @@ var BlameStripHoverHandler = new (class BlameStripHoverHandler {
       if (isClick && this.mouseElement === event.target) {
         this.keepVisible = false;
         this.mouseElement = null;
-        BlamePopup.blameElement = null;
+        BlamePopup.triggerElement = null;
         return;
       }
       this.keepVisible = isClick;
       this.mouseElement = event.target;
       if (this.mouseElement != BlamePopup.popup) {
-        BlamePopup.blameElement = this.mouseElement;
+        BlamePopup.triggerElement = this.mouseElement;
       }
     }
   }

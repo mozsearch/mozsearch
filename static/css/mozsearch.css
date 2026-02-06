@@ -1115,6 +1115,9 @@ span[data-symbols].selected {
 }
 
 /* ## Blame ## */
+.line-strip {
+  display: flex;
+}
 .blame-strip {
   display: block;
   width: 20px;

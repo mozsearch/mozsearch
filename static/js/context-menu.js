@@ -1400,7 +1400,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
                   action: () => {
                     this.hide();
                     BlamePopup.expansionIndex = [key, platform, jumpref];
-                    BlamePopup.blameElement = expansionToken;
+                    BlamePopup.triggerElement = expansionToken;
                     BlameStripHoverHandler.keepVisible = true;
                   },
                   confidence,
@@ -1722,7 +1722,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               icon: "recycle",
               action: () => {
                 this.hide();
-                BlamePopup.blameElement = symbolToken;
+                BlamePopup.triggerElement = symbolToken;
                 BlameStripHoverHandler.keepVisible = true;
               },
             }));
@@ -1814,7 +1814,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           action: () => {
             this.hide();
             BlamePopup.expansionIndex = [key, platform];
-            BlamePopup.blameElement = expansionToken;
+            BlamePopup.triggerElement = expansionToken;
             BlameStripHoverHandler.keepVisible = true;
           },
         }));

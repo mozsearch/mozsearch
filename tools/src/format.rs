@@ -687,6 +687,25 @@ pub fn format_file_data(
 
     output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
+    let coverage_navigation = commit
+        .as_ref()
+        .and_then(|commit| {
+            git_ops::coverage_navigation(tree_config.git.as_ref(), path, commit.id())
+        })
+        .unwrap_or_default();
+
+    write!(writer, r#"<span id="coverage-navigation""#).unwrap();
+    if let Some(prev) = coverage_navigation.previous {
+        write!(writer, r#" data-previous="{prev}""#).unwrap();
+    }
+    if let Some(next) = coverage_navigation.next {
+        write!(writer, r#" data-next="{next}""#).unwrap();
+    }
+    if let Some(latest) = coverage_navigation.latest {
+        write!(writer, r#" data-latest="{latest}""#).unwrap();
+    }
+    write!(writer, r#"></span>"#).unwrap();
+
     output::generate_panel(&opt, writer, panel, false)?;
 
     let info_boxes_container = F::Seq(vec![
@@ -822,20 +841,21 @@ pub fn format_file_data(
                 }
             )),
             F::Indent(vec![
-                // Coverage Info. Its contents go in a div nested inside the
-                // "cell" role div because in order to make the hover UI
-                // accessible we expose it as a role=button which needs its own
-                // element.
-                F::T(format!(
-                    "<div role=\"cell\"><div{}></div></div>",
-                    coverage_data
-                )),
-                // Blame info.  Contents are nested for the exact same reason as
-                // the coverage info (role=button needs its own div).
-                F::T(format!(
-                    "<div role=\"cell\"><div{}></div></div>",
-                    blame_data
-                )),
+                // Coverage and Blame data strip.
+                F::S(r#"<div class="line-strip">"#),
+                F::Indent(vec![
+                    // Coverage Info. Its contents go in a div nested inside the
+                    // "cell" role div because in order to make the hover UI
+                    // accessible we expose it as a role=button which needs its own
+                    // element.
+                    F::T(format!(
+                        r#"<div role="cell"><div{coverage_data}></div></div>"#
+                    )),
+                    // Blame info.  Contents are nested for the exact same reason as
+                    // the coverage info (role=button needs its own div).
+                    F::T(format!(r#"<div role="cell"><div{blame_data}></div></div>"#)),
+                ]),
+                F::S("</div>"),
                 // The line number.
                 F::T(format!(
                     "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",

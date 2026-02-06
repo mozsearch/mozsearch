@@ -614,7 +614,8 @@ impl RepoIngestion {
                 pfi.path_kind = use_path_kind;
                 pfi.description = description;
                 pfi.file_size = file_size;
-                pfi.coverage = coverage_summary_for_head(tree_config.git.as_ref(), file_path);
+                pfi.coverage =
+                    coverage_summary_for_head(tree_config.git.as_ref(), file_path.as_str());
             });
         }
     }
@@ -622,7 +623,8 @@ impl RepoIngestion {
     pub fn ingest_dir_list(&mut self, dirs: &Vec<Ustr>, tree_config: &TreeConfig) {
         for dir_path in dirs {
             self.state.with_file_info(dir_path, true, |cfi, _dfi| {
-                cfi.coverage = coverage_summary_for_head(tree_config.git.as_ref(), dir_path);
+                cfi.coverage =
+                    coverage_summary_for_head(tree_config.git.as_ref(), dir_path.as_str());
             });
         }
     }
