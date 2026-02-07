@@ -81,5 +81,71 @@ input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_Project
     "confidence": [
       "cppTemplateHeuristic"
     ]
+  },
+  {
+    "loc": "00019:7-14",
+    "structured": 1,
+    "pretty": "Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__E",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "parentsym": "T_Foo",
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ],
+    "variants": [],
+    "args": [
+      {
+        "name": "",
+        "type": "Point<F>"
+      }
+    ]
+  },
+  {
+    "loc": "00022:7-14",
+    "structured": 1,
+    "pretty": "Foo::Project",
+    "sym": "_ZN3Foo7ProjectE5PointITL0__ES2_",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "parentsym": "T_Foo",
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ],
+    "variants": [],
+    "args": [
+      {
+        "name": "",
+        "type": "Point<F>"
+      },
+      {
+        "name": "",
+        "type": "Point<F>"
+      }
+    ]
   }
 ]
