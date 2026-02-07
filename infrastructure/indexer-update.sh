@@ -56,10 +56,6 @@ popd
 
 pushd mozsearch/clang-plugin
 make
-mkdir -p "$MOZSEARCH_CLANG_PLUGIN_DIR"
-if ! [ . -ef "$MOZSEARCH_CLANG_PLUGIN_DIR" ]; then
-    mv "./libclang-index-plugin.so" "$MOZSEARCH_CLANG_PLUGIN_DIR"
-fi
 popd
 
 pushd mozsearch/tools
