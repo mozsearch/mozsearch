@@ -257,6 +257,46 @@
       "linesTotal": 100,
       "coverage": [-1, -1, 20, 20, 5, 8, 3, 9, 30, 35]
     },
+    "html": {
+      "coveragePercent": 0,
+      "linesCovered": 0,
+      "linesMissed": 200,
+      "linesTotal": 200,
+      "children": {
+        "html-in-script.html": {
+          "name": "html-in-script.html",
+          "coveragePercent": 0,
+          "linesCovered": 0,
+          "linesMissed": 100,
+          "linesTotal": 100,
+          "coverage": []
+        },
+        "script.html": {
+          "name": "script.html",
+          "coveragePercent": 0,
+          "linesCovered": 0,
+          "linesMissed": 100,
+          "linesTotal": 100,
+          "coverage": []
+        }
+      }
+    },
+    "rust": {
+      "coveragePercent": 75,
+      "linesCovered": 75,
+      "linesMissed": 25,
+      "linesTotal": 100,
+      "children": {
+        "weak_keyword.rs": {
+          "name": "weak_keyword.rs",
+          "coveragePercent": 75,
+          "linesCovered": 75,
+          "linesMissed": 25,
+          "linesTotal": 100,
+          "coverage": []
+        }
+      }
+    },
     "subdir": {
       "comment": "This is necessary to test derived file info creation.",
       "name": "subdir",

@@ -13,6 +13,9 @@ set -o pipefail # Check all commands in a pipeline
 # is consistent.
 ln -s -f $CONFIG_REPO/tests/files $INDEX_ROOT
 
+rm -rf "$COVERAGE_ROOT"
+mkdir -p "$COVERAGE_ROOT"
+
 # Build a dummy git repo for the blame/coverage features.
 # The author/committer and date are forged to ensure a stable commit SHA (as long as the content doesn't actually change).
 rm -rf "$GIT_ROOT"
@@ -25,20 +28,57 @@ export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
 export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
 git init -b main
+
+git add html
+export GIT_AUTHOR_DATE="2025-01-04T12:00+0100"
+export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+git commit -m "Add html directory"
+
+HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
+HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
+codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-html.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+
+git add python
+export GIT_AUTHOR_DATE="2025-01-05T13:00+0100"
+export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+git commit -m "Add python directory"
+
+HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
+HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
+codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-python.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+
+git add rust
+export GIT_AUTHOR_DATE="2025-01-10T12:00+0100"
+export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+git commit -m "Add rust directory"
+
+HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
+HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
+codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-rust.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+
+git add subdir
+export GIT_AUTHOR_DATE="2025-01-11T11:00+0100"
+export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+git commit -m "Add subdir"
+
+HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
+HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
+codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-subdir.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+
 git add .
-git commit -m "Initial commit"
+export GIT_AUTHOR_DATE="2025-01-27T17:00+0100"
+export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+git commit -m "Add remaining files"
+
+HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
+HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
+codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-full.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
 popd
 
 rm -rf $BLAME_ROOT
 mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
 build-blame $GIT_ROOT $BLAME_ROOT
-
-rm -rf "$COVERAGE_ROOT"
-mkdir -p "$COVERAGE_ROOT"
-HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
-HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
-codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
 
 # Link over the fake metadata and test file information as well.
 ln -s -f $CONFIG_REPO/tests/metadata/bugzilla-components.json $INDEX_ROOT

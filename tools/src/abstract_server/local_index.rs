@@ -20,11 +20,12 @@ use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 use crate::abstract_server::lazy_crossref::perform_lazy_crossref;
 use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
-use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
+use crate::file_format::config::{git_data, load, TreeConfig, TreeConfigPaths};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::format::format_code;
+use crate::git_ops::{coverage_history, RevisionCoverage};
 use crate::languages::select_formatting;
 
 pub mod livegrep {
@@ -196,6 +197,12 @@ impl AbstractServer for LocalIndex {
                 self.config_paths.index_path, sf_path
             )),
         }
+    }
+
+    async fn coverage_history(&self, sf_path: &str) -> Result<Option<Vec<RevisionCoverage>>> {
+        let norm_path = self.normalize_and_validate_path(sf_path)?;
+        let git = git_data(&self.config_paths, false);
+        Ok(coverage_history(git.as_ref(), norm_path))
     }
 
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {

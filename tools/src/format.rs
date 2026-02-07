@@ -15,11 +15,11 @@ use crate::file_format::crossref_converter::{
 };
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
-use crate::git_ops::{self, coverage_summary};
+use crate::git_ops::{self, coverage_history, coverage_summary};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
-use crate::templating::builder::build_and_parse_dir_listing;
+use crate::templating::builder::{build_and_parse_coverage_history, build_and_parse_dir_listing};
 use crate::tokenize;
 use crate::utils::OwnedOrBorrowed;
 
@@ -687,6 +687,19 @@ pub fn format_file_data(
 
     output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
+    if let Some(coverage_history) = coverage_history(cfg.trees[tree_name].git.as_ref(), path) {
+        let liquid_globals = liquid::object!({
+            "tree": tree_name,
+            "path": path,
+            "coverage_history": coverage_history,
+        });
+
+        let template = build_and_parse_coverage_history();
+        template
+            .render_to(writer, &liquid_globals)
+            .or(Err("Template problems"))?;
+    }
+
     output::generate_panel(&opt, writer, panel, false)?;
 
     let info_boxes_container = F::Seq(vec![
@@ -1071,6 +1084,8 @@ fn format_tree(
         raw_items: vec![],
     }];
 
+    let coverage_history = coverage_history(Some(git), path);
+
     let commit_hash = commit.id().to_string();
 
     let liquid_globals = liquid::object!({
@@ -1085,6 +1100,7 @@ fn format_tree(
             "short": &commit_hash[..8],
             "desc_html": desc_html,
         },
+        "coverage_history": coverage_history,
         "panel": panel,
     });
 

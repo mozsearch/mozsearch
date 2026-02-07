@@ -4,6 +4,8 @@ use serde_json::{from_str, Value};
 use url::{ParseError, Url};
 use ustr::Ustr;
 
+use crate::git_ops::RevisionCoverage;
+
 use super::{
     server_interface::{
         AbstractServer, ErrorDetails, ErrorLayer, FileMatches, Result, SearchfoxIndexRoot,
@@ -109,6 +111,10 @@ impl AbstractServer for RemoteServer {
     fn translate_path(&self, _root: SearchfoxIndexRoot, _sf_path: &str) -> Result<String> {
         // Remote servers don't have local filesystem paths.
         Err(ServerError::Unsupported)
+    }
+
+    async fn coverage_history(&self, _sf_path: &str) -> Result<Option<Vec<RevisionCoverage>>> {
+        Ok(None)
     }
 
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {

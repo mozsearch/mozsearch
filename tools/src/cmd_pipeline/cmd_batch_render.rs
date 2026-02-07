@@ -52,6 +52,7 @@ impl PipelineCommand for BatchRenderCommand {
                 let commit_info = server.commit_info()?;
                 for item in batch_groups.groups {
                     if let PipelineValues::FileMatches(fm) = item.value {
+                        let coverage_history = server.coverage_history(&item.name).await?;
                         let mut liquid_globals = liquid::object!({
                             "tree": tree_info.name,
                             // the header always needs this
@@ -59,6 +60,7 @@ impl PipelineCommand for BatchRenderCommand {
                             "path": item.name,
                             "files": fm.file_matches,
                             "panel": liquid::model::Value::Nil,
+                            "coverage_history": coverage_history,
                         });
                         if let Some(info) = &commit_info {
                             liquid_globals.insert(

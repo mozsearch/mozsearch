@@ -1,0 +1,41 @@
+{
+  "name": "",
+  "coveragePercent": 50,
+  "linesCovered": 100,
+  "linesMissed": 100,
+  "linesTotal": 200,
+  "children": {
+    "python": {
+      "coveragePercent": 25,
+      "linesCovered": 25,
+      "linesMissed": 75,
+      "linesTotal": 100,
+      "children": {
+        "contextual-keyword.py": {
+          "name": "contextual-keyword.py",
+          "coveragePercent": 25,
+          "linesCovered": 25,
+          "linesMissed": 75,
+          "linesTotal": 100,
+          "coverage": []
+        }
+      }
+    },
+    "rust": {
+      "coveragePercent": 75,
+      "linesCovered": 75,
+      "linesMissed": 25,
+      "linesTotal": 100,
+      "children": {
+        "weak_keyword.rs": {
+          "name": "weak_keyword.rs",
+          "coveragePercent": 75,
+          "linesCovered": 75,
+          "linesMissed": 25,
+          "linesTotal": 100,
+          "coverage": []
+        }
+      }
+    }
+  }
+}

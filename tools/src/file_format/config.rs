@@ -481,7 +481,7 @@ pub fn load(
     }
 }
 
-fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> {
+pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> {
     let git_path = paths.git_path.as_deref()?;
 
     let repo = Repository::open(git_path).unwrap();
