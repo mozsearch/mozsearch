@@ -5,8 +5,16 @@ LLVM_LDFLAGS := $(shell ${LLVM_CONFIG} --ldflags)
 CXXFLAGS := $(shell ${LLVM_CONFIG} --cxxflags) -fPIC -Wall -Wno-strict-aliasing \
 	$(if $(DEBUG),-O0 -g)
 LDFLAGS := -fPIC -g -Wl,-R -Wl,'$$ORIGIN' $(LLVM_LDFLAGS) -shared
+MOZSEARCH_CLANG_PLUGIN_DIR ?= .
+MOZSEARCH_CLANG_PLUGIN_OBJDIR ?= .
 
-build: libclang-index-plugin.so
+build: dirs $(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so
+
+dirs:
+	mkdir -p from-clangd
+	mkdir -p $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)
+	mkdir -p $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd
+	mkdir -p $(MOZSEARCH_CLANG_PLUGIN_DIR)
 
 build_with_version_check: clang-version-guard build
 
@@ -28,22 +36,22 @@ clang-version-guard:
 		make clean; \
 	fi
 
-%.o: %.cpp
+$(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-from-clangd/%.o: from-clangd/%.cpp
-	mkdir -p from-clangd
+$(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/%.o: from-clangd/%.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-libclang-index-plugin.so: FileOperations.o StringOperations.o BindingOperations.o MozsearchIndexer.o from-clangd/HeuristicResolver.o
+$(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so: $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/FileOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/StringOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/BindingOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/MozsearchIndexer.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/HeuristicResolver.o
 	$(CXX) $(LDFLAGS) $^ -o $@ -lclangASTMatchers
 
 check: build
 	which clang
 	which clang++
 
+clean: dirs
 clean:
-	$(RM) *.o from-clangd/*.o *.dwo libclang-index-plugin.so
+	$(RM) $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/*.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/*.o *.dwo $(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so
 
 dump: build
 	-clang++ -c -Xclang -ast-dump testfiles/test.cpp
@@ -56,7 +64,7 @@ analyze: build
 	-mkdir -p $(ANALYSIS_DIR)
 	-$(RM) $(ANALYSIS_DIR)/*
 	$(CXX) -c \
-		-Xclang -load                       -Xclang ./libclang-index-plugin.so \
+		-Xclang -load                       -Xclang $(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so \
 		-Xclang -add-plugin                 -Xclang mozsearch-index \
 		-Xclang -plugin-arg-mozsearch-index -Xclang testfiles/ \
 		-Xclang -plugin-arg-mozsearch-index -Xclang $(ANALYSIS_DIR) \
@@ -68,4 +76,4 @@ analyze: build
 	@echo "maybe type:"
 	@echo "vim ${ANALYSIS_DIR}/test.cpp"
 
-.PHONY: build clean clang-version-guard
+.PHONY: build clean clang-version-guard dirs
