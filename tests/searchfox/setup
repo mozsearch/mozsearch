@@ -8,7 +8,7 @@ set -o pipefail # Check all commands in a pipeline
 #rm -rf $INDEX_ROOT
 
 pushd $GIT_ROOT
-if ! git diff-index --quiet HEAD --; then
+if ! git diff --exit-code; then
     set +x
     echo ""
     echo "!!! CRITICAL !!!: Uncommitted changes found. Please commit them before building."
