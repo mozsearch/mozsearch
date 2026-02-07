@@ -7,11 +7,14 @@ input_file: inputs/fancy/diagram/graph/implicit_lambda_use.js/implicit_lambda_us
   [
     "NS_implicit_lambda_use",
     "_ZN19implicit_lambda_use4funcEv",
+    "_ZN19implicit_lambda_use5callFET_",
     "_ZN19implicit_lambda_use5test1Ev",
     "_ZN19implicit_lambda_use7caller1Ev",
     "_ZZN19implicit_lambda_use5test1EvENK3$_0clEv"
   ],
   [
+    "_ZN19implicit_lambda_use5callFET_ -> _ZZN19implicit_lambda_use5test1EvENK3$_0clEv",
+    "_ZN19implicit_lambda_use5test1Ev -> _ZN19implicit_lambda_use5callFET_",
     "_ZN19implicit_lambda_use5test1Ev -> _ZZN19implicit_lambda_use5test1EvENK3$_0clEv",
     "_ZN19implicit_lambda_use7caller1Ev -> _ZN19implicit_lambda_use5test1Ev",
     "_ZZN19implicit_lambda_use5test1EvENK3$_0clEv -> _ZN19implicit_lambda_use4funcEv"
