@@ -734,6 +734,8 @@ function makeDiagramHoverEdges() {
   for (const path of edges) {
     const dupe = path.cloneNode(false);
     dupe.classList.add("clicktarget");
+    // Dashed/dotted edge should be clickable even in the gap part.
+    dupe.removeAttribute("stroke-dasharray");
     // let's insert the clicktarget after the actual path so it is always what
     // the hit test finds.
     path.insertAdjacentElement("afterend", dupe);
