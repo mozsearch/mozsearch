@@ -732,6 +732,12 @@ function makeDiagramHoverEdges() {
 
   const edges = diag.querySelectorAll("g.edge > path");
   for (const path of edges) {
+    // The default "dotted" style is hard to see.
+    // the "dashed" style uses "5,2".
+    if (path.getAttribute("stroke-dasharray") === "1,5") {
+      path.setAttribute("stroke-dasharray", "2,3");
+    }
+
     const dupe = path.cloneNode(false);
     dupe.classList.add("clicktarget");
     // Dashed/dotted edge should be clickable even in the gap part.
