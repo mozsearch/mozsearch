@@ -170,6 +170,7 @@ var Panel = new (class Panel {
 
     if (Settings.fancyBar.enabled) {
       this.addSymbolSection();
+      this.addOpenInEditorAction();
     }
 
     if (Settings.debug.ui) {
@@ -197,7 +198,7 @@ var Panel = new (class Panel {
   }
 
   findAccel(key) {
-    return this.panel.querySelector(`.item[data-accel="${key}"]`);
+    return this.panel.querySelector(`.item[data-accel="${CSS.escape(key)}"]`);
   }
 
   maybeHandleAccelerator(event) {
@@ -213,6 +214,9 @@ var Panel = new (class Panel {
     }
     let link = (() => {
       switch (event.key) {
+        case "\\":
+        case "¥":
+          return this.findAccel("\\");
         case "y":
         case "Y":
           return this.findAccel('Y');
@@ -235,6 +239,9 @@ var Panel = new (class Panel {
     })();
 
     if (link) {
+      if (link.classList.contains("disabled")) {
+        return;
+      }
       link.click();
       event.preventDefault();
     }
@@ -523,6 +530,129 @@ var Panel = new (class Panel {
       ul.append(...items);
       this.content.append(ul);
     }
+  }
+
+  getEditorURL() {
+    const status = this.canEditorOpen();
+    if (!status.ok) {
+      return null;
+    }
+
+    const { localRoot, sourcePath } = status;
+
+    const absPath =
+      `${localRoot.replace(/\/$/, "")}/${sourcePath}`;
+
+    const line = this._resolveLineNumber();
+
+    return this._expandTemplate(
+      Settings.openInEditor.editorTemplate,
+      { absPath, line }
+    );
+  }
+
+  canEditorOpen() {
+    if (!Settings.openInEditor?.enabled) {
+      return { ok: false, reason: "Open in Editor is disabled" };
+    }
+
+    let treeMap;
+    try {
+      treeMap = JSON.parse(Settings.openInEditor.treePathMap || "{}");
+    } catch {
+      return { ok: false, reason: "Invalid tree → local path mapping JSON" };
+    }
+
+    const localRoot = treeMap[Router.treeName];
+    if (!localRoot) {
+      return {
+        ok: false,
+        reason:
+          `No local path mapping for tree '${Router.treeName}'. Add a mapping for this tree in Settings → Open in Editor.`,
+      };
+    }
+
+    return {
+      ok: true,
+      localRoot,
+      sourcePath: Router.sourcePath,
+    };
+  }
+
+  _resolveLineNumber() {
+    if (Panel?.getLineNumberForSelectedSymbol) {
+      const symLine = Panel.getLineNumberForSelectedSymbol();
+      if (symLine !== undefined) {
+        return symLine;
+      }
+    }
+
+    if (window.Highlighter?.selectedLines?.size > 0) {
+      return Math.min(...Highlighter.selectedLines);
+    }
+
+    return 1;
+  }
+
+  _expandTemplate(template, vars) {
+    let out = template;
+    for (const [k, v] of Object.entries(vars)) {
+      out = out.replaceAll(`{{${k}}}`, v);
+    }
+    return out;
+  }
+
+  addOpenInEditorAction() {
+    if (!Settings.openInEditor?.enabled) {
+      return;
+    }
+
+    if (!Router.sourcePath) {
+      return;
+    }
+
+    const h4 = document.createElement("h4");
+    h4.textContent = "Editor";
+
+    const ul = document.createElement("ul");
+
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+
+    button.classList.add("icon", "item");
+    button.type = "button";
+    button.textContent = "Open in Editor";
+    button.dataset.accel = "\\";
+
+
+    const accel = document.createElement("span");
+    accel.classList.add("accel");
+    accel.textContent = "\\";
+    button.appendChild(accel);
+
+    button.addEventListener("click", () => {
+      const status = this.canEditorOpen();
+      if (!status.ok) {
+        return;
+      }
+
+      const url = this.getEditorURL();
+      if (url) {
+        window.location.href = url;
+      }
+    });
+
+    const status = this.canEditorOpen();
+    if (!status.ok) {
+      button.disabled = true;
+      button.title = status.reason;
+    }
+
+    li.appendChild(button);
+    ul.appendChild(li);
+
+    this.content.appendChild(h4);
+    this.content.appendChild(ul);
   }
 
   updateDebugSectionForLocation() {

@@ -1951,3 +1951,21 @@ g.true-diag g.node polygon {
 .alt-for-icon {
   font-size: 0;
 }
+
+textarea.monospace {
+  font-family: monospace;
+  tab-size: 2;
+}
+
+.form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.example-json {
+  border: 1px solid var(--page-border-color);
+  padding: 8px;
+  margin-top: 6px;
+  background: var(--page-background);
+}

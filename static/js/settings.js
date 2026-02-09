@@ -154,17 +154,20 @@ function meetsQualityGate(userSpecific, userDefault, featureQuality) {
  *   enabled.
  */
 const WIDGET_DEFS = {
-  // Proposed in https://bugzilla.mozilla.org/show_bug.cgi?id=1808415 and with
-  // its setting definitions stubbed here as an exercise for seeing how
-  // widgets could be hooked up.  The widget doesn't actually exist yet.
   openInEditor: {
     enabled: {
       default: false,
-      introducedIn: 1,
+      introducedIn: 7,
     },
-    linkTemplate: {
-      default: "editor://open/?file={{tree}}/{{path}}",
-      introducedIn: 1,
+
+    editorTemplate: {
+      default: "vscode://file/{{absPath}}:{{line}}",
+      introducedIn: 7,
+    },
+
+    treePathMap: {
+      default: "{}",
+      introducedIn: 7,
     },
   }
 };
@@ -186,7 +189,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 6;
+const SETTINGS_VERSION = 7;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".
@@ -564,7 +567,7 @@ const SettingsBinder = new (class SettingsBinder {
     }
 
     // Bind all form inputs
-    for (const elem of root.querySelectorAll("input, select")) {
+    for (const elem of root.querySelectorAll("input, select, textarea")) {
       const info = Settings.__lookupSettingFromId(elem.id);
       if (!info) {
         console.warn("Thought about binding to", elem, "with id", elem.id, "but could not.");
@@ -589,6 +592,11 @@ const SettingsBinder = new (class SettingsBinder {
         } else {
           console.warn("Don't know how to bind to", elem, "with type", elem.type);
         }
+      } else if (elem.tagName === "TEXTAREA") {
+        elem.value = Settings[info.groupName][info.keyName];
+        elem.addEventListener("change", () => {
+          Settings.__setValueFromIdSpace(elem.id, elem.value);
+        });
       } else if (elem.tagName === "SELECT") {
         // Enabling
         if (!info.isWidget && info.keyName === "enabled") {
