@@ -65,6 +65,9 @@ pub fn format_code(
         FormatAs::Plain => tokenize::tokenize_plain(input),
         FormatAs::YAML => tokenize::tokenize_yaml(input),
         FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
+        FormatAs::FormatXPIDL(spec, cdata_spec) => {
+            tokenize::tokenize_xpidl(input, spec, cdata_spec)
+        }
         FormatAs::FormatTagLike(script_spec) => tokenize::tokenize_tag_like(input, script_spec),
     };
 
@@ -422,6 +425,9 @@ pub fn format_code(
                 FormatAs::Plain => tokenize::tokenize_plain(input),
                 FormatAs::YAML => tokenize::tokenize_yaml(input),
                 FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
+                FormatAs::FormatXPIDL(spec, cdata_spec) => {
+                    tokenize::tokenize_xpidl(input, spec, cdata_spec)
+                }
                 FormatAs::FormatTagLike(script_spec) => {
                     tokenize::tokenize_tag_like(input, script_spec)
                 }
@@ -875,6 +881,7 @@ fn format_to_slug_attribute(format: &FormatAs) -> String {
     let slug = match format {
         FormatAs::FormatTagLike(spec) => spec.markdown_slug,
         FormatAs::FormatCLike(spec) => spec.markdown_slug,
+        FormatAs::FormatXPIDL(_, _) => "",
         _ => "",
     };
 

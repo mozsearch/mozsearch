@@ -32,6 +32,7 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
                 None
             }
         }
+        FormatAs::FormatXPIDL(_, _) => describe_from_c_comment(substr),
         FormatAs::Binary => None,
         FormatAs::YAML => None,
         FormatAs::Plain => {
