@@ -658,6 +658,8 @@ lazy_static! {
 pub enum FormatAs {
     FormatCLike(&'static LanguageSpec),
     FormatTagLike(&'static LanguageSpec),
+    // The 2nd item is the CDATA spec.
+    FormatXPIDL(&'static LanguageSpec, &'static LanguageSpec),
     CSS,
     Plain,
     YAML,
@@ -675,7 +677,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         }
         "aidl" => FormatAs::FormatCLike(&AIDL_SPEC),
         "ipdl" | "ipdlh" => FormatAs::FormatCLike(&IPDL_SPEC),
-        "idl" => FormatAs::FormatCLike(&IDL_SPEC),
+        "idl" => FormatAs::FormatXPIDL(&IDL_SPEC, &CPP_SPEC),
         "webidl" => FormatAs::FormatCLike(&WEBIDL_SPEC),
         "js" | "jsm" | "json" | "mjs" | "sjs" => FormatAs::FormatCLike(&JS_SPEC),
         "py" | "build" | "mozbuild" | "configure" => FormatAs::FormatCLike(&PYTHON_SPEC),

@@ -912,6 +912,72 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
     tokens
 }
 
+pub fn tokenize_xpidl(string: &str, spec: &LanguageSpec, cdata_spec: &LanguageSpec) -> Vec<Token> {
+    let mut result = vec![];
+    let mut idl_start = 0;
+
+    loop {
+        let (idl_end, cdata_start) = match string[idl_start..].find("%{C++\n") {
+            Some(pos) => (idl_start + pos, idl_start + pos + 6),
+            None => (string.len(), string.len()),
+        };
+
+        let idl_toks = tokenize_c_like(&string[idl_start..idl_end], spec);
+        let idl_toks = idl_toks.into_iter().map(|t| Token {
+            start: t.start + idl_start,
+            end: t.end + idl_start,
+            kind: t.kind,
+        });
+        result.extend(idl_toks);
+
+        if cdata_start == string.len() {
+            break;
+        }
+
+        result.push(Token {
+            start: idl_end,
+            end: cdata_start - 1,
+            kind: TokenKind::Comment,
+        });
+        result.push(Token {
+            start: cdata_start - 1,
+            end: cdata_start,
+            kind: TokenKind::Newline,
+        });
+
+        let (cdata_end, tmp) = match string[cdata_start..].find("%}\n") {
+            Some(pos) => (cdata_start + pos, cdata_start + pos + 3),
+            None => (string.len(), string.len()),
+        };
+        idl_start = tmp;
+
+        let cdata_toks = tokenize_c_like(&string[cdata_start..cdata_end], cdata_spec);
+        let cdata_toks = cdata_toks.into_iter().map(|t| Token {
+            start: t.start + cdata_start,
+            end: t.end + cdata_start,
+            kind: t.kind,
+        });
+        result.extend(cdata_toks);
+
+        if idl_start == string.len() {
+            break;
+        }
+
+        result.push(Token {
+            start: cdata_end,
+            end: idl_start - 1,
+            kind: TokenKind::Comment,
+        });
+        result.push(Token {
+            start: idl_start - 1,
+            end: idl_start,
+            kind: TokenKind::Newline,
+        });
+    }
+
+    result
+}
+
 pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token> {
     fn is_ident(ch: char) -> bool {
         ch == '.'
