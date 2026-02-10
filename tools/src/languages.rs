@@ -304,6 +304,7 @@ static RESERVED_WORDS_IDL: &[&str] = &[
     "must_use",
     "infallible",
     "can_run_script",
+    "#include",
 ];
 
 static RESERVED_WORDS_WEBIDL: &[&str] = &[
@@ -608,6 +609,7 @@ lazy_static! {
     static ref IDL_SPEC : LanguageSpec = LanguageSpec {
         reserved_words: make_reserved(RESERVED_WORDS_IDL),
         c_style_comments: true,
+        c_preprocessor: true,
         .. LanguageSpec::default()
     };
 
