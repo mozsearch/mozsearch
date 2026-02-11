@@ -1992,3 +1992,11 @@ textarea.monospace {
 .settings-page section h3 {
   padding-inline-start: 1rem;
 }
+
+.export-import-buttons {
+  margin-block-end: 1rem;
+}
+
+.export-import-buttons button + button {
+  margin-inline-start: 1rem;
+}
