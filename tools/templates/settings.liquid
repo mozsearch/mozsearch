@@ -22,11 +22,6 @@
         their normal flow.
       </p>
       <p>
-        There is currently no support for synchronizing settings, although if
-        searchfox ends up with enough settings, a mechanism to export settings
-        by generating a URL or a copy-and-pasteable JSON payload could be added.
-      </p>
-      <p>
         Settings are organized into three categories:
       </p>
       <ul>
@@ -376,6 +371,50 @@
           <label for="debug--ui">Show debugging UI in the navigation panel</label>
         </form>
       </section>
+    </section>
+    <section>
+      <h2>Export/Import</h2>
+
+      <p>
+        The searchfox settings can be exported and imported as a
+        copy-and-pasteable JSON.
+      </p>
+
+      <p>
+        In order to synchronize the settings between two PCs, from A to B:
+        <ol>
+          <li>(on A) Click the "Export to the clipboard" button</li>
+          <li>Share the copied JSON from A to B</li>
+          <li>(on B) Paste the JSON into the textarea below</li>
+          <li>(on B) Click the "Import from the textarea" button</li>
+        </ol>
+      </p>
+
+      <p>
+        If you clicked the import button by accident, click "Undo import"
+        to restore the settings before the import.
+      </p>
+
+      <form>
+        <div class="export-import-buttons">
+          <button id="export-clipboard" class="export-import">Export to the clipboard</button>
+          <button id="export-textarea" class="export-import">Export to the textarea</button>
+        </div>
+        <div class="export-import-buttons">
+          <button id="import-textarea" class="export-import">Import from the textarea</button>
+          <button id="undo-import" class="export-import">Undo import</button>
+        </div>
+        <textarea
+          id="export-import-json"
+          class="export-import"
+          rows="6"
+          cols="80"
+          spellcheck="false"
+          class="monospace"
+          placeholder="Paste the exported settings JSON here"
+          ></textarea>
+        <div id="export-import-status">&nbsp;</div>
+      </form>
     </section>
   </div>
   {% include 'scroll_footer.liquid' %}
