@@ -669,6 +669,22 @@ class TestUtils {
 
     TestUtils.click(elem, options);
   }
+
+  /**
+   * Setup a hook to test clipboard.
+   *
+   * @return {object}
+   *         The value property is set to the copied text.
+   */
+  static spyClipboard() {
+    const result = {
+      value: null,
+    };
+    frame.contentWindow.navigator.clipboard.writeText = async text => {
+      result.value = text;
+    };
+    return result;
+  }
 }
 window.TestUtils = TestUtils;
 
