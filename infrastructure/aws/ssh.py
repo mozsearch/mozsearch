@@ -22,7 +22,7 @@ from six.moves import input
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
 
-def print_instances(select, multiple, pattern):
+def print_instances(select, multiple, patterns):
     now = None
 
     id_map = {}
@@ -55,8 +55,13 @@ def print_instances(select, multiple, pattern):
         tag_list = ['%s: %s' % (k, tags[k]) for k in sorted(tags.keys())]
         line = f"{instance.id} {state} {group} {age_str} {tag_list}"
 
-        if pattern is not None:
-            if pattern not in line:
+        if patterns is not None:
+            matches = True
+            for p in patterns:
+                if p not in line:
+                    matches = False
+                    break
+            if not matches:
                 continue
 
         if multiple:
@@ -173,23 +178,28 @@ def log_into(instance, remote_cmd=[]):
     sys.exit(p.returncode)
 
 if len(sys.argv) == 1:
-    print('usage: %s (<instance-id>|pattern)' % sys.argv[0])
+    print('usage: %s (<instance-id>|patterns) [command args...]' % sys.argv[0])
     print()
     print('  instance-id: i-* style ID for the instance')
-    print('  pattern: Show the instances and prompt for selecting it,')
-    print('           with applying substring-match filter')
+    print('  patterns: A comma-separated list of patterns, to select the')
+    print('            instances by substring-match filter.')
+    print('            If no command is provided, prompt for selecting an')
+    print('            instance to login.')
+    print('            If a command is provided, run the command in the')
+    print('            all matching instances.')
+    print('  command: A command line to run on the specified instances')
     print()
     print('Current instances:')
-    print_instances(select=False, multiple=False, pattern=None)
+    print_instances(select=False, multiple=False, patterns=None)
     sys.exit(0)
 
 id = sys.argv[1]
 
 if len(sys.argv) >= 3:
-    pattern = sys.argv[1]
+    patterns = sys.argv[1].split(',')
     remote_cmd = sys.argv[2:]
 
-    ids = print_instances(select=False, multiple=True, pattern=pattern)
+    ids = print_instances(select=False, multiple=True, patterns=patterns)
 
     for [id, line] in ids:
         instance = ec2.Instance(id)
@@ -198,10 +208,10 @@ if len(sys.argv) >= 3:
     sys.exit(0)
 
 if not id.startswith('i-'):
-    pattern = sys.argv[1]
+    patterns = sys.argv[1].split(',')
 
     print('Current instances:')
-    id = print_instances(select=True, multiple=False, pattern=pattern)
+    id = print_instances(select=True, multiple=False, patterns=patterns)
 
 instance = ec2.Instance(id)
 log_into(instance)
