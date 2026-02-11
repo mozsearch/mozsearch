@@ -184,9 +184,16 @@
     <section>
       <h2>Fancy Bar (<b><span id="quality--fancy-bar--enabled"></span></b> quality)</h2>
       <p>
-        The Fancy Bar currently replaces the navigation bar on the right side of
-        the screen with a collapsible sidebar.  It is the home of most widgets
-        that exist to provide context.
+        The Fancy Bar is going to replaces the navigation bar on the right side
+        of the screen with a collapsible sidebar.  It is the home of most
+        widgets that exist to provide context.
+      </p>
+      <p>
+        The Fancy Bar currently includes the following widgets:
+        <ul>
+          <li>Show selected symbol's qualified name</li>
+          <li>"Open in Editor" button</li>
+        </ul>
       </p>
       <section>
         <h3>Fancy Bar Feature Gate</h3>
@@ -198,7 +205,7 @@
       </section>
 
       <section>
-        <h3>Open in External Editor</h3>
+        <h3>Open in External Editor Widget</h3>
         <p>
           Allows opening source files directly in your local editor using a custom
           URL protocol (for example <code>vscode://</code> or <code>idea://</code>).
@@ -301,6 +308,15 @@
         We're experimenting with exposing information like the field layout of
         classes.
       </p>
+
+      <p>
+        The Semantic Info Queries currently includes the following features:
+        <ul>
+          <li><a href="https://firefox-source-docs.mozilla.org/contributing/searchfox/class_field_layout.html">Class field layout</a></li>
+          <li><a href="https://firefox-source-docs.mozilla.org/contributing/searchfox/context_menu.html#gc-analysis">Can GC/Cannot GC" context menu item</a></li>
+        </ul>
+      </p>
+
       <section>
         <h3>Semantic Info Queries Feature Gate</h3>
         <form>
@@ -313,7 +329,7 @@
     <section>
       <h2>Macro expansions (<b><span id="quality--expansions--enabled"></span></b> quality)</h2>
       <p>
-        We're experimenting with exposing C++ macro expansions.
+        We're experimenting with exposing <a href="https://firefox-source-docs.mozilla.org/contributing/searchfox/context_menu.html#macro-expansion">C++ macro expansions</a>.
       </p>
       <section>
         <h3>Expansions Feature Gate</h3>
@@ -327,7 +343,7 @@
     <section>
       <h2>Diagramming (<span id="quality--diagramming--enabled"></span></b> quality)</h2>
       <p>
-        Searchfox has very experimental diagramming functionality.
+        Searchfox has experimental <a href="https://firefox-source-docs.mozilla.org/contributing/searchfox/diagramming.html">diagramming functionality</a>.
       </p>
       <section>
         <h3>Diagramming Feature Gate</h3>
@@ -341,10 +357,18 @@
     <section>
       <h2>Debug</h2>
 
-      <form>
-        <input type="checkbox" id="debug--ui">
-        <label for="debug--ui">Show debugging UI</label>
-      </form>
+      <section>
+        <h3>Debugging UI Widget</h3>
+
+        <p>
+          Searchfox can provide the UI for debugging the Searchfox itself.
+        </p>
+
+        <form>
+          <input type="checkbox" id="debug--ui">
+          <label for="debug--ui">Show debugging UI in the navigation panel</label>
+        </form>
+      </section>
     </section>
   </div>
   {% include 'scroll_footer.liquid' %}
