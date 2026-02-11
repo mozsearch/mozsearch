@@ -1969,3 +1969,26 @@ textarea.monospace {
   margin-top: 6px;
   background: var(--page-background);
 }
+
+.settings-page > section {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--page-border-color);
+}
+
+.settings-page section > p,
+.settings-page section > form {
+  padding-inline-start: 2rem;
+}
+
+.settings-page section > form + form {
+  margin-block-start: 1rem;
+}
+
+.settings-page section h2 {
+  border-inline-start: 4px solid var(--page-border-color);
+  padding-inline-start: 1rem;
+}
+
+.settings-page section h3 {
+  padding-inline-start: 1rem;
+}

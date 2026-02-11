@@ -199,72 +199,70 @@
       </section>
 
       <section>
-        <fieldset>
-          <legend>Open in External Editor</legend>
-          <p>
-            Allows opening source files directly in your local editor using a custom
-            URL protocol (for example <code>vscode://</code> or <code>idea://</code>).
+        <h3>Open in External Editor</h3>
+        <p>
+          Allows opening source files directly in your local editor using a custom
+          URL protocol (for example <code>vscode://</code> or <code>idea://</code>).
+        </p>
+
+        <form>
+          <input type="checkbox" id="open-in-editor--enabled">
+          <label for="open-in-editor--enabled">
+            Enable Open in Editor widget
+          </label>
+        </form>
+
+        <form>
+          <label for="open-in-editor--editor-template">
+            Editor URL template:
+          </label>
+          <input
+            type="text"
+            id="open-in-editor--editor-template"
+            size="80"
+            spellcheck="false"
+          />
+
+          <p class="help">
+            Variables available in the <strong>Editor URL template</strong>:
           </p>
+          <ul class="help">
+            <li>
+              <code>{% raw %}{{absPath}}{% endraw %}</code> —
+              Absolute local file path after applying the
+              <em>Tree → local path mapping</em>.
+            </li>
+            <li>
+              <code>{% raw %}{{line}}{% endraw %}</code> —
+              Line number to open:
+              <ul>
+                <li>defaults to line 1 if no line is selected</li>
+                <li>first line if multiple lines are selected</li>
+                <li>symbol’s line if a symbol is selected</li>
+              </ul>
+            </li>
+          </ul>
+        </form>
 
-          <form>
-            <input type="checkbox" id="open-in-editor--enabled">
-            <label for="open-in-editor--enabled">
-              Enable Open in Editor widget
+        <form>
+          <div class="form-column">
+            <label for="open-in-editor--tree-path-map">
+              Tree → local path mapping (JSON):
             </label>
-          </form>
-
-          <form>
-            <label for="open-in-editor--editor-template">
-              Editor URL template:
-            </label>
-            <input
-              type="text"
-              id="open-in-editor--editor-template"
-              size="80"
+            <textarea
+              id="open-in-editor--tree-path-map"
+              rows="6"
+              cols="80"
               spellcheck="false"
-            />
+              class="monospace"
+            ></textarea>
+          </div>
 
-            <p class="help">
-              Variables available in the <strong>Editor URL template</strong>:
-            </p>
-            <ul class="help">
-              <li>
-                <code>{% raw %}{{absPath}}{% endraw %}</code> —
-                Absolute local file path after applying the
-                <em>Tree → local path mapping</em>.
-              </li>
-              <li>
-                <code>{% raw %}{{line}}{% endraw %}</code> —
-                Line number to open:
-                <ul>
-                  <li>defaults to line 1 if no line is selected</li>
-                  <li>first line if multiple lines are selected</li>
-                  <li>symbol’s line if a symbol is selected</li>
-                </ul>
-              </li>
-            </ul>
-          </form>
-
-          <form>
-            <div class="form-column">
-              <label for="open-in-editor--tree-path-map">
-                Tree → local path mapping (JSON):
-              </label>
-              <textarea
-                id="open-in-editor--tree-path-map"
-                rows="6"
-                cols="80"
-                spellcheck="false"
-                class="monospace"
-              ></textarea>
-            </div>
-
-            <p class="help">
-              Example configuration:
-            </p>
-            <pre class="example-json">{"firefox-main": "/home/user/src/mozilla-central", "searchfox": "/home/user/src/mozsearch"}</pre>
-          </form>
-        </fieldset>
+          <p class="help">
+            Example configuration:
+          </p>
+          <pre class="example-json">{"firefox-main": "/home/user/src/mozilla-central", "searchfox": "/home/user/src/mozsearch"}</pre>
+        </form>
       </section>
     </section>
 
