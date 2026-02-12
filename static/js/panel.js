@@ -563,12 +563,30 @@ var Panel = new (class Panel {
       return { ok: false, reason: "Invalid tree → local path mapping JSON" };
     }
 
-    const localRoot = treeMap[Router.treeName];
+    const currentTree = Router.treeName;
+    // 1. Check for an exact match first.
+    let localRoot = treeMap[currentTree];
+
+    // 2. If no exact match, look for a wildcard match.
+    if (!localRoot) {
+      for (const [key, path] of Object.entries(treeMap)) {
+        if (key.includes("*")) {
+          const pattern = key.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+          const regex = new RegExp(`^${pattern}$`);
+
+          if (regex.test(currentTree)) {
+            localRoot = path;
+            break;
+          }
+        }
+      }
+    }
+
     if (!localRoot) {
       return {
         ok: false,
         reason:
-          `No local path mapping for tree '${Router.treeName}'. Add a mapping for this tree in Settings → Open in Editor.`,
+          `No local path mapping for tree '${currentTree}'. Add a mapping for this tree in Settings → Open in Editor.`,
       };
     }
 
