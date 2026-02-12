@@ -297,9 +297,14 @@
           </div>
 
           <p class="help">
+            Supports wildcards (e.g. <code>firefox-*</code>) to match multiple trees.
+            Exact matches are prioritized first.
+          </p>
+
+          <p class="help">
             Example configuration:
           </p>
-          <pre class="example-json">{"firefox-main": "/home/user/src/mozilla-central", "searchfox": "/home/user/src/mozsearch"}</pre>
+          <pre class="example-json">{"mozsearch": "/home/user/src/mozsearch", "firefox-*": "/home/user/src/mozilla-unified"}</pre>
         </form>
       </section>
     </section>
