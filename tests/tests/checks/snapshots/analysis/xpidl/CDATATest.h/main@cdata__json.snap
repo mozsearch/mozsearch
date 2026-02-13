@@ -1,0 +1,198 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/xpidl/CDATATest.h/cdata__json
+---
+[
+  {
+    "loc": "9:10-21",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class ICDATATest1",
+    "sym": "XPIDL_ICDATATest1"
+  },
+  {
+    "loc": "9:10-21",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "ICDATATest1",
+    "sym": "XPIDL_ICDATATest1"
+  },
+  {
+    "loc": "9:10-21",
+    "structured": 1,
+    "pretty": "ICDATATest1",
+    "sym": "XPIDL_ICDATATest1",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "T_ICDATATest1"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#ICDATATest1"
+      }
+    ],
+    "supers": [],
+    "methods": [],
+    "fields": []
+  },
+  {
+    "loc": "22:10-21",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class ICDATATest2",
+    "sym": "XPIDL_ICDATATest2"
+  },
+  {
+    "loc": "22:10-21",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "ICDATATest2",
+    "sym": "XPIDL_ICDATATest2"
+  },
+  {
+    "loc": "22:10-21",
+    "structured": 1,
+    "pretty": "ICDATATest2",
+    "sym": "XPIDL_ICDATATest2",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "T_ICDATATest2"
+      },
+      {
+        "slotKind": "interface_name",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#ICDATATest2"
+      }
+    ],
+    "supers": [],
+    "methods": [],
+    "fields": []
+  },
+  {
+    "loc": "00012:10",
+    "source": 1,
+    "nestingRange": "13:23-19:0",
+    "syntax": "def,namespace",
+    "pretty": "namespace CDATATestNS",
+    "sym": "NS_CDATATestNS"
+  },
+  {
+    "loc": "00012:10",
+    "target": 1,
+    "kind": "def",
+    "pretty": "CDATATestNS",
+    "sym": "NS_CDATATestNS",
+    "peekRange": "12-13"
+  },
+  {
+    "loc": "00013:7",
+    "source": 1,
+    "nestingRange": "14:23-18:0",
+    "syntax": "def,type",
+    "pretty": "type CDATATestNS::CDATATestStruct",
+    "sym": "T_CDATATestNS::CDATATestStruct"
+  },
+  {
+    "loc": "00013:7",
+    "structured": 1,
+    "pretty": "CDATATestNS::CDATATestStruct",
+    "sym": "T_CDATATestNS::CDATATestStruct",
+    "kind": "struct",
+    "sizeBytes": 1,
+    "alignmentBytes": 1,
+    "supers": [],
+    "methods": [
+      {
+        "pretty": "CDATATestNS::CDATATestStruct::foo",
+        "sym": "_ZN11CDATATestNS15CDATATestStruct3fooEv",
+        "props": [
+          "instance",
+          "user"
+        ]
+      },
+      {
+        "pretty": "CDATATestNS::CDATATestStruct::CDATATestStruct",
+        "sym": "_ZN11CDATATestNS15CDATATestStructC1Ev",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      },
+      {
+        "pretty": "CDATATestNS::CDATATestStruct::CDATATestStruct",
+        "sym": "_ZN11CDATATestNS15CDATATestStructC1ERKS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      },
+      {
+        "pretty": "CDATATestNS::CDATATestStruct::CDATATestStruct",
+        "sym": "_ZN11CDATATestNS15CDATATestStructC1EOS0_",
+        "props": [
+          "instance",
+          "defaulted",
+          "constexpr"
+        ]
+      }
+    ],
+    "fields": []
+  },
+  {
+    "loc": "00013:7",
+    "target": 1,
+    "kind": "def",
+    "pretty": "CDATATestNS::CDATATestStruct",
+    "sym": "T_CDATATestNS::CDATATestStruct",
+    "peekRange": "14-14"
+  },
+  {
+    "loc": "00014:7",
+    "source": 1,
+    "nestingRange": "15:13-17:2",
+    "syntax": "def,function",
+    "type": "_Bool (void)",
+    "pretty": "function CDATATestNS::CDATATestStruct::foo",
+    "sym": "_ZN11CDATATestNS15CDATATestStruct3fooEv"
+  },
+  {
+    "loc": "00014:7",
+    "structured": 1,
+    "pretty": "CDATATestNS::CDATATestStruct::foo",
+    "sym": "_ZN11CDATATestNS15CDATATestStruct3fooEv",
+    "args": [],
+    "kind": "method",
+    "parentsym": "T_CDATATestNS::CDATATestStruct",
+    "overrides": [],
+    "props": [
+      "instance",
+      "user"
+    ]
+  },
+  {
+    "loc": "00014:7",
+    "target": 1,
+    "kind": "def",
+    "pretty": "CDATATestNS::CDATATestStruct::foo",
+    "sym": "_ZN11CDATATestNS15CDATATestStruct3fooEv",
+    "context": "CDATATestNS::CDATATestStruct",
+    "contextsym": "T_CDATATestNS::CDATATestStruct",
+    "peekRange": "15-15"
+  }
+]
