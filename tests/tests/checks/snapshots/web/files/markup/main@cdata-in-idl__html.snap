@@ -1,0 +1,49 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/markup/cdata-in-idl__html
+---
+<code role="cell" class="source-line"><span class="syn_comment" >/* -*- Mode: IDL; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" >/* This Source Code Form is subject to the terms of the Mozilla Public</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" > * License, v. 2.0. If a copy of the MPL was not distributed with this</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" > * file, You can obtain one at <a href="http://mozilla.org/MPL/2.0/">http://mozilla.org/MPL/2.0/</a>. */</span>
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >#include</span> <span class="syn_string" >"nsISupports.idl"</span>
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line">[<span class="syn_reserved" >scriptable</span>, <span class="syn_reserved" >uuid</span>(7a51de6e-77dd-40af-a59b-990da22d540f)]
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >interface</span> <span class="syn_def" data-symbols="XPIDL_ICDATATest1" data-confidences="[&quot;concrete&quot;]">ICDATATest1</span> {};
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" >%{C++</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >namespace</span> <span class="syn_def" data-symbols="NS_CDATATestNS" data-confidences="[&quot;concrete&quot;]">CDATATestNS</span> {
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >struct</span> <span class="syn_def syn_type" data-symbols="T_CDATATestNS::CDATATestStruct" data-confidences="[&quot;concrete&quot;]">CDATATestStruct</span> {
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >bool</span> <span class="syn_def" data-symbols="_ZN11CDATATestNS15CDATATestStruct3fooEv" data-confidences="[&quot;concrete&quot;]">foo</span>() {
+</code>
+<code role="cell" class="source-line">      <span class="syn_reserved" >return</span> <span class="syn_reserved" >true</span>;
+</code>
+<code role="cell" class="source-line">  }
+</code>
+<code role="cell" class="source-line">};
+</code>
+<code role="cell" class="source-line">}
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" >%}</span>
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line">[<span class="syn_reserved" >scriptable</span>, <span class="syn_reserved" >uuid</span>(0e66004a-e292-455b-8e5e-bcefb144a10a)]
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >interface</span> <span class="syn_def" data-symbols="XPIDL_ICDATATest2" data-confidences="[&quot;concrete&quot;]">ICDATATest2</span> {};
+</code>
