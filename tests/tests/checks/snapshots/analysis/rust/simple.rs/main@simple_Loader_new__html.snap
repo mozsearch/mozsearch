@@ -5,7 +5,7 @@ input_file: inputs/analysis/rust/simple.rs/simple_Loader_new__html
 ---
 <div role="row" id="line-NORM" class="source-line-with-number nesting-sticky-line">
   <div class="line-strip">
-    <div role="cell"><div class="cov-strip cov-no-data"></div></div>
+    <div role="cell"><div role="button" aria-expanded="false" class="cov-strip cov-no-data" aria-label="uncovered"></div></div>
     <div role="cell"><div class="blame-strip" data-blame="BLAME" role="button" aria-expanded="false"></div></div>
   </div>
   <div role="cell" class="line-number" data-line-number="NORM"></div>
