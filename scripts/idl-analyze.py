@@ -109,7 +109,39 @@ def parse_mangled(mangled):
 
     return idents
 
-def read_cpp_analysis(fname):
+
+def read_header_cdata_line_map(fname, objdir):
+    base = os.path.basename(fname)
+    (idlName, suffix) = os.path.splitext(base)
+    headerName = idlName + '.h'
+    path = os.path.join(objdir, 'dist', 'include', headerName)
+
+    cdata_line_map = {}
+
+    if not os.path.exists(path):
+        return cdata_line_map
+
+    header_lineno = 0
+    with open(path, 'r') as f:
+        for line in f:
+            header_lineno += 1
+            m = re.match(r'^ *// %\{C\+\+:(\d+)-(\d+)', line)
+            if not m:
+                continue
+
+            # "first" line points the first line in the CDATA,
+            # which is the line after this comment.
+            first = int(m.group(1))
+            last = int(m.group(2))
+            i = 1
+            for idl_lineno in range(first, last + 1):
+                cdata_line_map[header_lineno + i] = idl_lineno
+                i += 1
+
+    return cdata_line_map
+
+
+def read_cpp_analysis(fname, cdata_line_map):
     base = os.path.basename(fname)
     (idlName, suffix) = os.path.splitext(base)
     headerName = idlName + '.h'
@@ -118,6 +150,7 @@ def read_cpp_analysis(fname):
         lines = open(p).readlines()
     except IOError as e:
         return None
+    cdata_analysis = []
     methods = {}
     enums = []
     for line in lines:
@@ -136,7 +169,17 @@ def read_cpp_analysis(fname):
                     methods.setdefault(idents[0], {})[idents[1]] = j['sym']
             elif j['sym'].startswith('E_'):
                 enums.append(j['sym'])
-    return (methods, enums)
+        if 'loc' in j and j['loc']:
+            m = re.match(r'^(\d+)(:\d+)', j['loc'])
+            if m:
+                lineno = int(m.group(1))
+                tail = m.group(2)
+                if lineno in cdata_line_map:
+                    mapped = cdata_line_map[lineno]
+                    j['loc'] = f'{mapped:05d}{tail}'
+                    cdata_analysis.append(json.dumps(j))
+
+    return (methods, enums, cdata_analysis)
 
 def find_enum(enums, name):
     for e in enums:
@@ -480,9 +523,11 @@ def handle_interface(methods, enums, iface):
 
 indexRoot = sys.argv[1]
 fname = sys.argv[2]
+objdir = sys.argv[3]
 
 text = open(fname).read()
-analysis = read_cpp_analysis(fname)
+cdata_line_map = read_header_cdata_line_map(fname, objdir)
+analysis = read_cpp_analysis(fname, cdata_line_map)
 
 linebreaks = []
 lines = text.split('\n')
@@ -492,7 +537,7 @@ for l in lines:
     linebreaks.append(cur)
 
 if analysis:
-    (methods, enums) = analysis
+    (methods, enums, cdata_analysis) = analysis
     p = xpidl.IDLParser()
 
     try:
@@ -505,5 +550,10 @@ if analysis:
     for p in r.productions:
         if isinstance(p, xpidl.Interface):
             handle_interface(methods.get(p.name, {}), enums, p)
+
+    if cdata_analysis:
+        for item in cdata_analysis:
+            print(item)
 else:
     print('XPIDL: No C++ analysis data found for', fname, file=sys.stderr)
+
