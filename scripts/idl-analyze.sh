@@ -44,7 +44,7 @@ fi
 
 cat $INDEX_ROOT/idl-files | \
     parallel $MOZSEARCH_PATH/scripts/idl-analyze.py \
-    $INDEX_ROOT $FILES_ROOT/{} ">" $INDEX_ROOT/analysis/{}
+    $INDEX_ROOT $FILES_ROOT/{} $OBJDIR ">" $INDEX_ROOT/analysis/{}
 
 cat $INDEX_ROOT/webidl-files | \
     $MOZSEARCH_PATH/scripts/webidl-analyze.py \
