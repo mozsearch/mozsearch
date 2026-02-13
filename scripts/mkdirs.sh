@@ -25,12 +25,14 @@ mkdir -p $INDEX_ROOT/aliases
 
 mkdir -p $INDEX_ROOT/analysis/__GENERATED__
 
-cat $INDEX_ROOT/repo-dirs | \
-    parallel \
-        "echo 'Making {file,dir,analysis,description} dirs for {}'; \
-         mkdir -p '$INDEX_ROOT/file/{}'; \
-         mkdir -p '$INDEX_ROOT/dir/{}'; \
-         mkdir -p '$INDEX_ROOT/analysis/{}'; \
-         mkdir -p $INDEX_ROOT/description/{}"
-
+set +x # This part is annoyingly verbose, silence commands and use manual echo statement
+cat $INDEX_ROOT/repo-dirs | while IFS= read dir
+do
+    echo "Making {file,dir,analysis,description} dirs for $dir"
+    mkdir -p "$INDEX_ROOT/file/$dir"
+    mkdir -p "$INDEX_ROOT/dir/$dir"
+    mkdir -p "$INDEX_ROOT/analysis/$dir"
+    mkdir -p "$INDEX_ROOT/description/$dir"
+done
+set -x
 mkdir -p $INDEX_ROOT/templates
