@@ -192,22 +192,22 @@ var BlamePopup = new (class BlamePopup {
   }
 
   async generateCoverageContent(elt) {
-    let content = `<div class="coverage-entry">`;
+    let content = `<p class="coverage-entry">`;
 
     if (elt.classList.contains("cov-no-data")) {
-      content = `There is no coverage data for this file.`;
+      content += `There is no coverage data for this file.`;
     } else if (elt.classList.contains("cov-unknown")) {
-      content = `There was coverage data for this file but not for this line.`;
+      content += `There was coverage data for this file but not for this line.`;
     } else if (elt.classList.contains("cov-interpolated")) {
-      content =
+      content +=
         `This line wasn't instrumented for coverage, but we ` +
         `interpolated coverage for this line to make it visually less ` +
         `distracting.`;
     } else if (elt.classList.contains("cov-uncovered")) {
-      content = `This line wasn't instrumented for coverage.`;
+      content += `This line wasn't instrumented for coverage.`;
     } else {
       const hitCount = parseInt(elt.dataset.coverage, 10);
-      content =
+      content +=
         `This line was hit ${hitCount} times per coverage ` +
         `instrumentation.`;
     }
@@ -227,7 +227,7 @@ var BlamePopup = new (class BlamePopup {
     if ("latest" in data)
       content += `<br><a href="${makeLink(data.latest)}">Show latest file revision with coverage</a>`;
 
-    content += `</div>`;
+    content += `</p>`;
 
     return content;
   }
@@ -277,7 +277,7 @@ var BlamePopup = new (class BlamePopup {
 
       let rendered = "";
       let revPath = filespecList[i] == "%" ? path : filespecList[i];
-      rendered += `<div class="blame-entry">`;
+      rendered += `<p class="blame-entry">`;
       rendered += json[i].header;
 
       let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
@@ -312,7 +312,7 @@ var BlamePopup = new (class BlamePopup {
 
       let revLink = `/${tree}/rev/${revList[i]}/${revPath}#${linenoList[i]}`;
       rendered += `<br><a href="${encodeURI(revLink)}" class="deemphasize">Show earliest version with this line</a>`;
-      rendered += "</div>";
+      rendered += "</p>";
 
       if (i < revList.length - 1) {
         ignored.push(rendered);
