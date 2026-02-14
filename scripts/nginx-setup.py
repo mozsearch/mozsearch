@@ -32,6 +32,10 @@ doc_root = sys.argv[2]
 # empty values when omitted by wrapping them in quotes.
 use_hsts = sys.argv[3] == 'hsts'
 nginx_cache_dir = sys.argv[4] # empty string if not specified, which is falsey.
+nginx_log_dir = sys.argv[5] # empty string if not specified, which is falsey.
+
+if not nginx_log_dir:
+    nginx_log_dir = '/tmp'
 
 print('# use_hsts =', sys.argv[3])
 
@@ -261,9 +265,13 @@ map $status $expires {
 server {
   listen 16995 default_server;
   absolute_redirect off;
+''')
 
-  access_log /tmp/searchfox.log custom_cache_log ;
+print(f'''
+  access_log {nginx_log_dir}/searchfox.log custom_cache_log ;
+''')
 
+print('''
   # Redirect HTTP to HTTPS in release
   if ($http_x_forwarded_proto = "http") {
     return 301 https://$host$request_uri;

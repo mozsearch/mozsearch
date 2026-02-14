@@ -62,9 +62,9 @@ jobs:
       - name: "Test config: Indexer run and test"
         run: $GITHUB_WORKSPACE/infrastructure/indexer-run.sh $GITHUB_WORKSPACE/tests ~/index
       - name: "Test config: Web server setup"
-        run: $GITHUB_WORKSPACE/infrastructure/web-server-setup.sh $GITHUB_WORKSPACE/tests config.json ~/index ~
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-setup.sh $GITHUB_WORKSPACE/tests config.json ~/index ~ ~
       - name: "Test config: Web server run"
-        run: $GITHUB_WORKSPACE/infrastructure/web-server-run.sh $GITHUB_WORKSPACE/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-run.sh $GITHUB_WORKSPACE/tests ~/index ~ ~ NO_CHANNEL NO_EMAIL WAIT
       - name: "Test config: Web server test"
         run: $GITHUB_WORKSPACE/infrastructure/web-server-check.sh $GITHUB_WORKSPACE/tests ~/index "http://127.0.0.1:16995/"
       - name: "Test config: Upload updated snapshots"
@@ -86,9 +86,9 @@ jobs:
       - name: "Webtest config: Indexer run and test"
         run: $GITHUB_WORKSPACE/infrastructure/indexer-run.sh $GITHUB_WORKSPACE/tests ~/index
       - name: "Webtest config: Web server setup"
-        run: $GITHUB_WORKSPACE/infrastructure/web-server-setup.sh $GITHUB_WORKSPACE/tests webtest-config.json ~/index ~
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-setup.sh $GITHUB_WORKSPACE/tests webtest-config.json ~/index ~ ~
       - name: "Webtest config: Web server run"
-        run: $GITHUB_WORKSPACE/infrastructure/web-server-run.sh $GITHUB_WORKSPACE/tests ~/index ~ NO_CHANNEL NO_EMAIL WAIT
+        run: $GITHUB_WORKSPACE/infrastructure/web-server-run.sh $GITHUB_WORKSPACE/tests ~/index ~ ~ NO_CHANNEL NO_EMAIL WAIT
       - name: "Webtest config: Web server test"
         run: $GITHUB_WORKSPACE/scripts/webtest.sh
       - name: "Webtest config: Upload updated snapshots"

@@ -88,6 +88,10 @@ NGINX_CACHE_DIR=/index/nginx-cache
 rm -rf $NGINX_CACHE_DIR
 mkdir $NGINX_CACHE_DIR
 
+LOG_DIR=/index/logs
+rm -rf $LOG_DIR
+mkdir $LOG_DIR
+
 # Redirect port 80 to port 16995, where our root-less nginx listens
 # From https://askubuntu.com/a/595955
 sudo iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 16995
@@ -104,5 +108,12 @@ release* )
     ;;
 esac
 
-$MOZSEARCH_PATH/infrastructure/web-server-setup.sh $CONFIG_REPO $CONFIG_INPUT /index ~ hsts $NGINX_CACHE_DIR
-$MOZSEARCH_PATH/infrastructure/web-server-run.sh $CONFIG_REPO /index ~ $CHANNEL $DEST_EMAIL
+INDEX_PATH=/index
+SERVER_ROOT=~
+
+$MOZSEARCH_PATH/infrastructure/web-server-setup.sh \
+    $CONFIG_REPO $CONFIG_INPUT $INDEX_PATH $SERVER_ROOT $LOG_DIR \
+    hsts $NGINX_CACHE_DIR
+$MOZSEARCH_PATH/infrastructure/web-server-run.sh \
+    $CONFIG_REPO $INDEX_PATH $SERVER_ROOT $LOG_DIR \
+    $CHANNEL $DEST_EMAIL
