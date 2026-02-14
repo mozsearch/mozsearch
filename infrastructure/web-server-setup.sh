@@ -4,9 +4,9 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-if [ $# != 4 -a $# != 5 -a $# != 6 ]
+if [ $# != 5 -a $# != 6 -a $# != 7 ]
 then
-    echo "usage: $0 <config-repo-path> <config-file-name> <index-path> <server-root> [<use_hsts>] [nginx-cache-dir]"
+    echo "usage: $0 <config-repo-path> <config-file-name> <index-path> <server-root> <log-dir> [<use_hsts>] [<nginx-cache-dir>]"
     exit 1
 fi
 
@@ -16,9 +16,11 @@ CONFIG_REPO=$(readlink -f $1)
 CONFIG_INPUT="$2"
 WORKING=$(readlink -f $3)
 SERVER_ROOT=$(readlink -f $4)
+LOG_DIR=$5
+USE_HSTS=${6:-}
+NGINX_CACHE_DIR=${7:-}
+
 CONFIG_FILE="$SERVER_ROOT/config.json"
-USE_HSTS=${5:-}
-NGINX_CACHE_DIR=${6:-}
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING $SERVER_ROOT
 
@@ -71,7 +73,7 @@ else
 fi
 
 # ### Create and emplace the nginx configuration file
-$MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" > "$NGINX_CONFIG_PATH"
+$MOZSEARCH_PATH/scripts/nginx-setup.py $CONFIG_FILE $DOCROOT "$USE_HSTS" "$NGINX_CACHE_DIR" "$LOG_DIR" > "$NGINX_CONFIG_PATH"
 
 # ### Caching
 #
