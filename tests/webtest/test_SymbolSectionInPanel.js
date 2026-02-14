@@ -4,13 +4,7 @@ add_task(async function test_SymbolSectionInPanel() {
   await TestUtils.resetFeatureGate("fancyBar");
   await TestUtils.loadPath("/tests/source/webtest/CopyAsMarkdown.cpp");
 
-  // Hook the clipboard API for 2 reasons:
-  //   * in order to check the copied text
-  //   * given there's no user activity, the original writeText will throw
-  let copiedText = null;
-  frame.contentWindow.navigator.clipboard.writeText = async function(text) {
-    copiedText = text;
-  };
+  const clipboard = TestUtils.spyClipboard();
 
   const symBox = frame.contentDocument.querySelector(".selected-symbol-box");
 
@@ -49,7 +43,7 @@ add_task(async function test_SymbolSectionInPanel() {
 
   const copyButton = frame.contentDocument.querySelector(".copy-box .indicator");
   TestUtils.click(copyButton);
-  is(copiedText,
+  is(clipboard.value,
      "copy_as_markdown::CopyAsMarkdown::SomeMethod",
      "The selected symbol is copied");
 });

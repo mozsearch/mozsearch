@@ -247,6 +247,7 @@ function convertDashedIdentifierToGroupAndName(idStr) {
  */
 const Settings = new (class Settings {
   #canonicalData;
+  #backupJSON;
 
   constructor() {
     if (document.location.host !== "searchfox.org") {
@@ -256,7 +257,9 @@ const Settings = new (class Settings {
     // This will synchronously block if the browser has not been able to preload
     // the LocalStorage for the origin.  This is a hard-block and will not
     // spin an event loop.  This is the worst part of LocalStorage.
-    this.#canonicalData = this.#loadCanonicalData();
+    const strData = window.localStorage.getItem("settings");
+
+    this.#canonicalData = this.#loadCanonicalDataFrom(strData);
     this.#applyAndTransformCanonicalDataToSelf();
   }
 
@@ -347,23 +350,29 @@ const Settings = new (class Settings {
    * Note that the returned data has not had feature gates applied; those are
    * only interpreted
    */
-  #loadCanonicalData() {
-    const strData = window.localStorage.getItem("settings");
+  #loadCanonicalDataFrom(strData, autoSave=true, allowParseFailure=true) {
     let data = null;
     let parseFailed = false;
     if (strData !== null) {
       try {
         data = JSON.parse(strData);
       } catch(ex) {
+        if (!allowParseFailure) {
+          throw ex;
+        }
         parseFailed = true;
       }
     }
     if (data === null) {
       data = this.#generateDefaultSettings(parseFailed);
-      this.#saveCanonicalData(data);
+      if (autoSave) {
+        this.#saveCanonicalData(data);
+      }
     } else if (data.version < SETTINGS_VERSION) {
       data = this.#upgradeSettings(data);
-      this.#saveCanonicalData(data);
+      if (autoSave) {
+        this.#saveCanonicalData(data);
+      }
     }
     return data;
   }
@@ -498,6 +507,54 @@ const Settings = new (class Settings {
     this.#saveCanonicalData();
     this.#applyAndTransformCanonicalDataToSelf();
   }
+
+  exportToJSON() {
+    return JSON.stringify(this.#canonicalData);
+  }
+
+  importFromJSON(text, skipBackup=false) {
+    const backup = this.exportToJSON();
+
+    // The caller is responsible for handling any error.
+    const data =
+          this.#loadCanonicalDataFrom(text, /* autoSave = */ false,
+                                      /* allowParseFailure = */ false);
+    // Reuse the upgrade logic for the validation and fixup purpose.
+    this.#canonicalData = this.#upgradeSettings(data);
+    this.#applyAndTransformCanonicalDataToSelf();
+
+    // Do not overwrite the local storage until the settings are successfully
+    // loaded.
+    this.#saveCanonicalData();
+
+    if (!skipBackup) {
+      this.#backupJSON = backup;
+    }
+  }
+
+  #getBackup() {
+    try {
+      JSON.parse(this.#backupJSON);
+    } catch (e) {
+      return null;
+    }
+    return this.#backupJSON;
+  }
+
+  canUndoImport() {
+    return !!this.#getBackup();
+  }
+
+  undoImport() {
+    const backup = this.#getBackup();
+    if (!backup) {
+      return false;
+    }
+
+    this.importFromJSON(backup, /* skipBackup = */ true);
+    this.#backupJSON = null;
+    return true;
+  }
 })();
 
 /**
@@ -540,34 +597,45 @@ const SettingsBinder = new (class SettingsBinder {
     // currently loaded as part of the `scroll_footer.liquid` template which
     // comes after all content and so the DOM should therefore already exist.
     if (Router.page === "settings.html") {
-      this.bindAndExpandTemplatedForms();
+      this.bindAndExpandTemplatedForms(false);
+      this.setupExportImport();
     }
   }
 
-  bindAndExpandTemplatedForms() {
+  bindAndExpandTemplatedForms(updateOnly) {
     // Make sure we only manipulate the content area and don't interfere with
     // the search UI.
 
     const root = document.querySelector("#content");
 
-    // Let's add an idempotency guard that complains in order to help shine a
-    // light on any logic problems which might otherwise result in weirdness.
-    if ("boundSettings" in root) {
-      console.error("Attempted to re-bind settings!");
-      throw new Error("Redundant attempt to bind settings.");
+    if (!updateOnly) {
+      // Let's add an idempotency guard that complains in order to help shine a
+      // light on any logic problems which might otherwise result in weirdness.
+      if ("boundSettings" in root) {
+        console.error("Attempted to re-bind settings!");
+        throw new Error("Redundant attempt to bind settings.");
+      }
+      root.boundSettings = true;
     }
-    root.boundSettings = true;
 
     const featureGateOptions = root.querySelector("#feature-gate-options");
 
-    // Neutralize all form elements so nothing ever submits anywhere, as this is
-    // all content-side.
-    for (const form of root.querySelectorAll("form")) {
-      form.addEventListener("submit", (evt) => { evt.preventDefault(); });
+    if (!updateOnly) {
+      // Neutralize all form elements so nothing ever submits anywhere, as this is
+      // all content-side.
+      for (const form of root.querySelectorAll("form")) {
+        form.addEventListener("submit", (evt) => { evt.preventDefault(); });
+      }
     }
 
     // Bind all form inputs
     for (const elem of root.querySelectorAll("input, select, textarea")) {
+      if (elem.classList.contains("export-import")) {
+        continue;
+      }
+      if (elem.id === "panel-accel-enable") {
+        continue;
+      }
       const info = Settings.__lookupSettingFromId(elem.id);
       if (!info) {
         console.warn("Thought about binding to", elem, "with id", elem.id, "but could not.");
@@ -576,47 +644,119 @@ const SettingsBinder = new (class SettingsBinder {
       if (elem.tagName === "INPUT") {
         if (elem.type === "checkbox") {
           elem.checked = Settings[info.groupName][info.keyName];
-          elem.addEventListener("change", () => {
-            Settings.__setValueFromIdSpace(elem.id, elem.checked);
-          });
+          if (!updateOnly) {
+            elem.addEventListener("change", () => {
+              Settings.__setValueFromIdSpace(elem.id, elem.checked);
+            });
+          }
         } else if (elem.type === "text") {
           elem.value = Settings[info.groupName][info.keyName];
-          elem.addEventListener("change", () => {
-            Settings.__setValueFromIdSpace(elem.id, elem.value);
-          });
+          if (!updateOnly) {
+            elem.addEventListener("change", () => {
+              Settings.__setValueFromIdSpace(elem.id, elem.value);
+            });
+          }
         } else if (elem.type === "number") {
           elem.value = Settings[info.groupName][info.keyName];
-          elem.addEventListener("input", () => {
-            Settings.__setValueFromIdSpace(elem.id, elem.valueAsNumber);
-          });
+          if (!updateOnly) {
+            elem.addEventListener("input", () => {
+              Settings.__setValueFromIdSpace(elem.id, elem.valueAsNumber);
+            });
+          }
         } else {
           console.warn("Don't know how to bind to", elem, "with type", elem.type);
         }
       } else if (elem.tagName === "TEXTAREA") {
         elem.value = Settings[info.groupName][info.keyName];
-        elem.addEventListener("change", () => {
-          Settings.__setValueFromIdSpace(elem.id, elem.value);
-        });
+        if (!updateOnly) {
+          elem.addEventListener("change", () => {
+            Settings.__setValueFromIdSpace(elem.id, elem.value);
+          });
+        }
       } else if (elem.tagName === "SELECT") {
-        // Enabling
-        if (!info.isWidget && info.keyName === "enabled") {
-          // To reduce maintenance if we change the feature gate payloads, we
-          // just use our template clone on the inside, and it could also make
-          // sense to may set/propagate any other attributes as appropriate.
-          elem.appendChild(featureGateOptions.content.cloneNode(true));
+        if (!updateOnly) {
+          // Enabling
+          if (!info.isWidget && info.keyName === "enabled") {
+            // To reduce maintenance if we change the feature gate payloads, we
+            // just use our template clone on the inside, and it could also make
+            // sense to may set/propagate any other attributes as appropriate.
+            elem.appendChild(featureGateOptions.content.cloneNode(true));
+          }
         }
         elem.value = info.rawValue;
-        elem.addEventListener("change", () => {
-          Settings.__setValueFromIdSpace(elem.id, elem.value);
-        });
+        if (!updateOnly) {
+          elem.addEventListener("change", () => {
+            Settings.__setValueFromIdSpace(elem.id, elem.value);
+          });
+        }
       }
     }
 
-    // Bind things that say what current qualities are:
-    for (const elem of root.querySelectorAll('[id^="quality--"]')) {
-      const useId = elem.id.substring("quality--".length);
-      const info = Settings.__lookupSettingFromId(useId);
-      elem.textContent = info.keyDef.quality;
+    if (!updateOnly) {
+      // Bind things that say what current qualities are:
+      for (const elem of root.querySelectorAll('[id^="quality--"]')) {
+        const useId = elem.id.substring("quality--".length);
+        const info = Settings.__lookupSettingFromId(useId);
+        elem.textContent = info.keyDef.quality;
+      }
     }
+  }
+
+  setupExportImport() {
+    const root = document.querySelector("#content");
+    const textarea = root.querySelector("#export-import-json");
+    const undoImportButton = root.querySelector("#undo-import");
+    const status = root.querySelector("#export-import-status");
+
+    const updateUndoState = () => {
+      undoImportButton.disabled = !Settings.canUndoImport();
+    };
+    updateUndoState();
+
+    root.querySelector("#export-clipboard").addEventListener("click", () => {
+      const text = Settings.exportToJSON();;
+      navigator.clipboard
+        .writeText(text)
+        .then(function () {
+          status.textContent = "Exported to the clipboard.";
+        });
+    });
+    root.querySelector("#export-textarea").addEventListener("click", () => {
+      textarea.value = Settings.exportToJSON();
+      status.textContent = "Exported to the textarea.";
+    });
+
+    root.querySelector("#import-textarea").addEventListener("click", () => {
+      try {
+        Settings.importFromJSON(textarea.value);
+      } catch (e) {
+        status.textContent = `Failed to import: ${e}`;
+        return;
+      }
+      this.bindAndExpandTemplatedForms(true);
+      status.textContent = "Imported from the textarea.  The backup data is created for undo.";
+
+      updateUndoState();
+    });
+
+    undoImportButton.addEventListener("click", () => {
+      let result;
+
+      try {
+        result = Settings.undoImport();
+      } catch (e) {
+        status.textContent = `Failed to undo: ${e}`;
+        return;
+      }
+
+      if (result) {
+        this.bindAndExpandTemplatedForms(true);
+        status.textContent = "Restored to the settings before the last import.";
+      } else {
+        status.textContent = "The setting is not found.";
+      }
+
+      updateUndoState();
+    });
   }
 })();
