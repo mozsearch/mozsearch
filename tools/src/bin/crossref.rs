@@ -273,7 +273,7 @@ fn process_analysis_structured(
 fn make_subsystem(
     path: &Ustr,
     file_syms: &Vec<String>,
-    ingestion: &mut RepoIngestion,
+    ingestion: &RepoIngestion,
     meta_table: &mut MetaTable,
     pretty_table: &mut PrettyTable,
     id_table: &mut IdTable,
@@ -505,7 +505,7 @@ async fn main() {
         let subsystem = make_subsystem(
             path,
             &file_syms,
-            &mut ingestion,
+            &ingestion,
             &mut meta_table,
             &mut pretty_table,
             &mut id_table,
