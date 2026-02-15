@@ -67,15 +67,83 @@ struct CrossrefCli {
     analysis_files_list_path: String,
 }
 
+// Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult>
+// as the leaf values.
 type SearchResultTable = BTreeMap<Ustr, BTreeMap<AnalysisKind, BTreeMap<Ustr, Vec<SearchResult>>>>;
+
+// Maps (raw) symbol to interned-pretty symbol string.  Each raw symbol is
+// unique, but there may be many raw symbols that map to the same pretty symbol
+// string.
 type PrettyTable = HashMap<Ustr, Ustr>;
+
+// Reverse of pretty_table.  The key is the pretty symbol, and the value is a
+// UstrSet of all of the raw symbols that map to the pretty symbol.  Pretty
+// symbols that start with numbers or include whitespace are considered illegal
+// and not included in the map.
+//
+// This table has been modified so that it is populated with the suffix
+// variations immediately.  So for the symbol "foo::bar::Baz" we will add
+// entries for "Baz", "bar::Baz", and "foo::bar::Baz".  Previously we would
+// only add the full variation and compute the suffixes when writing its
+// contents out, but we now need/want this for processing field type strings
+// because we do not currently have the fully qualified symbols available.
+// In the future we hopefully will have better type representations for fields.
+//
+// An alternate approach would be for us to write the identifier table out
+// earlier and just memory map that for subsequent processing.  Not doing that
+// right now because the ustr rep potentially could end up comparable in memory
+// usage if the identifer file is fully paged in, and for performance we would
+// want it fully paged in, so might as well use the memory so we fail faster if
+// we don't have the memory available.
 type IdTable = UstrMap<UstrSet>;
+
+// Maps (raw) symbol to `SymbolMeta` info for this symbol.  Currently, we
+// require that the language analyzer created a "structured" record and we
+// use that, but it could make sense for us to automatically generate a stub
+// meta for symbols for which we didn't find a structured record.  A minor
+// awkwardness here is that we would really want to use the "source" records
+// for this (as we did prior to the introduction of the structured record
+// type), but we currently don't retain those.  (But we do currently read
+// the file 2x; maybe it would be better to read it once and have the
+// records grouped by type so we can improve that).
 type MetaTable = BTreeMap<Ustr, AnalysisStructured>;
+
+// Maps the (raw) symbol making the calls to a BTreeMap whose keys are the
+// symbols being called and whose values are a tuple of the path where the
+// calls are happening and a BTreeSet of the lines in the path where these
+// calls happen.  This is used so that on graphs we can have the edges have
+// a source link that highlights all of the lines where the calls are
+// happening.
+//
+// The term "callees" used here makes most sense when dealing with
+// functions/similar, but it's not just for those cases.  We also use it for
+// field accesses, etc.  This was formerly dubbed "consumes" in prototyping,
+// but that was even more confusing.  Another rename may be in order.
 type CalleesTable = BTreeMap<Ustr, BTreeMap<Ustr, (Ustr, BTreeSet<u32>)>>;
+
+// Maps the (raw) symbol corresponding to a type to a BTreeMap whose key
+// is the class referencing the type and whose values are a vec of tuples of
+// the form (field pretty, pointer kind).
 type FieldMemberUseTable = BTreeMap<Ustr, BTreeMap<Ustr, Vec<(Ustr, OntologyPointerKind)>>>;
+
+// As we process the source entries and build the SourceMeta, we keep a running
+// list of what cross-SourceMeta links need to be established.  We then process
+// this after all of the files have been processed and we know all symbols are
+// known.
+
+// Pairs of [parent class sym, subclass sym] to add subclass to parent.
 type XrefLinkSubclass = Vec<(Ustr, Ustr)>;
+
+// Pairs of [parent method sym, overridden by sym] to add the override to the
+// parent.
 type XrefLinkOverride = Vec<(Ustr, Ustr)>;
+
+// (owner symbol, slotted symbol) -> slot props
+// This is a BTreeMap and not a HashMap to force a stable ordering and avoid
+// flaky tests.
 type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
+
+// Maps JS symbol to possible IDL symbols.
 type JSIDLTable = HashMap<Ustr, Vec<Ustr>>;
 
 #[allow(clippy::too_many_arguments)]
@@ -413,69 +481,15 @@ async fn main() {
     let jumpref_ext_file = format!("{}/jumpref-extra", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
-    // Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult> as the leaf
-    // values.
     let mut table = SearchResultTable::new();
-    // Maps (raw) symbol to interned-pretty symbol string.  Each raw symbol is unique, but there
-    // may be many raw symbols that map to the same pretty symbol string.
     let mut pretty_table = PrettyTable::new();
-    // Reverse of pretty_table.  The key is the pretty symbol, and the value is a UstrSet of all
-    // of the raw symbols that map to the pretty symbol.  Pretty symbols that start with numbers or
-    // include whitespace are considered illegal and not included in the map.
-    //
-    // This table has been modified so that it is populated with the suffix variations immediately.
-    // So for the symbol "foo::bar::Baz" we will add entries for "Baz", "bar::Baz", and
-    // "foo::bar::Baz".  Previously we would only add the full variation and compute the suffixes
-    // when writing its contents out, but we now need/want this for processing field type strings
-    // because we do not currently have the fully qualified symbols available.  In the future
-    // we hopefully will have better type representations for fields.
-    //
-    // An alternate approach would be for us to write the identifier table out earlier and just
-    // memory map that for subsequent processing.  Not doing that right now because the ustr rep
-    // potentially could end up comparable in memory usage if the identifer file is fully paged
-    // in, and for performance we would want it fully paged in, so might as well use the memory
-    // so we fail faster if we don't have the memory available.
     let mut id_table = IdTable::default();
-    // Maps (raw) symbol to `SymbolMeta` info for this symbol.  Currently, we
-    // require that the language analyzer created a "structured" record and we
-    // use that, but it could make sense for us to automatically generate a stub
-    // meta for symbols for which we didn't find a structured record.  A minor
-    // awkwardness here is that we would really want to use the "source" records
-    // for this (as we did prior to the introduction of the structured record
-    // type), but we currently don't retain those.  (But we do currently read
-    // the file 2x; maybe it would be better to read it once and have the
-    // records grouped by type so we can improve that).
     let mut meta_table = MetaTable::new();
-    // Maps the (raw) symbol making the calls to a BTreeMap whose keys are the
-    // symbols being called and whose values are a tuple of the path where the
-    // calls are happening and a BTreeSet of the lines in the path where these
-    // calls happen.  This is used so that on graphs we can have the edges have
-    // a source link that highlights all of the lines where the calls are
-    // happening.
-    //
-    // The term "callees" used here makes most sense when dealing with
-    // functions/similar, but it's not just for those cases.  We also use it for
-    // field accesses, etc.  This was formerly dubbed "consumes" in prototyping,
-    // but that was even more confusing.  Another rename may be in order.
     let mut callees_table = CalleesTable::new();
-    // Maps the (raw) symbol corresponding to a type to a BTreeMap whose key
-    // is the class referencing the type and whose values are a vec of tuples of
-    // the form (field pretty, pointer kind).
     let mut field_member_use_table = FieldMemberUseTable::new();
-
-    // As we process the source entries and build the SourceMeta, we keep a running list of what
-    // cross-SourceMeta links need to be established.  We then process this after all of the files
-    // have been processed and we know all symbols are known.
-
-    // Pairs of [parent class sym, subclass sym] to add subclass to parent.
     let mut xref_link_subclass = XrefLinkSubclass::new();
-    // Pairs of [parent method sym, overridden by sym] to add the override to the parent.
     let mut xref_link_override = XrefLinkOverride::new();
-    // (owner symbol, slotted symbol) -> slot props
-    // This is a BTreeMap and not a HashMap to force a stable ordering and avoid flaky tests.
     let mut xref_link_slots = XrefLinkSlots::new();
-
-    // Maps JS symbol to possible IDL symbols.
     let mut js_idl_table = JSIDLTable::new();
 
     for path in &analysis_relative_paths {
