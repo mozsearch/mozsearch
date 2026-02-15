@@ -422,7 +422,7 @@ async fn main() {
 
     ingestion
         .ingest_files(|root: &str, file: &str| {
-            cfg.maybe_read_file_from_given_root(&cli.tree_name, root, file)
+            cfg.maybe_read_file_from_given_root(tree_name, root, file)
         })
         .unwrap();
 
