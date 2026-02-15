@@ -232,6 +232,27 @@ pub struct GitData {
     pub blame_ignore: BlameIgnoreList,
 }
 
+fn find_source_file(files_path: &String, objdir_path: &String, path: &str) -> String {
+    if path.starts_with("__GENERATED__") {
+        return path.replace("__GENERATED__", objdir_path);
+    }
+    format!("{}/{}", files_path, path)
+}
+
+// A minimal representation for the find_source_file input.
+// This can be used for passing the logic to threads, while not passing the
+// entire TreeConfig struct.
+pub struct FindSourceFile {
+    files_path: String,
+    objdir_path: String,
+}
+
+impl FindSourceFile {
+    pub fn find(&self, path: &str) -> String {
+        find_source_file(&self.files_path, &self.objdir_path, path)
+    }
+}
+
 pub struct TreeConfig {
     pub paths: TreeConfigPaths,
     pub git: Option<GitData>,
@@ -253,10 +274,14 @@ impl TreeConfig {
     }
 
     pub fn find_source_file(&self, path: &str) -> String {
-        if path.starts_with("__GENERATED__") {
-            return path.replace("__GENERATED__", &self.paths.objdir_path);
+        find_source_file(&self.paths.files_path, &self.paths.objdir_path, path)
+    }
+
+    pub fn get_find_source_file(&self) -> FindSourceFile {
+        FindSourceFile {
+            files_path: self.paths.files_path.clone(),
+            objdir_path: self.paths.objdir_path.clone(),
         }
-        format!("{}/{}", &self.paths.files_path, path)
     }
 
     pub fn should_ignore_missing_file(&self, path: &str) -> bool {
