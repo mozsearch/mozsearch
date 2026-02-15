@@ -153,7 +153,7 @@ fn process_analysis_target(
     fallback_file_sym: &Ustr,
     lineno: usize,
     loc: &Location,
-    table: &mut SearchResultTable,
+    search_result_table: &mut SearchResultTable,
     pretty_table: &mut PrettyTable,
     id_table: &mut IdTable,
     callees_table: &mut CalleesTable,
@@ -172,7 +172,7 @@ fn process_analysis_target(
         piece.contextsym = *fallback_file_sym;
     }
 
-    let t1 = table.entry(piece.sym).or_default();
+    let t1 = search_result_table.entry(piece.sym).or_default();
     let t2 = t1.entry(piece.kind).or_default();
     let t3 = t2.entry(*path).or_default();
 
@@ -481,7 +481,7 @@ async fn main() {
     let jumpref_ext_file = format!("{}/jumpref-extra", tree_config.paths.index_path);
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
-    let mut table = SearchResultTable::new();
+    let mut search_result_table = SearchResultTable::new();
     let mut pretty_table = PrettyTable::new();
     let mut id_table = IdTable::default();
     let mut meta_table = MetaTable::new();
@@ -531,9 +531,9 @@ async fn main() {
                     let id_syms = id_table.entry(piece.pretty).or_insert(UstrSet::default());
                     id_syms.insert(piece.sym);
                     // We also need to make sure there's a top-level entry in
-                    // the table, even if it's empty, so that when we're
+                    // the search_result_table, even if it's empty, so that when we're
                     // building the crossref, the structured record gets emitted.
-                    table.entry(piece.sym).or_default();
+                    search_result_table.entry(piece.sym).or_default();
                 }
                 process_analysis_structured(
                     piece,
@@ -588,7 +588,7 @@ async fn main() {
                     &fallback_file_sym,
                     lineno,
                     &datum.loc,
-                    &mut table,
+                    &mut search_result_table,
                     &mut pretty_table,
                     &mut id_table,
                     &mut callees_table,
@@ -788,7 +788,7 @@ async fn main() {
                                     // Skip constructors that aren't known; this can happen for the copy
                                     // constructor/etc.
                                     if method.pretty == constructor_pretty
-                                        && table.contains_key(&method.sym)
+                                        && search_result_table.contains_key(&method.sym)
                                     {
                                         syms.push(method.sym);
                                     }
@@ -929,7 +929,7 @@ async fn main() {
                         for sym in containing_syms {
                             if let Some(containing_meta) = meta_table.get_mut(sym) {
                                 for field in &mut containing_meta.fields {
-                                    if let Some(kind_map) = table.get(&field.sym) {
+                                    if let Some(kind_map) = search_result_table.get(&field.sym) {
                                         if let Some(path_hits) = kind_map.get(&AnalysisKind::Use) {
                                             for hits in path_hits.values() {
                                                 for hit in hits {
@@ -1011,7 +1011,7 @@ async fn main() {
     // file and we'd end up reporting the missing info a lot.
     let mut reported_missing_concise = UstrSet::default();
 
-    for (id, id_data) in table {
+    for (id, id_data) in search_result_table {
         let mut kindmap = Map::new();
         for (kind, kind_data) in &id_data {
             let mut result = Vec::new();
