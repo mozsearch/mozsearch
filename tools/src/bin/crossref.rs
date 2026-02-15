@@ -280,7 +280,7 @@ fn make_subsystem(
 ) -> Option<Ustr> {
     let concise_info = ingestion.state.concise_per_file.get(path);
 
-    let concise = concise_info?;
+    let subsystem = concise_info?.subsystem;
 
     for file_sym_str in file_syms {
         let file_sym = ustr(file_sym_str);
@@ -290,7 +290,7 @@ fn make_subsystem(
             sym: file_sym,
             type_pretty: None,
             kind: ustr("file"),
-            subsystem: concise.subsystem,
+            subsystem,
             // For most analytical purposes, we want to think of files as atomic,
             // so I don't think there is any upside to modeling the containing
             // directory as a parent.  Especially since we don't yet have a
@@ -324,7 +324,7 @@ fn make_subsystem(
         let t1 = id_table.entry(*path).or_default();
         t1.insert(file_sym);
     }
-    concise.subsystem
+    subsystem
 }
 
 fn line_to_buf_and_offset(line: String) -> (String, u32) {
@@ -475,22 +475,15 @@ async fn main() {
     drop(ontology_entered);
 
     // ## Process all the analysis files
-    let xref_file = format!("{}/crossref", tree_config.paths.index_path);
-    let xref_ext_file = format!("{}/crossref-extra", tree_config.paths.index_path);
-    let jumpref_file = format!("{}/jumpref", tree_config.paths.index_path);
-    let jumpref_ext_file = format!("{}/jumpref-extra", tree_config.paths.index_path);
-    let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
     let mut search_result_table = SearchResultTable::new();
     let mut pretty_table = PrettyTable::new();
     let mut id_table = IdTable::default();
     let mut meta_table = MetaTable::new();
     let mut callees_table = CalleesTable::new();
-    let mut field_member_use_table = FieldMemberUseTable::new();
     let mut xref_link_subclass = XrefLinkSubclass::new();
     let mut xref_link_override = XrefLinkOverride::new();
     let mut xref_link_slots = XrefLinkSlots::new();
-    let mut js_idl_table = JSIDLTable::new();
 
     for path in &analysis_relative_paths {
         println!("File {}", path);
@@ -651,6 +644,7 @@ async fn main() {
     }
 
     // ### Process class/fields using ontology type information
+    let mut field_member_use_table = FieldMemberUseTable::new();
     for meta in meta_table.values_mut() {
         if meta.kind.as_str() != "class" && meta.kind.as_str() != "struct" {
             continue;
@@ -983,6 +977,7 @@ async fn main() {
     }
 
     const MAX_JS_IDL_SYMS: usize = 4;
+    let mut js_idl_table = JSIDLTable::new();
     for meta in meta_table.values() {
         for slot in &meta.binding_slots {
             if slot.props.slot_lang != BindingSlotLang::JS {
@@ -1001,6 +996,11 @@ async fn main() {
     }
 
     // ## Write out the crossref and jumpref databases.
+    let xref_file = format!("{}/crossref", tree_config.paths.index_path);
+    let xref_ext_file = format!("{}/crossref-extra", tree_config.paths.index_path);
+    let jumpref_file = format!("{}/jumpref", tree_config.paths.index_path);
+    let jumpref_ext_file = format!("{}/jumpref-extra", tree_config.paths.index_path);
+
     let mut xref_out = File::create(xref_file).unwrap();
     let mut xref_ext_out = File::create(xref_ext_file).unwrap();
 
@@ -1173,6 +1173,8 @@ async fn main() {
             }
         }
     }
+
+    let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
     let mut idf = File::create(id_file).unwrap();
     for (id, syms) in id_table {
