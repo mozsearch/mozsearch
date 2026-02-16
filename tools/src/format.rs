@@ -1590,11 +1590,6 @@ pub fn format_diff(
             F::Indent(vec![
                 F::S(r#"<div class="line-strip">"#),
                 F::Indent(vec![
-                    // Coverage info.
-                    F::T(format!(
-                        "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
-                        blame_data
-                    )),
                     // Blame info.
                     F::T(format!(
                         "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
