@@ -29,6 +29,7 @@ use tools::file_format::analysis::{
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
+use tools::file_format::config::{Config, TreeConfig};
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
 use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
@@ -145,6 +146,7 @@ type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
 
 // Maps JS symbol to possible IDL symbols.
 type JSIDLTable = HashMap<Ustr, Vec<Ustr>>;
+const MAX_JS_IDL_SYMS: usize = 4;
 
 #[allow(clippy::too_many_arguments)]
 fn process_analysis_target(
@@ -336,82 +338,55 @@ fn line_to_buf_and_offset(line: String) -> (String, u32) {
     (buf, offset)
 }
 
-/// Process all analysis files, deriving the `crossref`, `jumpref`, and `identifiers` output files.
-/// See https://github.com/mozsearch/mozsearch/blob/master/docs/crossref.md for high-level
-/// documentation on how this works (locally, `docs/crossref.md`).
-///
-/// ## Implementation
-/// There are 3 phases of processing:
-/// 1. Repo data ingestion aggregates any per-file information (bugzilla component
-///    mappings, test information) and performs file-level classifications like
-///    pre-computing a path_kind for every file.
-/// 2. The analysis files are read, populating `table`, `pretty_table`, `id_table`, and
-///    `meta_table` incrementally.  Primary cross-reference information comes from target records,
-///    but the file is also processed for structured records in order to populate `meta_table` with
-///    meta-information about the symbol.
-/// 2. The table is consumed, generating both crossref and jumpref information.
-///
-/// ### Memory Management
-/// Memory usage grows continually throughout phase 1.  Because we load many identical strings,
-/// we use string interning so that all long-lived strings are reference-counted interned strings.
+struct AllFilesAndDirs {
+    analysis_relative_paths: Vec<Ustr>,
+    all_files_paths: Vec<Ustr>,
+    all_dirs_paths: Vec<Ustr>,
+}
 
-#[tokio::main]
-async fn main() {
-    // This will honor RUST_LOG, but more importantly enables our LoggedSpan
-    // mechanism.
-    //
-    // Note that this marks us transitioning to an async multi-threaded runtime
-    // for crossref, but as of the time of writing this, the logging
-    // infrastructure is the only async/multi-threaded thing going on, but this
-    // will hopefully open the door to more.  (In particular, the semantic
-    // linkage mechanism discussed in https://bugzilla.mozilla.org/show_bug.cgi?id=1727789
-    // and adjacent bugs would potentially like to see us re-processing the
-    // analysis files in parallel after the initial crossref-building phase.)
-    init_logging();
-
-    let cli = CrossrefCli::parse();
-
-    let tree_name = &cli.tree_name;
-    let cfg = config::load(&cli.config_file, false, Some(tree_name), None, None);
-
-    let tree_config = cfg.trees.get(tree_name).unwrap();
-
-    let analysis_filenames_file = &cli.analysis_files_list_path;
-
+fn load_all_files_and_dirs(
+    analysis_files_list_path: &String,
+    index_path: &String,
+) -> AllFilesAndDirs {
     // This is just the list of analysis files.
+    let analysis_filenames_file = analysis_files_list_path;
+
     let analysis_relative_paths: Vec<Ustr> =
         BufReader::new(File::open(analysis_filenames_file).unwrap())
             .lines()
             .map(|x| ustr(&x.unwrap()))
             .collect();
 
-    let all_files_list_path = format!("{}/all-files", tree_config.paths.index_path);
+    let all_files_list_path = format!("{}/all-files", index_path);
+
     let all_files_paths: Vec<Ustr> = fs::read_to_string(all_files_list_path)
         .unwrap()
         .lines()
         .map(ustr)
         .collect();
 
-    let all_dirs_list_path = format!("{}/all-dirs", tree_config.paths.index_path);
+    let all_dirs_list_path = format!("{}/all-dirs", index_path);
+
     let all_dirs_paths: Vec<Ustr> = fs::read_to_string(all_dirs_list_path)
         .unwrap()
         .lines()
         .map(ustr)
         .collect();
 
-    // ## Ingest Repo-Wide Information
+    AllFilesAndDirs {
+        analysis_relative_paths,
+        all_files_paths,
+        all_dirs_paths,
+    }
+}
 
-    // This will buffer ALL of the tracing logging in our crate between now
-    // and when we retrieve it to emit diagnostics.  To this end, we want
-    // verbose logging to be conditioned on our "probe" mechanism, which means
-    // that we only enable logs for specific values that match our probe, which
-    // is currently controlled by environment variables like `PROBE_PATH` (but
-    // where we could imagine that our trees might always designate a default
-    // probe so that we could have a few instructive data points for people to
-    // learn from rather than an excessive wall of text with no curation).
-    let logged_ingestion_span = LoggedSpan::new_logged_span("repo_ingestion");
-    let ingestion_entered = logged_ingestion_span.span.clone().entered();
-
+fn ingest_files(
+    cfg: &Config,
+    tree_config: &TreeConfig,
+    tree_name: &String,
+    all_files_paths: Vec<Ustr>,
+    all_dirs_paths: Vec<Ustr>,
+) -> RepoIngestion {
     let per_file_info_toml_str = cfg
         .read_tree_config_file_with_default("per-file-info.toml")
         .unwrap();
@@ -438,9 +413,11 @@ async fn main() {
         .state
         .write_out_and_drop_detailed_file_info(&tree_config.paths.index_path);
 
-    // Consume the ingestion logged span, pass it through our repo-ingestion
-    // explainer template, and write it do sik.
-    drop(ingestion_entered);
+    ingestion
+}
+
+async fn write_repo_ingestion_diag(tree_config: &TreeConfig, logged_ingestion_span: LoggedSpan) {
+    // TODO: remove block.
     {
         let ingestion_json = logged_ingestion_span.retrieve_serde_json().await;
         let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
@@ -454,29 +431,30 @@ async fn main() {
         let output = explain_template.render(&globals).unwrap();
         std::fs::write(ingestion_diag_path, output).unwrap();
     }
+}
 
-    // ## Load Ontology Config
-    //
-    // I moved this before the analysis ingestion thinking we might process some
-    // rules as we ingest data.  (Specifically for `label_owning_class`.)  But
-    // now it seems like it's probably reasonable to process that at the normal
-    // post-analysis-ingestion time to avoid limiting our options there.  But
-    // I'm leaving this loading ahead of the analysis ingestion because it does
-    // seem preferable that if we're going to throw a fatal error due to a
-    // misconfiguration that it's much better for us to do it earlier.
-    let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
-    let ontology_entered = logged_ontology_span.span.clone().entered();
-
+fn load_ontology(cfg: &Config) -> OntologyMappingIngestion {
     let ontology_toml_str = cfg
         .read_tree_config_file_with_default("ontology-mapping.toml")
         .unwrap();
-    let ontology = OntologyMappingIngestion::new(&ontology_toml_str)
-        .expect("ontology-mapping.toml has issues");
-    drop(ontology_entered);
+    OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues")
+}
 
-    // ## Process all the analysis files
+struct AnalysisData {
+    search_result_table: SearchResultTable,
+    pretty_table: PrettyTable,
+    id_table: IdTable,
+    meta_table: MetaTable,
+    callees_table: CalleesTable,
+}
 
+fn read_analysis_files(
+    analysis_relative_paths: &Vec<Ustr>,
+    tree_config: &TreeConfig,
+    ingestion: &RepoIngestion,
+) -> AnalysisData {
     let mut search_result_table = SearchResultTable::new();
+
     let mut pretty_table = PrettyTable::new();
     let mut id_table = IdTable::default();
     let mut meta_table = MetaTable::new();
@@ -485,7 +463,7 @@ async fn main() {
     let mut xref_link_override = XrefLinkOverride::new();
     let mut xref_link_slots = XrefLinkSlots::new();
 
-    for path in &analysis_relative_paths {
+    for path in analysis_relative_paths {
         println!("File {}", path);
 
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
@@ -623,11 +601,18 @@ async fn main() {
         }
     }
 
-    // ## Run Ontology Processing
-    let ontology_entered = logged_ontology_span.span.clone().entered();
+    AnalysisData {
+        search_result_table,
+        pretty_table,
+        id_table,
+        meta_table,
+        callees_table,
+    }
+}
 
-    info!("Processing ontology now that all analysis files have been read in.");
+type FieldOwningClassRules = UstrMap<OntologyLabelOwningClass>;
 
+fn read_field_owning_class_rules(ontology: &OntologyMappingIngestion) -> FieldOwningClassRules {
     // ### Extract field-processing rules to run over every class.
     let mut field_owning_class_rules: UstrMap<OntologyLabelOwningClass> = UstrMap::default();
 
@@ -643,6 +628,16 @@ async fn main() {
         field_owning_class_rules.insert(ustr(&type_prettied), label_owning_class.clone());
     }
 
+    field_owning_class_rules
+}
+
+fn process_class_fields(
+    ontology: &OntologyMappingIngestion,
+    id_table: &IdTable,
+    // read-write
+    meta_table: &mut MetaTable,
+    field_owning_class_rules: FieldOwningClassRules,
+) -> FieldMemberUseTable {
     // ### Process class/fields using ontology type information
     let mut field_member_use_table = FieldMemberUseTable::new();
     for meta in meta_table.values_mut() {
@@ -702,6 +697,16 @@ async fn main() {
         }
     }
 
+    field_member_use_table
+}
+
+fn process_ontology_rules(
+    ontology: &OntologyMappingIngestion,
+    search_result_table: &SearchResultTable,
+    id_table: &IdTable,
+    // read-write
+    meta_table: &mut MetaTable,
+) {
     // ### Process Ontology Rules
     for (pretty_id, rule) in ontology.config.pretty.iter() {
         // #### Labels we just slap on
@@ -958,10 +963,10 @@ async fn main() {
             }
         }
     }
+}
 
-    // Consume the ontology logged span, pass it through our ontology-ingestion
-    // explainer template, and write it to disk.
-    drop(ontology_entered);
+async fn write_ontology_ingestion_diag(tree_config: &TreeConfig, logged_ontology_span: LoggedSpan) {
+    // TODO: remove block.
     {
         let ingestion_json = logged_ontology_span.retrieve_serde_json().await;
         let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
@@ -975,8 +980,9 @@ async fn main() {
         let output = explain_template.render(&globals).unwrap();
         std::fs::write(ingestion_diag_path, output).unwrap();
     }
+}
 
-    const MAX_JS_IDL_SYMS: usize = 4;
+fn create_js_idl_table(meta_table: &MetaTable) -> JSIDLTable {
     let mut js_idl_table = JSIDLTable::new();
     for meta in meta_table.values() {
         for slot in &meta.binding_slots {
@@ -995,6 +1001,19 @@ async fn main() {
         }
     }
 
+    js_idl_table
+}
+
+fn write_crossref_and_jumpref(
+    tree_config: &TreeConfig,
+    ingestion: &RepoIngestion,
+    search_result_table: SearchResultTable,
+    pretty_table: PrettyTable,
+    meta_table: MetaTable,
+    callees_table: CalleesTable,
+    field_member_use_table: FieldMemberUseTable,
+    js_idl_table: JSIDLTable,
+) {
     // ## Write out the crossref and jumpref databases.
     let xref_file = format!("{}/crossref", tree_config.paths.index_path);
     let xref_ext_file = format!("{}/crossref-extra", tree_config.paths.index_path);
@@ -1173,7 +1192,9 @@ async fn main() {
             }
         }
     }
+}
 
+fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
     let mut idf = File::create(id_file).unwrap();
@@ -1183,6 +1204,130 @@ async fn main() {
             let _ = idf.write_all(line.as_bytes());
         }
     }
+}
+
+/// Process all analysis files, deriving the `crossref`, `jumpref`, and `identifiers` output files.
+/// See https://github.com/mozsearch/mozsearch/blob/master/docs/crossref.md for high-level
+/// documentation on how this works (locally, `docs/crossref.md`).
+///
+/// ## Implementation
+/// There are 3 phases of processing:
+/// 1. Repo data ingestion aggregates any per-file information (bugzilla component
+///    mappings, test information) and performs file-level classifications like
+///    pre-computing a path_kind for every file.
+/// 2. The analysis files are read, populating `table`, `pretty_table`, `id_table`, and
+///    `meta_table` incrementally.  Primary cross-reference information comes from target records,
+///    but the file is also processed for structured records in order to populate `meta_table` with
+///    meta-information about the symbol.
+/// 2. The table is consumed, generating both crossref and jumpref information.
+///
+/// ### Memory Management
+/// Memory usage grows continually throughout phase 1.  Because we load many identical strings,
+/// we use string interning so that all long-lived strings are reference-counted interned strings.
+
+#[tokio::main]
+async fn main() {
+    // This will honor RUST_LOG, but more importantly enables our LoggedSpan
+    // mechanism.
+    //
+    // Note that this marks us transitioning to an async multi-threaded runtime
+    // for crossref, but as of the time of writing this, the logging
+    // infrastructure is the only async/multi-threaded thing going on, but this
+    // will hopefully open the door to more.  (In particular, the semantic
+    // linkage mechanism discussed in https://bugzilla.mozilla.org/show_bug.cgi?id=1727789
+    // and adjacent bugs would potentially like to see us re-processing the
+    // analysis files in parallel after the initial crossref-building phase.)
+    init_logging();
+
+    let cli = CrossrefCli::parse();
+
+    let tree_name = &cli.tree_name;
+    let cfg = config::load(&cli.config_file, false, Some(tree_name), None, None);
+
+    let tree_config = cfg.trees.get(tree_name).unwrap();
+
+    let AllFilesAndDirs { analysis_relative_paths, all_files_paths, all_dirs_paths } =
+        load_all_files_and_dirs(&cli.analysis_files_list_path, &tree_config.paths.index_path);
+
+    // ## Ingest Repo-Wide Information
+
+    // This will buffer ALL of the tracing logging in our crate between now
+    // and when we retrieve it to emit diagnostics.  To this end, we want
+    // verbose logging to be conditioned on our "probe" mechanism, which means
+    // that we only enable logs for specific values that match our probe, which
+    // is currently controlled by environment variables like `PROBE_PATH` (but
+    // where we could imagine that our trees might always designate a default
+    // probe so that we could have a few instructive data points for people to
+    // learn from rather than an excessive wall of text with no curation).
+    let logged_ingestion_span = LoggedSpan::new_logged_span("repo_ingestion");
+    let ingestion_entered = logged_ingestion_span.span.clone().entered();
+
+    let ingestion = ingest_files(
+        &cfg,
+        &tree_config,
+        tree_name,
+        all_files_paths,
+        all_dirs_paths,
+    );
+
+    // Consume the ingestion logged span, pass it through our repo-ingestion
+    // explainer template, and write it do sik.
+    drop(ingestion_entered);
+    write_repo_ingestion_diag(&tree_config, logged_ingestion_span).await;
+
+    // ## Load Ontology Config
+    //
+    // I moved this before the analysis ingestion thinking we might process some
+    // rules as we ingest data.  (Specifically for `label_owning_class`.)  But
+    // now it seems like it's probably reasonable to process that at the normal
+    // post-analysis-ingestion time to avoid limiting our options there.  But
+    // I'm leaving this loading ahead of the analysis ingestion because it does
+    // seem preferable that if we're going to throw a fatal error due to a
+    // misconfiguration that it's much better for us to do it earlier.
+    let logged_ontology_span = LoggedSpan::new_logged_span("ontology");
+    let ontology_entered = logged_ontology_span.span.clone().entered();
+    let ontology = load_ontology(&cfg);
+    drop(ontology_entered);
+
+    // ## Process all the analysis files
+
+    let AnalysisData { search_result_table, pretty_table, id_table, mut meta_table, callees_table } =
+        read_analysis_files(&analysis_relative_paths, &tree_config, &ingestion);
+
+    // ## Run Ontology Processing
+    let ontology_entered = logged_ontology_span.span.clone().entered();
+
+    info!("Processing ontology now that all analysis files have been read in.");
+
+    let field_owning_class_rules = read_field_owning_class_rules(&ontology);
+    let field_member_use_table = process_class_fields(
+        &ontology,
+        &id_table,
+        &mut meta_table,
+        field_owning_class_rules,
+    );
+
+    process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
+
+    // Consume the ontology logged span, pass it through our ontology-ingestion
+    // explainer template, and write it to disk.
+    drop(ontology_entered);
+    write_ontology_ingestion_diag(&tree_config, logged_ontology_span).await;
+
+    let js_idl_table = create_js_idl_table(&meta_table);
+
+    write_crossref_and_jumpref(
+        &tree_config,
+        &ingestion,
+        search_result_table,
+        pretty_table,
+        meta_table,
+        callees_table,
+        field_member_use_table,
+        js_idl_table,
+    );
+
+    write_identifiers(&tree_config, id_table);
 
     ingestion
         .state
