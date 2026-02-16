@@ -1349,36 +1349,33 @@ pub fn format_diff(
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
 
-    let mut blames = Vec::new();
-
-    for parent_oid in commit.parent_ids() {
-        let blame_repo = match git.blame_repo {
-            Some(ref r) => r,
-            None => {
-                blames.push(None);
-                continue;
-            }
+    let get_blame_for_oid = |oid: git2::Oid| -> Result<Option<Vec<String>>, &'static str> {
+        let Some(blame_repo) = &git.blame_repo else {
+            return Ok(None);
         };
 
-        let blame_oid = git
-            .blame_map
-            .get(&parent_oid)
-            .ok_or("Unable to find blame")?;
+        let blame_oid = git.blame_map.get(&oid).ok_or("Unable to find blame")?;
         let blame_commit = blame_repo
             .find_commit(*blame_oid)
             .map_err(|_| "Blame is not a blob")?;
         let blame_tree = blame_commit.tree().map_err(|_| "Bad revision")?;
-        match blame_tree.get_path(Path::new(path)) {
-            Ok(blame_entry) => {
+        let blame_lines = blame_tree
+            .get_path(Path::new(path))
+            .map(|blame_entry| {
                 let blame = git_ops::read_blob_entry(blame_repo, &blame_entry);
                 let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
-                blames.push(Some(blame_lines));
-            }
-            Err(_) => {
-                blames.push(None);
-            }
-        }
-    }
+                blame_lines
+            })
+            .ok();
+        Ok(blame_lines)
+    };
+
+    let parent_blames: Vec<_> = commit
+        .parent_ids()
+        .into_iter()
+        .map(get_blame_for_oid)
+        .collect::<Result<_, _>>()?;
+    let self_blame = get_blame_for_oid(commit.id())?;
 
     let mut new_lineno = 1;
     let mut old_lineno = commit.parent_ids().map(|_| 1).collect::<Vec<_>>();
@@ -1406,7 +1403,7 @@ pub fn format_diff(
         for i in 0..num_parents {
             let has_minus = origin.contains(&'-');
             if (has_minus && origin[i] == '-') || (!has_minus && origin[i] != '+') {
-                cur_blame = match blames[i] {
+                cur_blame = match parent_blames[i] {
                     Some(ref lines) => Some(&lines[old_lineno[i] - 1]),
                     None => return Err("expected blame for '-' line, none found"),
                 };
@@ -1418,8 +1415,11 @@ pub fn format_diff(
         if !origin.contains(&'-') {
             new_lines.push_str(content);
             new_lines.push('\n');
+            cur_blame = self_blame
+                .as_ref()
+                .map(|blame_lines| &blame_lines[new_lineno - 1]);
 
-            lno = new_lineno;
+            lno = new_lineno as isize;
             new_lineno += 1;
         }
 

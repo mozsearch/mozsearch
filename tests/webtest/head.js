@@ -538,6 +538,20 @@ class TestUtils {
   }
 
   /**
+   * Wait until the element becomes hidden.
+   *
+   * @param {Element} elem
+   *        The element.
+   * @return {Promise<undefined>}
+   *         Resolves when the element becomes hidden.
+   */
+  static async waitForHidden(elem, ...args) {
+    return this.waitForCondition(() => {
+      return !this.isShown(elem);
+    }, ...args);
+  }
+
+  /**
    * Test if the condition is true.
    *
    * @param {bool} condition
@@ -661,6 +675,7 @@ window.TestUtils = TestUtils;
 for (const name of [
   "waitForCondition",
   "waitForShown",
+  "waitForHidden",
   "ok",
   "is",
   "isnot",
