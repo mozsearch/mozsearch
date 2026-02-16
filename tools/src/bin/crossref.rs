@@ -417,20 +417,17 @@ fn ingest_files(
 }
 
 async fn write_repo_ingestion_diag(tree_config: &TreeConfig, logged_ingestion_span: LoggedSpan) {
-    // TODO: remove block.
-    {
-        let ingestion_json = logged_ingestion_span.retrieve_serde_json().await;
-        let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
-        let ingestion_diag_path = format!("{}/repo_ingestion.md", crossref_diag_dir);
-        create_dir_all(crossref_diag_dir).unwrap();
+    let ingestion_json = logged_ingestion_span.retrieve_serde_json().await;
+    let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
+    let ingestion_diag_path = format!("{}/repo_ingestion.md", crossref_diag_dir);
+    create_dir_all(crossref_diag_dir).unwrap();
 
-        let globals = liquid::object!({
-            "logs": vec![ingestion_json],
-        });
-        let explain_template = build_and_parse_repo_ingestion_explainer();
-        let output = explain_template.render(&globals).unwrap();
-        std::fs::write(ingestion_diag_path, output).unwrap();
-    }
+    let globals = liquid::object!({
+        "logs": vec![ingestion_json],
+    });
+    let explain_template = build_and_parse_repo_ingestion_explainer();
+    let output = explain_template.render(&globals).unwrap();
+    std::fs::write(ingestion_diag_path, output).unwrap();
 }
 
 fn load_ontology(cfg: &Config) -> OntologyMappingIngestion {
@@ -966,20 +963,17 @@ fn process_ontology_rules(
 }
 
 async fn write_ontology_ingestion_diag(tree_config: &TreeConfig, logged_ontology_span: LoggedSpan) {
-    // TODO: remove block.
-    {
-        let ingestion_json = logged_ontology_span.retrieve_serde_json().await;
-        let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
-        let ingestion_diag_path = format!("{}/ontology_ingestion.md", crossref_diag_dir);
-        create_dir_all(crossref_diag_dir).unwrap();
+    let ingestion_json = logged_ontology_span.retrieve_serde_json().await;
+    let crossref_diag_dir = format!("{}/diags/crossref", tree_config.paths.index_path);
+    let ingestion_diag_path = format!("{}/ontology_ingestion.md", crossref_diag_dir);
+    create_dir_all(crossref_diag_dir).unwrap();
 
-        let globals = liquid::object!({
-            "logs": vec![ingestion_json],
-        });
-        let explain_template = build_and_parse_ontology_ingestion_explainer();
-        let output = explain_template.render(&globals).unwrap();
-        std::fs::write(ingestion_diag_path, output).unwrap();
-    }
+    let globals = liquid::object!({
+        "logs": vec![ingestion_json],
+    });
+    let explain_template = build_and_parse_ontology_ingestion_explainer();
+    let output = explain_template.render(&globals).unwrap();
+    std::fs::write(ingestion_diag_path, output).unwrap();
 }
 
 fn create_js_idl_table(meta_table: &MetaTable) -> JSIDLTable {
