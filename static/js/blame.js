@@ -237,6 +237,10 @@ var BlamePopup = new (class BlamePopup {
 
   async generateAnnotateContent(elt) {
     const blame = elt.dataset.blame;
+    if (!blame) {
+      return `<p class="blame-entry">No blame information available for this line.</p>`;
+    }
+
     const [revs, filespecs, linenos] = blame.split("#");
 
     const data = document.getElementById("data");
