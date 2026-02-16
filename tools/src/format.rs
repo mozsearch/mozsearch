@@ -1588,16 +1588,20 @@ pub fn format_diff(
                 lineno
             )),
             F::Indent(vec![
-                // Coverage info.
-                F::T(format!(
-                    "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
-                    blame_data
-                )),
-                // Blame info.
-                F::T(format!(
-                    "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
-                    blame_data
-                )),
+                F::S(r#"<div class="line-strip">"#),
+                F::Indent(vec![
+                    // Coverage info.
+                    F::T(format!(
+                        "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
+                        blame_data
+                    )),
+                    // Blame info.
+                    F::T(format!(
+                        "<div role=\"cell\" class=\"blame-container\"><div{}></div></div>",
+                        blame_data
+                    )),
+                ]),
+                F::S("</div>"),
                 // The line number.
                 F::T(format!(
                     "<div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>",

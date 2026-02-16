@@ -126,8 +126,11 @@ var BlamePopup = new (class BlamePopup {
       const blameElt = lineElt.querySelector(".blame-strip");
 
       content = "";
-      content += await this.generateCoverageContent(covElt);
-      content += "<hr>";
+      // In the diff view we don't have coverage data.
+      if (covElt !== null) {
+        content += await this.generateCoverageContent(covElt);
+        content += "<hr>";
+      }
       content += await this.generateAnnotateContent(blameElt);
 
       let rect = lineElt.getBoundingClientRect();
