@@ -113,3 +113,28 @@ add_task(async function test_HistoricalViewNotFound() {
        "Error message is shown");
   }
 });
+
+add_task(async function test_BlamePopupInDiffView() {
+  // test_HistoricalViewNotFound above is added by 7ebfd0db68e3105d0b869676af7fc4ce8b08ea1b
+  // while the previous test functions were added by 8c206d60bf8ff33097065f5da02172f56864fac8.
+  //
+  // The blame popup for the diff of 7ebfd0db should point at 8c206d60 for line 47 and 7ebfd0db
+  // itself for line 48.
+  const path = "/searchfox/diff/7ebfd0db68e3105d0b869676af7fc4ce8b08ea1b/tests/webtest/test_HistoricalViews.js";
+  await TestUtils.loadPath(path);
+
+  const blamePopup = frame.contentDocument.querySelector(`#blame-popup`);
+
+  const line47 = frame.contentDocument.querySelector("#line-47");
+  line47.querySelector(".blame-strip").click();
+  await waitForShown(blamePopup);
+  ok(blamePopup.querySelector(`.blame-entry`).textContent.includes("Bug 1516970"));
+
+  line47.querySelector(".blame-strip").click();
+  await waitForHidden(blamePopup);
+
+  const line48 = frame.contentDocument.querySelector("#line-48");
+  line48.querySelector(".blame-strip").click();
+  await waitForShown(blamePopup);
+  ok(blamePopup.querySelector(`.blame-entry`).textContent.includes("Bug 2008286"));
+});
