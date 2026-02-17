@@ -872,9 +872,8 @@ async fn main() {
                     // to its containing symbol; we need to pop the last pretty
                     // segment and perform a lookup.
                     let (pieces, delim) = split_pretty(&sym_meta.pretty, &sym_meta.sym);
-                    let containing_pieces = match pieces.split_last() {
-                        Some((_, rest)) => rest,
-                        None => continue,
+                    let Some((_, containing_pieces)) = pieces.split_last() else {
+                        continue;
                     };
                     let containing_pretty = containing_pieces.join(delim);
                     let containing_pretty_ustr = ustr(&containing_pretty);
@@ -933,9 +932,8 @@ async fn main() {
             // to its containing symbol; we need to pop the last pretty
             // segment and perform a lookup.
             let (pieces, delim) = split_pretty(&sym_meta.pretty, &sym_meta.sym);
-            let containing_pieces = match pieces.split_last() {
-                Some((_, rest)) => rest,
-                None => continue,
+            let Some((_, containing_pieces)) = pieces.split_last() else {
+                continue;
             };
             let containing_pretty = containing_pieces.join(delim);
             let containing_pretty_ustr = ustr(&containing_pretty);
