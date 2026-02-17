@@ -30,7 +30,7 @@ use tools::file_format::analysis::{
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
-use tools::file_format::config::{Config, FindSourceFile, TreeConfig};
+use tools::file_format::config::{Config, TreeConfig};
 use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
 use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
@@ -450,23 +450,13 @@ struct AnalysisData {
     callees_table: CalleesTable,
 }
 
-struct PerThreadAnalysisData {
-    data: AnalysisData,
-    xref_link_subclass: XrefLinkSubclass,
-    xref_link_override: XrefLinkOverride,
-    xref_link_slots: XrefLinkSlots,
-}
-
-fn read_analysis_files_thread(
+fn read_analysis_files(
     analysis_relative_paths: &Vec<Ustr>,
-    start: usize,
-    end: usize,
-    index_path: String,
-    find_source_file: &FindSourceFile,
+    tree_config: &TreeConfig,
     ingestion: &RepoIngestion,
-    out: &mut Option<PerThreadAnalysisData>,
-) {
+) -> AnalysisData {
     let mut search_result_table = SearchResultTable::new();
+
     let mut pretty_table = PrettyTable::new();
     let mut id_table = IdTable::default();
     let mut meta_table = MetaTable::new();
@@ -475,10 +465,10 @@ fn read_analysis_files_thread(
     let mut xref_link_override = XrefLinkOverride::new();
     let mut xref_link_slots = XrefLinkSlots::new();
 
-    for path in &analysis_relative_paths[start..end] {
+    for path in analysis_relative_paths {
         println!("File {}", path);
 
-        let analysis_fname = format!("{}/analysis/{}", index_path, path);
+        let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
         let fallback_file_sym: Ustr = ustr(&make_file_sym_from_path(path));
 
         let analysis = read_analysis(&analysis_fname, &mut read_target);
@@ -533,7 +523,7 @@ fn read_analysis_files_thread(
         // the `line` for each result.  In the future this could move to
         // dynamic extraction that uses the `peek_range` if available and this
         // line if it's not.
-        let source_fname = find_source_file.find(path);
+        let source_fname = tree_config.find_source_file(path);
         let source_file = match File::open(source_fname.clone()) {
             Ok(f) => f,
             Err(_) => {
@@ -581,157 +571,16 @@ fn read_analysis_files_thread(
         }
     }
 
-    out.replace(PerThreadAnalysisData {
-        data: AnalysisData {
-            search_result_table,
-            pretty_table,
-            id_table,
-            meta_table,
-            callees_table,
-        },
-        xref_link_subclass,
-        xref_link_override,
-        xref_link_slots,
-    });
-}
-
-fn read_analysis_files(
-    analysis_relative_paths: Vec<Ustr>,
-    tree_config: &TreeConfig,
-    ingestion: &RepoIngestion,
-) -> AnalysisData {
-    let total = analysis_relative_paths.len();
-    let thread_count = if total > 100 { 16 } else { 1 };
-    let chunk = total / thread_count;
-
-    info!(
-        "{} analysis files found. Processing with {} threads (chunk size={})",
-        total, thread_count, chunk
-    );
-
-    let mut out_list = vec![];
-    for _ in 0..thread_count {
-        out_list.push(None);
-    }
-
-    std::thread::scope(|s| {
-        for (index, out) in out_list.iter_mut().enumerate() {
-            let start = chunk * index;
-            let end = if index == thread_count - 1 {
-                total
-            } else {
-                chunk * (index + 1)
-            };
-
-            let analysis_relative_paths = &analysis_relative_paths;
-            let ingestion = &ingestion;
-            let index_path = tree_config.paths.index_path.clone();
-            let find_source_file = tree_config.get_find_source_file();
-
-            s.spawn(move || {
-                read_analysis_files_thread(
-                    analysis_relative_paths,
-                    start,
-                    end,
-                    index_path,
-                    &find_source_file,
-                    ingestion,
-                    out,
-                );
-            });
-        }
-    });
-
-    let mut search_result_table = SearchResultTable::new();
-    let mut pretty_table = PrettyTable::new();
-    let mut id_table = IdTable::default();
-    let mut meta_table = MetaTable::new();
-    let mut callees_table = CalleesTable::new();
-
-    let mut xrefs = vec![];
-
-    for out in out_list.iter_mut() {
-        let PerThreadAnalysisData {
-            data:
-                AnalysisData {
-                    search_result_table: chunk_search_result_table,
-                    pretty_table: chunk_pretty_table,
-                    id_table: chunk_id_table,
-                    meta_table: chunk_meta_table,
-                    callees_table: chunk_callees_table,
-                },
-            xref_link_subclass,
-            xref_link_override,
-            xref_link_slots,
-        } = out.take().unwrap();
-
-        xrefs.push((xref_link_subclass, xref_link_override, xref_link_slots));
-
-        for (id, id_data) in chunk_search_result_table.into_iter() {
-            let t1 = search_result_table.entry(id).or_default();
-            for (kind, kind_data) in id_data.into_iter() {
-                let t2 = t1.entry(kind).or_default();
-                for (path, ref mut results) in kind_data.into_iter() {
-                    let t3 = t2.entry(path).or_default();
-                    t3.append(results);
-                }
-            }
-        }
-
-        for (sym, pretty) in chunk_pretty_table {
-            pretty_table.insert(sym, pretty);
-        }
-
-        for (pretty, syms) in chunk_id_table {
-            let t1 = id_table.entry(pretty).or_default();
-            t1.extend(syms);
-        }
-
-        for (sym, structured) in chunk_meta_table {
-            // Producers just put the item without modifying the item, and thus
-            // we don't have to merge the structured record.
-            meta_table.entry(sym).or_insert(structured);
-        }
-
-        for (sym, callee_syms) in chunk_callees_table {
-            let t1 = callees_table.entry(sym).or_default();
-            for (callee_sym, (call_path, call_lines)) in callee_syms {
-                let (path, ref mut t2) = t1
-                    .entry(callee_sym)
-                    .or_insert_with(|| (call_path, BTreeSet::new()));
-                if *path == call_path {
-                    t2.extend(call_lines);
-                }
-            }
+    // ## Process deferred meta cross-referencing
+    for (super_sym, sub_sym) in xref_link_subclass {
+        if let Some(super_meta) = meta_table.get_mut(&super_sym) {
+            super_meta.subclass_syms.push(sub_sym);
         }
     }
 
-    // Process deferred meta cross-referencing once the meta_table is
-    // fully populated.
-    //
-    // xref_link_subclass and xref_link_override are simple vector,
-    // and we don't care about the duplication.
-    //
-    // xref_link_slots is a map, and we need to de-duplicate before reflecting
-    // to the meta_table.
-    let mut xref_link_slots = XrefLinkSlots::new();
-    for item in xrefs {
-        let (xref_link_subclass, xref_link_override, chunk_xref_link_slots) = item;
-
-        for (super_sym, sub_sym) in xref_link_subclass {
-            if let Some(super_meta) = meta_table.get_mut(&super_sym) {
-                super_meta.subclass_syms.push(sub_sym);
-            }
-        }
-
-        for (method_sym, override_sym) in xref_link_override {
-            if let Some(method_meta) = meta_table.get_mut(&method_sym) {
-                method_meta.overridden_by_syms.push(override_sym);
-            }
-        }
-
-        for (key, value) in chunk_xref_link_slots {
-            xref_link_slots.insert(key, value);
+    for (method_sym, override_sym) in xref_link_override {
+        if let Some(method_meta) = meta_table.get_mut(&method_sym) {
+            method_meta.overridden_by_syms.push(override_sym);
         }
     }
 
@@ -1632,7 +1481,7 @@ async fn main() {
         id_table,
         mut meta_table,
         callees_table,
-    } = read_analysis_files(analysis_relative_paths, &tree_config, &ingestion);
+    } = read_analysis_files(&analysis_relative_paths, &tree_config, &ingestion);
 
     // ## Run Ontology Processing
     let ontology_entered = logged_ontology_span.span.clone().entered();
