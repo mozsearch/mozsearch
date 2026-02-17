@@ -228,10 +228,12 @@ fn process_analysis_target(
             let sub = &components[i..components.len()];
             let sub = sub.join(delim);
 
-            if !sub.is_empty() {
-                let t1 = id_table.entry(ustr(&sub)).or_default();
-                t1.insert(piece.sym);
+            if sub.is_empty() {
+                continue;
             }
+
+            let t1 = id_table.entry(ustr(&sub)).or_default();
+            t1.insert(piece.sym);
         }
     }
 }
@@ -278,53 +280,51 @@ fn make_subsystem(
 ) -> Option<Ustr> {
     let concise_info = ingestion.state.concise_per_file.get(path);
 
-    if let Some(concise) = concise_info {
-        for file_sym_str in file_syms {
-            let file_sym = ustr(file_sym_str);
-            let file_structured = AnalysisStructured {
-                structured: StructuredTag::Structured,
-                pretty: *path,
-                sym: file_sym,
-                type_pretty: None,
-                kind: ustr("file"),
-                subsystem: concise.subsystem,
-                // For most analytical purposes, we want to think of files as atomic,
-                // so I don't think there is any upside to modeling the containing
-                // directory as a parent.  Especially since we don't yet have a
-                // `DIR_blah` symbol type yet or a clear reason to want one.
-                parent_sym: None,
-                slot_owner: None,
-                impl_kind: ustr("impl"),
-                size_bytes: None,
-                alignment_bytes: None,
-                own_vf_ptr_bytes: None,
-                binding_slots: vec![],
-                ontology_slots: vec![],
-                supers: vec![],
-                methods: vec![],
-                fields: vec![],
-                overrides: vec![],
-                props: vec![],
-                labels: BTreeSet::default(),
+    let concise = concise_info?;
 
-                idl_sym: None,
-                subclass_syms: vec![],
-                overridden_by_syms: vec![],
-                variants: vec![],
-                extra: Map::default(),
+    for file_sym_str in file_syms {
+        let file_sym = ustr(file_sym_str);
+        let file_structured = AnalysisStructured {
+            structured: StructuredTag::Structured,
+            pretty: *path,
+            sym: file_sym,
+            type_pretty: None,
+            kind: ustr("file"),
+            subsystem: concise.subsystem,
+            // For most analytical purposes, we want to think of files as atomic,
+            // so I don't think there is any upside to modeling the containing
+            // directory as a parent.  Especially since we don't yet have a
+            // `DIR_blah` symbol type yet or a clear reason to want one.
+            parent_sym: None,
+            slot_owner: None,
+            impl_kind: ustr("impl"),
+            size_bytes: None,
+            alignment_bytes: None,
+            own_vf_ptr_bytes: None,
+            binding_slots: vec![],
+            ontology_slots: vec![],
+            supers: vec![],
+            methods: vec![],
+            fields: vec![],
+            overrides: vec![],
+            props: vec![],
+            labels: BTreeSet::default(),
 
-                can_gc: None,
-                gc_path: None,
-            };
-            meta_table.insert(file_structured.sym, file_structured);
-            pretty_table.insert(file_sym, *path);
-            let t1 = id_table.entry(*path).or_default();
-            t1.insert(file_sym);
-        }
-        concise.subsystem
-    } else {
-        None
+            idl_sym: None,
+            subclass_syms: vec![],
+            overridden_by_syms: vec![],
+            variants: vec![],
+            extra: Map::default(),
+
+            can_gc: None,
+            gc_path: None,
+        };
+        meta_table.insert(file_structured.sym, file_structured);
+        pretty_table.insert(file_sym, *path);
+        let t1 = id_table.entry(*path).or_default();
+        t1.insert(file_sym);
     }
+    concise.subsystem
 }
 
 fn line_to_buf_and_offset(line: String) -> (String, u32) {
@@ -639,67 +639,71 @@ async fn main() {
     let mut field_owning_class_rules: UstrMap<OntologyLabelOwningClass> = UstrMap::default();
 
     for (pretty_id, rule) in ontology.config.pretty.iter() {
-        if let Some(label_owning_class) = &rule.label_owning_class {
-            // We lookup by the type_pretty which currently will have "class " or "struct ""
-            // prefixes.  In the interest of not having to mangle every type field, create
-            // "class "-prefixed variants.  I'm not creating "struct "-prefixed variants
-            // right now because most things should be classes.
-            let type_prettied = format!("class {}", pretty_id);
-            field_owning_class_rules.insert(ustr(&type_prettied), label_owning_class.clone());
-        }
+        let Some(label_owning_class) = &rule.label_owning_class else {
+            continue;
+        };
+        // We lookup by the type_pretty which currently will have "class " or "struct ""
+        // prefixes.  In the interest of not having to mangle every type field, create
+        // "class "-prefixed variants.  I'm not creating "struct "-prefixed variants
+        // right now because most things should be classes.
+        let type_prettied = format!("class {}", pretty_id);
+        field_owning_class_rules.insert(ustr(&type_prettied), label_owning_class.clone());
     }
 
     // ### Process class/fields using ontology type information
     for meta in meta_table.values_mut() {
-        if meta.kind.as_str() == "class" || meta.kind.as_str() == "struct" {
-            for field in &mut meta.fields {
-                // In order to avoid getting confused by native types, require that we have some
-                // typesym.  We won't have a typesym for native types.
-                if field.type_sym.is_empty() {
+        if meta.kind.as_str() != "class" && meta.kind.as_str() != "struct" {
+            continue;
+        }
+
+        for field in &mut meta.fields {
+            // In order to avoid getting confused by native types, require that we have some
+            // typesym.  We won't have a typesym for native types.
+            if field.type_sym.is_empty() {
+                continue;
+            }
+
+            // Note that the type_pretty will have a "class " prefix which is why we already
+            // pre-transformed our rules when populating the rule map.
+            if let Some(rule) = field_owning_class_rules.get(&field.type_pretty) {
+                for label_rule in &rule.labels {
+                    meta.labels.insert(label_rule.label);
+                }
+            }
+
+            let (ptr_infos, type_labels) = ontology
+                .config
+                .maybe_parse_type_as_pointer(&field.type_pretty);
+            for label in type_labels {
+                meta.labels.insert(label);
+            }
+            for (ptr_kind, pointee_pretty) in ptr_infos {
+                let Some(pointee_syms) = id_table.get(&pointee_pretty) else {
+                    info!(
+                        pretty = pointee_pretty.as_str(),
+                        "Unable to map pretty identifier to symbols."
+                    );
                     continue;
-                }
+                };
+                // We need to find the first symbol that's referring to a type.
+                // Conveniently, for C++, these will always start with `T_`,
+                // which is nice because we can't do a lookup in meta right now.
+                // TODO: Generalize to better understand what's a type, especially
+                // in JS.  It might be easiest to sidestep this problem by having
+                // the analyzer be emitting structured information for the field
+                // so that we're just working in symbol space in the first place.
+                let best_sym = pointee_syms.iter().find(|s| s.starts_with("T_"));
+                let Some(sym) = best_sym else {
+                    continue;
+                };
+                field.pointer_info.push(StructuredPointerInfo {
+                    kind: ptr_kind.clone(),
+                    sym: *sym,
+                });
 
-                // Note that the type_pretty will have a "class " prefix which is why we already
-                // pre-transformed our rules when populating the rule map.
-                if let Some(rule) = field_owning_class_rules.get(&field.type_pretty) {
-                    for label_rule in &rule.labels {
-                        meta.labels.insert(label_rule.label);
-                    }
-                }
-
-                let (ptr_infos, type_labels) = ontology
-                    .config
-                    .maybe_parse_type_as_pointer(&field.type_pretty);
-                for label in type_labels {
-                    meta.labels.insert(label);
-                }
-                for (ptr_kind, pointee_pretty) in ptr_infos {
-                    if let Some(pointee_syms) = id_table.get(&pointee_pretty) {
-                        // We need to find the first symbol that's referring to a type.
-                        // Conveniently, for C++, these will always start with `T_`,
-                        // which is nice because we can't do a lookup in meta right now.
-                        // TODO: Generalize to better understand what's a type, especially
-                        // in JS.  It might be easiest to sidestep this problem by having
-                        // the analyzer be emitting structured information for the field
-                        // so that we're just working in symbol space in the first place.
-                        let best_sym = pointee_syms.iter().find(|s| s.starts_with("T_"));
-                        if let Some(sym) = best_sym {
-                            field.pointer_info.push(StructuredPointerInfo {
-                                kind: ptr_kind.clone(),
-                                sym: *sym,
-                            });
-
-                            let member_uses = field_member_use_table.entry(*sym).or_default();
-                            let use_details = member_uses.entry(meta.sym).or_default();
-                            use_details.push((field.pretty, ptr_kind));
-                        }
-                    } else {
-                        info!(
-                            pretty = pointee_pretty.as_str(),
-                            "Unable to map pretty identifier to symbols."
-                        );
-                    }
-                }
+                let member_uses = field_member_use_table.entry(*sym).or_default();
+                let use_details = member_uses.entry(meta.sym).or_default();
+                use_details.push((field.pretty, ptr_kind));
             }
         }
     }
@@ -710,10 +714,11 @@ async fn main() {
         if !rule.labels.is_empty() {
             if let Some(root_syms) = id_table.get(pretty_id) {
                 for sym in root_syms {
-                    if let Some(sym_meta) = meta_table.get_mut(sym) {
-                        for label in &rule.labels {
-                            sym_meta.labels.insert(*label);
-                        }
+                    let Some(sym_meta) = meta_table.get_mut(sym) else {
+                        continue;
+                    };
+                    for label in &rule.labels {
+                        sym_meta.labels.insert(*label);
                     }
                 }
             }
@@ -737,10 +742,11 @@ async fn main() {
                     if sym.starts_with("S_jvm_") {
                         is_jvm = true;
                     }
-                    if let Some(sym_meta) = meta_table.get(sym) {
-                        for over in &sym_meta.overridden_by_syms {
-                            pending_method_syms.push(*over);
-                        }
+                    let Some(sym_meta) = meta_table.get(sym) else {
+                        continue;
+                    };
+                    for over in &sym_meta.overridden_by_syms {
+                        pending_method_syms.push(*over);
                     }
                 }
 
@@ -807,25 +813,27 @@ async fn main() {
 
                     // ### mutate each of the constructors to have the ontology slot
                     for con_sym in &linkage_syms {
-                        if let Some(con_meta) = meta_table.get_mut(con_sym) {
-                            // XXX we could track precedence for runnable rules so that
-                            // we could remove lower precedence relationships here.  This
-                            // would be relevant for WorkerRunnable.
+                        let Some(con_meta) = meta_table.get_mut(con_sym) else {
+                            continue;
+                        };
+                        // XXX we could track precedence for runnable rules so that
+                        // we could remove lower precedence relationships here.  This
+                        // would be relevant for WorkerRunnable.
 
-                            con_meta.ontology_slots.push(OntologySlotInfo {
-                                slot_kind: OntologySlotKind::RunnableMethod,
-                                syms: vec![method_sym],
-                            });
-                        }
+                        con_meta.ontology_slots.push(OntologySlotInfo {
+                            slot_kind: OntologySlotKind::RunnableMethod,
+                            syms: vec![method_sym],
+                        });
                     }
 
                     // ### mutate our method_sym to have the ontology slot to the constructors
-                    if let Some(method_meta) = meta_table.get_mut(&method_sym) {
-                        method_meta.ontology_slots.push(OntologySlotInfo {
-                            slot_kind: OntologySlotKind::RunnableConstructor,
-                            syms: linkage_syms,
-                        })
-                    }
+                    let Some(method_meta) = meta_table.get_mut(&method_sym) else {
+                        continue;
+                    };
+                    method_meta.ontology_slots.push(OntologySlotInfo {
+                        slot_kind: OntologySlotKind::RunnableConstructor,
+                        syms: linkage_syms,
+                    })
                 }
             }
         }
@@ -843,17 +851,17 @@ async fn main() {
                 let mut investigate_class_syms = vec![];
                 // We don't care about the root itself, just its subclasses.
                 for sym in root_class_syms {
-                    if let Some(sym_meta) = meta_table.get(sym) {
-                        for sub in &sym_meta.subclass_syms {
-                            investigate_class_syms.push(*sub);
-                        }
+                    let Some(sym_meta) = meta_table.get(sym) else {
+                        continue;
+                    };
+                    for sub in &sym_meta.subclass_syms {
+                        investigate_class_syms.push(*sub);
                     }
                 }
 
                 while let Some(class_sym) = investigate_class_syms.pop() {
-                    let sym_meta = match meta_table.get(&class_sym) {
-                        Some(m) => m,
-                        None => continue,
+                    let Some(sym_meta) = meta_table.get(&class_sym) else {
+                        continue;
                     };
 
                     for sub in &sym_meta.subclass_syms {
@@ -870,13 +878,15 @@ async fn main() {
                     };
                     let containing_pretty = containing_pieces.join(delim);
                     let containing_pretty_ustr = ustr(&containing_pretty);
-                    if let Some(containing_syms) = id_table.get(&containing_pretty_ustr) {
-                        for sym in containing_syms {
-                            if let Some(containing_meta) = meta_table.get_mut(sym) {
-                                for rule in &label_rule.labels {
-                                    containing_meta.labels.insert(rule.label);
-                                }
-                            }
+                    let Some(containing_syms) = id_table.get(&containing_pretty_ustr) else {
+                        continue;
+                    };
+                    for sym in containing_syms {
+                        let Some(containing_meta) = meta_table.get_mut(sym) else {
+                            continue;
+                        };
+                        for rule in &label_rule.labels {
+                            containing_meta.labels.insert(rule.label);
                         }
                     }
                 }
@@ -889,61 +899,65 @@ async fn main() {
         // For each field, we check its uses and see if they match the rules.  If so, we will plan
         // to add a label to the field on its class.  (Currently we do not do anythign to the
         // structured info for field symbol itself.)
-        if let Some(label_rule) = &rule.label_containing_class_field_uses {
-            info!(
-                " Processing pretty label_containing_class_field_uses rule for: {}",
-                pretty_id
-            );
-            if let Some(root_class_syms) = id_table.get(pretty_id) {
-                let mut investigate_class_syms = vec![];
-                // We don't care about the root itself, just its subclasses.
-                for sym in root_class_syms {
-                    if let Some(sym_meta) = meta_table.get(sym) {
-                        for sub in &sym_meta.subclass_syms {
-                            investigate_class_syms.push(*sub);
-                        }
-                    }
-                }
+        let Some(label_rule) = &rule.label_containing_class_field_uses else {
+            continue;
+        };
+        info!(
+            " Processing pretty label_containing_class_field_uses rule for: {}",
+            pretty_id
+        );
+        let Some(root_class_syms) = id_table.get(pretty_id) else {
+            continue;
+        };
+        let mut investigate_class_syms = vec![];
+        // We don't care about the root itself, just its subclasses.
+        for sym in root_class_syms {
+            let Some(sym_meta) = meta_table.get(sym) else {
+                continue;
+            };
+            for sub in &sym_meta.subclass_syms {
+                investigate_class_syms.push(*sub);
+            }
+        }
 
-                while let Some(class_sym) = investigate_class_syms.pop() {
-                    let sym_meta = match meta_table.get(&class_sym) {
-                        Some(m) => m,
-                        None => continue,
+        while let Some(class_sym) = investigate_class_syms.pop() {
+            let Some(sym_meta) = meta_table.get(&class_sym) else {
+                continue;
+            };
+
+            for sub in &sym_meta.subclass_syms {
+                investigate_class_syms.push(*sub);
+            }
+
+            // The structured record currently doesn't have a reference
+            // to its containing symbol; we need to pop the last pretty
+            // segment and perform a lookup.
+            let (pieces, delim) = split_pretty(&sym_meta.pretty, &sym_meta.sym);
+            let containing_pieces = match pieces.split_last() {
+                Some((_, rest)) => rest,
+                None => continue,
+            };
+            let containing_pretty = containing_pieces.join(delim);
+            let containing_pretty_ustr = ustr(&containing_pretty);
+            let Some(containing_syms) = id_table.get(&containing_pretty_ustr) else {
+                continue;
+            };
+            for sym in containing_syms {
+                let Some(containing_meta) = meta_table.get_mut(sym) else {
+                    continue;
+                };
+                for field in &mut containing_meta.fields {
+                    let Some(kind_map) = search_result_table.get(&field.sym) else {
+                        continue;
                     };
-
-                    for sub in &sym_meta.subclass_syms {
-                        investigate_class_syms.push(*sub);
-                    }
-
-                    // The structured record currently doesn't have a reference
-                    // to its containing symbol; we need to pop the last pretty
-                    // segment and perform a lookup.
-                    let (pieces, delim) = split_pretty(&sym_meta.pretty, &sym_meta.sym);
-                    let containing_pieces = match pieces.split_last() {
-                        Some((_, rest)) => rest,
-                        None => continue,
+                    let Some(path_hits) = kind_map.get(&AnalysisKind::Use) else {
+                        continue;
                     };
-                    let containing_pretty = containing_pieces.join(delim);
-                    let containing_pretty_ustr = ustr(&containing_pretty);
-                    if let Some(containing_syms) = id_table.get(&containing_pretty_ustr) {
-                        for sym in containing_syms {
-                            if let Some(containing_meta) = meta_table.get_mut(sym) {
-                                for field in &mut containing_meta.fields {
-                                    if let Some(kind_map) = search_result_table.get(&field.sym) {
-                                        if let Some(path_hits) = kind_map.get(&AnalysisKind::Use) {
-                                            for hits in path_hits.values() {
-                                                for hit in hits {
-                                                    for rule in &label_rule.labels {
-                                                        if hit.context.ends_with(
-                                                            rule.context_sym_suffix.as_str(),
-                                                        ) {
-                                                            field.labels.insert(rule.label);
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                    for hits in path_hits.values() {
+                        for hit in hits {
+                            for rule in &label_rule.labels {
+                                if hit.context.ends_with(rule.context_sym_suffix.as_str()) {
+                                    field.labels.insert(rule.label);
                                 }
                             }
                         }
@@ -973,16 +987,17 @@ async fn main() {
     const MAX_JS_IDL_SYMS: usize = 4;
     for meta in meta_table.values() {
         for slot in &meta.binding_slots {
-            if slot.props.slot_lang == BindingSlotLang::JS {
-                let idl_sym = meta.sym;
-                let js_sym = slot.sym;
-                if let Some(idl_syms) = js_idl_table.get_mut(&js_sym) {
-                    if idl_syms.len() < MAX_JS_IDL_SYMS {
-                        idl_syms.push(idl_sym);
-                    }
-                } else {
-                    js_idl_table.insert(js_sym, vec![idl_sym]);
+            if slot.props.slot_lang != BindingSlotLang::JS {
+                continue;
+            }
+            let idl_sym = meta.sym;
+            let js_sym = slot.sym;
+            if let Some(idl_syms) = js_idl_table.get_mut(&js_sym) {
+                if idl_syms.len() < MAX_JS_IDL_SYMS {
+                    idl_syms.push(idl_sym);
                 }
+            } else {
+                js_idl_table.insert(js_sym, vec![idl_sym]);
             }
         }
     }
@@ -1046,39 +1061,41 @@ async fn main() {
         if let Some(callee_syms) = callees_table.get(&id) {
             let mut callees = Vec::new();
             for (callee_sym, (call_path, call_lines)) in callee_syms {
-                if let Some(meta) = meta_table.get(callee_sym) {
-                    let mut obj = BTreeMap::new();
-                    obj.insert("sym".to_string(), callee_sym.to_string());
-                    if let Some(pretty) = pretty_table.get(callee_sym) {
-                        obj.insert("pretty".to_string(), pretty.to_string());
-                    }
-                    obj.insert("kind".to_string(), meta.kind.to_string());
-                    obj.insert(
-                        "jump".to_string(),
-                        format!("{}#{}", call_path, call_lines.iter().join(",")),
-                    );
-                    callees.push(json!(obj));
+                let Some(meta) = meta_table.get(callee_sym) else {
+                    continue;
+                };
+                let mut obj = BTreeMap::new();
+                obj.insert("sym".to_string(), callee_sym.to_string());
+                if let Some(pretty) = pretty_table.get(callee_sym) {
+                    obj.insert("pretty".to_string(), pretty.to_string());
                 }
+                obj.insert("kind".to_string(), meta.kind.to_string());
+                obj.insert(
+                    "jump".to_string(),
+                    format!("{}#{}", call_path, call_lines.iter().join(",")),
+                );
+                callees.push(json!(obj));
             }
             kindmap.insert("callees".to_string(), json!(callees));
         }
         if let Some(fmu_syms) = field_member_use_table.get(&id) {
             let mut fmus = Vec::new();
             for (fmu_sym, fmu_field_infos) in fmu_syms {
-                if let Some(meta) = meta_table.get(fmu_sym) {
-                    let mut fields = vec![];
-                    for (field_pretty, ptr_kind) in fmu_field_infos {
-                        fields.push(json!({
-                            "pretty": field_pretty,
-                            "ptr": ptr_kind,
-                        }));
-                    }
-                    fmus.push(json!({
-                        "sym": fmu_sym,
-                        "pretty": meta.pretty,
-                        "fields": fields,
+                let Some(meta) = meta_table.get(fmu_sym) else {
+                    continue;
+                };
+                let mut fields = vec![];
+                for (field_pretty, ptr_kind) in fmu_field_infos {
+                    fields.push(json!({
+                        "pretty": field_pretty,
+                        "ptr": ptr_kind,
                     }));
                 }
+                fmus.push(json!({
+                    "sym": fmu_sym,
+                    "pretty": meta.pretty,
+                    "fields": fields,
+                }));
             }
             kindmap.insert("field-member-uses".to_string(), json!(fmus));
         }
