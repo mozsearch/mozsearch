@@ -284,4 +284,4 @@ favicon:
 	convert -modulate 50,100,180 -flop ./static/icons/search.png ./static/icons/localhost.png
 
 rustfmt:
-	git ls-files tools/**/*.rs tools/*.rs | xargs rustfmt --edition 2021
+	git ls-files 'tools/**/*.rs' | xargs rustfmt --edition 2021
