@@ -53,6 +53,8 @@ liquid-core = "0.26.0"
 log = "0.4.0"
 lol_html = "0.3.1"
 memmap = { package = "memmap2", version = "0.5.3" }
+# See https://bugzilla.mozilla.org/show_bug.cgi?id=2017602
+native-tls = "=0.2.16"
 num_cpus = "1"
 petgraph = "0.6.0"
 prost = "0.10.1"
