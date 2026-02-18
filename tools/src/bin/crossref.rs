@@ -2,10 +2,11 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fs;
-use std::fs::create_dir_all;
 use std::fs::File;
+use std::fs::{create_dir_all, remove_file};
 use std::io::BufRead;
 use std::io::BufReader;
+use std::io::Read;
 use std::io::Write;
 
 #[macro_use]
@@ -14,7 +15,7 @@ extern crate tracing;
 extern crate clap;
 use clap::Parser;
 use itertools::Itertools;
-use serde_json::{json, Map};
+use serde_json::{json, Map, Value};
 extern crate tools;
 use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::BindingSlotLang;
@@ -74,6 +75,10 @@ struct CrossrefCli {
 // Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult>
 // as the leaf values.
 type SearchResultTable = BTreeMap<Ustr, BTreeMap<AnalysisKind, BTreeMap<Ustr, Vec<SearchResult>>>>;
+type SearchResultList = Vec<(
+    Ustr,
+    BTreeMap<AnalysisKind, BTreeMap<Ustr, Vec<SearchResult>>>,
+)>;
 
 // Maps (raw) symbol to interned-pretty symbol string.  Each raw symbol is
 // unique, but there may be many raw symbols that map to the same pretty symbol
@@ -1001,22 +1006,66 @@ fn create_js_idl_table(meta_table: &MetaTable) -> JSIDLTable {
     js_idl_table
 }
 
-fn write_crossref_and_jumpref(
-    tree_config: &TreeConfig,
+fn write_inline_and_ext(
+    out: &mut File,
+    ext_out: &mut File,
+    ext_offset: &mut usize,
+    id: &Ustr,
+    inline: &Value,
+    is_first_chunk: bool,
+) {
+    let id_line = format!("!{}\n", id);
+    let inline_line = format!(":{}\n", inline);
+    if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
+        // ### External storage.
+        out.write_all(id_line.as_bytes()).unwrap();
+        // We write out the identifier in the extra file as well so that it
+        // can be interpreted in the same fashion.
+        ext_out.write_all(id_line.as_bytes()).unwrap();
+        *ext_offset += id_line.len();
+
+        // Skip the leading ":"
+        let marker_offset = *ext_offset + 1;
+        // Subtract off the leading ":" but keep the newline.
+        let marker_length = inline_line.len() - 1;
+
+        let ext_offset_line = if is_first_chunk {
+            format!("@{:x} {:x}\n", marker_offset, marker_length)
+        } else {
+            // The offset will be adjusted later.
+            // Use decimal to make it easier to parse.
+            format!("@!{} {:x}\n", marker_offset, marker_length)
+        };
+        out.write_all(ext_offset_line.as_bytes()).unwrap();
+
+        ext_out.write_all(inline_line.as_bytes()).unwrap();
+        *ext_offset += inline_line.len();
+    } else {
+        // ### Inline storage.
+        out.write_all(id_line.as_bytes()).unwrap();
+        out.write_all(inline_line.as_bytes()).unwrap();
+    }
+}
+
+fn write_crossref_and_jumpref_thread(
+    xref_file: String,
+    xref_ext_file: String,
+    jumpref_file: String,
+    jumpref_ext_file: String,
+    search_result_list: &SearchResultList,
+    start: usize,
+    end: usize,
     ingestion: &RepoIngestion,
-    search_result_table: SearchResultTable,
-    pretty_table: PrettyTable,
-    meta_table: MetaTable,
-    callees_table: CalleesTable,
-    field_member_use_table: FieldMemberUseTable,
-    js_idl_table: JSIDLTable,
+    pretty_table: &PrettyTable,
+    meta_table: &MetaTable,
+    callees_table: &CalleesTable,
+    field_member_use_table: &FieldMemberUseTable,
+    js_idl_table: &JSIDLTable,
+    is_first_chunk: bool,
+    xref_ext_size: &mut Option<usize>,
+    jumpref_ext_size: &mut Option<usize>,
 ) {
     // ## Write out the crossref and jumpref databases.
-    let xref_file = format!("{}/crossref", tree_config.paths.index_path);
-    let xref_ext_file = format!("{}/crossref-extra", tree_config.paths.index_path);
-    let jumpref_file = format!("{}/jumpref", tree_config.paths.index_path);
-    let jumpref_ext_file = format!("{}/jumpref-extra", tree_config.paths.index_path);
-
     let mut xref_out = File::create(xref_file).unwrap();
     let mut xref_ext_out = File::create(xref_ext_file).unwrap();
 
@@ -1040,9 +1089,9 @@ fn write_crossref_and_jumpref(
     // file and we'd end up reporting the missing info a lot.
     let mut reported_missing_concise = UstrSet::default();
 
-    for (id, id_data) in search_result_table {
+    for (id, id_data) in &search_result_list[start..end] {
         let mut kindmap = Map::new();
-        for (kind, kind_data) in &id_data {
+        for (kind, kind_data) in id_data {
             let mut result = Vec::new();
             for (path, results) in kind_data {
                 if let Some(concise_info) = ingestion.state.concise_per_file.get(path) {
@@ -1129,66 +1178,205 @@ fn write_crossref_and_jumpref(
         }
 
         let kindmap = json!(kindmap);
-        {
-            let id_line = format!("!{}\n", id);
-            let inline_line = format!(":{}\n", kindmap);
-            if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
-                // ### External storage.
-                xref_out.write_all(id_line.as_bytes()).unwrap();
-                // We write out the identifier in the extra file as well so that it
-                // can be interpreted in the same fashion.
-                xref_ext_out.write_all(id_line.as_bytes()).unwrap();
-                xref_ext_offset += id_line.len();
+        write_inline_and_ext(
+            &mut xref_out,
+            &mut xref_ext_out,
+            &mut xref_ext_offset,
+            id,
+            &kindmap,
+            is_first_chunk,
+        );
 
-                let ext_offset_line = format!(
-                    "@{:x} {:x}\n",
-                    // Skip the leading ":"
-                    xref_ext_offset + 1,
-                    // Subtract off the leading ":" but keep the newline.
-                    inline_line.len() - 1
-                );
-                xref_out.write_all(ext_offset_line.as_bytes()).unwrap();
-
-                xref_ext_out.write_all(inline_line.as_bytes()).unwrap();
-                xref_ext_offset += inline_line.len();
-            } else {
-                // ### Inline storage.
-                xref_out.write_all(id_line.as_bytes()).unwrap();
-                xref_out.write_all(inline_line.as_bytes()).unwrap();
-            }
-        }
-
-        // Also write out/update the jumpref.
         let jumpref_info = convert_crossref_value_to_sym_info_rep(kindmap, &id, fallback_pretty);
-        {
-            let id_line = format!("!{}\n", id);
-            let inline_line = format!(":{}\n", jumpref_info);
-            if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
-                // ### External storage.
-                jumpref_out.write_all(id_line.as_bytes()).unwrap();
-                // We write out the identifier in the extra file as well so that it
-                // can be interpreted in the same fashion.
-                jumpref_ext_out.write_all(id_line.as_bytes()).unwrap();
-                jumpref_ext_offset += id_line.len();
-
-                let ext_offset_line = format!(
-                    "@{:x} {:x}\n",
-                    // Skip the leading ":"
-                    jumpref_ext_offset + 1,
-                    // Subtract off the leading ":" but keep the newline.
-                    inline_line.len() - 1
-                );
-                jumpref_out.write_all(ext_offset_line.as_bytes()).unwrap();
-
-                jumpref_ext_out.write_all(inline_line.as_bytes()).unwrap();
-                jumpref_ext_offset += inline_line.len();
-            } else {
-                // ### Inline storage.
-                jumpref_out.write_all(id_line.as_bytes()).unwrap();
-                jumpref_out.write_all(inline_line.as_bytes()).unwrap();
-            }
-        }
+        write_inline_and_ext(
+            &mut jumpref_out,
+            &mut jumpref_ext_out,
+            &mut jumpref_ext_offset,
+            id,
+            &jumpref_info,
+            is_first_chunk,
+        );
     }
+
+    xref_ext_size.replace(xref_ext_offset);
+    jumpref_ext_size.replace(jumpref_ext_offset);
+}
+
+fn write_crossref_and_jumpref(
+    index_path: &String,
+    search_result_table: SearchResultTable,
+    ingestion: &RepoIngestion,
+    pretty_table: PrettyTable,
+    meta_table: MetaTable,
+    callees_table: CalleesTable,
+    field_member_use_table: FieldMemberUseTable,
+    js_idl_table: JSIDLTable,
+    thread_count: usize,
+) {
+    let search_result_list: SearchResultList = search_result_table.into_iter().collect();
+
+    let total = search_result_list.len();
+    let thread_count = if total > 100 { thread_count } else { 1 };
+    let chunk = total / thread_count;
+
+    if thread_count == 1 {
+        let xref_file = format!("{}/crossref", index_path);
+        let xref_ext_file = format!("{}/crossref-extra", index_path);
+        let jumpref_file = format!("{}/jumpref", index_path);
+        let jumpref_ext_file = format!("{}/jumpref-extra", index_path);
+
+        let mut xref_ext_size = None;
+        let mut jumpref_ext_size = None;
+
+        write_crossref_and_jumpref_thread(
+            xref_file,
+            xref_ext_file,
+            jumpref_file,
+            jumpref_ext_file,
+            &search_result_list,
+            0,
+            total,
+            &ingestion,
+            &pretty_table,
+            &meta_table,
+            &callees_table,
+            &field_member_use_table,
+            &js_idl_table,
+            true,
+            &mut xref_ext_size,
+            &mut jumpref_ext_size,
+        );
+
+        return;
+    }
+
+    info!(
+        "{} search results found. Processing with {} threads (chunk size={})",
+        total, thread_count, chunk
+    );
+
+    // crossref and jumpref files contain the offsets into the *-extra files.
+    // The offset need to be adjusted when concatenating.
+    let mut xref_ext_sizes = vec![None; thread_count];
+    let mut jumpref_ext_sizes = vec![None; thread_count];
+
+    std::thread::scope(|s| {
+        for (index, (xref_ext_size, jumpref_ext_size)) in xref_ext_sizes
+            .iter_mut()
+            .zip(jumpref_ext_sizes.iter_mut())
+            .enumerate()
+        {
+            let xref_file = format!("{}/crossref-{}", index_path, index);
+            let xref_ext_file = format!("{}/crossref-extra-{}", index_path, index);
+            let jumpref_file = format!("{}/jumpref-{}", index_path, index);
+            let jumpref_ext_file = format!("{}/jumpref-extra-{}", index_path, index);
+
+            let ingestion = &ingestion;
+            let search_result_list = &search_result_list;
+            let pretty_table = &pretty_table;
+            let meta_table = &meta_table;
+            let callees_table = &callees_table;
+            let field_member_use_table = &field_member_use_table;
+            let js_idl_table = &js_idl_table;
+
+            let start = chunk * index;
+            let end = if index == thread_count - 1 {
+                total
+            } else {
+                chunk * (index + 1)
+            };
+            s.spawn(move || {
+                write_crossref_and_jumpref_thread(
+                    xref_file,
+                    xref_ext_file,
+                    jumpref_file,
+                    jumpref_ext_file,
+                    search_result_list,
+                    start,
+                    end,
+                    ingestion,
+                    pretty_table,
+                    meta_table,
+                    callees_table,
+                    field_member_use_table,
+                    js_idl_table,
+                    index == 0,
+                    xref_ext_size,
+                    jumpref_ext_size,
+                );
+            });
+        }
+    });
+
+    std::thread::scope(|s| {
+        for (name, ext_sizes) in [("crossref", xref_ext_sizes), ("jumpref", jumpref_ext_sizes)] {
+            let mut ext_offsets = vec![];
+            let mut total = 0;
+            for x in ext_sizes {
+                ext_offsets.push(total);
+                total += x.unwrap();
+            }
+
+            let index_path = index_path.clone();
+            let thread_count = thread_count;
+
+            s.spawn(move || {
+                let out_file = format!("{}/{}", index_path, name);
+                let mut out_f = File::create(out_file).unwrap();
+
+                for i in 0..thread_count {
+                    let in_file = format!("{}/{}-{}", index_path, name, i);
+                    let in_f = File::open(in_file.clone()).unwrap();
+                    let mut reader = BufReader::new(in_f);
+                    loop {
+                        let mut line = String::new();
+                        let size = reader.read_line(&mut line).unwrap();
+                        if size == 0 {
+                            break;
+                        }
+                        // Adjust the *-extra file offset.
+                        if i > 0 && line.starts_with("@!") {
+                            let end = line.find(" ").unwrap();
+                            let offset = line[2..end].parse::<usize>().unwrap();
+
+                            write!(out_f, "@{:x}", offset + ext_offsets[i]).unwrap();
+                            out_f.write(line[end..].as_bytes()).unwrap();
+                        } else {
+                            out_f.write(line.as_bytes()).unwrap();
+                        }
+                    }
+                    remove_file(in_file).unwrap()
+                }
+            });
+        }
+
+        // *-extra files can be simply concatenated.
+        for name in ["crossref-extra", "jumpref-extra"] {
+            let index_path = index_path.clone();
+            let thread_count = thread_count;
+
+            s.spawn(move || {
+                const BUF_SIZE: usize = 0xffff;
+                let mut buf: [u8; BUF_SIZE] = [0; BUF_SIZE];
+
+                let out_file = format!("{}/{}", index_path, name);
+                let mut out_f = File::create(out_file).unwrap();
+
+                for i in 0..thread_count {
+                    let in_file = format!("{}/{}-{}", index_path, name, i);
+                    let mut in_f = File::open(in_file.clone()).unwrap();
+                    loop {
+                        let size = in_f.read(&mut buf).unwrap();
+                        if size == 0 {
+                            break;
+                        }
+                        out_f.write(&buf[..size]).unwrap();
+                    }
+                    remove_file(in_file).unwrap()
+                }
+            });
+        }
+    });
 }
 
 fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
@@ -1243,8 +1431,11 @@ async fn main() {
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
-    let AllFilesAndDirs { analysis_relative_paths, all_files_paths, all_dirs_paths } =
-        load_all_files_and_dirs(&cli.analysis_files_list_path, &tree_config.paths.index_path);
+    let AllFilesAndDirs {
+        analysis_relative_paths,
+        all_files_paths,
+        all_dirs_paths,
+    } = load_all_files_and_dirs(&cli.analysis_files_list_path, &tree_config.paths.index_path);
 
     // ## Ingest Repo-Wide Information
 
@@ -1288,8 +1479,13 @@ async fn main() {
 
     // ## Process all the analysis files
 
-    let AnalysisData { search_result_table, pretty_table, id_table, mut meta_table, callees_table } =
-        read_analysis_files(&analysis_relative_paths, &tree_config, &ingestion);
+    let AnalysisData {
+        search_result_table,
+        pretty_table,
+        id_table,
+        mut meta_table,
+        callees_table,
+    } = read_analysis_files(&analysis_relative_paths, &tree_config, &ingestion);
 
     // ## Run Ontology Processing
     let ontology_entered = logged_ontology_span.span.clone().entered();
@@ -1314,14 +1510,15 @@ async fn main() {
     let js_idl_table = create_js_idl_table(&meta_table);
 
     write_crossref_and_jumpref(
-        &tree_config,
-        &ingestion,
+        &tree_config.paths.index_path,
         search_result_table,
+        &ingestion,
         pretty_table,
         meta_table,
         callees_table,
         field_member_use_table,
         js_idl_table,
+        cli.thread_count,
     );
 
     write_identifiers(&tree_config, id_table);
