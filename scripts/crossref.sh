@@ -10,7 +10,7 @@ ANALYSIS_FILES_PATH=$3
 
 echo Root is $INDEX_ROOT
 
-crossref $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH
+crossref $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH 16
 
 # Re-sort the identifiers file so that it's case-insensitive.  (It was written
 # to disk from a case-sensitive BTreeMap.)

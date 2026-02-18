@@ -66,6 +66,9 @@ struct CrossrefCli {
     /// tree_name.
     #[clap(value_parser)]
     analysis_files_list_path: String,
+
+    #[clap(value_parser)]
+    thread_count: usize,
 }
 
 // Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult>
