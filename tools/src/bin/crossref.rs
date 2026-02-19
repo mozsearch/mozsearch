@@ -75,15 +75,24 @@ struct CrossrefCli {
 // Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult>
 // as the leaf values.
 type SearchResultTable = BTreeMap<Ustr, BTreeMap<AnalysisKind, BTreeMap<Ustr, Vec<SearchResult>>>>;
+
+// The linearlied SearchResultTable to feed to the writer threads.
 type SearchResultList = Vec<(
     Ustr,
     BTreeMap<AnalysisKind, BTreeMap<Ustr, Vec<SearchResult>>>,
 )>;
 
+// The output from the reader threads for SearchResultTable.
+type SearchResultItems = Vec<(Ustr, AnalysisKind, Ustr, SearchResult)>;
+type TopLevelSearchResultItems = Vec<Ustr>;
+
 // Maps (raw) symbol to interned-pretty symbol string.  Each raw symbol is
 // unique, but there may be many raw symbols that map to the same pretty symbol
 // string.
 type PrettyTable = HashMap<Ustr, Ustr>;
+
+// The output from the reader threads for PrettyTable.
+type PrettyItems = Vec<(Ustr, Ustr)>;
 
 // Reverse of pretty_table.  The key is the pretty symbol, and the value is a
 // UstrSet of all of the raw symbols that map to the pretty symbol.  Pretty
@@ -106,6 +115,9 @@ type PrettyTable = HashMap<Ustr, Ustr>;
 // we don't have the memory available.
 type IdTable = UstrMap<UstrSet>;
 
+// The output from the reader threads for IdTable.
+type IdItems = Vec<(Ustr, Ustr)>;
+
 // Maps (raw) symbol to `SymbolMeta` info for this symbol.  Currently, we
 // require that the language analyzer created a "structured" record and we
 // use that, but it could make sense for us to automatically generate a stub
@@ -116,6 +128,9 @@ type IdTable = UstrMap<UstrSet>;
 // the file 2x; maybe it would be better to read it once and have the
 // records grouped by type so we can improve that).
 type MetaTable = BTreeMap<Ustr, AnalysisStructured>;
+
+// The output from the reader threads for MetaTable.
+type StructuredItems = Vec<AnalysisStructured>;
 
 // Maps the (raw) symbol making the calls to a BTreeMap whose keys are the
 // symbols being called and whose values are a tuple of the path where the
@@ -129,6 +144,9 @@ type MetaTable = BTreeMap<Ustr, AnalysisStructured>;
 // field accesses, etc.  This was formerly dubbed "consumes" in prototyping,
 // but that was even more confusing.  Another rename may be in order.
 type CalleesTable = BTreeMap<Ustr, BTreeMap<Ustr, (Ustr, BTreeSet<u32>)>>;
+
+// The output from the reader threads for CalleesTable.
+type CalleesItems = Vec<(Ustr, Ustr, Ustr, u32)>;
 
 // Maps the (raw) symbol corresponding to a type to a BTreeMap whose key
 // is the class referencing the type and whose values are a vec of tuples of
@@ -152,6 +170,9 @@ type XrefLinkOverride = Vec<(Ustr, Ustr)>;
 // flaky tests.
 type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
 
+// The output from the reader threads for XrefLinkSlots.
+type XrefLinkSlotsItems = Vec<((Ustr, Ustr), (BindingSlotProps, Option<Ustr>))>;
+
 // Maps JS symbol to possible IDL symbols.
 type JSIDLTable = HashMap<Ustr, Vec<Ustr>>;
 const MAX_JS_IDL_SYMS: usize = 4;
@@ -163,10 +184,10 @@ fn process_analysis_target(
     fallback_file_sym: &Ustr,
     lineno: usize,
     loc: &Location,
-    search_result_table: &mut SearchResultTable,
-    pretty_table: &mut PrettyTable,
-    id_table: &mut IdTable,
-    callees_table: &mut CalleesTable,
+    search_result_items: &mut SearchResultItems,
+    pretty_items: &mut PrettyItems,
+    id_items: &mut IdItems,
+    callees_items: &mut CalleesItems,
     lines: &[(String, u32)],
 ) {
     if piece.pretty.is_empty() {
@@ -182,39 +203,34 @@ fn process_analysis_target(
         piece.contextsym = *fallback_file_sym;
     }
 
-    let t1 = search_result_table.entry(piece.sym).or_default();
-    let t2 = t1.entry(piece.kind).or_default();
-    let t3 = t2.entry(*path).or_default();
-
     let (line, offset) = lines[lineno].clone();
 
-    // Idempotently insert the symbol -> pretty symbol mapping into `pretty_table`.
-    pretty_table.insert(piece.sym, piece.pretty);
+    // There cam be multiple identical items for the the symbol -> pretty symbol
+    // mapping, which will be de-duplicated when merging.
+    // The mapping from sym to pretty should be unique.
+    pretty_items.push((piece.sym, piece.pretty));
 
     // If this is a use and there's a contextsym, we want to create a "callees"
     // entry under the contextsym.  We also want to invert the use of "context"
     // to be the symbol in question; it's not useful to name the context symbol
     // redundantly when it's the symbol we're attaching data to.
     if piece.kind == AnalysisKind::Use && !piece.contextsym.is_empty() {
-        let callee_syms = callees_table.entry(piece.contextsym).or_default();
-        let (from_path, callee_jump_lines) = callee_syms
-            .entry(piece.sym)
-            .or_insert_with(|| (*path, BTreeSet::new()));
-        if from_path == path {
-            callee_jump_lines.insert(loc.lineno);
-        }
-        // XXX otherwise weird things are happening, but I'm not
-        // sure we need to warn on this.
+        callees_items.push((piece.contextsym, piece.sym, *path, loc.lineno));
     }
 
-    t3.push(SearchResult {
-        lineno: loc.lineno,
-        bounds: (loc.col_start - offset, loc.col_end - offset),
-        line,
-        context: piece.context,
-        contextsym: piece.contextsym,
-        peek_range: piece.peek_range,
-    });
+    search_result_items.push((
+        piece.sym,
+        piece.kind,
+        *path,
+        SearchResult {
+            lineno: loc.lineno,
+            bounds: (loc.col_start - offset, loc.col_end - offset),
+            line,
+            context: piece.context,
+            contextsym: piece.contextsym,
+            peek_range: piece.peek_range,
+        },
+    ));
 
     // Idempotently insert the pretty identifier -> symbol mapping as long as the pretty
     // symbol looks sane.  (Whitespace breaks the `identifiers` file's text format, so
@@ -242,8 +258,7 @@ fn process_analysis_target(
                 continue;
             }
 
-            let t1 = id_table.entry(ustr(&sub)).or_default();
-            t1.insert(piece.sym);
+            id_items.push((ustr(&sub), piece.sym));
         }
     }
 }
@@ -251,42 +266,40 @@ fn process_analysis_target(
 fn process_analysis_structured(
     mut piece: AnalysisStructured,
     subsystem: Option<Ustr>,
-    meta_table: &mut MetaTable,
+    structured_items: &mut Vec<AnalysisStructured>,
     xref_link_subclass: &mut XrefLinkSubclass,
     xref_link_override: &mut XrefLinkOverride,
-    xref_link_slots: &mut XrefLinkSlots,
+    xref_link_slots_items: &mut XrefLinkSlotsItems,
 ) {
-    meta_table.entry(piece.sym).or_insert_with(|| {
-        for super_info in &piece.supers {
-            xref_link_subclass.push((super_info.sym, piece.sym));
-        }
+    for super_info in &piece.supers {
+        xref_link_subclass.push((super_info.sym, piece.sym));
+    }
 
-        for override_info in &piece.overrides {
-            xref_link_override.push((override_info.sym, piece.sym));
-        }
+    for override_info in &piece.overrides {
+        xref_link_override.push((override_info.sym, piece.sym));
+    }
 
-        // We remove all bindings infos from AnalysisStructured instances here
-        // but add them back both ways when we iterate over xref_link_slots.
-        for slot_info in piece.binding_slots.drain(..) {
-            xref_link_slots.insert((piece.sym, slot_info.sym), (slot_info.props, subsystem));
-        }
-        if let Some(slot_info) = piece.slot_owner.take() {
-            xref_link_slots.insert((slot_info.sym, piece.sym), (slot_info.props, subsystem));
-        }
+    // We remove all bindings infos from AnalysisStructured instances here
+    // but add them back both ways when we iterate over xref_link_slots_items.
+    for slot_info in piece.binding_slots.drain(..) {
+        xref_link_slots_items.push(((piece.sym, slot_info.sym), (slot_info.props, subsystem)));
+    }
+    if let Some(slot_info) = piece.slot_owner.take() {
+        xref_link_slots_items.push(((slot_info.sym, piece.sym), (slot_info.props, subsystem)));
+    }
 
-        piece.subsystem = subsystem;
+    piece.subsystem = subsystem;
 
-        piece
-    });
+    structured_items.push(piece)
 }
 
 fn make_subsystem(
     path: &Ustr,
     file_syms: &Vec<String>,
     ingestion: &RepoIngestion,
-    meta_table: &mut MetaTable,
-    pretty_table: &mut PrettyTable,
-    id_table: &mut IdTable,
+    structured_items: &mut StructuredItems,
+    pretty_items: &mut PrettyItems,
+    id_items: &mut IdItems,
 ) -> Option<Ustr> {
     let concise_info = ingestion.state.concise_per_file.get(path);
 
@@ -329,10 +342,9 @@ fn make_subsystem(
             can_gc: None,
             gc_path: None,
         };
-        meta_table.insert(file_structured.sym, file_structured);
-        pretty_table.insert(file_sym, *path);
-        let t1 = id_table.entry(*path).or_default();
-        t1.insert(file_sym);
+        structured_items.push(file_structured);
+        pretty_items.push((file_sym, *path));
+        id_items.push((*path, file_sym));
     }
     subsystem
 }
@@ -445,19 +457,16 @@ fn load_ontology(cfg: &Config) -> OntologyMappingIngestion {
     OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues")
 }
 
-struct AnalysisData {
-    search_result_table: SearchResultTable,
-    pretty_table: PrettyTable,
-    id_table: IdTable,
-    meta_table: MetaTable,
-    callees_table: CalleesTable,
-}
-
 struct PerThreadAnalysisData {
-    data: AnalysisData,
+    search_result_items: SearchResultItems,
+    top_level_search_result_items: TopLevelSearchResultItems,
+    pretty_items: PrettyItems,
+    id_items: IdItems,
+    structured_items: StructuredItems,
+    callees_items: CalleesItems,
     xref_link_subclass: XrefLinkSubclass,
     xref_link_override: XrefLinkOverride,
-    xref_link_slots: XrefLinkSlots,
+    xref_link_slots_items: XrefLinkSlotsItems,
 }
 
 fn read_analysis_files_thread(
@@ -469,14 +478,15 @@ fn read_analysis_files_thread(
     ingestion: &RepoIngestion,
     out: &mut Option<PerThreadAnalysisData>,
 ) {
-    let mut search_result_table = SearchResultTable::new();
-    let mut pretty_table = PrettyTable::new();
-    let mut id_table = IdTable::default();
-    let mut meta_table = MetaTable::new();
-    let mut callees_table = CalleesTable::new();
+    let mut search_result_items = SearchResultItems::new();
+    let mut top_level_search_result_items = TopLevelSearchResultItems::new();
+    let mut pretty_items = PrettyItems::new();
+    let mut id_items = IdItems::default();
+    let mut structured_items = StructuredItems::new();
+    let mut callees_items = CalleesItems::new();
     let mut xref_link_subclass = XrefLinkSubclass::new();
     let mut xref_link_override = XrefLinkOverride::new();
-    let mut xref_link_slots = XrefLinkSlots::new();
+    let mut xref_link_slots_items = XrefLinkSlotsItems::new();
 
     for path in &analysis_relative_paths[start..end] {
         println!("File {}", path);
@@ -492,9 +502,9 @@ fn read_analysis_files_thread(
             path,
             &file_syms,
             &ingestion,
-            &mut meta_table,
-            &mut pretty_table,
-            &mut id_table,
+            &mut structured_items,
+            &mut pretty_items,
+            &mut id_items,
         );
 
         // We process the structured records before checking for the source file
@@ -504,30 +514,32 @@ fn read_analysis_files_thread(
         let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
         for datum in structured_analysis {
             for piece in datum.data {
-                // If we don't have a location for the structured record then this
-                // is the SCIP external structured record case mentioned above and
-                // we need to insert the pretty and id_table mappings since there
-                // won't be a target record for the definition.
+                // If we don't have a location for the structured record then
+                // this is the SCIP external structured record case mentioned
+                // above and we need to insert the pretty and id mappings
+                // since there won't be a target record for the definition.
                 if datum.loc.lineno == 0 {
-                    pretty_table.insert(piece.sym, piece.pretty);
-                    // TODO: extract out the logic from process_analysis_target so
-                    // we can generate all the suffix variations here.  But for our
-                    // current needs, just the exact pretty identifier is sufficient.
-                    // (The ontology rule is always on the fully qualified pretty.)
-                    let id_syms = id_table.entry(piece.pretty).or_insert(UstrSet::default());
-                    id_syms.insert(piece.sym);
+                    pretty_items.push((piece.sym, piece.pretty));
+                    // TODO: extract out the logic from process_analysis_target
+                    // so we can generate all the suffix variations here.  But
+                    // for our current needs, just the exact pretty identifier
+                    // is sufficient.
+                    // (The ontology rule is always on the fully qualified
+                    //  pretty.)
+                    id_items.push((piece.pretty, piece.sym));
                     // We also need to make sure there's a top-level entry in
-                    // the search_result_table, even if it's empty, so that when we're
-                    // building the crossref, the structured record gets emitted.
-                    search_result_table.entry(piece.sym).or_default();
+                    // the search_result_table, even if it's empty, so that
+                    // when we're building the crossref, the structured record
+                    // gets emitted.
+                    top_level_search_result_items.push(piece.sym);
                 }
                 process_analysis_structured(
                     piece,
                     subsystem,
-                    &mut meta_table,
+                    &mut structured_items,
                     &mut xref_link_subclass,
                     &mut xref_link_override,
-                    &mut xref_link_slots,
+                    &mut xref_link_slots_items,
                 );
             }
         }
@@ -574,10 +586,10 @@ fn read_analysis_files_thread(
                     &fallback_file_sym,
                     lineno,
                     &datum.loc,
-                    &mut search_result_table,
-                    &mut pretty_table,
-                    &mut id_table,
-                    &mut callees_table,
+                    &mut search_result_items,
+                    &mut pretty_items,
+                    &mut id_items,
+                    &mut callees_items,
                     &lines,
                 );
             }
@@ -585,17 +597,24 @@ fn read_analysis_files_thread(
     }
 
     out.replace(PerThreadAnalysisData {
-        data: AnalysisData {
-            search_result_table,
-            pretty_table,
-            id_table,
-            meta_table,
-            callees_table,
-        },
+        search_result_items,
+        top_level_search_result_items,
+        pretty_items,
+        id_items,
+        structured_items,
+        callees_items,
         xref_link_subclass,
         xref_link_override,
-        xref_link_slots,
+        xref_link_slots_items,
     });
+}
+
+struct AnalysisData {
+    search_result_table: SearchResultTable,
+    pretty_table: PrettyTable,
+    id_table: IdTable,
+    meta_table: MetaTable,
+    callees_table: CalleesTable,
 }
 
 fn read_analysis_files(
@@ -656,57 +675,59 @@ fn read_analysis_files(
 
     for out in out_list.iter_mut() {
         let PerThreadAnalysisData {
-            data:
-                AnalysisData {
-                    search_result_table: chunk_search_result_table,
-                    pretty_table: chunk_pretty_table,
-                    id_table: chunk_id_table,
-                    meta_table: chunk_meta_table,
-                    callees_table: chunk_callees_table,
-                },
+            search_result_items,
+            top_level_search_result_items,
+            pretty_items,
+            id_items,
+            structured_items,
+            callees_items,
             xref_link_subclass,
             xref_link_override,
-            xref_link_slots,
+            xref_link_slots_items,
         } = out.take().unwrap();
 
-        xrefs.push((xref_link_subclass, xref_link_override, xref_link_slots));
+        xrefs.push((
+            xref_link_subclass,
+            xref_link_override,
+            xref_link_slots_items,
+        ));
 
-        for (id, id_data) in chunk_search_result_table.into_iter() {
+        for (id, kind, path, result) in search_result_items {
             let t1 = search_result_table.entry(id).or_default();
-            for (kind, kind_data) in id_data.into_iter() {
-                let t2 = t1.entry(kind).or_default();
-                for (path, ref mut results) in kind_data.into_iter() {
-                    let t3 = t2.entry(path).or_default();
-                    t3.append(results);
-                }
-            }
+            let t2 = t1.entry(kind).or_default();
+            let t3 = t2.entry(path).or_default();
+            t3.push(result);
         }
 
-        for (sym, pretty) in chunk_pretty_table {
+        for id in top_level_search_result_items {
+            search_result_table.entry(id).or_default();
+        }
+
+        for (sym, pretty) in pretty_items {
             pretty_table.insert(sym, pretty);
         }
 
-        for (pretty, syms) in chunk_id_table {
+        for (pretty, sym) in id_items {
             let t1 = id_table.entry(pretty).or_default();
-            t1.extend(syms);
+            t1.insert(sym);
         }
 
-        for (sym, structured) in chunk_meta_table {
+        for structured in structured_items {
             // Producers just put the item without modifying the item, and thus
             // we don't have to merge the structured record.
-            meta_table.entry(sym).or_insert(structured);
+            meta_table.entry(structured.sym).or_insert(structured);
         }
 
-        for (sym, callee_syms) in chunk_callees_table {
-            let t1 = callees_table.entry(sym).or_default();
-            for (callee_sym, (call_path, call_lines)) in callee_syms {
-                let (path, ref mut t2) = t1
-                    .entry(callee_sym)
-                    .or_insert_with(|| (call_path, BTreeSet::new()));
-                if *path == call_path {
-                    t2.extend(call_lines);
-                }
+        for (sym, callee_sym, path, lineno) in callees_items {
+            let callee_syms = callees_table.entry(sym).or_default();
+            let (from_path, ref mut callee_jump_lines) = callee_syms
+                .entry(callee_sym)
+                .or_insert_with(|| (path, BTreeSet::new()));
+            if *from_path == path {
+                callee_jump_lines.insert(lineno);
             }
+            // XXX otherwise weird things are happening, but I'm not
+            // sure we need to warn on this.
         }
     }
 
@@ -720,7 +741,7 @@ fn read_analysis_files(
     // to the meta_table.
     let mut xref_link_slots = XrefLinkSlots::new();
     for item in xrefs {
-        let (xref_link_subclass, xref_link_override, chunk_xref_link_slots) = item;
+        let (xref_link_subclass, xref_link_override, xref_link_slots_items) = item;
 
         for (super_sym, sub_sym) in xref_link_subclass {
             if let Some(super_meta) = meta_table.get_mut(&super_sym) {
@@ -734,7 +755,7 @@ fn read_analysis_files(
             }
         }
 
-        for (key, value) in chunk_xref_link_slots {
+        for (key, value) in xref_link_slots_items {
             xref_link_slots.insert(key, value);
         }
     }
