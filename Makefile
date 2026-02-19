@@ -190,7 +190,7 @@ serve-trees: check-in-vagrant build-clang-plugin build-rust-tools internal-serve
 
 trypush: _INDEX_ROOT=~/trypush-index
 trypush: _CONFIG_REPO=/vagrant/config
-trypush: _CONFIG_NAME=just-mc.json
+trypush: _CONFIG_NAME=just-fm.json
 trypush: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
 
 nss-reblame: check-in-vagrant build-rust-tools
