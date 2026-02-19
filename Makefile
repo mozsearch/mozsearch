@@ -194,10 +194,8 @@ trypush: _CONFIG_NAME=just-mc.json
 trypush: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
 
 nss-reblame: check-in-vagrant build-rust-tools
-	[ -d ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-	jq '{mozsearch_path, config_repo, default_tree, trees: {"nss": .trees["nss"]}}' ~/mozilla-config/config1.json > ~/mozilla-config/nss.json
 	mkdir -p ~/reblame
-	/vagrant/infrastructure/reblame-run.sh ~/mozilla-config nss.json ~/reblame
+	/vagrant/infrastructure/reblame-run.sh /vagrant/config just-nss.json ~/reblame
 
 # To test changes to indexing, run this first to generate the baseline. Then
 # make your changes, and run `make comparison`. Note that we generate
