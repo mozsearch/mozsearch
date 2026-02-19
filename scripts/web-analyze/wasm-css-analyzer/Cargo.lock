@@ -3442,7 +3442,6 @@ dependencies = [
  "log 0.4.29",
  "lol_html",
  "memmap2",
- "native-tls",
  "num_cpus",
  "petgraph",
  "prost",
