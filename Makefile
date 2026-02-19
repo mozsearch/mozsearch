@@ -96,14 +96,12 @@ review-test-repo: export INSTA_FORCE_PASS=1
 review-test-repo: internal-build-repo internal-serve-repo internal-test-repo
 	cargo insta review --workspace-root=/vagrant/tests/tests/checks
 
+build-searchfox-repo: _INDEX_ROOT=~/searchfox-index
+build-searchfox-repo: _CONFIG_REPO=/vagrant/tests
+build-searchfox-repo: _CONFIG_NAME=searchfox-config.json
 build-searchfox-repo: export CHECK_WARNINGS=1
 build-searchfox-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
-build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	mkdir -p ~/searchfox-index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index
-	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/searchfox-index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests searchfox-config.json ~/searchfox-index ~ ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/searchfox-index ~ ~ NO_CHANNEL NO_EMAIL
+build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
