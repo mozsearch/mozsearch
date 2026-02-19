@@ -93,7 +93,8 @@ class TriggerCommandBase:
         ec2 = boto3.resource('ec2')
         client = boto3.client('ec2')
 
-        # Indexers that want more powerful instance:
+        # We unconditionally use m6id.4xlarge for the following reasons:
+        # - multi-threaded crossref needs more than 32GB RAM
         # - release4 (bug 1922407); runtimes have hit and timed out at 12 hours
         #   using an m5d.2xlarge
         # - release5 (bug 1912078 ish): runtime hit 8.5 hours and much of this
@@ -105,10 +106,7 @@ class TriggerCommandBase:
         # etc.  The git stuff happens on the indexer after it is spawned.  (This
         # could of course be changed, but potentially would make the lambda jobs
         # more complex / brittle.)
-        if args.channel == "release4" or args.channel == "release5":
-            instance_type = 'm6id.4xlarge'
-        else:
-            instance_type = 'm6id.2xlarge'
+        instance_type = 'm6id.4xlarge'
 
         # Terminate any "running" or "stopped" instances.  We used to only
         # terminate "running" instances with the theory that someone might get
