@@ -203,18 +203,24 @@ nss-reblame: check-in-vagrant build-rust-tools
 # generate the index with modifications we can also generate it into the same
 # ~/diffable folder. This eliminates spurious diff results that might
 # come from different absolute paths during the index generation step
-baseline: check-in-vagrant build-clang-plugin build-rust-tools
+baseline-prep:
 	rm -rf ~/diffable ~/baseline
-	mkdir -p ~/diffable
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/diffable
-	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
+
+baseline: _INDEX_ROOT=~/diffable
+baseline: _CONFIG_REPO=/vagrant/tests
+baseline: _CONFIG_NAME=config.json
+baseline: export MOZSEARCH_DIFFABLE=1
+baseline: check-in-vagrant build-clang-plugin build-rust-tools baseline-prep internal-build-repo
 	mv ~/diffable ~/baseline
 
-comparison: check-in-vagrant build-clang-plugin build-rust-tools
+comparison-prep:
 	rm -rf ~/diffable ~/modified
-	mkdir -p ~/diffable
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/diffable
-	MOZSEARCH_DIFFABLE=1 /vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/diffable
+
+comparison: _INDEX_ROOT=~/diffable
+comparison: _CONFIG_REPO=/vagrant/tests
+comparison: _CONFIG_NAME=config.json
+comparison: export MOZSEARCH_DIFFABLE=1
+comparison: check-in-vagrant build-clang-plugin build-rust-tools comparison-prep internal-build-repo
 	mv ~/diffable ~/modified
 	@echo "------------------- Below is the diff between baseline and modified. ---------------------"
 	diff -u -r -x objdir ~/baseline/tests ~/modified/tests || true
