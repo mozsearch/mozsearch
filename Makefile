@@ -104,23 +104,18 @@ build-searchfox-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
 build-searchfox-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
 
 # Notes:
-# - If you want to use a modified version of mozsearch-mozilla, such as one
-#   checked out under "config" in the check-out repo, you can create a symlink
-#   in the VM's home directory via `pushd ~; ln -s /vagrant/config mozilla-config`.
 # - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
 #   that have the relevant jobs scheduled on them.  In particular:
 #   `./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"`
-build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	[ -e ~/mozilla-config ] || git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-	mkdir -p ~/mozilla-index
-	/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index
-	/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~ ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~ ~ NO_CHANNEL NO_EMAIL
+build-mozilla-repo: _INDEX_ROOT=~/mozilla-index
+build-mozilla-repo: _CONFIG_REPO=/vagrant/config
+build-mozilla-repo: _CONFIG_NAME=just-mc.json
+build-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo
 
-serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh ~/mozilla-config just-mc.json ~/mozilla-index ~ ~
-	/vagrant/infrastructure/web-server-run.sh ~/mozilla-config ~/mozilla-index ~ ~ NO_CHANNEL NO_EMAIL
+serve-mozilla-repo: _INDEX_ROOT=~/mozilla-index
+serve-mozilla-repo: _CONFIG_REPO=/vagrant/config
+serve-mozilla-repo: _CONFIG_NAME=just-mc.json
+serve-mozilla-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
 
 # Notes:
 # - If you want to use a modified version of mozsearch-mozilla, such as one
