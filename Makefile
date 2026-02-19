@@ -8,7 +8,7 @@ help:
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison favicon
+.PHONY: help check-in-vagrant build-clang-plugin build-rust-tools test-rust-tools build-test-repo build-mozilla-repo baseline comparison favicon internal-check-vars internal-build-repo internal-serve-repo internal-test-repo
 
 check-in-vagrant:
 	@[ -d /vagrant ] || (echo "This command must be run inside the vagrant instance" > /dev/stderr; exit 1)
@@ -26,21 +26,46 @@ build-rust-tools:
 test-rust-tools:
 	cd tools && cargo test --release --verbose
 
+# Building blocks for building/serving/testing repositories.
+# They use different environment variable than the infrastructure scripts,
+# to avoid accidentally interferring those scripts.
+internal-check-vars:
+	@(bash -c "[[ '$(_INDEX_ROOT)' != '' ]]" \
+	|| (echo "_INDEX_ROOT is not defined" > /dev/stderr; exit 1))
+	@(bash -c "[[ '$(_CONFIG_REPO)' != '' ]]" \
+	|| (echo "_CONFIG_REPO is not defined" > /dev/stderr; exit 1))
+	@(bash -c "[[ '$(_CONFIG_NAME)' != '' ]]" \
+	|| (echo "_CONFIG_NAME is not defined" > /dev/stderr; exit 1))
+
+internal-build-repo: internal-check-vars
+	mkdir -p $(_INDEX_ROOT)
+	/vagrant/infrastructure/indexer-setup.sh $(_CONFIG_REPO) $(_CONFIG_NAME) $(_INDEX_ROOT)
+	/vagrant/infrastructure/indexer-run.sh $(_CONFIG_REPO) $(_INDEX_ROOT)
+
+internal-serve-repo: _SERVER_ROOT=~
+internal-serve-repo: _LOG_DIR=~
+internal-serve-repo: internal-check-vars
+	/vagrant/infrastructure/web-server-setup.sh $(_CONFIG_REPO) $(_CONFIG_NAME) $(_INDEX_ROOT) $(_SERVER_ROOT) $(_LOG_DIR)
+	/vagrant/infrastructure/web-server-run.sh $(_CONFIG_REPO) $(_INDEX_ROOT) $(_SERVER_ROOT) $(_LOG_DIR) NO_CHANNEL NO_EMAIL WAIT
+
+internal-test-repo: internal-check-vars
+	/vagrant/infrastructure/web-server-check.sh $(_CONFIG_REPO) $(_INDEX_ROOT) "http://localhost:16995/"
+
+build-test-repo: _INDEX_ROOT=~/index
+build-test-repo: _CONFIG_REPO=/vagrant/tests
+build-test-repo: _CONFIG_NAME=config.json
 build-test-repo: export CHECK_WARNINGS=1
-build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	mkdir -p ~/index
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
-	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~ ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ ~ NO_CHANNEL NO_EMAIL WAIT
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
+build-test-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-build-repo internal-serve-repo internal-test-repo
 
-serve-test-repo: check-in-vagrant build-clang-plugin build-rust-tools
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~ ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ ~ NO_CHANNEL NO_EMAIL WAIT
+serve-test-repo: _INDEX_ROOT=~/index
+serve-test-repo: _CONFIG_REPO=/vagrant/tests
+serve-test-repo: _CONFIG_NAME=config.json
+serve-test-repo: check-in-vagrant build-clang-plugin build-rust-tools internal-serve-repo
 
-check-test-repo:
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
+check-test-repo: _INDEX_ROOT=~/index
+check-test-repo: _CONFIG_REPO=/vagrant/tests
+check-test-repo: _CONFIG_NAME=config.json
+check-test-repo: internal-test-repo
 
 # Target that:
 # - Runs the check scripts in a special mode that lets the tests run without
@@ -63,14 +88,12 @@ check-test-repo:
 # - You know you already have changed stuff and need to review those changes.
 #
 # Depends on `cargo install cargo-insta`.
+review-test-repo: _INDEX_ROOT=~/index
+review-test-repo: _CONFIG_REPO=/vagrant/tests
+review-test-repo: _CONFIG_NAME=config.json
 review-test-repo: export CHECK_WARNINGS=1
 review-test-repo: export INSTA_FORCE_PASS=1
-review-test-repo:
-	/vagrant/infrastructure/indexer-setup.sh /vagrant/tests config.json ~/index
-	/vagrant/infrastructure/indexer-run.sh /vagrant/tests ~/index
-	/vagrant/infrastructure/web-server-setup.sh /vagrant/tests config.json ~/index ~ ~
-	/vagrant/infrastructure/web-server-run.sh /vagrant/tests ~/index ~ ~ NO_CHANNEL NO_EMAIL WAIT
-	/vagrant/infrastructure/web-server-check.sh /vagrant/tests ~/index "http://localhost:16995/"
+review-test-repo: internal-build-repo internal-serve-repo internal-test-repo
 	cargo insta review --workspace-root=/vagrant/tests/tests/checks
 
 build-searchfox-repo: export CHECK_WARNINGS=1
