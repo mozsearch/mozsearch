@@ -83,7 +83,7 @@ find $OBJDIR -name '*.cpp' | \
     grep -v /ipdl/ >> $INDEX_ROOT/c-input-files
 
 cat $INDEX_ROOT/c-input-files | \
-    parallel --jobs 8 --halt 2 -q \
+    parallel --halt 2 -q \
     $MOZSEARCH_PATH/tests/tests/build-c.sh {} $OBJDIR "$PLATFORMS"
 
 ## moz.build generated files
