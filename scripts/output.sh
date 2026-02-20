@@ -28,12 +28,12 @@ JOBLOG_PATH=${DIAGS_DIR}/output.joblog
 TMPDIR_PATH=${DIAGS_DIR}
 
 # parallel args:
-# --jobs 8: Limits us to 8 jobs to avoid creating an OOM nightmare; this is
+# --jobs 16: Limits us to 16 jobs to avoid creating an OOM nightmare; this is
 #   consistent with our vagrant-on-linux setting.  The immediate motivation is
 #   that under docker all of the system's cores will be exposed, which is
 #   good for non-memory-intensive things.  But for firefox-main, each
 #   output-file instance ends up using ~2GiB of RAM individually and so a memory
-#   budget of ~16GiB is reasonable.  Otherwise on my 28-core machines the 64GiB
+#   budget of ~32GiB is reasonable.  Otherwise on my 28-core machines the 64GiB
 #   of RAM gets eaten up and every other process terminated.
 #   TODO: Overhaul output-file to have better memory usage characteristics by
 #   using forking or just being parallel itself or something.
@@ -63,7 +63,7 @@ TMPDIR_PATH=${DIAGS_DIR}
 # --env RUST_BACKTRACE: propagate the RUST_BACKTRACE environment variable.
 # "2>&1": If we don't do this, `--files` seems to just eat the stderr output
 #   which is obviously suboptimal.
-parallel --jobs 8 --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
+parallel --jobs 16 --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
     --block -1 --halt 2 --env RUST_BACKTRACE \
     "output-file $CONFIG_FILE $TREE_NAME $URL_MAP_PATH $DOC_TREES_PATH - 2>&1"
 
