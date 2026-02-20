@@ -91,37 +91,35 @@ depends on what you want to test.
 If you are making changes to the clang-plugin, you should first follow the steps
 to run a try build from the primary readme.
 
+### Clone config repository
+
+You first need to clone the config repository into the mozsearch repository:
+
+```
+cd path_to_mozsearch
+git clone https://github.com/mozsearch/mozsearch-mozilla config
+```
+
 ### Testing basic changes
 
-Note: You can also just do `make build-mozilla-repo` in `/vagrant` to have it
+Note: You can also just do `make build-firefox-repo` in `/vagrant` to have it
 idempotently do the following for you.
 
 ```
-# Clone the Mozilla configuration into ~/mozilla-config, if you haven't
-# already done so. (If you are testing clang-plugin changes, you will
-# already have done this and made modifications to firefox-main/setup,
-# so no need to clone again).
-git clone https://github.com/mozsearch/mozsearch-mozilla ~/mozilla-config
-
-# Manually edit the ~/mozilla-config/config.json to remove trees you don't
-# care about (probably NSS and comm-central). Make sure to remove any trailing
-# commas if they're not valid JSON!
-nano ~/mozilla-config/config.json
-
 # Make a new index directory.
-mkdir ~/mozilla-index
+mkdir ~/firefox-index
 
 # This step will download copies of the Mozilla code and blame information,
 # along with the latest taskcluster artifacts, so it may be slow.
-/vagrant/infrastructure/indexer-setup.sh ~/mozilla-config config.json ~/mozilla-index
+/vagrant/infrastructure/indexer-setup.sh /vagrant/config just-fm.json ~/firefox-index
 
 # This step involves unpacking the taskcluster artifacts, and indexing a lot of
 # code, so it will be slow!
-/vagrant/infrastructure/indexer-run.sh ~/mozilla-config ~/mozilla-index
+/vagrant/infrastructure/indexer-run.sh /vagrant/config ~/firefox-index
 ```
 
 Note: By default, `indexer-setup.sh` keeps the contents of the working
-directory (in the example above, that's `~/mozilla-index`). In case you want
+directory (in the example above, that's `~/firefox-index`). In case you want
 to delete the contents of the working directory, define CLEAN_WORKING=1
 when calling `indexer-setup.sh`.
 
@@ -134,11 +132,10 @@ completed, make note of the hg revision and then continue with the following:
 ```
 TRYPUSH_REV=<40-char-rev-hash> make trypush
 ```
-This will clone the Mozilla configuration into ~/mozilla-config, and
-generate a reduced config that has just the firefox-main tree, but
-use the code and artifacts from your try push when building the index.
+This uses `just-fm.json` config, but use the code and artifacts from your try
+push when building the index.
 It will build the index into a `~/trypush-index` folder to keep it separate
-from any `~/mozilla-index` folders you might have lying around.
+from any `~/firefox-index` folders you might have lying around.
 It's very similar to the operations described in the next section
 which will build an index using the latest firefox-main version with
 searchfox artifacts.

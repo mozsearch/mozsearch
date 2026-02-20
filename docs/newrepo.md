@@ -68,14 +68,14 @@ aws s3 cp ./glean-blame.tar s3://searchfox.repositories/glean-blame.tar --acl pu
 ## 4. Update the mozsearch-mozilla repo
 
 For this you need to clone the [mozsearch-mozilla](https://github.com/mozsearch/mozsearch-mozilla) repo. For
-convenience in step 5 below, it's best to do this inside the vagrant VM instance, like so:
+convenience in step 5 below, it's best to do this inside the mozsearch repo, outside of the VM, like so:
 
 ```
-cd /home/vagrant
-git clone https://github.com/mozsearch/mozsearch-mozilla mozilla-config
+cd path_to_mozsearch
+git clone https://github.com/mozsearch/mozsearch-mozilla config
 ```
 
-and then modify the `config.json` file with an entry for new repo. A basic one might look like this:
+and then modify the `config*.json` file with an entry for new repo. A basic one might look like this:
 
 ```json
     "glean": {
