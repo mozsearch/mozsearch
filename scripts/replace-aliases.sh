@@ -14,6 +14,6 @@ rm -f $DIAGS_DIR/*
 JOBLOG_PATH=${DIAGS_DIR}/replace-aliases.joblog
 TMPDIR_PATH=${DIAGS_DIR}
 
-parallel --jobs 8 --pipepart -a $ANALYSIS_FILES_PATH --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
+parallel --pipepart -a $ANALYSIS_FILES_PATH --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
     --block -1 --halt 2 \
     "$MOZSEARCH_PATH/scripts/replace-aliases.py $INDEX_ROOT/analysis $INDEX_ROOT/aliases/url-map.json"

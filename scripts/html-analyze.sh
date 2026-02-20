@@ -21,7 +21,7 @@ export LC_CTYPE=C.UTF-8
 #
 # See the comment in js-analyze.sh for more details.
 cat $INDEX_ROOT/html-files | nl -w1 -s " " | \
-    parallel --jobs 8 --pipe --halt 2 \
+    parallel --pipe --halt 2 \
     js -f $MOZSEARCH_PATH/scripts/js-analyze.js -- \
     $MOZSEARCH_PATH $FILES_ROOT $INDEX_ROOT/analysis $MOZSEARCH_WASM_DIR
 echo $?

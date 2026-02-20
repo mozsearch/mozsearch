@@ -14,7 +14,7 @@ CONFIG_FILE=$(realpath $1)
 TREE_NAME=$2
 
 cat $INDEX_ROOT/toml-files | \
-    parallel --jobs 8 --pipe --halt 2 \
+    parallel --pipe --halt 2 \
     $MOZSEARCH_PATH/scripts/toml-analyze.py \
     $INDEX_ROOT $FILES_ROOT $INDEX_ROOT/analysis
 
