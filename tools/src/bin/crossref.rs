@@ -570,6 +570,11 @@ fn read_analysis_files_thread(
             })
             .collect();
 
+        if lines.len() == 0 {
+            // Nothing to do with empty files.
+            continue;
+        }
+
         for datum in analysis {
             // If we're going to experience a bad line, skip out before
             // creating any structure.
