@@ -2,5 +2,7 @@
 
 SCRIPT_DIR=$(dirname $0)
 
-grep "^Performing .* step for" index-* \
+# See indexer-logs-print.py for the step log syntax.
+
+grep -E "^Perform(ing|ed) .* (section|step) for" index-* \
   | ${SCRIPT_DIR}/indexer-logs-print.py
