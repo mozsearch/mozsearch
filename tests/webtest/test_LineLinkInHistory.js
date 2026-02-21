@@ -43,8 +43,10 @@ add_task(async function test_LineLinkInHistory() {
     history.back();
   }
 
-  await waitForCondition(() => frame.contentDocument.location.href.endsWith(firstPath),
-                         "Went back to the first page.");
+  await waitForCondition(() => {
+    return frame.contentDocument.location.href.endsWith(firstPath) &&
+      frame.contentDocument.querySelector("#line-136 .syn_def");
+  }, "Went back to the first page.");
 
   // Ensure the line is still in the visible area.
   const ThingDef2 = frame.contentDocument.querySelector("#line-136 .syn_def");
