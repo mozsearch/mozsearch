@@ -12,6 +12,7 @@ use std::io::Write;
 #[macro_use]
 extern crate tracing;
 
+use chrono::Local;
 extern crate clap;
 use clap::Parser;
 use itertools::Itertools;
@@ -624,6 +625,7 @@ struct AnalysisData {
 
 fn read_analysis_files(
     analysis_relative_paths: Vec<Ustr>,
+    tree_name: &String,
     tree_config: &TreeConfig,
     ingestion: &RepoIngestion,
     thread_count: usize,
@@ -669,6 +671,12 @@ fn read_analysis_files(
             });
         }
     });
+
+    println!(
+        "Performing crossref::read-analysis-merge step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
 
     let mut search_result_table = SearchResultTable::new();
     let mut pretty_table = PrettyTable::new();
@@ -735,6 +743,12 @@ fn read_analysis_files(
             // sure we need to warn on this.
         }
     }
+
+    println!(
+        "Performing crossref::read-analysis-process step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
 
     // Process deferred meta cross-referencing once the meta_table is
     // fully populated.
@@ -1381,6 +1395,7 @@ fn write_crossref_and_jumpref_thread(
 }
 
 fn write_crossref_and_jumpref(
+    tree_name: &String,
     index_path: &String,
     search_result_table: SearchResultTable,
     ingestion: &RepoIngestion,
@@ -1485,6 +1500,12 @@ fn write_crossref_and_jumpref(
             });
         }
     });
+
+    println!(
+        "Performing crossref::write-crossref-merge step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
 
     std::thread::scope(|s| {
         for (name, ext_sizes) in [("crossref", xref_ext_sizes), ("jumpref", jumpref_ext_sizes)] {
@@ -1605,10 +1626,20 @@ async fn main() {
     let cli = CrossrefCli::parse();
 
     let tree_name = &cli.tree_name;
+    println!(
+        "Performing crossref::load-config step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     let cfg = config::load(&cli.config_file, false, Some(tree_name), None, None);
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
 
+    println!(
+        "Performing crossref::load-files-and-dirs step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     let AllFilesAndDirs {
         analysis_relative_paths,
         all_files_paths,
@@ -1616,7 +1647,11 @@ async fn main() {
     } = load_all_files_and_dirs(&cli.analysis_files_list_path, &tree_config.paths.index_path);
 
     // ## Ingest Repo-Wide Information
-
+    println!(
+        "Performing crossref::ingest step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     // This will buffer ALL of the tracing logging in our crate between now
     // and when we retrieve it to emit diagnostics.  To this end, we want
     // verbose logging to be conditioned on our "probe" mechanism, which means
@@ -1656,7 +1691,11 @@ async fn main() {
     drop(ontology_entered);
 
     // ## Process all the analysis files
-
+    println!(
+        "Performing crossref::read-analysis step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     let AnalysisData {
         search_result_table,
         pretty_table,
@@ -1665,12 +1704,18 @@ async fn main() {
         callees_table,
     } = read_analysis_files(
         analysis_relative_paths,
+        &tree_name,
         &tree_config,
         &ingestion,
         cli.thread_count,
     );
 
     // ## Run Ontology Processing
+    println!(
+        "Performing crossref::ontology-processing step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     let ontology_entered = logged_ontology_span.span.clone().entered();
 
     info!("Processing ontology now that all analysis files have been read in.");
@@ -1690,9 +1735,20 @@ async fn main() {
     drop(ontology_entered);
     write_ontology_ingestion_diag(&tree_config, logged_ontology_span).await;
 
+    println!(
+        "Performing crossref::js-idl step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     let js_idl_table = create_js_idl_table(&meta_table);
 
+    println!(
+        "Performing crossref::write-crossref step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     write_crossref_and_jumpref(
+        &tree_name,
         &tree_config.paths.index_path,
         search_result_table,
         &ingestion,
@@ -1704,8 +1760,18 @@ async fn main() {
         cli.thread_count,
     );
 
+    println!(
+        "Performing crossref::write-identifiers step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     write_identifiers(&tree_config, id_table);
 
+    println!(
+        "Performing crossref::write-concise-file-info step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
     ingestion
         .state
         .write_out_concise_file_info(&tree_config.paths.index_path);
