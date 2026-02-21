@@ -13,6 +13,8 @@ set -o pipefail # Check all commands in a pipeline
 # is consistent.
 ln -s -f $CONFIG_REPO/tests/files $INDEX_ROOT
 
+echo "Performing setup::git-repository step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 # Build a dummy git repo for the blame/coverage features.
 # The author/committer and date are forged to ensure a stable commit SHA (as long as the content doesn't actually change).
 rm -rf "$GIT_ROOT"
@@ -29,10 +31,14 @@ git add .
 git commit -m "Initial commit"
 popd
 
+echo "Performing setup::build-blame step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 rm -rf $BLAME_ROOT
 mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
 build-blame $GIT_ROOT $BLAME_ROOT
+
+echo "Performing setup::codecov2git step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 rm -rf "$COVERAGE_ROOT"
 mkdir -p "$COVERAGE_ROOT"

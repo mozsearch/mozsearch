@@ -6,6 +6,8 @@ set -o pipefail # Check all commands in a pipeline
 
 mkdir -p $OBJDIR
 
+echo "Performing build::indexer-setup step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 # Add the special clang flags.
 $MOZSEARCH_PATH/scripts/indexer-setup.py > $INDEX_ROOT/config
 source $INDEX_ROOT/config
@@ -15,9 +17,13 @@ cd $INDEX_ROOT/files
 ## Rust build via cargo
 # This must happen before other build steps or the `cargo clean` will delete all
 # the other build outputs!
+echo "Performing build::cargo-build step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 export CARGO_TARGET_DIR=$OBJDIR
 cargo clean
 RUSTFLAGS="-A mixed_script_confusables" cargo build
+
+echo "Performing build::rust-analyzer step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 # TODO: Uncomment once https://github.com/rust-lang/rust-analyzer/pull/15633 is
 # merged.
@@ -39,11 +45,15 @@ rust-analyzer scip . --output $OBJDIR/rust.scip
 rm -rf target/
 
 ## XPIDL Stuff
+echo "Performing build::xpidl step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 XPIDL_SAVED_GENERATED_FILES=../mc-generated
 XPIDL_SAVED_ANALYSIS_FILES=../mc-analysis
 rsync -av $XPIDL_SAVED_GENERATED_FILES/ $OBJDIR
 mkdir -p $INDEX_ROOT/analysis/
 rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
+
+echo "Performing build::scip-java step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 # Use Gradle from PATH if available
 if which gradle &> /dev/null; then
@@ -53,15 +63,20 @@ else
 fi
 
 ## Java stuff
+echo "Performing build::scip-indexer-gradle step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 "$GRADLE" --no-daemon clean build
 scip-java index-semanticdb build/semanticdb-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
 "$GRADLE" --no-daemon clean
 rm -rf build/
+
 scip-indexer \
   "$CONFIG_FILE" \
   "$TREE_NAME" \
   --subtree-root "." \
   "$OBJDIR/gradle.scip"
+
+echo "Performing build::scip-indexer-rust step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 scip-indexer \
   "$CONFIG_FILE" \
@@ -77,6 +92,8 @@ do
 done
 
 ## C++ Build Stuff
+echo "Performing build::build-c step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 find . -name '*.cpp' | \
     grep -v /ipdl/ > $INDEX_ROOT/c-input-files
 find $OBJDIR -name '*.cpp' | \
@@ -87,6 +104,7 @@ cat $INDEX_ROOT/c-input-files | \
     $MOZSEARCH_PATH/tests/tests/build-c.sh {} $OBJDIR "$PLATFORMS"
 
 ## moz.build generated files
+echo "Performing build::cp-generated step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 for PLATFORM in ${PLATFORMS}; do
     mkdir -p ${OBJDIR}/__${PLATFORM}__
@@ -96,9 +114,12 @@ for PLATFORM in ${PLATFORMS}; do
 done
 
 ## Python Stuff
+echo "Performing build::cp-generated step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 scip-python index --show-progress-rate-limit 0 --project-name python --project-version 0.0.0 --environment ../python-scip-env.json --output python.scip
 mv python.scip $INDEX_ROOT
+
+echo "Performing build::scip-indexer-python step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 scip-indexer \
   "$CONFIG_FILE" \
@@ -113,6 +134,7 @@ scip-indexer \
 # comments have been removed from this file in the interest of not having the
 # comments diverge:
 # https://github.com/mozsearch/mozsearch-mozilla/blob/master/shared/process-tc-artifacts.sh
+echo "Performing build::remap-path step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 function move_file {
     mkdir -p "$(dirname $2)"
@@ -130,6 +152,8 @@ done
 
 # Leave the objdir now that we're done normalizing build-dir paths.
 popd
+
+echo "Performing build::c++-generated step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 # Firefox generates files named something like Configure.cpp during
 # the build process, but their source files are not around by the time
