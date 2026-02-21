@@ -66,6 +66,9 @@ export RUST_BACKTRACE=1
 #     But skipping the compress-outputs step in the initial run will
 #     reduce the turn around time.
 #
+# NOTE: These environment variables has effect only to the steps inside
+#       mkindex.sh.  The step comment is emitted also by other scripts.
+#
 # Common use cases:
 #   Modify js-analyze.js and check the result:
 #     SKIP=compress-outputs make review-test-repo
